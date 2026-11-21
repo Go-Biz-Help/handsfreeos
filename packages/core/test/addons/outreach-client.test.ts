@@ -272,6 +272,8 @@ describe('Mark as client', () => {
       intro: [],
       // What they do and where (decision 177): nothing known yet.
       theirWork: { work: null, area: null, reach: null, how: null, miles: null, near: false },
+      // In nobody's hands: the AI may message them (decision 182).
+      inHands: null,
       journey: {
         stage: null,
         why: [],

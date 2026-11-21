@@ -1,8 +1,8 @@
 /**
- * Forms a business can start from instead of a blank page. Nine of them, each one somebody actually needs
+ * Forms a business can start from instead of a blank page. Ten of them, each one somebody actually needs
  * on a Tuesday: an enquiry, a quote that prices itself, a review request, a satisfaction survey, a
- * post-job check, a staff safety quiz, a "which service do you need?" quiz, a new-customer sheet and a
- * paid deposit.
+ * post-job check, a staff safety quiz, a "which service do you need?" quiz, a new-customer sheet, a
+ * paid deposit and a custom order (shirts by size, mugs, tumblers, keychains, pins).
  *
  * They are written as plain definitions with made-up ids, and `starterForm` stamps fresh ones as it hands
  * one over — so two businesses starting from the same one never share a question id, and either can change
@@ -51,6 +51,21 @@ const email = (id = q('email')) => ({
   mapTo: 'person.email' as const,
   config: {},
 });
+/** A "How many of each" question's rows, from their words: no prices, so the business sets its own. */
+const rows = (key: string, labels: readonly string[]) =>
+  labels.map((label, i) => ({ id: c(`${key}${String.fromCharCode(97 + i)}`), label }));
+/** Shown only when "What would you like?" includes that choice. */
+const whenOrdering = (choice: string) => ({
+  match: 'all' as const,
+  conditions: [
+    {
+      source: { kind: 'question' as const, questionId: q('what') },
+      op: 'includes' as const,
+      value: c(choice),
+    },
+  ],
+});
+
 const thanks = (headline: string, body = '') => ({
   id: r('thanks'),
   name: 'Thank you',
@@ -460,6 +475,180 @@ export const FORM_STARTERS: readonly FormStarter[] = [
         },
       ],
       results: [thanks('You’re booked in.', 'We’ll confirm the time by text.')],
+    },
+  },
+  {
+    key: 'custom_order',
+    name: 'Custom order',
+    mode: 'form',
+    blurb:
+      'Takes an order for shirts, mugs, tumblers and more: how many of each, colors, and when they need it.',
+    definition: {
+      mode: 'form',
+      title: 'Place your order',
+      intro:
+        'Tell us what you’d like made and when you need it. We’ll confirm the details and the price.',
+      pages: [
+        {
+          id: p('about'),
+          questions: [
+            {
+              id: q('first'),
+              type: 'short_text',
+              title: 'First name',
+              required: true,
+              mapTo: 'person.first_name',
+              config: { maxLength: 80 },
+            },
+            {
+              id: q('last'),
+              type: 'short_text',
+              title: 'Last name',
+              mapTo: 'person.last_name',
+              config: { maxLength: 80 },
+            },
+            phone(),
+            email(),
+            {
+              id: q('what'),
+              type: 'checkboxes',
+              title: 'What would you like?',
+              required: true,
+              config: {
+                choices: [
+                  { id: c('shirts'), label: 'T-shirts' },
+                  { id: c('mugs'), label: 'Mugs' },
+                  { id: c('tumblers'), label: 'Tumblers' },
+                  { id: c('keychain'), label: 'Keychains' },
+                  { id: c('pins'), label: 'Pins' },
+                  { id: c('other'), label: 'Something else' },
+                ],
+              },
+            },
+            {
+              id: q('shirts'),
+              type: 'quantities',
+              title: 'T-shirts: how many of each size?',
+              required: true,
+              showIf: whenOrdering('shirts'),
+              config: {
+                unit: 'shirts',
+                choices: rows('shirt', [
+                  'Youth S',
+                  'Youth M',
+                  'Youth L',
+                  'Youth XL',
+                  'Adult S',
+                  'Adult M',
+                  'Adult L',
+                  'Adult XL',
+                  'Adult 2XL',
+                  'Adult 3XL',
+                  'Adult 4XL',
+                  'Adult 5XL',
+                ]),
+              },
+            },
+            {
+              id: q('mugs'),
+              type: 'quantities',
+              title: 'Mugs: how many of each?',
+              required: true,
+              showIf: whenOrdering('mugs'),
+              config: { unit: 'mugs', choices: rows('mug', ['11 oz', '15 oz']) },
+            },
+            {
+              id: q('tumblers'),
+              type: 'quantities',
+              title: 'Tumblers: how many of each?',
+              required: true,
+              showIf: whenOrdering('tumblers'),
+              config: { unit: 'tumblers', choices: rows('tumbler', ['20 oz', '30 oz', '40 oz']) },
+            },
+            {
+              id: q('keychain'),
+              type: 'quantities',
+              title: 'Keychains: how many?',
+              required: true,
+              showIf: whenOrdering('keychain'),
+              config: { unit: 'keychains', choices: rows('key', ['Keychains']) },
+            },
+            {
+              id: q('pins'),
+              type: 'quantities',
+              title: 'Pins: how many?',
+              required: true,
+              showIf: whenOrdering('pins'),
+              config: { unit: 'pins', choices: rows('pin', ['Pins']) },
+            },
+            {
+              id: q('otherwhat'),
+              type: 'short_text',
+              title: 'What else would you like made, and how many?',
+              required: true,
+              showIf: whenOrdering('other'),
+              config: { maxLength: 300 },
+            },
+            {
+              id: q('colors'),
+              type: 'short_text',
+              title: 'Colors',
+              help: 'The color of each item, and of the design if it matters.',
+              config: { maxLength: 300 },
+            },
+            {
+              id: q('how'),
+              type: 'choice',
+              title: 'Pickup or delivery?',
+              required: true,
+              config: {
+                display: 'buttons',
+                choices: [
+                  { id: c('pickup'), label: 'Pickup' },
+                  { id: c('delivery'), label: 'Delivery' },
+                ],
+              },
+            },
+            {
+              id: q('address'),
+              type: 'address',
+              title: 'Where should we deliver it?',
+              required: true,
+              mapTo: 'person.address',
+              showIf: {
+                match: 'all',
+                conditions: [
+                  {
+                    source: { kind: 'question', questionId: q('how') },
+                    op: 'is',
+                    value: c('delivery'),
+                  },
+                ],
+              },
+              config: {},
+            },
+            {
+              id: q('date'),
+              type: 'date',
+              title: 'When do you need it?',
+              required: true,
+              config: { range: 'future' },
+            },
+            {
+              id: q('notes'),
+              type: 'long_text',
+              title: 'Special instructions or design notes',
+              config: {},
+            },
+          ],
+        },
+      ],
+      results: [
+        thanks(
+          'Thanks, we’ve got your order.',
+          'We’ll check the details and send you the price shortly.',
+        ),
+      ],
     },
   },
 ];

@@ -18,6 +18,8 @@ export const REASON_CODES = [
   'repeat_customer',
   'came_in_today',
   'handed_off',
+  /** A customer in someone's hands, the AI waiting for their go-ahead (messaging/hands.ts). */
+  'in_hands',
   'last_contact',
   'no_contact',
   'follow_up_overdue',

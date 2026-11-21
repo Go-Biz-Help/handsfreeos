@@ -1,7 +1,7 @@
 {
   "area": "settings-money-partners",
   "title": "Settings: payments, products, partners, imports and migrations",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-21",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/partners/[partnerId].tsx": "f392529733e2",
@@ -18,14 +18,14 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/payments/products/page.tsx": "d04f5eac8abc",
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
     "apps/web/src/components/migrations/wizard.tsx": "65ae1c100765",
-    "apps/web/src/components/money/products-page.tsx": "f7abebae4173",
+    "apps/web/src/components/money/products-page.tsx": "7a137b204ccf",
     "apps/web/src/components/partners/partner-card.tsx": "b27e21964bf3",
     "apps/web/src/components/partners/partner-detail.tsx": "485bf34fe90f",
     "apps/web/src/components/partners/payouts-section.tsx": "6e34f7fdae98",
     "apps/web/src/components/partners/settings-page.tsx": "0ff4c1bbbd6e",
     "apps/web/src/components/settings/payment-access-dialog.tsx": "aca450d764a2",
-    "apps/web/src/components/settings/payment-connection-card.tsx": "4c96b59f0ce2",
-    "apps/web/src/components/settings/payments-page.tsx": "6e26b7ad79bd"
+    "apps/web/src/components/settings/payment-connection-card.tsx": "43e7470e0b32",
+    "apps/web/src/components/settings/payments-page.tsx": "fe54cd435e44"
   },
   "items": [
     {
@@ -57,7 +57,7 @@
       "by": "get_settings payments → payments.issues[].saving says which one stops a save; update_money_settings refuses a $0/0% deposit before Confirm"
     },
     {
-      "path": "Settings → Payments → back from Stripe or Square: Connected… / Nothing was connected / A permission was left unticked… / That account didn’t connect",
+      "path": "Settings → Payments → back from Stripe, Square or PayPal: Connected… / Nothing was connected / A permission was left unticked… / That account didn’t connect",
       "kind": "see",
       "file": "apps/web/src/components/settings/payment-connection-card.tsx:32",
       "covered": "person",
@@ -113,11 +113,11 @@
       "by": "get_settings payments → accounts[].capabilities"
     },
     {
-      "path": "Settings → Payments → Accounts → each account: Stripe needs more details from you by date… with your Stripe dashboard link",
+      "path": "Settings → Payments → Accounts → each account: Stripe needs more details from you by date… (PayPal: confirm your email / your account is limited) with a link to that provider’s own dashboard",
       "kind": "see",
       "file": "apps/web/src/components/settings/payment-connection-card.tsx:280",
       "covered": "yes",
-      "by": "get_settings payments → accounts.connections[].needsMoreDetails: by when, with https://dashboard.stripe.com/"
+      "by": "get_settings payments → accounts.connections[].needsMoreDetails: the provider’s own sentence when it gives one (PayPal), else by when, with that provider’s dashboard (PAYMENT_PROVIDER_DASHBOARDS)"
     },
     {
       "path": "Settings → Payments → Accounts → each account: why it needs reconnecting or isn’t working (last error)",
@@ -260,9 +260,9 @@
       "by": "get_settings payments → accounts empty"
     },
     {
-      "path": "Settings → Payments → Accounts → Connect Stripe / Connect Square",
+      "path": "Settings → Payments → Accounts → Connect Stripe / Connect Square / Connect PayPal (greyed out, Coming soon, until PayPal approves HandsFreeOS)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/payments-page.tsx:442",
+      "file": "apps/web/src/components/settings/payments-page.tsx:453",
       "covered": "person",
       "by": "signing in at the provider (payment_connection.connect NEVER); settings_help payments gives the steps"
     },
@@ -307,6 +307,27 @@
       "file": "apps/web/src/components/settings/payments-page.tsx:506",
       "covered": "partly",
       "by": "tool descriptions: card always offered; brands and instant payout not told (SETTINGS_NEVER payments.card)"
+    },
+    {
+      "path": "Settings → Payments → Ways to pay → PayPal: customers pay with PayPal or a card through PayPal; On / Not connected",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:537",
+      "covered": "yes",
+      "by": "get_settings payments → payments.howItWorks (PAYMENTS_PAGE_WORDS.payPal) and accounts (a PayPal account, active); SETTINGS_NEVER payments.paypal"
+    },
+    {
+      "path": "Settings → Payments → Ways to pay → Venmo switch (beside the PayPal button)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:548",
+      "covered": "yes",
+      "by": "update_money_settings offerVenmo"
+    },
+    {
+      "path": "Settings → Payments → Ways to pay → Pay Later switch (beside the PayPal button)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:563",
+      "covered": "yes",
+      "by": "update_money_settings offerPayLater"
     },
     {
       "path": "Settings → Payments → Ways to pay → Cash and cheque: Not offered to customers. By hand",
@@ -563,161 +584,161 @@
     {
       "path": "Settings → Products → Products and services: What you put on an estimate or an invoice…",
       "kind": "see",
-      "file": "apps/web/src/components/money/products-page.tsx:104",
+      "file": "apps/web/src/components/money/products-page.tsx:116",
       "covered": "yes",
       "by": "settings map products; manage_product description"
     },
     {
       "path": "Settings → Products → New product",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:110",
+      "file": "apps/web/src/components/money/products-page.tsx:122",
       "covered": "yes",
       "by": "manage_product action create (name, code, kind, price, unit, tax, service), rehearsed before its card"
     },
     {
       "path": "Settings → Products → Nothing to sell yet (empty)",
       "kind": "see",
-      "file": "apps/web/src/components/money/products-page.tsx:121",
+      "file": "apps/web/src/components/money/products-page.tsx:133",
       "covered": "yes",
       "by": "get_settings products → products empty"
     },
     {
       "path": "Settings → Products → each item (table or phone card): name, code, kind, price, per unit, Taxable / No tax",
       "kind": "see",
-      "file": "apps/web/src/components/money/products-page.tsx:149",
+      "file": "apps/web/src/components/money/products-page.tsx:161",
       "covered": "yes",
       "by": "get_settings products → products.items[]: name, sku, kindLabel, price (“$89 each”, “$125 per hour”), taxable"
     },
     {
       "path": "Settings → Products → each item: Customers can book it as {service}",
       "kind": "see",
-      "file": "apps/web/src/components/money/products-page.tsx:184",
+      "file": "apps/web/src/components/money/products-page.tsx:201",
       "covered": "yes",
       "by": "get_settings products → serviceId; names from get_settings services"
     },
     {
       "path": "Settings → Products → each archived item: Archived badge, struck through",
       "kind": "see",
-      "file": "apps/web/src/components/money/products-page.tsx:170",
+      "file": "apps/web/src/components/money/products-page.tsx:187",
       "covered": "yes",
       "by": "get_settings products reads product.list with includeArchived → products.archived[] (archivedAt)"
     },
     {
       "path": "Settings → Products → press an item to open its editor",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:161",
+      "file": "apps/web/src/components/money/products-page.tsx:173",
       "covered": "yes",
       "by": "get_settings products → items and archived with their ids; manage_product action change"
     },
     {
       "path": "Settings → Products → n archived items, still on the documents they’re already on",
       "kind": "see",
-      "file": "apps/web/src/components/money/products-page.tsx:257",
+      "file": "apps/web/src/components/money/products-page.tsx:277",
       "covered": "yes",
       "by": "get_settings products → products.archivedNote"
     },
     {
       "path": "Settings → Products → Show archived items switch",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:263",
+      "file": "apps/web/src/components/money/products-page.tsx:283",
       "covered": "yes",
       "by": "get_settings products → products.archived lists them apart, as the switch does"
     },
     {
       "path": "Settings → Products → Maintenance plans: Plans that bill themselves live under Money → Plans → Open Plans",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:273",
+      "file": "apps/web/src/components/money/products-page.tsx:293",
       "covered": "yes",
       "by": "list_plans, manage_plan; places map Money → Plans"
     },
     {
       "path": "Settings → Products → editor → title (item name / New product) and Archived badge",
       "kind": "see",
-      "file": "apps/web/src/components/money/products-page.tsx:406",
+      "file": "apps/web/src/components/money/products-page.tsx:437",
       "covered": "yes",
       "by": "get_settings products → items and archived (archivedAt); manage_product card title names the item"
     },
     {
       "path": "Settings → Products → editor → Close (X) / Cancel",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:415",
+      "file": "apps/web/src/components/money/products-page.tsx:446",
       "covered": "yes",
       "by": "declining the manage_product card"
     },
     {
       "path": "Settings → Products → editor → Name",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:421",
+      "file": "apps/web/src/components/money/products-page.tsx:452",
       "covered": "yes",
       "by": "manage_product name (up to 160, as the screen)"
     },
     {
       "path": "Settings → Products → editor → Code (Yours to choose. It shows on the document and in exports.)",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:431",
+      "file": "apps/web/src/components/money/products-page.tsx:462",
       "covered": "yes",
       "by": "manage_product code (sku; null takes it off)"
     },
     {
       "path": "Settings → Products → editor → Kind: Product / Service / Fee, with what each is",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:448",
+      "file": "apps/web/src/components/money/products-page.tsx:479",
       "covered": "yes",
       "by": "manage_product kind (product, service or fee); the card’s Kind row and PRODUCT_KIND_HINT words, shared with the screen"
     },
     {
       "path": "Settings → Products → editor → Price",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:466",
+      "file": "apps/web/src/components/money/products-page.tsx:497",
       "covered": "yes",
       "by": "manage_product priceDollars; card shows the new price with what it was, and that documents already sent keep theirs"
     },
     {
       "path": "Settings → Products → editor → Per (each, hour, day, foot, sq ft… or typed)",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:479",
+      "file": "apps/web/src/components/money/products-page.tsx:510",
       "covered": "yes",
       "by": "manage_product unitLabel; card shows “$125 per hour”"
     },
     {
       "path": "Settings → Products → editor → Charge sales tax on it (At n%, the rate in Settings → Payments)",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:497",
+      "file": "apps/web/src/components/money/products-page.tsx:537",
       "covered": "yes",
       "by": "manage_product taxable; card says Charged, at n% (the rate in Settings → Payments) / Not charged"
     },
     {
       "path": "Settings → Products → editor → Customers can book it: Not bookable or a service not already taken",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:513",
+      "file": "apps/web/src/components/money/products-page.tsx:553",
       "covered": "yes",
       "by": "manage_product serviceId (null for Not bookable); card names the service; product.create/update refuse a service already taken before the card"
     },
     {
       "path": "Settings → Products → editor → Archive (Archive {name}? It stays on every document…)",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:536",
+      "file": "apps/web/src/components/money/products-page.tsx:576",
       "covered": "yes",
       "by": "manage_product action archive; card note: it stays on every document it’s already on"
     },
     {
       "path": "Settings → Products → editor → Put it back (archived item)",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:544",
+      "file": "apps/web/src/components/money/products-page.tsx:584",
       "covered": "yes",
       "by": "manage_product action put_back (product.archive archived: false)"
     },
     {
       "path": "Settings → Products → editor → Save",
       "kind": "do",
-      "file": "apps/web/src/components/money/products-page.tsx:550",
+      "file": "apps/web/src/components/money/products-page.tsx:590",
       "covered": "yes",
       "by": "manage_product create / change, rehearsed before the card; Nothing would change refused"
     },
     {
       "path": "Settings → Products → editor → Archiving keeps it on every document it is already on.",
       "kind": "see",
-      "file": "apps/web/src/components/money/products-page.tsx:560",
+      "file": "apps/web/src/components/money/products-page.tsx:594",
       "covered": "yes",
       "by": "manage_product card note: documents that already have it keep it"
     },

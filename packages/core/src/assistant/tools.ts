@@ -1256,7 +1256,7 @@ export const assistantTools = [
   define({
     name: 'update_money_settings',
     description:
-      'Change how the business gets paid (Settings → Payments): sales tax, when invoices are due, your address on documents, the notes at the bottom of estimates and invoices, how long an estimate is good for, the deposit an estimate asks for, whether bank transfer is offered, and the reminders that chase an unpaid invoice or an unanswered estimate. Read it with get_settings (area payments) first and pass only what changes. Numbering is update_numbering_and_ways_to_pay; payout accounts are manage_payment_account.',
+      'Change how the business gets paid (Settings → Payments): sales tax, when invoices are due, your address on documents, the notes at the bottom of estimates and invoices, how long an estimate is good for, the deposit an estimate asks for, whether bank transfer is offered, whether PayPal’s Venmo and Pay Later buttons show (only with PayPal connected), and the reminders that chase an unpaid invoice or an unanswered estimate. Read it with get_settings (area payments) first and pass only what changes. Numbering is update_numbering_and_ways_to_pay; payout accounts are manage_payment_account.',
     input: z.object({
       taxRatePercent: z.number().min(0).max(20).optional().describe('Like 8.25; 0 for none'),
       taxName: text(40).optional().describe('What it is called on a document: Sales tax, GST'),
@@ -1292,6 +1292,14 @@ export const assistantTools = [
       depositPercent: z.number().min(0).max(100).optional().describe('Like 25'),
       depositDollars: dollars.optional(),
       offerBankTransfer: z.boolean().optional().describe('Card is always on'),
+      offerVenmo: z
+        .boolean()
+        .optional()
+        .describe('The Venmo button beside the PayPal button; only shows with PayPal connected'),
+      offerPayLater: z
+        .boolean()
+        .optional()
+        .describe('PayPal’s Pay Later button; only shows with PayPal connected'),
       remindBeforeDueDays: z
         .array(z.int().min(1).max(90))
         .max(3)
@@ -1317,7 +1325,7 @@ export const assistantTools = [
   define({
     name: 'manage_product',
     description:
-      'Settings → Products: add something that goes on an estimate or an invoice, change it (its name, code, kind, price, what one is called, whether it is taxed, the bookable service it is the price of), archive it, or put an archived one back. get_settings (area products) lists them, archived ones too. A new price never changes a document already sent.',
+      'Settings → Products: add something that goes on an estimate or an invoice, change it (its name, code, kind, price, what one is called, whether it is taxed, the bookable service it is the price of, its sizes, colors and other choices with their price changes), archive it, or put an archived one back. get_settings (area products) lists them, archived ones too. A new price never changes a document already sent.',
     input: z.object({
       action: z.enum(['create', 'change', 'archive', 'put_back']),
       productId: uuid
@@ -1354,6 +1362,33 @@ export const assistantTools = [
         .optional()
         .describe(
           'The bookable service it is the price of, so customers can book it (one item each); null: not bookable',
+        ),
+      options: z
+        .array(
+          z.object({
+            name: text(40).describe('Size, Color, Style…'),
+            choices: z
+              .array(
+                z.object({
+                  label: text(60).describe('Adult 2XL, Black, 15 oz…'),
+                  priceChangeDollars: z
+                    .number()
+                    .min(-100_000)
+                    .max(100_000)
+                    .optional()
+                    .describe(
+                      'What this choice adds to the price; negative takes some off; left out, the same price',
+                    ),
+                }),
+              )
+              .min(1)
+              .max(40),
+          }),
+        )
+        .max(3)
+        .optional()
+        .describe(
+          'Sizes, colors and other choices (up to 3). The whole list, replacing what it had; an empty list takes them all off. Picking the item on an estimate, an invoice or a form then means picking one of each. Keep each existing option and choice by its name, so form rows made from it still find it',
         ),
     }),
     autonomy: 'confirm',
@@ -2189,7 +2224,7 @@ export const assistantTools = [
   define({
     name: 'fill_in_form',
     description:
-      'Fill in a published form for a customer and send it, as the phone’s Fill it in does: for answers they gave in person or on the phone. Sending it does everything their own answers would: it adds or matches the customer and fills in their details, opens the lead or task the form asks for and starts its workflows, so it waits for the person’s OK. answers are by question id from get_form; a choice can be its id or its words, checkboxes a list, yes or no true or false. A file, a signature, a payment, a video or a time to book can’t be filled in for them. The OK to text and OK to call boxes stay unticked: a yes has to come from the customer themselves.',
+      'Fill in a published form for a customer and send it, as the phone’s Fill it in does: for answers they gave in person or on the phone. Sending it does everything their own answers would: it adds or matches the customer and fills in their details, opens the lead or task the form asks for and starts its workflows, so it waits for the person’s OK. answers are by question id from get_form; a choice can be its id or its words, checkboxes a list, yes or no true or false, and a How many of each an object of how many for each row, by the row’s id or its words ({"Adult M": 5, "Adult L": 3}). A file, a signature, a payment, a video or a time to book can’t be filled in for them. The OK to text and OK to call boxes stay unticked: a yes has to come from the customer themselves.',
     input: z.object({
       formId: uuid,
       answers: z

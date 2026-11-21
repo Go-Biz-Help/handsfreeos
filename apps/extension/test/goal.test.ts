@@ -71,6 +71,7 @@ describe('checks a batch at a time (answer 4a)', () => {
       posts: '',
       active: '',
       chats: '',
+      events: '',
       followers: '',
     };
     const waiting = { daily, againAt: { checks: NOW + 30 * MIN } };

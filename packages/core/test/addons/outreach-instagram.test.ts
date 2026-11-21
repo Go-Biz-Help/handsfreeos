@@ -273,7 +273,8 @@ describe('Today on Instagram', () => {
       owner,
       ws,
       'outreach.touch.save',
-      { platform: 'instagram', kind: 'message', profile: account(username), name },
+      // The extension's own (decision 182: one the person typed would leave them in the person's hands).
+      { platform: 'instagram', kind: 'message', profile: account(username), name, auto: true },
       at,
     );
   /** Their followers, saved from Instagram as its friends list. */

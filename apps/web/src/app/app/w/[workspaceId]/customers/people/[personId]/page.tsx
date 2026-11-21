@@ -70,6 +70,7 @@ export default async function PersonPage({
     api
       .POST('/v1/queries/custom_field.list', { body: { workspaceId, entity: 'person' } })
       .then(unwrapPage),
+    api.POST('/v1/queries/person.in_hands', { body: { workspaceId, personId } }).then(unwrapPage),
   ]);
   // Whichever way it goes, nothing is left failing unwatched.
   rest.catch(() => undefined);
@@ -100,6 +101,7 @@ export default async function PersonPage({
       relationships,
       relationshipTypes,
       fields,
+      hands,
     ],
   ] = await Promise.all([workspace, rest]);
   return (
@@ -121,6 +123,7 @@ export default async function PersonPage({
       relationships={relationships.items}
       relationshipTypes={relationshipTypes.types}
       fields={fields.fields}
+      hands={hands.people[0] ?? null}
     />
   );
 }

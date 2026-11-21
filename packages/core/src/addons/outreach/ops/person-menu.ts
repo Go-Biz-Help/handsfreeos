@@ -16,6 +16,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { localOf, theirWorkShown } from './local';
+import { handsPeople } from './in-hands';
 import { NO_JOURNEY } from '../journey';
 import { chatLinksAnswer, clientOutcome, SAME_NAME_FIRST } from '../ai-answers';
 import { outreachAddon } from '../manifest';
@@ -317,6 +318,8 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
         },
         await localOf(ctx, me),
       ),
+      // In someone's hands (decision 182): whose, for Give back to the AI.
+      inHands: (await handsPeople(ctx, me, { profileId: profile.id, limit: 1 })).people[0] ?? null,
     };
   },
 });

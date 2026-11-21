@@ -742,9 +742,20 @@ export const invoiceRecordPayment = defineCommand({
         changed: false,
       };
     }
+    /**
+     * The row was written before the provider was asked, with the way the customer picked on our page. Stripe's
+     * payment box offers every way the business takes, so the provider's first answer can say they paid another
+     * way (picked Card, paid by bank): that answer is the truth. Once it has answered, the way never changes.
+     */
+    const providerSaidHow =
+      from === 'requires_payment' &&
+      !!existing.provider &&
+      (input.method === 'card' || input.method === 'ach') &&
+      input.method !== existing.method;
     await ctx.tx
       .update(payments)
       .set({
+        ...(providerSaidHow ? { method: input.method } : {}),
         status: input.status,
         providerStatus: input.providerStatus ?? existing.provider_status,
         providerPaymentId: input.providerPaymentId ?? existing.provider_payment_id,
@@ -769,7 +780,7 @@ export const invoiceRecordPayment = defineCommand({
       ? await announcePayment(ctx, before.id, before, {
           id: existing.id,
           amountCents: Number(existing.amount_cents),
-          method: existing.method,
+          method: providerSaidHow ? input.method : existing.method,
           provider: existing.provider,
           status: input.status,
           failureCode: input.failureCode,

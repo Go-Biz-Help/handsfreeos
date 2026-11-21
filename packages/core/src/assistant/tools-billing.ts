@@ -31,6 +31,13 @@ const Line = z.object({
       'An item from the catalogue (get_settings with area products). Its name, price, unit and tax fill in unless given here',
     ),
   name: text(200).optional().describe('What the line is. Needed for a line not from the catalogue'),
+  choices: z
+    .array(text(60))
+    .max(3)
+    .optional()
+    .describe(
+      'For a catalogue item with sizes, colors or other choices: one choice of each, by name (["Adult 2XL", "Black"]). The line is named and priced with them',
+    ),
   description: text(2000).optional(),
   quantity: z.number().gt(0).max(1_000_000).default(1),
   unitPrice: dollars

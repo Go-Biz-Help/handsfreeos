@@ -54,7 +54,7 @@ export async function showOutreach(
   const sp = await searchParams;
   const remembered = (await cookies()).get(netCookie(workspaceId))?.value ?? null;
   const shown = readOutreachAddress(view, sp, { part, remembered });
-  const { api } = await apiServer();
+  const { api, userId } = await apiServer();
   const workspace = api
     .POST('/v1/queries/workspace.get', { body: { workspaceId } })
     .then(unwrapPage);
@@ -337,6 +337,18 @@ export async function showOutreach(
       />
     );
   }
+  if (shown.view === 'hands') {
+    // In your hands (decision 182): the list loads itself.
+    const got = await workspace;
+    return (
+      <OutreachHome
+        workspaceId={workspaceId}
+        businessName={got.workspace.name}
+        canManage={got.workspace.permissions.includes('outreach.manage')}
+        shown={{ view: 'hands', mine: shown.mine, me: userId ?? null }}
+      />
+    );
+  }
   if (shown.view === 'skipped') {
     // Left alone's Skipped for country: the list loads itself, as it did under Friends. Run now's asks (decision 129)
     // are left out when they can't be had.
@@ -599,11 +611,12 @@ export async function showOutreach(
       .POST('/v1/queries/outreach.helpful', { body: { workspaceId, platform: net } })
       .then(unwrapPage),
     Promise.all(nets.map((p) => readinessOf(p))),
-    // Referrals waiting for the person on the network shown (decision 174): none when they can't be had.
+    // Referrals waiting for the person on the network shown (decision 174), and the asks after two (decision 185):
+    // none when they can't be had.
     api
       .POST('/v1/queries/outreach.referrals', { body: { workspaceId, platform: net } })
-      .then((r) => r.data?.referrals ?? [])
-      .catch(() => []),
+      .then((r) => ({ referrals: r.data?.referrals ?? [], asks: r.data?.asks ?? [] }))
+      .catch(() => ({ referrals: [], asks: [] })),
   ]);
   const networks = nets.flatMap((platform, i) => {
     const live = lives[i];
@@ -644,7 +657,8 @@ export async function showOutreach(
         networks,
         today,
         helpful,
-        referrals: refer,
+        referrals: refer.referrals,
+        referAsks: refer.asks,
         team,
         asks,
         waiting,

@@ -2048,7 +2048,7 @@ export interface paths {
         put?: never;
         /**
          * Call a customer through your own cell: HandsFreeOS rings your verified cell from the business number, you press 1, and the customer is connected, seeing the business number. Recorded, and filed in the customer’s conversation.
-         * @description Risk level 2. Requires inbox.use. Emits call.started.
+         * @description Risk level 2. Requires inbox.use. Emits call.started, person.taken_over, conversation.taken_over.
          */
         post: operations["command_call_connect_me"];
         delete?: never;
@@ -2068,7 +2068,7 @@ export interface paths {
         put?: never;
         /**
          * Call a customer from the browser. Returns what the browser dials with; customers see the business number.
-         * @description Risk level 1. Requires inbox.use. Emits call.started.
+         * @description Risk level 1. Requires inbox.use. Emits call.started, person.taken_over, conversation.taken_over.
          */
         post: operations["command_call_start"];
         delete?: never;
@@ -3687,8 +3687,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next.
-         * @description Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai. Can wait on a phone for 30 minutes, then asks.
+         * Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next, and the customer is out of your hands everywhere.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai, person.handed_back. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_conversation_hand_to_ai"];
         delete?: never;
@@ -3887,8 +3887,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Take a conversation from the AI teammate (or from “Needs a person”): the teammate stays quiet until someone hands it back, and its pending reply is dropped.
-         * @description Risk level 1. Requires inbox.use. Emits conversation.taken_over. Can wait on a phone with no signal.
+         * Take a conversation from the AI teammate (or from “Needs a person”): the customer is in your hands everywhere, the teammate stays quiet with them until someone hands them back, and its pending reply is dropped.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.taken_over, person.taken_over. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_take_over"];
         delete?: never;
@@ -4527,7 +4527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start receiving the business’s mail at one of its verified domains. Once its MX record points at inbound.postmarkapp.com, mail to every address there arrives in the Inbox.
+         * Start receiving the business’s mail at one of its verified domains. Once its MX record points at inbound.postmarkapp.com, mail to every address there arrives in the Inbox. Asked again while it waits, it looks for the MX record now.
          * @description Risk level 2. Requires channels.manage. Emits email_domain.receiving_requested.
          */
         post: operations["command_email_domain_receive"];
@@ -4988,7 +4988,7 @@ export interface paths {
         put?: never;
         /**
          * Delete one response: a test of your own, or a customer asking to be forgotten. The answers go with it.
-         * @description Risk level 2. Requires forms.manage. Emits form.response_deleted.
+         * @description Risk level 2. Requires forms.manage. Emits form.response_deleted, file.deleted.
          */
         post: operations["command_form_response_delete"];
         delete?: never;
@@ -5008,7 +5008,7 @@ export interface paths {
         put?: never;
         /**
          * Fill in a form for a customer yourself and send it, in one go. Works with no signal; the phone keeps it until there is some.
-         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.
+         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested, file.received, file.deleted. Can wait on a phone with no signal.
          */
         post: operations["command_form_response_record"];
         delete?: never;
@@ -7327,8 +7327,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.
-         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over, email.private_queued. Can wait on a phone for 30 minutes, then asks.
+         * Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing to a customer takes them on: the AI teammate stops answering them anywhere until someone gives them back.
+         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over, person.taken_over, email.private_queued. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_message_send"];
         delete?: never;
@@ -8508,7 +8508,7 @@ export interface paths {
         put?: never;
         /**
          * Bring in one-to-one chats the extension read in Messenger in the person’s browser, each with its latest few messages and when they were sent, for the AI to read later. They join the chats from the person’s Facebook download, one per person. Adds nobody to Contacts itself.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.chats.collected, outreach.reply.seen.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.chats.collected, outreach.reply.seen, outreach.hands.taken.
          */
         post: operations["command_outreach_chats_collect"];
         delete?: never;
@@ -8917,6 +8917,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.event.skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Not going: take an event off the person’s list of events near them on Today (Events near you). Its people are still checked. Nothing changes on the network.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_event_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.events.read": {
         parameters: {
             query?: never;
@@ -8927,7 +8947,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s computer read the events in their town on Alignable this week: up to 5 not read before, whose hosts and guests went to the AI to check. Nothing on an event was pressed. The next read is a week on.
+         * The person’s computer read the events near them this week, on Alignable or Facebook: up to 5 not read before, each kept for Today’s list of events near them, with who hosts it. On Facebook the hosts and people going who aren’t friends are checked by the AI like friends; on Alignable they went to the AI as found. Nothing on an event was pressed. The next read is a week on.
          * @description Risk level 0. Requires outreach.use. Emits .
          */
         post: operations["command_outreach_events_read"];
@@ -9131,6 +9151,66 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.groups.saved.
          */
         post: operations["command_outreach_groups_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.hands.give_back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give people in someone’s hands back to the AI (Give back to the AI, in the menu on their name, on In your hands, or on the ask on Needs you): it messages them again, starting with anything they’re waiting on, and gives back their customer in Contacts too. Pass profileIds, or all (with mine for only your own).
+         * @description Risk level 1. Requires outreach.use. Emits outreach.hands.given_back.
+         */
+        post: operations["command_outreach_hands_give_back"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.hands.keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep someone in your hands (Keep it mine, on the ask on Needs you): the ask goes until they write again or the AI would follow up again.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.hands.taken.
+         */
+        post: operations["command_outreach_hands_keep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.hands.take": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take someone over yourself (Take over, in the menu on their name): the AI sends them no messages, here or as a customer in Contacts, until someone gives them back. Likes and comments still go. Its messages to them waiting for an OK are skipped.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.hands.taken.
+         */
+        post: operations["command_outreach_hands_take"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9877,6 +9957,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.refer_ask.answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s answer to a note asking someone they referred twice to send people their way too: approve (Do it for me: their computer sends it on Facebook, as it stands or changed), done (they sent it themselves) or skip (it never comes back). Never sent to someone in a person’s hands.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.refer_ask.answered.
+         */
+        post: operations["command_outreach_refer_ask_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.refer_ask.sent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s computer says how an ask after two went: sent, and it’s done; or why not, and it waits on Today for the person to send by hand.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_refer_ask_sent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.referral.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Do it for me on a referral waiting on Today: the person’s computer posts the comment naming someone they talked with under the post (tagging them, or their name as plain words where Facebook won’t list them) and sends them the heads-up, as it stands or as changed. Only on Facebook, where the post and the person both are, and never a heads-up to someone in a person’s hands.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.referral.approved.
+         */
+        post: operations["command_outreach_referral_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.referral.done": {
         parameters: {
             query?: never;
@@ -9887,10 +10027,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person commented on the post naming someone they talked with, and sent that person the heads-up: the referral is noted as done, with the words they sent when they changed them.
+         * The person commented on the post naming someone they talked with, and sent that person the heads-up when there was one: the referral is noted as done, with the words they sent when they changed them.
          * @description Risk level 1. Requires outreach.use. Emits outreach.referral.done.
          */
         post: operations["command_outreach_referral_done"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.referral.posted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s computer says how a referral it did went: the comment up (tagged or not) and the heads-up sent, and it’s done; or what couldn’t go and why, and it waits on Today for the person to finish by hand; or nothing to do there, and it’s put aside.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.referral.done, outreach.referral.skipped.
+         */
+        post: operations["command_outreach_referral_posted"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9907,7 +10067,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Put a referral aside: nothing is commented or sent, and it doesn’t come back.
+         * Put a referral aside, waiting or about to be done for the person: nothing more is commented or sent, and it doesn’t come back.
          * @description Risk level 0. Requires outreach.use. Emits outreach.referral.skipped.
          */
         post: operations["command_outreach_referral_skip"];
@@ -10208,7 +10368,7 @@ export interface paths {
         put?: never;
         /**
          * Note a step the person took on a social network themselves, as the extension saw it: a friend request, a like, a comment, a message or a recommendation on Alignable, to whom and from which group. Adds nobody to Contacts.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.touch.saved. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.touch.saved, outreach.hands.taken. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_touch_save"];
         delete?: never;
@@ -10427,7 +10587,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start connecting a Stripe or Square account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once.
+         * Start connecting a Stripe, Square or PayPal account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once. PayPal takes one-time payments only (invoices, pay links and deposits), never plans.
          * @description Risk level 2. Requires money.manage. Emits payment_connection.connect_started.
          */
         post: operations["command_payment_connection_connect"];
@@ -10657,6 +10817,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/person.hand_back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give customers back to the AI: out of anyone’s hands, and their conversations go back to the AI teammate where it answers that channel, so it answers what they’re waiting on. One the AI teammate handed to a person still waits for them. Pass personIds, or all (with mine for only your own).
+         * @description Risk level 1. Requires inbox.use. Emits person.handed_back, conversation.handed_to_ai.
+         */
+        post: operations["command_person_hand_back"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/person.merge": {
         parameters: {
             query?: never;
@@ -10671,6 +10851,26 @@ export interface paths {
          * @description Risk level 3. Requires records.archive. Emits person.merged.
          */
         post: operations["command_person_merge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/person.note_by_hand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note that someone on the team wrote to a customer themselves on a social network HandsFreeOS only hears of: the customer comes into their hands, so the AI teammate, its follow-ups, funnels and AI calls leave them alone everywhere until someone gives them back.
+         * @description Risk level 1. Requires inbox.use. Emits person.taken_over, conversation.taken_over.
+         */
+        post: operations["command_person_note_by_hand"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10731,6 +10931,26 @@ export interface paths {
          * @description Risk level 1. Requires inbox.use. Emits person.opted_out, person.opted_in.
          */
         post: operations["command_person_set_sms_consent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/person.take_over": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a customer on yourself: the AI teammate, its follow-ups, funnels and AI calls leave them alone everywhere until someone gives them back, and its replies to them waiting for an OK are dropped.
+         * @description Risk level 1. Requires inbox.use. Emits person.taken_over, conversation.taken_over.
+         */
+        post: operations["command_person_take_over"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21087,7 +21307,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the editor’s pickers offer: the pipelines and their stages, the tags, the live workflows, the fields the business invented, and the team.
+         * What the editor’s pickers offer: the pipelines and their stages, the tags, the live workflows, the fields the business invented, the team, and the price list’s products for a “How many of each” question.
          * @description Requires workspace.read.
          */
         post: operations["query_form_catalogs"];
@@ -22587,7 +22807,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone who sent them a friend request they haven’t answered (for what to do with it), anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
+         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone who sent them a friend request they haven’t answered (for what to do with it), anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, people hosting or going to events near them on Facebook who aren’t friends, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_checks_next"];
@@ -22687,7 +22907,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Whether the person’s computer reads the events in their town on Alignable today: once a week, the first time and then a week after the last read. With the events it read lately, which it never reads again.
+         * Whether the person’s computer reads the events near them today, on Alignable (their town’s events) or Facebook (its event search for their town): once a week, the first time and then a week after the last read. With the events it read lately, which it never reads again, and on Facebook what to search for.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_events_next"];
@@ -22911,6 +23131,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_groups_to_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.hands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who’s in someone’s hands (Social Outreach → People → In your hands): people someone on the team wrote to themselves, or took over, whom the AI sends no messages till someone gives them back; whose hands, how, when, and whether an ask waits on Needs you. Newest first.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_hands"];
         delete?: never;
         options?: never;
         head?: never;
@@ -23387,10 +23627,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s referrals waiting for them (Refer someone on Today): posts from the last week asking for a recommendation of what someone they talked with does, each with who, why, the comment naming them and the heads-up to them. Nothing is posted or sent: the person does both, then outreach_referral_done notes it.
+         * The person’s referrals waiting for them or about to be done for them (Refer someone on Today): posts from the last week asking for a recommendation of what someone they talked with does, each with who, why, the comment naming them and the heads-up to them (null when they had one this week), whether their computer can do it for them (forYou: outreach_refer_for_me), whether the comment is up already (posted) and why one came back to them (needs). And the notes asking someone referred twice to send people their way too (asks: outreach_answer_refer_ask). By hand, the person does both, then outreach_referral_done notes it.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_referrals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.referrals.due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The referrals and asks after two the person’s computer does now on Facebook (decision 185): OK’d or under Autopilot, oldest first, as many referrals as the day’s comments leave room for (a referral’s comment counts as one), each with the post, whom it names and their chat. None with Sending off or after a warning today.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_referrals_due"];
         delete?: never;
         options?: never;
         head?: never;
@@ -23751,6 +24011,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_person_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/person.in_hands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The customers in someone’s hands (they messaged or called them themselves, or pressed Take over), so the AI leaves them alone: whose hands, how, when, and whether one waits on a reply. Pass personId for one customer, mine for only yours.
+         * @description Requires records.read.
+         */
+        post: operations["query_person_in_hands"];
         delete?: never;
         options?: never;
         head?: never;
@@ -44259,6 +44539,8 @@ export interface operations {
                                 prefix?: string;
                             };
                         };
+                        /** @default true */
+                        payLater?: boolean;
                         /** @default {} */
                         reminders?: {
                             /**
@@ -44294,6 +44576,8 @@ export interface operations {
                          * @enum {string}
                          */
                         terms?: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                        /** @default true */
+                        venmo?: boolean;
                     };
                     /** Format: uuid */
                     workspaceId: string;
@@ -44353,6 +44637,8 @@ export interface operations {
                                     prefix: string;
                                 };
                             };
+                            /** @default true */
+                            payLater: boolean;
                             reminders: {
                                 /**
                                  * @default [
@@ -44386,6 +44672,8 @@ export interface operations {
                              * @enum {string}
                              */
                             terms: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                            /** @default true */
+                            venmo: boolean;
                         };
                         /** Format: uuid */
                         workspaceId: string;
@@ -45180,7 +45468,7 @@ export interface operations {
                          * @default later
                          * @enum {string}
                          */
-                        payWith?: "stripe" | "square" | "later";
+                        payWith?: "stripe" | "square" | "paypal" | "later";
                         /** @default  */
                         reviewLink?: string;
                         /**
@@ -45526,7 +45814,7 @@ export interface operations {
                          * @default later
                          * @enum {string}
                          */
-                        payWith?: "stripe" | "square" | "later";
+                        payWith?: "stripe" | "square" | "paypal" | "later";
                         /** @default  */
                         reviewLink?: string;
                         /**
@@ -46075,7 +46363,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -46152,7 +46440,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -46200,7 +46488,7 @@ export interface operations {
                     result?: {
                         drafts: string[];
                         /** @default null */
-                        kind?: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                        kind?: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                         /** @default false */
                         lookedUp?: boolean;
                         /** @default null */
@@ -46316,7 +46604,7 @@ export interface operations {
                             /** @default null */
                             chatId?: string | null;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
                             /** @default null */
                             postId?: string | null;
                             /** @default null */
@@ -46416,7 +46704,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -46532,7 +46820,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -46682,7 +46970,7 @@ export interface operations {
                                 draft: {
                                     chatId: string | null;
                                     /** @enum {string} */
-                                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
                                     postId: string | null;
                                     profileId: string | null;
                                 };
@@ -49067,6 +49355,37 @@ export interface operations {
             };
         };
     };
+    command_outreach_event_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    eventId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        skipped: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_events_read: {
         parameters: {
             query?: never;
@@ -49077,11 +49396,37 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    events?: {
+                        /** @default [] */
+                        guests?: {
+                            name: string;
+                            profile: {
+                                id: string | null;
+                                url: string;
+                                username: string | null;
+                            };
+                        }[];
+                        /** @default [] */
+                        hosts?: {
+                            name: string;
+                            profile: {
+                                id: string | null;
+                                url: string;
+                                username: string | null;
+                            };
+                        }[];
+                        name: string;
+                        place?: string | null;
+                        /** @default null */
+                        startsAt?: string | null;
+                        url: string;
+                        when?: string | null;
+                    }[];
                     /**
                      * @default alignable
                      * @enum {string}
                      */
-                    platform?: "alignable";
+                    platform?: "alignable" | "facebook";
                     /** @default [] */
                     urls?: string[];
                     /** Format: uuid */
@@ -49097,6 +49442,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default 0 */
+                        added: number;
                         readAt: string;
                     };
                 };
@@ -49611,6 +49958,109 @@ export interface operations {
                 content: {
                     "application/json": {
                         saved: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_hands_give_back: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    all?: boolean;
+                    /** @default false */
+                    mine?: boolean;
+                    /** @default [] */
+                    profileIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        handedBack: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_hands_keep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        keptAt: string;
+                        /** Format: uuid */
+                        profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_hands_take: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        already: boolean;
+                        /** Format: uuid */
+                        profileId: string;
+                        skipped: number;
                     };
                 };
             };
@@ -51299,6 +51749,7 @@ export interface operations {
                                 problemCheck?: string;
                                 question?: string;
                                 reconnect?: string;
+                                referAsk?: string;
                                 referComment?: string;
                                 referNote?: string;
                                 reminder?: string;
@@ -51361,6 +51812,7 @@ export interface operations {
                             problemCheck: string;
                             question: string;
                             reconnect: string;
+                            referAsk: string;
                             referComment: string;
                             referNote: string;
                             reminder: string;
@@ -51472,6 +51924,7 @@ export interface operations {
                             problemCheck?: string;
                             question?: string;
                             reconnect?: string;
+                            referAsk?: string;
                             referComment?: string;
                             referNote?: string;
                             reminder?: string;
@@ -51592,6 +52045,7 @@ export interface operations {
                             problemCheck?: string;
                             question?: string;
                             reconnect?: string;
+                            referAsk?: string;
                             referComment?: string;
                             referNote?: string;
                             reminder?: string;
@@ -51732,6 +52186,7 @@ export interface operations {
                                 problemCheck?: string;
                                 question?: string;
                                 reconnect?: string;
+                                referAsk?: string;
                                 referComment?: string;
                                 referNote?: string;
                                 reminder?: string;
@@ -51794,6 +52249,7 @@ export interface operations {
                             problemCheck: string;
                             question: string;
                             reconnect: string;
+                            referAsk: string;
                             referComment: string;
                             referNote: string;
                             reminder: string;
@@ -52774,6 +53230,116 @@ export interface operations {
             };
         };
     };
+    command_outreach_refer_ask_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    answer: "approve" | "done" | "skip";
+                    /** Format: uuid */
+                    askId: string;
+                    text?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        askId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "approved" | "done" | "skipped";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_refer_ask_sent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    askId: string;
+                    sent: boolean;
+                    /** @default null */
+                    why?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        askId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "approved" | "done" | "skipped";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_referral_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    comment?: string;
+                    note?: string;
+                    /** Format: uuid */
+                    referralId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        referralId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "approved" | "done" | "skipped";
+                    };
+                };
+            };
+        };
+    };
     command_outreach_referral_done: {
         parameters: {
             query?: never;
@@ -52804,7 +53370,52 @@ export interface operations {
                         /** Format: uuid */
                         referralId: string;
                         /** @enum {string} */
-                        state: "waiting" | "done" | "skipped";
+                        state: "waiting" | "approved" | "done" | "skipped";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_referral_posted: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    commented: boolean;
+                    /** @default false */
+                    more?: boolean;
+                    /** @default false */
+                    noted?: boolean;
+                    /** Format: uuid */
+                    referralId: string;
+                    /** @default false */
+                    skip?: boolean;
+                    /** @default false */
+                    tagged?: boolean;
+                    /** @default null */
+                    why?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        referralId: string;
+                        /** @enum {string} */
+                        state: "waiting" | "approved" | "done" | "skipped";
                     };
                 };
             };
@@ -52838,7 +53449,7 @@ export interface operations {
                         /** Format: uuid */
                         referralId: string;
                         /** @enum {string} */
-                        state: "waiting" | "done" | "skipped";
+                        state: "waiting" | "approved" | "done" | "skipped";
                     };
                 };
             };
@@ -53154,7 +53765,7 @@ export interface operations {
                     /** @default null */
                     chatId?: string | null;
                     /** @enum {string} */
-                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
+                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                     /** @default null */
                     opener?: {
                         /** @enum {string} */
@@ -53193,7 +53804,7 @@ export interface operations {
                         createdAt: string;
                         handedOver: boolean;
                         /** @enum {string} */
-                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
+                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                         name: string;
                         needsYou: string | null;
                         opener: {
@@ -53956,7 +54567,7 @@ export interface operations {
                     environment?: "live" | "test";
                     label?: string | null;
                     /** @enum {string} */
-                    provider: "stripe" | "square";
+                    provider: "stripe" | "square" | "paypal";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -54421,6 +55032,42 @@ export interface operations {
             };
         };
     };
+    command_person_hand_back: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    all?: boolean;
+                    /** @default false */
+                    mine?: boolean;
+                    /** @default [] */
+                    personIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        handedBack: number;
+                        toAi: number;
+                    };
+                };
+            };
+        };
+    };
     command_person_merge: {
         parameters: {
             query?: never;
@@ -54454,6 +55101,42 @@ export interface operations {
                         moved: {
                             [key: string]: number;
                         };
+                        /** Format: uuid */
+                        personId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_person_note_by_hand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    at?: string;
+                    /** Format: uuid */
+                    personId: string;
+                    place: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        fresh: boolean;
                         /** Format: uuid */
                         personId: string;
                     };
@@ -54561,6 +55244,40 @@ export interface operations {
                     "application/json": {
                         /** @enum {string} */
                         consent: "unknown" | "opted_in" | "opted_out";
+                        /** Format: uuid */
+                        personId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_person_take_over: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        already: boolean;
+                        draftsCancelled: number;
                         /** Format: uuid */
                         personId: string;
                     };
@@ -55737,6 +56454,16 @@ export interface operations {
                      */
                     kind?: "product" | "service" | "fee";
                     name: string;
+                    options?: {
+                        choices: {
+                            id?: string;
+                            label: string;
+                            /** @default 0 */
+                            priceCents?: number;
+                        }[];
+                        id?: string;
+                        name: string;
+                    }[];
                     serviceId?: string | null;
                     sku?: string | null;
                     taxable?: boolean;
@@ -55766,6 +56493,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "product" | "service" | "fee";
                             name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
                             serviceId: string | null;
                             sku: string | null;
                             taxable: boolean;
@@ -55795,6 +56532,16 @@ export interface operations {
                     /** @enum {string} */
                     kind?: "product" | "service" | "fee";
                     name?: string;
+                    options?: {
+                        choices: {
+                            id?: string;
+                            label: string;
+                            /** @default 0 */
+                            priceCents?: number;
+                        }[];
+                        id?: string;
+                        name: string;
+                    }[];
                     /** Format: uuid */
                     productId: string;
                     serviceId?: string | null;
@@ -55824,6 +56571,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "product" | "service" | "fee";
                             name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
                             serviceId: string | null;
                             sku: string | null;
                             taxable: boolean;
@@ -74685,6 +75442,8 @@ export interface operations {
                                     /** @enum {string} */
                                     kind: "create_invoice";
                                     lines: {
+                                        /** @default [] */
+                                        choices: string[];
                                         /** Format: uuid */
                                         productId: string;
                                         quantity: number;
@@ -74697,6 +75456,8 @@ export interface operations {
                                     /** @enum {string} */
                                     kind: "create_estimate";
                                     lines: {
+                                        /** @default [] */
+                                        choices: string[];
                                         /** Format: uuid */
                                         productId: string;
                                         quantity: number;
@@ -76002,7 +76763,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "in_hands" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -76134,7 +76895,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "in_hands" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -76226,7 +76987,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "in_hands" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -82193,6 +82954,26 @@ export interface operations {
                                 name: string;
                             }[];
                         }[];
+                        products: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "product" | "service" | "fee";
+                            name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
+                            priceCents: number;
+                            sku: string | null;
+                            unitLabel: string;
+                        }[];
                         tags: {
                             /** Format: uuid */
                             id: string;
@@ -82422,6 +83203,15 @@ export interface operations {
                         calculations: {
                             [key: string]: number;
                         };
+                        files: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                            sizeBytes: number | null;
+                        }[];
                         response: {
                             completedAt: string | null;
                             /** Format: uuid */
@@ -82639,6 +83429,7 @@ export interface operations {
                         selfServe: boolean;
                         /** @enum {string} */
                         status: "pending" | "open" | "paid" | "expired" | "failed";
+                        trialEndsAt: string | null;
                         url: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -84339,7 +85130,7 @@ export interface operations {
                             /** Format: uuid */
                             invoiceId: string;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo";
                             netCents: number | null;
                             note: string | null;
                             paidThrough: string | null;
@@ -86856,6 +87647,8 @@ export interface operations {
                                     prefix: string;
                                 };
                             };
+                            /** @default true */
+                            payLater: boolean;
                             reminders: {
                                 /**
                                  * @default [
@@ -86889,6 +87682,8 @@ export interface operations {
                              * @enum {string}
                              */
                             terms: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                            /** @default true */
+                            venmo: boolean;
                         };
                     };
                 };
@@ -87445,7 +88240,7 @@ export interface operations {
                              * @default later
                              * @enum {string}
                              */
-                            payWith: "stripe" | "square" | "later";
+                            payWith: "stripe" | "square" | "paypal" | "later";
                             /** @default  */
                             reviewLink: string;
                             /**
@@ -87767,7 +88562,7 @@ export interface operations {
                              * @default later
                              * @enum {string}
                              */
-                            payWith: "stripe" | "square" | "later";
+                            payWith: "stripe" | "square" | "paypal" | "later";
                             /** @default  */
                             reviewLink: string;
                             /**
@@ -88049,7 +88844,7 @@ export interface operations {
                                 broken: boolean;
                                 checking: boolean;
                                 needsInfo: boolean;
-                                provider: ("stripe" | "square") | null;
+                                provider: ("stripe" | "square" | "paypal") | null;
                             };
                             phones: number;
                             priceList: {
@@ -88596,7 +89391,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -89427,7 +90222,7 @@ export interface operations {
                         people: {
                             dontPitch: boolean;
                             /** @enum {string} */
-                            kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            kind: "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                             name: string;
                             neverContact: boolean;
                             personId: string | null;
@@ -89568,7 +90363,7 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
-                            reason: "asked" | "request" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower" | "member";
+                            reason: "asked" | "request" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower" | "event" | "member";
                             url: string;
                         }[];
                         perDay: number;
@@ -89844,7 +90639,7 @@ export interface operations {
                      * @default alignable
                      * @enum {string}
                      */
-                    platform?: "alignable";
+                    platform?: "alignable" | "facebook";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -89860,6 +90655,8 @@ export interface operations {
                     "application/json": {
                         due: boolean;
                         read: string[];
+                        /** @default [] */
+                        searches: string[];
                     };
                 };
             };
@@ -90647,6 +91444,65 @@ export interface operations {
                         }[];
                         /** @default 0 */
                         saved: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_hands: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 100 */
+                    limit?: number;
+                    /** @default false */
+                    mine?: boolean;
+                    /** Format: uuid */
+                    profileId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            ask: ("reply" | "follow_up") | null;
+                            /** @enum {string} */
+                            how: "wrote" | "called" | "took_over";
+                            inContacts: boolean;
+                            /** Format: date-time */
+                            lastAt: string;
+                            name: string;
+                            personId: string | null;
+                            place: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                            /** Format: uuid */
+                            profileId: string;
+                            /** Format: date-time */
+                            since: string;
+                            threadKey: string | null;
+                            url: string;
+                            user: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                        }[];
+                        total: number;
                     };
                 };
             };
@@ -91818,6 +92674,7 @@ export interface operations {
                                     problemCheck?: string;
                                     question?: string;
                                     reconnect?: string;
+                                    referAsk?: string;
                                     referComment?: string;
                                     referNote?: string;
                                     reminder?: string;
@@ -91880,6 +92737,7 @@ export interface operations {
                                 problemCheck: string;
                                 question: string;
                                 reconnect: string;
+                                referAsk: string;
                                 referComment: string;
                                 referNote: string;
                                 reminder: string;
@@ -92027,6 +92885,30 @@ export interface operations {
                             at: string | null;
                             by: string | null;
                             tagged: boolean;
+                        } | null;
+                        inHands?: {
+                            ask: ("reply" | "follow_up") | null;
+                            /** @enum {string} */
+                            how: "wrote" | "called" | "took_over";
+                            inContacts: boolean;
+                            /** Format: date-time */
+                            lastAt: string;
+                            name: string;
+                            personId: string | null;
+                            place: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                            /** Format: uuid */
+                            profileId: string;
+                            /** Format: date-time */
+                            since: string;
+                            threadKey: string | null;
+                            url: string;
+                            user: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
                         } | null;
                         intro?: string[];
                         journey?: {
@@ -93106,16 +93988,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default [] */
+                        asks: {
+                            /** Format: uuid */
+                            askId: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            forYou: boolean;
+                            name: string;
+                            needs: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                            /** Format: uuid */
+                            profileId: string;
+                            profileUrl: string;
+                            referred: number;
+                            /** @enum {string} */
+                            state: "waiting" | "approved" | "done" | "skipped";
+                            text: string;
+                        }[];
                         referrals: {
                             asks: string | null;
                             comment: string;
                             /** Format: date-time */
                             createdAt: string;
+                            /** @default false */
+                            forYou: boolean;
                             name: string;
-                            note: string;
+                            /** @default null */
+                            needs: string | null;
+                            note: string | null;
                             /** @enum {string} */
                             platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             post: string;
+                            /** @default false */
+                            posted: boolean;
                             /** Format: uuid */
                             postId: string;
                             postUrl: string;
@@ -93126,9 +94033,71 @@ export interface operations {
                             /** Format: uuid */
                             referralId: string;
                             /** @enum {string} */
-                            state: "waiting" | "done" | "skipped";
+                            state: "waiting" | "approved" | "done" | "skipped";
                             why: string | null;
                             writer: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_referrals_due: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asks: {
+                            /** Format: uuid */
+                            askId: string;
+                            name: string;
+                            platformId: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            profileUrl: string;
+                            text: string;
+                            threadKey: string | null;
+                        }[];
+                        referrals: {
+                            comment: string;
+                            name: string;
+                            note: string | null;
+                            platformId: string | null;
+                            posted: boolean;
+                            /** Format: uuid */
+                            postId: string;
+                            postUrl: string;
+                            /** Format: uuid */
+                            profileId: string;
+                            profileUrl: string;
+                            /** Format: uuid */
+                            referralId: string;
+                            threadKey: string | null;
+                            writer: string;
+                            writerUrl: string;
                         }[];
                     };
                 };
@@ -93164,7 +94133,7 @@ export interface operations {
                             createdAt: string;
                             handedOver: boolean;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                             name: string;
                             needsYou: string | null;
                             opener: {
@@ -93466,7 +94435,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    kind?: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                    kind?: "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                     /**
                      * @default facebook
                      * @enum {string}
@@ -93485,7 +94454,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        auto: ("reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up")[];
+                        auto: ("reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up")[];
+                        /** @default [] */
+                        events: {
+                            hosts: string[];
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            people: number;
+                            place: string | null;
+                            startsAt: string | null;
+                            url: string;
+                            when: string | null;
+                        }[];
                         /**
                          * @default {
                          *       "on": false,
@@ -93540,7 +94521,7 @@ export interface operations {
                                 until: string;
                             };
                             /** @enum {string} */
-                            kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            kind: "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                             likeComment?: boolean;
                             name: string;
                             nextStep: string | null;
@@ -93606,9 +94587,14 @@ export interface operations {
                                 most: number;
                             };
                         };
-                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply")[];
+                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply")[];
                         /** @default false */
                         newMessagesWait: boolean;
+                        /** @default null */
+                        oneOnOnes: {
+                            lastWeek: number;
+                            week: number;
+                        } | null;
                         /** @default [] */
                         partners: {
                             asking: boolean;
@@ -93622,7 +94608,7 @@ export interface operations {
                                 until: string;
                             };
                             /** @enum {string} */
-                            kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            kind: "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                             likeComment?: boolean;
                             name: string;
                             nextStep: string | null;
@@ -93849,6 +94835,22 @@ export interface operations {
                     "application/json": {
                         commentHolds: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
                         count: number;
+                        /** @default [] */
+                        hands: {
+                            /** Format: date-time */
+                            at: string;
+                            name: string;
+                            personId: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                            /** Format: uuid */
+                            profileId: string;
+                            theirs: string | null;
+                            threadKey: string | null;
+                            url: string;
+                            /** @enum {string} */
+                            why: "reply" | "follow_up";
+                        }[];
                         hours: {
                             days: number[];
                             end: number;
@@ -93876,7 +94878,7 @@ export interface operations {
                                 result: {
                                     drafts: string[];
                                     /** @default null */
-                                    kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                    kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                     /** @default false */
                                     lookedUp: boolean;
                                     /** @default null */
@@ -93917,7 +94919,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -93961,7 +94963,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -94637,7 +95639,7 @@ export interface operations {
                     invoiceId?: string;
                     /** @default 25 */
                     limit?: number;
-                    method?: ("card" | "ach" | "cash" | "check" | "other" | "card_outside")[];
+                    method?: ("card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo")[];
                     /** Format: uuid */
                     personId?: string;
                     /** Format: date-time */
@@ -94674,7 +95676,7 @@ export interface operations {
                             invoiceId: string;
                             invoiceNumber: string | null;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo";
                             netCents: number | null;
                             note: string | null;
                             paidThrough: string | null;
@@ -94856,6 +95858,59 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_person_in_hands: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 100 */
+                    limit?: number;
+                    /** @default false */
+                    mine?: boolean;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            /** @enum {string} */
+                            how: "wrote" | "called" | "took_over";
+                            /** Format: date-time */
+                            lastAt: string;
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                            place: string | null;
+                            /** Format: date-time */
+                            since: string;
+                            user: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            waitingSince: string | null;
+                        }[];
+                        total: number;
                     };
                 };
             };
@@ -96972,6 +98027,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "product" | "service" | "fee";
                             name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
                             serviceId: string | null;
                             sku: string | null;
                             taxable: boolean;

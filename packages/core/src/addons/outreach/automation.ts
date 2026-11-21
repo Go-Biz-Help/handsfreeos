@@ -784,6 +784,7 @@ export const MESSAGE_KINDS = [
   'reply',
   'demo_reminder',
   'rebook',
+  'thank_you',
   'birthday',
   'new_job',
   'partner_ask',

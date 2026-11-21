@@ -16,15 +16,18 @@ import {
   chatVerified,
   LeadQualification,
   parseStoredForm,
+  quantitiesWords,
   loadActiveAddons,
   loadCalendar,
   localDateOf,
   openHoursOf,
+  productOptionsOf,
   uuidArray,
   JOB_STATUS_WORDS,
   quoteData,
   type JobStatus,
   type KnowledgeMatch,
+  type ProductOptionRow,
   type TeammateChannel,
   type TeammateConfig,
   type TeammateRow,
@@ -285,6 +288,8 @@ export interface RunProduct {
   readonly name: string;
   readonly priceCents: number;
   readonly unitLabel: string;
+  /** Its sizes, colors and other choices: a bill for it names one of each (core's money/options.ts). */
+  readonly options: readonly ProductOptionRow[];
 }
 
 export interface RunAppointment {
@@ -671,7 +676,12 @@ async function cameInWithOf(tx: Tx, leadId: string): Promise<string | null> {
       for (const question of allQuestions(parseStoredForm(form.definition))) {
         const choices =
           (question.config as { choices?: { id: string; label: string }[] }).choices ?? [];
-        const text = answerText(form.answers?.[question.id], choices).trim();
+        // How many of each reads as its rows' words, never their ids.
+        const text = (
+          question.type === 'quantities'
+            ? (quantitiesWords(question, form.answers?.[question.id]) ?? '')
+            : answerText(form.answers?.[question.id], choices)
+        ).trim();
         // Their contact details are already on the record: only what they asked for helps.
         if (
           text &&
@@ -808,9 +818,15 @@ async function liveOffers(tx: Tx, workspaceId: string, timeZone: string): Promis
 
 /** What's on the price list, by name. */
 async function catalogueOf(tx: Tx, workspaceId: string): Promise<RunProduct[]> {
-  const list = await rows<{ id: string; name: string; price_cents: string; unit_label: string }>(
+  const list = await rows<{
+    id: string;
+    name: string;
+    price_cents: string;
+    unit_label: string;
+    options: unknown;
+  }>(
     tx,
-    sql`select id, name, unit_price_cents::text as price_cents, unit_label
+    sql`select id, name, unit_price_cents::text as price_cents, unit_label, options
         from app.products where workspace_id = ${workspaceId} and archived_at is null
         order by lower(name) limit ${CATALOGUE_MAX}`,
   );
@@ -819,6 +835,7 @@ async function catalogueOf(tx: Tx, workspaceId: string): Promise<RunProduct[]> {
     name: p.name,
     priceCents: Number(p.price_cents),
     unitLabel: p.unit_label,
+    options: productOptionsOf(p),
   }));
 }
 

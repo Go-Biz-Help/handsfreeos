@@ -33,6 +33,7 @@ export default async function FoundingCheckoutPage({
       <Brand size={32} className="text-base" />
       <Card className="w-[480px] max-w-full rounded-dialog p-9">
         <span className="text-[13px] text-text-2">
+          {status.trialEndsAt ? 'Free trial, then ' : ''}
           {status.renewal
             ? `${money(status.amountCents)}, another ${status.billing === 'monthly' ? 'month' : 'year'}`
             : status.billing === 'yearly'

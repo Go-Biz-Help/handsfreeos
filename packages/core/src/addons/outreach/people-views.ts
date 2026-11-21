@@ -1,8 +1,8 @@
 /**
  * People's views (docs/outreach.md, decision 128): one list of everyone the person is reaching, with a view for each
  * kind, in this order, on the web and the phone alike. Each view is one of the lists HandsFreeOS already keeps (the
- * pipeline's stages, the friends lists, the chats, the Partners list), so its people, counts and buttons are that
- * list's own. **Left alone** gathers whoever outreach leaves be: Don't pitch, Never contact, Not a fit, Keep, and
+ * pipeline's stages, the friends lists, the chats, the Partners list, In your hands), so its people, counts and
+ * buttons are that list's own. **Left alone** gathers whoever outreach leaves be: Don't pitch, Never contact, Not a fit, Keep, and
  * those the country setting skips.
  *
  * Browser-safe and pure.
@@ -14,6 +14,7 @@ export const PEOPLE_VIEWS = {
   in_play: 'In play',
   fits: 'Good fits',
   talking: 'Talking',
+  hands: 'In your hands',
   friends: 'Friends',
   requests: 'Requests',
   sent: 'Sent',
@@ -50,6 +51,7 @@ export type PeopleList =
   | { readonly list: 'friends'; readonly show: FriendView }
   | { readonly list: 'chats' }
   | { readonly list: 'partners' }
+  | { readonly list: 'hands' }
   | { readonly list: 'country' };
 
 /** The list behind a view: Left alone opens on Don't pitch. */
@@ -77,6 +79,8 @@ export function peopleListOf(view: PeopleView | LeftAlone): PeopleList {
       return { list: 'chats' };
     case 'partners':
       return { list: 'partners' };
+    case 'hands':
+      return { list: 'hands' };
     case 'country':
       return { list: 'country' };
   }
@@ -107,6 +111,8 @@ export function peopleViewOf(at: PeopleList): {
       return { view: 'chats', alone: null };
     case 'partners':
       return { view: 'partners', alone: null };
+    case 'hands':
+      return { view: 'hands', alone: null };
     case 'country':
       return { view: 'left_alone', alone: 'country' };
   }

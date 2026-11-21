@@ -155,6 +155,11 @@ const ONLINE_COMMANDS = [
   // Refer someone you've talked with on Today (decision 174): I did both, or Not this one.
   'outreach.referral.done',
   'outreach.referral.skip',
+  // ... or Do it for me, and the ask after two referrals answered (decision 185).
+  'outreach.referral.approve',
+  'outreach.refer_ask.answer',
+  // Not going: an event near them off Today (decision 188).
+  'outreach.event.skip',
   // Letting the browser extension sign in by picking its number, from the push (20261027002910).
   'extension_sign_in.answer',
   // Get ready on Today (decision 63): a profile item ticked, the goal set, and the messages OK'd.
@@ -236,6 +241,14 @@ const ONLINE_COMMANDS = [
   'contractor.note.remove',
   // About you (docs/outreach.md, decision 165), on More → Settings, with signal: what a person says of themselves.
   'user_about.set',
+  // In your hands (messaging/hands.ts), on a customer's page and Contacts → In your hands, with signal: Take over, and
+  // Give back to the AI.
+  'person.take_over',
+  'person.hand_back',
+  // Social Outreach's In your hands (decision 182): Take over and Give back in the person menu, Keep it mine on the ask.
+  'outreach.hands.take',
+  'outreach.hands.give_back',
+  'outreach.hands.keep',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -328,6 +341,7 @@ const QUERIES = [
   'outreach.lookup',
   // Where someone stands as their person menu opens (decision 91): in Contacts, a client, on Don't pitch.
   'outreach.profile.marks',
+  'outreach.hands',
   // Whether the person has set Social Outreach up: until then the phone says to do it on a computer (decision 45).
   'outreach.setup',
   // The Pipeline screen: everyone the person reached, by where they stand (decision 47).
@@ -370,6 +384,8 @@ const QUERIES = [
   'socialcontent.content.get',
   // About you, with signal: it's the person's alone, so never in the phone's copy (decision 165).
   'user_about.get',
+  // In your hands, with signal: whether someone on the team has a customer, and the list of everyone they have.
+  'person.in_hands',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

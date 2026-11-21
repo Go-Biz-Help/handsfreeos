@@ -151,8 +151,13 @@ export const outreachAddon = defineAddon({
       'outreach.helpful.engaged',
       'outreach.engaged.saved',
       'outreach.referral.found',
+      'outreach.hands.taken',
+      'outreach.hands.given_back',
       'outreach.referral.done',
       'outreach.referral.skipped',
+      'outreach.referral.approved',
+      'outreach.refer_ask.found',
+      'outreach.refer_ask.answered',
       'outreach.country.unskipped',
       'outreach.country.decided',
       'outreach.their_work.set',
@@ -179,6 +184,8 @@ export const outreachAddon = defineAddon({
       'outreach.autopilot.listed',
       'outreach.autopilot.answered',
       'outreach.comment_research.changed',
+      'outreach.call.noted',
+      'outreach.call.prepped',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -209,7 +216,11 @@ export const outreachAddon = defineAddon({
     // (decision 149, ./times.ts).
     // A comment research started or read has the worker sum it up when its days end or it's full (decision 166,
     // ./comment-research.ts).
-    // A referral found pushes to the person who read its post (decision 174, ./referrals.ts).
+    // A referral found pushes to the person who read its post (decision 174, ./referrals.ts); one done arms the ask
+    // after two, and the ask found pushes too (decision 185).
+    // Someone coming into a person's hands, and a reply seen, arm the ask about them (decision 182, ./hands.ts); a
+    // customer given back to the AI in Contacts is given back here too.
+    // A networking call booked, or moved, arms its prep push half an hour before (decision 187, ./calls.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -241,10 +252,15 @@ export const outreachAddon = defineAddon({
       'outreach.friend.accepted',
       'outreach.lead.wanted',
       'appointment.completed',
+      'appointment.rescheduled',
       'outreach.like_yours.found',
       'outreach.times.check',
       'outreach.comment_research.changed',
       'outreach.referral.found',
+      'outreach.referral.done',
+      'outreach.refer_ask.found',
+      'outreach.hands.taken',
+      'person.handed_back',
     ],
   },
   jobs: [
@@ -269,6 +285,9 @@ export const outreachAddon = defineAddon({
     'outreach.autopilot_reminder',
     'outreach.sum_comment_research',
     'outreach.find_referral',
+    'outreach.refer_ask',
+    'outreach.call_prep',
+    'outreach.hands_ask',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
@@ -280,6 +299,7 @@ export const outreachAddon = defineAddon({
     'asks',
     'automation',
     'autopilot_people',
+    'calls',
     'checks',
     'comment_research',
     'comment_samples',
@@ -287,7 +307,9 @@ export const outreachAddon = defineAddon({
     'days',
     'demos',
     'engagements',
+    'event_people',
     'event_reads',
+    'events',
     'file_chats',
     'file_people',
     'finds',
@@ -298,6 +320,7 @@ export const outreachAddon = defineAddon({
     'friends',
     'group_people',
     'groups',
+    'hands',
     'helpful',
     'imports',
     'joins',
@@ -315,6 +338,7 @@ export const outreachAddon = defineAddon({
     'playbooks',
     'posts',
     'profiles',
+    'refer_asks',
     'referrals',
     'replies',
     'request_pauses',

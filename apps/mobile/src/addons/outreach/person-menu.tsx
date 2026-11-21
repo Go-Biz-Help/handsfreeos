@@ -13,6 +13,7 @@ import {
 import { journeyStepWords, type Journey } from '@hfos/core/addons/outreach/journey';
 import { leadWords } from '@hfos/core/addons/outreach/leads';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { HANDS_OUTREACH_WORDS } from '@hfos/core/addons/outreach/in-hands';
 import { OWNER_WORDS } from '@hfos/core/addons/outreach/owners';
 import {
   OUTREACH_WORDS as W,
@@ -32,6 +33,7 @@ import {
   CalendarCheck,
   ChevronDown,
   ExternalLink,
+  Hand,
   Handshake,
   MessageCircle,
   Undo2,
@@ -42,7 +44,7 @@ import {
   Users,
   UserX,
 } from '@/components/icons';
-import { businessHref } from '@/components/shell/business-context';
+import { businessHref, useOptionalBusiness } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Sheet } from '@/components/ui/sheet';
@@ -66,7 +68,9 @@ import { TheirWork } from './local';
  * **Demo booked**; **Potential partner** (`outreach.partner.potential`, decision 130), under why the AI thinks so when it
  * does, or **Not a partner after all**; **Later**, off the person's own Today for 2 weeks, or **Take off Later**
  * (`outreach.later.set`, decision 100); who reached them first, and for an owner or admin **Give them to {teammate}** (`outreach.owner.move`,
- * decision 107); **Don’t pitch** and **Never contact**, or taking them off, or who put them on.
+ * decision 107); **Take over**, or whose hands they're in and **Give back to the AI** (`outreach.hands.take`,
+ * `outreach.hands.give_back`, decision 182); **Don’t pitch** and **Never contact**, or taking them off, or who put them
+ * on.
  *
  * Where they stand is asked as the menu opens (`outreach.profile.marks`), with signal: until it comes, its switches
  * wait. With no signal only the Open items can be pressed, under a note saying the rest need signal; nothing is queued,
@@ -203,6 +207,7 @@ function NameMenu({
     };
   }, [open, online, workspaceId, profileId]);
 
+  const me = useOptionalBusiness()?.me.user.id ?? null;
   const items = personMenuItems({
     row: who,
     marks,
@@ -210,6 +215,7 @@ function NameMenu({
     contactsWrite: writesContacts,
     online,
     ownSwitches,
+    me,
   });
   const personId = marks ? marks.personId : (who.personId ?? null);
 
@@ -322,6 +328,21 @@ function NameMenu({
             later: key === 'later',
           });
           return laterSetWords(who.name, output);
+        });
+      case 'take-over':
+        return void run(key, async () => {
+          await change('outreach.hands.take', { workspaceId, profileId });
+          return HANDS_OUTREACH_WORDS.tookOver(who.name);
+        });
+      case 'give-back':
+        return void run(key, async () => {
+          await change('outreach.hands.give_back', {
+            workspaceId,
+            profileIds: [profileId],
+            all: false,
+            mine: false,
+          });
+          return HANDS_OUTREACH_WORDS.gaveBack(1);
         });
       case 'dont-pitch':
       case 'not-dont-pitch':
@@ -443,6 +464,9 @@ const ICONS: Partial<Record<PersonMenuKey, LucideIcon>> = {
   'partner-hint': Handshake,
   later: AlarmClock,
   'not-later': Undo2,
+  'take-over': Hand,
+  'give-back': Undo2,
+  'hands-line': Hand,
   'dont-pitch': Ban,
   'not-dont-pitch': Undo2,
   'never-contact': UserX,

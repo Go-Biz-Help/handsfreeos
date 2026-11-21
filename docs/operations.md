@@ -34,6 +34,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
 - [Who can do what: roles and permissions](#who-can-do-what-roles-and-permissions)
 - [Money: Stripe and Square](#money-stripe-and-square)
+- [Money: PayPal](#money-paypal)
 - [Usage balances: what businesses pay us](#usage-balances-what-businesses-pay-us)
 - [Paying partners: Stripe Express](#paying-partners-stripe-express)
 - [Paying affiliates: Stripe Express](#paying-affiliates-stripe-express)
@@ -164,6 +165,10 @@ Make one folder in your password manager named `HandsFreeOS`. Every secret in th
 | hfos_sync database password                                                | The `hfos_sync` password and the finished `PS_DATA_SOURCE_URI` string (Sync Part 2)                                                                                                                                                                                                                                                 | Fly.io secret `PS_DATA_SOURCE_URI` on `handsfreeos-sync`                                                                                                                                                                        |
 | Sync storage Postgres password                                             | The password of PowerSync's own Postgres and the finished `PS_STORAGE_URI` string (Sync Part 4)                                                                                                                                                                                                                                     | Fly.io secret `POSTGRES_PASSWORD` on `handsfreeos-sync-storage`, and inside `PS_STORAGE_URI` on `handsfreeos-sync`                                                                                                              |
 | Sync admin token                                                           | `PS_ADMIN_TOKEN`, the sync service's diagnostics token (Sync Part 5)                                                                                                                                                                                                                                                                | Fly.io secret `PS_ADMIN_TOKEN` on `handsfreeos-sync` only                                                                                                                                                                       |
+| Backup encryption key                                                      | The three lines `age-keygen` printed: the `age1…` public key and the `AGE-SECRET-KEY-1…` secret key ("A copy outside Supabase", Part 1). The secret key is the only way to open the nightly copies.                                                                                                                                 | The public key: GitHub variable `BACKUP_AGE_RECIPIENT` in the `backups` environment. The secret key: nowhere else.                                                                                                              |
+| hfos_backup database password                                              | The `hfos_backup` password and its finished session-pooler connection string (Part 4)                                                                                                                                                                                                                                               | GitHub secret `BACKUP_DATABASE_URL` in the `backups` environment                                                                                                                                                                |
+| Cloudflare R2 backup token                                                 | The R2 token's **Access Key ID**, **Secret Access Key** and the account ID (Part 2)                                                                                                                                                                                                                                                 | GitHub secrets `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in the `backups` environment                                                                                                                      |
+| Supabase Storage S3 key (backup)                                           | The Storage S3 **Access key ID** and **Secret access key** (Part 3)                                                                                                                                                                                                                                                                 | GitHub secrets `SUPABASE_S3_ACCESS_KEY_ID` and `SUPABASE_S3_SECRET_ACCESS_KEY` in the `backups` environment                                                                                                                     |
 
 Two values do not follow the pattern. The Fly.io deploy token (`FLY_API_TOKEN`) lives only in GitHub, not in your password manager: if it is lost, you make a new one. The file `.env.hosted` at the repository root already holds the two database passwords, the two finished connection strings and the publishable key. It is gitignored and exists only on your Mac. Never commit, attach or paste it anywhere.
 
@@ -481,7 +486,7 @@ If you see `MaxClientsInSessionMode` or `max clients reached in session mode` in
 Change a role's password in any of these cases:
 
 - It may have leaked.
-- You restored a backup (backups do not keep these passwords).
+- You restored a backup after a break-in. After any other restore, set the same passwords again instead (step 8 of "Restoring a daily backup").
 - You are setting up a new or copied project. The first migration creates both roles with local development passwords that are written in the repository. Those must never stay in place on a hosted project.
 
 Postgres keeps one password per role. So there is a short gap between changing the password and restarting the app, and new connections fail during it. Do this at a quiet time. Connections that are already open keep working; only new sign-ins need the new password. Do one role at a time. The steps below change `hfos_worker`. For the API, use `hfos_api`, `handsfreeos-api`, `DATABASE_URL` and `HFOS_API_DB_PASSWORD` instead.
@@ -1212,24 +1217,110 @@ Before you start: sign in with your first account and add a lead to a pipeline i
 ### Backups
 
 - The Pro plan backs up the database every day and keeps the last 7 days. The backups are under **Database** → **Backups**, on the **Scheduled backups** tab. Direct link: `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/database/backups/scheduled`.
-- Backups do not include Storage files, only the rows that point to them. A backup cannot bring back a deleted photo or recording.
-- Backups do not keep the `hfos_api` and `hfos_worker` passwords.
+- Backups do not include Storage files, only the rows that point to them. A backup cannot bring back a deleted photo or recording. Twilio's copy of each call recording and voicemail is deleted once the worker has stored it, so the copy in Storage is the only one.
+- Backups do not keep the `hfos_api`, `hfos_worker` and `hfos_sync` passwords.
 - No backup holds the worker's `WORKER_ENCRYPTION_KEY`. Without it, the clients' Twilio credentials in a restored database cannot be opened. Keep the key in your password manager.
-- Deleting the project deletes its backups.
+- Deleting the project deletes its backups. So does anyone who gets into the Supabase account. Only a copy kept outside Supabase survives that ("A copy outside Supabase").
+- A restore puts the whole project back, for every business. When only some records are lost, copy them back from a separate project instead ("Bringing back only what was lost").
 - Point-in-time recovery restores the database to any moment, losing at most about 2 minutes of data. It is an add-on that costs about $100 a month for 7 days. It also needs at least the Small compute size (about $15 a month); the project is on Micro now (about $10 a month). For HandsFreeOS alone, that adds roughly $105 a month. The organization's Pro plan fee stays the same. Point-in-time recovery replaces the daily backups. Turn it on in **Project Settings** → **Add-ons** once clients depend on their data.
 
 #### Restoring a daily backup
 
-1. Open `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/database/backups/scheduled`.
-2. On the backup you want, click its restore button.
-3. Read the **Restore from backup** dialog. Every change made after that backup is lost.
-4. Click **Restore**.
+A restore puts the whole project back to the moment of the backup. Every business loses what changed after it, and the project is offline while it runs. If only one business lost records, use "Bringing back only what was lost" instead.
+
+Supabase asks for two things around a restore that the dashboard doesn't do for you. The sync service's replication slot must be dropped first (steps 1 to 3). The three app roles come back with no password, so nothing can sign in until you set them again (step 8). That pause is useful: the worker can't send anything until you've looked at step 7.
+
+1. Write down the time of the backup you will restore, from the list at `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/database/backups/scheduled`.
+2. Stop the sync service. Find its machine ID first:
+
+   ```bash
+   fly status --app handsfreeos-sync
+   ```
+
+   Then stop that machine:
+
+   ```bash
+   fly machine stop <service machine ID> --app handsfreeos-sync
+   ```
+
+3. In a new SQL Editor query, drop its slot:
+
+   ```sql
+   select pg_drop_replication_slot(slot_name) from pg_replication_slots where slot_name like 'hfos_sync_%';
+   ```
+
+   You should see one row for each slot dropped. If Postgres says the slot is active, the service is still running: repeat step 2.
+
+4. Back on the backups list, click the restore button on the backup from step 1.
+5. Read the **Restore from backup** dialog. Every change made after that backup is lost.
+6. Click **Restore**.
 
    You should see the dashboard report that the project is restoring. The project is offline until the restore finishes.
 
-5. Give both roles new passwords, one at a time, with the steps in "Change an app role password". The apps cannot sign in until you do.
+7. Check what the worker would do again. Jobs that ran between the backup and now are waiting again, and the worker runs them as soon as it can sign in. Booking reminders for visits that have passed, and payment reminders that are too late, skip themselves. Other messages could go out a second time. In a new SQL Editor query, run:
 
-   You should see `worker started` in the worker's log, and your data when you sign in at `https://app.handsfreeos.com`.
+   ```sql
+   select kind, count(*) from app.scheduled_jobs where status = 'pending' and run_at <= now() group by kind order by 2 desc;
+   ```
+
+   ```sql
+   select event_type, count(*) from app.outbox where status = 'pending' group by event_type order by 2 desc;
+   ```
+
+   You should see mostly housekeeping, such as `wallet.sweep`, `sync_window.sweep`, `registration.check` and `addon.deliver`, which are safe to run again. If anything that messages customers shows up in numbers, such as `push.send` or a follow-up, get help before step 8.
+
+8. Set the three passwords again. After a mistake, use the same passwords as before, from the password manager entries "hfos_api database password", "hfos_worker database password" and "hfos_sync database password". Fly then needs no change. Run each line with its password in place of the placeholder:
+
+   ```sql
+   alter role hfos_api with password '<hfos_api password>';
+   ```
+
+   ```sql
+   alter role hfos_worker with password '<hfos_worker password>';
+   ```
+
+   ```sql
+   alter role hfos_sync with password '<hfos_sync password>';
+   ```
+
+   If the restore follows a break-in, make new passwords instead, one role at a time: "Change an app role password" for the first two, and "Rotating the sync service's secrets" for `hfos_sync`.
+
+   Afterwards, delete the saved queries, as in steps 16 and 17 of "Change an app role password".
+
+9. Start the sync service again:
+
+   ```bash
+   fly machine start <service machine ID> --app handsfreeos-sync
+   ```
+
+10. Wait for its new copy:
+
+    ```bash
+    fly ssh console --app handsfreeos-sync -g app -C "node /config/status.mjs --wait 900"
+    ```
+
+    You should see a new slot (`hfos_sync_2_…` or later), `first copy done`, and `Healthy.` Phones need nothing: they catch up on their own.
+
+11. Check the apps:
+
+    ```bash
+    fly logs --app handsfreeos-worker
+    ```
+
+    You should see `worker started` and no `password authentication failed` lines. Then sign in at `https://app.handsfreeos.com` and open **Contacts**; you should see your customers as they were at the backup. If either app still can't sign in after 2 minutes, restart it with `fly apps restart handsfreeos-worker` or `fly apps restart handsfreeos-api`.
+
+#### Bringing back only what was lost
+
+When one business loses records, for example by deleting them for good, emptying the Deleted bin or a bad import, bring back just those records. Everyone else keeps their work.
+
+1. Open `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/database/backups/restore-to-new-project`.
+2. On a backup from before the loss, click **Restore**.
+3. Read the cost the dialog shows. The new project is billed by the hour at the same size as this one, about 1.5¢ an hour on Micro, until you delete it. Confirm.
+
+   You should see a new project in the dashboard once the copy is done. It holds the database only, with no Storage files. No app signs in to it, so it sends nothing.
+
+4. Get help to copy the missing records back. Claude can read both projects with the Supabase connector, list what is missing, and prepare the copy for you to approve. Nothing is copied by hand in the dashboard.
+5. When you are done, delete the new project: open it, then **Project Settings** → **General** → **Delete project**. It costs money until you do.
 
 #### Keeping your own copy
 
@@ -1280,6 +1371,131 @@ A copy on your own disk also protects you if the project itself is lost. It hold
    ```
 
 Restoring from this copy into a new project follows Supabase's "Backup and Restore using the CLI" guide. Get help before you try it.
+
+#### A copy outside Supabase
+
+Every night the **Nightly backup** workflow (`.github/workflows/backup.yml`) copies the database and the Storage files to a Cloudflare R2 bucket, `handsfreeos-backups`. It is what survives if the Supabase project is deleted or someone gets into the Supabase account. It runs on GitHub, so nothing needs your Mac to be on. At today's size it fits in R2's free 10 GB; past that, R2 costs 1.5¢ per GB a month.
+
+What lands in the bucket:
+
+- `daily/<date and time>/database.dump.age`: the whole database, auth and storage tables included, made with `pg_dump` and encrypted. Only the secret key in your password manager opens it.
+- `files/<bucket>/`: a mirror of the `attachments`, `telephony`, `brand` and `imports` buckets.
+- `daily/<date and time>/files/<bucket>/`: each file deleted or replaced in Supabase that night, moved here instead of going.
+- Everything under `daily/` is locked for 30 days: nobody can delete or overwrite it sooner, not even with the workflow's own token. It is deleted after 31 days.
+
+The workflow reads the database as `hfos_backup`, a login that reads every table and can change nothing (migration `20261027032200_backup_login.sql`). If a run fails, it opens an issue named "The nightly backup failed" in the repository, and GitHub emails you.
+
+Setting it up takes about 20 minutes, once. Do the parts in order.
+
+**Part 1: Make the encryption key.**
+
+1. In Terminal, install age:
+
+   ```bash
+   brew install age
+   ```
+
+2. Make the key:
+
+   ```bash
+   age-keygen
+   ```
+
+   You should see three lines: `# created: …`, `# public key: age1…` and `AGE-SECRET-KEY-1…`.
+
+3. Save all three lines in a new password manager entry named "Backup encryption key". Without the `AGE-SECRET-KEY-1…` line no copy can ever be opened, so save it nowhere else, and never in a file in the repository.
+4. Keep the `age1…` public key for Part 5. It is not secret.
+
+**Part 2: Make the R2 bucket.**
+
+1. Sign in at `https://dash.cloudflare.com` and open the account that holds `handsfreeos.com`.
+2. Click **R2 Object Storage** in the left sidebar. If it asks you to add a payment method or accept R2's terms, do so; nothing is charged within the free tier.
+3. Click **Create bucket**. Name it `handsfreeos-backups`, leave **Location** on **Automatic** and **Default storage class** on **Standard**, and click **Create bucket**.
+4. Open the bucket's **Settings** tab. Under **Bucket lock rules**, click **Add rule**: name `Keep daily copies 30 days`, prefix `daily/`, retention **30 days**. Save.
+5. Under **Object lifecycle rules**, click **Add rule**: name `Delete daily copies after 31 days`, prefix `daily/`, delete objects **31 days** after they were uploaded. Save.
+6. Back on **R2 Object Storage**, open **Manage API tokens** (under **Account details**, or the **API** menu) and click **Create Account API token**.
+7. Name it `HandsFreeOS nightly backup`. Under **Permissions** choose **Object Read & Write**. Under **Specify bucket(s)** choose **Apply to specific buckets only** and pick `handsfreeos-backups`. Leave **TTL** on **Forever**. Click **Create Account API Token**.
+
+   You should see an **Access Key ID**, a **Secret Access Key** and an S3 endpoint like `https://<account id>.r2.cloudflarestorage.com`. The secret is shown only once.
+
+8. Save all three in a new password manager entry named "Cloudflare R2 backup token". The account ID is the part of the endpoint before `.r2.cloudflarestorage.com`.
+
+**Part 3: Make a Storage key.**
+
+1. Open `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/storage/s3`.
+2. Under **Access keys**, click **New access key**, describe it as `Nightly backup`, and click **Create access key**.
+
+   You should see an **Access key ID** and a **Secret access key**. The secret is shown only once.
+
+3. Save both in a new password manager entry named "Supabase Storage S3 key (backup)". This key can read and change every file, so it goes only into GitHub in Part 5.
+
+**Part 4: Give hfos_backup a password.**
+
+1. Make a password:
+
+   ```bash
+   openssl rand -hex 32
+   ```
+
+2. Save it in a new password manager entry named "hfos_backup database password".
+3. In a new SQL Editor query, run this line with the password in place of the placeholder:
+
+   ```sql
+   alter role hfos_backup with password '<hfos_backup password>';
+   ```
+
+   You should see a success message and no rows. Then delete the saved query, as in steps 16 and 17 of "Change an app role password".
+
+4. Build its connection string through the session pooler (GitHub can't reach the database's direct address), with the host from "Check the pooler host", and save it in the same entry:
+
+   ```text
+   postgresql://hfos_backup.ybupfghakoszfcxhyrby:<hfos_backup password>@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+   ```
+
+**Part 5: Give GitHub the values.**
+
+1. Open `https://github.com/Go-Biz-Help/handsfreeos/settings/environments` and click **New environment**. Name it `backups` and click **Configure environment**.
+2. Under **Deployment branches and tags**, choose **Selected branches and tags**, click **Add deployment branch or tag rule**, type `main` and click **Add rule**. Only `main` can then read these values, never a pull request's branch.
+3. Under **Environment secrets**, click **Add environment secret** for each of these:
+
+   | Name                            | Value                                         |
+   | ------------------------------- | --------------------------------------------- |
+   | `BACKUP_DATABASE_URL`           | The connection string from Part 4             |
+   | `R2_ACCOUNT_ID`                 | The account ID from Part 2                    |
+   | `R2_ACCESS_KEY_ID`              | The R2 **Access Key ID**                      |
+   | `R2_SECRET_ACCESS_KEY`          | The R2 **Secret Access Key**                  |
+   | `SUPABASE_S3_ACCESS_KEY_ID`     | The Storage **Access key ID** from Part 3     |
+   | `SUPABASE_S3_SECRET_ACCESS_KEY` | The Storage **Secret access key** from Part 3 |
+
+4. Under **Environment variables**, click **Add environment variable**: name `BACKUP_AGE_RECIPIENT`, value the `age1…` public key from Part 1.
+
+**Part 6: Run it once.**
+
+1. Open `https://github.com/Go-Biz-Help/handsfreeos/actions/workflows/backup.yml`, click **Run workflow**, leave the branch on `main`, and click **Run workflow**.
+
+   You should see the run go green in about 5 minutes, with lines like `Database copy: 70M, rows for 400 tables.` and `Files copy: 950 files, 88M.`
+
+2. In Cloudflare, open the `handsfreeos-backups` bucket.
+
+   You should see `daily/` with one folder for this run, holding `database.dump.age`, and `files/` with the four buckets.
+
+From then on it runs every night at 08:41 UTC.
+
+##### Restoring from this copy
+
+Get help before you try this: it is the last resort, for when the Supabase project itself is gone.
+
+1. Make a new Supabase project in the same organization and region, on at least the same compute size.
+2. Download the newest `daily/…/database.dump.age` from the bucket, and decrypt it on your Mac with the secret key from "Backup encryption key":
+
+   ```bash
+   age --decrypt --identity <file holding the AGE-SECRET-KEY line> --output database.dump database.dump.age
+   ```
+
+3. Load it into the new project with `pg_restore`, following Supabase's "Backup and Restore using the CLI" guide, and copy the four `files/` folders into new buckets of the same names.
+4. Point the apps at the new project: new keys and connection strings on Fly and Vercel, as in "Keep the web address the same everywhere". Then set the role passwords ("Change an app role password", Sync Part 2) and the sync service's new copy, as in "Restoring a daily backup".
+
+Delete the decrypted `database.dump` when you're done: it holds every client's information.
 
 ### Nightly clean-up
 
@@ -1613,6 +1829,11 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `SQUARE_APPLICATION_ID`               | Only to connect Square accounts                                                                                                              | **Settings** → **Payments** shows “Square isn’t set up yet” when a business presses Connect Square.                                                                                                                                                                                                                                                                                                                               | The Square developer dashboard, your application’s **Credentials**: the **Application ID**. See “Money: Stripe and Square”. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `SQUARE_APPLICATION_SECRET`           | With `SQUARE_APPLICATION_ID`                                                                                                                 | The worker refuses to start with an application id and no secret.                                                                                                                                                                                                                                                                                                                                                                 | The same **Credentials** page: the **Application Secret**. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `SQUARE_WEBHOOK_SIGNATURE_KEYS`       | With `SQUARE_APPLICATION_ID`                                                                                                                 | Square’s events are refused, so a plan’s cycle and a dispute never land here.                                                                                                                                                                                                                                                                                                                                                     | Square, **Webhooks** → your subscription: the **Signature Key**. Several, separated by commas, so a key can be rotated without a gap. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `PAYPAL_CLIENT_ID`                    | Only to connect PayPal accounts                                                                                                              | **Settings** → **Payments** shows “PayPal isn’t set up yet” when a business presses Connect PayPal. Stripe and Square still work.                                                                                                                                                                                                                                                                                                 | PayPal’s developer dashboard, **Apps & Credentials**: the app’s **Client ID** (Sandbox or Live, matching `PAYPAL_ENVIRONMENT`). See “Money: PayPal”. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `PAYPAL_CLIENT_SECRET`                | With `PAYPAL_CLIENT_ID`                                                                                                                      | The worker refuses to start with a client id and no secret.                                                                                                                                                                                                                                                                                                                                                                       | The same app’s **Secret key 1**. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `PAYPAL_PARTNER_MERCHANT_ID`          | With `PAYPAL_CLIENT_ID`                                                                                                                      | The worker refuses to start without it.                                                                                                                                                                                                                                                                                                                                                                                           | HandsFreeOS’s own PayPal merchant id: on paypal.com, **Account Settings** → **Business information** (live), or the sandbox business account’s **Account ID**. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `PAYPAL_BN_CODE`                      | With `PAYPAL_CLIENT_ID` in production                                                                                                        | The worker refuses to start in production without it.                                                                                                                                                                                                                                                                                                                                                                             | The BN code PayPal emails when it approves HandsFreeOS as a partner. Before that, `HandsFreeOS_SP_SANDBOX`, which the sandbox doesn’t check. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `PAYPAL_WEBHOOK_ID`                   | With `PAYPAL_CLIENT_ID`                                                                                                                      | PayPal’s events are all refused, so a pending payment never settles here and a business taking our access away isn’t noticed.                                                                                                                                                                                                                                                                                                     | The app’s **Webhooks** list: the **Webhook ID**. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `EXPO_ACCESS_TOKEN`                   | Only for push notifications to the phone app                                                                                                 | The worker starts, logs `EXPO_ACCESS_TOKEN is not set: push notifications to phones are off until it is`, and its `worker started` line shows `"push":"none"`. Phones register but get nothing; the emails still go.                                                                                                                                                                                                              | Expo, the Go Biz Help organization's **Settings** → **Access tokens**: the robot user's token (Expo Part 1 in "Push notifications: Expo"). Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `ADDON_PLATFORM_KEYS`                 | For HandsFreeOS's own Repliers account (Real Estate Agent's listing feed), and for businesses to sign in to DocuSign or Dotloop (its e-sign) | Repliers: staff can still turn HandsFreeOS's own Repliers account on for a business, but it reads as not connected: the business connects its own Repliers, AnyProp or MLS feed instead. DocuSign or Dotloop: pressing Connect says HandsFreeOS can't sign in there yet and to ask HandsFreeOS support. The worker's `worker started` line lists the accounts it has under `addonPlatformKeys`.                                   | One JSON value, set with `fly secrets import`: `{"realestate.repliers":{"apiKey":"…"},"realestate.docusign":{"clientId":"…","clientSecret":"…"},"realestate.dotloop":{"clientId":"…","clientSecret":"…"}}`. Repliers' key is in its dashboard under **API keys**. DocuSign's is an app under **Apps and Keys** (its integration key and a secret key), and Dotloop's a client from its developer page; both take the redirect URI `<WORKER_PUBLIC_URL>/oauth/addon/callback`. While DocuSign is tried on a developer account, add `"environment":"demo"` to its entry. A value in the wrong shape stops the worker starting, with a line saying so. Worker only: the API refuses to start with it. |
 | `SITE_READER_IPS`                     | No                                                                                                                                           | The texting registration's checks and the Knowledge scan still work, but a site whose security shows servers a robot check can't be told to let HandsFreeOS in: the step offers only **Finish the check on my site** and screenshots.                                                                                                                                                                                             | The worker's fixed outgoing addresses, comma-separated, from `fly ips list --app handsfreeos-worker` after `fly ips allocate-egress`. See "When the website's security stops the checks". Not secret. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -1650,6 +1871,7 @@ The defaults are right in production. Setting some of these changes real behavio
 | `FAKE_APPROVAL_MS`                         | `3000`                                                                     | Used only by the fake carrier.                                                                                                                                                                                                                                 |
 | `PAYMENTS_PROVIDER`                        | `real` in production                                                       | Production refuses `fake`, the stand-in for local development and tests. Left unset it is `real` as soon as a Stripe or Square application is configured.                                                                                                      |
 | `SQUARE_ENVIRONMENT`                       | `live` in production                                                       | Production refuses `test`. `test` points every Square call at the sandbox.                                                                                                                                                                                     |
+| `PAYPAL_ENVIRONMENT`                       | `live` in production                                                       | `test` points every PayPal call at the sandbox. Production allows `test`, so PayPal can be tried on the live servers before PayPal approves HandsFreeOS as a partner.                                                                                          |
 | `PAYMENTS_FAKE_SETTLE_MS`                  | Not set: a stand-in bank transfer settles only when asked                  | Local development only. It does nothing with the real providers.                                                                                                                                                                                               |
 | `ASSISTANT_PROVIDER`                       | `anthropic` when `ANTHROPIC_API_KEY` is set, otherwise `none`              | Production refuses `scripted`, the stand-in the tests use. `none` turns the Assistant off even with a key.                                                                                                                                                     |
 | `ASSISTANT_MODEL`                          | `claude-opus-5-5`                                                          | The Claude model Ask HandsFreeOS (the team's own helper) uses. Change it only as "Change the model" in "The Assistant: Anthropic" describes.                                                                                                                   |
@@ -3603,7 +3825,7 @@ Never use the root `pnpm build` as the build command. It builds the API and the 
 
 ### Environment variables
 
-The web app reads seven settings, plus an eighth for the check that bookings and website chats come from people and two for Google Maps, and Vercel reads one more for the install. All of them are plain, public values. Next.js copies the `NEXT_PUBLIC_` ones into the pages, so anyone can read them in a browser. That is why none of them may ever be a secret.
+The web app reads eight settings, plus a ninth for the check that bookings and website chats come from people and two for Google Maps, and Vercel reads one more for the install. All of them are plain, public values. Next.js copies the `NEXT_PUBLIC_` ones into the pages, so anyone can read them in a browser. That is why none of them may ever be a secret.
 
 | Name                                   | Value                                      | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | -------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -3613,6 +3835,7 @@ The web app reads seven settings, plus an eighth for the check that bookings and
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `<publishable key>`                        | Copied from Supabase **Project Settings** → **API Keys** and kept in your password manager. Starts with `sb_publishable_`. Required, like the URL, and fails the same way without it.                                                                                                                                                                                                                                                                                                                 |
 | `NEXT_PUBLIC_PASSKEYS_ENABLED`         | `true`                                     | Shows passkey sign-in and the passkey settings. Only the exact value `false` turns them off.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `NEXT_PUBLIC_GMAIL_ENABLED`            | `false`                                    | Keeps **Connect Gmail** off until Google approves the restricted scopes. Only the exact value `true`, in lower case, turns it on; `True`, `1` or `yes` leave Gmail off. Leaving it unset also keeps Gmail off.                                                                                                                                                                                                                                                                                        |
+| `NEXT_PUBLIC_PAYPAL_ENABLED`           | `false`                                    | Keeps **Connect PayPal** on Coming soon until PayPal approves HandsFreeOS as a partner. Only the exact value `true`, in lower case, turns it on. Set it for Preview alone to try the sandbox first. See “Money: PayPal”, PayPal Part 7.                                                                                                                                                                                                                                                               |
 | `NEXT_PUBLIC_AGENCY_SIGNUP_ENABLED`    | `false`                                    | Hides the **I run an agency that manages several businesses** switch on **Set up your business**, so everyone who signs up gets a plain business. Only the exact value `true`, in lower case, shows it. Leaving it unset also hides it. Agencies already set up keep working.                                                                                                                                                                                                                         |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`       | `<Turnstile site key>` (optional)          | The public site key of the Cloudflare Turnstile widget that checks bookings and website chats come from people. The check shows only once the worker also has `TURNSTILE_SECRET_KEY`. Set this one and redeploy before the worker gets its secret: with the secret and no site key, every online booking and every website chat message fails. See "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking".                                        |
 | `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY`  | `<browser key>` (optional)                 | Google Maps for territories by distance, drawn on a map or picked on a map by ZIP code, and forms' Google address search: a key restricted to the app's domains, with the Maps JavaScript, Geocoding and Places (New) APIs. Without it, ZIP codes and form addresses are typed.                                                                                                                                                                                                                       |
@@ -5668,11 +5891,16 @@ If it goes wrong:
 ### Postmark Part N: Every business's own mail
 
 Any business can receive its mail in HandsFreeOS at its own domain (M19). It clicks **Receive mail here** in
-**Settings → Email**, and the worker gives that domain a Postmark server of its own, named `Inbound · <domain>`.
-Each server receives only that domain and posts to the same webhook as every other
-(`WORKER_PUBLIC_URL/webhooks/postmark/inbound`, with the webhook password). The business then points its
-domain's MX record at `inbound.postmarkapp.com`, and the worker finds it within 15 minutes. You set up nothing per
-business.
+**Settings → Email**, and the page shows the MX record to add. The business points its domain's MX record at
+`inbound.postmarkapp.com`, and the worker gives that domain a Postmark server of its own, named
+`Inbound · <domain>`. Each server receives only that domain and posts to the same webhook as every other
+(`WORKER_PUBLIC_URL/webhooks/postmark/inbound`, with the webhook password). You set up nothing per business.
+
+Postmark takes a domain only once its MX already points at Postmark. Until then it answers code 610 ("We could
+not find an MX record pointing to the expected domain"), and the worker treats that as waiting, not a refusal. So
+the server is made when the MX check finds the record: at once if the MX was already there, otherwise within 15
+minutes, or straight away when the business clicks **Check now**. If our DNS sees the record before Postmark's
+does, the worker asks Postmark again every 5 minutes until it takes it.
 
 Before the first business turns it on:
 
@@ -5701,8 +5929,8 @@ What a business does, and what it sees:
     it working, and only one receives its mail.
   - `handsfreeos.com` needs no third record, since only HandsFreeOS's own business may hold it.
   - Domains already verified before this change keep working as they were.
-- **Receive mail here** shows once the domain is verified. It shows the MX record, the warning that all its mail
-  moves here, and **Stop receiving here**.
+- **Receive mail here** shows once the domain is verified, with the warning that all its mail moves here. Once
+  clicked, it shows the MX record, **Check now** while it waits for it, and **Stop receiving here**.
 - **Mail to an address the business hasn't added** goes to its default address, in the team's Inbox. Nothing is
   lost to a typo.
 
@@ -5725,7 +5953,8 @@ If it goes wrong:
 - **"Another HandsFreeOS business still has … working. This one waits…".** Two businesses claimed the same name
   and the other verified it first. It stays waiting, checked daily, until the other removes it.
 - **Stuck on "Waiting for the MX record".** Check the domain's MX with `dig MX <domain>`. It should name
-  `inbound.postmarkapp.com` and nothing else.
+  `inbound.postmarkapp.com` and nothing else. Once it does, the business clicks **Check now**. The worker logs
+  nothing while Postmark answers 610; that is the normal wait.
 - **Mail doesn't arrive.**
   1. In Postmark, open the domain's `Inbound · <domain>` server → the inbound stream → **Activity**.
   2. If the mail isn't there, the MX isn't pointing at Postmark yet.
@@ -8877,7 +9106,7 @@ On a first setup, the key goes in with the worker's other secrets (Fly Part 6). 
 - **A check before anything goes out.** Every reply is checked for its length, links (the business's own only), phone numbers and email addresses (the business's or this customer's only), prices and discounts, leftover placeholders, "you're booked" when nothing was booked, and the disclosure rule. A reply that fails is rewritten once, then goes to a person.
 - **Website chat visitors are strangers.** Anyone can type a customer's phone number into a chat. So a visitor's details link the chat to that customer, but the teammate never reads that customer's history, visits or details back to the visitor, and never moves or cancels their bookings; those go through the links sent to the contact on file. New bookings from a chat work.
 - **When it answers.** Within its **Hours** (always, after hours only, or custom), in conversations it's handling or that nobody is handling or assigned to. It waits a moment first, so a few quick messages get one reply: 3 seconds on chat, 20 on texts, 60 on email. It never answers automatic emails, and it stays out of loops with other bots.
-- **People come first.** A person's reply in a conversation it's handling takes the conversation over, and so does **Take over**. The teammate stays quiet there until someone clicks **Hand back**.
+- **People come first.** A person's reply in a conversation it's handling takes the conversation over, and so does **Take over**. It also puts the customer **in your hands** everywhere (see "In your hands" below), so the teammate stays quiet with them on every channel until someone clicks **Hand back** or **Give back to the AI**.
 - **Texts in quiet hours.** It may text a reply to a customer's own text from the last 15 minutes, up to 3 times in one quiet period. It never starts a text conversation in quiet hours; its own texts wait until they end. STOP, and plain words like "stop texting me", opt the person out.
 - **New leads.** With **Message new leads first** on (in **Respond**), it writes once to each new lead: by text when they agreed to texts (with STOP wording), otherwise by email, otherwise not at all. Imported leads and booking-page leads are skipped.
 - **Limits.** At most 12 replies to one customer a day and 6 look-ups per reply unless **Limits** says otherwise, and at most its share of the business's daily AI limit: 60% unless changed, so the Assistant and workflows always have room.
@@ -8885,6 +9114,20 @@ On a first setup, the key goes in with the worker's other secrets (Fly Part 6). 
 - **Instructions.** **AI teammate → Instructions** is a list of rules the teammate reads in full on every reply, call and test, after its own safety rules (which always win). People who manage the teammate add, edit and delete them, up to 50 of 300 characters each. They're kept in `app.teammate_instructions`.
 - **Feedback on its replies.** Every reply it wrote takes a thumbs up or down: under its messages in a conversation, on a run's sheet in **Activity**, in the test console, in the phone app, and in **AI teammate → Review**, which lists what it sent on its own (no person approved it), newest first, with **Not rated yet** or **All**. A thumbs down asks what it should have said and why. The worker reads it right away (whatever the **Learn from corrections** switch says, since someone is waiting) and suggests one rule, asks one quick question when it can't tell what was meant ("Should it say this to every customer, or just this one?"), or says there's nothing new to learn. **Save rule** puts the rule on **Instructions**; someone who can't save it is told an owner or admin will see it on Home. In the test console, **Retry with the fix** runs that turn again with the feedback, for that turn only. Feedback is kept in `app.teammate_feedback`, one per person per reply. See `HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md`.
 - **The test console** in the rail tries the settings on screen, saved or not, by text, website chat, email or a phone call. A call can come in, or go out the way the teammate places one: to confirm a visit, ring back a missed call, follow up a quote, or for a campaign (an outgoing call needs someone in Contacts, and one to confirm a visit or follow up a quote needs that visit or open quote). **Call live** plays a call the way a caller has it: the teammate answers in real time on the same live call loop a real call runs, so the pauses, talking over it and the quiet timers are a real call's. When the business has a number and you may place calls, you pick how it goes: **Phone line** rings the business number from your browser (Twilio's browser calling), so you hear the phone line itself; **This browser** sends your microphone straight to the worker as phone-quality sound, without the phone line, and is the only way when there's no number yet (headphones keep it from hearing itself). Under each live reply, **Where the time went** starts from the moment you stopped talking and ends at the first sound of its answer. Or type what the caller says and read what it would say out loud, or turn on **Talk out loud** to say it into the microphone and hear each reply in the teammate's phone voice, after which it listens again; a goodbye or a hand-off ends the call. **Voice** beside them tries any other voice, Deepgram's or Rime's, for this test only: **Hear it** says the greeting in it, Talk out loud and live calls speak in it, and **Use this voice** makes it the teammate's (saved like any other change). Talking out loud and live calls need the worker's `DEEPGRAM_API_KEY`. On a call, each reply's heading says when it would start talking ("talks at 0.8 s") and when it finished: a reply that changes nothing starts being said while the rest is still written, a checked sentence at a time, and one that books or changes something waits until that's done. **Talk out loud** does the same, so you hear the difference. Under each call reply, **Where the time went** splits that wait into steps (see "How fast it answers on a call"). Like a real call, a test call reads the business once, when it's picked up: settings, knowledge or hours saved in the middle of a test call show from the next one. Its look-ups are real, but it changes nothing, sends nothing and rings nobody. The phone app has the same console under **More → Test your AI teammate**, for people who manage the teammate; it tests the saved settings, so its **Use this voice** (under **Change**) saves the voice straight away. So does the console on the **Activity** and **Approvals** tabs.
+
+### In your hands
+
+When someone on the team reaches a customer themselves, the AI leaves that customer alone everywhere until someone gives them back (the owner's picks, 19 Nov 2026). The code is `packages/core/src/messaging/hands.ts`; the list is `app.people_in_hands`, one row per customer.
+
+- **What puts someone in your hands.** A text, email, website chat reply or portal message a person sends from HandsFreeOS; their own Gmail or Outlook mail to the customer, synced into the Inbox; a reply typed in the Facebook or Instagram inbox (a reply Meta sends within 10 seconds is an instant reply set up there, so it doesn't count); a call placed or connected through HandsFreeOS; and **Take over** on the customer's page or in a conversation. An AI reply a person OK'd or edited stays the AI's, and so do automations' messages. Private ("Only you") mail never counts.
+- **What the AI stops.** The teammate's replies, follow-ups, first messages and calls; funnel messages (the funnel pauses); AI calls from a campaign (skipped as `in_your_hands`); Needs you's automatic follow-ups and confirmation requests (skipped as someone talking with them). Automations keep running. Their conversations show **handled by a person**, and a conversation that starts later starts that way too (a trigger on `app.conversations`).
+- **Asking first.** When a customer in someone's hands writes and nobody answers within 1 hour of open time, **Needs you** shows the customer waiting with the chip "in your hands · the AI is waiting", and the push says so, with **Let AI handle**. That gives the customer back to the AI, which answers what they're waiting on.
+- **Where to see and change it.** **Contacts → In your hands** (web and phone) lists everyone in someone's hands, newest first, with whose hands, how, when, and **Waiting on a reply**; **Only mine** narrows it; **Give back to the AI** on each row and **Give all back**. A customer's page shows "The AI answers them" with **Take over**, or whose hands they're in with **Give back to the AI**. **Hand back** in a conversation gives the whole customer back.
+- **Who may.** Anyone who answers the Inbox (`inbox.use`) takes over and gives back, whoever's hands they're in. The Assistant does both (`person.take_over`, `person.hand_back`) and reads the list (`person.in_hands`).
+- **Giving back.** The row goes, and each of their conversations a person was handling goes to the teammate where it answers that channel, else to nobody. One the teammate handed to a person (**Needs a person**) still waits for them.
+- **Merges.** Merging two customers keeps the kept customer's row, or moves the merged one's to them.
+- **The first day.** Migration `20261027030900` looked back 30 days: a customer whose last message or call from the business was a person's went into that person's hands.
+- **Social Outreach too.** With the add-on on, a message a person typed themselves on Facebook, Instagram, LinkedIn, Alignable, Threads or X (seen by the browser extension) puts that profile in their hands, and its customer here too; the AI's outreach messages to them stop until someone gives them back. Its own list is **Social Outreach → People → In your hands**, and **Take over** sits in the menu on a person's name. Giving a customer back here gives their profiles back there, and the other way round. See decision 182 in `docs/outreach.md`; migration `20261027031000` looked back 30 days the same way.
 
 ### What else it can do for a customer (M18)
 
@@ -8904,7 +9147,7 @@ Each of these has its own switch, and all start off unless the list says otherwi
 - **Try it as a lead** plays a pretend lead on screen: pick what they do at each fork and see each message and when it would go. Nothing is sent.
 - **Who gets in.** By how they arrive (a new lead in the pipeline, or one that came in by text, a web form, Facebook lead ads, Indeed and so on; a form answered; a booking), added by hand from their page, or suggested by the teammate and OK'd by a person on **Approvals**, on their page or beside the conversation. A person is in one funnel at a time; joining another ends the first.
 - **Funnels need the teammate on.** With it off nothing in any funnel goes out, and a funnel won't turn on.
-- **People come first.** A person's reply in the conversation, or **Take over**, pauses that person's funnel until someone clicks **Hand back**. **Pause** on their page pauses it until someone clicks **Resume**.
+- **People come first.** A person's reply in the conversation, or **Take over**, pauses that person's funnel until someone clicks **Hand back** or **Give back to the AI** (they're in someone's hands; see "In your hands"). **Pause** on their page pauses it until someone clicks **Resume**.
 - **The board is the truth.** Dragging a lead to another stage moves them in the funnel, and that stage's messages start. A won or lost stage ends it.
 - **Changes reach everyone at once.** People stay at the stage they're at and get the new messages and moves from then on. Taking out a stage with people in it asks where they go.
 - **Late messages are skipped.** A message past its good-until (30 minutes for one timed around a session's start) is skipped rather than sent late. Quiet hours apply as they do to the teammate's other texts.
@@ -10048,12 +10291,211 @@ Any business can offer two or three options on one estimate (the owner's decisio
 - **"Stripe isn't set up yet" or "Square isn't set up yet"** when a business presses Connect: the worker has no client id or application id for that provider. Check `fly secrets list --app handsfreeos-worker`.
 - **The sign-in comes back and the account still says Pending:** the callback failed. `fly logs --app handsfreeos-worker` names the provider's own error code, and the account card in **Settings** → **Payments** shows the last error in plain words. A mismatched redirect URI is the usual cause — it must match Stripe Part 2 or Square Part 3 exactly.
 - **"Some permissions were left unticked":** the seller unticked a permission on the provider's own screen. They press Connect again and accept all of them.
+- **A customer says the payment form never opened** ("We couldn’t open the payment form just now", or "We couldn’t reach the payment provider, so nothing was charged"): the invoice page and the deposit step show the provider's own fields (Stripe's payment box, Square's card field), loaded from Stripe or Square once the customer presses **Pay**. The worker needs `STRIPE_PUBLISHABLE_KEY` for Stripe and `SQUARE_APPLICATION_ID` for Square to hand the page; check `fly secrets list --app handsfreeos-worker`. If both are there, the customer's browser blocked the provider's script (a strict ad blocker or a work network): have them try another browser or their phone. Nothing is charged until the fields have taken the card and the provider answers.
 - **A payment succeeded at the provider but the invoice here still says unpaid:** a webhook did not arrive or did not verify. Check the provider's own webhook page for failed deliveries, and check the signing secret. Nothing is lost — both providers retry for days, and the payment lands the moment a delivery verifies.
 - **Stripe emails that it has disabled the webhook endpoint:** every event it sent for days was refused. Open the endpoint in **Workbench** → **Webhooks** and click a failed event on its **Event deliveries** tab. "This server doesn’t have the signing secret for Stripe’s events yet" means `STRIPE_WEBHOOK_SECRET` is not on the worker; "Invalid signature" means the one there belongs to another endpoint or environment. Either way, copy this endpoint's signing secret (Stripe Part 4, steps 7 and 8) onto the worker the way "Give the worker the values" does, press **Enable** on the endpoint, then press **Resend** on each failed event. The dashboard resends events up to 15 days old, and the worker takes each event once however many times it arrives. On 2026-10-08 Stripe disabled the live endpoint after nine days of this; its setup on 2026-09-22 had ended with the secret still to be put on the worker.
 - **A business says they were charged twice:** they weren't. A payment carries the customer's own press as its idempotency key, and a payment's status only ever moves forward, so a retried or doubled submit takes the money once. Show them **Money** → **Payments**, which lists every payment the business has taken, with what it was paid on, where it stands and which invoice it belongs to; the provider's own dashboard will show one charge against it.
 - **"You can bill the customers you’re on. Ask an owner or admin to add you to this customer."**: the person may send invoices but isn't on that customer. Put them on it (the **Assigned** card on the customer), or have someone who manages money send it.
 - **"That payment account is kept for other people on the team"** or **"None of this business's payment accounts is yours to bill into"**: the account was given to particular people under **Who can use it** in **Settings** → **Payments**, and the person billing isn't one of them. An owner adds them there, or opens the account to everyone again. Invoices the business sends by itself — automatic invoices, booking deposits, a plan's own cycles — are not held to this.
 - **An account says Reconnect:** its token lapsed (Square) or the provider refused it. Nothing is taken until the business presses Reconnect and signs in again. Refunds on payments taken through the old sign-in still work once the same account is reconnected, because the credentials are found by the provider's account id rather than by the connection row.
+
+## Money: PayPal
+
+PayPal sits beside Stripe and Square. **Each business signs into its own PayPal Business account** with **Connect PayPal** in **Settings** → **Payments** (or on the payments step of setup). After that, the customer's invoice page and the booking deposit step show PayPal's own buttons — **PayPal**, **Venmo**, **Pay Later** and PayPal's card button — under the Stripe or Square card box, or alone when PayPal is the account the money goes to. The money lands in the business's own PayPal balance, and they are the merchant of record, exactly as with Stripe and Square. HandsFreeOS never holds it.
+
+What PayPal does here, as the owner picked it on 2026-11-20:
+
+- **One-time payments and refunds only.** Plans stay on Stripe or Square. A plan pointed at a PayPal account is refused with "PayPal takes one-time payments here, so a plan can’t bill through it. Pick your Stripe or Square account for the plan." (rule `paypal_one_time_only`).
+- **Venmo and Pay Later can be switched off** in **Settings** → **Payments**. Both start on.
+- **A booking deposit is held, not taken,** the way a card is: PayPal sets the money aside, and HandsFreeOS takes it once the time is confirmed. Venmo and Pay Later can't be held, so the deposit step never shows them.
+- **PayPal's buttons show beside another account only when the PayPal account is open to everyone** under **Who can use it**.
+
+What you set up here is the **partner** side: HandsFreeOS is a PayPal partner, and that is what lets a business connect with one button (PayPal calls it Partner Referrals). Every value goes on `handsfreeos-worker`. The API refuses to start with any variable starting with `PAYPAL_`, and none goes in Vercel or GitHub except the two on/off switches in PayPal Part 7, which are not secrets.
+
+PayPal needs the migrations `20261027031100_payment_method_from_provider.sql`, `20261027031900_payment_method_paypal_venmo.sql` and `20261027032000_payment_method_paypal_settles.sql`. See "Apply new migrations".
+
+**Until PayPal approves HandsFreeOS as a partner, Connect PayPal says Coming soon** and nobody can press it. Customers see nothing different. Everything below can be set up and tried on PayPal's sandbox while you wait.
+
+### Before you start
+
+- A PayPal **Business** account for HandsFreeOS itself, with you as its administrator. A personal account can't be a partner.
+- A login to PayPal's developer dashboard at `https://developer.paypal.com`. It is the same login as the business account.
+- The worker already running at `https://hooks.handsfreeos.com` (Fly Part 8).
+- Your password manager, open, so every value goes straight into it.
+
+#### Order of work
+
+Start PayPal Part 1 first: PayPal's partner review can take a few weeks. Do Parts 2 to 5 on the **sandbox** meanwhile, give the worker the sandbox values, and try it end to end. When PayPal approves, do PayPal Part 6 to move to live, then PayPal Part 7 to turn the button on.
+
+### PayPal Part 1: Apply to be a PayPal partner
+
+1. Go to `https://www.paypal.com/us/business/platforms-and-marketplaces`, signed in as HandsFreeOS's business account.
+2. Press **Contact sales** (or **Get started**). If the page has moved, search PayPal's site for "PayPal Complete Payments for platforms".
+3. Describe the platform in these words, so the right team picks it up:
+   - HandsFreeOS is software that runs the customer side of a small business.
+   - Each business connects **its own** PayPal account through **Partner Referrals**, as a **third-party** integration. The business is the merchant of record, and HandsFreeOS never holds funds.
+   - Customers pay one-time invoices and booking deposits with PayPal's checkout buttons (PayPal, Venmo, Pay Later and the card button). Deposits are authorized, then captured once the booking is confirmed. Refunds are made from the business's account.
+4. Ask for two things:
+   - the **Partner Referrals API** on your live REST app, with the features `PAYMENT`, `REFUND`, `ACCESS_MERCHANT_INFORMATION` and `READ_SELLER_DISPUTE`;
+   - your **BN code**, the partner attribution id PayPal uses to know a payment came through HandsFreeOS.
+5. When PayPal approves, it emails the BN code and says the live features are on. Save the code in your password manager as "PayPal partner", under BN code.
+
+You should see an email from PayPal's partner team. Until then, the live REST app can't make sign-up links, and only the sandbox works.
+
+### PayPal Part 2: Your merchant id
+
+HandsFreeOS's own PayPal merchant id tells PayPal which partner a business is connecting to.
+
+**Sandbox** (do this right after Part 3, which makes the account):
+
+1. Making the sandbox app as a **Platform** in Part 3 makes a new sandbox **Business** account for it. That account plays HandsFreeOS. The Business account PayPal made for you when you signed up does not: it can play a business that connects (Part 5).
+2. In the developer dashboard, open **Testing Tools** → **Sandbox Accounts** and find the account the Platform app made (its email ends in `@business.example.com`; it is the newest Business account).
+3. Press the **⋮** menu beside it, then **View/Edit account**.
+4. Copy the **Account ID**. It is 13 letters and numbers.
+5. Save it in your password manager as "PayPal sandbox", under merchant id.
+
+**Live** (after Part 1 is approved):
+
+1. Sign in at `https://www.paypal.com` as HandsFreeOS's business account.
+2. Press the gear (**Settings**) at the top right, then **Account Settings** → **Business information**.
+3. Copy the **PayPal Merchant ID**.
+4. Save it in your password manager as "PayPal partner", under merchant id.
+
+### PayPal Part 3: The REST app
+
+1. Sign in at `https://developer.paypal.com` and open **Apps & Credentials**.
+2. Set the switch at the top to **Sandbox**.
+3. Press **Create App**. Name it `HandsFreeOS` and pick **Platform**: only a Platform app can connect other businesses' PayPal accounts, and a **Merchant** app takes money only for itself. PayPal makes a new sandbox business account for a Platform app, so it can't be tied to one you already have. Press **Create App**, then do the Sandbox half of PayPal Part 2 for that new account's id.
+4. Copy the **Client ID**.
+5. Under **Secret key 1**, press **Show** and copy the secret.
+6. Save both in your password manager as "PayPal sandbox", under client id and secret. **The secret can move money in every connected business's account.** It goes on the worker and nowhere else.
+7. Further down the same page, under **Features**, leave **Expanded checkout** ticked (older dashboards call it **Accept payments**). Untick **Save payment methods** (Vault) and leave **Log in with PayPal** off: HandsFreeOS never keeps a customer's PayPal for later, since plans stay on Stripe or Square. Press **Save** if anything changed.
+
+After Part 1 is approved, set the switch to **Live** and open the live app PayPal turned the partner features on for (make one the same way if there isn't one yet). Copy its client id and secret, and save them as "PayPal partner".
+
+### PayPal Part 4: The webhook
+
+Do this on the same app page, with the same Sandbox or Live switch.
+
+1. Scroll to **Webhooks** and press **Add Webhook**.
+2. Webhook URL:
+
+   ```text
+   https://hooks.handsfreeos.com/webhooks/paypal
+   ```
+
+3. Tick these event types, and no others. They are exactly the ones the worker acts on; anything else is answered and dropped.
+   - `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.PENDING`, `PAYMENT.CAPTURE.DECLINED`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.REFUNDED`, `PAYMENT.CAPTURE.REVERSED`
+   - `PAYMENT.AUTHORIZATION.CREATED`, `PAYMENT.AUTHORIZATION.VOIDED`
+   - `CUSTOMER.DISPUTE.CREATED`, `CUSTOMER.DISPUTE.UPDATED`, `CUSTOMER.DISPUTE.RESOLVED`
+   - `CUSTOMER.MERCHANT-INTEGRATION.CAPABILITY-UPDATED`, `CUSTOMER.MERCHANT-INTEGRATION.SELLER-EMAIL-CONFIRMED`
+   - `MERCHANT.PARTNER-CONSENT.REVOKED`
+4. Press **Save**.
+5. Copy the **Webhook ID** from the list. It looks like `8PT597110X687430LKGECATA`.
+6. Save it with the app's other values ("PayPal sandbox" or "PayPal partner"), under webhook id. **Each app has its own**: the worker checks every event's signature against this id, and an event signed for another app is refused.
+
+`MERCHANT.PARTNER-CONSENT.REVOKED` matters most for trust: it is how a business taking HandsFreeOS's access away in their own PayPal account is noticed, and the account is marked disconnected without anybody telling us.
+
+### PayPal Part 5: Sandbox accounts to try it with
+
+1. In the developer dashboard, open **Testing Tools** → **Sandbox Accounts**.
+2. Press **Create account**. Pick **Business** and **United States**, then press **Create**. This plays the business that connects. Don't use the business account tied to your app: that one is HandsFreeOS.
+3. The **Personal** account PayPal made for you plays the customer. Press **⋮** → **View/Edit account** on each to see its email and password.
+4. To try the card button instead, take a test card from **Testing Tools** → **Card Testing**.
+
+### Give the worker the values
+
+All PayPal values go on `handsfreeos-worker` and nowhere else.
+
+| Name                         | Value                                                                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `PAYPAL_CLIENT_ID`           | The app's client id (Part 3)                                                                                                |
+| `PAYPAL_CLIENT_SECRET`       | The app's secret (Part 3)                                                                                                   |
+| `PAYPAL_PARTNER_MERCHANT_ID` | HandsFreeOS's merchant id (Part 2)                                                                                          |
+| `PAYPAL_WEBHOOK_ID`          | The app's webhook id (Part 4)                                                                                               |
+| `PAYPAL_BN_CODE`             | The BN code from Part 1. Before PayPal approves, use `HandsFreeOS_SP_SANDBOX`: the sandbox doesn't check it                 |
+| `PAYPAL_ENVIRONMENT`         | `test` while on the sandbox, `live` after Part 6. Unlike Square, production allows `test`, so the sandbox can be tried live |
+
+1. Open your password manager and put the client id on the clipboard.
+2. In Terminal:
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+3. Type `PAYPAL_CLIENT_ID=` then paste, with no space and no quotes. Press Return.
+4. Do the same line by line for the other five names in the table.
+5. Press Control-D when the last line is in.
+6. Clear the clipboard:
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+7. Check the names arrived:
+
+   ```bash
+   fly secrets list --app handsfreeos-worker
+   ```
+
+You should see all six in the `NAME` column. **Never run this import with `--app handsfreeos-api`** — the API refuses to start with any `PAYPAL_` name present.
+
+Then check the worker started:
+
+```bash
+fly logs --app handsfreeos-worker
+```
+
+You should see the `worker started` line. If the worker refuses to start, the message names what is missing: `PAYPAL_CLIENT_SECRET is required with PAYPAL_CLIENT_ID`, `PAYPAL_PARTNER_MERCHANT_ID is required with PAYPAL_CLIENT_ID`, or `PAYPAL_BN_CODE is required with PAYPAL_CLIENT_ID in production`.
+
+#### Try it on the sandbox before anyone else can
+
+Connect PayPal stays Coming soon for everyone until PayPal Part 7. To try it yourself first, turn the switch on for Vercel previews only:
+
+1. In Vercel, open the **handsfreeos-web** project → **Settings** → **Environment Variables**.
+2. Add `NEXT_PUBLIC_PAYPAL_ENABLED` with the value `true`, ticked for **Preview** only. Press **Save**.
+3. Push any branch, and open its preview address. Previews talk to the real worker, which is on the sandbox.
+4. Use a practice business (**Admin** → **Try onboarding**). Press **Connect PayPal** in **Settings** → **Payments** and sign in with the sandbox business account from Part 5.
+5. Send yourself an invoice and pay it with the sandbox personal account. Then book a calendar that asks for a deposit and pay that too.
+
+You should see the invoice paid, the payment in **Money** → **Payments** marked PayPal, and the deposit held and then taken once the booking is confirmed. Disconnect the sandbox account before PayPal Part 6: it stops working on live.
+
+### PayPal Part 6: Move to live
+
+When PayPal approves (Part 1):
+
+1. Do the **Live** halves of Parts 2, 3 and 4: the live merchant id, the live app's client id and secret, and a webhook on the live app.
+2. Disconnect any sandbox PayPal accounts in practice businesses.
+3. Replace the values on the worker the way "Give the worker the values" does: all four live values, the real `PAYPAL_BN_CODE`, and `PAYPAL_ENVIRONMENT=live`. Put them all in one import, so the worker never runs with half of each.
+
+### PayPal Part 7: Turn Connect PayPal on
+
+1. In Vercel, on **handsfreeos-web**, set `NEXT_PUBLIC_PAYPAL_ENABLED` to `true` for **Production** (and **Preview**). Only the exact value `true`, in lower case, turns it on. Redeploy.
+2. For the phone, from `apps/mobile`:
+
+   ```bash
+   npx --yes eas-cli@latest env:set --scope project --name EXPO_PUBLIC_PAYPAL_ENABLED --value "true" --type string --visibility plaintext --environment production --environment preview --non-interactive
+   ```
+
+   The phone reads it when a build or update is made, so it shows from the next one.
+
+You should see **Connect PayPal** with no Coming soon badge in **Settings** → **Payments**, PayPal on the payments step of setup, and PayPal and Venmo in the **Any way** filter on **Money** → **Payments**.
+
+### What to tell a client
+
+- **Connect PayPal opens PayPal's own sign-up.** They sign in to their PayPal Business account (or make one) and agree to share their account details with HandsFreeOS. A brand-new PayPal account may have to confirm its email before money can arrive, and the account card says so until it does.
+- **Venmo shows only where PayPal decides it can:** customers in the US, on a phone with Venmo. **Pay Later** shows only to customers PayPal approves. Both can be switched off in **Settings** → **Payments**.
+- **A deposit is held, not taken,** the same as a card. A PayPal account that isn't allowed to hold money isn't offered for deposits, and the card box is used alone.
+- **Plans don't use PayPal.** Keep a Stripe or Square account for anything that bills on its own every month.
+- **They can take our access away** in their own PayPal account, without telling us. HandsFreeOS hears about it and marks the account disconnected.
+
+### When something goes wrong
+
+- **Connect PayPal says Coming soon:** `NEXT_PUBLIC_PAYPAL_ENABLED` isn't exactly `true` in Vercel, or the web app wasn't redeployed after it changed. On the phone, the build or update came before `EXPO_PUBLIC_PAYPAL_ENABLED` was set.
+- **"PayPal isn’t set up yet"** when a business presses Connect PayPal: the worker has no `PAYPAL_CLIENT_ID`. Check `fly secrets list --app handsfreeos-worker`.
+- **The PayPal sign-up never opens, and the worker's log shows PayPal refusing the sign-up link:** the live app doesn't have Partner Referrals yet. That waits on PayPal Part 1. Meanwhile run on the sandbox (`PAYPAL_ENVIRONMENT=test` with the sandbox values).
+- **A customer says PayPal's buttons never showed** ("We couldn’t reach PayPal, so nothing was charged. Try again in a minute."): PayPal's script didn't load in their browser, usually a strict ad blocker or a work network. Have them try another browser or their phone. Nothing is charged until PayPal's window says yes and PayPal answers the worker.
+- **A payment went through at PayPal but the invoice here still says unpaid:** an event didn't arrive or didn't verify. In the developer dashboard, open **Event Logs** → **Webhooks events** for the app and look for failed deliveries, and check `PAYPAL_WEBHOOK_ID` is this app's. Nothing is lost: PayPal retries for days, and the payment lands the moment a delivery verifies.
 
 ## Usage balances: what businesses pay us
 
@@ -11586,17 +12028,18 @@ You need:
 
 Metro, which packages the app, replaces every `process.env.EXPO_PUBLIC_…` it can see with the value that was set **when the build ran**, and writes the result into the bundle. There is no configuration file on the phone and nothing is fetched at startup: a build points where it pointed the day it was made, for good.
 
-| Name                                   | Required       | What it is                                                                   | Its value                                                                 |
-| -------------------------------------- | -------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `EXPO_PUBLIC_SUPABASE_URL`             | Yes            | Supabase, for signing in                                                     | `https://ybupfghakoszfcxhyrby.supabase.co`                                |
-| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes            | That project's publishable key                                               | The `sb_publishable_…` key from the Supabase dashboard                    |
-| `EXPO_PUBLIC_API_URL`                  | Yes            | The API, which every change the phone makes goes to                          | `https://api.handsfreeos.com`                                             |
-| `EXPO_PUBLIC_SYNC_URL`                 | Yes            | The sync service, which fills the phone's copy                               | `https://sync.handsfreeos.com`                                            |
-| `EXPO_PUBLIC_WEB_URL`                  | No, but set it | The web app, for the pages the phone links out to                            | `https://app.handsfreeos.com` (also the default)                          |
-| `EXPO_PUBLIC_WORKER_URL`               | No, but set it | The worker: **the Assistant**, and test builds' stand-in push routes         | `https://hooks.handsfreeos.com`                                           |
-| `EXPO_PUBLIC_MATOMO_SITE_ID`           | No, but set it | Matomo's id for the phone app, which counts screens (`src/lib/analytics.ts`) | `4`, the phone app's site in gobizhelp.matomo.cloud; unset counts nothing |
-| `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No             | Shows passkey sign-in                                                        | Leave unset until passkeys work                                           |
-| `EXPO_PUBLIC_E2E`                      | No             | Builds for the Maestro flows                                                 | Leave unset                                                               |
+| Name                                   | Required       | What it is                                                                   | Its value                                                                      |
+| -------------------------------------- | -------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `EXPO_PUBLIC_SUPABASE_URL`             | Yes            | Supabase, for signing in                                                     | `https://ybupfghakoszfcxhyrby.supabase.co`                                     |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes            | That project's publishable key                                               | The `sb_publishable_…` key from the Supabase dashboard                         |
+| `EXPO_PUBLIC_API_URL`                  | Yes            | The API, which every change the phone makes goes to                          | `https://api.handsfreeos.com`                                                  |
+| `EXPO_PUBLIC_SYNC_URL`                 | Yes            | The sync service, which fills the phone's copy                               | `https://sync.handsfreeos.com`                                                 |
+| `EXPO_PUBLIC_WEB_URL`                  | No, but set it | The web app, for the pages the phone links out to                            | `https://app.handsfreeos.com` (also the default)                               |
+| `EXPO_PUBLIC_WORKER_URL`               | No, but set it | The worker: **the Assistant**, and test builds' stand-in push routes         | `https://hooks.handsfreeos.com`                                                |
+| `EXPO_PUBLIC_MATOMO_SITE_ID`           | No, but set it | Matomo's id for the phone app, which counts screens (`src/lib/analytics.ts`) | `4`, the phone app's site in gobizhelp.matomo.cloud; unset counts nothing      |
+| `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No             | Shows passkey sign-in                                                        | Leave unset until passkeys work                                                |
+| `EXPO_PUBLIC_PAYPAL_ENABLED`           | No             | Shows **Connect PayPal** on the payments step of setup                       | Leave unset until PayPal approves HandsFreeOS (“Money: PayPal”, PayPal Part 7) |
+| `EXPO_PUBLIC_E2E`                      | No             | Builds for the Maestro flows                                                 | Leave unset                                                                    |
 
 The first four are the ones `isConfigured()` checks (`apps/mobile/src/lib/config.ts`). With any one of them empty the app opens on **"This build isn't connected"** and goes no further. Every one of these ends up readable inside the app on anyone's phone, so a secret must never be among them — that is what `EXPO_PUBLIC_` means.
 

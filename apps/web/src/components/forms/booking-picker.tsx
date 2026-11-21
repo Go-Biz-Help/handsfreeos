@@ -1,19 +1,32 @@
 'use client';
-import { bookingDay, bookingLabel, isBookingAnswer, type BookingAnswer } from '@hfos/core';
+import {
+  bookingDay,
+  bookingLabel,
+  isBookingAnswer,
+  type AnswerFile,
+  type BookingAnswer,
+} from '@hfos/core';
 import { Loader2 } from 'lucide-react';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { formTimes, type FormTimes } from '@/lib/api/public-forms';
 import { cn } from '@/lib/utils';
 
 /**
- * Which form this is, for a question that reads from the worker (a "Book a time" question's open times). The
- * public page provides it; the editor's preview doesn't, so a booking question there shows what it will do.
+ * Which form this is, for a question that reads from the worker (a "Book a time" question's open times, a file
+ * question's uploads). The public page provides it; the editor's preview doesn't, so a booking or file question there
+ * shows what it will do.
  * `refresh` goes up when the times should be read again: a time that filled up while they were deciding.
  */
 export const PublicFormContext = createContext<{
   readonly site: string;
   readonly slug: string;
   readonly refresh: number;
+  /** Puts a file on this answer sheet for a file question (file-field.tsx), starting the sheet if it must. */
+  readonly upload?: (
+    questionId: string,
+    file: File,
+    onProgress: (percent: number) => void,
+  ) => Promise<AnswerFile>;
 } | null>(null);
 
 /**

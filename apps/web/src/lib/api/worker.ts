@@ -502,3 +502,15 @@ export function siteScreenshot(input: {
 }): Promise<{ saved: true }> {
   return workerPost('/v1/telephony/site-check/screenshot', input);
 }
+
+/**
+ * About you as the AI writes it from the person's answers to its interview (decision 186), keeping what's in the box:
+ * handed back unsaved, for them to read and Save. Anyone in the business may; the worker asks the AI.
+ */
+export function aboutYouWrite(input: {
+  workspaceId: string;
+  answers: { key: string; said: string }[];
+  about: string;
+}): Promise<{ about: string }> {
+  return workerPost('/v1/about-you/write', input);
+}

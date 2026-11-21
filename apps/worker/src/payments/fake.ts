@@ -1,7 +1,8 @@
 /**
  * The stand-in payment provider: local development, tests and every Playwright spec in M9 take money through
- * this. It stands in for **both** Stripe and Square at once, so one business can hold a connection to each and
- * both flows are really exercised — Stripe's confirm-in-the-browser and Square's tokenise-then-charge.
+ * this. It stands in for Stripe, Square and PayPal at once, so one business can hold a connection to each and
+ * every flow is really exercised — Stripe's confirm-in-the-browser, Square's tokenise-then-charge, and PayPal's
+ * approve-then-capture, where the payment's id changes from the order's to the capture's once it is taken.
  *
  * What it gives the rest of the milestone (this list is a public interface; specs are written against it):
  * - **Its own payment page**, served by the worker (`payments/fake-routes.ts`), the way a provider's hosted page
@@ -14,22 +15,26 @@
  * - **Refunds, disputes and subscription cycles** on demand.
  * - **Properly signed webhooks** posted back to our own endpoints with the real algorithms — Stripe's
  *   `t=…,v1=<hex HMAC over "t.body">` and Square's base64 HMAC over URL plus body — so the verifier that reads
- *   them is under test too, not just the happy path.
+ *   them is under test too, not just the happy path. PayPal's real signature is a certificate's, which a
+ *   stand-in can't have; its events are signed over PayPal's own message with an HMAC instead.
  * - **A list of everything it took** (`charges()`, `refunds()`, `subscriptions()`, `webhooks()`), the way the
  *   fake carrier keeps `sent`.
  *
  * Nothing here looks like a secret: tokens say they are fake and name the account.
  */
 import { randomUUID } from 'node:crypto';
+import { crc32 } from 'node:zlib';
 import type { Logger } from 'pino';
 import {
   centsOf,
   cleanMetadata,
   cardBrandLabel,
   cardLast4,
+  decimalOfCents,
   declineWording,
   hmacBase64,
   hmacHex,
+  PAYMENT_NAME,
   PaymentAuthError,
   PaymentError,
   PlatformUnsupportedError,
@@ -53,6 +58,7 @@ import {
   type SubscriptionState,
   type CheckoutInput,
 } from './provider';
+import { readPayPalEvent } from './paypal';
 import { readStripeCheckoutEvent, readStripeRefundEvent } from './stripe';
 
 /** Not secrets: the stand-in signs with these and the verifier checks with the same ones. */
@@ -62,6 +68,11 @@ export const FAKE_STRIPE_PLATFORM_WEBHOOK_SECRET = 'whsec_local_platform_only';
 export const FAKE_SQUARE_SIGNATURE_KEY = 'local-square-webhook-signature-key';
 export const FAKE_STRIPE_PUBLISHABLE_KEY = 'pk_test_local_development_only';
 export const FAKE_SQUARE_APPLICATION_ID = 'sandbox-sq0idb-local-development';
+export const FAKE_PAYPAL_CLIENT_ID = 'fake-paypal-client-id-local-development';
+export const FAKE_PAYPAL_WEBHOOK_ID = 'WH-LOCAL-DEVELOPMENT';
+export const FAKE_PAYPAL_SIGNATURE_KEY = 'local-paypal-webhook-signature-key';
+/** Where the stand-in says its PayPal events were signed: PayPal's own host, as the real check insists. */
+const FAKE_PAYPAL_CERT_URL = 'https://api.sandbox.paypal.com/v1/notifications/certs/CERT-local';
 
 /**
  * The cards the specs type. They behave the same whichever provider is standing in, so one spec covers both.
@@ -93,6 +104,11 @@ const feeFor = (amountCents: number, method: PaymentMethodKind): number =>
 
 export interface FakeCharge {
   readonly id: string;
+  /**
+   * What the provider calls it now. Always `id` for Stripe and Square; PayPal's order becomes its capture (or a
+   * deposit's hold, then its capture) once it is taken, and both ids still find it here.
+   */
+  ref: string;
   readonly provider: PaymentProviderName;
   readonly accountId: string;
   readonly amountCents: number;
@@ -117,7 +133,7 @@ export interface FakeCharge {
   instrument: string;
   /** The brand the number says it is, worked out while the whole number was still in hand. */
   cardBrand: string | null;
-  /** Stripe's flow: what the browser confirms with. Null for the Square stand-in. */
+  /** Stripe's flow: what the browser confirms with. Null for Square and PayPal. */
   readonly clientSecret: string | null;
   readonly createdAt: string;
 }
@@ -266,7 +282,7 @@ export interface FakePayments {
   ): Promise<FakeRefund | null>;
   /** The plan bills its next cycle: a new charge, and the event that says so. */
   cycle(providerSubscriptionId: string): Promise<FakeCharge | null>;
-  /** The seller revoked us at the provider (Square's revoke, Stripe's deauthorize). */
+  /** The seller revoked us at the provider (Square's revoke, Stripe's deauthorize, PayPal's consent taken back). */
   revoke(externalAccountId: string): Promise<void>;
   /** Stripe refuses to attach: this account is controlled by another platform. */
   holdAccount(externalAccountId: string): void;
@@ -305,6 +321,7 @@ export interface FakePayments {
   /** The signing the verifier is checked against; a spec can forge or replay with them. */
   signStripe(body: string, at?: number): Record<string, string>;
   signSquare(url: string, body: string): Record<string, string>;
+  signPayPal(body: string): Record<string, string>;
 }
 
 /** What the stand-in's own payment page is allowed to do. Nothing here touches the database. */
@@ -379,7 +396,7 @@ const PLATFORM_ACCOUNT: PaymentAccount = {
   environment: 'test',
 };
 
-/** Only Stripe can take money for us; Square acts only as a seller, so it has no way to. */
+/** Only Stripe can take money for us; Square and PayPal act only for a seller, so they have no way to. */
 function requirePlatform(provider: PaymentProviderName): void {
   if (provider !== 'stripe') throw new PlatformUnsupportedError(provider);
 }
@@ -419,6 +436,14 @@ export function createFakePayments(opts: {
   livemode?: boolean;
 }): FakePayments {
   const charges = new Map<string, FakeCharge>();
+  /** PayPal's later ids for a charge (its capture, a hold), each pointing back at the order it started as. */
+  const aliases = new Map<string, string>();
+  const chargeOf = (id: string): FakeCharge | undefined => {
+    const original = aliases.get(id);
+    return charges.get(id) ?? (original ? charges.get(original) : undefined);
+  };
+  /** Which provider each connected account signed in with, so a revoke is sent the way that provider sends it. */
+  const connectedWith = new Map<string, PaymentProviderName>();
   const payoutAccounts = new Map<string, FakePayoutAccount>();
   const transfers: FakeTransfer[] = [];
   /** Our own balance has run short: a transfer from it is refused, as Stripe refuses one (`setBalanceShort`). */
@@ -524,6 +549,27 @@ export function createFakePayments(opts: {
     'x-square-hmacsha256-signature': hmacBase64(FAKE_SQUARE_SIGNATURE_KEY, `${url}${body}`),
   });
 
+  /** PayPal's message (`id|time|webhook id|crc32`), signed with an HMAC where PayPal uses its certificate. */
+  const payPalSignature = (id: string, time: string, body: string) =>
+    hmacBase64(
+      FAKE_PAYPAL_SIGNATURE_KEY,
+      `${id}|${time}|${FAKE_PAYPAL_WEBHOOK_ID}|${crc32(Buffer.from(body, 'utf8'))}`,
+    );
+  const signPayPal = (body: string): Record<string, string> => {
+    const id = randomUUID();
+    const time = now();
+    return {
+      'paypal-transmission-id': id,
+      'paypal-transmission-time': time,
+      'paypal-transmission-sig': payPalSignature(id, time, body),
+      'paypal-cert-url': FAKE_PAYPAL_CERT_URL,
+      'paypal-auth-algo': 'SHA256withRSA',
+    };
+  };
+
+  /** PayPal's money, as its resources write it. */
+  const payPalMoney = (cents: number) => ({ currency_code: 'USD', value: decimalOfCents(cents) });
+
   /** Posts a signed event at our own webhook endpoint, exactly as the real provider would. */
   async function send(
     provider: PaymentProviderName,
@@ -532,25 +578,47 @@ export function createFakePayments(opts: {
     data: Record<string, unknown>,
   ): Promise<void> {
     const url = `${opts.publicUrl}/webhooks/${provider}`;
-    const eventId = provider === 'stripe' ? nextId('evt') : randomUUID();
-    const body =
+    const eventId =
       provider === 'stripe'
-        ? JSON.stringify({
+        ? nextId('evt')
+        : provider === 'paypal'
+          ? `WH-${randomUUID()}`
+          : randomUUID();
+    const body =
+      provider === 'paypal'
+        ? // PayPal names the seller on the resource itself, which the stand-in's callers put there.
+          JSON.stringify({
             id: eventId,
-            object: 'event',
-            type,
-            account: accountId,
-            created: Math.floor(Date.now() / 1000),
-            data: { object: data },
+            event_version: '1.0',
+            create_time: now(),
+            resource_type: String(data['resource_type'] ?? ''),
+            event_type: type,
+            resource: Object.fromEntries(
+              Object.entries(data).filter(([k]) => k !== 'resource_type'),
+            ),
           })
-        : JSON.stringify({
-            event_id: eventId,
-            merchant_id: accountId,
-            type,
-            created_at: now(),
-            data: { type: type.split('.')[0], id: String(data['id'] ?? ''), object: data },
-          });
-    const headers = provider === 'stripe' ? signStripe(body) : signSquare(url, body);
+        : provider === 'stripe'
+          ? JSON.stringify({
+              id: eventId,
+              object: 'event',
+              type,
+              account: accountId,
+              created: Math.floor(Date.now() / 1000),
+              data: { object: data },
+            })
+          : JSON.stringify({
+              event_id: eventId,
+              merchant_id: accountId,
+              type,
+              created_at: now(),
+              data: { type: type.split('.')[0], id: String(data['id'] ?? ''), object: data },
+            });
+    const headers =
+      provider === 'stripe'
+        ? signStripe(body)
+        : provider === 'paypal'
+          ? signPayPal(body)
+          : signSquare(url, body);
     const post: FakeWebhookPost = { provider, url, body, headers, eventId, type, ok: null };
     posts.push(post);
     try {
@@ -601,6 +669,25 @@ export function createFakePayments(opts: {
       return;
     }
     const state = { pending: 'PENDING', succeeded: 'COMPLETED', failed: 'FAILED' }[row.status];
+    // PayPal has one event for a refund whatever became of it, and names the capture it gives back by link.
+    if (c.provider === 'paypal') {
+      await send('paypal', 'PAYMENT.CAPTURE.REFUNDED', c.accountId, {
+        resource_type: 'refund',
+        id: row.id,
+        status: state,
+        amount: payPalMoney(row.amountCents),
+        payer: { merchant_id: c.accountId },
+        create_time: row.createdAt,
+        links: [
+          {
+            rel: 'up',
+            href: `https://api-m.sandbox.paypal.com/v2/payments/captures/${c.ref}`,
+            method: 'GET',
+          },
+        ],
+      });
+      return;
+    }
     await send('square', type, c.accountId, {
       id: row.id,
       refund: {
@@ -614,33 +701,73 @@ export function createFakePayments(opts: {
 
   /** The event a provider sends when a payment lands or moves on. */
   const paymentEvent = (c: FakeCharge): { type: string; data: Record<string, unknown> } =>
-    c.provider === 'stripe'
-      ? {
-          type:
-            c.status === 'succeeded'
-              ? 'payment_intent.succeeded'
-              : c.status === 'processing'
-                ? 'payment_intent.processing'
-                : 'payment_intent.payment_failed',
-          data: {
-            id: c.id,
-            object: 'payment_intent',
-            amount: c.amountCents,
-            currency: 'usd',
-            status: c.providerStatus,
-            metadata: c.metadata,
-          },
-        }
-      : {
-          // Square has no "payment failed" event at all, so a decline never becomes one here either.
-          type: c.status === 'succeeded' ? 'payment.updated' : 'payment.created',
-          data: {
-            id: c.id,
-            status: c.providerStatus,
-            amount_money: { amount: c.amountCents, currency: 'USD' },
-            reference_id: c.metadata['invoiceId'] ?? null,
-          },
-        };
+    c.provider === 'paypal'
+      ? payPalEvent(c)
+      : c.provider === 'stripe'
+        ? {
+            type:
+              c.status === 'succeeded'
+                ? 'payment_intent.succeeded'
+                : c.status === 'processing'
+                  ? 'payment_intent.processing'
+                  : 'payment_intent.payment_failed',
+            data: {
+              id: c.id,
+              object: 'payment_intent',
+              amount: c.amountCents,
+              currency: 'usd',
+              status: c.providerStatus,
+              metadata: c.metadata,
+            },
+          }
+        : {
+            // Square has no "payment failed" event at all, so a decline never becomes one here either.
+            type: c.status === 'succeeded' ? 'payment.updated' : 'payment.created',
+            data: {
+              id: c.id,
+              status: c.providerStatus,
+              amount_money: { amount: c.amountCents, currency: 'USD' },
+              reference_id: c.metadata['invoiceId'] ?? null,
+            },
+          };
+
+  /**
+   * PayPal's: a held deposit is an authorization, everything else a capture, each naming the order it came from
+   * (`supplementary_data`) and the seller it was for (`payee`).
+   */
+  function payPalEvent(c: FakeCharge): { type: string; data: Record<string, unknown> } {
+    const hold = c.capturable && c.status === 'processing';
+    const fee = c.feeCents;
+    return {
+      type: hold
+        ? 'PAYMENT.AUTHORIZATION.CREATED'
+        : c.status === 'succeeded'
+          ? 'PAYMENT.CAPTURE.COMPLETED'
+          : c.status === 'processing'
+            ? 'PAYMENT.CAPTURE.PENDING'
+            : 'PAYMENT.CAPTURE.DECLINED',
+      data: {
+        resource_type: hold ? 'authorization' : 'capture',
+        id: c.ref,
+        status: c.providerStatus,
+        amount: payPalMoney(c.amountCents),
+        ...(c.metadata['invoiceId'] ? { custom_id: c.metadata['invoiceId'] } : {}),
+        payee: { merchant_id: c.accountId },
+        supplementary_data: { related_ids: { order_id: c.id } },
+        ...(fee !== null && c.netCents !== null
+          ? {
+              seller_receivable_breakdown: {
+                gross_amount: payPalMoney(c.amountCents),
+                paypal_fee: payPalMoney(fee),
+                net_amount: payPalMoney(c.netCents),
+              },
+            }
+          : {}),
+        create_time: c.createdAt,
+        update_time: now(),
+      },
+    };
+  }
 
   /**
    * What the stand-in calls a card, from its first digit — the same rule the card networks use, so the specs see
@@ -679,6 +806,17 @@ export function createFakePayments(opts: {
     status: PaymentState,
     capturable: boolean,
   ): string => {
+    // PayPal: an order until it is taken, then its capture's word (or a hold's, `CREATED`).
+    if (provider === 'paypal')
+      return status === 'succeeded'
+        ? 'COMPLETED'
+        : status === 'processing'
+          ? capturable
+            ? 'CREATED'
+            : 'PENDING'
+          : status === 'failed'
+            ? 'DECLINED'
+            : 'CREATED';
     if (provider === 'stripe')
       return status === 'succeeded'
         ? 'succeeded'
@@ -702,7 +840,7 @@ export function createFakePayments(opts: {
 
   function resultOf(c: FakeCharge): PaymentResult {
     return {
-      providerPaymentId: c.id,
+      providerPaymentId: c.ref,
       status: c.status,
       providerStatus: c.providerStatus,
       amountCents: c.amountCents,
@@ -717,6 +855,8 @@ export function createFakePayments(opts: {
       cardBrand: c.method === 'card' ? c.cardBrand : null,
       cardLast4: c.method === 'card' ? cardLast4(c.instrument) : null,
       chargeRef: chargeRefOf(c),
+      // How it was paid on the stand-in's page, as a real provider answers it (PayPal's card button is a card).
+      method: c.method,
     };
   }
 
@@ -756,6 +896,14 @@ export function createFakePayments(opts: {
     c.failureCode = failureCode;
     c.capturable = c.capturable && status === 'processing';
     c.providerStatus = providerStatusOf(c.provider, status, c.capturable);
+    // PayPal's order, once taken, is a capture (or a hold, then a capture): a new id, and the old still finds it.
+    if (c.provider === 'paypal' && status !== 'failed' && status !== 'requires_payment') {
+      const kind = c.capturable ? 'AUTH' : 'CAPTURE';
+      if (!c.ref.startsWith(kind)) {
+        c.ref = nextId(kind);
+        aliases.set(c.ref, c.id);
+      }
+    }
     if (status === 'succeeded') {
       c.receivedAt = now();
       c.feeCents = feeFor(c.amountCents, c.method);
@@ -796,9 +944,12 @@ export function createFakePayments(opts: {
       (c) => c.accountId === account.externalAccountId && c.idempotencyKey === input.idempotencyKey,
     );
     if (already) return already;
-    const id = nextId(account.provider === 'stripe' ? 'pi' : 'sqpay');
+    const id = nextId(
+      account.provider === 'stripe' ? 'pi' : account.provider === 'paypal' ? 'ORDER' : 'sqpay',
+    );
     const c: FakeCharge = {
       id,
+      ref: id,
       provider: account.provider,
       accountId: account.externalAccountId,
       amountCents: requireAmount(input.amountCents),
@@ -848,10 +999,29 @@ export function createFakePayments(opts: {
   });
 
   function provider(name: PaymentProviderName): PaymentProvider {
-    const flow: PaymentFlow = name === 'stripe' ? 'client_confirm' : 'server_charge';
-    const capabilities: PaymentCapabilities = { ...ALL, flow };
+    const flow: PaymentFlow = name === 'square' ? 'server_charge' : 'client_confirm';
+    // PayPal takes one-time payments only (the owner's pick 4a): no plans, no saved cards, no bank transfer here.
+    const capabilities: PaymentCapabilities =
+      name === 'paypal'
+        ? { ...ALL, flow, bankTransfer: false, subscriptions: false, savedMethods: false }
+        : { ...ALL, flow };
     const publishableKey =
-      name === 'stripe' ? FAKE_STRIPE_PUBLISHABLE_KEY : FAKE_SQUARE_APPLICATION_ID;
+      name === 'stripe'
+        ? FAKE_STRIPE_PUBLISHABLE_KEY
+        : name === 'paypal'
+          ? FAKE_PAYPAL_CLIENT_ID
+          : FAKE_SQUARE_APPLICATION_ID;
+    /** What the real PayPal refuses, refused here too, so nothing gets to rely on it working. */
+    const oneTimeOnly = (what: string) => {
+      if (name === 'paypal')
+        throw new PaymentError(
+          `PayPal here takes one-time payments only, so it can’t ${what}.`,
+          null,
+          true,
+          null,
+          'paypal_one_time_only',
+        );
+    };
 
     return {
       name,
@@ -872,13 +1042,14 @@ export function createFakePayments(opts: {
             'account_controlled_by_another_platform',
           );
         revoked.delete(grant.accountId);
+        connectedWith.set(grant.accountId, name);
         return tokens(grant, grant.accountId.includes('test') ? 'test' : 'live');
       },
 
       async refreshTokens(current) {
         if (revoked.has(current.externalAccountId))
           throw new PaymentAuthError('The sign-in was revoked.', 'invalid_grant');
-        if (name === 'stripe') return current;
+        if (name !== 'square') return current;
         return {
           ...current,
           accessToken: `fake-square-token.${enc(current.externalAccountId)}.${randomUUID().slice(0, 6)}`,
@@ -892,7 +1063,7 @@ export function createFakePayments(opts: {
         const partial = t.scopes.length === 1;
         return {
           externalAccountId: t.externalAccountId,
-          displayName: `${name === 'stripe' ? 'Stripe' : 'Square'} · ${t.externalAccountId}`,
+          displayName: `${PAYMENT_NAME[name]} · ${t.externalAccountId}`,
           locationId: name === 'square' ? `fake-location-${t.externalAccountId}` : null,
           capabilities,
           missingScopes: partial ? ['PAYMENTS_WRITE'] : [],
@@ -928,7 +1099,8 @@ export function createFakePayments(opts: {
             customerRef: input.customerRef,
             metadata: input.metadata,
             hold: input.hold,
-            clientSecret: `${nextId('cs')}_secret`,
+            // PayPal's buttons approve the order by its id; only Stripe hands the browser a secret.
+            clientSecret: name === 'stripe' ? `${nextId('cs')}_secret` : null,
           });
           back.searchParams.set('intent', c.id);
           return {
@@ -958,13 +1130,14 @@ export function createFakePayments(opts: {
 
       async confirmFromClient(account, providerPaymentId) {
         guard(account);
-        const c = charges.get(providerPaymentId);
+        const c = chargeOf(providerPaymentId);
         if (!c) throw new PaymentError('No payment with that id.', 404, true);
         return resultOf(c);
       },
 
       async charge(account, input: ChargeInput) {
         guard(account);
+        oneTimeOnly('charge a card without the customer pressing its button');
         const amount = requireAmount(input.amountCents);
         if (!input.sourceToken)
           throw new PaymentError('There is nothing to take the payment from.', null, true);
@@ -989,6 +1162,7 @@ export function createFakePayments(opts: {
 
       async authorize(account, input) {
         guard(account);
+        oneTimeOnly('hold a card without the customer pressing its button');
         const amount = requireAmount(input.amountCents);
         if (!input.sourceToken)
           throw new PaymentError('There is nothing to hold the payment on.', null, true);
@@ -1018,7 +1192,7 @@ export function createFakePayments(opts: {
 
       async capture(account, input) {
         guard(account);
-        const c = charges.get(input.providerPaymentId);
+        const c = chargeOf(input.providerPaymentId);
         if (!c) throw new PaymentError('No payment with that id.', 404, true);
         if (!c.capturable) return resultOf(c);
         c.capturable = false;
@@ -1028,18 +1202,19 @@ export function createFakePayments(opts: {
 
       async voidAuthorization(account, input) {
         guard(account);
-        const c = charges.get(input.providerPaymentId);
+        const c = chargeOf(input.providerPaymentId);
         if (!c) throw new PaymentError('No payment with that id.', 404, true);
         c.capturable = false;
         await land(c, 'failed', null);
         c.failureCode = null;
-        c.providerStatus = name === 'stripe' ? 'canceled' : 'CANCELED';
+        c.providerStatus =
+          name === 'stripe' ? 'canceled' : name === 'paypal' ? 'VOIDED' : 'CANCELED';
         return resultOf(c);
       },
 
       async refund(account, input) {
         guard(account);
-        const c = charges.get(input.providerPaymentId);
+        const c = chargeOf(input.providerPaymentId);
         if (!c) throw new PaymentError('No payment with that id.', 404, true);
         if (c.status !== 'succeeded')
           throw new PaymentError('Only a payment that went through can be refunded.', 400, true);
@@ -1078,6 +1253,7 @@ export function createFakePayments(opts: {
 
       async ensureCustomer(account, input) {
         guard(account);
+        oneTimeOnly('keep a customer for later');
         if (input.customerRef) return { customerRef: input.customerRef };
         const ref = nextId(name === 'stripe' ? 'cus' : 'sqcust');
         customers.set(ref, { name: input.name, cards: [] });
@@ -1086,6 +1262,7 @@ export function createFakePayments(opts: {
 
       async saveMethod(account, input) {
         guard(account);
+        oneTimeOnly('save a card');
         const t = readToken(input.sourceToken);
         /**
          * Saving a card is where a bad one is refused, exactly as it is at both real providers: Stripe refuses
@@ -1440,6 +1617,7 @@ export function createFakePayments(opts: {
       subscriptions: {
         async create(account, input) {
           guard(account);
+          oneTimeOnly('run a plan');
           const start = input.startAt ? new Date(input.startAt) : new Date();
           const id = nextId(name === 'stripe' ? 'sub' : 'sqsub');
           const row: FakeSubscription = {
@@ -1505,13 +1683,25 @@ export function createFakePayments(opts: {
 
       async fees(account, providerPaymentId) {
         guard(account);
-        const c = charges.get(providerPaymentId);
+        const c = chargeOf(providerPaymentId);
         return { feeCents: c?.feeCents ?? null, netCents: c?.netCents ?? null };
       },
 
       webhooks: {
         configured: true,
         verify({ rawBody, headers, url }) {
+          if (name === 'paypal') {
+            const id = headers['paypal-transmission-id'];
+            const time = headers['paypal-transmission-time'];
+            const given = headers['paypal-transmission-sig'];
+            return (
+              !!id &&
+              !!time &&
+              !!given &&
+              headers['paypal-cert-url'] === FAKE_PAYPAL_CERT_URL &&
+              given === payPalSignature(id, time, rawBody)
+            );
+          }
           if (name === 'stripe') {
             const header = headers['stripe-signature'];
             if (!header) return false;
@@ -1524,6 +1714,8 @@ export function createFakePayments(opts: {
           return !!given && given === hmacBase64(FAKE_SQUARE_SIGNATURE_KEY, `${url}${rawBody}`);
         },
         parse(rawBody) {
+          // The same reader as the real PayPal's: the envelope is PayPal's own.
+          if (name === 'paypal') return readPayPalEvent(rawBody);
           try {
             const body = JSON.parse(rawBody) as Record<string, unknown>;
             const id = String((name === 'stripe' ? body['id'] : body['event_id']) ?? '');
@@ -1564,37 +1756,57 @@ export function createFakePayments(opts: {
 
   const stripe = provider('stripe');
   const square = provider('square');
+  const paypal = provider('paypal');
 
   return {
-    providers: { stripe, square },
+    providers: { stripe, square, paypal },
     // Split by which "account" took it, which is the stand-in's stand-in for Stripe's account header: a
     // business's charges carry theirs, and ours carry none.
     charges: () => [...charges.values()].filter((c) => c.accountId !== ''),
     platformCharges: () => [...charges.values()].filter((c) => c.accountId === ''),
-    charge: (id) => charges.get(id) ?? null,
+    charge: (id) => chargeOf(id) ?? null,
     refunds: () => [...refundRows],
     subscriptions: () => [...subs.values()],
     webhooks: () => [...posts],
 
     async settle(providerPaymentId) {
-      const c = charges.get(providerPaymentId);
+      const c = chargeOf(providerPaymentId);
       if (!c || c.status !== 'processing') return c ?? null;
       return land(c, 'succeeded');
     },
 
     async failTransfer(providerPaymentId, code = 'bank_transfer_returned') {
-      const c = charges.get(providerPaymentId);
+      const c = chargeOf(providerPaymentId);
       if (!c || c.status !== 'processing') return c ?? null;
       return land(c, 'failed', code);
     },
 
     async dispute(providerPaymentId, reason = 'fraudulent') {
-      const c = charges.get(providerPaymentId);
+      const c = chargeOf(providerPaymentId);
       if (!c) return null;
       c.disputed = true;
-      c.disputeId = c.provider === 'stripe' ? nextId('dp') : randomUUID();
-      // The answer is due a week out, as both providers give about that long.
+      c.disputeId =
+        c.provider === 'stripe'
+          ? nextId('dp')
+          : c.provider === 'paypal'
+            ? nextId('PP-D')
+            : randomUUID();
+      // The answer is due a week out, as every provider gives about that long.
       const dueBy = Date.now() + 7 * 86_400_000;
+      if (c.provider === 'paypal') {
+        await send('paypal', 'CUSTOMER.DISPUTE.CREATED', c.accountId, {
+          resource_type: 'dispute',
+          dispute_id: c.disputeId,
+          disputed_transactions: [
+            { seller_transaction_id: c.ref, seller: { merchant_id: c.accountId } },
+          ],
+          reason: reason.toUpperCase(),
+          status: 'WAITING_FOR_SELLER_RESPONSE',
+          dispute_amount: payPalMoney(c.amountCents),
+          seller_response_due_date: new Date(dueBy).toISOString(),
+        });
+        return c;
+      }
       await send(
         c.provider,
         c.provider === 'stripe' ? 'charge.dispute.created' : 'dispute.created',
@@ -1622,8 +1834,23 @@ export function createFakePayments(opts: {
     },
 
     async settleDispute(providerPaymentId, outcome) {
-      const c = charges.get(providerPaymentId);
+      const c = chargeOf(providerPaymentId);
       if (!c?.disputeId) return null;
+      if (c.provider === 'paypal') {
+        await send('paypal', 'CUSTOMER.DISPUTE.RESOLVED', c.accountId, {
+          resource_type: 'dispute',
+          dispute_id: c.disputeId,
+          disputed_transactions: [
+            { seller_transaction_id: c.ref, seller: { merchant_id: c.accountId } },
+          ],
+          status: 'RESOLVED',
+          dispute_amount: payPalMoney(c.amountCents),
+          dispute_outcome: {
+            outcome_code: outcome === 'won' ? 'RESOLVED_SELLER_FAVOUR' : 'RESOLVED_BUYER_FAVOUR',
+          },
+        });
+        return c;
+      }
       await send(
         c.provider,
         c.provider === 'stripe' ? 'charge.dispute.closed' : 'dispute.state.updated',
@@ -1647,7 +1874,7 @@ export function createFakePayments(opts: {
     },
 
     async dashboardRefund(providerPaymentId, amountCents, opts = {}) {
-      const c = charges.get(providerPaymentId);
+      const c = chargeOf(providerPaymentId);
       if (!c || c.status !== 'succeeded' || c.refundedCents + amountCents > c.amountCents)
         return null;
       c.refundedCents += amountCents;
@@ -1665,7 +1892,7 @@ export function createFakePayments(opts: {
 
     async settleRefund(providerRefundId, outcome) {
       const row = refundRows.find((r) => r.id === providerRefundId);
-      const c = row ? charges.get(row.paymentId) : undefined;
+      const c = row ? chargeOf(row.paymentId) : undefined;
       const lateFail = row?.status === 'succeeded' && outcome === 'failed';
       if (!row || !c || (row.status !== 'pending' && !lateFail)) return null;
       row.status = outcome;
@@ -1731,9 +1958,16 @@ export function createFakePayments(opts: {
 
     async revoke(externalAccountId) {
       revoked.add(externalAccountId);
-      const provider: PaymentProviderName = externalAccountId.startsWith('acct')
-        ? 'stripe'
-        : 'square';
+      const provider: PaymentProviderName =
+        connectedWith.get(externalAccountId) ??
+        (externalAccountId.startsWith('acct') ? 'stripe' : 'square');
+      if (provider === 'paypal') {
+        await send('paypal', 'MERCHANT.PARTNER-CONSENT.REVOKED', externalAccountId, {
+          resource_type: 'merchant-partner-consent',
+          merchant_id: externalAccountId,
+        });
+        return;
+      }
       await send(
         provider,
         provider === 'stripe' ? 'account.application.deauthorized' : 'oauth.authorization.revoked',
@@ -1833,7 +2067,7 @@ export function createFakePayments(opts: {
     signStripePlatform,
 
     page: {
-      intent: (id) => charges.get(id) ?? null,
+      intent: (id) => chargeOf(id) ?? null,
       tokenise: ({ instrument, method }) => mintToken({ instrument, method, saved: false }),
       cardSession: (sessionRef) => cardSessions.get(sessionRef) ?? null,
       payoutAccount: (accountRef) => payoutAccounts.get(accountRef) ?? null,
@@ -1845,7 +2079,7 @@ export function createFakePayments(opts: {
         return sourceToken;
       },
       async confirm({ providerPaymentId, instrument, method }) {
-        const c = charges.get(providerPaymentId);
+        const c = chargeOf(providerPaymentId);
         if (!c) return null;
         if (c.status !== 'requires_payment') return c;
         const answer = outcome(instrument, method, false);
@@ -1863,6 +2097,7 @@ export function createFakePayments(opts: {
 
     signStripe,
     signSquare,
+    signPayPal,
   };
 }
 

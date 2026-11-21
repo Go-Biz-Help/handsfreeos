@@ -298,7 +298,7 @@ describe('whether an answer will do', () => {
     });
     expect(answerProblem(question, [file(1000)])).toBe(null);
     expect(answerProblem(question, [file(1000), file(1000), file(1000)])).toBe('Up to 2 files.');
-    expect(answerProblem(question, [file(20 * 1024 * 1024)])).toBe('Each file under 10MB.');
+    expect(answerProblem(question, [file(20 * 1024 * 1024)])).toBe('Each file can be up to 10 MB.');
   });
 
   it('never complains about a question that asks nothing', () => {

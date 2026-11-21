@@ -10,7 +10,8 @@
  *   (`/people`, `?show=ready`… for one stage, else the board), their friends (`/people/friends`, `?show=fits`,
  *   `requests`, `sent`, `keep`, `dont_pitch` or `never_contact`), their chats (`/people/chats`, `?show=tagged`, `read`
  *   or `waiting`, and a tag `?tag=`), their Partners list (`/people/partners`, `?show=asked`… for one stage, else
- *   everyone), and those the country setting skips (`/people/skipped`).
+ *   everyone), those in someone's hands (`/people/hands`, `?mine=1` for the person's own, decision 182), and those the
+ *   country setting skips (`/people/skipped`).
  * - **Find people** (`/find`): a card for each way new people are found, and the groups (`/find/groups`, `?show=maybe`,
  *   `skip` or `all`, else Work these), with a group's own page (`?group=` its id, decision 103): who was found there
  *   and how each turned out, `?show=` one outcome (`not_reached`, `talking`…).
@@ -51,6 +52,7 @@ export type OutreachView =
   | 'friends'
   | 'chats'
   | 'partners'
+  | 'hands'
   | 'skipped'
   | 'find'
   | 'groups'
@@ -67,6 +69,7 @@ const VIEW_PATH: Readonly<Record<OutreachView, string>> = {
   friends: 'people/friends',
   chats: 'people/chats',
   partners: 'people/partners',
+  hands: 'people/hands',
   skipped: 'people/skipped',
   find: 'find',
   groups: 'find/groups',
@@ -88,6 +91,7 @@ export function pageOf(view: OutreachView): OutreachPage {
     case 'friends':
     case 'chats':
     case 'partners':
+    case 'hands':
     case 'skipped':
       return 'people';
     case 'find':
@@ -119,6 +123,7 @@ const OLD_VIEWS: Readonly<Record<string, OutreachView>> = {
   friends: 'friends',
   chats: 'chats',
   partners: 'partners',
+  hands: 'hands',
   groups: 'groups',
   settings: 'settings',
   playbooks: 'playbooks',
@@ -170,6 +175,8 @@ export interface OutreachAddress {
   readonly part: SettingsPart;
   /** Today's network, or the network a list is narrowed to: null for the first, or every one. */
   readonly net: Platform | null;
+  /** In your hands: only the person's own (`?mine=1`), else everyone's. */
+  readonly mine: boolean;
 }
 
 type Query = Record<string, string | string[] | undefined>;
@@ -202,6 +209,7 @@ export function readOutreachAddress(
     part: settingsPartOf(part),
     // The address's own; with none, the last picked; `all` (or nothing) is every network.
     net: sp.net !== undefined ? readNetwork(one(sp.net)) : readNetwork(remembered),
+    mine: one(sp.mine) === '1',
   };
 }
 
@@ -276,6 +284,8 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
   } else if (view === 'partners') {
     if (to.partners && to.partners !== 'all') params.set('show', to.partners);
     if (to.page && to.page > 1) params.set('page', String(to.page));
+  } else if (view === 'hands') {
+    if (to.mine) params.set('mine', '1');
   } else if (view === 'results') {
     if (to.period && to.period !== DEFAULT_PERIOD) params.set('period', to.period);
     if (to.everyone) params.set('who', 'everyone');

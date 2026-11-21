@@ -105,6 +105,7 @@ export const CHIP_ORDER: readonly ReasonCode[] = [
   'not_contacted',
   'auto_replied',
   'handed_off',
+  'in_hands',
   'last_contact',
   'no_contact',
   'follow_up_overdue',

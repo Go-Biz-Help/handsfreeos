@@ -1,7 +1,7 @@
 {
   "area": "ai-team",
   "title": "The AI teammate: setup, instructions, approvals, review, activity, funnels, AI setup and test chat",
-  "checkedOn": "2026-11-20",
+  "checkedOn": "2026-11-21",
   "files": {
     "apps/mobile/src/ai-setup/calls.ts": "881c51c1a351",
     "apps/mobile/src/ai-setup/use-ai-setup.ts": "4bec8c37baf1",
@@ -60,7 +60,7 @@
     "apps/web/src/components/funnels/suggestions.tsx": "4137767fc330",
     "apps/web/src/components/funnels/try-it.tsx": "18912132fa9a",
     "apps/web/src/components/workflows/approvals/approvals-board.tsx": "3fdf26c91e68",
-    "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx": "2054051581f9",
+    "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx": "f77c69e55dc0",
     "apps/web/src/lib/ai-setup/actions.ts": "5c312e19966a",
     "packages/core/src/assistant/coverage.ts": "2a0f4f6333ff",
     "packages/core/src/assistant/screen-reads.ts": "c67a783b6ac8",

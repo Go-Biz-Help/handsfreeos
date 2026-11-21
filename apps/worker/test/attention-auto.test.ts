@@ -230,9 +230,10 @@ describe('a confirmation request', () => {
     const before = textsTo(w, c.phone).length;
     await sendNow(item.id);
     expect(textsTo(w, c.phone)).toHaveLength(before);
+    // Messaging them put them in Dale's hands (messaging/hands.ts), so someone on the team is talking with them.
     expect(await reread(item, 'unconfirmed_appointment')).toMatchObject({
       autoState: 'skipped',
-      autoSkipReason: 'recent_person_contact',
+      autoSkipReason: 'someone_talking',
     });
   });
 

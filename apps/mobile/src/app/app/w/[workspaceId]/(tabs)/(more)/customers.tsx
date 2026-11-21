@@ -2,6 +2,7 @@ import * as React from 'react';
 import {
   ADD_CONTACT_WORDS,
   CONTACTS_WORDS,
+  HANDS_WORDS,
   holds,
   MORE_WORDS,
   PICKED_CONTACT_WORDS as PC,
@@ -9,7 +10,16 @@ import {
 import { router, type Href } from 'expo-router';
 import { FlatList, Pressable, View } from 'react-native';
 
-import { Building, Search, SquareKanban, StickyNote, User, UserPlus, X } from '@/components/icons';
+import {
+  Building,
+  ChevronRight,
+  Search,
+  SquareKanban,
+  StickyNote,
+  User,
+  UserPlus,
+  X,
+} from '@/components/icons';
 import { AddContactSheet, type AddContactWay } from '@/components/customers/add-contact-sheet';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
@@ -19,6 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { handsCalls } from '@/customers/hands';
 import { usePickCustomer } from '@/customers/pick-contact';
 import {
   useCustomers,
@@ -28,13 +39,15 @@ import {
   type PersonRow,
   type SearchHit,
 } from '@/customers/use-customers';
+import { useNetwork } from '@/lib/network';
 import { SearchEverythingRow } from '@/search/rows';
 
 /**
  * Contacts, reached from More: people and companies from the phone's copy, and a search across customers, companies
  * and leads that works with no signal — by name, by number, and by a word someone wrote in a note, ending with Search
  * everything for what was typed. The + at the top adds someone: from a business card it scans, typed in (New contact),
- * or picked from the phone's own contacts, one at a time.
+ * or picked from the phone's own contacts, one at a time. With signal, In your hands opens the people someone on the
+ * team has, so the AI leaves them alone (core's messaging/hands.ts).
  */
 export default function Customers() {
   const { business, viewing } = useBusiness();
@@ -51,6 +64,7 @@ export default function Customers() {
   const { people, companies, loading } = useCustomers();
   const hits = useCustomerSearch(q);
   const searching = q.length >= 2;
+  const inHands = useInHandsCount(business.id);
 
   const openHit = React.useCallback(
     (hit: SearchHit) =>
@@ -140,6 +154,17 @@ export default function Customers() {
             )
           }
         />
+        {searching || !inHands ? null : (
+          <Pressable
+            role="button"
+            onPress={() => router.push(businessHref(business.id, 'customers/in-hands') as Href)}
+            className="min-h-11 flex-row items-center justify-between rounded-card bg-card-2 px-3"
+            testID="customers-in-hands"
+          >
+            <Text className="text-[14px] font-medium">{`${HANDS_WORDS.title} · ${inHands}`}</Text>
+            <Icon as={ChevronRight} className="size-4 text-text-3" />
+          </Pressable>
+        )}
         {searching ? null : (
           <Segmented
             value={tab}
@@ -222,6 +247,28 @@ export default function Customers() {
       />
     </Screen>
   );
+}
+
+/** How many people are in someone's hands, asked for with signal; 0 without, or while it's loading. */
+function useInHandsCount(workspaceId: string): number {
+  const { online } = useNetwork();
+  const [n, setN] = React.useState(0);
+  React.useEffect(() => {
+    if (!online) return;
+    let cancelled = false;
+    handsCalls(workspaceId)
+      .list({ limit: 1 })
+      .then((r) => {
+        if (!cancelled) setN(r.total);
+      })
+      .catch(() => {
+        // Only a way in: what can't load stays out of the way.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [online, workspaceId]);
+  return n;
 }
 
 function PersonRowView({ person, businessId }: { person: PersonRow; businessId: string }) {

@@ -130,11 +130,12 @@ export async function noteSent(
   },
 ): Promise<void> {
   // A partner's messages are the Partners list's (./partners.ts), never a customer conversation; a demo's reminder and
-  // another time after a no-show (decision 106) are about the booking, and a birthday or new-job note (decision 108)
-  // about them, and leave it be too.
+  // another time after a no-show (decision 106) are about the booking, as is the thank-you after a networking call
+  // (decision 187), and a birthday or new-job note (decision 108) about them, and leave it be too.
   if (
     sent.kind === 'demo_reminder' ||
     sent.kind === 'rebook' ||
+    sent.kind === 'thank_you' ||
     sent.kind === 'birthday' ||
     sent.kind === 'new_job' ||
     sent.kind.startsWith('partner_')
@@ -403,6 +404,8 @@ export const conversationNote = defineAddonCommand(outreachAddon, {
     if (!profile)
       throw HfosError.notFound('That person isn’t kept here anymore. Reload your list.');
     const at = changeMoment(ctx.meta);
+    // The AI's draft, copied to send: read in the chat later, it stays the AI's (decision 182).
+    await ctx.tx.update(profiles).set({ copiedAt: at }).where(eq(profiles.id, profile.id));
     // A partner's moves them along the Partners list, never a customer conversation (decision 81).
     if (input.kind.startsWith('partner_')) {
       await notePartnerSent(ctx, me, { profileId: profile.id, kind: input.kind, at });

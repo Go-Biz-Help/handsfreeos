@@ -6,7 +6,7 @@ import {
   paymentsEmpty,
   type PaymentMethod,
 } from '@hfos/core';
-import { Banknote, CreditCard, HandCoins, Receipt } from 'lucide-react';
+import { Banknote, CreditCard, HandCoins, Receipt, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -42,7 +42,9 @@ function MethodCell({
         ? Banknote
         : method === 'check'
           ? Receipt
-          : HandCoins;
+          : method === 'paypal' || method === 'venmo'
+            ? Wallet
+            : HandCoins;
   // An account's or provider's name, or where a payment taken by hand went through ("Chase QuickAccept").
   const where =
     (payment.connectionId ? names?.[payment.connectionId] : undefined) ??

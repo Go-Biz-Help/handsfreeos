@@ -35,7 +35,7 @@ import {
   SEND_POST_MOST,
   replyNeedsYou,
 } from '../../src/addons/outreach/sends';
-import { computerOn, outreachBusiness, refused, runAs } from './outreach-fixture';
+import { backToTheAi, computerOn, outreachBusiness, refused, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -277,6 +277,8 @@ describe('messages on their own', () => {
       // After a demo (decision 106): the reminder the day before, and another time after a no-show.
       'demo_reminder',
       'rebook',
+      // A thank-you after a networking call (decision 187), which always waits for an OK.
+      'thank_you',
       // A birthday or a new job (decision 108), which always waits for an OK.
       'birthday',
       'new_job',
@@ -590,7 +592,7 @@ describe('messages on their own', () => {
             ],
           },
         ],
-      });
+      }).then(() => backToTheAi(member, ws)); // "How’s business?" was the AI's (decision 182).
     const chatOf = async (name: string) => {
       const [c] = await rows<{ id: string; profile_id: string }>(
         admin(),

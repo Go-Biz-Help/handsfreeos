@@ -3182,6 +3182,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'business_card',
   // The AI writing down a screenshot of a page a texting registration's check couldn't open (20261027030500).
   'site_screenshot',
+  // The AI writing About you from the person's answers to its interview (20261027031600).
+  'about_you',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -4206,6 +4208,8 @@ export const paymentMethod = app.enum('payment_method', [
   'check',
   'other',
   'card_outside',
+  'paypal',
+  'venmo',
 ]);
 export const paymentStatus = app.enum('payment_status', [
   'requires_payment',
@@ -4255,6 +4259,13 @@ export const products = app.table('products', {
   taxable: boolean('taxable').notNull().default(true),
   /** The bookable service this is the price of: one product per service. */
   serviceId: uuid('service_id').references(() => services.id, { onDelete: 'set null' }),
+  /** Sizes, colors and other choices, each with a price bump (core's money/options.ts checks them). */
+  options: jsonb('options')
+    .$type<
+      { id: string; name: string; choices: { id: string; label: string; priceCents: number }[] }[]
+    >()
+    .notNull()
+    .default([]),
   archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
@@ -5142,6 +5153,26 @@ export const dayStarts = app.table(
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.userId] })],
 );
+
+/**
+ * In your hands (20261027030900): a customer a person on the team has taken on, by writing or calling them
+ * themselves or with Take over. The AI holds off them everywhere until someone gives them back.
+ */
+export const peopleInHands = app.table('people_in_hands', {
+  personId: uuid('person_id')
+    .primaryKey()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  /** Whose hands: null for someone outside HandsFreeOS, and once they leave the business. */
+  userId: userRef('user_id'),
+  /** wrote, called, took_over. */
+  how: text('how').notNull(),
+  /** A channel, 'call', or a network an add-on names; null for Take over. */
+  place: text('place'),
+  since: ts('since').notNull().defaultNow(),
+  lastAt: ts('last_at').notNull().defaultNow(),
+  ...timestamps(),
+});
 
 // ---------- Milestone 11: moving a business here from another CRM (0064-0066) ----------
 export const migrationSource = app.enum('migration_source', [

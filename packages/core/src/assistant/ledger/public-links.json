@@ -1,7 +1,7 @@
 {
   "area": "public-links",
   "title": "Every link a business gives out, and the public pages behind them",
-  "checkedOn": "2026-11-18",
+  "checkedOn": "2026-11-20",
   "files": {
     "apps/web/src/addons/realestate/portal/bits.tsx": "d7b704452b09",
     "apps/web/src/addons/realestate/portal/home-panel.tsx": "94db9d871e1e",
@@ -45,9 +45,9 @@
     "apps/web/src/components/booking/booking-flow.tsx": "b2f7a2b6f9a6",
     "apps/web/src/components/booking/business-page.tsx": "2638ffe26ea9",
     "apps/web/src/components/booking/chat-button.tsx": "2eb031ad5c0b",
-    "apps/web/src/components/booking/deposit-pay.tsx": "2e65d379e63e",
+    "apps/web/src/components/booking/deposit-pay.tsx": "6e313e43ece1",
     "apps/web/src/components/booking/embedded.tsx": "e18f3b9c20ae",
-    "apps/web/src/components/booking/hold-page.tsx": "03f38595271e",
+    "apps/web/src/components/booking/hold-page.tsx": "9360c3c1c2dd",
     "apps/web/src/components/booking/join-session.tsx": "5106dc9cc988",
     "apps/web/src/components/booking/manage-booking.tsx": "8c2bab34c5e9",
     "apps/web/src/components/booking/public-shell.tsx": "aad974c4e588",
@@ -61,12 +61,14 @@
     "apps/web/src/components/chat-widget/chat-window.tsx": "96ea0e00ee8e",
     "apps/web/src/components/documents/signing-page.tsx": "93d3da610fb4",
     "apps/web/src/components/forms/address-field.tsx": "20ece36ae74b",
-    "apps/web/src/components/forms/booking-picker.tsx": "0b81d8526d1a",
-    "apps/web/src/components/forms/public-form.tsx": "74581f9d1c48",
-    "apps/web/src/components/forms/question-field.tsx": "b80ae03048fa",
+    "apps/web/src/components/forms/booking-picker.tsx": "ab0798d78741",
+    "apps/web/src/components/forms/public-form.tsx": "e542de786abd",
+    "apps/web/src/components/forms/question-field.tsx": "2e6905b08154",
     "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
+    "apps/web/src/components/money/paypal-buttons.tsx": "d1d0351e7497",
+    "apps/web/src/components/money/provider-fields.tsx": "96d28fde2225",
     "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
-    "apps/web/src/components/money/public-invoice.tsx": "71edaaf05241",
+    "apps/web/src/components/money/public-invoice.tsx": "dcd7994a5807",
     "apps/web/src/components/money/public-plan.tsx": "1364906433dc",
     "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
     "apps/web/src/components/portal/partner-page.tsx": "1e5fbe8cd600",
@@ -267,7 +269,7 @@
     {
       "path": "Calendar page, embedded → paying a deposit opens the payment page in a new tab",
       "kind": "see",
-      "file": "apps/web/src/components/booking/deposit-pay.tsx:303",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:409",
       "covered": "person",
       "by": "the customer pays on the provider’s page"
     },
@@ -596,65 +598,100 @@
     {
       "path": "Deposit step → '$X is due' / deposit, price, Due now, Due after",
       "kind": "see",
-      "file": "apps/web/src/components/booking/deposit-pay.tsx:217",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:291",
       "covered": "yes",
       "by": "get_calendar_settings payments deposit"
     },
     {
       "path": "Deposit step → visit card",
       "kind": "see",
-      "file": "apps/web/src/components/booking/deposit-pay.tsx:111",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:119",
       "covered": "yes",
       "by": "get_appointment"
     },
     {
       "path": "Deposit step → pay methods",
       "kind": "do",
-      "file": "apps/web/src/components/booking/deposit-pay.tsx:254",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:361",
       "covered": "person",
       "by": "paying on the provider's page"
     },
     {
+      "path": "Deposit step → Pay by card / Pay by bank transfer: the payment provider's own fields",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:332",
+      "covered": "person",
+      "by": "the payer types their own card or bank details into the provider's fields"
+    },
+    {
+      "path": "Deposit step → Pay by card → Bank transfer instead / Card instead / Back",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:345",
+      "covered": "person",
+      "by": "the payer's own choice of how to pay"
+    },
+    {
       "path": "Deposit step → can't-pay reasons",
       "kind": "see",
-      "file": "apps/web/src/components/booking/deposit-pay.tsx:275",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:391",
       "covered": "partly",
       "by": "get_settings payments shows the payment setup"
     },
     {
       "path": "Deposit step → Hold my time and pay",
       "kind": "do",
-      "file": "apps/web/src/components/booking/deposit-pay.tsx:297",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:440",
       "covered": "person",
       "by": "paying on the provider's page"
     },
     {
       "path": "Deposit step → card note",
       "kind": "see",
-      "file": "apps/web/src/components/booking/deposit-pay.tsx:303",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:443",
       "covered": "yes",
       "by": "get_calendar_settings payments deposit"
     },
     {
       "path": "Deposit step → time went: other time, Pick another time",
       "kind": "do",
-      "file": "apps/web/src/components/booking/deposit-pay.tsx:335",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:502",
       "covered": "person",
       "by": "the paying customer's own step"
     },
     {
+      "path": "Deposit step → PayPal’s buttons (hold the deposit like a card; Venmo and Pay Later stay off)",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:407",
+      "covered": "person",
+      "by": "the payer approves in PayPal’s own window"
+    },
+    {
+      "path": "Deposit step → PayPal note ('PayPal only holds the money until the time is confirmed')",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:547",
+      "covered": "yes",
+      "by": "get_calendar_settings payments deposit"
+    },
+    {
       "path": "Hold page (/hold/) → link bad, error, loading, gone",
       "kind": "see",
-      "file": "apps/web/src/components/booking/hold-page.tsx:129",
+      "file": "apps/web/src/components/booking/hold-page.tsx:131",
       "covered": "person",
       "by": "a payment hold only the paying customer sees"
     },
     {
       "path": "Hold page → 'Payment cancelled…'",
       "kind": "see",
-      "file": "apps/web/src/components/booking/hold-page.tsx:101",
+      "file": "apps/web/src/components/booking/hold-page.tsx:99",
       "covered": "person",
       "by": "the customer's own payment"
+    },
+    {
+      "path": "Hold page → 'That payment didn’t go through…' (the bank's own check said no)",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/hold-page.tsx:102",
+      "covered": "person",
+      "by": "the payer's own attempt"
     },
     {
       "path": "Hold link (/hold/<token>)",
@@ -1380,28 +1417,28 @@
     {
       "path": "Form → head: name, intro",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:428",
+      "file": "apps/web/src/components/forms/public-form.tsx:451",
       "covered": "yes",
       "by": "get_form name, asks"
     },
     {
       "path": "Form → closed",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:437",
+      "file": "apps/web/src/components/forms/public-form.tsx:460",
       "covered": "yes",
       "by": "get_form status"
     },
     {
       "path": "Form → progress",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:443",
+      "file": "apps/web/src/components/forms/public-form.tsx:466",
       "covered": "person",
       "by": "the respondent's own place"
     },
     {
       "path": "Form → 'Details changed?' (personal link)",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:460",
+      "file": "apps/web/src/components/forms/public-form.tsx:483",
       "covered": "person",
       "by": "the respondent's own details"
     },
@@ -1450,42 +1487,42 @@
     {
       "path": "Form → booking question, no times",
       "kind": "do",
-      "file": "apps/web/src/components/forms/booking-picker.tsx:76",
+      "file": "apps/web/src/components/forms/booking-picker.tsx:89",
       "covered": "person",
       "by": "the respondent picks; find_availability for the business"
     },
     {
       "path": "Form → consent box: texts, offers, calls, policy, terms",
       "kind": "do",
-      "file": "apps/web/src/components/forms/public-form.tsx:340",
+      "file": "apps/web/src/components/forms/public-form.tsx:363",
       "covered": "person",
       "by": "the respondent's own yes"
     },
     {
       "path": "Form → bot check failed, 'isn’t fully set up'",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:407",
+      "file": "apps/web/src/components/forms/public-form.tsx:430",
       "covered": "partly",
       "by": "get_form toFix"
     },
     {
       "path": "Form → totals and score",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:517",
+      "file": "apps/web/src/components/forms/public-form.tsx:540",
       "covered": "partly",
       "by": "get_form answers"
     },
     {
       "path": "Form → Back, Send, anonymous note",
       "kind": "do",
-      "file": "apps/web/src/components/forms/public-form.tsx:543",
+      "file": "apps/web/src/components/forms/public-form.tsx:566",
       "covered": "person",
       "by": "the respondent sends"
     },
     {
       "path": "Form → sent: body, score %, '$X to pay', button",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:302",
+      "file": "apps/web/src/components/forms/public-form.tsx:325",
       "covered": "partly",
       "by": "get_form answers; thank-you words not read"
     },
@@ -1702,93 +1739,135 @@
     {
       "path": "Invoice → link stale / missing",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-invoice.tsx:317",
+      "file": "apps/web/src/components/money/public-invoice.tsx:397",
       "covered": "no",
       "by": "no tool reads the link"
     },
     {
       "path": "Invoice → void",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-invoice.tsx:356",
+      "file": "apps/web/src/components/money/public-invoice.tsx:436",
       "covered": "yes",
       "by": "get_money_document state; manage_invoice void"
     },
     {
       "path": "Invoice → hero: owed, due date",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-invoice.tsx:522",
+      "file": "apps/web/src/components/money/public-invoice.tsx:619",
       "covered": "yes",
       "by": "get_money_document owed, dueOn"
     },
     {
       "path": "Invoice → paid and settling rows",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-invoice.tsx:392",
+      "file": "apps/web/src/components/money/public-invoice.tsx:472",
       "covered": "yes",
       "by": "get_money_document payments status"
     },
     {
       "path": "Invoice → Pay",
       "kind": "do",
-      "file": "apps/web/src/components/money/public-invoice.tsx:439",
+      "file": "apps/web/src/components/money/public-invoice.tsx:541",
       "covered": "person",
       "by": "paying on the provider's page; record_payment for cash or check"
     },
     {
       "path": "Invoice → pay methods: card or bank",
       "kind": "do",
-      "file": "apps/web/src/components/money/public-invoice.tsx:567",
+      "file": "apps/web/src/components/money/public-invoice.tsx:690",
       "covered": "person",
       "by": "paying on the provider's page"
     },
     {
+      "path": "Invoice → Pay by card / Pay by bank transfer: the payment provider's own fields (Stripe's payment box, Square's card field)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-invoice.tsx:662",
+      "covered": "person",
+      "by": "the payer types their own card or bank details into the provider's fields; nobody else ever sees them"
+    },
+    {
+      "path": "Invoice → Pay by card → Bank transfer instead / Card instead / Back",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-invoice.tsx:675",
+      "covered": "person",
+      "by": "the payer's own choice of how to pay"
+    },
+    {
+      "path": "Invoice → Pay by card → Pay $X (confirms in the provider's fields)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-invoice.tsx:525",
+      "covered": "person",
+      "by": "paying in the provider's fields; record_payment for cash or check"
+    },
+    {
+      "path": "Invoice → Pay by card → field problems, refusal, 'couldn't reach the payment provider'",
+      "kind": "see",
+      "file": "apps/web/src/components/money/provider-fields.tsx:278",
+      "covered": "person",
+      "by": "the payer's own attempt"
+    },
+    {
       "path": "Invoice → refunded, paid in full, settling, declined",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-invoice.tsx:459",
+      "file": "apps/web/src/components/money/public-invoice.tsx:556",
       "covered": "yes",
       "by": "get_money_document paid, refunded, refunds"
     },
     {
       "path": "Invoice → notice / error",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-invoice.tsx:510",
+      "file": "apps/web/src/components/money/public-invoice.tsx:607",
       "covered": "person",
       "by": "the payer's own attempt"
     },
     {
       "path": "Invoice → receipt",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-invoice.tsx:531",
+      "file": "apps/web/src/components/money/public-invoice.tsx:629",
       "covered": "yes",
       "by": "get_money_document payments"
     },
     {
       "path": "Invoice → paid outside HandsFreeOS: ‘takes payment for this invoice directly’",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-invoice.tsx:624",
+      "file": "apps/web/src/components/money/public-invoice.tsx:752",
       "covered": "yes",
       "by": "get_money_document → paidInto Outside HandsFreeOS"
     },
     {
       "path": "Invoice → pay blocked",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-invoice.tsx:637",
+      "file": "apps/web/src/components/money/public-invoice.tsx:766",
       "covered": "partly",
       "by": "get_settings payments"
     },
     {
       "path": "Invoice → card and notes",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-invoice.tsx:638",
+      "file": "apps/web/src/components/money/public-invoice.tsx:777",
       "covered": "yes",
       "by": "get_money_document lines, totals, note"
     },
     {
       "path": "Invoice → Print or save a PDF",
       "kind": "do",
-      "file": "apps/web/src/components/money/public-invoice.tsx:647",
+      "file": "apps/web/src/components/money/public-invoice.tsx:786",
       "covered": "no",
       "by": "no tool makes a PDF"
+    },
+    {
+      "path": "Invoice → PayPal’s buttons (PayPal, Venmo, Pay Later, PayPal’s card button), beside the card box or alone when PayPal is the invoice’s account",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-invoice.tsx:810",
+      "covered": "person",
+      "by": "the payer approves in PayPal’s own window; which buttons show is change_settings payments venmo / payLater"
+    },
+    {
+      "path": "Invoice → PayPal: 'couldn’t open PayPal', 'couldn’t reach PayPal', 'Payment cancelled'",
+      "kind": "see",
+      "file": "apps/web/src/components/money/paypal-buttons.tsx:25",
+      "covered": "person",
+      "by": "the payer’s own attempt"
     },
     {
       "path": "Plan link (/p/<token>)",

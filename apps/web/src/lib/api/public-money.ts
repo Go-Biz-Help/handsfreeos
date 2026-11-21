@@ -9,6 +9,7 @@
  * including "this was opened", because mail scanners follow links.
  */
 import { publicEnv } from '../env';
+import type { PayPalButtonsConfig } from '../payments/provider-scripts';
 import { ApiError } from './errors';
 import type { PublicBusiness } from './public-booking';
 
@@ -217,14 +218,20 @@ export interface PublicInvoiceView {
     /** In the order they are offered: bank transfer leads when the business takes one. */
     readonly methods: readonly PayMethod[];
     readonly session: PaySession | null;
+    /**
+     * PayPal's buttons, beside the fields above or alone when PayPal is the account (PayPal plan, part 4).
+     * Left out by a worker from before they existed.
+     */
+    readonly payPal?: PayPalButtonsConfig | null;
   };
 }
 
-export type PayMethod = 'card' | 'ach';
+/** `paypal`: PayPal's buttons, where the customer picks PayPal, Venmo, Pay Later or a card inside PayPal. */
+export type PayMethod = 'card' | 'ach' | 'paypal';
 
 /** Public keys only — a publishable key and the account it belongs to. Never a secret, never a token. */
 export interface PaySession {
-  readonly provider: 'stripe' | 'square';
+  readonly provider: 'stripe' | 'square' | 'paypal';
   readonly flow: 'client_confirm' | 'server_charge';
   readonly publishableKey: string;
   readonly accountId: string;
@@ -241,6 +248,8 @@ export interface PreparedPay {
     readonly status: 'requires_payment';
     readonly amountCents: number;
     readonly method: PayMethod;
+    /** Whose fields the page shows. Left out by a worker from before it was sent: the view's session says. */
+    readonly provider?: string;
     readonly flow: 'client_confirm' | 'server_charge';
     readonly publishableKey: string;
     readonly accountId: string;

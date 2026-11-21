@@ -15,7 +15,7 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import { GROUP_REPLIES_SINCE, groupRepliesOn } from '../active';
 import { AUTOPILOT_WORDS, waitsForPeopleOk } from '../autopilot';
-import { underAPost, type PostSendKind, type SendKind } from '../automation';
+import { MESSAGE_KINDS, underAPost, type PostSendKind, type SendKind } from '../automation';
 import { chatUrlOn } from '../network-words';
 import { FOLLOW_PLATFORMS, NETWORKS, PLATFORMS, type Platform } from '../networks';
 import { type DraftOpener, kindStartsAChat } from '../openers';
@@ -55,9 +55,11 @@ import { OUTREACH_WORDS } from '../words';
 import { heldForOthers } from '../owners';
 import { fileChats, needs, openerUses, playbooks, posts, profiles, sends } from '../tables';
 import { RETRY_GAP_MINUTES } from '../waiting-words';
+import { CALL_WORDS } from '../calls';
 import { OCCASION_WORDS } from '../occasions';
 import { isOccasionKind, isPartnerKind } from '../today';
 import { automationOf, countWheels } from './automation';
+import { heldAmong, heldOffKind, heldRefusal, heldSql } from './in-hands';
 import { noteSent, offerVersionFor } from './conversation';
 import { approveTimes, attachTimes } from './meeting-times';
 import {
@@ -150,6 +152,16 @@ export const mine = (ctx: Ctx, me: string) =>
  * rules is never sent, OK'd or listed, till it's written again.
  */
 export const draftedNow = gte(sends.rulesVersion, RULES_VERSION);
+
+/**
+ * A send that may go: a comment or a reply in a group, or a message to someone nobody has in their hands (decision
+ * 182). One to someone held is skipped as they're taken; this keeps one from before (their customer taken in Contacts)
+ * off every list and OK.
+ */
+export const notHeldNow = sql`(${sends.kind} not in (${sql.join(
+  MESSAGE_KINDS.map((k) => sql`${k}`),
+  sql`, `,
+)}) or not exists (select 1 from addon_outreach.profiles hp where hp.id = ${sends.profileId} and ${heldSql('hp')}))`;
 
 /**
  * Whether a comment of the person's on a network waits for their OK under the comments-only hold (../sends.ts
@@ -460,6 +472,9 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         409,
         `${reachedBy.name} reached ${profile.name} first, so no message goes to them from you. Only your replies to them do. To work with them yourself, ask an owner of this business to give them to you from the menu on their name in Social Outreach.`,
       );
+    // Someone in a person's hands (decision 182) gets no message from the AI, not even a reply: a comment still goes.
+    if (heldOffKind(input.kind) && (await heldAmong(ctx, [profile.id])).has(profile.id))
+      throw heldRefusal(profile.name);
     // A comment needs its post: a good one of theirs, kept for the person, on a network whose comments wait at first; a
     // reply in a group, the question kept for it.
     const post =
@@ -516,34 +531,37 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
     const replying = input.kind === 'reply' || (autopilot && input.kind === 'partner_reply');
     const needsYou = !okd
       ? AUTOPILOT_WORDS.notOkd
-      : partner && !replying
-        ? autopilot
-          ? null
-          : PARTNER_WORDS.needsYou
-        : input.kind === 'rebook'
+      : // The thank-you after a networking call always waits, Autopilot's too (decision 187, the owner's 5a).
+        input.kind === 'thank_you'
+        ? CALL_WORDS.thanksNeedsYou
+        : partner && !replying
           ? autopilot
             ? null
-            : REBOOK_NEEDS_YOU
-          : isOccasionKind(input.kind)
+            : PARTNER_WORDS.needsYou
+          : input.kind === 'rebook'
             ? autopilot
               ? null
-              : OCCASION_WORDS.needsYou
-            : post
-              ? post.answer
-                ? // They answered the person's comment (decision 163, 8a): the answer waits, Autopilot's too.
-                  COMMENT_NEEDS_YOU.reply
-                : post.strong &&
-                    NETWORKS[profile.platform].forumAnswersPerDay !== null &&
-                    !autopilot
-                  ? COMMENT_NEEDS_YOU.answer
-                  : null
-              : !replying
+              : REBOOK_NEEDS_YOU
+            : isOccasionKind(input.kind)
+              ? autopilot
                 ? null
-                : theirs === null
-                  ? 'HandsFreeOS hasn’t seen what they wrote'
-                  : // Something they asked that the business's Knowledge doesn't answer (decision 122): the person's.
-                    (replyNeedsYou(theirs) ??
-                    (input.unanswered ? KNOWS_WORDS.needsYou(input.unanswered) : null));
+                : OCCASION_WORDS.needsYou
+              : post
+                ? post.answer
+                  ? // They answered the person's comment (decision 163, 8a): the answer waits, Autopilot's too.
+                    COMMENT_NEEDS_YOU.reply
+                  : post.strong &&
+                      NETWORKS[profile.platform].forumAnswersPerDay !== null &&
+                      !autopilot
+                    ? COMMENT_NEEDS_YOU.answer
+                    : null
+                : !replying
+                  ? null
+                  : theirs === null
+                    ? 'HandsFreeOS hasn’t seen what they wrote'
+                    : // Something they asked that the business's Knowledge doesn't answer (decision 122): the person's.
+                      (replyNeedsYou(theirs) ??
+                      (input.unanswered ? KNOWS_WORDS.needsYou(input.unanswered) : null));
     const goes = goesAsItIs({
       sending: settings.sending,
       replies: settings.replies,
@@ -646,6 +664,23 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
     // decisions 27 and 42): only one named alone, without `partial`, is OK'd. Approve all, named (the phone's, any
     // build) or not, passes over them, so no client can OK them in bulk.
     const alone = named?.size === 1 && !input.partial;
+    // Someone in a person's hands gets no message from the AI (decision 182): one OK'd alone says so; Approve all passes
+    // over them.
+    if (alone) {
+      const [held] = await rows<{ name: string }>(
+        ctx.tx,
+        sql`select p.name from addon_outreach.sends s
+            join addon_outreach.profiles p on p.id = s.profile_id
+            where s.workspace_id = ${ctx.scope.workspaceId!} and s.user_id = ${me}
+              and s.id = any (${`{${[...named!.keys()].join(',')}}`}::uuid[])
+              and s.state = 'waiting' and ${heldSql('p')}
+              and s.kind in (${sql.join(
+                MESSAGE_KINDS.map((k) => sql`${k}`),
+                sql`, `,
+              )})`,
+      );
+      if (held) throw heldRefusal(held.name);
+    }
     const waiting: Row[] = await ctx.tx
       .select()
       .from(sends)
@@ -655,6 +690,7 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
           eq(sends.state, 'waiting'),
           // One drafted under older rules is written again first (decision 157).
           draftedNow,
+          notHeldNow,
           ...(named ? [inArray(sends.id, [...named.keys()])] : []),
           ...(alone ? [] : [eq(sends.handedOver, false), isNull(sends.needsYou)]),
         ),
@@ -966,7 +1002,7 @@ export const sendsList = defineAddonQuery(outreachAddon, {
     return {
       sends: await listed(
         ctx,
-        and(mine(ctx, me), inArray(sends.state, ['waiting', 'approved']), draftedNow),
+        and(mine(ctx, me), inArray(sends.state, ['waiting', 'approved']), draftedNow, notHeldNow),
       ),
       wheels,
     };

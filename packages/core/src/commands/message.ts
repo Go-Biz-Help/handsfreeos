@@ -50,7 +50,8 @@ import {
   threadHeaders,
   workspaceAddresses,
 } from '../messaging/email';
-import { claimOnReply, personTakesOver, takeOver } from '../messaging/handling';
+import { claimOnReply } from '../messaging/handling';
+import { personWroteIn } from '../messaging/hands';
 import {
   CANCELLED_TEXT,
   formatClock,
@@ -942,10 +943,9 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
       ...(claim && ai ? { handledBy: 'ai' as const, aiTeammateId: ai.teammateId } : {}),
     })
     .where(eq(conversations.id, conv.id));
-  if (!sealed) {
-    if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
-    await claimOnReply(ctx, conv);
-  }
+  // A person's own email puts the customer in their hands (messaging/hands.ts), a sealed thread of theirs included.
+  await personWroteIn(ctx, conv);
+  if (!sealed) await claimOnReply(ctx, conv);
   return { messageId, conversationId: conv.id, status: 'queued', duplicate: false };
 }
 
@@ -1024,7 +1024,7 @@ async function sendChat(ctx: CommandContext, input: z.infer<typeof MessageSendIn
       ...afterOutbound(input.keepConversationStatus, false, now),
     })
     .where(eq(conversations.id, conv.id));
-  if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+  await personWroteIn(ctx, conv);
   await claimOnReply(ctx, conv);
   return { messageId, conversationId: conv.id, status, duplicate: false };
 }
@@ -1109,6 +1109,7 @@ async function sendPortal(ctx: CommandContext, input: z.infer<typeof MessageSend
       ...afterOutbound(input.keepConversationStatus, false, now),
     })
     .where(eq(conversations.id, conv.id));
+  await personWroteIn(ctx, conv);
   await claimOnReply(ctx, conv);
   return { messageId, conversationId: conv.id, status, duplicate: false };
 }
@@ -1324,7 +1325,7 @@ async function sendSocial(ctx: CommandContext, input: z.infer<typeof MessageSend
       ...afterOutbound(input.keepConversationStatus, false, now),
     })
     .where(eq(conversations.id, conv.id));
-  if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+  await personWroteIn(ctx, conv);
   await claimOnReply(ctx, conv);
   return { messageId, conversationId: conv.id, status: 'queued', duplicate: false };
 }
@@ -1332,7 +1333,7 @@ async function sendSocial(ctx: CommandContext, input: z.infer<typeof MessageSend
 export const messageSend = defineCommand({
   name: 'message.send',
   description:
-    'Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.',
+    'Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing to a customer takes them on: the AI teammate stops answering them anywhere until someone gives them back.',
   risk: 2,
   input: MessageSendInput,
   output: MessageSendOutput,
@@ -1344,6 +1345,8 @@ export const messageSend = defineCommand({
     'message.scheduled',
     'conversation.created',
     'conversation.taken_over',
+    // A person's own message puts the customer in their hands (messaging/hands.ts).
+    'person.taken_over',
     // An email from a person's own mailbox (M19): only the worker that sends it hears of it.
     'email.private_queued',
   ],
@@ -1528,7 +1531,7 @@ export const messageSend = defineCommand({
           .set({ phoneNumberId: number.id })
           .where(eq(conversations.id, conv.id));
       // The person answered it themselves: the AI teammate stops answering it now, not in the morning.
-      if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+      await personWroteIn(ctx, conv);
       await claimOnReply(ctx, conv);
       return {
         messageId,
@@ -1604,7 +1607,7 @@ export const messageSend = defineCommand({
         ...(claim && ai ? { handledBy: 'ai' as const, aiTeammateId: ai.teammateId } : {}),
       })
       .where(eq(conversations.id, conv.id));
-    if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+    await personWroteIn(ctx, conv);
     await claimOnReply(ctx, conv);
     return { messageId, conversationId: conv.id, status: 'queued', duplicate: false };
   },

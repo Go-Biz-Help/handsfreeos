@@ -13,6 +13,7 @@ import {
   groundingContext,
   localDateOf,
   money,
+  optionsInWords,
   quoteData,
   type ReplyProblem,
   type TeammateChannel,
@@ -262,7 +263,9 @@ function skillLines(rc: RunContext, texting: boolean, call = false): string[] {
       );
       for (const p of rc.catalogue)
         out.push(
-          `  - ${quoteData(p.name)}${prices ? `, ${money(p.priceCents)} ${p.unitLabel === 'each' ? 'each' : `per ${quoteData(p.unitLabel)}`}` : ''} (product id ${p.id})`,
+          `  - ${quoteData(p.name)}${prices ? `, ${money(p.priceCents)} ${p.unitLabel === 'each' ? 'each' : `per ${quoteData(p.unitLabel)}`}` : ''} (product id ${p.id})${
+            p.options.length ? `; ${quoteData(optionsInWords(p, prices))}, named in choices` : ''
+          }`,
         );
     }
     if (m.plans && rc.plans.length) {

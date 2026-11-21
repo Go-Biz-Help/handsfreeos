@@ -94,6 +94,7 @@ import { oneOnOne } from '../booking/visit';
 import type { MailDnsLookup } from '../email/dns';
 import { publicOrigin } from '../hosting/origin';
 import { accountFor } from '../payments/index';
+import { accountOfStarted, payPalButtonsOf } from '../payments/payable';
 import { declineWording, type PaymentMethodKind, type PaymentResult } from '../payments/provider';
 import { systemActor, type TenantScope } from '../services';
 import { callBoxFor, offersBoxFor, parseBody, type HttpDeps } from './common';
@@ -674,8 +675,9 @@ const customerFields = {
 const DepositPayBody = z.object({
   /** One per press, kept across the trip to the provider: a retry is answered, never charged again. */
   clientId: z.string().trim().min(8).max(64),
-  method: z.enum(['card', 'ach']).default('card'),
-  /** Stripe, after the browser confirmed: the intent to read back. */
+  /** `paypal`: PayPal's button was pressed, so PayPal's account holds the deposit. */
+  method: z.enum(['card', 'ach', 'paypal']).default('card'),
+  /** Stripe, after the browser confirmed: the intent to read back. PayPal: the order the buyer approved. */
   providerPaymentId: z.string().trim().max(200).optional(),
   /** Square: the one-time token the browser made from the card. */
   sourceToken: z.string().trim().max(2048).optional(),
@@ -1076,6 +1078,14 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           methods: account?.methods ?? [],
           /** Public keys only: never a secret key, and never Square's access token. */
           session: account?.session ?? null,
+          /**
+           * PayPal's buttons beside the card box (or alone, when PayPal is the calendar's account). They hold
+           * the deposit like a card, so Venmo and Pay Later, which can't be held, are left off.
+           */
+          payPal:
+            state === 'held' && plan
+              ? payPalButtonsOf(deps.payments, plan.payPal, plan.settings, true)
+              : null,
         },
         holdToken: manageToken(links, {
           publicRef: b.a.publicRef,
@@ -1593,7 +1603,23 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             serviceId: b.p.serviceId,
             calendarName: calendar.name,
           });
-          const account = plan?.account ?? null;
+          // PayPal's button was pressed: its account holds the deposit, whichever account the calendar names.
+          let account = body.method === 'paypal' ? (plan?.payPal ?? null) : (plan?.account ?? null);
+          // Second phase: read back through the account the payment was started in, whatever the page sent.
+          if (plan && body.providerPaymentId) {
+            const [started] = await rows<{ connection_id: string | null }>(
+              tx,
+              sql`select connection_id from app.payments
+                  where invoice_id = ${invoice.id} and provider_payment_id = ${body.providerPaymentId}
+                  limit 1`,
+            );
+            if (started)
+              account =
+                accountOfStarted(
+                  { main: plan.account, payPal: plan.payPal },
+                  started.connection_id,
+                ) ?? account;
+          }
           if (!account) throw cannotTakePayment();
           const method: PaymentMethodKind = account.methods.includes(body.method)
             ? body.method
@@ -1646,8 +1672,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
               idempotencyKey: ctx.idempotencyKey,
               description: ctx.description,
               customerRef: null,
-              // A card is held, not charged, until the time is confirmed.
-              hold: ctx.method === 'card',
+              // A card (or PayPal) is held, not charged, until the time is confirmed.
+              hold: ctx.method === 'card' || ctx.method === 'paypal',
               metadata: { attendeeId: m.attendeeId, workspaceId: scope.workspaceId },
               returnUrl,
             });
@@ -1665,6 +1691,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
               status: 'requires_payment' as const,
               amountCents: ctx.amountCents,
               method: ctx.method,
+              /** Whose fields the page shows: Stripe's payment box or Square's card field. */
+              provider: ctx.account.session.provider,
               flow: session.flow,
               publishableKey: session.publishableKey,
               accountId: session.accountId,
@@ -1706,7 +1734,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
          */
         if (start.gone) {
           let held: PaymentResult | null = null;
-          if (body.providerPaymentId) {
+          // PayPal's buttons only approve an order: nothing is held until we ask, so a lost time asks nothing.
+          if (body.providerPaymentId && ctx.account.session.provider !== 'paypal') {
             try {
               held = await provider.confirmFromClient(account, body.providerPaymentId);
             } catch {
@@ -1768,6 +1797,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           providerStatus: result.providerStatus,
           cardBrand: result.cardBrand,
           cardLast4: result.cardLast4,
+          method: result.method ?? null,
         });
 
         try {
@@ -1781,13 +1811,14 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             receivedAt: done.payment.receivedAt,
             cardBrand: done.payment.cardBrand ?? result.cardBrand,
             cardLast4: done.payment.cardLast4 ?? result.cardLast4,
+            method: done.payment.method ?? result.method ?? null,
           });
           return {
             stage: 'recorded' as const,
             payment: {
               status: done.payment.status,
               amountCents: ctx.amountCents,
-              method: ctx.method,
+              method: done.payment.method ?? result.method ?? ctx.method,
               failureCode: null,
               failureMessage: null,
             },

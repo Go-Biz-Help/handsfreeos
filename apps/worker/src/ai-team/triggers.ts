@@ -19,6 +19,7 @@ import { eq } from 'drizzle-orm';
 import {
   executeCommandIn,
   HfosError,
+  inHands,
   loadTeammate,
   messageRecordOptOut,
   openHoursOf,
@@ -299,7 +300,9 @@ export const onCustomerMessage: EventHandler = async (ctx) => {
     return;
   }
   if (!answersChannel(config, channel)) return;
-  const free = conv.handledBy === 'none' && !conv.assigneeUserId;
+  // Nobody's: not a person's, and its customer isn't in someone's hands (core's messaging/hands.ts).
+  const free =
+    conv.handledBy === 'none' && !conv.assigneeUserId && !(await inHands(ctx.tx, conv.personId));
   if (!mine && !free) return;
   if (!(await widgetAnswers(ctx.tx, conv, teammate.id))) return;
   if (channel === 'sms' && (await textsStopped(ctx.tx, scope.workspaceId, conv))) return;

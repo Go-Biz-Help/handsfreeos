@@ -33,6 +33,7 @@ export * from './crm/not-applied';
 // The CRM screens' shared words and working out (M10 step 15).
 export * from './crm/format';
 export * from './crm/record-words';
+export * from './crm/hands-words';
 export * from './crm/timeline-words';
 export * from './crm/attribution-words';
 // Which emails are Indeed telling a business somebody applied, and what they say without the AI (funnels).

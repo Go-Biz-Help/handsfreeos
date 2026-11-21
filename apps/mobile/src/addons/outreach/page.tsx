@@ -16,6 +16,7 @@ import { OutreachWorkspace } from './frame';
 import { FriendsScreen } from './friends';
 import { GroupPageScreen } from './group-page';
 import { GroupsScreen } from './groups';
+import { HandsScreen } from './hands';
 import { OutreachHomeScreen } from './home';
 import { TodayHub } from './hub';
 import { isSetUp, outreachPath, useOutreachContext, type OutreachTab, type WebTab } from './kit';
@@ -55,6 +56,7 @@ const PHONE_TABS: readonly OutreachTab[] = [
   'chats',
   'never_contact',
   'partners',
+  'hands',
   'results',
   'playbooks',
   'settings',
@@ -136,6 +138,8 @@ function OutreachView({
       return <NeverContactScreen q={q} />;
     case 'partners':
       return <PartnersScreen show={show} net={readNetwork(net)} />;
+    case 'hands':
+      return <HandsScreen />;
     case 'results':
       return <ResultsScreen />;
     case 'playbooks':

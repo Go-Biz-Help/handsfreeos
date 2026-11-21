@@ -16,6 +16,7 @@ import {
   type PaymentProviderName,
   type PaymentTokens,
 } from './provider';
+import { createPayPalPayments } from './paypal';
 import { createSquarePayments } from './square';
 import { createStripePayments } from './stripe';
 
@@ -24,6 +25,8 @@ export {
   createFakePayments,
   FAKE_BANK,
   FAKE_CARDS,
+  FAKE_PAYPAL_CLIENT_ID,
+  FAKE_PAYPAL_WEBHOOK_ID,
   FAKE_SQUARE_APPLICATION_ID,
   FAKE_SQUARE_SIGNATURE_KEY,
   FAKE_STRIPE_PLATFORM_WEBHOOK_SECRET,
@@ -40,6 +43,7 @@ export {
   type WebhookDeliver,
 } from './fake';
 export { SQUARE_SCOPES, SQUARE_TOKEN_LIFE_MS } from './square';
+export { PAYPAL_FEATURES, payPalTrackingId, readPayPalEvent } from './paypal';
 
 /** The providers a business can take money with, and the cadence Square's token is kept alive on. */
 export interface PaymentServices {
@@ -56,6 +60,8 @@ export interface PaymentServices {
 export const WEBHOOK_SECRET_SETTING: Readonly<Record<PaymentProviderName, string>> = {
   stripe: 'STRIPE_WEBHOOK_SECRET',
   square: 'SQUARE_WEBHOOK_SIGNATURE_KEYS',
+  // Not a secret: PayPal signs with its own certificate, over the id of the webhook it is delivering to.
+  paypal: 'PAYPAL_WEBHOOK_ID',
 };
 
 const WEEK = 7 * 86_400_000;
@@ -98,6 +104,14 @@ export function createPayments(env: WorkerEnv): PaymentServices {
         webhookSignatureKeys: env.squareWebhookSignatureKeys,
         environment: env.squareEnvironment,
       }),
+      paypal: createPayPalPayments({
+        clientId: env.paypalClientId,
+        clientSecret: env.paypalClientSecret,
+        partnerMerchantId: env.paypalPartnerMerchantId,
+        bnCode: env.paypalBnCode,
+        webhookId: env.paypalWebhookId,
+        environment: env.paypalEnvironment,
+      }),
     },
     fake: null,
     refreshEveryMs: WEEK,
@@ -116,8 +130,9 @@ export const paymentConnectionUsable = (c: PaymentConnectionRow): boolean =>
   (c.status === 'active' || c.status === 'error') && !!c.tokenEnc;
 
 /**
- * The account a call is made against, from a connection row. Stripe needs no token of its own (our platform key
- * plus the account header does it); Square's seller token is opened from its seal.
+ * The account a call is made against, from a connection row. Stripe and PayPal need no token of their own (our
+ * platform key plus the account header, or PayPal's assertion, does it); Square's seller token is opened from
+ * its seal.
  */
 export function accountFor(sealer: Sealer, c: PaymentConnectionRow): PaymentAccount {
   if (!c.externalAccountId)

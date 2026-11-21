@@ -35,6 +35,8 @@ export const config = {
   passkeysEnabled: process.env.EXPO_PUBLIC_PASSKEYS_ENABLED === 'true',
   /** Gmail's sign-in, once Google approves HandsFreeOS: until then "Connect Gmail" says it's coming soon. */
   gmailEnabled: process.env.EXPO_PUBLIC_GMAIL_ENABLED === 'true',
+  /** Connect PayPal, once PayPal approves HandsFreeOS as a partner: until then setup doesn't offer it. */
+  payPalEnabled: process.env.EXPO_PUBLIC_PAYPAL_ENABLED === 'true',
   /** Builds for the Maestro flows: a stand-in for the Face ID prompt, and the test switches in Settings. */
   e2e: process.env.EXPO_PUBLIC_E2E === '1',
   /** Matomo's id for the phone app (`src/lib/analytics.ts`). Unset: nothing is counted. */

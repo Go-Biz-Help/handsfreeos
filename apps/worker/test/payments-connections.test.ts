@@ -5,7 +5,7 @@
  * asking for a reconnect when it can't be, and rescued by the hourly re-arm when its own job has died. The same
  * hourly pass clears away sign-ins nobody finished.
  */
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import {
   executeCommand,
@@ -113,7 +113,7 @@ async function drain(timeoutMs = 15_000): Promise<void> {
  * app finishing it as `finishedBy` (the owner who pressed Connect, unless a test says otherwise).
  */
 async function connect(
-  provider: 'stripe' | 'square',
+  provider: 'stripe' | 'square' | 'paypal',
   account: string,
   opts: {
     decision?: 'allow' | 'deny';
@@ -162,6 +162,7 @@ async function connect(
   );
   expect(approve.statusCode).toBe(302);
   const callback = new URL(String(approve.headers.location));
+  lastCallback = callback;
   const backTo = await finishSignIn(
     app,
     await get(`${callback.pathname}${callback.search}`),
@@ -176,6 +177,9 @@ async function connect(
     body: backTo.body,
   };
 }
+
+/** Where the last sign-in came home to, as the provider sent it. */
+let lastCallback: URL | null = null;
 
 const settings = (result: string) =>
   `http://localhost:3000/app/w/${workspaceId}/settings/payments?payments=${result}`;
@@ -309,6 +313,43 @@ describe('connecting an account', () => {
     expect(c.nextRefreshAt).not.toBeNull();
     const [job] = await refreshJob(squareId);
     expect(job?.status).toBe('pending');
+  });
+
+  it('connects PayPal, which comes home with the state’s hash and the seller, never the state', async () => {
+    const account = `PAYPAL${token().toUpperCase()}`;
+    const signed = await connect('paypal', account);
+    expect(signed.location).toBe(settings('connected'));
+    // PayPal's way home: our tracking id (the state's hash) and the seller's merchant id.
+    expect(lastCallback!.pathname).toBe('/oauth/paypal/callback');
+    expect(lastCallback!.searchParams.get('state')).toBeNull();
+    expect(lastCallback!.searchParams.get('merchantId')).toBe(
+      createHash('sha256').update(signed.state).digest('hex'),
+    );
+    const c = await connection(signed.connectionId);
+    expect(c).toMatchObject({
+      status: 'active',
+      provider: 'paypal',
+      externalAccountId: account,
+      locationId: null,
+      isDefault: false,
+    });
+    // Our own token plus PayPal's assertion: nothing of theirs lapses, so there is nothing to renew.
+    expect(c.tokenExpiresAt).toBeNull();
+    expect(c.nextRefreshAt).toBeNull();
+    expect(await refreshJob(signed.connectionId)).toHaveLength(0);
+    // One-time payments only (pick 4a).
+    expect(c.capabilities).toMatchObject({
+      card: true,
+      flow: 'client_confirm',
+      subscriptions: false,
+      savedMethods: false,
+    });
+  });
+
+  it('comes back as cancelled when the seller leaves PayPal’s sign-up without finishing', async () => {
+    const signed = await connect('paypal', `PAYPAL${token().toUpperCase()}`, { decision: 'deny' });
+    expect(signed.location).toBe(settings('cancelled'));
+    expect((await connection(signed.connectionId)).status).toBe('pending');
   });
 
   it('a second account of the same provider connects beside the first', async () => {

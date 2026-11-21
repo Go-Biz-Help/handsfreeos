@@ -37,15 +37,14 @@ import { eq } from 'drizzle-orm';
 import type { HttpDeps } from '../http/common';
 import type { JobHandler } from '../jobs';
 import { MONEY_JOBS, refundJobKey } from '../money/refunds';
-import { accountFor, paymentConnectionUsable, type PaymentConnectionRow } from '../payments/index';
+import { accountFor } from '../payments/index';
+import { payableAccounts, type PayableAccount, type PayableAccounts } from '../payments/payable';
 import {
   declineWording,
-  isPaymentProvider,
   PaymentAuthError,
   PaymentError,
   type PaymentCapabilities,
   type PaymentMethodKind,
-  type PaymentProviderName,
   type PaymentResult,
   type PaymentState,
 } from '../payments/provider';
@@ -88,8 +87,12 @@ export interface DepositPlan {
   /** What the deposit line is called on the invoice. */
   readonly what: string;
   readonly taxable: boolean;
-  /** The account it is paid into; null when none can take it. */
+  /** The account it is paid into; null when none can take it. PayPal's, when PayPal is the only one. */
   readonly account: DepositAccount | null;
+  /** The PayPal account whose buttons sit beside the main account's fields (the same one when it is PayPal). */
+  readonly payPal: DepositAccount | null;
+  /** Venmo and Pay Later, as Settings → Payments has them. */
+  readonly settings: { readonly venmo: boolean; readonly payLater: boolean };
 }
 
 /** What this calendar asks for on this booking, or null when it asks for nothing. */
@@ -104,72 +107,52 @@ export async function depositPlan(
   const due = await calendarCharge(tx, workspaceId, config, input.serviceId);
   if (!due) return null;
   const settings = await loadMoneySettings(tx, workspaceId);
+  const accounts = await depositAccounts(
+    deps,
+    tx,
+    workspaceId,
+    config.payments.connectionId,
+    settings,
+  );
+  // A deposit is held until the time is confirmed, so a PayPal account that can't hold money isn't offered.
+  const holds = (a: DepositAccount | null) =>
+    a &&
+    (a.session.provider !== 'paypal' ||
+      (a.connection.capabilities as Partial<PaymentCapabilities> | null)?.holds === true)
+      ? a
+      : null;
+  const payPal = holds(accounts.payPal);
   return {
     charge: due.charge,
     what: due.price.name ?? input.calendarName,
     taxable: due.price.taxable ?? settings.tax.newProductsTaxable,
-    account: await depositAccount(deps, tx, workspaceId, config.payments.connectionId, settings),
+    account: holds(accounts.main) ?? payPal,
+    payPal,
+    settings,
   };
 }
 
 // ---- The account the money lands in ----
 
-export interface PaySession {
-  readonly provider: PaymentProviderName;
-  readonly flow: 'client_confirm' | 'server_charge';
-  /** Stripe's `pk_…`, Square's application id. Public, and safe on a customer's page. */
-  readonly publishableKey: string;
-  readonly accountId: string;
-  readonly locationId: string | null;
-}
-
-export interface DepositAccount {
-  readonly connection: PaymentConnectionRow;
-  readonly session: PaySession;
-  readonly methods: readonly PaymentMethodKind[];
-}
+/** The account a deposit is paid into: the same rules as the invoice page (payments/payable.ts). */
+export type DepositAccount = PayableAccount;
 
 /**
- * The account this calendar's deposits are paid into: the one it names, else the business's default. As
- * strict as the invoice page's — only a connection that is signed in and usable can take money, and anything
- * else reads to the customer as "we can't take a payment right now", never as a provider error.
+ * The account this calendar's deposits are paid into (the one it names, else the business's default), and the
+ * PayPal account whose buttons sit beside it on the deposit step.
  */
-export async function depositAccount(
+export async function depositAccounts(
   deps: HttpDeps,
   tx: Tx,
   workspaceId: string,
   connectionId: string | null,
   settings: { bankTransfer: boolean },
-): Promise<DepositAccount | null> {
+): Promise<PayableAccounts> {
   const list = await tx
     .select()
     .from(paymentConnections)
     .where(eq(paymentConnections.workspaceId, workspaceId));
-  const chosen = connectionId
-    ? list.find((c) => c.id === connectionId)
-    : (list.find((c) => c.isDefault && paymentConnectionUsable(c)) ??
-      list.find((c) => paymentConnectionUsable(c)));
-  if (!chosen || !paymentConnectionUsable(chosen)) return null;
-  if (!isPaymentProvider(chosen.provider)) return null;
-  const provider = deps.payments.providers[chosen.provider];
-  if (!provider?.configured) return null;
-  const caps = (chosen.capabilities ?? {}) as Partial<PaymentCapabilities>;
-  const methods: PaymentMethodKind[] = [];
-  // Bank transfer leads: it is the cheap rail, and the business can switch it off.
-  if (settings.bankTransfer && caps.bankTransfer === true) methods.push('ach');
-  if (caps.card === true) methods.push('card');
-  if (!methods.length) return null;
-  return {
-    connection: chosen,
-    methods,
-    session: {
-      provider: chosen.provider,
-      flow: provider.flow,
-      publishableKey: provider.publishableKey,
-      accountId: chosen.externalAccountId ?? '',
-      locationId: chosen.locationId,
-    },
-  };
+  return payableAccounts(deps.payments, list, connectionId, settings);
 }
 
 // ---- The deposit invoice ----
@@ -317,6 +300,7 @@ export async function recordDepositPayment(
     receivedAt?: string | null;
     cardBrand?: string | null;
     cardLast4?: string | null;
+    method?: PaymentMethodKind | null;
   },
 ): Promise<{ paymentId: string } | null> {
   try {
@@ -349,6 +333,8 @@ async function writePayment(
     receivedAt?: string | null;
     cardBrand?: string | null;
     cardLast4?: string | null;
+    /** How they actually paid, when the provider said: Stripe's box offers every way the business takes. */
+    method?: PaymentMethodKind | null;
   },
 ): Promise<{ paymentId: string }> {
   const { output } = await executeCommand(
@@ -358,7 +344,7 @@ async function writePayment(
       workspaceId: scope.workspaceId,
       invoiceId: ctx.invoiceId,
       amountCents: ctx.amountCents,
-      method: ctx.method,
+      method: over.method ?? ctx.method,
       provider: ctx.account.session.provider,
       connectionId: ctx.account.connection.id,
       idempotencyKey: ctx.idempotencyKey,

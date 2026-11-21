@@ -8,6 +8,7 @@ import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson } from '../crm/records';
 import { assertWalletHasRoom } from '../money/wallet-gate';
 import { HfosError } from '../errors';
+import { takeIntoHands } from '../messaging/hands';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
@@ -147,7 +148,7 @@ export const callStart = defineCommand({
   output: CallStartOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['call.started'],
+  emits: ['call.started', 'person.taken_over', 'conversation.taken_over'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
@@ -210,6 +211,9 @@ export const callStart = defineCommand({
       payload: { conversationId, personId, direction: 'outbound' },
       after: { to: formatPhone(to) },
     });
+    // A call someone makes themselves puts the customer in their hands (messaging/hands.ts).
+    if (me && personId)
+      await takeIntoHands(ctx, { personId, userId: me, how: 'called', place: 'call' });
     return { callId: row.id, conversationId, to, params: { To: to, CallId: row.id } };
   },
 });
@@ -272,7 +276,7 @@ export const callConnectMe = defineCommand({
   output: CallConnectMeOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['call.started'],
+  emits: ['call.started', 'person.taken_over', 'conversation.taken_over'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const me = requireHuman(ctx).userId;
@@ -372,6 +376,8 @@ export const callConnectMe = defineCommand({
       payload: { conversationId, personId, direction: 'outbound', via: 'bridge' },
       after: { to: formatPhone(to), via: 'bridge' },
     });
+    // A call someone makes themselves puts the customer in their hands (messaging/hands.ts).
+    if (personId) await takeIntoHands(ctx, { personId, userId: me, how: 'called', place: 'call' });
     return {
       callId: row.id,
       conversationId,

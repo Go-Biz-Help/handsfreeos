@@ -38,7 +38,9 @@ export type AiUsageSource =
   // Reading a business card scanned on the phone.
   | 'business_card'
   // Writing down a screenshot of a page a texting registration's check couldn't open.
-  | 'site_screenshot';
+  | 'site_screenshot'
+  // Writing About you from the person's answers to its interview.
+  | 'about_you';
 
 /** What an AI call was for, for app.ai_usage. */
 export interface AiUsageRef {
@@ -100,6 +102,7 @@ const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
   documents: 'AI placing fields on a document',
   business_card: 'AI reading a business card',
   site_screenshot: 'AI reading a screenshot of your website',
+  about_you: 'AI writing your About you',
 };
 
 /**

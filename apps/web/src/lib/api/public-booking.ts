@@ -8,6 +8,7 @@
 import type { BusinessPageParts, FormDesign, PollOnScreen } from '@hfos/core';
 import { notFound } from 'next/navigation';
 import { publicEnv } from '../env';
+import type { PayPalButtonsConfig } from '../payments/provider-scripts';
 import { ApiError } from './errors';
 
 export interface PublicBusiness {
@@ -231,8 +232,11 @@ export interface Booked {
   readonly duplicate: boolean;
 }
 
-/** How a customer may pay a deposit. Bank transfer leads: it is the cheap rail. */
-export type PayMethod = 'ach' | 'card';
+/**
+ * How a customer may pay a deposit. Bank transfer leads: it is the cheap rail. `paypal` is PayPal's buttons,
+ * beside the card box or alone when PayPal is the calendar's account.
+ */
+export type PayMethod = 'ach' | 'card' | 'paypal';
 
 /** What the account behind a deposit can take, and the public keys the browser needs. Never a secret. */
 export interface HoldPaySession {
@@ -271,6 +275,8 @@ export interface Held {
     readonly reason: 'gone' | 'paid' | 'no_account' | null;
     readonly methods: readonly PayMethod[];
     readonly session: HoldPaySession | null;
+    /** PayPal's buttons, which hold the deposit like a card. Left out by a worker from before PayPal. */
+    readonly payPal?: PayPalButtonsConfig | null;
   };
   readonly holdToken: string;
   readonly expiresAt: string | null;
@@ -294,6 +300,8 @@ export interface PreparedPay {
     readonly status: 'requires_payment';
     readonly amountCents: number;
     readonly method: PayMethod;
+    /** Whose fields the page shows. Left out by a worker from before it was sent: the hold's session says. */
+    readonly provider?: string;
     readonly flow: 'client_confirm' | 'server_charge';
     readonly publishableKey: string;
     readonly accountId: string;

@@ -26,6 +26,11 @@ export interface WorkspaceShell {
    * (`useBusinessZone`). Empty where the layout doesn't say, and then the device's zone stands in.
    */
   readonly timeZone: string;
+  /**
+   * Who these pages are for: the person signed in, or the teammate they view the app as. A list says "You" for
+   * their own (Social Outreach's In your hands). Empty where the layout doesn't say.
+   */
+  readonly userId: string;
 }
 
 const NONE: readonly string[] = [];
@@ -37,6 +42,7 @@ const WorkspaceShellContext = createContext<WorkspaceShell>({
   videoCalls: false,
   staffPermissions: [],
   timeZone: '',
+  userId: '',
 });
 
 /**
@@ -52,17 +58,19 @@ export function WorkspaceShellProvider({
   videoCalls = false,
   staffPermissions = NONE,
   timeZone = '',
+  userId = '',
   children,
-}: Omit<WorkspaceShell, 'videoCalls' | 'staffPermissions' | 'timeZone'> & {
+}: Omit<WorkspaceShell, 'videoCalls' | 'staffPermissions' | 'timeZone' | 'userId'> & {
   videoCalls?: boolean;
   staffPermissions?: readonly string[];
   timeZone?: string;
+  userId?: string;
   children: ReactNode;
 }) {
   useLiveRefresh(['addon']);
   const value = useMemo(
-    () => ({ workspaceId, addons, permissions, videoCalls, staffPermissions, timeZone }),
-    [workspaceId, addons, permissions, videoCalls, staffPermissions, timeZone],
+    () => ({ workspaceId, addons, permissions, videoCalls, staffPermissions, timeZone, userId }),
+    [workspaceId, addons, permissions, videoCalls, staffPermissions, timeZone, userId],
   );
   return <WorkspaceShellContext.Provider value={value}>{children}</WorkspaceShellContext.Provider>;
 }

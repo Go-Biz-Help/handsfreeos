@@ -27,7 +27,7 @@
     "apps/web/src/components/booking/booking-flow.tsx": "db379d44a61a",
     "apps/web/src/components/booking/business-page.tsx": "2638ffe26ea9",
     "apps/web/src/components/booking/chat-button.tsx": "2eb031ad5c0b",
-    "apps/web/src/components/booking/deposit-pay.tsx": "2e65d379e63e",
+    "apps/web/src/components/booking/deposit-pay.tsx": "6e313e43ece1",
     "apps/web/src/components/booking/format.ts": "8f0f03320e49",
     "apps/web/src/components/booking/hold-page.tsx": "03f38595271e",
     "apps/web/src/components/booking/join-session.tsx": "5106dc9cc988",

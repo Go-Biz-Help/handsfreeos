@@ -19,7 +19,8 @@
  *
  * Every playbook has a referral's parts too (decision 174): the comment that names someone the owner has talked with
  * under a post asking for a recommendation, and the heads-up to them with its link, while Refer them on posts is on
- * (`PLAYBOOK_REFER`).
+ * (`PLAYBOOK_REFER`); and the note to someone referred twice, asking if they'd send people the owner's way too
+ * (decision 185).
  *
  * Words in [square brackets] are filled in for each person (`SCRIPT_BLANKS`, `FILL_BLANKS`). Browser-safe: the web's
  * and the phone's editors, the Test console and the server read it.
@@ -60,6 +61,7 @@ export const SCRIPT_PARTS = [
   'groupReply',
   'referComment',
   'referNote',
+  'referAsk',
   'birthday',
   'newJob',
 ] as const;
@@ -237,7 +239,12 @@ export const SCRIPT_INFO: Readonly<
   },
   referNote: {
     label: 'The heads-up to them',
-    when: 'To the person you referred, with the post’s link, right after your comment.',
+    when: 'To the person you referred, with the post’s link, right after your comment. At most once a week each.',
+    says: 'message',
+  },
+  referAsk: {
+    label: 'Asking them back',
+    when: 'Once to someone you’ve referred twice, after your chat has been quiet three days: would they send people your way too, or have a quick call.',
     says: 'message',
   },
   birthday: { label: 'Birthdays', when: 'On their birthday.', says: 'how' },
@@ -287,7 +294,7 @@ export const SCRIPT_GROUPS: readonly {
   {
     key: 'refer',
     title: 'Referring people you’ve talked with',
-    parts: ['referComment', 'referNote'],
+    parts: ['referComment', 'referNote', 'referAsk'],
   },
   { key: 'occasions', title: 'Birthdays and new jobs', parts: ['birthday', 'newJob'] },
 ];
@@ -375,6 +382,7 @@ export const PlaybookScript = z.object({
   groupReply: part,
   referComment: part,
   referNote: part,
+  referAsk: part,
   birthday: part,
   newJob: part,
 } satisfies Record<ScriptPart, z.ZodType>);
@@ -473,6 +481,12 @@ export const STARTING_REFER_COMMENT =
   'You should reach out to [their name]! They do [what they do] in [their area], and I’ve really enjoyed getting to know them.';
 export const STARTING_REFER_NOTE =
   'Hey [first name], someone was just asking for [what they need], so I mentioned you. Here’s the post if you want to jump in: [post link]';
+/**
+ * The ask after two referrals (decision 185, the owner, 18 Nov 2026: after two, "a short note asking if they'd be open
+ * to sending people your way too, or to a quick call"), once the chat has been quiet a few days.
+ */
+export const STARTING_REFER_ASK =
+  'Hey [first name], I’ve mentioned you a couple of times when people asked for [what they do]. If you ever come across someone who could use [what your offer is], I’d love it if you sent them my way. Or if you’re up for a quick call to see how we can help each other, here’s my calendar: [calendar link]';
 
 /**
  * How each other way to start a chat goes (decision 183, the owner, 20 Nov 2026: "allow the user to select which methods
@@ -542,6 +556,7 @@ export function startingScript(goal: PlaybookGoal): FullScript {
       'Answer what they asked the way a friendly neighbour would, or add something useful from what you know.',
     referComment: STARTING_REFER_COMMENT,
     referNote: STARTING_REFER_NOTE,
+    referAsk: STARTING_REFER_ASK,
     birthday:
       'A short, warm happy birthday, one or two lines, picking up something real from your chat or their page when there is one.',
     newJob:
@@ -1114,7 +1129,7 @@ export const chatOf = (
  */
 export const PLAYBOOK_REFER = {
   label: 'Refer them on posts',
-  hint: 'When someone asks for a recommendation of what a person you’ve talked with does, Today offers a comment naming them and a heads-up to them. Both wait for your OK.',
+  hint: 'When someone asks for a recommendation of what a person you’ve talked with does, Today offers a comment naming them and a heads-up to them, which wait for your OK. Under Autopilot on Facebook, your computer posts them for you.',
 } as const;
 
 /** Whether a playbook's people may be referred on posts: yes unless it's turned off. */

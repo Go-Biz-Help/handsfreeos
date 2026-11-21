@@ -1,0 +1,169 @@
+name: Nightly backup
+
+# Every night, a copy of the database and the Storage files kept outside Supabase, in the Cloudflare R2 bucket
+# handsfreeos-backups ("A copy outside Supabase" in docs/operations.md). Supabase's own daily backups go when the
+# project goes, or when someone gets into the Supabase account; this copy doesn't.
+#   - The database: pg_dump as the read-only hfos_backup login, encrypted with age to a public key whose private half
+#     is only in the owner's password manager, at daily/<date and time>/database.dump.age. pg_restore checks it
+#     opens first.
+#   - The files: the attachments, telephony, brand and imports buckets mirrored to files/<bucket>/. A file deleted or
+#     replaced in Supabase moves to daily/<date and time>/files/<bucket>/ instead of going. Each run has its own
+#     folder, because the lock refuses to overwrite anything, even a second run on the same day.
+#   - daily/ has a 30-day bucket lock (nothing can delete or overwrite it sooner, this workflow and its token
+#     included) and a 31-day lifecycle rule, both set on the bucket.
+# Its secrets live in the "backups" environment, which only main may use. This repository's logs are public, so it
+# prints sizes and counts, never names, rows or the tools' error lines. A failed run opens (or adds to) an issue.
+on:
+  schedule:
+    - cron: '41 8 * * *' # 08:41 UTC: 2:41 AM in Chicago in winter, 3:41 in summer
+  workflow_dispatch:
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  backup:
+    name: Copy the database and files to R2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: backups
+    env:
+      BUCKET: handsfreeos-backups
+      BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      # The token may write objects in this one bucket, not make buckets.
+      RCLONE_CONFIG_R2_NO_CHECK_BUCKET: 'true'
+      RCLONE_CONFIG_SUPABASE_TYPE: s3
+      RCLONE_CONFIG_SUPABASE_PROVIDER: Other
+      RCLONE_CONFIG_SUPABASE_ENDPOINT: https://ybupfghakoszfcxhyrby.storage.supabase.co/storage/v1/s3
+      RCLONE_CONFIG_SUPABASE_REGION: us-east-1
+      RCLONE_CONFIG_SUPABASE_FORCE_PATH_STYLE: 'true'
+      RCLONE_CONFIG_SUPABASE_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+      RCLONE_CONFIG_SUPABASE_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Is it set up?
+        id: check
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          SUPABASE_S3_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+          SUPABASE_S3_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+        run: |
+          names="BACKUP_DATABASE_URL BACKUP_AGE_RECIPIENT R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY SUPABASE_S3_ACCESS_KEY_ID SUPABASE_S3_SECRET_ACCESS_KEY"
+          missing=""
+          for name in $names; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ "$(echo $missing | wc -w)" -eq 7 ]; then
+            echo "::notice::The backups environment has none of its values yet, so nothing was copied. See \"A copy outside Supabase\" in docs/operations.md."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif [ -n "$missing" ]; then
+            echo "::error::The backups environment is missing:$missing. See \"A copy outside Supabase\" in docs/operations.md."
+            exit 1
+          elif [[ "$BACKUP_AGE_RECIPIENT" != age1* ]]; then
+            echo "::error::BACKUP_AGE_RECIPIENT should be the public key that starts with age1, never the secret key."
+            exit 1
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "RUN=$(date -u +%Y-%m-%d_%H%M)" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install pg_dump 17, age and rclone
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          # The database runs Postgres 17, and pg_dump must be at least as new. Ubuntu's own is 16, so it comes from
+          # the PostgreSQL project's repository.
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 age rclone > /dev/null
+          /usr/lib/postgresql/17/bin/pg_dump --version
+          age --version
+          rclone version | head -1
+
+      - name: Copy the database
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          if ! /usr/lib/postgresql/17/bin/pg_dump --format=custom --compress=6 --no-password \
+              --dbname="$BACKUP_DATABASE_URL" --file=database.dump 2> pg_dump.log; then
+            # pg_dump's own words name objects, never rows, so its first error is safe to show.
+            echo "::error::pg_dump stopped: $(grep -m1 -i 'error' pg_dump.log | cut -c1-300)"
+            exit 1
+          fi
+
+      - name: Check the copy opens
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          toc=$(/usr/lib/postgresql/17/bin/pg_restore --list database.dump)
+          for table in "app workspaces" "app messages" "auth users" "storage objects" "supabase_migrations schema_migrations"; do
+            if ! grep -q " TABLE DATA $table " <<< "$toc"; then
+              echo "::error::The copy has no rows for ${table/ /.}."
+              exit 1
+            fi
+          done
+          bytes=$(stat -c %s database.dump)
+          if [ "$bytes" -lt 1000000 ]; then
+            echo "::error::The copy is only $bytes bytes, far too small for this database."
+            exit 1
+          fi
+          echo "Database copy: $(numfmt --to=iec "$bytes"), rows for $(grep -c ' TABLE DATA ' <<< "$toc") tables."
+
+      - name: Encrypt it and send it to R2
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          age --recipient "$BACKUP_AGE_RECIPIENT" --output database.dump.age database.dump
+          rm database.dump
+          if ! rclone copyto database.dump.age "r2:$BUCKET/daily/$RUN/database.dump.age" \
+              --log-file rclone.log --log-level ERROR; then
+            echo "::error::R2 refused the database copy ($(grep -c ERROR rclone.log 2>/dev/null || echo 0) errors). Check the R2 token and bucket name."
+            exit 1
+          fi
+          echo "Sent daily/$RUN/database.dump.age ($(numfmt --to=iec "$(stat -c %s database.dump.age)"))."
+
+      - name: Mirror the files
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          # brand-uploads only holds a logo until the worker has made it ready, so it isn't copied.
+          failed=""
+          for bucket in attachments telephony brand imports; do
+            if ! rclone sync "supabase:$bucket" "r2:$BUCKET/files/$bucket" \
+                --backup-dir "r2:$BUCKET/daily/$RUN/files/$bucket" \
+                --fast-list --log-file rclone.log --log-level ERROR; then
+              failed="$failed $bucket"
+            fi
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::Some files didn't copy, from:$failed ($(grep -c ERROR rclone.log 2>/dev/null || echo 0) errors). Nothing was removed from the copy."
+            exit 1
+          fi
+          count=$(rclone size "r2:$BUCKET/files" --json | jq '.count, .bytes' | paste -sd' ')
+          read -r files bytes <<< "$count"
+          echo "Files copy: $files files, $(numfmt --to=iec "$bytes")."
+
+      - name: Open an issue when it fails
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="The nightly backup failed"
+          body="The nightly backup didn't finish: $RUN_URL. The last good copy is still in R2. See \"A copy outside Supabase\" in docs/operations.md."
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi

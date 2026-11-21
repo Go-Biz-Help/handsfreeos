@@ -10147,11 +10147,11 @@
     "/v1/commands/message.send": {
       "post": {
         "operationId": "command_message_send",
-        "summary": "Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.",
+        "summary": "Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, a reply in a website chat, or a reply on Facebook Messenger or Instagram. Texts, emails and Messenger and Instagram replies are queued here and the worker sends them. A person writing to a customer takes them on: the AI teammate stops answering them anywhere until someone gives them back.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over, email.private_queued. Can wait on a phone for 30 minutes, then asks.",
+        "description": "Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over, person.taken_over, email.private_queued. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11096,7 +11096,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires inbox.use. Emits call.started.",
+        "description": "Risk level 1. Requires inbox.use. Emits call.started, person.taken_over, conversation.taken_over.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11184,7 +11184,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires inbox.use. Emits call.started.",
+        "description": "Risk level 2. Requires inbox.use. Emits call.started, person.taken_over, conversation.taken_over.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11638,7 +11638,7 @@
     "/v1/commands/email_domain.receive": {
       "post": {
         "operationId": "command_email_domain_receive",
-        "summary": "Start receiving the business’s mail at one of its verified domains. Once its MX record points at inbound.postmarkapp.com, mail to every address there arrives in the Inbox.",
+        "summary": "Start receiving the business’s mail at one of its verified domains. Once its MX record points at inbound.postmarkapp.com, mail to every address there arrives in the Inbox. Asked again while it waits, it looks for the MX record now.",
         "tags": [
           "commands"
         ],
@@ -29638,11 +29638,11 @@
     "/v1/commands/conversation.take_over": {
       "post": {
         "operationId": "command_conversation_take_over",
-        "summary": "Take a conversation from the AI teammate (or from “Needs a person”): the teammate stays quiet until someone hands it back, and its pending reply is dropped.",
+        "summary": "Take a conversation from the AI teammate (or from “Needs a person”): the customer is in your hands everywhere, the teammate stays quiet with them until someone hands them back, and its pending reply is dropped.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires inbox.use. Emits conversation.taken_over. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires inbox.use. Emits conversation.taken_over, person.taken_over. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29701,11 +29701,11 @@
     "/v1/commands/conversation.hand_to_ai": {
       "post": {
         "operationId": "command_conversation_hand_to_ai",
-        "summary": "Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next.",
+        "summary": "Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next, and the customer is out of your hands everywhere.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai. Can wait on a phone for 30 minutes, then asks.",
+        "description": "Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai, person.handed_back. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29754,6 +29754,225 @@
                   "required": [
                     "conversationId",
                     "teammateId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/person.take_over": {
+      "post": {
+        "operationId": "command_person_take_over",
+        "summary": "Take a customer on yourself: the AI teammate, its follow-ups, funnels and AI calls leave them alone everywhere until someone gives them back, and its replies to them waiting for an OK are dropped.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires inbox.use. Emits person.taken_over, conversation.taken_over.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "personId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "personId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "already": {
+                      "type": "boolean"
+                    },
+                    "draftsCancelled": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "personId",
+                    "already",
+                    "draftsCancelled"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/person.note_by_hand": {
+      "post": {
+        "operationId": "command_person_note_by_hand",
+        "summary": "Note that someone on the team wrote to a customer themselves on a social network HandsFreeOS only hears of: the customer comes into their hands, so the AI teammate, its follow-ups, funnels and AI calls leave them alone everywhere until someone gives them back.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires inbox.use. Emits person.taken_over, conversation.taken_over.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "place": {
+                    "type": "string",
+                    "pattern": "^[a-z_]{1,40}$"
+                  },
+                  "at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "personId",
+                  "place"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "personId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "fresh": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "personId",
+                    "fresh"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/person.hand_back": {
+      "post": {
+        "operationId": "command_person_hand_back",
+        "summary": "Give customers back to the AI: out of anyone’s hands, and their conversations go back to the AI teammate where it answers that channel, so it answers what they’re waiting on. One the AI teammate handed to a person still waits for them. Pass personIds, or all (with mine for only your own).",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires inbox.use. Emits person.handed_back, conversation.handed_to_ai.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personIds": {
+                    "default": [],
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "all": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "handedBack": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "toAi": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "handedBack",
+                    "toAi"
                   ],
                   "additionalProperties": false
                 }
@@ -40495,6 +40714,56 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "options": {
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^o_[a-z0-9]{8}$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        },
+                        "choices": {
+                          "minItems": 1,
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^v_[a-z0-9]{8}$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              },
+                              "priceCents": {
+                                "default": 0,
+                                "type": "integer",
+                                "minimum": -10000000,
+                                "maximum": 10000000
+                              }
+                            },
+                            "required": [
+                              "label"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "choices"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -40573,6 +40842,52 @@
                             }
                           ]
                         },
+                        "options": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "choices": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "priceCents": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "label",
+                                    "priceCents"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "choices"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "archivedAt": {
                           "anyOf": [
                             {
@@ -40596,6 +40911,7 @@
                         "unitLabel",
                         "taxable",
                         "serviceId",
+                        "options",
                         "archivedAt"
                       ],
                       "additionalProperties": false
@@ -40707,6 +41023,56 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "options": {
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^o_[a-z0-9]{8}$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        },
+                        "choices": {
+                          "minItems": 1,
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^v_[a-z0-9]{8}$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              },
+                              "priceCents": {
+                                "default": 0,
+                                "type": "integer",
+                                "minimum": -10000000,
+                                "maximum": 10000000
+                              }
+                            },
+                            "required": [
+                              "label"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "choices"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -40785,6 +41151,52 @@
                             }
                           ]
                         },
+                        "options": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "choices": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "priceCents": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "label",
+                                    "priceCents"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "choices"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "archivedAt": {
                           "anyOf": [
                             {
@@ -40808,6 +41220,7 @@
                         "unitLabel",
                         "taxable",
                         "serviceId",
+                        "options",
                         "archivedAt"
                       ],
                       "additionalProperties": false
@@ -41442,7 +41855,7 @@
     "/v1/commands/payment_connection.connect": {
       "post": {
         "operationId": "command_payment_connection_connect",
-        "summary": "Start connecting a Stripe or Square account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once.",
+        "summary": "Start connecting a Stripe, Square or PayPal account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once. PayPal takes one-time payments only (invoices, pay links and deposits), never plans.",
         "tags": [
           "commands"
         ],
@@ -41463,7 +41876,8 @@
                     "type": "string",
                     "enum": [
                       "stripe",
-                      "square"
+                      "square",
+                      "paypal"
                     ]
                   },
                   "environment": {
@@ -50605,6 +51019,14 @@
                         "default": true,
                         "type": "boolean"
                       },
+                      "venmo": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "payLater": {
+                        "default": true,
+                        "type": "boolean"
+                      },
                       "reminders": {
                         "default": {},
                         "type": "object",
@@ -50851,6 +51273,14 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "venmo": {
+                          "default": true,
+                          "type": "boolean"
+                        },
+                        "payLater": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "reminders": {
                           "type": "object",
                           "properties": {
@@ -50916,6 +51346,8 @@
                         "estimateGoodForDays",
                         "deposit",
                         "bankTransfer",
+                        "venmo",
+                        "payLater",
                         "reminders"
                       ],
                       "additionalProperties": false
@@ -58605,7 +59037,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.",
+        "description": "Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested, file.received, file.deleted. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -58775,7 +59207,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires forms.manage. Emits form.response_deleted.",
+        "description": "Risk level 2. Requires forms.manage. Emits form.response_deleted, file.deleted.",
         "requestBody": {
           "required": true,
           "content": {
@@ -68936,6 +69368,7 @@
                         "enum": [
                           "stripe",
                           "square",
+                          "paypal",
                           "later"
                         ]
                       },
@@ -69951,6 +70384,7 @@
                         "enum": [
                           "stripe",
                           "square",
+                          "paypal",
                           "later"
                         ]
                       },
@@ -91545,6 +91979,11 @@
                             "minLength": 1,
                             "maxLength": 800
                           },
+                          "referAsk": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
                           "birthday": {
                             "type": "string",
                             "minLength": 1,
@@ -92336,6 +92775,11 @@
                             "maxLength": 800
                           },
                           "referNote": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 800
+                          },
+                          "referAsk": {
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 800
@@ -93148,6 +93592,11 @@
                               "minLength": 1,
                               "maxLength": 800
                             },
+                            "referAsk": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
                             "birthday": {
                               "type": "string",
                               "minLength": 1,
@@ -93511,6 +93960,9 @@
                         "referNote": {
                           "type": "string"
                         },
+                        "referAsk": {
+                          "type": "string"
+                        },
                         "birthday": {
                           "type": "string"
                         },
@@ -93549,6 +94001,7 @@
                         "groupReply",
                         "referComment",
                         "referNote",
+                        "referAsk",
                         "birthday",
                         "newJob"
                       ],
@@ -94198,6 +94651,11 @@
                               "minLength": 1,
                               "maxLength": 800
                             },
+                            "referAsk": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 800
+                            },
                             "birthday": {
                               "type": "string",
                               "minLength": 1,
@@ -94561,6 +95019,9 @@
                         "referNote": {
                           "type": "string"
                         },
+                        "referAsk": {
+                          "type": "string"
+                        },
                         "birthday": {
                           "type": "string"
                         },
@@ -94599,6 +95060,7 @@
                         "groupReply",
                         "referComment",
                         "referNote",
+                        "referAsk",
                         "birthday",
                         "newJob"
                       ],
@@ -94745,7 +95207,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires outreach.use. Emits outreach.touch.saved. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.touch.saved, outreach.hands.taken. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -95786,7 +96248,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires outreach.use. Emits outreach.chats.collected, outreach.reply.seen.",
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.chats.collected, outreach.reply.seen, outreach.hands.taken.",
         "requestBody": {
           "required": true,
           "content": {
@@ -101113,6 +101575,7 @@
                       "reply",
                       "demo_reminder",
                       "rebook",
+                      "thank_you",
                       "birthday",
                       "new_job",
                       "partner_ask",
@@ -101281,6 +101744,7 @@
                         "reply",
                         "demo_reminder",
                         "rebook",
+                        "thank_you",
                         "birthday",
                         "new_job",
                         "partner_ask",
@@ -103938,6 +104402,7 @@
                                   "reply",
                                   "demo_reminder",
                                   "rebook",
+                                  "thank_you",
                                   "birthday",
                                   "new_job",
                                   "comment",
@@ -104415,6 +104880,7 @@
                                         "reply",
                                         "demo_reminder",
                                         "rebook",
+                                        "thank_you",
                                         "birthday",
                                         "new_job",
                                         "comment",
@@ -105175,6 +105641,7 @@
                                             "reply",
                                             "demo_reminder",
                                             "rebook",
+                                            "thank_you",
                                             "birthday",
                                             "new_job",
                                             "comment",
@@ -105796,6 +106263,7 @@
                                   "reply",
                                   "demo_reminder",
                                   "rebook",
+                                  "thank_you",
                                   "birthday",
                                   "new_job",
                                   "comment",
@@ -106117,6 +106585,7 @@
                                         "reply",
                                         "demo_reminder",
                                         "rebook",
+                                        "thank_you",
                                         "birthday",
                                         "new_job",
                                         "comment",
@@ -106478,6 +106947,7 @@
                                         "reply",
                                         "demo_reminder",
                                         "rebook",
+                                        "thank_you",
                                         "birthday",
                                         "new_job",
                                         "comment",
@@ -106835,6 +107305,7 @@
                                         "reply",
                                         "demo_reminder",
                                         "rebook",
+                                        "thank_you",
                                         "birthday",
                                         "new_job",
                                         "comment",
@@ -116723,10 +117194,89 @@
         }
       }
     },
+    "/v1/commands/outreach.referral.approve": {
+      "post": {
+        "operationId": "command_outreach_referral_approve",
+        "summary": "Do it for me on a referral waiting on Today: the person’s computer posts the comment naming someone they talked with under the post (tagging them, or their name as plain words where Facebook won’t list them) and sends them the heads-up, as it stands or as changed. Only on Facebook, where the post and the person both are, and never a heads-up to someone in a person’s hands.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.referral.approved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "referralId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "comment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "referralId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "referralId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "waiting",
+                        "approved",
+                        "done",
+                        "skipped"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "referralId",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/outreach.referral.done": {
       "post": {
         "operationId": "command_outreach_referral_done",
-        "summary": "The person commented on the post naming someone they talked with, and sent that person the heads-up: the referral is noted as done, with the words they sent when they changed them.",
+        "summary": "The person commented on the post naming someone they talked with, and sent that person the heads-up when there was one: the referral is noted as done, with the words they sent when they changed them.",
         "tags": [
           "commands"
         ],
@@ -116784,6 +117334,7 @@
                       "type": "string",
                       "enum": [
                         "waiting",
+                        "approved",
                         "done",
                         "skipped"
                       ]
@@ -116804,7 +117355,7 @@
     "/v1/commands/outreach.referral.skip": {
       "post": {
         "operationId": "command_outreach_referral_skip",
-        "summary": "Put a referral aside: nothing is commented or sent, and it doesn’t come back.",
+        "summary": "Put a referral aside, waiting or about to be done for the person: nothing more is commented or sent, and it doesn’t come back.",
         "tags": [
           "commands"
         ],
@@ -116852,6 +117403,7 @@
                       "type": "string",
                       "enum": [
                         "waiting",
+                        "approved",
                         "done",
                         "skipped"
                       ]
@@ -116860,6 +117412,482 @@
                   "required": [
                     "referralId",
                     "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.referral.posted": {
+      "post": {
+        "operationId": "command_outreach_referral_posted",
+        "summary": "The person’s computer says how a referral it did went: the comment up (tagged or not) and the heads-up sent, and it’s done; or what couldn’t go and why, and it waits on Today for the person to finish by hand; or nothing to do there, and it’s put aside.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.referral.done, outreach.referral.skipped.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "referralId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "commented": {
+                    "type": "boolean"
+                  },
+                  "tagged": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "noted": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "skip": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "more": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "why": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "referralId",
+                  "commented"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "referralId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "waiting",
+                        "approved",
+                        "done",
+                        "skipped"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "referralId",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.refer_ask.answer": {
+      "post": {
+        "operationId": "command_outreach_refer_ask_answer",
+        "summary": "The person’s answer to a note asking someone they referred twice to send people their way too: approve (Do it for me: their computer sends it on Facebook, as it stands or changed), done (they sent it themselves) or skip (it never comes back). Never sent to someone in a person’s hands.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.refer_ask.answered.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "askId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "answer": {
+                    "type": "string",
+                    "enum": [
+                      "approve",
+                      "done",
+                      "skip"
+                    ]
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "askId",
+                  "answer"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "askId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "waiting",
+                        "approved",
+                        "done",
+                        "skipped"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "askId",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.refer_ask.sent": {
+      "post": {
+        "operationId": "command_outreach_refer_ask_sent",
+        "summary": "The person’s computer says how an ask after two went: sent, and it’s done; or why not, and it waits on Today for the person to send by hand.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "askId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "sent": {
+                    "type": "boolean"
+                  },
+                  "why": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "askId",
+                  "sent"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "askId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "waiting",
+                        "approved",
+                        "done",
+                        "skipped"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "askId",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.hands.take": {
+      "post": {
+        "operationId": "command_outreach_hands_take",
+        "summary": "Take someone over yourself (Take over, in the menu on their name): the AI sends them no messages, here or as a customer in Contacts, until someone gives them back. Likes and comments still go. Its messages to them waiting for an OK are skipped.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.hands.taken.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "already": {
+                      "type": "boolean"
+                    },
+                    "skipped": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "profileId",
+                    "already",
+                    "skipped"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.hands.give_back": {
+      "post": {
+        "operationId": "command_outreach_hands_give_back",
+        "summary": "Give people in someone’s hands back to the AI (Give back to the AI, in the menu on their name, on In your hands, or on the ask on Needs you): it messages them again, starting with anything they’re waiting on, and gives back their customer in Contacts too. Pass profileIds, or all (with mine for only your own).",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.hands.given_back.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileIds": {
+                    "default": [],
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "all": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "handedBack": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "handedBack"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.hands.keep": {
+      "post": {
+        "operationId": "command_outreach_hands_keep",
+        "summary": "Keep someone in your hands (Keep it mine, on the ask on Needs you): the ask goes until they write again or the AI would follow up again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.hands.taken.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "keptAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "profileId",
+                    "keptAt"
                   ],
                   "additionalProperties": false
                 }
@@ -120439,7 +121467,7 @@
     "/v1/commands/outreach.events.read": {
       "post": {
         "operationId": "command_outreach_events_read",
-        "summary": "The person’s computer read the events in their town on Alignable this week: up to 5 not read before, whose hosts and guests went to the AI to check. Nothing on an event was pressed. The next read is a week on.",
+        "summary": "The person’s computer read the events near them this week, on Alignable or Facebook: up to 5 not read before, each kept for Today’s list of events near them, with who hosts it. On Facebook the hosts and people going who aren’t friends are checked by the AI like friends; on Alignable they went to the AI as found. Nothing on an event was pressed. The next read is a week on.",
         "tags": [
           "commands"
         ],
@@ -120460,7 +121488,8 @@
                     "default": "alignable",
                     "type": "string",
                     "enum": [
-                      "alignable"
+                      "alignable",
+                      "facebook"
                     ]
                   },
                   "urls": {
@@ -120471,6 +121500,142 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 500
+                    }
+                  },
+                  "events": {
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "when": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "startsAt": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "place": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hosts": {
+                          "default": [],
+                          "maxItems": 10,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "profile": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "username": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 500
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "username",
+                                  "url"
+                                ]
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              }
+                            },
+                            "required": [
+                              "profile",
+                              "name"
+                            ]
+                          }
+                        },
+                        "guests": {
+                          "default": [],
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "profile": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "username": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 500
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "username",
+                                  "url"
+                                ]
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              }
+                            },
+                            "required": [
+                              "profile",
+                              "name"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "name"
+                      ]
                     }
                   }
                 },
@@ -120491,10 +121656,74 @@
                   "properties": {
                     "readAt": {
                       "type": "string"
+                    },
+                    "added": {
+                      "default": 0,
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
-                    "readAt"
+                    "readAt",
+                    "added"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.event.skip": {
+      "post": {
+        "operationId": "command_outreach_event_skip",
+        "summary": "Not going: take an event off the person’s list of events near them on Today (Events near you). Its people are still checked. Nothing changes on the network.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "eventId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "eventId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "skipped": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "skipped"
                   ],
                   "additionalProperties": false
                 }
@@ -145660,6 +146889,18 @@
                     },
                     "selfServe": {
                       "type": "boolean"
+                    },
+                    "trialEndsAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -145675,7 +146916,8 @@
                     "renewal",
                     "billing",
                     "paidThrough",
-                    "selfServe"
+                    "selfServe",
+                    "trialEndsAt"
                   ],
                   "additionalProperties": false
                 }
@@ -152710,6 +153952,163 @@
                   },
                   "required": [
                     "person"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/person.in_hands": {
+      "post": {
+        "operationId": "query_person_in_hands",
+        "summary": "The customers in someone’s hands (they messaged or called them themselves, or pressed Take over), so the AI leaves them alone: whose hands, how, when, and whether one waits on a reply. Pass personId for one customer, mine for only yours.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "limit": {
+                    "default": 100,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "personId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "user": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "fullName": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "fullName"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "how": {
+                            "type": "string",
+                            "enum": [
+                              "wrote",
+                              "called",
+                              "took_over"
+                            ]
+                          },
+                          "place": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "since": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "lastAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "waitingSince": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "personId",
+                          "name",
+                          "user",
+                          "how",
+                          "place",
+                          "since",
+                          "lastAt",
+                          "waitingSince"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "people",
+                    "total"
                   ],
                   "additionalProperties": false
                 }
@@ -183214,11 +184613,22 @@
                                                 "type": "number",
                                                 "exclusiveMinimum": 0,
                                                 "maximum": 10000
+                                              },
+                                              "choices": {
+                                                "default": [],
+                                                "maxItems": 3,
+                                                "type": "array",
+                                                "items": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 60
+                                                }
                                               }
                                             },
                                             "required": [
                                               "productId",
-                                              "quantity"
+                                              "quantity",
+                                              "choices"
                                             ],
                                             "additionalProperties": false
                                           }
@@ -183274,11 +184684,22 @@
                                                 "type": "number",
                                                 "exclusiveMinimum": 0,
                                                 "maximum": 10000
+                                              },
+                                              "choices": {
+                                                "default": [],
+                                                "maxItems": 3,
+                                                "type": "array",
+                                                "items": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 60
+                                                }
                                               }
                                             },
                                             "required": [
                                               "productId",
-                                              "quantity"
+                                              "quantity",
+                                              "choices"
                                             ],
                                             "additionalProperties": false
                                           }
@@ -190745,6 +192166,7 @@
                                     "repeat_customer",
                                     "came_in_today",
                                     "handed_off",
+                                    "in_hands",
                                     "last_contact",
                                     "no_contact",
                                     "follow_up_overdue",
@@ -191374,6 +192796,7 @@
                                     "repeat_customer",
                                     "came_in_today",
                                     "handed_off",
+                                    "in_hands",
                                     "last_contact",
                                     "no_contact",
                                     "follow_up_overdue",
@@ -192306,6 +193729,7 @@
                                     "repeat_customer",
                                     "came_in_today",
                                     "handed_off",
+                                    "in_hands",
                                     "last_contact",
                                     "no_contact",
                                     "follow_up_overdue",
@@ -193870,6 +195294,52 @@
                               }
                             ]
                           },
+                          "options": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "choices": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "type": "string"
+                                      },
+                                      "priceCents": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "label",
+                                      "priceCents"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name",
+                                "choices"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "archivedAt": {
                             "anyOf": [
                               {
@@ -193893,6 +195363,7 @@
                           "unitLabel",
                           "taxable",
                           "serviceId",
+                          "options",
                           "archivedAt"
                         ],
                         "additionalProperties": false
@@ -196476,7 +197947,9 @@
                               "cash",
                               "check",
                               "other",
-                              "card_outside"
+                              "card_outside",
+                              "paypal",
+                              "venmo"
                             ]
                           },
                           "provider": {
@@ -196801,7 +198274,7 @@
                     }
                   },
                   "method": {
-                    "maxItems": 6,
+                    "maxItems": 8,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -196811,7 +198284,9 @@
                         "cash",
                         "check",
                         "other",
-                        "card_outside"
+                        "card_outside",
+                        "paypal",
+                        "venmo"
                       ]
                     }
                   },
@@ -196888,7 +198363,9 @@
                               "cash",
                               "check",
                               "other",
-                              "card_outside"
+                              "card_outside",
+                              "paypal",
+                              "venmo"
                             ]
                           },
                           "provider": {
@@ -199396,6 +200873,14 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "venmo": {
+                          "default": true,
+                          "type": "boolean"
+                        },
+                        "payLater": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "reminders": {
                           "type": "object",
                           "properties": {
@@ -199461,6 +200946,8 @@
                         "estimateGoodForDays",
                         "deposit",
                         "bankTransfer",
+                        "venmo",
+                        "payLater",
                         "reminders"
                       ],
                       "additionalProperties": false
@@ -200475,7 +201962,7 @@
     "/v1/queries/form.catalogs": {
       "post": {
         "operationId": "query_form_catalogs",
-        "summary": "What the editor’s pickers offer: the pipelines and their stages, the tags, the live workflows, the fields the business invented, and the team.",
+        "summary": "What the editor’s pickers offer: the pipelines and their stages, the tags, the live workflows, the fields the business invented, the team, and the price list’s products for a “How many of each” question.",
         "tags": [
           "queries"
         ],
@@ -200647,6 +202134,100 @@
                         "additionalProperties": false
                       }
                     },
+                    "products": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "sku": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "product",
+                              "service",
+                              "fee"
+                            ]
+                          },
+                          "priceCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "unitLabel": {
+                            "type": "string"
+                          },
+                          "options": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "choices": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "type": "string"
+                                      },
+                                      "priceCents": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "label",
+                                      "priceCents"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name",
+                                "choices"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "sku",
+                          "kind",
+                          "priceCents",
+                          "unitLabel",
+                          "options"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "calendars": {
                       "type": "array",
                       "items": {
@@ -200705,6 +202286,7 @@
                     "workflows",
                     "customFields",
                     "team",
+                    "products",
                     "calendars"
                   ],
                   "additionalProperties": false
@@ -201134,12 +202716,56 @@
                       "additionalProperties": {
                         "type": "number"
                       }
+                    },
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "sizeBytes": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "mimeType": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "bucket": {
+                            "type": "string"
+                          },
+                          "objectPath": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "fileId",
+                          "name",
+                          "sizeBytes",
+                          "mimeType",
+                          "bucket",
+                          "objectPath"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
                     "response",
                     "answers",
-                    "calculations"
+                    "calculations",
+                    "files"
                   ],
                   "additionalProperties": false
                 }
@@ -213727,7 +215353,8 @@
                                   "type": "string",
                                   "enum": [
                                     "stripe",
-                                    "square"
+                                    "square",
+                                    "paypal"
                                   ]
                                 },
                                 {
@@ -214645,6 +216272,7 @@
                           "enum": [
                             "stripe",
                             "square",
+                            "paypal",
                             "later"
                           ]
                         },
@@ -215366,6 +216994,7 @@
                           "enum": [
                             "stripe",
                             "square",
+                            "paypal",
                             "later"
                           ]
                         },
@@ -236195,6 +237824,11 @@
                                     "minLength": 1,
                                     "maxLength": 800
                                   },
+                                  "referAsk": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 800
+                                  },
                                   "birthday": {
                                     "type": "string",
                                     "minLength": 1,
@@ -236558,6 +238192,9 @@
                               "referNote": {
                                 "type": "string"
                               },
+                              "referAsk": {
+                                "type": "string"
+                              },
                               "birthday": {
                                 "type": "string"
                               },
@@ -236596,6 +238233,7 @@
                               "groupReply",
                               "referComment",
                               "referNote",
+                              "referAsk",
                               "birthday",
                               "newJob"
                             ],
@@ -239827,6 +241465,7 @@
                       "reply",
                       "demo_reminder",
                       "rebook",
+                      "thank_you",
                       "birthday",
                       "new_job",
                       "warm_lead",
@@ -239989,6 +241628,7 @@
                               "reply",
                               "demo_reminder",
                               "rebook",
+                              "thank_you",
                               "birthday",
                               "new_job",
                               "warm_lead",
@@ -240324,6 +241964,7 @@
                               "reply",
                               "demo_reminder",
                               "rebook",
+                              "thank_you",
                               "birthday",
                               "new_job",
                               "warm_lead",
@@ -240727,6 +242368,7 @@
                           "reply",
                           "demo_reminder",
                           "rebook",
+                          "thank_you",
                           "birthday",
                           "new_job",
                           "warm_lead",
@@ -240764,6 +242406,7 @@
                           "reply",
                           "demo_reminder",
                           "rebook",
+                          "thank_you",
                           "birthday",
                           "new_job",
                           "partner_ask",
@@ -241180,6 +242823,94 @@
                         }
                       ]
                     },
+                    "oneOnOnes": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "week": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "lastWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "week",
+                            "lastWeek"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "events": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "when": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "startsAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "place": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hosts": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "people": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "url",
+                          "name",
+                          "when",
+                          "startsAt",
+                          "place",
+                          "hosts",
+                          "people"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "retryAt": {
                       "default": null,
                       "anyOf": [
@@ -241213,6 +242944,8 @@
                     "requestsHeld",
                     "profileOwn",
                     "goal",
+                    "oneOnOnes",
+                    "events",
                     "retryAt"
                   ],
                   "additionalProperties": false
@@ -244473,6 +246206,7 @@
                               "reply",
                               "demo_reminder",
                               "rebook",
+                              "thank_you",
                               "birthday",
                               "new_job",
                               "warm_lead",
@@ -244630,6 +246364,7 @@
                               "reply",
                               "demo_reminder",
                               "rebook",
+                              "thank_you",
                               "birthday",
                               "new_job",
                               "partner_ask",
@@ -246997,6 +248732,7 @@
                                                   "reply",
                                                   "demo_reminder",
                                                   "rebook",
+                                                  "thank_you",
                                                   "birthday",
                                                   "new_job",
                                                   "comment",
@@ -247228,6 +248964,7 @@
                                       "reply",
                                       "demo_reminder",
                                       "rebook",
+                                      "thank_you",
                                       "birthday",
                                       "new_job",
                                       "partner_ask",
@@ -247489,6 +249226,7 @@
                                       "reply",
                                       "demo_reminder",
                                       "rebook",
+                                      "thank_you",
                                       "birthday",
                                       "new_job",
                                       "partner_ask",
@@ -247970,6 +249708,85 @@
                         ]
                       }
                     },
+                    "hands": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "profileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "personId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable",
+                              "threads",
+                              "x"
+                            ]
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "threadKey": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "why": {
+                            "type": "string",
+                            "enum": [
+                              "reply",
+                              "follow_up"
+                            ]
+                          },
+                          "at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "theirs": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "profileId",
+                          "personId",
+                          "name",
+                          "platform",
+                          "url",
+                          "threadKey",
+                          "why",
+                          "at",
+                          "theirs"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "wheels": {
                       "type": "object",
                       "properties": {
@@ -248076,6 +249893,7 @@
                     "count",
                     "kinds",
                     "items",
+                    "hands",
                     "wheels",
                     "commentHolds",
                     "pushes",
@@ -248352,6 +250170,7 @@
                                           "reply",
                                           "demo_reminder",
                                           "rebook",
+                                          "thank_you",
                                           "birthday",
                                           "new_job",
                                           "comment",
@@ -255500,7 +257319,7 @@
     "/v1/queries/outreach.checks.next": {
       "post": {
         "operationId": "query_outreach_checks_next",
-        "summary": "Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone who sent them a friend request they haven’t answered (for what to do with it), anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.",
+        "summary": "Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone who sent them a friend request they haven’t answered (for what to do with it), anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, people hosting or going to events near them on Facebook who aren’t friends, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.",
         "tags": [
           "queries"
         ],
@@ -255584,6 +257403,7 @@
                               "group",
                               "friend",
                               "follower",
+                              "event",
                               "member"
                             ]
                           },
@@ -256615,7 +258435,7 @@
     "/v1/queries/outreach.referrals": {
       "post": {
         "operationId": "query_outreach_referrals",
-        "summary": "The person’s referrals waiting for them (Refer someone on Today): posts from the last week asking for a recommendation of what someone they talked with does, each with who, why, the comment naming them and the heads-up to them. Nothing is posted or sent: the person does both, then outreach_referral_done notes it.",
+        "summary": "The person’s referrals waiting for them or about to be done for them (Refer someone on Today): posts from the last week asking for a recommendation of what someone they talked with does, each with who, why, the comment naming them and the heads-up to them (null when they had one this week), whether their computer can do it for them (forYou: outreach_refer_for_me), whether the comment is up already (posted) and why one came back to them (needs). And the notes asking someone referred twice to send people their way too (asks: outreach_answer_refer_ask). By hand, the person does both, then outreach_referral_done notes it.",
         "tags": [
           "queries"
         ],
@@ -256727,14 +258547,33 @@
                             "type": "string"
                           },
                           "note": {
-                            "type": "string"
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "state": {
                             "type": "string",
                             "enum": [
                               "waiting",
+                              "approved",
                               "done",
                               "skipped"
+                            ]
+                          },
+                          "forYou": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "posted": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "needs": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
                             ]
                           },
                           "createdAt": {
@@ -256759,6 +258598,90 @@
                           "comment",
                           "note",
                           "state",
+                          "forYou",
+                          "posted",
+                          "needs",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "asks": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "askId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable",
+                              "threads",
+                              "x"
+                            ]
+                          },
+                          "profileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "profileUrl": {
+                            "type": "string"
+                          },
+                          "referred": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "waiting",
+                              "approved",
+                              "done",
+                              "skipped"
+                            ]
+                          },
+                          "forYou": {
+                            "type": "boolean"
+                          },
+                          "needs": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "askId",
+                          "platform",
+                          "profileId",
+                          "name",
+                          "profileUrl",
+                          "referred",
+                          "text",
+                          "state",
+                          "forYou",
+                          "needs",
                           "createdAt"
                         ],
                         "additionalProperties": false
@@ -256766,7 +258689,390 @@
                     }
                   },
                   "required": [
-                    "referrals"
+                    "referrals",
+                    "asks"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.referrals.due": {
+      "post": {
+        "operationId": "query_outreach_referrals_due",
+        "summary": "The referrals and asks after two the person’s computer does now on Facebook (decision 185): OK’d or under Autopilot, oldest first, as many referrals as the day’s comments leave room for (a referral’s comment counts as one), each with the post, whom it names and their chat. None with Sending off or after a warning today.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "referrals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "referralId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "postId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "postUrl": {
+                            "type": "string"
+                          },
+                          "writer": {
+                            "type": "string"
+                          },
+                          "writerUrl": {
+                            "type": "string"
+                          },
+                          "profileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "profileUrl": {
+                            "type": "string"
+                          },
+                          "platformId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "threadKey": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "comment": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "posted": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "referralId",
+                          "postId",
+                          "postUrl",
+                          "writer",
+                          "writerUrl",
+                          "profileId",
+                          "name",
+                          "profileUrl",
+                          "platformId",
+                          "threadKey",
+                          "comment",
+                          "note",
+                          "posted"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "asks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "askId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "profileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "profileUrl": {
+                            "type": "string"
+                          },
+                          "platformId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "threadKey": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "askId",
+                          "profileId",
+                          "name",
+                          "profileUrl",
+                          "platformId",
+                          "threadKey",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "referrals",
+                    "asks"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.hands": {
+      "post": {
+        "operationId": "query_outreach_hands",
+        "summary": "Who’s in someone’s hands (Social Outreach → People → In your hands): people someone on the team wrote to themselves, or took over, whom the AI sends no messages till someone gives them back; whose hands, how, when, and whether an ask waits on Needs you. Newest first.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "limit": {
+                    "default": 100,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "profileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "personId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable",
+                              "threads",
+                              "x"
+                            ]
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "threadKey": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "user": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "fullName": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "fullName"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "how": {
+                            "type": "string",
+                            "enum": [
+                              "wrote",
+                              "called",
+                              "took_over"
+                            ]
+                          },
+                          "place": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "since": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "lastAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "inContacts": {
+                            "type": "boolean"
+                          },
+                          "ask": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "reply",
+                                  "follow_up"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "profileId",
+                          "personId",
+                          "name",
+                          "platform",
+                          "url",
+                          "threadKey",
+                          "user",
+                          "how",
+                          "place",
+                          "since",
+                          "lastAt",
+                          "inContacts",
+                          "ask"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "people",
+                    "total"
                   ],
                   "additionalProperties": false
                 }
@@ -258597,6 +260903,140 @@
                         "near"
                       ],
                       "additionalProperties": false
+                    },
+                    "inHands": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "profileId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "personId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "platform": {
+                              "type": "string",
+                              "enum": [
+                                "facebook",
+                                "linkedin",
+                                "instagram",
+                                "alignable",
+                                "threads",
+                                "x"
+                              ]
+                            },
+                            "url": {
+                              "type": "string"
+                            },
+                            "threadKey": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "user": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "fullName": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "fullName"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "how": {
+                              "type": "string",
+                              "enum": [
+                                "wrote",
+                                "called",
+                                "took_over"
+                              ]
+                            },
+                            "place": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "since": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "lastAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "inContacts": {
+                              "type": "boolean"
+                            },
+                            "ask": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "reply",
+                                    "follow_up"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "profileId",
+                            "personId",
+                            "name",
+                            "platform",
+                            "url",
+                            "threadKey",
+                            "user",
+                            "how",
+                            "place",
+                            "since",
+                            "lastAt",
+                            "inContacts",
+                            "ask"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -260359,7 +262799,7 @@
     "/v1/queries/outreach.events.next": {
       "post": {
         "operationId": "query_outreach_events_next",
-        "summary": "Whether the person’s computer reads the events in their town on Alignable today: once a week, the first time and then a week after the last read. With the events it read lately, which it never reads again.",
+        "summary": "Whether the person’s computer reads the events near them today, on Alignable (their town’s events) or Facebook (its event search for their town): once a week, the first time and then a week after the last read. With the events it read lately, which it never reads again, and on Facebook what to search for.",
         "tags": [
           "queries"
         ],
@@ -260380,7 +262820,8 @@
                     "default": "alignable",
                     "type": "string",
                     "enum": [
-                      "alignable"
+                      "alignable",
+                      "facebook"
                     ]
                   }
                 },
@@ -260407,11 +262848,19 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "searches": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
                     "due",
-                    "read"
+                    "read",
+                    "searches"
                   ],
                   "additionalProperties": false
                 }

@@ -23,3 +23,4 @@ export * from './document-words';
 export * from './wallet-words';
 export * from './rcs-fees';
 export * from './texting-fees';
+export * from './options';

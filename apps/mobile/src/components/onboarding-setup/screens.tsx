@@ -10,6 +10,8 @@ import {
   ONBOARDING_SETUP_MAX,
   ONBOARDING_SETUP_WORDS as W,
   PAY_WITH,
+  PAYMENT_PROVIDER_NAMES,
+  type ConnectableProvider,
   PICKED_CONTACT_WORDS as PC,
   QUESTION_WORDS,
   setupFor,
@@ -62,6 +64,7 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { usePickCustomer } from '@/customers/pick-contact';
 import { api, errorMessage, unwrap } from '@/lib/api';
+import { config } from '@/lib/config';
 import { useNetwork } from '@/lib/network';
 import { cn } from '@/lib/utils';
 import { NotInThisBuild, type OnboardingSetupCalls } from '@/onboarding-setup/calls';
@@ -626,7 +629,7 @@ export function BookingScreen({
 
 // ---- Get paid, and get reviews ----
 
-const PROVIDER_NAME = { stripe: 'Stripe', square: 'Square' } as const;
+const PROVIDER_NAME = PAYMENT_PROVIDER_NAMES;
 
 export function PaidScreen({
   workspaceId,
@@ -655,7 +658,7 @@ export function PaidScreen({
     return () => sub.remove();
   }, [refresh]);
 
-  const connect = async (provider: 'stripe' | 'square') => {
+  const connect = async (provider: ConnectableProvider) => {
     if (!online) {
       toast.error(P.needsSignal);
       return;
@@ -677,14 +680,17 @@ export function PaidScreen({
 
   const p = state.payments;
   const provider = p.provider ? PROVIDER_NAME[p.provider] : null;
-  const picked = answers.payWith === 'later' ? null : answers.payWith;
+  // PayPal is offered once Connect PayPal is open, as on the web.
+  const offered = PAY_WITH.filter((pay) => pay !== 'paypal' || config.payPalEnabled);
+  const picked =
+    answers.payWith === 'later' || !offered.includes(answers.payWith) ? null : answers.payWith;
   const mayConnect = can('money.manage');
   return (
     <>
       <View className="gap-2">
         <Label>{W.payWith}</Label>
         <Group label={W.payWith}>
-          {PAY_WITH.map((pay) => (
+          {offered.map((pay) => (
             <Option
               key={pay}
               on={answers.payWith === pay}

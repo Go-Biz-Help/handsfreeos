@@ -4691,7 +4691,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         with `asks`) and the stand-in model; the web's `referral-card.tsx` and the phone's `referrals.tsx`. The
         Assistant lists them, notes one done and puts one aside (`outreach_referrals`, `outreach_referral_done`,
         `outreach_skip_referral`).
-      - **Next**: the extension posting the comment and sending the heads-up itself, after the person's OK.
+      - **Next**: the extension posting the comment and sending the heads-up itself: decision 185.
 
 175.  **The introduction's question goes as its own message, right after it** (Chris, 17 Nov 2026: "the introduction
       message from the outreach playbook says it should ask a question and I don’t see the question in the messages
@@ -4913,7 +4913,48 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **How it's built** (no migration, no extension change): `script.ts`, `today.ts` and `sends.ts` in Social
         Outreach.
 
-182.  **Ways to start a chat: you tick them, the AI picks one for each person** (Chris, 20 Nov 2026: "i want to allow
+182.  **In your hands: the AI holds off someone the person wrote to themselves** (Chris, 19 Nov 2026: "the social
+      outreach needs to recognize when the user sent a manual message last and so the ai should hold off, if it feels
+      it needs to respond to something or follow up then it should ask the user if they want to give ai the reigns for
+      this contact again. there should also be a list of contacts that are im the users hands because they last
+      contacted them and then give them the option to relinquish control, also should be able to take manual control
+      from anyone with an option next to the don't pitch and don't contact option", and the same for texts and email
+      in core; their picks, all "a", and "manual corrections or adjustments i make for the ai to send" stay the AI's).
+      Core's half is `app.people_in_hands` (migration 030900, "In your hands" in `docs/operations.md`); this is
+      Social Outreach's:
+      - **Who's in someone's hands** (`addon_outreach.hands`, one row a profile; or their customer in core's
+        `app.people_in_hands`, whatever the row says). A message the person typed themselves puts them there, on any
+        network, sent through the extension or outside it: a Send the extension saw them press (`outreach.touch.save`,
+        not `auto`), or their newest message in a chat the extension read (`outreach.chats.collect`, `byHandAt`). Never
+        a message HandsFreeOS drafted, OK'd, edited or copied: one that says what a draft for them said (all of it, a
+        paragraph, since a long one goes as a bubble each, or 12 letters or more of it), one the extension sent within
+        15 minutes of it or after it, a step handed to them to send (a need carrying a draft), or one copied from
+        Today in the 2 hours before it (`profiles.copied_at`). A picture alone, a group's member count, or a line
+        headed with their own name count for nobody. **Take over**, in the person menu beside Don't pitch and Never
+        contact (web and phone), puts anyone there by hand. A customer in Contacts goes into the same hands there
+        (`person.note_by_hand`, `person.take_over`).
+      - **What stops**: every message from the AI to them. Today drops their message items, `outreach.send.queue`
+        refuses (rule `outreach_in_your_hands`), a single OK is refused and Approve all skips them, and the AI's
+        messages waiting for them are skipped as they go into hands. Likes and comments go on, and so do automations.
+      - **The ask** (Needs you, web and phone; `outreach.waiting`'s `hands`): when they write back and an hour of the
+        person's working hours goes by unanswered, or when the AI would have followed up (the gap its follow-ups were
+        keeping, from the person's last message), "Dana Reyes wrote back" or "Follow up with Dana Reyes?", with **Let
+        the AI take it** (gives them back) and **Keep it mine** (`outreach.hands.keep`: the ask goes until they write
+        again or the next follow-up is due). Their phone hears it once (`outreach.hands_ask`, the worker's
+        `./hands.ts`), opening Needs you.
+      - **They stay in those hands until given back**: People → **In your hands** (web and phone; Everyone's or
+        Only mine) says whose hands, how and when, with **Give back to the AI** and **Give all back** (the list
+        shown); the person menu says the same with Give back. Given back here, their customer is given back in
+        Contacts; given back in Contacts, every profile of theirs here is too (`person.handed_back`,
+        `outreach.hands.release`). A row given back stays, so a message read later that was written before never
+        takes them again.
+      - **How it's built**: migration 031000 (the table, `profiles.copied_at`, and a look back over the last 30 days
+        of chats and Sends, which took a handful of people on the live database), `in-hands.ts` and `ops/in-hands.ts`, the
+        checks in `ops/activity.ts`, `ops/chats.ts`, `ops/sends.ts`, `ops/today.ts` and `ops/waiting.ts`; the web's
+        `hands-view.tsx`, the phone's `hands.tsx`, both person menus and both Needs you. No extension change: a reply
+        the person types in the network's own app is caught when the extension next reads that chat.
+
+183.  **Ways to start a chat: you tick them, the AI picks one for each person** (Chris, 20 Nov 2026: "i want to allow
       the user to select which methods they want the ai to be able to use either or all and the ai would select one
       based on the contacts profile, posts, platform, business, etc"; then "1a 2a 3a 4b 5a 6a 7a(but no they all start
       unticked and have to choose which ones they want to move forward)", and "also the playbook should auto save as
@@ -4967,7 +5008,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `playbooks-page.tsx` and the builder's `load.ts`; the phone's `playbook.tsx`, `playbook-script.tsx` and
         `playbooks.tsx`; the extension's runners (0.148.0).
 
-183.  **LinkedIn reads 40 profiles a day at most, a minute or two apart, a few at a time** (Chris, 19 Nov 2026: "it
+184.  **LinkedIn reads 40 profiles a day at most, a minute or two apart, a few at a time** (Chris, 19 Nov 2026: "it
       seems like linked in is suspecting suspicious behavior. what do you think the cause is?", then picked "40 a day,
       and slower" on 20 Nov). LinkedIn showed its security check (`/checkpoint/challenge/`) 2 minutes after the
       extension read 42 profiles of people found, 15 to 30 seconds apart, on a day of 98 profiles read (97 the day
@@ -4984,6 +5025,117 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the day's 40 spread through it. The day's last line says more profiles come later.
       - **Not changed:** likes, comments, invitations and messages keep their own daily limits, and a warning still
         halves everything for a week. Extension 0.148.1, no migration.
+
+185.  **Referrals done for you, tagged, with the ask after two** (Chris, 18 Nov 2026, local networking's referral
+      picks: "tag on every recent post in their area that fits, no per-person limit, no OK under Autopilot; heads-up
+      DM at most once a week; after 2 referrals, ask if they'd send people your way too, only after a few quiet days";
+      then part 4's picks on 20 Nov: 1a, 2a, 3a). Builds on decision 174, whose 9a it changes under Autopilot:
+      - **Under Autopilot, no OK** (`referForYou`, `onItsOwn` in `ops/referrals.ts`): a referral on a Facebook post, of
+        someone the person talks with on Facebook, is saved `approved`, and their computer posts the comment and sends
+        the heads-up, with no push. Elsewhere, and without Autopilot, it waits on Today as before, where **Do it for
+        me** (`outreach.referral.approve`) hands it to their computer as the words stand. Never a heads-up to someone in
+        a person's hands (decision 182): that one waits for the person.
+      - **Tagged, or their name as plain words** (1a; the extension's `writeTaggedComment`, core's `mentionParts`): the
+        comment types @ and their whole name where it names them and picks them from Facebook's list; when Facebook
+        lists nobody by that name, their name goes as plain words and the heads-up still sends them the post's link.
+        The comment names them once, by their whole name, so they can be tagged (`REFER_WRITE_SYSTEM`).
+      - **Every recent post that fits, no limit a person** (the 30 days between referrals and the 3 a day are gone):
+        what they do, where, and whom they serve (decision 177) go to the AI with each person, so it sees they work
+        where the post asks. Referral comments count toward the network's daily comments (2a): noted as comments,
+        and `outreach.referrals.due` gives only as many as the day's comments leave room for.
+      - **The heads-up at most once a week** (`REFER_NOTE_EVERY_DAYS`): referred again within the week, it's the
+        comment alone (`note` null), and Today says so.
+      - **The ask after two** (3a; `REFER_ASK_AFTER`, `REFER_ASK_QUIET_DAYS`, the worker's `outreach.refer_ask`, the
+        part **Asking them back**): once someone was referred twice, three days on, and once the chat has been quiet
+        three days (their messages, the person's, a reply seen or a heads-up), the AI writes a short note from the
+        playbook's words asking if they'd send people the person's way too, or have a quick call on their Networking
+        calendar. No pressure, never that they owe anything. Once a person, ever (`refer_asks`). It goes as a referral
+        does: on its own under Autopilot on Facebook, else **Ask them to send people your way** on Today with **Do it
+        for me**, **I sent it** and **Don't ask them** (`outreach.refer_ask.answer`); the phone hears of a waiting one
+        once. Starting words: "Hey [first name], I’ve mentioned you a couple of times when people asked for [what they
+        do]. If you ever come across someone who could use [what your offer is], I’d love it if you sent them my way.
+        Or if you’re up for a quick call to see how we can help each other, here’s my calendar: [calendar link]".
+      - **What couldn't go comes back** (`outreach.referral.posted`, `outreach.refer_ask.sent`): to Today with why
+        (`needs`); a comment that went up stays up and only the heads-up is left. A post that doesn't let them comment
+        is put aside.
+      - **How it's built** (migration 031500: `referrals` gains `approved`, `posted_at`, `tagged`, `noted_at` and
+        `needs`, and `note` may be empty; the table `addon_outreach.refer_asks`, each person's own; extension
+        0.149.0): `referrals.ts`, `ops/referrals.ts` and `script.ts` in core; the worker's `referrals.ts`; the
+        extension's `refer` and `askBack` in `src/auto/run.ts`; the web's `referral-card.tsx` and the phone's
+        `referrals.tsx`. The Assistant does them for the person too (`outreach_refer_for_me`,
+        `outreach_answer_refer_ask`).
+186.  **About you's interview** (Chris, 18 Nov 2026, local networking's extra 7a: "a short interview that fills in
+      About you, so replies sound like you"; then part 4's pick 4a on 20 Nov: "a button on About you that asks one
+      question at a time, typed or spoken, and fills in the boxes"). Builds on decision 165:
+      - **Answer a few questions** beside About you, on the web's Settings → Account and the phone's About you: eight
+        short questions (`ABOUT_YOU_QUESTIONS` in core's `account/about-you.ts`: where they're from, family, fun, what
+        they did before, why they started, heritage and languages, faith, anything else), one at a time, each with a
+        hint, with **Back**, **Skip** and **Next**. Each one may be skipped.
+      - **Typed or out loud**: **Speak** records until **Done talking**, and the worker writes it down
+        (`/v1/speech/hear`, as the Assistant's voice mode does), after anything typed, for them to fix. Hearing needs
+        Use Ask HandsFreeOS or Run the AI teammate, as voice mode does; without either, the refusal says so and they
+        type.
+      - **Write it up**: the worker's `POST /v1/about-you/write` (`http/about-you.ts`) has the AI write About you from
+        the answers in the first person, keeping what's in the box (an answer that says otherwise wins), adding
+        nothing and leaving out what was skipped. It comes back into the box **unsaved**: they read it, change
+        anything, and press **Save** (`user_about.set`), so nothing about them is kept that they didn't see. Counted
+        as 'about_you' AI use on the business they were in (migration 031600).
+      - The Assistant does the same by asking the questions itself and saving the words (`update_my_account`).
+187.  **Networking calls: a prep note before, a thank-you after, and a weekly count** (Chris, 18 Nov 2026, local
+      networking's extras 7b and 7c: "a prep note before each networking call and a thank-you after", "a weekly count
+      of 1-on-1s"; then part 4's picks 5a and 6a on 20 Nov: "a push 30 minutes before each networking call with the
+      note, and the thank-you waits on Today for your OK", "a line on Today and a Monday push with last week's
+      number"). Builds on decisions 173 and 178:
+      - **Which calls**: one booked through the person's networking call link, which now carries a `ref` for whoever
+        it went to (`callRef` in core's `demos.ts`, prefix `sn-`; the worker's `callLinkFor` in `times.ts`, for the
+        wrap-up, a yes to a call and the ask after two); or one on their Networking calendar (or, with none picked,
+        their own calendar that isn't their Lead calendar) under the name of exactly one person they chat with. Two of
+        the same name is nobody's. Each is kept once a booking and person (`outreach.call.note`, table
+        `addon_outreach.calls`, migration 031700).
+      - **The prep note** (the worker's `outreach.call_prep`, half an hour before; `calls.ts` in core and the worker):
+        the AI says what they do and where, what the chat was about, up to three people the person chats with who
+        they could refer them to (someone who might need what they do, or who serves the same customers), and one
+        question to ask. It only names people on the list it was given, and never invents a fact. With no AI, the
+        note says what's known of their work and asks who their best customer is. It's pushed to the person's phone
+        ("Call with Dana in 30 minutes") and kept with the call's time (`outreach.call.prepped`). A call moved gets its
+        push at the new time; a cancelled one gets none; each time pushes once.
+      - **The thank-you** is on Today after the call (kind `thank_you`, **Thank them for the call**), for 3 days
+        after it ends, on the follow-ups' limit after the demo reminders. It goes away once the person writes to
+        them, skips it, or they're owed a reply (the reply comes first). The AI drafts it short and warm, about the
+        call, with nothing about the business, and it **always waits for the person's OK, under Autopilot too** (5a;
+        `goesAsItIs`, and its own `needsYou`). Like a demo's messages, it leaves the conversation where it was.
+      - **One-on-ones** (6a): Today shows "One-on-ones: 2 this week, 3 last week." (`outreach.today`'s `oneOnOnes`,
+        on the web and the phone) once the person has a Networking calendar or a networking call lately. A 1-on-1 is
+        a networking call kept for them, or anything they hosted on their Networking calendar, that wasn't cancelled
+        or missed and has started; weeks start on Monday in the business's time zone. **Monday's morning push** also
+        says last week's number beside the week before, to whoever had one in the last 5 weeks.
+      - No extension change: the extension drafts and sends the thank-you as it does the day's other messages.
+
+188.  **Events near you on Facebook, and on Today** (Chris, 20 Nov 2026, part 4's pick 7a: "Local Facebook events: read
+      once a week like Alignable's, and the hosts and people going get the AI's check, with nothing pressed, plus a
+      Today card listing the events so you can go in person"). Builds on decisions 112 (Alignable's events), 113
+      (followers checked like friends) and 177 (where the person is):
+      - **Once a week** (`EVENTS_EVERY_DAYS`), the extension's `events` job (0.150.0, `src/jobs/events.ts`, before the
+        followers and the day's checks) asks `outreach.events.next` with `platform: 'facebook'`, which says what to
+        search for (`eventSearches`: "networking Boise, ID", then "business Boise, ID", from Settings → You → Where you
+        are, else the business's address; `ownArea` in `ops/local.ts`). With no town known it says how to set one.
+      - **Facebook's event search** is read a screen or two, and up to 5 events coming up that weren't read before
+        (`EVENTS_READ_MOST`) are opened, 15 to 30 seconds apart: each one's name, day, place, hosts ("Event by …" and
+        Meet your hosts) and the guests its page shows go to `outreach.events.read` with `events` (`EventSeen`).
+        **Nothing is pressed** on an event: no Going, Interested, Invite or Share, and no See all.
+      - **Kept as the person's own** (migration 031800): the events in `addon_outreach.events` (both networks; from
+        0.150.0 Alignable's weekly read sends its events too), and on Facebook who was there in
+        `addon_outreach.event_people`, the person's own profile never. Someone seen at an event stays someone to check
+        for `EVENT_PEOPLE_KEPT_DAYS` (30).
+      - **The AI checks them like friends** (`outreach.checks.next`'s reason `event`, after followers; via `event`),
+        told "Going to the Facebook event “Spring Mixer” (Boise Centre) near the owner, though they aren’t friends"
+        (`eventFact`). A good fit goes on Today for a warm-up and a friend request, as a follower does, with why:
+        "Hosting “Spring Mixer” near you" or "Going to …" (`eventWhy`). The week's finds count them as found by an
+        event.
+      - **Today's Events near you** (`outreach.today`'s `events`, on the web and the phone): up to 5 events coming up in
+        the next 45 days, the soonest first (one whose day wasn't read stays 10 days), each with when and where as its
+        page said, who hosts it, how many people there the AI is checking or found a fit, **Open** (the event's own
+        page) and **Not going** (`outreach.event.skip`, risk 0). Going is the person's to do.
 
 ## Rules worth knowing before changing anything
 
@@ -5050,9 +5202,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `answerOf`, `tookOf`): a friendly answer to the owner's question about them is no yes, so no ask for a time
   follows it. A call's yes (`follow_ups.call`) puts the ask and what follows it on the person's own calendar, with no
   demo ref, and a time booked from it never counts as a demo.
-- **A referral never goes on its own** (decision 174, 9a): the comment and the heads-up wait on Today for the person,
-  under Autopilot too, and only someone who wrote back at least twice and wasn't marked not a fit, Don't pitch or Never
-  contact is ever referred (`REFER_REPLIES`, `findReferralJob`). A referral is honest that the owner has talked with
+- **A referral goes on its own only under Autopilot on Facebook** (decisions 174 and 185): elsewhere the comment and
+  the heads-up wait on Today for the person, and only someone who wrote back at least twice and wasn't marked not a
+  fit, Don't pitch or Never contact is ever referred (`REFER_REPLIES`, `findReferralJob`). The heads-up goes to
+  someone at most once a week, and the ask after two once ever. A referral is honest that the owner has talked with
   them, never that they've worked with them, and never names the group.
 - **Nothing the AI writes makes up the owner's life** (decision 165, `about-owner.ts`): a prompt that writes as the
   person carries `ABOUT_OWNER_RULE` with their `<about_owner>` (`aboutOwnerFor`, `aboutOwnerBlock`), or
@@ -5808,6 +5961,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `mayClear`, `mayPress`) and the tab's (`HelperHands`) both hold it; widen `HELPER_BUTTONS` only with the owner's
   OK, and never for a message, a comment, a removal or a like. Its view never holds what a person wrote or the
   name of the person the step is for.
+- **Someone in a person's hands gets no message from the AI** (decision 182): a profile with an `addon_outreach.hands`
+  row not given back, or whose customer is in core's `app.people_in_hands`. Anything new that drafts, queues or OKs a
+  message checks `heldAmong` or `notHeldNow` (`ops/in-hands.ts`); likes and comments don't. What counts as typed by
+  hand is `byHandAt` and `theAisLately`: widen what counts as the AI's freely, but never count an AI draft the person
+  OK'd, edited or copied as theirs.
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from
   outlines, never saved pages (apps/extension/README.md).
 
@@ -5869,11 +6027,13 @@ commenter's comment, the AI's check of Facebook's group members, 3 screens of a 
 Alignable, the business's found checks a day, results by hashtag, phrase and kind of business, and tidying away finds
 never checked after two weeks came with decision 116, the comment Like and Alignable's likers from guessed markup too.
 
-Local networking (decisions 177 to 180 are the first three of four parts, from the owner's picks of 18 Nov 2026) still
-to come: tagging the people the owner has talked with on recent posts in their area that fit, a short ask after two
-referrals once the chat has been quiet for a few days, the About you interview, a prep note before each networking
-call and a thank-you after, a weekly count of 1-on-1s, and local Facebook events (part 4). Today's ordering is
-the only place near people go first; the Pipeline and the lists don't sort by distance yet.
+Local networking (decisions 177 to 180 are the first three of four parts, from the owner's picks of 18 Nov 2026) is
+all built: part 4 is the referrals (decision 185), the About you interview (186), networking calls' prep notes,
+thank-yous and weekly count (187), and local events on Facebook and Today (188). The event search and an event's page
+are read by guesses till the owner's next Check Facebook outlines them. Referrals are done for the person only on
+Facebook: on the other networks, and for someone the person talks with on another network than the post's, they wait
+on Today. Today's ordering is the only place near people go first; the Pipeline and the lists don't sort by distance
+yet.
 
 Drive times (decision 179) count only on the booking page, a reschedule from the customer's link and the AI's open
 times: a booking the team makes in New appointment, or the Assistant's, isn't checked for the drive. Where your day
