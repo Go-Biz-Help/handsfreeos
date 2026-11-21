@@ -17,6 +17,7 @@ import {
   executeCommand,
   messageUpdateStatus,
   scheduleJob,
+  type RequestMeta,
 } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import {
@@ -47,7 +48,13 @@ import {
   type EmailDomains,
   type EmailError,
 } from '../email/transport';
-import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
+import {
+  systemActor,
+  tenantOf,
+  workerMeta,
+  type TenantScope,
+  type WorkerServices,
+} from '../services';
 import { managers } from './telephony';
 import type { EventHandler, HandlerContext } from './types';
 
@@ -483,10 +490,11 @@ export function inboundRefusal(domain: string, e: EmailError): string {
 }
 
 async function recordInbound(
-  ctx: HandlerContext,
+  ctx: WorkerServices,
   scope: TenantScope,
   emailDomainId: string,
   serverId: string | null,
+  meta: RequestMeta,
   error?: string,
 ) {
   await executeCommand(
@@ -494,8 +502,48 @@ async function recordInbound(
     emailDomainRecordInbound,
     { workspaceId: scope.workspaceId, emailDomainId, serverId, ...(error ? { error } : {}) },
     systemActor(scope),
-    metaOf(ctx),
+    meta,
   );
+}
+
+/**
+ * Asks Postmark for a receiving domain's own server (M19) and records what came of it: `opened` (made, or found
+ * again), `waiting` when Postmark won't take the domain until its MX already points there (its code 610: the
+ * business hasn't changed the MX yet, or Postmark hasn't seen the change), or `refused`, which turns receiving back
+ * off and says why in Settings → Email. Anything else throws, so the work is tried again.
+ */
+export async function openInboundServer(
+  ctx: WorkerServices,
+  scope: TenantScope,
+  d: { id: string; domain: string; receivingError: string | null },
+  meta: RequestMeta,
+): Promise<'opened' | 'waiting' | 'refused'> {
+  let serverId: string;
+  try {
+    serverId = await ctx.email.domains.openInbound(d.domain);
+  } catch (e) {
+    if (!isPermanentEmailError(e)) throw e;
+    if (e.code === INBOUND_REFUSALS.noMx) {
+      // An earlier refusal no longer applies while the domain waits for its MX.
+      if (d.receivingError) await recordInbound(ctx, scope, d.id, null, meta);
+      return 'waiting';
+    }
+    // No room left is ours to fix (the Postmark plan): loud, so somebody sees it.
+    if (e.code === INBOUND_REFUSALS.full)
+      ctx.log.error(
+        { workspaceId: scope.workspaceId, domain: d.domain },
+        'Postmark has no room for another receiving domain: move the account to the Platform plan',
+      );
+    else
+      ctx.log.warn(
+        { workspaceId: scope.workspaceId, domain: d.domain, code: e.code, err: e.message },
+        'Postmark would not receive a business’s domain',
+      );
+    await recordInbound(ctx, scope, d.id, null, meta, inboundRefusal(d.domain, e));
+    return 'refused';
+  }
+  await recordInbound(ctx, scope, d.id, serverId, meta);
+  return 'opened';
 }
 
 /** Whether another business receives this name's mail now (M19), whose server that would be. Never says which. */
@@ -508,9 +556,10 @@ async function receivedElsewhere(tx: Tx, domain: string): Promise<boolean> {
 }
 
 /**
- * A business asked to receive its mail at one of its domains (M19): give the domain a Postmark server of its own,
- * posting to our webhook, then look for its MX. handsfreeos.com has the support desk's. A refusal turns receiving
- * back off, and Settings → Email says why.
+ * A business asked to receive its mail at one of its domains (M19), or to look again while it waits: give the domain
+ * a Postmark server of its own, posting to our webhook, then look for its MX. Postmark takes a domain only once its
+ * MX points there, so until then the domain waits and the MX check makes the server when it finds the MX.
+ * handsfreeos.com has the support desk's. A refusal turns receiving back off, and Settings → Email says why.
  */
 export const onEmailDomainReceivingRequested: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
@@ -519,25 +568,12 @@ export const onEmailDomainReceivingRequested: EventHandler = async (ctx) => {
   const d = await loadDomain(ctx);
   // Removed, or turned off, while this waited.
   if (!d || d.receiving === 'off') return;
-  if (d.domain !== HANDSFREEOS_DOMAIN && !d.inboundServerId)
-    try {
-      await recordInbound(ctx, scope, d.id, await ctx.email.domains.openInbound(d.domain));
-    } catch (e) {
-      if (!isPermanentEmailError(e)) throw e;
-      // No room left is ours to fix (the Postmark plan): loud, so somebody sees it.
-      if (e.code === INBOUND_REFUSALS.full)
-        ctx.log.error(
-          { workspaceId: scope.workspaceId, domain: d.domain },
-          'Postmark has no room for another receiving domain: move the account to the Platform plan',
-        );
-      else
-        ctx.log.warn(
-          { workspaceId: scope.workspaceId, domain: d.domain, code: e.code, err: e.message },
-          'Postmark would not receive a business’s domain',
-        );
-      await recordInbound(ctx, scope, d.id, null, inboundRefusal(d.domain, e));
-      return;
-    }
+  if (
+    d.domain !== HANDSFREEOS_DOMAIN &&
+    !d.inboundServerId &&
+    (await openInboundServer(ctx, scope, d, metaOf(ctx))) === 'refused'
+  )
+    return;
   await scheduleJob(
     ctx.tx,
     {
@@ -566,7 +602,8 @@ export const onEmailDomainReceivingStopped: EventHandler = async (ctx) => {
   if (d && d.receiving !== 'off') return;
   if (!(await receivedElsewhere(ctx.tx, p.domain)))
     await ctx.email.domains.closeInbound(p.inboundServerId);
-  if (d?.inboundServerId === p.inboundServerId) await recordInbound(ctx, scope, d.id, null);
+  if (d?.inboundServerId === p.inboundServerId)
+    await recordInbound(ctx, scope, d.id, null, metaOf(ctx));
 };
 
 /**

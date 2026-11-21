@@ -5676,11 +5676,16 @@ If it goes wrong:
 ### Postmark Part N: Every business's own mail
 
 Any business can receive its mail in HandsFreeOS at its own domain (M19). It clicks **Receive mail here** in
-**Settings → Email**, and the worker gives that domain a Postmark server of its own, named `Inbound · <domain>`.
-Each server receives only that domain and posts to the same webhook as every other
-(`WORKER_PUBLIC_URL/webhooks/postmark/inbound`, with the webhook password). The business then points its
-domain's MX record at `inbound.postmarkapp.com`, and the worker finds it within 15 minutes. You set up nothing per
-business.
+**Settings → Email**, and the page shows the MX record to add. The business points its domain's MX record at
+`inbound.postmarkapp.com`, and the worker gives that domain a Postmark server of its own, named
+`Inbound · <domain>`. Each server receives only that domain and posts to the same webhook as every other
+(`WORKER_PUBLIC_URL/webhooks/postmark/inbound`, with the webhook password). You set up nothing per business.
+
+Postmark takes a domain only once its MX already points at Postmark. Until then it answers code 610 ("We could
+not find an MX record pointing to the expected domain"), and the worker treats that as waiting, not a refusal. So
+the server is made when the MX check finds the record: at once if the MX was already there, otherwise within 15
+minutes, or straight away when the business clicks **Check now**. If our DNS sees the record before Postmark's
+does, the worker asks Postmark again every 5 minutes until it takes it.
 
 Before the first business turns it on:
 
@@ -5709,8 +5714,8 @@ What a business does, and what it sees:
     it working, and only one receives its mail.
   - `handsfreeos.com` needs no third record, since only HandsFreeOS's own business may hold it.
   - Domains already verified before this change keep working as they were.
-- **Receive mail here** shows once the domain is verified. It shows the MX record, the warning that all its mail
-  moves here, and **Stop receiving here**.
+- **Receive mail here** shows once the domain is verified, with the warning that all its mail moves here. Once
+  clicked, it shows the MX record, **Check now** while it waits for it, and **Stop receiving here**.
 - **Mail to an address the business hasn't added** goes to its default address, in the team's Inbox. Nothing is
   lost to a typo.
 
@@ -5733,7 +5738,8 @@ If it goes wrong:
 - **"Another HandsFreeOS business still has … working. This one waits…".** Two businesses claimed the same name
   and the other verified it first. It stays waiting, checked daily, until the other removes it.
 - **Stuck on "Waiting for the MX record".** Check the domain's MX with `dig MX <domain>`. It should name
-  `inbound.postmarkapp.com` and nothing else.
+  `inbound.postmarkapp.com` and nothing else. Once it does, the business clicks **Check now**. The worker logs
+  nothing while Postmark answers 610; that is the normal wait.
 - **Mail doesn't arrive.**
   1. In Postmark, open the domain's `Inbound · <domain>` server → the inbound stream → **Activity**.
   2. If the mail isn't there, the MX isn't pointing at Postmark yet.

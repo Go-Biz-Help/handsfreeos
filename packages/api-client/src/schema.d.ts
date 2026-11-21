@@ -4527,7 +4527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start receiving the business’s mail at one of its verified domains. Once its MX record points at inbound.postmarkapp.com, mail to every address there arrives in the Inbox.
+         * Start receiving the business’s mail at one of its verified domains. Once its MX record points at inbound.postmarkapp.com, mail to every address there arrives in the Inbox. Asked again while it waits, it looks for the MX record now.
          * @description Risk level 2. Requires channels.manage. Emits email_domain.receiving_requested.
          */
         post: operations["command_email_domain_receive"];

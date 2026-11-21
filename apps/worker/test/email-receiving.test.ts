@@ -443,6 +443,78 @@ describe('a receiving domain’s own Postmark server (M19 step 6)', () => {
     expect(await serverOf(domainId)).toEqual({ server: null, receiving: 'off', error: null });
   });
 
+  // Postmark takes a domain only once its MX already points there (its code 610): Burroughs Digital's first try.
+  it('waits for the MX record before Postmark takes the domain, then makes its server as the MX shows', async () => {
+    // The local Postmark refuses a latemx-… domain until the MX check has looked once.
+    const domain = `latemx-${token()}.example.com`;
+    const { domainId } = await domainWith(domain, 'off');
+    await receive(domainId);
+    await drain();
+    expect(await serverOf(domainId)).toEqual({
+      server: `local-inbound-${domain}`,
+      receiving: 'on',
+      error: null,
+    });
+  });
+
+  it('stays waiting, with no refusal, while the MX points elsewhere; Check now looks again at once', async () => {
+    const domain = `nomx-${token()}.example.com`;
+    const { domainId } = await domainWith(domain, 'off');
+    // A refusal from an earlier try no longer applies once the domain waits for its MX.
+    await rows(
+      admin(),
+      sql`update app.email_domains set receiving_error = 'Postmark wouldn’t set it up.' where id = ${domainId}`,
+    );
+    await receive(domainId);
+    await drain();
+    expect(await serverOf(domainId)).toEqual({ server: null, receiving: 'pending', error: null });
+    const checked = async () =>
+      (
+        await rows<{ at: string | null }>(
+          admin(),
+          sql`select mx_checked_at::text as at from app.email_domains where id = ${domainId}`,
+        )
+      )[0]!.at;
+    const before = await checked();
+    expect(before).not.toBeNull();
+    // Check now: the business changed its MX a moment ago and doesn't wait for the next 15-minute look.
+    expect((await receive(domainId)).output).toMatchObject({
+      receiving: 'pending',
+      changed: false,
+    });
+    await drain();
+    expect(await checked()).not.toBe(before);
+    expect(await serverOf(domainId)).toEqual({ server: null, receiving: 'pending', error: null });
+  });
+
+  it('asks Postmark again in 5 minutes when our DNS sees the MX before Postmark’s does', async () => {
+    // The local Postmark refuses a slowmx-… domain until the MX check has looked twice.
+    const domain = `slowmx-${token()}.example.com`;
+    const { domainId } = await domainWith(domain, 'off');
+    await rows(
+      admin(),
+      sql`update app.email_domains set receiving = 'pending' where id = ${domainId}`,
+    );
+    const job = {
+      ...s,
+      job: { payload: { emailDomainId: domainId } } as unknown as JobRow,
+      scope: { workspaceId, organizationId },
+      attempt: 1,
+      now: Date.now(),
+    };
+    const first = await checkEmailReceivingJob(job);
+    const wait = (first?.rescheduleAt.getTime() ?? 0) - Date.now();
+    expect(wait).toBeGreaterThan(4 * 60_000);
+    expect(wait).toBeLessThanOrEqual(5 * 60_000);
+    expect(await serverOf(domainId)).toEqual({ server: null, receiving: 'pending', error: null });
+    expect(await checkEmailReceivingJob(job)).toBeUndefined();
+    expect(await serverOf(domainId)).toEqual({
+      server: `local-inbound-${domain}`,
+      receiving: 'on',
+      error: null,
+    });
+  });
+
   it('says why when Postmark won’t receive the domain, and receiving goes back off', async () => {
     const full = await domainWith(`full-${token()}.example.com`, 'off', 'office');
     await receive(full.domainId);
