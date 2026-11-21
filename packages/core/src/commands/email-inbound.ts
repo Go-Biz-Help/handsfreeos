@@ -432,6 +432,10 @@ export const emailReceive = defineCommand({
     const autoLink = !conv.personId && !!matched;
     const person = conv.personId ?? matched;
     const fresh = Date.now() - at.getTime() < FRESH_MS;
+    // Old mail that a mailbox's first sync (or a reconnect) brings in is history, not a customer writing now: like
+    // mail the mailbox sent, it is imported, so the AI teammate doesn't answer it and no workflow, funnel or add-on
+    // hears of it. Postmark's mail is never this, whatever date the sender's computer stamped on it.
+    const imported = !inbound || (!fresh && !!input.mailboxConnectionId);
     const newest = !conv.lastMessageAt || at.getTime() >= conv.lastMessageAt.getTime();
     const preview = emailPreview(input.subject, input.bodyText, input.media.length);
     const messageId = randomUUID();
@@ -453,7 +457,7 @@ export const emailReceive = defineCommand({
           : { with: counterpart, channel: 'email', ...(quiet ? { folder } : {}) },
       });
     const eventId = await ctx.emit({
-      type: quiet ? 'email.filed' : inbound ? 'message.received' : 'message.imported',
+      type: quiet ? 'email.filed' : imported ? 'message.imported' : 'message.received',
       entityType: 'message',
       entityId: messageId,
       payload: {
@@ -463,9 +467,12 @@ export const emailReceive = defineCommand({
         mediaCount: input.media.length,
         ...(quiet
           ? { folder, direction: input.direction, ...(sealed ? { private: true } : {}) }
-          : inbound
-            ? { reopened: fresh && conv.status !== 'open' }
-            : { mailboxConnectionId: input.mailboxConnectionId ?? null }),
+          : imported
+            ? {
+                mailboxConnectionId: input.mailboxConnectionId ?? null,
+                ...(inbound ? { direction: input.direction } : {}),
+              }
+            : { reopened: fresh && conv.status !== 'open' }),
       },
       after: sealed
         ? { mediaCount: input.media.length }

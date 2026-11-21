@@ -438,6 +438,39 @@ describe('a connected mailbox', () => {
     expect(await message(imported.messageId!)).toMatchObject({ status: 'sent', sent_by: owner.id });
     expect(await conversation(imported.conversationId!)).toMatchObject({ unread_count: 0 });
 
+    // Pat's mail from before Dale connected Outlook is history: nothing answers it or hears of it now. What Pat
+    // writes today is a customer writing.
+    const fromPat = {
+      ...synced,
+      direction: 'inbound',
+      from: { address: PAT },
+      to: [{ address: DALE_MAILBOX }],
+    };
+    const old = await sys(emailReceive, {
+      ...fromPat,
+      providerMessageId: 'graph-old',
+      messageIdHeader: '<pat-old@example.com>',
+      subject: 'Can you come Tuesday?',
+      occurredAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+    });
+    const today = await sys(emailReceive, {
+      ...fromPat,
+      providerMessageId: 'graph-new',
+      messageIdHeader: '<pat-new@example.com>',
+      subject: 'One more question',
+      occurredAt: new Date().toISOString(),
+    });
+    const woke = async (messageId: string) =>
+      (
+        await rows<{ event_type: string }>(
+          admin(),
+          sql`select event_type from app.events where entity_id = ${messageId}`,
+        )
+      ).map((e) => e.event_type);
+    expect(old.outcome).toBe('filed');
+    expect(await woke(old.messageId!)).toEqual(['message.imported']);
+    expect(await woke(today.messageId!)).toEqual(['message.received']);
+
     // Mail between Dale and someone who isn't a customer stays in Outlook.
     expect(
       (
