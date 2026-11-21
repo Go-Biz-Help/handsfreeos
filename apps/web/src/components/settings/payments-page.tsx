@@ -43,6 +43,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -228,6 +229,11 @@ export function PaymentsSettings({
 }) {
   const router = useRouter();
   useLiveRefresh(['payment_connection', 'workspace']);
+  // Until PayPal approves HandsFreeOS, Connect PayPal is open only to HandsFreeOS staff, so the owner can try it
+  // against PayPal's sandbox on the live site (a practice business) without any business connecting to it.
+  const { staffPermissions } = useWorkspaceShell();
+  const payPalStaffOnly = !publicEnv.payPalEnabled && staffPermissions.length > 0;
+  const payPalOpen = publicEnv.payPalEnabled || payPalStaffOnly;
 
   // The counter is the authority, not the settings document: a business that has sent invoices is further on
   // than its settings say, so the editable number starts where the counter actually is.
@@ -468,7 +474,7 @@ export function PaymentsSettings({
               <Button
                 variant="secondary"
                 size="sm"
-                disabled={!publicEnv.payPalEnabled}
+                disabled={!payPalOpen}
                 loading={connecting === 'paypal'}
                 onClick={() => connect('paypal')}
                 data-testid="connect-paypal"
@@ -476,7 +482,11 @@ export function PaymentsSettings({
                 <Plus className="h-4 w-4" strokeWidth={1.75} />
                 Connect PayPal
               </Button>
-              {publicEnv.payPalEnabled ? null : <Badge variant="pending">Coming soon</Badge>}
+              {payPalStaffOnly ? (
+                <Badge data-testid="connect-paypal-staff-only">Staff only, for testing</Badge>
+              ) : payPalOpen ? null : (
+                <Badge variant="pending">Coming soon</Badge>
+              )}
             </div>
             <p className="mt-2 text-[12.5px] text-text-3">
               You can connect several, including two of the same kind, and keep each one to the

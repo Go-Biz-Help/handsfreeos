@@ -1502,7 +1502,7 @@
   "apps/web/src/components/settings/password-section.tsx": "d07810a8afd8",
   "apps/web/src/components/settings/payment-access-dialog.tsx": "aca450d764a2",
   "apps/web/src/components/settings/payment-connection-card.tsx": "43e7470e0b32",
-  "apps/web/src/components/settings/payments-page.tsx": "fe54cd435e44",
+  "apps/web/src/components/settings/payments-page.tsx": "1a9b582d93ef",
   "apps/web/src/components/settings/permission-bits.tsx": "dc66fa2295de",
   "apps/web/src/components/settings/permissions-page.tsx": "8fcb6b3e083c",
   "apps/web/src/components/settings/phone-account-card.tsx": "c452df556a06",

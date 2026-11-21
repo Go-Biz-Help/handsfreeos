@@ -25,7 +25,7 @@
     "apps/web/src/components/partners/settings-page.tsx": "0ff4c1bbbd6e",
     "apps/web/src/components/settings/payment-access-dialog.tsx": "aca450d764a2",
     "apps/web/src/components/settings/payment-connection-card.tsx": "43e7470e0b32",
-    "apps/web/src/components/settings/payments-page.tsx": "fe54cd435e44"
+    "apps/web/src/components/settings/payments-page.tsx": "1a9b582d93ef"
   },
   "items": [
     {
@@ -260,7 +260,7 @@
       "by": "get_settings payments → accounts empty"
     },
     {
-      "path": "Settings → Payments → Accounts → Connect Stripe / Connect Square / Connect PayPal (greyed out, Coming soon, until PayPal approves HandsFreeOS)",
+      "path": "Settings → Payments → Accounts → Connect Stripe / Connect Square / Connect PayPal (greyed out, Coming soon, until PayPal approves HandsFreeOS; open to HandsFreeOS staff with a Staff only, for testing badge)",
       "kind": "do",
       "file": "apps/web/src/components/settings/payments-page.tsx:453",
       "covered": "person",
