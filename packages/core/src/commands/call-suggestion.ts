@@ -12,7 +12,7 @@
  * phone call on the business number that someone on the team answered or placed (20261027023200): it keeps its words
  * and its summary on itself, and the summary is its timeline line's body.
  */
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import {
   appointmentAttendees,
@@ -121,7 +121,12 @@ async function videoCallOf(tx: Tx, workspaceId: string, videoCallId: string) {
   return c ?? null;
 }
 
-/** Who the call was with: an appointment's first booked customer, else its lead; or the video or phone call's. */
+/**
+ * Who the call was with: an appointment's first customer, else its lead; or the video or phone call's. A seat still
+ * counts once it's marked attended or a no-show: the end of a session marks everyone given a Join link, often before
+ * anyone has pressed Send email on the follow-up. A cancelled seat never counts, and someone who was there comes
+ * before a no-show.
+ */
 async function customerOf(tx: Tx, workspaceId: string, of: CallOf) {
   if (of.callId) {
     const c = await phoneCallOf(tx, workspaceId, of.callId);
@@ -142,10 +147,13 @@ async function customerOf(tx: Tx, workspaceId: string, of: CallOf) {
     .where(
       and(
         eq(appointmentAttendees.appointmentId, appointmentId),
-        eq(appointmentAttendees.status, 'booked'),
+        inArray(appointmentAttendees.status, ['booked', 'attended', 'no_show']),
       ),
     )
-    .orderBy(asc(appointmentAttendees.createdAt))
+    .orderBy(
+      asc(sql`${appointmentAttendees.status} = 'no_show'`),
+      asc(appointmentAttendees.createdAt),
+    )
     .limit(1);
   return { personId: first?.personId ?? null, leadId: a?.leadId ?? null };
 }
