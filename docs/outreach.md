@@ -5064,6 +5064,23 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         extension's `refer` and `askBack` in `src/auto/run.ts`; the web's `referral-card.tsx` and the phone's
         `referrals.tsx`. The Assistant does them for the person too (`outreach_refer_for_me`,
         `outreach_answer_refer_ask`).
+186.  **About you's interview** (Chris, 18 Nov 2026, local networking's extra 7a: "a short interview that fills in
+      About you, so replies sound like you"; then part 4's pick 4a on 20 Nov: "a button on About you that asks one
+      question at a time, typed or spoken, and fills in the boxes"). Builds on decision 165:
+      - **Answer a few questions** beside About you, on the web's Settings → Account and the phone's About you: eight
+        short questions (`ABOUT_YOU_QUESTIONS` in core's `account/about-you.ts`: where they're from, family, fun, what
+        they did before, why they started, heritage and languages, faith, anything else), one at a time, each with a
+        hint, with **Back**, **Skip** and **Next**. Each one may be skipped.
+      - **Typed or out loud**: **Speak** records until **Done talking**, and the worker writes it down
+        (`/v1/speech/hear`, as the Assistant's voice mode does), after anything typed, for them to fix. Hearing needs
+        Use Ask HandsFreeOS or Run the AI teammate, as voice mode does; without either, the refusal says so and they
+        type.
+      - **Write it up**: the worker's `POST /v1/about-you/write` (`http/about-you.ts`) has the AI write About you from
+        the answers in the first person, keeping what's in the box (an answer that says otherwise wins), adding
+        nothing and leaving out what was skipped. It comes back into the box **unsaved**: they read it, change
+        anything, and press **Save** (`user_about.set`), so nothing about them is kept that they didn't see. Counted
+        as 'about_you' AI use on the business they were in (migration 031600).
+      - The Assistant does the same by asking the questions itself and saving the words (`update_my_account`).
 
 ## Rules worth knowing before changing anything
 

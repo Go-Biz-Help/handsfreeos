@@ -2207,6 +2207,19 @@ function scriptedReferWrite(message: string) {
   };
 }
 
+/**
+ * About you from the interview's answers (decision 186): what was there, then each answer as a sentence of its own,
+ * in the order asked.
+ */
+function scriptedAboutYou(message: string) {
+  const now = unquote(/<about_now>\n?([\s\S]*?)\n?<\/about_now>/.exec(message)?.[1] ?? '').trim();
+  const said = [...message.matchAll(/^They said: (.*)$/gm)].map((m) => {
+    const s = unquote(m[1]!).trim();
+    return /[.!?]$/.test(s) ? s : `${s}.`;
+  });
+  return { about: [now === '(empty)' ? '' : now, said.join(' ')].filter(Boolean).join('\n\n') };
+}
+
 /** The ask after two (decision 185): the playbook's starting words, filled in plainly. */
 function scriptedReferAsk(message: string) {
   const name = unquote(/<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'them').trim();
@@ -2596,6 +2609,7 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
     json: (message) => scriptedReferWrite(message),
   },
   { when: /Write the note asking them back\.$/, json: (message) => scriptedReferAsk(message) },
+  { when: /Write their About you\.$/, json: (message) => scriptedAboutYou(message) },
   { when: /Could this person be a customer\?$/, json: (message) => scriptedFitCheck(message) },
   {
     when: /Could this person send the business its customers\?$/,
