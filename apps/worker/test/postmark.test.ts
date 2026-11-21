@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DnsLookup } from '../src/email/dns';
 import { createPostmark } from '../src/email/postmark';
+import { replyToOf } from '../src/processors/postmark';
 import { INBOUND_REFUSALS } from '../src/email/transport';
 
 /**
@@ -307,5 +308,29 @@ describe('a receiving domain’s server (M19)', () => {
       { route: 'DELETE /servers/2', body: undefined },
       { route: 'PUT /servers/2', body: { InboundDomain: '', InboundHookUrl: '' } },
     ]);
+  });
+});
+
+describe('the Reply-To of mail that came in', () => {
+  it('takes the first address and its name, however the header writes them', () => {
+    expect(replyToOf('Dana Rivera <Dana@Example.com>')).toEqual({
+      address: 'dana@example.com',
+      name: 'Dana Rivera',
+    });
+    expect(replyToOf('"Rivera, Dana" <dana@example.com>, lee@example.com')).toEqual({
+      address: 'dana@example.com',
+      name: 'Rivera, Dana',
+    });
+    expect(replyToOf('dana@example.com, lee@example.com')).toEqual({
+      address: 'dana@example.com',
+      name: null,
+    });
+    expect(replyToOf('<dana@example.com>')).toEqual({ address: 'dana@example.com', name: null });
+  });
+
+  it('is nothing when there is no address in it', () => {
+    expect(replyToOf(undefined)).toBeNull();
+    expect(replyToOf('')).toBeNull();
+    expect(replyToOf('[your-email]')).toBeNull();
   });
 });
