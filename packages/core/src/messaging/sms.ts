@@ -75,8 +75,20 @@ export function plainSmsText(text: string): string {
     .replace(ELLIPSIS, '...')
     .replace(ODD_SPACES, ' ')
     .replace(INVISIBLE, '')
-    .replace(/[ \t]+\n/g, '\n')
+    .split('\n')
+    .map(withoutTrailingBlanks)
+    .join('\n')
     .trim();
+}
+
+/**
+ * A line without the spaces and tabs at its end. A loop rather than a pattern: one that looks for blanks before a
+ * line break reads a long run of them again from every blank in it, which a text of nothing but spaces makes slow.
+ */
+function withoutTrailingBlanks(line: string): string {
+  let end = line.length;
+  while (end > 0 && (line[end - 1] === ' ' || line[end - 1] === '\t')) end--;
+  return end === line.length ? line : line.slice(0, end);
 }
 
 export type SmsKeyword = 'stop' | 'start' | 'help';

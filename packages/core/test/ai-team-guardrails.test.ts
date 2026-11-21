@@ -488,6 +488,15 @@ describe('plainSmsText', () => {
       'We\'re "on it" - see you... soon',
     );
   });
+
+  it('drops the blanks before a line break, and a long run of blanks costs nothing', () => {
+    expect(plainSmsText('Hi Dana, \t\nsee you at 3.  \n\n  Lone Star HVAC  ')).toBe(
+      'Hi Dana,\nsee you at 3.\n\n  Lone Star HVAC',
+    );
+    const started = Date.now();
+    expect(plainSmsText(`${' \t'.repeat(100_000)}x`)).toBe('x');
+    expect(Date.now() - started).toBeLessThan(1_000);
+  });
 });
 
 describe('checkTeammateReply', () => {
