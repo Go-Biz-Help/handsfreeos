@@ -1230,14 +1230,27 @@ describe('a spot bought with a code', () => {
       expect(daysFromNow(trial.trial_ends_at)).toBeGreaterThan(13.9);
       expect(daysFromNow(trial.trial_ends_at)).toBeLessThan(14.1);
 
-      // The trial's card now pays the balance too, with automatic top-up on, and the $5 every business starts with
-      // is under the $10 floor. Nothing is charged today, so the hourly top-up leaves the card alone.
-      const [wallet] = await rows<{ auto_topup: boolean; has_card: boolean; low: boolean }>(
+      // The trial's card now pays the balance too, with automatic top-up on. Every business starts with $5 against a
+      // $10 floor; put this one under its floor, whatever the tests before it spent. Nothing is charged today, so the
+      // hourly top-up leaves the card alone.
+      await admin().execute(
+        sql`update app.usage_wallets set floor_cents = balance_cents + 1000
+            where workspace_id = ${workspaceId}::uuid`,
+      );
+      const [wallet] = await rows<{ auto_topup: boolean; has_card: boolean }>(
         admin(),
-        sql`select auto_topup, method_token is not null as has_card, balance_cents <= floor_cents as low
+        sql`select auto_topup, method_token is not null as has_card
             from app.usage_wallets where workspace_id = ${workspaceId}::uuid`,
       );
-      expect(wallet).toEqual({ auto_topup: true, has_card: true, low: true });
+      expect(wallet).toEqual({ auto_topup: true, has_card: true });
+      const topUps = async () =>
+        (
+          await rows<{ n: number }>(
+            admin(),
+            sql`select count(*)::int as n from app.wallet_recharges where workspace_id = ${workspaceId}::uuid`,
+          )
+        )[0]?.n ?? 0;
+      const topUpsBefore = await topUps();
       await sweepWallet({
         ...s,
         wallet: { ...s.wallet, mode: 'on' },
@@ -1247,11 +1260,7 @@ describe('a spot bought with a code', () => {
         now: Date.now(),
       } as unknown as JobContext);
       await drain();
-      const [topUps] = await rows<{ n: number }>(
-        admin(),
-        sql`select count(*)::int as n from app.wallet_recharges where workspace_id = ${workspaceId}::uuid`,
-      );
-      expect(topUps?.n).toBe(0);
+      expect(await topUps()).toBe(topUpsBefore);
       expect(s.payments.fake.platformCharges()).toHaveLength(charged);
 
       // One email, set for three days before the trial ends.
