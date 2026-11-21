@@ -48,6 +48,7 @@ import {
 } from '@hfos/core/addons/outreach/countries';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
 import { findFact, type CheckVia, type FindHow } from '@hfos/core/addons/outreach/finds';
+import { eventFact } from '@hfos/core/addons/outreach/events-near';
 import { FOLLOWER_FACT } from '@hfos/core/addons/outreach/followers';
 import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { checkSave, mutualCountries } from '@hfos/core/addons/outreach/ops/checks';
@@ -157,6 +158,9 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
       group_name: string | null;
       group_lines: string[] | null;
       member_group: string | null;
+      event_name: string | null;
+      event_place: string | null;
+      event_host: boolean | null;
       summary: string | null;
       recent: DownloadMessage[] | null;
       via: CheckVia;
@@ -178,6 +182,7 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
               join addon_outreach.groups mg on mg.id = gp.group_id
               where gp.profile_id = p.id and not gp.runs_group
               order by gp.seen_at desc limit 1) as member_group,
+            ev.name as event_name, ev.place as event_place, ev.host as event_host,
             c.summary, c.recent, ch.via, fd.how as find_how, fd.words as find_words, fd.place as find_place,
             fg.name as find_group, left(fpo.body, ${FOUND_POST_MOST}) as find_post, fd.said as find_said
           from addon_outreach.checks ch
@@ -187,6 +192,12 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
             select c.summary, c.recent from addon_outreach.file_chats c
             where c.profile_id = p.id and c.user_id = ch.user_id order by c.last_at desc limit 1
           ) c on true
+          left join lateral (
+            select e.name, e.place, ep.host from addon_outreach.event_people ep
+            join addon_outreach.events e on e.id = ep.event_id
+            where ep.profile_id = p.id and ep.user_id = ch.user_id
+            order by ep.host desc, ep.seen_at desc limit 1
+          ) ev on true
           left join addon_outreach.finds fd on fd.profile_id = p.id and fd.user_id = ch.user_id
           left join addon_outreach.groups fg on fg.id = fd.group_id
           left join addon_outreach.posts fpo on fpo.id = fd.post_id
@@ -257,6 +268,9 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
         ? [`Found in the group ${person.group_name}`]
         : []),
       ...(person.via === 'follower' ? [FOLLOWER_FACT] : []),
+      ...(person.via === 'event' && person.event_name
+        ? [eventFact(person.event_name, person.event_place, person.event_host ?? false)]
+        : []),
       ...(person.via === 'member' ? [memberFact(person.member_group)] : []),
       ...(person.mutual_friends
         ? [

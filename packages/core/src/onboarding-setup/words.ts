@@ -147,6 +147,7 @@ export const onboardingSetupStopName = (stop: OnboardingSetupStop, forClient = f
 export const PAY_WITH_LABELS: Readonly<Record<PayWith, string>> = {
   stripe: 'Stripe',
   square: 'Square',
+  paypal: 'PayPal',
   later: 'Later',
 };
 
@@ -264,7 +265,7 @@ export const ONBOARDING_SETUP_WORDS = {
   payWith: 'How do customers pay you?',
   payWithLabels: PAY_WITH_LABELS,
   payLater:
-    'Customers pay you the way they do today. Connect Stripe or Square any time in Settings → Payments.',
+    'Customers pay you the way they do today. Connect Stripe, Square or PayPal any time in Settings → Payments.',
   payConnected: (provider: string) =>
     `${provider} is connected. Customers pay by card on their own link.`,
   paySignInAgain: (provider: string) =>

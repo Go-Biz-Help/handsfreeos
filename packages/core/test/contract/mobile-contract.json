@@ -6372,7 +6372,7 @@
               "payWith": {
                 "default": "later",
                 "type": "string",
-                "enum": ["stripe", "square", "later"]
+                "enum": ["stripe", "square", "paypal", "later"]
               },
               "reviewLink": {
                 "default": "",
@@ -6996,7 +6996,7 @@
               "payWith": {
                 "default": "later",
                 "type": "string",
-                "enum": ["stripe", "square", "later"]
+                "enum": ["stripe", "square", "paypal", "later"]
               },
               "reviewLink": {
                 "default": "",
@@ -8204,6 +8204,7 @@
                           "reply",
                           "demo_reminder",
                           "rebook",
+                          "thank_you",
                           "birthday",
                           "new_job",
                           "comment",
@@ -9738,6 +9739,23 @@
         "required": ["workspaceId", "profileId", "outcome"]
       }
     },
+    "outreach.event.skip": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "eventId"]
+      }
+    },
     "outreach.friend.set": {
       "offline": "online",
       "input": {
@@ -10754,6 +10772,11 @@
                     "minLength": 1,
                     "maxLength": 800
                   },
+                  "referAsk": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
                   "birthday": {
                     "type": "string",
                     "minLength": 1,
@@ -11474,6 +11497,11 @@
                     "minLength": 1,
                     "maxLength": 800
                   },
+                  "referAsk": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  },
                   "birthday": {
                     "type": "string",
                     "minLength": 1,
@@ -11804,6 +11832,59 @@
           }
         },
         "required": ["workspaceId", "item", "done"]
+      }
+    },
+    "outreach.refer_ask.answer": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "askId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "answer": {
+            "type": "string",
+            "enum": ["approve", "done", "skip"]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "askId", "answer"]
+      }
+    },
+    "outreach.referral.approve": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "referralId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": ["workspaceId", "referralId"]
       }
     },
     "outreach.referral.done": {
@@ -12148,7 +12229,7 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["stripe", "square"]
+            "enum": ["stripe", "square", "paypal"]
           },
           "environment": {
             "default": "live",
@@ -18696,6 +18777,7 @@
               "reply",
               "demo_reminder",
               "rebook",
+              "thank_you",
               "birthday",
               "new_job",
               "warm_lead",

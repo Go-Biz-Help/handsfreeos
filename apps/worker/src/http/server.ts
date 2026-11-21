@@ -68,6 +68,7 @@ import { registerPortalRoutes } from './portal';
 import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
 import { registerWebsiteStyleRoutes } from './website-style';
+import { registerAboutYouRoutes } from './about-you';
 import { registerAddonActionRoutes } from './addon-actions';
 import { registerAddonConnectionRoutes } from './addon-connections';
 import { registerAddonSealedRoutes } from './addon-sealed';
@@ -444,6 +445,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerFormRoutes(app, deps);
   // A form's Match my website: a website's colours, font and corners, for its Design tab.
   await registerWebsiteStyleRoutes(app, deps);
+  await registerAboutYouRoutes(app, deps);
   // Documents: a signer's page (`/d/…`), their code, signing and declining, and the team's copy of a link.
   await registerDocumentRoutes(app, deps);
   // The AI placing the fields on a template's PDF, for the editor.

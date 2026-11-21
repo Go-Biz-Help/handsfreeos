@@ -63,12 +63,12 @@ describe('the events near the person', () => {
   });
 
   it('is due the first time, then a week on by the business’s days', async () => {
-    expect(await next()).toEqual({ due: true, read: [] });
+    expect(await next()).toEqual({ due: true, read: [], searches: [] });
     const read = await runAs(owner, ws, 'outreach.events.read', {
       urls: [event(1), event(2), event(1)],
     });
     expect(typeof read.readAt).toBe('string');
-    expect(await next()).toEqual({ due: false, read: [event(1), event(2)] });
+    expect(await next()).toEqual({ due: false, read: [event(1), event(2)], searches: [] });
     // Six days on it still waits; seven days on, whatever the hour, it's due.
     const moveBack = (days: number) =>
       admin().execute(
@@ -86,7 +86,11 @@ describe('the events near the person', () => {
     expect((await next()).read).toEqual([event(3), event(2), event(1)]);
     // A week with none new still counts as read.
     await runAs(owner, ws, 'outreach.events.read', { urls: [] });
-    expect(await next()).toEqual({ due: false, read: [event(3), event(2), event(1)] });
+    expect(await next()).toEqual({
+      due: false,
+      read: [event(3), event(2), event(1)],
+      searches: [],
+    });
     for (let week = 0; week < 14; week++)
       await runAs(owner, ws, 'outreach.events.read', {
         urls: [0, 1, 2, 3, 4].map((n) => event(100 + week * 5 + n)),
@@ -97,7 +101,7 @@ describe('the events near the person', () => {
   });
 
   it('is each person’s own', async () => {
-    expect(await next(riley)).toEqual({ due: true, read: [] });
+    expect(await next(riley)).toEqual({ due: true, read: [], searches: [] });
     const [mine] = await rows<{ n: number }>(
       admin(),
       sql`select count(*)::int as n from addon_outreach.event_reads where workspace_id = ${ws}`,

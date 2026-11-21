@@ -21,7 +21,7 @@ each with up to **40 choices**, and each choice with what it adds to the price, 
 **Shirt sizes**, **Cup sizes** or **Colors**, or a blank option. `packages/core/src/money/options.ts` holds every rule
 below, browser-safe, so the web, the server, the Assistant and the AI teammate read options the same way.
 
-- **Kept on the product** as `app.products.options` (JSON, migration `20261027031800_product_options`):
+- **Kept on the product** as `app.products.options` (JSON, migration `20261027032100_product_options`):
   `[{id, name, choices: [{id, label, priceCents}]}]`. Ids are `o_` and `v_` with 8 letters or digits.
   `product.create` and `product.update` take the whole list (`ProductOptions`) and make the ids that are missing. One
   sent without an id takes the id of the one it had by the same name (`withOptionIds`), so the Assistant can send

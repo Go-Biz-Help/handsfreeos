@@ -154,6 +154,7 @@ export function savedSetupStartOf(stored: unknown): SavedSetupStart {
 const PAY_WORDS: Readonly<Record<PayWith, string>> = {
   stripe: 'Customers pay with Stripe',
   square: 'Customers pay with Square',
+  paypal: 'Customers pay with PayPal',
   later: 'Payments later',
 };
 

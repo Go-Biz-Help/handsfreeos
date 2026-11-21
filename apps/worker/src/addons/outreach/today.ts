@@ -354,6 +354,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       );
       // A demo's reminder, or another time after a no-show (decision 106): when their latest booked through the link
       // is, or was.
+      // And the thank-you after a networking call (decision 187): when their latest call was.
       const [demo] =
         profileId && (input.kind === 'demo_reminder' || input.kind === 'rebook')
           ? await rows<{ starts_at: Date | string }>(
@@ -363,7 +364,15 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                     and d.how = 'link' and d.undone_at is null
                   order by d.at desc limit 1`,
             )
-          : [];
+          : profileId && input.kind === 'thank_you'
+            ? await rows<{ starts_at: Date | string }>(
+                tx,
+                sql`select a.starts_at from addon_outreach.calls k join app.appointments a on a.id = k.appointment_id
+                    where k.workspace_id = ${ws} and k.user_id = ${ctx.userId} and k.profile_id = ${profileId}
+                      and a.starts_at <= now()
+                    order by a.starts_at desc limit 1`,
+              )
+            : [];
       // A new job (decision 108): what LinkedIn's Catch up said of it, the latest seen.
       const [occasion] =
         profileId && input.kind === 'new_job'
@@ -550,7 +559,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         : bookLink;
     // After a yes to a networking call (decision 173, the owner's 5): the ask for a time and what follows it go on the
     // person's Networking calendar (decision 178) or own calendar, with no demo ref, never the demo page.
-    const callLink = () => callLinkFor(ctx, ctx.userId, bookLink);
+    // With their networking call ref (decision 187), so the call they book is known to be with them.
+    const callLink = () => callLinkFor(ctx, ctx.userId, bookLink, profileId);
     const onCall =
       !client && found.conversation?.call === true && found.conversation.step === 'link';
     const link = onCall ? await callLink() : demoLinkFor;

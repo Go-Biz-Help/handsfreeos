@@ -34,6 +34,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
 - [Who can do what: roles and permissions](#who-can-do-what-roles-and-permissions)
 - [Money: Stripe and Square](#money-stripe-and-square)
+- [Money: PayPal](#money-paypal)
 - [Usage balances: what businesses pay us](#usage-balances-what-businesses-pay-us)
 - [Paying partners: Stripe Express](#paying-partners-stripe-express)
 - [Paying affiliates: Stripe Express](#paying-affiliates-stripe-express)
@@ -1613,6 +1614,11 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `SQUARE_APPLICATION_ID`               | Only to connect Square accounts                                                                                                              | **Settings** → **Payments** shows “Square isn’t set up yet” when a business presses Connect Square.                                                                                                                                                                                                                                                                                                                               | The Square developer dashboard, your application’s **Credentials**: the **Application ID**. See “Money: Stripe and Square”. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `SQUARE_APPLICATION_SECRET`           | With `SQUARE_APPLICATION_ID`                                                                                                                 | The worker refuses to start with an application id and no secret.                                                                                                                                                                                                                                                                                                                                                                 | The same **Credentials** page: the **Application Secret**. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `SQUARE_WEBHOOK_SIGNATURE_KEYS`       | With `SQUARE_APPLICATION_ID`                                                                                                                 | Square’s events are refused, so a plan’s cycle and a dispute never land here.                                                                                                                                                                                                                                                                                                                                                     | Square, **Webhooks** → your subscription: the **Signature Key**. Several, separated by commas, so a key can be rotated without a gap. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `PAYPAL_CLIENT_ID`                    | Only to connect PayPal accounts                                                                                                              | **Settings** → **Payments** shows “PayPal isn’t set up yet” when a business presses Connect PayPal. Stripe and Square still work.                                                                                                                                                                                                                                                                                                 | PayPal’s developer dashboard, **Apps & Credentials**: the app’s **Client ID** (Sandbox or Live, matching `PAYPAL_ENVIRONMENT`). See “Money: PayPal”. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `PAYPAL_CLIENT_SECRET`                | With `PAYPAL_CLIENT_ID`                                                                                                                      | The worker refuses to start with a client id and no secret.                                                                                                                                                                                                                                                                                                                                                                       | The same app’s **Secret key 1**. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `PAYPAL_PARTNER_MERCHANT_ID`          | With `PAYPAL_CLIENT_ID`                                                                                                                      | The worker refuses to start without it.                                                                                                                                                                                                                                                                                                                                                                                           | HandsFreeOS’s own PayPal merchant id: on paypal.com, **Account Settings** → **Business information** (live), or the sandbox business account’s **Account ID**. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `PAYPAL_BN_CODE`                      | With `PAYPAL_CLIENT_ID` in production                                                                                                        | The worker refuses to start in production without it.                                                                                                                                                                                                                                                                                                                                                                             | The BN code PayPal emails when it approves HandsFreeOS as a partner. Before that, `HandsFreeOS_SP_SANDBOX`, which the sandbox doesn’t check. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `PAYPAL_WEBHOOK_ID`                   | With `PAYPAL_CLIENT_ID`                                                                                                                      | PayPal’s events are all refused, so a pending payment never settles here and a business taking our access away isn’t noticed.                                                                                                                                                                                                                                                                                                     | The app’s **Webhooks** list: the **Webhook ID**. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `EXPO_ACCESS_TOKEN`                   | Only for push notifications to the phone app                                                                                                 | The worker starts, logs `EXPO_ACCESS_TOKEN is not set: push notifications to phones are off until it is`, and its `worker started` line shows `"push":"none"`. Phones register but get nothing; the emails still go.                                                                                                                                                                                                              | Expo, the Go Biz Help organization's **Settings** → **Access tokens**: the robot user's token (Expo Part 1 in "Push notifications: Expo"). Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `ADDON_PLATFORM_KEYS`                 | For HandsFreeOS's own Repliers account (Real Estate Agent's listing feed), and for businesses to sign in to DocuSign or Dotloop (its e-sign) | Repliers: staff can still turn HandsFreeOS's own Repliers account on for a business, but it reads as not connected: the business connects its own Repliers, AnyProp or MLS feed instead. DocuSign or Dotloop: pressing Connect says HandsFreeOS can't sign in there yet and to ask HandsFreeOS support. The worker's `worker started` line lists the accounts it has under `addonPlatformKeys`.                                   | One JSON value, set with `fly secrets import`: `{"realestate.repliers":{"apiKey":"…"},"realestate.docusign":{"clientId":"…","clientSecret":"…"},"realestate.dotloop":{"clientId":"…","clientSecret":"…"}}`. Repliers' key is in its dashboard under **API keys**. DocuSign's is an app under **Apps and Keys** (its integration key and a secret key), and Dotloop's a client from its developer page; both take the redirect URI `<WORKER_PUBLIC_URL>/oauth/addon/callback`. While DocuSign is tried on a developer account, add `"environment":"demo"` to its entry. A value in the wrong shape stops the worker starting, with a line saying so. Worker only: the API refuses to start with it. |
 | `SITE_READER_IPS`                     | No                                                                                                                                           | The texting registration's checks and the Knowledge scan still work, but a site whose security shows servers a robot check can't be told to let HandsFreeOS in: the step offers only **Finish the check on my site** and screenshots.                                                                                                                                                                                             | The worker's fixed outgoing addresses, comma-separated, from `fly ips list --app handsfreeos-worker` after `fly ips allocate-egress`. See "When the website's security stops the checks". Not secret. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -1650,6 +1656,7 @@ The defaults are right in production. Setting some of these changes real behavio
 | `FAKE_APPROVAL_MS`                         | `3000`                                                                     | Used only by the fake carrier.                                                                                                                                                                                                                                 |
 | `PAYMENTS_PROVIDER`                        | `real` in production                                                       | Production refuses `fake`, the stand-in for local development and tests. Left unset it is `real` as soon as a Stripe or Square application is configured.                                                                                                      |
 | `SQUARE_ENVIRONMENT`                       | `live` in production                                                       | Production refuses `test`. `test` points every Square call at the sandbox.                                                                                                                                                                                     |
+| `PAYPAL_ENVIRONMENT`                       | `live` in production                                                       | `test` points every PayPal call at the sandbox. Production allows `test`, so PayPal can be tried on the live servers before PayPal approves HandsFreeOS as a partner.                                                                                          |
 | `PAYMENTS_FAKE_SETTLE_MS`                  | Not set: a stand-in bank transfer settles only when asked                  | Local development only. It does nothing with the real providers.                                                                                                                                                                                               |
 | `ASSISTANT_PROVIDER`                       | `anthropic` when `ANTHROPIC_API_KEY` is set, otherwise `none`              | Production refuses `scripted`, the stand-in the tests use. `none` turns the Assistant off even with a key.                                                                                                                                                     |
 | `ASSISTANT_MODEL`                          | `claude-opus-5-5`                                                          | The Claude model Ask HandsFreeOS (the team's own helper) uses. Change it only as "Change the model" in "The Assistant: Anthropic" describes.                                                                                                                   |
@@ -3603,7 +3610,7 @@ Never use the root `pnpm build` as the build command. It builds the API and the 
 
 ### Environment variables
 
-The web app reads seven settings, plus an eighth for the check that bookings and website chats come from people and two for Google Maps, and Vercel reads one more for the install. All of them are plain, public values. Next.js copies the `NEXT_PUBLIC_` ones into the pages, so anyone can read them in a browser. That is why none of them may ever be a secret.
+The web app reads eight settings, plus a ninth for the check that bookings and website chats come from people and two for Google Maps, and Vercel reads one more for the install. All of them are plain, public values. Next.js copies the `NEXT_PUBLIC_` ones into the pages, so anyone can read them in a browser. That is why none of them may ever be a secret.
 
 | Name                                   | Value                                      | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | -------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -3613,6 +3620,7 @@ The web app reads seven settings, plus an eighth for the check that bookings and
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `<publishable key>`                        | Copied from Supabase **Project Settings** → **API Keys** and kept in your password manager. Starts with `sb_publishable_`. Required, like the URL, and fails the same way without it.                                                                                                                                                                                                                                                                                                                 |
 | `NEXT_PUBLIC_PASSKEYS_ENABLED`         | `true`                                     | Shows passkey sign-in and the passkey settings. Only the exact value `false` turns them off.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `NEXT_PUBLIC_GMAIL_ENABLED`            | `false`                                    | Keeps **Connect Gmail** off until Google approves the restricted scopes. Only the exact value `true`, in lower case, turns it on; `True`, `1` or `yes` leave Gmail off. Leaving it unset also keeps Gmail off.                                                                                                                                                                                                                                                                                        |
+| `NEXT_PUBLIC_PAYPAL_ENABLED`           | `false`                                    | Keeps **Connect PayPal** on Coming soon until PayPal approves HandsFreeOS as a partner. Only the exact value `true`, in lower case, turns it on. Set it for Preview alone to try the sandbox first. See “Money: PayPal”, PayPal Part 7.                                                                                                                                                                                                                                                               |
 | `NEXT_PUBLIC_AGENCY_SIGNUP_ENABLED`    | `false`                                    | Hides the **I run an agency that manages several businesses** switch on **Set up your business**, so everyone who signs up gets a plain business. Only the exact value `true`, in lower case, shows it. Leaving it unset also hides it. Agencies already set up keep working.                                                                                                                                                                                                                         |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`       | `<Turnstile site key>` (optional)          | The public site key of the Cloudflare Turnstile widget that checks bookings and website chats come from people. The check shows only once the worker also has `TURNSTILE_SECRET_KEY`. Set this one and redeploy before the worker gets its secret: with the secret and no site key, every online booking and every website chat message fails. See "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking".                                        |
 | `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY`  | `<browser key>` (optional)                 | Google Maps for territories by distance, drawn on a map or picked on a map by ZIP code, and forms' Google address search: a key restricted to the app's domains, with the Maps JavaScript, Geocoding and Places (New) APIs. Without it, ZIP codes and form addresses are typed.                                                                                                                                                                                                                       |
@@ -10070,6 +10078,204 @@ Any business can offer two or three options on one estimate (the owner's decisio
 - **"That payment account is kept for other people on the team"** or **"None of this business's payment accounts is yours to bill into"**: the account was given to particular people under **Who can use it** in **Settings** → **Payments**, and the person billing isn't one of them. An owner adds them there, or opens the account to everyone again. Invoices the business sends by itself — automatic invoices, booking deposits, a plan's own cycles — are not held to this.
 - **An account says Reconnect:** its token lapsed (Square) or the provider refused it. Nothing is taken until the business presses Reconnect and signs in again. Refunds on payments taken through the old sign-in still work once the same account is reconnected, because the credentials are found by the provider's account id rather than by the connection row.
 
+## Money: PayPal
+
+PayPal sits beside Stripe and Square. **Each business signs into its own PayPal Business account** with **Connect PayPal** in **Settings** → **Payments** (or on the payments step of setup). After that, the customer's invoice page and the booking deposit step show PayPal's own buttons — **PayPal**, **Venmo**, **Pay Later** and PayPal's card button — under the Stripe or Square card box, or alone when PayPal is the account the money goes to. The money lands in the business's own PayPal balance, and they are the merchant of record, exactly as with Stripe and Square. HandsFreeOS never holds it.
+
+What PayPal does here, as the owner picked it on 2026-11-20:
+
+- **One-time payments and refunds only.** Plans stay on Stripe or Square. A plan pointed at a PayPal account is refused with "PayPal takes one-time payments here, so a plan can’t bill through it. Pick your Stripe or Square account for the plan." (rule `paypal_one_time_only`).
+- **Venmo and Pay Later can be switched off** in **Settings** → **Payments**. Both start on.
+- **A booking deposit is held, not taken,** the way a card is: PayPal sets the money aside, and HandsFreeOS takes it once the time is confirmed. Venmo and Pay Later can't be held, so the deposit step never shows them.
+- **PayPal's buttons show beside another account only when the PayPal account is open to everyone** under **Who can use it**.
+
+What you set up here is the **partner** side: HandsFreeOS is a PayPal partner, and that is what lets a business connect with one button (PayPal calls it Partner Referrals). Every value goes on `handsfreeos-worker`. The API refuses to start with any variable starting with `PAYPAL_`, and none goes in Vercel or GitHub except the two on/off switches in PayPal Part 7, which are not secrets.
+
+PayPal needs the migrations `20261027031100_payment_method_from_provider.sql`, `20261027031900_payment_method_paypal_venmo.sql` and `20261027032000_payment_method_paypal_settles.sql`. See "Apply new migrations".
+
+**Until PayPal approves HandsFreeOS as a partner, Connect PayPal says Coming soon** and nobody can press it. Customers see nothing different. Everything below can be set up and tried on PayPal's sandbox while you wait.
+
+### Before you start
+
+- A PayPal **Business** account for HandsFreeOS itself, with you as its administrator. A personal account can't be a partner.
+- A login to PayPal's developer dashboard at `https://developer.paypal.com`. It is the same login as the business account.
+- The worker already running at `https://hooks.handsfreeos.com` (Fly Part 8).
+- Your password manager, open, so every value goes straight into it.
+
+#### Order of work
+
+Start PayPal Part 1 first: PayPal's partner review can take a few weeks. Do Parts 2 to 5 on the **sandbox** meanwhile, give the worker the sandbox values, and try it end to end. When PayPal approves, do PayPal Part 6 to move to live, then PayPal Part 7 to turn the button on.
+
+### PayPal Part 1: Apply to be a PayPal partner
+
+1. Go to `https://www.paypal.com/us/business/platforms-and-marketplaces`, signed in as HandsFreeOS's business account.
+2. Press **Contact sales** (or **Get started**). If the page has moved, search PayPal's site for "PayPal Complete Payments for platforms".
+3. Describe the platform in these words, so the right team picks it up:
+   - HandsFreeOS is software that runs the customer side of a small business.
+   - Each business connects **its own** PayPal account through **Partner Referrals**, as a **third-party** integration. The business is the merchant of record, and HandsFreeOS never holds funds.
+   - Customers pay one-time invoices and booking deposits with PayPal's checkout buttons (PayPal, Venmo, Pay Later and the card button). Deposits are authorized, then captured once the booking is confirmed. Refunds are made from the business's account.
+4. Ask for two things:
+   - the **Partner Referrals API** on your live REST app, with the features `PAYMENT`, `REFUND`, `ACCESS_MERCHANT_INFORMATION` and `READ_SELLER_DISPUTE`;
+   - your **BN code**, the partner attribution id PayPal uses to know a payment came through HandsFreeOS.
+5. When PayPal approves, it emails the BN code and says the live features are on. Save the code in your password manager as "PayPal partner", under BN code.
+
+You should see an email from PayPal's partner team. Until then, the live REST app can't make sign-up links, and only the sandbox works.
+
+### PayPal Part 2: Your merchant id
+
+HandsFreeOS's own PayPal merchant id tells PayPal which partner a business is connecting to.
+
+**Sandbox** (do this right after Part 3, which makes the account):
+
+1. Making the sandbox app as a **Platform** in Part 3 makes a new sandbox **Business** account for it. That account plays HandsFreeOS. The Business account PayPal made for you when you signed up does not: it can play a business that connects (Part 5).
+2. In the developer dashboard, open **Testing Tools** → **Sandbox Accounts** and find the account the Platform app made (its email ends in `@business.example.com`; it is the newest Business account).
+3. Press the **⋮** menu beside it, then **View/Edit account**.
+4. Copy the **Account ID**. It is 13 letters and numbers.
+5. Save it in your password manager as "PayPal sandbox", under merchant id.
+
+**Live** (after Part 1 is approved):
+
+1. Sign in at `https://www.paypal.com` as HandsFreeOS's business account.
+2. Press the gear (**Settings**) at the top right, then **Account Settings** → **Business information**.
+3. Copy the **PayPal Merchant ID**.
+4. Save it in your password manager as "PayPal partner", under merchant id.
+
+### PayPal Part 3: The REST app
+
+1. Sign in at `https://developer.paypal.com` and open **Apps & Credentials**.
+2. Set the switch at the top to **Sandbox**.
+3. Press **Create App**. Name it `HandsFreeOS` and pick **Platform**: only a Platform app can connect other businesses' PayPal accounts, and a **Merchant** app takes money only for itself. PayPal makes a new sandbox business account for a Platform app, so it can't be tied to one you already have. Press **Create App**, then do the Sandbox half of PayPal Part 2 for that new account's id.
+4. Copy the **Client ID**.
+5. Under **Secret key 1**, press **Show** and copy the secret.
+6. Save both in your password manager as "PayPal sandbox", under client id and secret. **The secret can move money in every connected business's account.** It goes on the worker and nowhere else.
+7. Further down the same page, under **Features**, leave **Expanded checkout** ticked (older dashboards call it **Accept payments**). Untick **Save payment methods** (Vault) and leave **Log in with PayPal** off: HandsFreeOS never keeps a customer's PayPal for later, since plans stay on Stripe or Square. Press **Save** if anything changed.
+
+After Part 1 is approved, set the switch to **Live** and open the live app PayPal turned the partner features on for (make one the same way if there isn't one yet). Copy its client id and secret, and save them as "PayPal partner".
+
+### PayPal Part 4: The webhook
+
+Do this on the same app page, with the same Sandbox or Live switch.
+
+1. Scroll to **Webhooks** and press **Add Webhook**.
+2. Webhook URL:
+
+   ```text
+   https://hooks.handsfreeos.com/webhooks/paypal
+   ```
+
+3. Tick these event types, and no others. They are exactly the ones the worker acts on; anything else is answered and dropped.
+   - `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.PENDING`, `PAYMENT.CAPTURE.DECLINED`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.REFUNDED`, `PAYMENT.CAPTURE.REVERSED`
+   - `PAYMENT.AUTHORIZATION.CREATED`, `PAYMENT.AUTHORIZATION.VOIDED`
+   - `CUSTOMER.DISPUTE.CREATED`, `CUSTOMER.DISPUTE.UPDATED`, `CUSTOMER.DISPUTE.RESOLVED`
+   - `CUSTOMER.MERCHANT-INTEGRATION.CAPABILITY-UPDATED`, `CUSTOMER.MERCHANT-INTEGRATION.SELLER-EMAIL-CONFIRMED`
+   - `MERCHANT.PARTNER-CONSENT.REVOKED`
+4. Press **Save**.
+5. Copy the **Webhook ID** from the list. It looks like `8PT597110X687430LKGECATA`.
+6. Save it with the app's other values ("PayPal sandbox" or "PayPal partner"), under webhook id. **Each app has its own**: the worker checks every event's signature against this id, and an event signed for another app is refused.
+
+`MERCHANT.PARTNER-CONSENT.REVOKED` matters most for trust: it is how a business taking HandsFreeOS's access away in their own PayPal account is noticed, and the account is marked disconnected without anybody telling us.
+
+### PayPal Part 5: Sandbox accounts to try it with
+
+1. In the developer dashboard, open **Testing Tools** → **Sandbox Accounts**.
+2. Press **Create account**. Pick **Business** and **United States**, then press **Create**. This plays the business that connects. Don't use the business account tied to your app: that one is HandsFreeOS.
+3. The **Personal** account PayPal made for you plays the customer. Press **⋮** → **View/Edit account** on each to see its email and password.
+4. To try the card button instead, take a test card from **Testing Tools** → **Card Testing**.
+
+### Give the worker the values
+
+All PayPal values go on `handsfreeos-worker` and nowhere else.
+
+| Name                         | Value                                                                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `PAYPAL_CLIENT_ID`           | The app's client id (Part 3)                                                                                                |
+| `PAYPAL_CLIENT_SECRET`       | The app's secret (Part 3)                                                                                                   |
+| `PAYPAL_PARTNER_MERCHANT_ID` | HandsFreeOS's merchant id (Part 2)                                                                                          |
+| `PAYPAL_WEBHOOK_ID`          | The app's webhook id (Part 4)                                                                                               |
+| `PAYPAL_BN_CODE`             | The BN code from Part 1. Before PayPal approves, use `HandsFreeOS_SP_SANDBOX`: the sandbox doesn't check it                 |
+| `PAYPAL_ENVIRONMENT`         | `test` while on the sandbox, `live` after Part 6. Unlike Square, production allows `test`, so the sandbox can be tried live |
+
+1. Open your password manager and put the client id on the clipboard.
+2. In Terminal:
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+3. Type `PAYPAL_CLIENT_ID=` then paste, with no space and no quotes. Press Return.
+4. Do the same line by line for the other five names in the table.
+5. Press Control-D when the last line is in.
+6. Clear the clipboard:
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+7. Check the names arrived:
+
+   ```bash
+   fly secrets list --app handsfreeos-worker
+   ```
+
+You should see all six in the `NAME` column. **Never run this import with `--app handsfreeos-api`** — the API refuses to start with any `PAYPAL_` name present.
+
+Then check the worker started:
+
+```bash
+fly logs --app handsfreeos-worker
+```
+
+You should see the `worker started` line. If the worker refuses to start, the message names what is missing: `PAYPAL_CLIENT_SECRET is required with PAYPAL_CLIENT_ID`, `PAYPAL_PARTNER_MERCHANT_ID is required with PAYPAL_CLIENT_ID`, or `PAYPAL_BN_CODE is required with PAYPAL_CLIENT_ID in production`.
+
+#### Try it on the sandbox before anyone else can
+
+Connect PayPal stays Coming soon for everyone until PayPal Part 7. To try it yourself first, turn the switch on for Vercel previews only:
+
+1. In Vercel, open the **handsfreeos-web** project → **Settings** → **Environment Variables**.
+2. Add `NEXT_PUBLIC_PAYPAL_ENABLED` with the value `true`, ticked for **Preview** only. Press **Save**.
+3. Push any branch, and open its preview address. Previews talk to the real worker, which is on the sandbox.
+4. Use a practice business (**Admin** → **Try onboarding**). Press **Connect PayPal** in **Settings** → **Payments** and sign in with the sandbox business account from Part 5.
+5. Send yourself an invoice and pay it with the sandbox personal account. Then book a calendar that asks for a deposit and pay that too.
+
+You should see the invoice paid, the payment in **Money** → **Payments** marked PayPal, and the deposit held and then taken once the booking is confirmed. Disconnect the sandbox account before PayPal Part 6: it stops working on live.
+
+### PayPal Part 6: Move to live
+
+When PayPal approves (Part 1):
+
+1. Do the **Live** halves of Parts 2, 3 and 4: the live merchant id, the live app's client id and secret, and a webhook on the live app.
+2. Disconnect any sandbox PayPal accounts in practice businesses.
+3. Replace the values on the worker the way "Give the worker the values" does: all four live values, the real `PAYPAL_BN_CODE`, and `PAYPAL_ENVIRONMENT=live`. Put them all in one import, so the worker never runs with half of each.
+
+### PayPal Part 7: Turn Connect PayPal on
+
+1. In Vercel, on **handsfreeos-web**, set `NEXT_PUBLIC_PAYPAL_ENABLED` to `true` for **Production** (and **Preview**). Only the exact value `true`, in lower case, turns it on. Redeploy.
+2. For the phone, from `apps/mobile`:
+
+   ```bash
+   npx --yes eas-cli@latest env:set --scope project --name EXPO_PUBLIC_PAYPAL_ENABLED --value "true" --type string --visibility plaintext --environment production --environment preview --non-interactive
+   ```
+
+   The phone reads it when a build or update is made, so it shows from the next one.
+
+You should see **Connect PayPal** with no Coming soon badge in **Settings** → **Payments**, PayPal on the payments step of setup, and PayPal and Venmo in the **Any way** filter on **Money** → **Payments**.
+
+### What to tell a client
+
+- **Connect PayPal opens PayPal's own sign-up.** They sign in to their PayPal Business account (or make one) and agree to share their account details with HandsFreeOS. A brand-new PayPal account may have to confirm its email before money can arrive, and the account card says so until it does.
+- **Venmo shows only where PayPal decides it can:** customers in the US, on a phone with Venmo. **Pay Later** shows only to customers PayPal approves. Both can be switched off in **Settings** → **Payments**.
+- **A deposit is held, not taken,** the same as a card. A PayPal account that isn't allowed to hold money isn't offered for deposits, and the card box is used alone.
+- **Plans don't use PayPal.** Keep a Stripe or Square account for anything that bills on its own every month.
+- **They can take our access away** in their own PayPal account, without telling us. HandsFreeOS hears about it and marks the account disconnected.
+
+### When something goes wrong
+
+- **Connect PayPal says Coming soon:** `NEXT_PUBLIC_PAYPAL_ENABLED` isn't exactly `true` in Vercel, or the web app wasn't redeployed after it changed. On the phone, the build or update came before `EXPO_PUBLIC_PAYPAL_ENABLED` was set.
+- **"PayPal isn’t set up yet"** when a business presses Connect PayPal: the worker has no `PAYPAL_CLIENT_ID`. Check `fly secrets list --app handsfreeos-worker`.
+- **The PayPal sign-up never opens, and the worker's log shows PayPal refusing the sign-up link:** the live app doesn't have Partner Referrals yet. That waits on PayPal Part 1. Meanwhile run on the sandbox (`PAYPAL_ENVIRONMENT=test` with the sandbox values).
+- **A customer says PayPal's buttons never showed** ("We couldn’t reach PayPal, so nothing was charged. Try again in a minute."): PayPal's script didn't load in their browser, usually a strict ad blocker or a work network. Have them try another browser or their phone. Nothing is charged until PayPal's window says yes and PayPal answers the worker.
+- **A payment went through at PayPal but the invoice here still says unpaid:** an event didn't arrive or didn't verify. In the developer dashboard, open **Event Logs** → **Webhooks events** for the app and look for failed deliveries, and check `PAYPAL_WEBHOOK_ID` is this app's. Nothing is lost: PayPal retries for days, and the payment lands the moment a delivery verifies.
+
 ## Usage balances: what businesses pay us
 
 Every other money page in HandsFreeOS is about a business billing **its own** customers. This one is the other
@@ -11601,17 +11807,18 @@ You need:
 
 Metro, which packages the app, replaces every `process.env.EXPO_PUBLIC_…` it can see with the value that was set **when the build ran**, and writes the result into the bundle. There is no configuration file on the phone and nothing is fetched at startup: a build points where it pointed the day it was made, for good.
 
-| Name                                   | Required       | What it is                                                                   | Its value                                                                 |
-| -------------------------------------- | -------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `EXPO_PUBLIC_SUPABASE_URL`             | Yes            | Supabase, for signing in                                                     | `https://ybupfghakoszfcxhyrby.supabase.co`                                |
-| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes            | That project's publishable key                                               | The `sb_publishable_…` key from the Supabase dashboard                    |
-| `EXPO_PUBLIC_API_URL`                  | Yes            | The API, which every change the phone makes goes to                          | `https://api.handsfreeos.com`                                             |
-| `EXPO_PUBLIC_SYNC_URL`                 | Yes            | The sync service, which fills the phone's copy                               | `https://sync.handsfreeos.com`                                            |
-| `EXPO_PUBLIC_WEB_URL`                  | No, but set it | The web app, for the pages the phone links out to                            | `https://app.handsfreeos.com` (also the default)                          |
-| `EXPO_PUBLIC_WORKER_URL`               | No, but set it | The worker: **the Assistant**, and test builds' stand-in push routes         | `https://hooks.handsfreeos.com`                                           |
-| `EXPO_PUBLIC_MATOMO_SITE_ID`           | No, but set it | Matomo's id for the phone app, which counts screens (`src/lib/analytics.ts`) | `4`, the phone app's site in gobizhelp.matomo.cloud; unset counts nothing |
-| `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No             | Shows passkey sign-in                                                        | Leave unset until passkeys work                                           |
-| `EXPO_PUBLIC_E2E`                      | No             | Builds for the Maestro flows                                                 | Leave unset                                                               |
+| Name                                   | Required       | What it is                                                                   | Its value                                                                      |
+| -------------------------------------- | -------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `EXPO_PUBLIC_SUPABASE_URL`             | Yes            | Supabase, for signing in                                                     | `https://ybupfghakoszfcxhyrby.supabase.co`                                     |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes            | That project's publishable key                                               | The `sb_publishable_…` key from the Supabase dashboard                         |
+| `EXPO_PUBLIC_API_URL`                  | Yes            | The API, which every change the phone makes goes to                          | `https://api.handsfreeos.com`                                                  |
+| `EXPO_PUBLIC_SYNC_URL`                 | Yes            | The sync service, which fills the phone's copy                               | `https://sync.handsfreeos.com`                                                 |
+| `EXPO_PUBLIC_WEB_URL`                  | No, but set it | The web app, for the pages the phone links out to                            | `https://app.handsfreeos.com` (also the default)                               |
+| `EXPO_PUBLIC_WORKER_URL`               | No, but set it | The worker: **the Assistant**, and test builds' stand-in push routes         | `https://hooks.handsfreeos.com`                                                |
+| `EXPO_PUBLIC_MATOMO_SITE_ID`           | No, but set it | Matomo's id for the phone app, which counts screens (`src/lib/analytics.ts`) | `4`, the phone app's site in gobizhelp.matomo.cloud; unset counts nothing      |
+| `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No             | Shows passkey sign-in                                                        | Leave unset until passkeys work                                                |
+| `EXPO_PUBLIC_PAYPAL_ENABLED`           | No             | Shows **Connect PayPal** on the payments step of setup                       | Leave unset until PayPal approves HandsFreeOS (“Money: PayPal”, PayPal Part 7) |
+| `EXPO_PUBLIC_E2E`                      | No             | Builds for the Maestro flows                                                 | Leave unset                                                                    |
 
 The first four are the ones `isConfigured()` checks (`apps/mobile/src/lib/config.ts`). With any one of them empty the app opens on **"This build isn't connected"** and goes no further. Every one of these ends up readable inside the app on anyone's phone, so a secret must never be among them — that is what `EXPO_PUBLIC_` means.
 

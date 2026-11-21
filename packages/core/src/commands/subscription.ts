@@ -22,7 +22,7 @@ import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { money } from '../money/index';
-import { accountForPerson, assertAccountUsable } from './payment-connection';
+import { accountForPerson, assertAccountUsable, refusePayPalPlan } from './payment-connection';
 import { requireBillable } from './money-shared';
 import {
   SubscriptionCancelInput,
@@ -126,9 +126,10 @@ export async function startSubscription(
   // A person sells a plan into an account they may bill into (0105): the one named, or theirs to use. One the
   // AI teammate offered waits for its card and takes the business's default then, as before.
   let connectionId = input.connectionId ?? null;
+  if (connectionId) await refusePayPalPlan(ctx, connectionId);
   if (ctx.actor.type === 'human') {
     if (connectionId) await assertAccountUsable(ctx, ctx.actor.userId, connectionId);
-    else connectionId = await accountForPerson(ctx, ctx.actor.userId);
+    else connectionId = await accountForPerson(ctx, ctx.actor.userId, { plans: true });
   }
   const [row] = await ctx.tx
     .insert(subscriptions)
@@ -441,8 +442,10 @@ export const subscriptionSetConnection = defineCommand({
           'That account isn’t connected right now. Reconnect it in Settings → Payments first.',
         );
       // Pointing a plan back at the account it already uses is not a new choice, whoever makes it.
-      if (input.connectionId !== before.connection_id)
+      if (input.connectionId !== before.connection_id) {
+        await refusePayPalPlan(ctx, input.connectionId);
         await assertAccountUsable(ctx, requireHuman(ctx).userId, input.connectionId);
+      }
     }
     // A plan whose account went away is still billing at the provider: pointing it at the account it is billing
     // through hands it back to us, and the next cycle read corrects the rest.

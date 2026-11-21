@@ -112,6 +112,8 @@ import { commentGuideBlock } from './comment-research';
 import { DraftOpener, type Opener, wayOfKind } from './openers';
 import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
+import { OneOnOnes } from './calls';
+import { TodayEvent } from './events-near';
 import { inNetworkWords, NETWORKS, type Platform } from './networks';
 import { VISIT_LIKES } from './keep-warm';
 import { REACH_KEYS, THEIR_WORK_ASK, TheirWorkFound, type TheirWork } from './local';
@@ -139,6 +141,8 @@ export const TODAY_KINDS = {
   // After a demo is booked through the person's link (decision 106): the day before, and after a no-show.
   demo_reminder: 'Remind them of the demo',
   rebook: 'Offer another time',
+  // After a networking call (decision 187, ./calls.ts): a thank-you, which always waits for the person's OK.
+  thank_you: 'Thank them for the call',
   // A birthday or a new job read on the person's computer (decision 108): a short note, which waits for their OK.
   birthday: 'Wish them a happy birthday',
   new_job: 'Congratulate them',
@@ -247,6 +251,7 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   check_in: 'follow_up',
   demo_reminder: 'follow_up',
   rebook: 'follow_up',
+  thank_you: 'follow_up',
   birthday: 'follow_up',
   new_job: 'follow_up',
   reply: null,
@@ -534,6 +539,16 @@ export const TodayOutput = z.object({
    */
   goal: TodayGoal.nullable().default(null),
   /**
+   * The person's networking calls this week and last (decision 187, ./calls.ts, the owner's 6a), on every network's list
+   * alike. Null while they have no Networking calendar picked and no networking call lately, and from a server before it.
+   */
+  oneOnOnes: OneOnOnes.nullable().default(null),
+  /**
+   * The events near the person on this network that are coming up (decision 188, ./events-near.ts, the owner's 7a), the
+   * soonest first, so they can go in person: none on a network whose events aren't read, and from a server before it.
+   */
+  events: z.array(TodayEvent).default([]),
+  /**
    * When the next message or comment tried again on this network may go (decision 132): its person is off the list
    * till then, and the extension looks again by then. Null while none waits.
    */
@@ -618,6 +633,7 @@ export const DRAFT_KINDS = [
   'reply',
   'demo_reminder',
   'rebook',
+  'thank_you',
   'birthday',
   'new_job',
   'comment',
@@ -643,6 +659,7 @@ export const DRAFTS_FOR: Readonly<Record<DraftKind, number>> = {
   reply: DRAFTS_MOST,
   demo_reminder: DRAFTS_MOST,
   rebook: DRAFTS_MOST,
+  thank_you: DRAFTS_MOST,
   birthday: DRAFTS_MOST,
   new_job: DRAFTS_MOST,
   comment: COMMENT_DRAFTS,
@@ -1260,6 +1277,8 @@ function taskFor(
       return `They booked a call with the owner through the owner’s link, and it’s tomorrow, at the time below. Write the owner’s reminder. ${asHow('the reminder', says.reminder)} No pitch, no price, no link.`;
     case 'rebook':
       return `They booked a call with the owner through the owner’s link but didn’t make it. Write the owner’s message that offers another time. ${asHow('it', says.missed)} No pitch, no price.`;
+    case 'thank_you':
+      return 'They had a networking call with the owner, at the time below: a get-to-know-you call to see how they can refer each other. Write the owner’s short, warm thank-you for the call, in the owner’s own voice. Name one thing from the call or the chat when it says one, and never invent what was said. Nothing about the business: no pitch, no offer, no price, no link, no ask.';
     case 'birthday':
       return `It’s their birthday today. Write the owner’s short, warm happy birthday, in the owner’s own voice. ${asHow('it', says.birthday)} Nothing about the business: no pitch, no offer, no price, no link, no ask.`;
     case 'new_job':
@@ -1944,8 +1963,9 @@ export function todayDraftPrompt(input: {
     (input.kind === 'pitch' || input.kind === 'rebook') && p?.link
       ? `Put this link in every draft, exactly as written: ${quoteData(p.link)}`
       : null,
-    input.demoWhen && (input.kind === 'demo_reminder' || input.kind === 'rebook')
-      ? `${input.kind === 'rebook' ? 'When the call was' : 'When the call is'}: ${quoteData(input.demoWhen)}`
+    input.demoWhen &&
+    (input.kind === 'demo_reminder' || input.kind === 'rebook' || input.kind === 'thank_you')
+      ? `${input.kind === 'demo_reminder' ? 'When the call is' : 'When the call was'}: ${quoteData(input.demoWhen)}`
       : null,
     input.occasion && input.kind === 'new_job'
       ? `What the page said: ${quoteData(input.occasion)}`

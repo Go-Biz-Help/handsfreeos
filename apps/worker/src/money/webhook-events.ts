@@ -8,9 +8,13 @@
  * Two shapes of the same event have to be read: **Square nests the object under its type** —
  * `data.object.payment`, `data.object.refund` — while the stand-in (and Stripe, which never nests) send it
  * flat. `unwrap` accepts either, so the same processor reads a real Square webhook and a stand-in one.
+ *
+ * PayPal (the PayPal plan, part 2) is read on its own: its events carry the capture, refund or dispute itself as
+ * `resource`, money as a decimal string ("12.34"), and a vocabulary of its own (`PAYMENT.CAPTURE.COMPLETED`).
  */
 import {
   centsOf,
+  centsOfDecimal,
   isoOf,
   type PaymentEvent,
   type PaymentProviderName,
@@ -18,8 +22,22 @@ import {
   type RefundState,
 } from '../payments/provider';
 
-/** Neither provider sends anything near this; a bigger body is refused before it is read. */
+/** No provider sends anything near this; a bigger body is refused before it is read. */
 export const WEBHOOK_MAX_BYTES = 256 * 1024;
+
+/**
+ * The headers each provider signs with, handed to its own `webhooks.verify`: Stripe's one, Square's one, and
+ * PayPal's five (which certificate, which delivery, when, the algorithm and the signature).
+ */
+export const WEBHOOK_SIGNATURE_HEADERS = [
+  'stripe-signature',
+  'x-square-hmacsha256-signature',
+  'paypal-transmission-id',
+  'paypal-transmission-time',
+  'paypal-transmission-sig',
+  'paypal-cert-url',
+  'paypal-auth-algo',
+] as const;
 
 /**
  * What an event means, in our words. `provider:kind` is the processor key, and the kind is what the
@@ -105,6 +123,41 @@ const SQUARE_KINDS: Readonly<Record<string, PaymentEventKind>> = {
 };
 
 /**
+ * PayPal's names. A capture is the money; an authorization is a booking deposit's hold. A reversal is PayPal
+ * taking the money back from the seller (a chargeback it settled, a payment it found was unauthorised), which for
+ * the invoice is money given back, so it is read as a refund.
+ */
+const PAYPAL_KINDS: Readonly<Record<string, PaymentEventKind>> = {
+  'PAYMENT.CAPTURE.COMPLETED': 'payment.succeeded',
+  'PAYMENT.CAPTURE.PENDING': 'payment.processing',
+  'PAYMENT.CAPTURE.DECLINED': 'payment.failed',
+  'PAYMENT.CAPTURE.DENIED': 'payment.failed',
+  'PAYMENT.CAPTURE.REFUNDED': 'payment.refunded',
+  'PAYMENT.CAPTURE.REVERSED': 'payment.refunded',
+  'PAYMENT.AUTHORIZATION.CREATED': 'payment.processing',
+  'PAYMENT.AUTHORIZATION.VOIDED': 'payment.failed',
+  'CUSTOMER.DISPUTE.CREATED': 'payment.disputed',
+  'CUSTOMER.DISPUTE.UPDATED': 'payment.disputed',
+  'CUSTOMER.DISPUTE.RESOLVED': 'payment.disputed',
+  'CUSTOMER.MERCHANT-INTEGRATION.CAPABILITY-UPDATED': 'account.updated',
+  'CUSTOMER.MERCHANT-INTEGRATION.SELLER-EMAIL-CONFIRMED': 'account.updated',
+  'MERCHANT.PARTNER-CONSENT.REVOKED': 'payment_connection.revoked',
+};
+
+/** A PayPal capture's or authorization's status, in our words. */
+const PAYPAL_PAYMENT_STATE: Readonly<Record<string, PaymentState>> = {
+  COMPLETED: 'succeeded',
+  PENDING: 'processing',
+  // An authorization: the money is set aside, not taken.
+  CREATED: 'processing',
+  DECLINED: 'failed',
+  DENIED: 'failed',
+  FAILED: 'failed',
+  VOIDED: 'failed',
+  EXPIRED: 'failed',
+};
+
+/**
  * Square has no "payment failed" event and no separate "succeeded" one: every payment event is
  * `payment.created` or `payment.updated`, and where the money actually is has to be read off the object.
  */
@@ -132,6 +185,7 @@ export function paymentKindOf(
   event: PaymentEvent,
 ): PaymentEventKind | null {
   if (provider === 'stripe') return STRIPE_KINDS[event.type] ?? null;
+  if (provider === 'paypal') return PAYPAL_KINDS[event.type] ?? null;
   const known = SQUARE_KINDS[event.type];
   if (known) return known;
   if (event.type !== 'payment.created' && event.type !== 'payment.updated') return null;
@@ -153,9 +207,34 @@ export function paymentStateOf(
   const data = unwrap(event.data, 'payment');
   const status = str(data['status']);
   if (!status) return null;
+  if (provider === 'paypal') return PAYPAL_PAYMENT_STATE[status.toUpperCase()] ?? null;
   return provider === 'stripe'
     ? (STRIPE_PAYMENT_STATE[status] ?? null)
     : (SQUARE_PAYMENT_STATE[status.toUpperCase()] ?? null);
+}
+
+/** PayPal's money: `{ currency_code, value: "12.34" }`. */
+const payPalCents = (money: unknown): number | null =>
+  isRecord(money) ? centsOfDecimal(money['value']) : null;
+
+/** The order (and a deposit's hold) a PayPal capture came from: `supplementary_data.related_ids`. */
+function payPalRelatedIds(data: Data): string[] {
+  const supplementary = isRecord(data['supplementary_data']) ? data['supplementary_data'] : {};
+  const related = isRecord(supplementary['related_ids']) ? supplementary['related_ids'] : {};
+  return [str(related['order_id']), str(related['authorization_id'])].filter(
+    (id): id is string => !!id && id !== str(data['id']),
+  );
+}
+
+/** The capture a PayPal refund gives back, from its `up` link (`…/v2/payments/captures/<id>`). */
+function payPalCaptureOf(data: Data): string | null {
+  const links = Array.isArray(data['links']) ? data['links'] : [];
+  for (const link of links) {
+    if (!isRecord(link) || link['rel'] !== 'up') continue;
+    const m = /\/v2\/payments\/captures\/([^/?#]+)/.exec(String(link['href'] ?? ''));
+    if (m?.[1]) return decodeURIComponent(m[1]);
+  }
+  return null;
 }
 
 export interface PaymentEventFacts {
@@ -169,12 +248,32 @@ export interface PaymentEventFacts {
   readonly invoiceId: string | null;
   readonly failureCode: string | null;
   readonly receivedAt: string | null;
+  /**
+   * Other ids the same payment went by, which the row may still hold. PayPal's capture names the order it took
+   * (and a deposit's hold), and its event can arrive before our own call has kept the capture's id.
+   */
+  readonly relatedIds: readonly string[];
 }
 
 export function paymentFactsOf(
   provider: PaymentProviderName,
   event: PaymentEvent,
 ): PaymentEventFacts {
+  if (provider === 'paypal') {
+    const data = event.data;
+    return {
+      // The capture's (or the hold's) own id: what the row holds once the order was taken.
+      providerPaymentId: str(data['id']),
+      status: paymentStateOf(provider, event),
+      providerStatus: str(data['status']),
+      amountCents: payPalCents(data['amount']),
+      // Ours, put on the order as `custom_id`.
+      invoiceId: str(data['custom_id']),
+      failureCode: isRecord(data['status_details']) ? str(data['status_details']['reason']) : null,
+      receivedAt: isoOf(data['update_time']) ?? isoOf(data['create_time']) ?? event.createdAt,
+      relatedIds: payPalRelatedIds(data),
+    };
+  }
   const data = unwrap(event.data, 'payment');
   const metadata = isRecord(data['metadata']) ? data['metadata'] : {};
   const money = isRecord(data['amount_money']) ? data['amount_money'] : null;
@@ -190,6 +289,7 @@ export function paymentFactsOf(
     invoiceId: str(metadata['invoiceId']) ?? str(data['reference_id']),
     failureCode: str(error?.['code']) ?? str(firstCardError?.['code']) ?? str(data['failure_code']),
     receivedAt: isoOf(data['created_at']) ?? event.createdAt,
+    relatedIds: [],
   };
 }
 
@@ -220,10 +320,31 @@ const SQUARE_REFUND_STATE: Readonly<Record<string, RefundState>> = {
   FAILED: 'failed',
 };
 
+const PAYPAL_REFUND_STATE: Readonly<Record<string, RefundState>> = {
+  COMPLETED: 'succeeded',
+  PENDING: 'pending',
+  FAILED: 'failed',
+  CANCELLED: 'failed',
+};
+
 export function refundFactsOf(
   provider: PaymentProviderName,
   event: PaymentEvent,
 ): RefundEventFacts {
+  if (provider === 'paypal') {
+    const data = event.data;
+    const status = str(data['status']);
+    return {
+      isRefund: true,
+      providerRefundId: str(data['id']),
+      providerPaymentId: payPalCaptureOf(data),
+      providerStatus: status,
+      // A reversal carries no status of its own: the money is already back with the buyer.
+      status: status ? (PAYPAL_REFUND_STATE[status.toUpperCase()] ?? null) : 'succeeded',
+      amountCents: payPalCents(data['amount']),
+      refundedAt: isoOf(data['create_time']) ?? event.createdAt,
+    };
+  }
   const data = unwrap(event.data, 'refund');
   const money = isRecord(data['amount_money']) ? data['amount_money'] : null;
   const status = str(data['status']);
@@ -331,7 +452,45 @@ const DISPUTE_SETTLED: Readonly<Record<string, 'won' | 'lost' | 'closed'>> = {
   prevented: 'closed',
 };
 
-export function disputeFactsOf(event: PaymentEvent): DisputeEventFacts {
+/**
+ * PayPal's settled disputes say how in `dispute_outcome.outcome_code`. A buyer who gave up, or a claim PayPal
+ * turned down, leaves the money with the seller.
+ */
+const PAYPAL_DISPUTE_OUTCOME: Readonly<Record<string, 'won' | 'lost' | 'closed'>> = {
+  RESOLVED_SELLER_FAVOUR: 'won',
+  DENIED: 'won',
+  CANCELED_BY_BUYER: 'won',
+  RESOLVED_BUYER_FAVOUR: 'lost',
+  ACCEPTED: 'lost',
+  RESOLVED_WITH_PAYOUT: 'closed',
+};
+
+export function disputeFactsOf(
+  event: PaymentEvent,
+  provider?: PaymentProviderName,
+): DisputeEventFacts {
+  if (provider === 'paypal') {
+    const data = event.data;
+    const disputed = Array.isArray(data['disputed_transactions'])
+      ? data['disputed_transactions'].find(isRecord)
+      : undefined;
+    const outcome = isRecord(data['dispute_outcome'])
+      ? str(data['dispute_outcome']['outcome_code'])
+      : null;
+    const state = str(data['status']);
+    return {
+      providerDisputeId: str(data['dispute_id']),
+      // The seller's side of the payment is the capture we took.
+      providerPaymentId: disputed ? str(disputed['seller_transaction_id']) : null,
+      amountCents: payPalCents(data['dispute_amount']),
+      reason: str(data['reason']),
+      state,
+      status:
+        (outcome && PAYPAL_DISPUTE_OUTCOME[outcome.toUpperCase()]) ||
+        (state?.toUpperCase() === 'RESOLVED' ? 'closed' : 'open'),
+      respondBy: isoOf(data['seller_response_due_date']),
+    };
+  }
   const data = unwrap(event.data, 'dispute');
   const money = isRecord(data['amount_money']) ? data['amount_money'] : null;
   // Square keeps the payment one level down, in `disputed_payment`; Stripe names it on the dispute itself.

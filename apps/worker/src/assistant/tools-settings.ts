@@ -34,6 +34,7 @@ import {
   intakeCurlExample,
   intakeFormSnippet,
   intakeFormUrl,
+  isConnectableProvider,
   leadsAccessWords,
   metaAccountBadge,
   metaAccountTrouble,
@@ -42,6 +43,8 @@ import {
   PARTNERS_WORDS,
   partSays,
   PAYMENT_ACCOUNT_BADGES,
+  PAYMENT_PROVIDER_DASHBOARDS,
+  PAYMENT_PROVIDER_NAMES,
   PERMISSION_GROUPS,
   permissionHeldBack,
   PAYMENTS_PAGE_WORDS,
@@ -374,7 +377,12 @@ export function accountsRead(v: unknown, timezone: string): unknown {
   return {
     ...out,
     connections: out.connections.map((c) => {
-      const provider = c.provider === 'square' ? 'Square' : 'Stripe';
+      const provider =
+        PAYMENT_PROVIDER_NAMES[c.provider as keyof typeof PAYMENT_PROVIDER_NAMES] ?? c.provider;
+      const dashboard = isConnectableProvider(c.provider)
+        ? ` (${PAYMENT_PROVIDER_DASHBOARDS[c.provider]})`
+        : '';
+      const what = c.capabilities?.['needsInfoWhat'];
       const by = needsInfoBy(c.capabilities ?? {}, timezone);
       return {
         ...c,
@@ -386,7 +394,10 @@ export function accountsRead(v: unknown, timezone: string): unknown {
           : {}),
         ...(c.capabilities?.['needsInfo'] === true
           ? {
-              needsMoreDetails: `${provider} needs more details from them ${by ? `by ${by}` : 'before they can keep taking payments'}. They sign in to their ${provider} dashboard${c.provider === 'stripe' ? ' (https://dashboard.stripe.com/)' : ''} to finish, or ${provider} stops this account taking payments.`,
+              needsMoreDetails:
+                typeof what === 'string' && what.trim()
+                  ? `${what.trim()} They sign in to their ${provider} account${dashboard} to fix it.`
+                  : `${provider} needs more details from them ${by ? `by ${by}` : 'before they can keep taking payments'}. They sign in to their ${provider} dashboard${dashboard} to finish, or ${provider} stops this account taking payments.`,
             }
           : {}),
         ...(c.provider === 'square' && c.status === 'active'

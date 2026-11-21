@@ -162,8 +162,18 @@ describe('a payment’s status', () => {
   });
 
   it('knows which methods a person records by hand', () => {
-    expect(PAYMENT_METHODS).toEqual(['card', 'ach', 'cash', 'check', 'other', 'card_outside']);
-    // A card on the business's own machine (Chase QuickAccept, say) is written down by hand too.
+    expect(PAYMENT_METHODS).toEqual([
+      'card',
+      'ach',
+      'cash',
+      'check',
+      'other',
+      'card_outside',
+      'paypal',
+      'venmo',
+    ]);
+    // A card on the business's own machine (Chase QuickAccept, say) is written down by hand too. PayPal and Venmo
+    // come only through the business's PayPal account, so a person never records them.
     expect(PAYMENT_METHODS.filter(isManualPaymentMethod)).toEqual([
       'cash',
       'check',

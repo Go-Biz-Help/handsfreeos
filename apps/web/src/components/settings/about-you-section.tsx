@@ -1,21 +1,30 @@
 'use client';
-import { ABOUT_YOU_MOST, ABOUT_YOU_WORDS as W } from '@hfos/core';
-import { Lock } from 'lucide-react';
+import { ABOUT_YOU_INTERVIEW_WORDS as IW, ABOUT_YOU_MOST, ABOUT_YOU_WORDS as W } from '@hfos/core';
+import { Lock, MessageCircleQuestionMark } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { AboutYouInterview } from './about-you-interview';
 
 /**
  * About you (docs/outreach.md, decision 165): one box, in the person's own words, for every AI that writes as them,
  * with what's worth saying beside it. Theirs alone: nobody else on the team sees it. Empty and saved, it's cleared.
+ * Answer a few questions (decision 186) asks them one at a time and fills the box from the answers, unsaved.
  */
-export function AboutYouSection({ initial }: { initial: string }) {
+export function AboutYouSection({
+  initial,
+  workspaceId,
+}: {
+  initial: string;
+  workspaceId: string;
+}) {
   const [about, setAbout] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [asking, setAsking] = useState(false);
   const dirty = about.trim() !== saved;
 
   async function submit(e: FormEvent) {
@@ -39,6 +48,31 @@ export function AboutYouSection({ initial }: { initial: string }) {
     <form onSubmit={submit} noValidate data-testid="about-you-form">
       <h2 className="text-lg font-semibold tracking-tight">{W.title}</h2>
       <p className="mt-1 max-w-[70ch] text-[13px] text-text-2">{W.lead}</p>
+      {asking ? (
+        <AboutYouInterview
+          workspaceId={workspaceId}
+          about={about}
+          onWritten={(written) => {
+            setAbout(written);
+            setAsking(false);
+          }}
+          onClose={() => setAsking(false)}
+        />
+      ) : (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setAsking(true)}
+            data-testid="about-you-interview-start"
+          >
+            <MessageCircleQuestionMark className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+            {IW.start}
+          </Button>
+          <p className="text-[12.5px] text-text-3">{IW.startHint}</p>
+        </div>
+      )}
       <div className="mt-[18px] grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div>
           <Label htmlFor="about-you-text" className="sr-only">

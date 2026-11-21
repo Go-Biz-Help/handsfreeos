@@ -1,11 +1,11 @@
 {
   "area": "my-account",
   "title": "My account: profile, appearance, notifications, the side menu, my cell, my businesses and the More menu",
-  "checkedOn": "2026-11-15",
+  "checkedOn": "2026-11-20",
   "files": {
     "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "28e53d7a9844",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx": "cc0007aa5c1d",
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx": "db61ec0f842c",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx": "17139d859bdb",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx": "54f26bd0b071",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "aea3150ab514",
@@ -29,15 +29,17 @@
     "apps/mobile/src/push/press.ts": "cbc8c6ba0536",
     "apps/mobile/src/push/registration.ts": "52b901d92474",
     "apps/mobile/src/push/switches.ts": "ac0a0f304155",
+    "apps/mobile/src/settings/about-you-interview.tsx": "2ad28a6ec941",
     "apps/web/src/app/(auth)/delete-account/page.tsx": "7e6cbf1364af",
-    "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx": "df45df717e4f",
+    "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx": "0916b2f663fa",
     "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
     "apps/web/src/components/account/extension-sign-in-prompt.tsx": "5b27e8511869",
     "apps/web/src/components/calls/calls-pill.tsx": "8819d72926f6",
     "apps/web/src/components/clock-check.tsx": "b26e26b8e9ae",
     "apps/web/src/components/look/business-mark.tsx": "e884715ba172",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
-    "apps/web/src/components/settings/about-you-section.tsx": "2e35d8bb6d6e",
+    "apps/web/src/components/settings/about-you-interview.tsx": "5dc198d488bc",
+    "apps/web/src/components/settings/about-you-section.tsx": "889a667beaa6",
     "apps/web/src/components/settings/appearance-section.tsx": "383c3fcbfc5b",
     "apps/web/src/components/settings/google-section.tsx": "8e40854795d2",
     "apps/web/src/components/settings/menu-section.tsx": "2e927c40840b",
@@ -55,7 +57,7 @@
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
     "apps/web/src/components/shell/workspace-switcher.tsx": "a94cb85f3c21",
     "apps/web/src/components/support/get-help.tsx": "a753e0577cbd",
-    "packages/core/src/account/about-you.ts": "2604f29cf5ba",
+    "packages/core/src/account/about-you.ts": "7893be08878a",
     "packages/core/src/account/notification-rows.ts": "274b05c79aa2"
   },
   "items": [
@@ -902,23 +904,30 @@
     {
       "path": "Web Settings → Account → About you → what it’s for, how the AI uses it, things worth adding, and that only you see it",
       "kind": "see",
-      "file": "apps/web/src/components/settings/about-you-section.tsx:40",
+      "file": "apps/web/src/components/settings/about-you-section.tsx:44",
       "covered": "yes",
       "by": "get_settings my_account aboutYou note; settings-map my_account"
     },
     {
       "path": "Web Settings → Account → About you → the box: what you said of yourself",
       "kind": "see",
-      "file": "apps/web/src/components/settings/about-you-section.tsx:55",
+      "file": "apps/web/src/components/settings/about-you-section.tsx:83",
       "covered": "yes",
       "by": "get_settings my_account aboutYou.about"
     },
     {
       "path": "Web Settings → Account → About you → write it and Save (empty clears it)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/about-you-section.tsx:75",
+      "file": "apps/web/src/components/settings/about-you-section.tsx:104",
       "covered": "yes",
       "by": "update_my_account aboutYou (user_about.set), on a card that says only you see it"
+    },
+    {
+      "path": "Web Settings → Account → About you → Answer a few questions: one question at a time, typed or Speak, Back, Skip, Next, Write it up (fills the box, unsaved), Stop the questions",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/about-you-interview.tsx:134",
+      "covered": "yes",
+      "by": "the Assistant asks the same questions itself (get_settings my_account aboutYou) and saves the words with update_my_account aboutYou (user_about.set), on a card"
     },
     {
       "path": "Web Settings → Account → Sign-in methods → Keep at least two",
@@ -1728,23 +1737,30 @@
     {
       "path": "Phone About you → what it’s for, the box with what you said, how the AI uses it, that only you see it, things worth adding",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx:67",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx:70",
       "covered": "yes",
       "by": "get_settings my_account aboutYou (about and note)"
     },
     {
       "path": "Phone About you → write it and Save (empty clears it)",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx:105",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx:134",
       "covered": "yes",
       "by": "update_my_account aboutYou (user_about.set)"
     },
     {
       "path": "Phone About you → needs signal, Try again",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx:70",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx:75",
       "covered": "person",
       "by": "the phone’s own signal; the Assistant reads and saves About you itself"
+    },
+    {
+      "path": "Phone About you → Answer a few questions: one question at a time, typed or Speak, Back, Skip, Next, Write it up (fills the box, unsaved), Stop the questions",
+      "kind": "do",
+      "file": "apps/mobile/src/settings/about-you-interview.tsx:135",
+      "covered": "yes",
+      "by": "the Assistant asks the same questions itself (get_settings my_account aboutYou) and saves the words with update_my_account aboutYou (user_about.set), on a card"
     },
     {
       "path": "Phone Settings → You → Appearance sheet → words",

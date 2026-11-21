@@ -83,6 +83,19 @@ export const partnerRef = (userId: string, profileId: string): string =>
 export const readPartnerRef = (ref: string | null | undefined) => readRef(PARTNER_REF_PREFIX, ref);
 
 /**
+ * What a networking call link's `ref` starts with (./calls.ts, decision 187): a call booked through it is a networking
+ * call with that person, never counted as a demo.
+ */
+export const CALL_REF_PREFIX = 'sn-';
+
+/** The `ref` of the person's networking call link for someone they chat with, as long as a demo link's. */
+export const callRef = (userId: string, profileId: string): string =>
+  refOf(CALL_REF_PREFIX, userId, profileId);
+
+/** Who a booking's `ref` says sent the networking call link to whom; null for any other `ref`. */
+export const readCallRef = (ref: string | null | undefined) => readRef(CALL_REF_PREFIX, ref);
+
+/**
  * The playbook's link with the `ref` on it, for someone the person reached: null with no link. A booking page of the
  * business's counts the booking by itself; any other page just carries the `ref` along.
  */

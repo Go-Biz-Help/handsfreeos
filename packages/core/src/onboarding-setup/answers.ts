@@ -95,7 +95,7 @@ export const AI_SCREEN_OF: Readonly<Partial<Record<OnboardingSetupScreen, AiSetu
 };
 
 /** How the business is paid, on "Get paid, and get reviews". */
-export const PAY_WITH = ['stripe', 'square', 'later'] as const;
+export const PAY_WITH = ['stripe', 'square', 'paypal', 'later'] as const;
 export type PayWith = (typeof PAY_WITH)[number];
 
 export const ONBOARDING_SETUP_MAX = { invites: 10, reviewLink: 500 } as const;

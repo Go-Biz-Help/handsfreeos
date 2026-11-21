@@ -8,12 +8,13 @@ import { serviceNameKey } from '../ai-setup/plan';
 import { formatHours } from '../calendar/format';
 import { industryLabel } from '../industries';
 import { LOOK_WORDS } from '../look/words';
+import { PAYMENT_PROVIDER_NAMES } from '../schemas/money';
 import { emailSetupLine, emailSetupProblems } from '../messaging/email-setup';
 import { cityAndState, usTimeZoneLabel, type BusinessAddress } from './address';
 import { AI_SCREEN_OF, type OnboardingSetupAnswers, type OnboardingSetupScreen } from './answers';
 import type { OnboardingSetupState } from './state';
 
-const PROVIDERS = { stripe: 'Stripe', square: 'Square' } as const;
+const PROVIDERS = PAYMENT_PROVIDER_NAMES;
 const count = (n: number) => n.toLocaleString('en-US');
 const plural = (n: number, one: string, many: string) => `${count(n)} ${n === 1 ? one : many}`;
 

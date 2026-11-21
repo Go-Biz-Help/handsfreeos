@@ -17,6 +17,10 @@
  * to send the customer to, which sends them back here. Either way phase two names the intent the browser
  * confirmed, or the token minted from the card — so what the page shows is the provider's answer, never its own
  * guess. **A decline is a 200 with plain words**, not an error.
+ *
+ * PayPal's buttons (`paypal-buttons.tsx`) sit under the other ways to pay whenever the business has PayPal
+ * connected, or alone when PayPal is the account this invoice is paid into. Each press of one is a phase one of
+ * its own with `method: 'paypal'`, and PayPal's approval is phase two's order.
  */
 import {
   dueWording,
@@ -56,8 +60,10 @@ import {
   ProviderFields,
   type ProviderAnswer,
   type ProviderFieldsHandle,
+  type ProviderMethod,
   type ProviderSession,
 } from './provider-fields';
+import { PayPalButtons, type PayPalStart } from './paypal-buttons';
 import { joinParts, momentLong, momentShort, viewerZone } from './public-format';
 import {
   callPhrase,
@@ -79,8 +85,13 @@ type Failure =
   | { kind: 'missing' }
   | { kind: 'error'; message: string };
 
+/** The ways chosen on our page before Pay; PayPal's own buttons are chosen inside PayPal. */
+type CardMethod = Exclude<PayMethod, 'paypal'>;
+const cardMethodsOf = (methods: readonly PayMethod[]): CardMethod[] =>
+  methods.filter((m): m is CardMethod => m !== 'paypal');
+
 /** What each way of paying is called and what it is like. Never what it costs the business. */
-const METHODS: Record<PayMethod, { label: string; note: string; icon: typeof Landmark }> = {
+const METHODS: Record<CardMethod, { label: string; note: string; icon: typeof Landmark }> = {
   ach: {
     label: PAYMENT_METHOD_LABELS.ach,
     note: 'Takes 1 to 3 business days.',
@@ -94,7 +105,7 @@ const METHODS: Record<PayMethod, { label: string; note: string; icon: typeof Lan
 };
 
 /** The chosen way to pay, on the button that takes it. */
-const PayIcon = ({ method }: { method: PayMethod }) => {
+const PayIcon = ({ method }: { method: CardMethod }) => {
   const Icon = METHODS[method].icon;
   return <Icon size={17} aria-hidden />;
 };
@@ -185,7 +196,7 @@ function readReturn(search: string): Returned {
 export function PublicInvoice({ token }: { token: string }) {
   const [view, setView] = useState<PublicInvoiceView | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
-  const [method, setMethod] = useState<PayMethod | null>(null);
+  const [method, setMethod] = useState<CardMethod | null>(null);
   const [outcome, setOutcome] = useState<RecordedPay['payment'] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -209,7 +220,8 @@ export function PublicInvoice({ token }: { token: string }) {
 
   const show = useCallback((next: PublicInvoiceView) => {
     setView(next);
-    setMethod((m) => (m && next.pay.methods.includes(m) ? m : (next.pay.methods[0] ?? null)));
+    const ways = cardMethodsOf(next.pay.methods);
+    setMethod((m) => (m && ways.includes(m) ? m : (ways[0] ?? null)));
   }, []);
 
   const failedPay = useCallback(
@@ -343,7 +355,7 @@ export function PublicInvoice({ token }: { token: string }) {
         clientSecret: answer.payment.clientSecret,
         providerPaymentId: answer.payment.providerPaymentId,
         amountCents: answer.payment.amountCents,
-        method: answer.payment.method,
+        method: answer.payment.method as ProviderMethod,
         returnUrl: answer.payment.returnUrl,
       };
       if (canShowProviderFields(session)) {
@@ -370,6 +382,47 @@ export function PublicInvoice({ token }: { token: string }) {
     }
   }
 
+  /**
+   * A press of one of PayPal's buttons: phase one for PayPal's account, which answers with the order PayPal's
+   * window approves (or, with the stand-in, the page to go to). Null when there is nothing to open, and the page
+   * already says why.
+   */
+  async function startPayPal(): Promise<PayPalStart> {
+    if (busy) return null;
+    setError(null);
+    setNotice(null);
+    setOutcome(null);
+    const press: Press = { clientId: newClientId(), method: 'paypal' };
+    rememberPress(token, press);
+    try {
+      const answer = await payInvoice(token, {
+        clientId: press.clientId,
+        method: 'paypal',
+        website,
+      });
+      if (answer.stage === 'recorded') {
+        forgetPress(token);
+        setOutcome(answer.payment);
+        show(answer.invoice);
+        window.scrollTo({ top: 0 });
+        return null;
+      }
+      if (answer.payment.hostedUrl) return { hostedUrl: answer.payment.hostedUrl };
+      if (answer.payment.providerPaymentId) return { orderId: answer.payment.providerPaymentId };
+      forgetPress(token);
+      setError(
+        `We couldn’t open PayPal just now. Try again in a minute, or ${callPhrase(
+          answer.invoice.business,
+        )}.`,
+      );
+      return null;
+    } catch (e) {
+      forgetPress(token);
+      await failedPay(e);
+      return null;
+    }
+  }
+
   /** The footer's Pay, once the fields are filled in: confirm or tokenise there, then phase two. */
   async function confirmFields() {
     if (busy || !fields || !fieldsRef.current) return;
@@ -386,7 +439,7 @@ export function PublicInvoice({ token }: { token: string }) {
   }
 
   /** Back to the ways to pay, maybe with the other one picked. Nothing was taken: the press is dropped. */
-  function leaveFields(next: PayMethod | null) {
+  function leaveFields(next: CardMethod | null) {
     forgetPress(token);
     setFields(null);
     setFieldsReady(false);
@@ -432,6 +485,8 @@ export function PublicInvoice({ token }: { token: string }) {
     );
 
   const { business, invoice, payments, refunds, pay: payBlock } = view;
+  const cardMethods = cardMethodsOf(payBlock.methods);
+  const payPal = payBlock.payPal ?? null;
 
   if (view.state === 'void')
     return (
@@ -541,7 +596,7 @@ export function PublicInvoice({ token }: { token: string }) {
               data-testid="pay"
             >
               {method ? <PayIcon method={method} /> : null}
-              {payBlock.methods.length > 1
+              {cardMethods.length > 1
                 ? `Pay ${money(owedNow)} by ${PAYMENT_METHOD_WORDS[method]}`
                 : `Pay ${money(owedNow)}`}
             </Button>
@@ -664,7 +719,7 @@ export function PublicInvoice({ token }: { token: string }) {
               {fields.method === 'ach' ? 'Pay by bank transfer' : 'Pay by card'}
             </h2>
             {(() => {
-              const other = payBlock.methods.find((m) => m !== fields.method) ?? null;
+              const other = cardMethods.find((m) => m !== fields.method) ?? null;
               return (
                 <Button
                   variant="ghost"
@@ -692,9 +747,9 @@ export function PublicInvoice({ token }: { token: string }) {
             <div
               role="radiogroup"
               aria-label="How would you like to pay?"
-              className="flex flex-col gap-2.5"
+              className={cn('flex flex-col gap-2.5', cardMethods.length ? null : 'hidden')}
             >
-              {payBlock.methods.map((m) => {
+              {cardMethods.map((m) => {
                 const spec = METHODS[m];
                 const Icon = spec.icon;
                 const on = method === m;
@@ -742,6 +797,34 @@ export function PublicInvoice({ token }: { token: string }) {
                 );
               })}
             </div>
+            {payPal ? (
+              <>
+                {cardMethods.length ? (
+                  <p
+                    className="flex items-center gap-3 text-xs font-medium text-text-3 before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border"
+                    aria-hidden
+                  >
+                    or
+                  </p>
+                ) : null}
+                <PayPalButtons
+                  config={payPal}
+                  disabled={busy}
+                  start={startPayPal}
+                  approved={(orderId) =>
+                    void finish({ kind: 'confirmed', providerPaymentId: orderId })
+                  }
+                  cancelled={() => {
+                    forgetPress(token);
+                    setNotice('Payment cancelled — nothing was charged.');
+                  }}
+                  failed={(message) => {
+                    forgetPress(token);
+                    setError(message);
+                  }}
+                />
+              </>
+            ) : null}
             <div className="relative">
               <Honeypot id="pay-website" value={website} onChange={setWebsite} />
             </div>

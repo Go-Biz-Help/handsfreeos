@@ -2,6 +2,7 @@
  * Everything Getting started says: each step's title, the line under it, its button and its badge, and the
  * refusals. The web and the phone both read these, so a step says the same thing everywhere. Browser-safe.
  */
+import { PAYMENT_PROVIDER_NAMES } from '../schemas/money';
 import { PHONE_APP_LINKS } from './app-links';
 import {
   waitingDay,
@@ -19,7 +20,7 @@ export interface StepWords {
   readonly badge: string | null;
 }
 
-const PROVIDERS: Record<string, string> = { stripe: 'Stripe', square: 'Square' };
+const PROVIDERS: Readonly<Record<string, string>> = PAYMENT_PROVIDER_NAMES;
 
 const aiName = (name: string | null | undefined) => name?.trim() || null;
 
@@ -73,7 +74,7 @@ function todoLine(step: OnboardingStep, answers: OnboardingAnswers | null): Line
     case 'payments':
       return {
         detail:
-          'Stripe or Square, for estimates, invoices and deposits. The money goes straight to your account.',
+          'Stripe, Square or PayPal, for estimates, invoices and deposits. The money goes straight to your account.',
         action: 'Connect',
       };
     case 'customers':
@@ -469,7 +470,7 @@ export function previewDetail(
     case 'number':
       return 'Pick a number, and send your details to the carriers';
     case 'payments':
-      return 'Stripe or Square, for estimates, invoices and deposits';
+      return 'Stripe, Square or PayPal, for estimates, invoices and deposits';
     case 'customers':
       switch (answers?.customersIn) {
         case 'ghl':
@@ -586,6 +587,11 @@ export const WIZARD_WORDS = {
       detail:
         'If you already take payments with Square, keep using it. Your payments and payouts stay the same.',
     },
+    paypal: {
+      title: 'PayPal',
+      detail:
+        'Customers pay with PayPal, Venmo, Pay Later or a card. Money lands in your PayPal account. No account yet? You can open one while you connect.',
+    },
   },
   connect: (provider: string) => `Connect ${provider}`,
   paymentsWaiting: (provider: string) =>
@@ -601,7 +607,7 @@ export const WIZARD_WORDS = {
     number:
       'Customers call and text this number, and your AI teammate answers on it too. Calls work as soon as you pick one. Texting needs the phone carriers’ OK first.',
     payments:
-      'Connect Stripe or Square and customers pay on their own link. The money goes straight to your account; HandsFreeOS never holds it.',
+      'Connect Stripe, Square or PayPal and customers pay on their own link. The money goes straight to your account; HandsFreeOS never holds it.',
     customers: 'Bring them in once, and everything they do from now on lands in one place.',
     calendar:
       'Customers book themselves on your booking page, and your AI teammate books into the same calendar.',
