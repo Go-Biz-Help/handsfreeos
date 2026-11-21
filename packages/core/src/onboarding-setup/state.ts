@@ -11,6 +11,7 @@ import { WeeklyHours } from '../calendar/config';
 import { BusinessLookSchema } from '../look/look';
 import { EmailSetupStateOut } from '../messaging/email-setup';
 import { OnboardingAnswersSchema } from '../onboarding/settings';
+import { CONNECTABLE_PROVIDERS } from '../schemas/money';
 import { phoneNextStep } from '../schemas/telephony';
 import { BusinessAddress } from './address';
 
@@ -38,7 +39,7 @@ export const OnboardingSetupStateOut = AiSetupStateOut.extend({
     checking: z.boolean(),
     needsInfo: z.boolean(),
     broken: z.boolean(),
-    provider: z.enum(['stripe', 'square']).nullable(),
+    provider: z.enum(CONNECTABLE_PROVIDERS).nullable(),
   }),
   customers: z.object({
     /** People and companies, as Home counts them. */

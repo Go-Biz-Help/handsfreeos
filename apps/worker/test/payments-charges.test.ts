@@ -198,7 +198,8 @@ const webhooksFor = (id: string): FakeWebhookPost[] =>
 /** Every webhook the stand-in posted is checked by the adapter that will read the real ones. */
 function verifiedByTheRealAdapter(p: FakeWebhookPost): boolean {
   const provider = p.provider === 'stripe' ? realStripe : realSquare;
-  return provider.webhooks.verify({ rawBody: p.body, headers: p.headers, url: p.url });
+  // Stripe's and Square's checks are plain HMACs, answered there and then.
+  return provider.webhooks.verify({ rawBody: p.body, headers: p.headers, url: p.url }) === true;
 }
 
 beforeAll(async () => {

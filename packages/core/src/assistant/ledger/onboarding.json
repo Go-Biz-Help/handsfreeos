@@ -60,7 +60,7 @@
     "apps/web/src/components/onboarding/calendar-setup.tsx": "c5dd55fe4559",
     "apps/web/src/components/onboarding/customers-setup.tsx": "996195460003",
     "apps/web/src/components/onboarding/number-setup.tsx": "c998228fa8f8",
-    "apps/web/src/components/onboarding/payments-setup.tsx": "87806ff17fd7",
+    "apps/web/src/components/onboarding/payments-setup.tsx": "521f1acbcd62",
     "apps/web/src/components/onboarding/step-live.tsx": "7da173b70178",
     "apps/web/src/components/onboarding/tour.tsx": "ed01fb35dc0e",
     "apps/web/src/components/onboarding/wizard-footer.tsx": "2ac05b5860c6",
@@ -2094,7 +2094,7 @@
       "by": "comes back from the person’s own sign-in"
     },
     {
-      "path": "Set up → Get paid → Stripe / Square / later, with badge",
+      "path": "Set up → Get paid → Stripe / Square / PayPal (once Connect PayPal is open) / later, with badge",
       "kind": "do",
       "file": "apps/web/src/components/onboarding-setup/screens.tsx:670",
       "covered": "yes",
@@ -2119,7 +2119,7 @@
       "kind": "do",
       "file": "apps/web/src/components/onboarding-setup/screens.tsx:723",
       "covered": "person",
-      "by": "signing in to Stripe or Square (payment_connection.connect NEVER)"
+      "by": "signing in to Stripe, Square or PayPal (payment_connection.connect NEVER)"
     },
     {
       "path": "Set up → Get paid → agency’s client: they connect it",
@@ -2591,7 +2591,7 @@
       "by": "read_onboarding_status answers"
     },
     {
-      "path": "Setup wizard → Payments → Stripe / Square with badge",
+      "path": "Setup wizard → Payments → Stripe / Square / PayPal (once Connect PayPal is open) with badge",
       "kind": "do",
       "file": "apps/web/src/components/onboarding/payments-setup.tsx:82",
       "covered": "person",
@@ -2602,7 +2602,7 @@
       "kind": "do",
       "file": "apps/web/src/components/onboarding/payments-setup.tsx:102",
       "covered": "person",
-      "by": "signing in to Stripe or Square"
+      "by": "signing in to Stripe, Square or PayPal"
     },
     {
       "path": "Setup wizard → Customers → what you said line",

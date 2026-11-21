@@ -292,7 +292,7 @@
       "by": "read_onboarding_clients stillOpen basics"
     },
     {
-      "path": "Client businesses → Setup sheet → each step: state, title, detail or The owner’s call / The owner signs in to Stripe or Square, badge",
+      "path": "Client businesses → Setup sheet → each step: state, title, detail or The owner’s call / The owner signs in to Stripe, Square or PayPal, badge",
       "kind": "see",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:176",
       "covered": "partly",

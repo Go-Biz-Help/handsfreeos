@@ -153,6 +153,12 @@ export const MoneySettings = z.object({
   deposit: Deposit.prefault({}),
   /** Offer bank transfer on the customer's page. It's the cheap rail, so it leads. */
   bankTransfer: z.boolean().default(true),
+  /**
+   * With PayPal connected, its Venmo and Pay Later buttons sit beside the PayPal button. Each can be switched
+   * off on its own; neither shows without a PayPal account.
+   */
+  venmo: z.boolean().default(true),
+  payLater: z.boolean().default(true),
   reminders: Reminders.prefault({}),
 });
 export type MoneySettings = z.infer<typeof MoneySettings>;

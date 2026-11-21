@@ -6372,7 +6372,7 @@
               "payWith": {
                 "default": "later",
                 "type": "string",
-                "enum": ["stripe", "square", "later"]
+                "enum": ["stripe", "square", "paypal", "later"]
               },
               "reviewLink": {
                 "default": "",
@@ -6996,7 +6996,7 @@
               "payWith": {
                 "default": "later",
                 "type": "string",
-                "enum": ["stripe", "square", "later"]
+                "enum": ["stripe", "square", "paypal", "later"]
               },
               "reviewLink": {
                 "default": "",
@@ -12229,7 +12229,7 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["stripe", "square"]
+            "enum": ["stripe", "square", "paypal"]
           },
           "environment": {
             "default": "live",

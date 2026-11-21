@@ -18,6 +18,8 @@ import {
   paymentRecordRefund,
   scheduleJob,
   type RefundStatus,
+  PAYMENT_PROVIDER_NAMES,
+  type PaymentProvider,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { EventHandler } from '../handlers/types';
@@ -38,7 +40,7 @@ export const MONEY_JOBS = { refund: 'payment.refund' } as const;
 export const refundJobKey = (refundId: string): string => `${MONEY_JOBS.refund}:${refundId}`;
 
 /** What the account is called when the refund has to say so to a person. */
-const providerName = (p: string) => (p === 'square' ? 'Square' : p === 'stripe' ? 'Stripe' : p);
+const providerName = (p: string) => PAYMENT_PROVIDER_NAMES[p as PaymentProvider] ?? p;
 
 const RECONNECT_FIRST = (provider: string) =>
   `That ${providerName(provider)} account isn’t connected any more, so the refund couldn’t be sent. Reconnect it and try again, or refund it at the provider.`;

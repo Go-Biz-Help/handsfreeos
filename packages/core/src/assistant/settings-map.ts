@@ -838,8 +838,8 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'how you get paid: accounts, tax, terms, deposits, reminders and numbering',
     where: ['Settings', 'Payments'],
     onScreen: [
-      'Accounts you get paid into: Connect Stripe, Connect Square',
-      'Ways to pay',
+      'Accounts you get paid into: Connect Stripe, Connect Square, Connect PayPal',
+      'Ways to pay: Bank transfer, Card, PayPal (with Venmo and Pay Later), Cash and cheque',
       'Sales tax',
       'Numbering',
       'Your address (until one is written, documents show the address from your setup)',
@@ -850,7 +850,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/payments',
     permission: 'money.manage',
     canChange: [
-      'bank transfer on or off (card is always on), sales tax, its name and whether new items start taxable',
+      'bank transfer on or off (card is always on), PayPal’s Venmo and Pay Later buttons on or off, sales tax, its name and whether new items start taxable',
       'your business address on documents, or taking it off',
       'when invoices are due, the notes at the bottom of estimates and invoices, and how long an estimate is good for',
       'the deposit an estimate asks for: none, a share or a set amount',
@@ -861,21 +861,21 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     handovers: [
       {
-        what: 'connect Stripe or Square',
+        what: 'connect Stripe, Square or PayPal',
         why: 'you sign in to them yourself, and they ask for your business details',
         steps: [
           'Open Settings → Payments.',
-          'In Accounts you get paid into, press Connect Stripe or Connect Square.',
+          'In Accounts you get paid into, press Connect Stripe, Connect Square or Connect PayPal. If Connect PayPal says Coming soon, PayPal is still approving HandsFreeOS: connect Stripe or Square meanwhile.',
           'Sign in there and finish their questions; you land back here when it is done.',
         ],
       },
       {
         what: 'reconnect a payout account that needs it',
-        why: 'Stripe or Square asks you to sign in to them again yourself',
+        why: 'Stripe, Square or PayPal asks you to sign in to them again yourself',
         steps: [
           'Open Settings → Payments.',
           'On the account marked Needs reconnecting or Not working, press Reconnect.',
-          'Sign in to Stripe or Square again; you land back here when it is done.',
+          'Sign in to Stripe, Square or PayPal again; you land back here when it is done.',
         ],
       },
     ],

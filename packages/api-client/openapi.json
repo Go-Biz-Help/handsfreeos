@@ -41661,7 +41661,7 @@
     "/v1/commands/payment_connection.connect": {
       "post": {
         "operationId": "command_payment_connection_connect",
-        "summary": "Start connecting a Stripe or Square account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once.",
+        "summary": "Start connecting a Stripe, Square or PayPal account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once. PayPal takes one-time payments only (invoices, pay links and deposits), never plans.",
         "tags": [
           "commands"
         ],
@@ -41682,7 +41682,8 @@
                     "type": "string",
                     "enum": [
                       "stripe",
-                      "square"
+                      "square",
+                      "paypal"
                     ]
                   },
                   "environment": {
@@ -50824,6 +50825,14 @@
                         "default": true,
                         "type": "boolean"
                       },
+                      "venmo": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "payLater": {
+                        "default": true,
+                        "type": "boolean"
+                      },
                       "reminders": {
                         "default": {},
                         "type": "object",
@@ -51070,6 +51079,14 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "venmo": {
+                          "default": true,
+                          "type": "boolean"
+                        },
+                        "payLater": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "reminders": {
                           "type": "object",
                           "properties": {
@@ -51135,6 +51152,8 @@
                         "estimateGoodForDays",
                         "deposit",
                         "bankTransfer",
+                        "venmo",
+                        "payLater",
                         "reminders"
                       ],
                       "additionalProperties": false
@@ -69155,6 +69174,7 @@
                         "enum": [
                           "stripe",
                           "square",
+                          "paypal",
                           "later"
                         ]
                       },
@@ -70170,6 +70190,7 @@
                         "enum": [
                           "stripe",
                           "square",
+                          "paypal",
                           "later"
                         ]
                       },
@@ -197663,7 +197684,9 @@
                               "cash",
                               "check",
                               "other",
-                              "card_outside"
+                              "card_outside",
+                              "paypal",
+                              "venmo"
                             ]
                           },
                           "provider": {
@@ -197988,7 +198011,7 @@
                     }
                   },
                   "method": {
-                    "maxItems": 6,
+                    "maxItems": 8,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -197998,7 +198021,9 @@
                         "cash",
                         "check",
                         "other",
-                        "card_outside"
+                        "card_outside",
+                        "paypal",
+                        "venmo"
                       ]
                     }
                   },
@@ -198075,7 +198100,9 @@
                               "cash",
                               "check",
                               "other",
-                              "card_outside"
+                              "card_outside",
+                              "paypal",
+                              "venmo"
                             ]
                           },
                           "provider": {
@@ -200583,6 +200610,14 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "venmo": {
+                          "default": true,
+                          "type": "boolean"
+                        },
+                        "payLater": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "reminders": {
                           "type": "object",
                           "properties": {
@@ -200648,6 +200683,8 @@
                         "estimateGoodForDays",
                         "deposit",
                         "bankTransfer",
+                        "venmo",
+                        "payLater",
                         "reminders"
                       ],
                       "additionalProperties": false
@@ -215006,7 +215043,8 @@
                                   "type": "string",
                                   "enum": [
                                     "stripe",
-                                    "square"
+                                    "square",
+                                    "paypal"
                                   ]
                                 },
                                 {
@@ -215924,6 +215962,7 @@
                           "enum": [
                             "stripe",
                             "square",
+                            "paypal",
                             "later"
                           ]
                         },
@@ -216645,6 +216684,7 @@
                           "enum": [
                             "stripe",
                             "square",
+                            "paypal",
                             "later"
                           ]
                         },
