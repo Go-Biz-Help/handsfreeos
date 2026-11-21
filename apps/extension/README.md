@@ -469,7 +469,8 @@ tab whose network was turned off since it loaded notes nothing, reads nothing, a
 | A group's People tab                        | The group, and each member with the list they're in; admins and moderators are marked to leave alone |
 | A group                                     | The group (public or private, members, joined or not) and its posts                                  |
 | Your groups                                 | Each group, with the line under its name                                                             |
-| Search results                              | People, groups and posts                                                                             |
+| Search results                              | People, groups and posts; on an event search, each event with when and where its card says           |
+| An event's page                             | Its name, day, place, hosts and the guests it shows, nothing pressed (decision 188)                  |
 | Chats, and an open chat                     | Each chat with its last message; an open chat's messages, who sent each, when                        |
 | Notifications                               | Who accepted your request, reacted, commented or mentioned you                                       |
 | Any page                                    | Facebook's warnings: a temporary block, a limit, a security check                                    |
@@ -1274,19 +1275,63 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
-### An Instagram reel made with others, its account Verified (0.148.2)
+### An Instagram reel made with others, its account Verified (0.150.1)
 
 A visit's like on a reel someone made with other accounts never went when the reel's account was Verified (the owner's
 problem reports of 15 and 20 Nov 2026, "Couldn’t like (their name)’s post on this visit"). The reels player writes
 "<account> ✓ and 2 others" over the reel, and Instagram draws the tick with its own title inside it
 (`<title>Verified</title>`), so the tick read as words between the account and "and", and the reel was taken for
-someone else's. From 0.148.2 an icon's title is passed over (`wordsOf` in `src/networks/instagram/read.ts`), and the
+someone else's. From 0.150.1 an icon's title is passed over (`wordsOf` in `src/networks/instagram/read.ts`), and the
 reel off their grid is liked, as one with no tick already was (0.140.2).
 
 The same morning's other reports aren't changed: two Facebook warm-ups found nothing right to like (a profile whose
 only posts were a cover photo and a profile picture with no Like, and one with a cover photo and a fundraiser the AI
 passed over), an Instagram Likes box listed nobody, a Facebook friend request met a box of Facebook's the outline
 can't say, and two drafts met a busy AI.
+
+### Events near you on Facebook, once a week (0.150.0)
+
+The owner's pick 7a of 20 Nov 2026 (docs/outreach.md, decision 188): "Local Facebook events: read once a week like
+Alignable's, and the hosts and people going get the AI's check, with nothing pressed, plus a Today card listing the
+events so you can go in person."
+
+- **Once a week, before the followers and the day's checks** (`events` in `DAILY_JOBS`, `readFacebookEvents` in
+  `src/jobs/events.ts`): HandsFreeOS says whether it's due and what to search for (core's `outreach.events.next` with
+  `platform: 'facebook'`: "networking Boise, ID", then "business Boise, ID", from the person's town or the business's
+  address). With no town known it says how to set one and tries next time.
+- **Facebook's event search** (`/search/events/?q=…`, `readEventCards` in `src/networks/facebook/events.ts`): each event
+  once by its own page (`eventFromUrl`), with its name and what its card says of when and where. Up to 5 coming up that
+  weren't read before are opened, 15 to 30 seconds apart.
+- **Each event's page** (`readEventPage`, page kind `event`): its name, its day's line in everyday capitals with the
+  moment it starts (`src/networks/event-when.ts`), its place, its hosts (the "Event by …" line and Meet your hosts) and
+  the guests its page shows, read a screen or two down. Nothing is pressed: no Going, Interested, Invite or Share, and no
+  See all.
+- **Sent to HandsFreeOS** (`outreach.events.read` with `events`): the events go on Today's Events near you, and the
+  people who aren't the person's friends are checked by the AI like friends, the good fits going on Today for a friend
+  request. A search with no events, or an event that showed nobody, is noted with its outline.
+- **Alignable's weekly read sends its events too** (`alignableEventSeen` in `src/jobs/alignable/events.ts`): name, its
+  card's line as when or where, and its hosts, so Alignable's events show on Today the same way.
+- **Check Facebook** opens an event search and its first event, and notes how many events and people each showed.
+
+### Referrals done for you on Facebook (0.149.0)
+
+The owner's picks of 18 and 20 Nov 2026 (docs/outreach.md, decision 185): under Autopilot, a referral on a Facebook post
+goes without an OK, and one the person OK'd with **Do it for me** on Today goes the same way.
+
+- **One a go, in the working hours** (`referNext` in `src/auto/run.ts`): the runner asks HandsFreeOS for what's due
+  (core's `outreach.referrals.due`) every half hour (`REFER_AGAIN_MS`, `referDue` in `src/auto/plan.ts`) and does the
+  first: a referral, else an ask after two. One done is a step, with a person's pace after it.
+- **The comment tags whom it names** (`writeTaggedComment` and `typeTagging` in `src/networks/facebook/auto.ts`, the
+  tab's `hfos-tag-comment`): the words before their name, then @ and their whole name, and the row of Facebook's list
+  that shows it is picked; then the rest. When no row shows their name, or picking it didn't take, what was typed for
+  the tag is taken back out a character at a time and their name goes as the comment said it (the owner's 1a). Where
+  in the comment their name is comes from core's `mentionParts`.
+- **Noted as a comment** on the post's writer, so it counts toward the day's comments (2a); HandsFreeOS keeps it as
+  posted at once (`more`), so a computer that stops before the heads-up never posts the comment twice.
+- **The heads-up, then** in their chat, typed as an OK'd message is (`typeMessage`, shared with `sendMessage` now), and
+  noted as a message. None when they had one this week.
+- **How it went** goes to HandsFreeOS (`outreach.referral.posted`, `outreach.refer_ask.sent`): what couldn't go waits on
+  Today for the person, with why; a post that doesn't let them comment is put aside.
 
 ### LinkedIn reads 40 profiles a day at most, a minute or two apart (0.148.1)
 

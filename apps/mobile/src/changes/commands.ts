@@ -429,7 +429,11 @@ import {
   HelpfulPostedInput,
   HelpfulSkipInput,
 } from '@hfos/core/addons/outreach/helpful';
+import { EventSkipInput, EventSkipOutput } from '@hfos/core/addons/outreach/events-near';
 import {
+  ReferAskAnswerInput,
+  ReferAskChangeOutput,
+  ReferralApproveInput,
   ReferralChangeOutput,
   ReferralDoneInput,
   ReferralSkipInput,
@@ -791,6 +795,10 @@ export const PHONE_COMMANDS = {
   // Refer someone on Today (decision 174): done by hand, or put aside, with signal.
   'outreach.referral.done': command(ONLINE, ReferralDoneInput, ReferralChangeOutput),
   'outreach.referral.skip': command(ONLINE, ReferralSkipInput, ReferralChangeOutput),
+  'outreach.referral.approve': command(ONLINE, ReferralApproveInput, ReferralChangeOutput),
+  // Not going: an event near them off Today (decision 188).
+  'outreach.event.skip': command(ONLINE, EventSkipInput, EventSkipOutput),
+  'outreach.refer_ask.answer': command(ONLINE, ReferAskAnswerInput, ReferAskChangeOutput),
   // Later, or Take off Later, from the person menu on a name (decision 100): with signal, as Mark as client is.
   'outreach.later.set': command(ONLINE, LaterSetInput, LaterSetOutput),
   'outreach.hands.take': command(ONLINE, HandsTakeInput, HandsTakeOutput),

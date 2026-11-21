@@ -21,6 +21,7 @@ import type {
   PostsAnswer,
   PostsAsk,
   AutoAsk,
+  TagCommentAsk,
   BrowseAnswer,
   BrowseAsk,
   ConnectAsk,
@@ -375,6 +376,7 @@ export class WorkTab {
   async ask(message: PostLinksAsk): Promise<PostLinksAnswer>;
   async ask(message: PostsAsk): Promise<PostsAnswer>;
   async ask(message: AutoAsk): Promise<AutoAnswer>;
+  async ask(message: TagCommentAsk): Promise<AutoAnswer>;
   async ask(message: ConnectAsk): Promise<AutoAnswer>;
   async ask(message: AnswerRequestAsk): Promise<AutoAnswer>;
   async ask(message: OpenMessageAsk): Promise<OpenMessageAnswer>;
@@ -403,6 +405,7 @@ export class WorkTab {
     message:
       | FetchAsk
       | AutoAsk
+      | TagCommentAsk
       | ConnectAsk
       | AnswerRequestAsk
       | OpenMessageAsk

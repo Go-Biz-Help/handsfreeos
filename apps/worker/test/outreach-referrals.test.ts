@@ -1,9 +1,10 @@
 /**
  * Social Outreach in the worker: referring the people the owner has really talked with on posts asking for a
- * recommendation (docs/outreach.md, decision 174). A post the check says asks for one queues one look; the stand-in
- * model picks someone who wrote back at least twice and does what's asked, then writes the comment and the heads-up
- * with the post's link; it waits on Today and the phone hears of it once. Nobody who wrote back once, was marked not a
- * fit, or whose playbook has the switch off is referred.
+ * recommendation (docs/outreach.md, decisions 174 and 185). A post the check says asks for one queues one look; the
+ * stand-in model picks someone who wrote back at least twice and does what's asked, then writes the comment and the
+ * heads-up with the post's link; it waits on Today and the phone hears of it once. Nobody who wrote back once, was
+ * marked not a fit, or whose playbook has the switch off is referred. Referred again within the week, it's the comment
+ * alone; referred twice, a short ask once the chat has been quiet three days.
  */
 import { randomUUID } from 'node:crypto';
 import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
@@ -14,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { run } from '../../../packages/core/test/calendar-helpers';
 import { outreachBusiness, runAs } from '../../../packages/core/test/addons/outreach-fixture';
 import { addonJobs, withAddons } from '../src/addons/index';
-import { FIND_REFERRAL_JOB } from '../src/addons/outreach/referrals';
+import { FIND_REFERRAL_JOB, REFER_ASK_JOB } from '../src/addons/outreach/referrals';
 import { scriptedAi } from '../src/ai/scripted';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
@@ -143,6 +144,7 @@ const referrals = (ws: string) =>
       referrals: {
         name: string;
         asks: string | null;
+        referralId: string;
         comment: string;
         note: string;
         postUrl: string;
@@ -245,5 +247,92 @@ describe('referring someone on a post asking for a recommendation', () => {
     });
     await drain(s, off.ws);
     expect(await referrals(off.ws)).toEqual([]);
+  });
+
+  it('refers someone again with the comment alone, and asks them back once the chat is quiet', async () => {
+    const s = testServices({ ai: { provider: scriptedAi() } });
+    const { ws, playbookId } = await business('Outreach Refer Ask Co');
+    const dana = await talkedWith(
+      ws,
+      playbookId,
+      'dana.r4',
+      'Dana Reyes',
+      ['Owner at Reyes Roofing, Boise'],
+      2,
+    );
+    const asking = 'Can anyone recommend a good roofer in Boise?';
+    await runAs(owner, ws, 'outreach.posts.save', {
+      group,
+      found: 'scroll',
+      posts: [post(4, asking)],
+    });
+    await drain(s, ws);
+    const [first] = await referrals(ws);
+    expect(first).toMatchObject({ name: 'Dana Reyes', note: expect.stringContaining('Hey Dana') });
+    await runAs(owner, ws, 'outreach.referral.done', { referralId: first!.referralId });
+    await drain(s, ws);
+    const asked = () =>
+      rows<{ n: number }>(
+        admin(),
+        sql`select count(*)::int as n from app.scheduled_jobs where workspace_id = ${ws} and kind = ${REFER_ASK_JOB}`,
+      ).then((r) => r[0]!.n);
+    // Once isn't twice.
+    expect(await asked()).toBe(0);
+
+    // Referred again the same week: the comment alone, no second heads-up.
+    await runAs(owner, ws, 'outreach.posts.save', {
+      group,
+      found: 'scroll',
+      posts: [post(5, asking)],
+    });
+    await drain(s, ws);
+    const [second] = await referrals(ws);
+    expect(second).toMatchObject({ name: 'Dana Reyes', postUrl: post(5, '').url, note: null });
+    await runAs(owner, ws, 'outreach.referral.done', { referralId: second!.referralId });
+    await drain(s, ws);
+    expect(await asked()).toBe(1);
+    const due = () =>
+      rows(
+        admin(),
+        sql`update app.scheduled_jobs set run_at = now()
+            where workspace_id = ${ws} and kind = ${REFER_ASK_JOB} and status = 'pending'`,
+      );
+    const asks = () =>
+      runAs(owner, ws, 'outreach.referrals', {}).then(
+        (r: { asks: { name: string; referred: number; text: string; state: string }[] }) => r.asks,
+      );
+    // The heads-up went today, so the chat isn't quiet: it looks again three days on.
+    await due();
+    await drain(s, ws);
+    expect(await asks()).toEqual([]);
+    const [later] = await rows<{ run_at: Date | string }>(
+      admin(),
+      sql`select run_at from app.scheduled_jobs where workspace_id = ${ws} and kind = ${REFER_ASK_JOB}
+            and status = 'pending'`,
+    );
+    expect(new Date(later!.run_at).getTime()).toBeGreaterThan(Date.now() + 3 * 24 * 3_600_000);
+
+    // Quiet three days: the note is written, waits on Today, and the phone hears of it once.
+    await rows(
+      admin(),
+      sql`update addon_outreach.referrals set noted_at = now() - interval '4 days'
+          where workspace_id = ${ws} and profile_id = ${dana}`,
+    );
+    await due();
+    await drain(s, ws);
+    expect(await asks()).toEqual([
+      expect.objectContaining({ name: 'Dana Reyes', referred: 2, state: 'waiting' }),
+    ]);
+    const [note] = await asks();
+    expect(note!.text).toMatch(/^Hey Dana, /);
+    expect(note!.text).not.toMatch(/\[[^\]]+\]/);
+    expect(note!.text).not.toContain(group.name);
+    expect((await pushes(ws)).filter((p) => p.title.startsWith('Ask '))).toEqual([
+      {
+        title: 'Ask Dana Reyes to send people your way',
+        body: 'You’ve referred them twice. A short note asking them back is ready on Today.',
+        path: `/app/w/${ws}/a/outreach?view=today`,
+      },
+    ]);
   });
 });

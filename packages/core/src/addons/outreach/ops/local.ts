@@ -232,15 +232,28 @@ export const locationGet = defineAddonQuery(outreachAddon, {
   },
 });
 
-async function locationShown(ctx: Ctx, userId: string): Promise<LocationShown> {
-  const local = await localOf(ctx, userId);
-  const near = local.town ? townsNear(local.town, local.radiusMiles) : [];
+/** The town the business's own address names, as a known town: where the person starts till they set theirs. */
+async function businessTown(ctx: Ctx): Promise<string | null> {
   const [ws] = await rows<{ settings: Record<string, unknown> | null }>(
     ctx.tx,
     sql`select settings from app.workspaces where id = ${ctx.scope.workspaceId!}`,
   );
   const address = businessAddressOf(ws?.settings ?? null);
-  const suggested = address ? knownTown(townOfArea(`${address.city}, ${address.state}`)) : null;
+  return address ? knownTown(townOfArea(`${address.city}, ${address.state}`)) : null;
+}
+
+/** The person's own town ("Boise, ID"), else the business's address's: null with neither. */
+export async function ownArea(ctx: Ctx, userId: string): Promise<string | null> {
+  const local = await localOf(ctx, userId);
+  if (local.area) return local.area;
+  const town = await businessTown(ctx);
+  return town ? areaOfTown(town) : null;
+}
+
+async function locationShown(ctx: Ctx, userId: string): Promise<LocationShown> {
+  const local = await localOf(ctx, userId);
+  const near = local.town ? townsNear(local.town, local.radiusMiles) : [];
+  const suggested = await businessTown(ctx);
   return {
     area: local.area,
     suggested: suggested ? areaOfTown(suggested) : null,

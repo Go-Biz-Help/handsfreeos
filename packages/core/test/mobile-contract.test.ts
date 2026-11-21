@@ -155,6 +155,11 @@ const ONLINE_COMMANDS = [
   // Refer someone you've talked with on Today (decision 174): I did both, or Not this one.
   'outreach.referral.done',
   'outreach.referral.skip',
+  // ... or Do it for me, and the ask after two referrals answered (decision 185).
+  'outreach.referral.approve',
+  'outreach.refer_ask.answer',
+  // Not going: an event near them off Today (decision 188).
+  'outreach.event.skip',
   // Letting the browser extension sign in by picking its number, from the push (20261027002910).
   'extension_sign_in.answer',
   // Get ready on Today (decision 63): a profile item ticked, the goal set, and the messages OK'd.

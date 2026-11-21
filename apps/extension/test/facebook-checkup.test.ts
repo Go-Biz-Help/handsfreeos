@@ -79,6 +79,10 @@ function facebookPage(
   if (url === MESSENGER) return { fixture: 'chat-2026.html', at: url };
   if (url === `${FB}/notifications`) return { fixture: 'notifications.html', at: url };
   if (url === BIRTHDAYS_PAGE) return { fixture: 'birthdays-2026-10.html', at: url };
+  // An event search and its first event (decision 188).
+  if (url.startsWith(`${FB}/search/events/`))
+    return { fixture: 'facebook-event-search-2026-11.html', at: url };
+  if (classifyUrl(url).kind === 'event') return { fixture: 'facebook-event-2026-11.html', at: url };
   if (url === DOWNLOAD_PAGE) return { html: PAGES_HERE.file! };
   if (classifyUrl(url).kind === 'profile') return { fixture: 'profile-2026.html', at: url };
   throw new Error(`Not expected: ${url}`);
@@ -257,10 +261,13 @@ describe('Check Facebook', () => {
     expect(opened).toContain(`${FB}/search/people/?q=small%20business`);
     expect(opened).toContain(`${FB}/search/groups/?q=small%20business`);
     expect(opened).toContain(`${FB}/groups/plumbersofaustin/`);
-    expect(opened.slice(-5)).toEqual([
+    expect(opened.slice(-7)).toEqual([
       expect.any(String),
       `${FB}/notifications`,
       BIRTHDAYS_PAGE,
+      // An event search and its first event, read and nothing pressed (decision 188).
+      `${FB}/search/events/?q=business%20networking`,
+      `${FB}/events/1000001/`,
       USERNAME_PAGE,
       DOWNLOAD_PAGE,
     ]);

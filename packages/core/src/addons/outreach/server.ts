@@ -49,6 +49,7 @@ import { townQueries } from './ops/towns';
 import { localCommands, localQueries } from './ops/local';
 import { postCommands, postQueries } from './ops/posts';
 import { referralCommands, referralQueries } from './ops/referrals';
+import { callCommands } from './ops/calls';
 import { handsCommands, handsQueries } from './ops/in-hands';
 import { commentReplyCommands } from './ops/comment-replies';
 import { todayQueries } from './ops/today';
@@ -95,6 +96,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...groupCheckCommands,
     ...helpfulCommands,
     ...referralCommands,
+    ...callCommands,
     ...handsCommands,
     ...countryCommands,
     ...localCommands,
@@ -204,6 +206,9 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.active.next': EXTENSION,
     'outreach.active.reply': EXTENSION,
     'outreach.finds.towns': EXTENSION,
+    'outreach.referrals.due': EXTENSION,
+    'outreach.referral.posted': EXTENSION,
+    'outreach.refer_ask.sent': EXTENSION,
     'outreach.comment_research.next': EXTENSION,
     'outreach.comment_research.save': EXTENSION,
     'outreach.comment_research.get': RESEARCH,
