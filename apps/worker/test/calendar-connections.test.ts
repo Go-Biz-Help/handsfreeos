@@ -91,7 +91,7 @@ let outlookId: string;
 let s: TestServices;
 let app: FastifyInstance;
 
-/** An hour `days` from now (UTC): inside the 60 days read ahead, never in the past. */
+/** An hour `days` from now (UTC), never in the past. Up to 60 days is inside what's always read ahead. */
 const at = (days: number, hour: number, minute = 0) => {
   const d = new Date(Date.now() + days * 86_400_000);
   d.setUTCHours(hour, minute, 0, 0);
@@ -484,6 +484,34 @@ describe('busy times', () => {
       span(at(3, 13, 30), at(3, 14)),
     ]);
     expect((await connection(googleId)).busySyncedAt).not.toBeNull();
+  });
+
+  it('reads as far ahead as the longest booking window that person is on', async () => {
+    // Past the usual 60 days nothing is read.
+    await addBusy(google, at(75, 10), at(75, 11));
+    await refreshNow(googleId);
+    expect(await blocks(googleId)).not.toContainEqual(span(at(75, 10), at(75, 11)));
+    // Dale joins a calendar customers book 90 days ahead on: his vacation on day 75 has to block it.
+    const [quarterly] = await worker((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.calendars (workspace_id, name, slug, status, config)
+            values (${workspaceId}, 'Quarterly service', ${`quarterly-${token()}`}, 'active',
+              ${JSON.stringify({ window: { maxDaysAhead: 90 }, team: { members: [{ userId: owner.id }] } })}::jsonb)
+            returning id`,
+      ),
+    );
+    await addBusy(google, at(120, 10), at(120, 11));
+    await refreshNow(googleId);
+    const read = await blocks(googleId);
+    expect(read).toContainEqual(span(at(75, 10), at(75, 11)));
+    expect(read).not.toContainEqual(span(at(120, 10), at(120, 11)));
+    // Once that calendar is archived, the read goes back to 60 days.
+    await worker((tx) =>
+      tx.execute(sql`update app.calendars set status = 'archived' where id = ${quarterly!.id}`),
+    );
+    await refreshNow(googleId);
+    expect(await blocks(googleId)).not.toContainEqual(span(at(75, 10), at(75, 11)));
   });
 
   it('Sync now reads them again right away, and only for your own calendar', async () => {

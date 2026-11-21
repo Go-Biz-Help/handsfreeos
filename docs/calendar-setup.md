@@ -254,7 +254,7 @@ says the real providers are on — production always uses them. These steps chec
 9. `fly logs --app handsfreeos-worker --no-tail` should show no `a calendar did not connect`,
    `calendar refresh failed` or `calendar write-through failed`.
 
-Busy times are read every 10 minutes after that, 60 days ahead, and at once on **Sync now**.
+Busy times are read every 10 minutes after that, 60 days ahead, and at once on **Sync now**. For someone on a calendar that books further ahead than 60 days, they are read as far ahead as that calendar books.
 
 ---
 
