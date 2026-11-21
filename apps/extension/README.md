@@ -1274,7 +1274,19 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
-<<<<<<< HEAD
+### An Instagram reel made with others, its account Verified (0.148.2)
+
+A visit's like on a reel someone made with other accounts never went when the reel's account was Verified (the owner's
+problem reports of 15 and 20 Nov 2026, "Couldn’t like (their name)’s post on this visit"). The reels player writes
+"<account> ✓ and 2 others" over the reel, and Instagram draws the tick with its own title inside it
+(`<title>Verified</title>`), so the tick read as words between the account and "and", and the reel was taken for
+someone else's. From 0.148.2 an icon's title is passed over (`wordsOf` in `src/networks/instagram/read.ts`), and the
+reel off their grid is liked, as one with no tick already was (0.140.2).
+
+The same morning's other reports aren't changed: two Facebook warm-ups found nothing right to like (a profile whose
+only posts were a cover photo and a profile picture with no Like, and one with a cover photo and a fundraiser the AI
+passed over), an Instagram Likes box listed nobody, a Facebook friend request met a box of Facebook's the outline
+can't say, and two drafts met a busy AI.
 
 ### LinkedIn reads 40 profiles a day at most, a minute or two apart (0.148.1)
 
@@ -1312,7 +1324,6 @@ Two of the owner's problem reports of 19 Nov 2026 (0.147.11):
 
 The third report that day, "Nobody read in the post’s Likes box.", isn't changed: the box showed only the person
 themselves, who liked the post, with Instagram's line about two more it didn't list.
-=======
 
 ### Warm-up visits before the first message (0.148.0)
 
@@ -1322,8 +1333,6 @@ before Say hi, as someone deciding on a request does: Today lists a `warm_up` wi
 visits their page and likes 1 or 2 of their newest posts. From 0.148.0 the activity line says "before your first
 message" for those, not "while they decide on your request" (`visitLine` in core's `keep-warm.ts`). An older build does
 the same visits with the old line.
-
-> > > > > > > origin/main
 
 ### A song on a post read as a Facebook warning (0.147.14)
 

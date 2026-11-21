@@ -629,6 +629,21 @@ export function authorOf(root: Element, base: string, code: string): Account | n
   return null;
 }
 
+/**
+ * What a part of the page says outside its icons. Instagram draws each icon with its own title inside it (Verified's
+ * `<title>Verified</title>`), which is the icon's name, not words beside it (the owner's problem reports of 15 and 20
+ * Nov 2026: a reel made with others, its account Verified, never took a like, as the tick was read as words).
+ */
+function wordsOf(part: Element): string {
+  if (part.localName === 'svg') return '';
+  let words = '';
+  for (const node of part.childNodes) {
+    if (node.nodeType === 1) words += wordsOf(node as Element);
+    else if (node.nodeType === 3) words += node.nodeValue ?? '';
+  }
+  return clean(words);
+}
+
 /** The word between a post's accounts when they made it together, as its header writes it: "<name> and <name>". */
 const AND = /^and$/i;
 /** How far out from its author's link the "and" after it is looked for. */
@@ -655,10 +670,10 @@ export function madeWithOf(
       at = at.parentElement, steps++
     ) {
       let next = at.nextElementSibling;
-      while (next && !clean(next.textContent)) next = next.nextElementSibling;
+      while (next && !wordsOf(next)) next = next.nextElementSibling;
       if (!next || next.children.length || !AND.test(clean(next.textContent))) continue;
       let other = next.nextElementSibling;
-      while (other && !clean(other.textContent)) other = other.nextElementSibling;
+      while (other && !wordsOf(other)) other = other.nextElementSibling;
       const link = other?.matches('a[href]') ? other : other?.querySelector('a[href]');
       const named = link ? accountLinked(link, base) : null;
       if (named) names.push(named.username);
