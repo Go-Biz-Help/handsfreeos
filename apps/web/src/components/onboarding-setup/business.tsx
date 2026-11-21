@@ -9,10 +9,10 @@ import {
   industriesForPicker,
   ONBOARDING_PICKER,
   ONBOARDING_SETUP_WORDS as W,
+  onboardingSetupTimeZoneLine,
   pickerKeyOf,
   US_STATES,
   US_TIME_ZONES,
-  usTimeZoneLabel,
   withAiName,
   withBusinessAddress,
   type AiSetupProblems,
@@ -77,6 +77,7 @@ export function BusinessScreen({
         problems={problems}
       />
       <TimeZoneLine
+        line={onboardingSetupTimeZoneLine(business)}
         timeZone={business.timeZone}
         picked={business.timeZonePicked}
         onPick={(timeZone) => onChange({ ...business, timeZone, timeZonePicked: true })}
@@ -268,10 +269,13 @@ function AddressFields({
 
 /** "Central time, from your address." with Change, or the pick once someone made their own. */
 function TimeZoneLine({
+  line,
   timeZone,
   picked,
   onPick,
 }: {
+  /** The zone and where it came from: "from your address" only once an address gives one. */
+  line: string;
   timeZone: string;
   picked: boolean;
   onPick: (timeZone: string) => void;
@@ -283,7 +287,7 @@ function TimeZoneLine({
         className="-mt-1 flex flex-wrap items-center gap-x-2 text-[13.5px] text-text-2"
         data-testid="setup-time-zone"
       >
-        {W.timeZoneFromAddress(usTimeZoneLabel(timeZone))}
+        {line}
         <button
           type="button"
           onClick={() => setChanging(true)}
