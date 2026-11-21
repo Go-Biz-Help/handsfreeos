@@ -10125,10 +10125,10 @@ You should see an email from PayPal's partner team. Until then, the live REST ap
 
 HandsFreeOS's own PayPal merchant id tells PayPal which partner a business is connecting to.
 
-**Sandbox** (do this now):
+**Sandbox** (do this right after Part 3, which makes the account):
 
-1. In the developer dashboard, open **Testing Tools** → **Sandbox Accounts**.
-2. Find the **Business** account PayPal made for you (its email ends in `@business.example.com`).
+1. Making the sandbox app as a **Platform** in Part 3 makes a new sandbox **Business** account for it. That account plays HandsFreeOS. The Business account PayPal made for you when you signed up does not: it can play a business that connects (Part 5).
+2. In the developer dashboard, open **Testing Tools** → **Sandbox Accounts** and find the account the Platform app made (its email ends in `@business.example.com`; it is the newest Business account).
 3. Press the **⋮** menu beside it, then **View/Edit account**.
 4. Copy the **Account ID**. It is 13 letters and numbers.
 5. Save it in your password manager as "PayPal sandbox", under merchant id.
@@ -10144,7 +10144,7 @@ HandsFreeOS's own PayPal merchant id tells PayPal which partner a business is co
 
 1. Sign in at `https://developer.paypal.com` and open **Apps & Credentials**.
 2. Set the switch at the top to **Sandbox**.
-3. Press **Create App**. Name it `HandsFreeOS`. For the type, pick **Platform** if PayPal offers it, otherwise **Merchant**. Pick your sandbox business account from Part 2, then press **Create App**.
+3. Press **Create App**. Name it `HandsFreeOS` and pick **Platform**: only a Platform app can connect other businesses' PayPal accounts, and a **Merchant** app takes money only for itself. PayPal makes a new sandbox business account for a Platform app, so it can't be tied to one you already have. Press **Create App**, then do the Sandbox half of PayPal Part 2 for that new account's id.
 4. Copy the **Client ID**.
 5. Under **Secret key 1**, press **Show** and copy the secret.
 6. Save both in your password manager as "PayPal sandbox", under client id and secret. **The secret can move money in every connected business's account.** It goes on the worker and nowhere else.
