@@ -35,6 +35,7 @@ import { CHECK_PARTNERS_JOB, checkPartnersJob, partnerLooked } from './partners'
 import { countriesWanted, GUESS_COUNTRIES_JOB, guessCountriesJob } from './countries';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
+import { CALL_PREP_JOB, callBooked, callPrepJob, callRescheduled } from './calls';
 import { appointmentCompleted, leadWanted } from './leads';
 import {
   CHECK_GROUPS_JOB,
@@ -53,7 +54,15 @@ import {
   recheckGoodPosts,
 } from './posts';
 import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
-import { FIND_REFERRAL_JOB, findReferralJob, referralFound } from './referrals';
+import {
+  FIND_REFERRAL_JOB,
+  findReferralJob,
+  REFER_ASK_JOB,
+  referAskFound,
+  referAskJob,
+  referralDone,
+  referralFound,
+} from './referrals';
 import { LIKE_PICK_ACTION, likePick } from './likes';
 import {
   HELPER_LOOK_ACTION,
@@ -189,6 +198,9 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // A post asking for what the business offers pushes to the person who found it at once (./posts.ts, decision 49).
     'outreach.post.checked': postChecked,
     'outreach.referral.found': referralFound,
+    // Referred twice: the ask that they send people the person's way too, three days on (decision 185).
+    'outreach.referral.done': referralDone,
+    'outreach.refer_ask.found': referAskFound,
     // Someone who said yes to a demo under the person's comment on Threads or X pushes at once (./posts.ts, 163).
     'outreach.comment.replied': commentReplied,
     // Friends and people chatted with, read off their pages, wait for the AI's check of them (./checks.ts).
@@ -212,7 +224,9 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.friends.saved': countriesWanted,
     // Someone accepting the person's friend request pushes to their phone, when they switched that on (./alerts.ts).
     'outreach.friend.accepted': requestAccepted,
-    'appointment.booked': appointmentBooked,
+    // A networking call booked, or moved, has its prep push half an hour before it (./calls.ts, decision 187).
+    'appointment.booked': both(appointmentBooked, callBooked),
+    'appointment.rescheduled': callRescheduled,
     // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's
     // pruning armed (./live.ts).
     'outreach.warning.seen': warningSeen,
@@ -261,6 +275,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [READ_CHATS_JOB]: readChatsJob,
     [CHECK_POSTS_JOB]: checkPostsJob,
     [FIND_REFERRAL_JOB]: findReferralJob,
+    [REFER_ASK_JOB]: referAskJob,
+    [CALL_PREP_JOB]: callPrepJob,
     [CHECK_PEOPLE_JOB]: checkPeopleJob,
     [CHECK_PARTNERS_JOB]: checkPartnersJob,
     [CHECK_GROUPS_JOB]: checkGroupsJob,

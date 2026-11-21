@@ -782,6 +782,8 @@ describe('registry', () => {
       'form_response.submit',
       'form_response.record',
       'form_response.delete',
+      'form_response.upload_begin',
+      'form_response.upload_confirm',
       'number_port.start',
       'number_port.save',
       'number_port.begin_upload',

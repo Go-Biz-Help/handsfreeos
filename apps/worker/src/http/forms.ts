@@ -17,6 +17,8 @@ import {
   formResponseSaveContact,
   formResponseStart,
   formResponseSubmit,
+  formResponseUploadBegin,
+  formResponseUploadConfirm,
   HfosError,
   knownTargetsOf,
   linkRefOf,
@@ -98,6 +100,25 @@ const SubmitBody = z.object({
   website: z.string().max(200).optional(),
   turnstileToken: z.string().max(2048).optional(),
 });
+
+/** A file for a file question: its place is kept on the sheet, then the browser puts it there (product sellers, 5a). */
+const UploadBody = z.object({
+  token: z.string().min(10).max(200),
+  questionId: z.string().max(40),
+  name: z.string().max(200),
+  mimeType: z.string().max(120),
+  sizeBytes: z.number().int().min(0),
+});
+
+const ConfirmBody = z.object({ token: z.string().min(10).max(200) });
+
+/** What a decoy sheet (the honeypot's) is told when it tries to add a file: nothing is kept for it. */
+const decoyUpload = () =>
+  HfosError.rule(
+    'form_upload_unavailable',
+    409,
+    'We couldn’t add that file. Refresh the page and try again.',
+  );
 
 const KEY_RE = /^[A-Za-z0-9_-]{20,200}$/;
 const keyHash = (key: string): Buffer => createHash('sha256').update(key).digest();
@@ -310,6 +331,66 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             answers: body.answers,
             askAgain: body.askAgain,
             ...(body.pageId ? { pageId: body.pageId } : {}),
+          },
+          { type: 'system', ...scope },
+          meta(),
+        );
+        return output;
+      },
+    );
+
+    /**
+     * Adding a file to a file question: the kernel keeps its place on the sheet, and the browser gets a one-time
+     * link to put it there for two hours; then `…/uploads/:fileId/confirm` checks what arrived. Only the sheet's key
+     * does either, and a file is only ever sent with the sheet that uploaded it.
+     */
+    pub.post<{ Params: { site: string; slug: string; responseId: string }; Body: unknown }>(
+      '/public/form/:site/:slug/:responseId/uploads',
+      { config: { rateLimit: limits.write } },
+      async (req) => {
+        const body = UploadBody.parse(req.body ?? {});
+        if (body.token === DECOY_TOKEN) throw decoyUpload();
+        const row = await findForm(req.params.site, req.params.slug);
+        const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
+        const { output } = await executeCommand(
+          deps.httpDb,
+          formResponseUploadBegin,
+          {
+            workspaceId: row.workspace_id,
+            responseId: req.params.responseId,
+            token: body.token,
+            questionId: body.questionId,
+            name: body.name,
+            mimeType: body.mimeType,
+            sizeBytes: body.sizeBytes,
+          },
+          { type: 'system', ...scope },
+          meta(),
+        );
+        const uploadUrl = await deps.store.signedUploadUrl(output.bucket, output.objectPath);
+        return { fileId: output.fileId, uploadUrl };
+      },
+    );
+
+    pub.post<{
+      Params: { site: string; slug: string; responseId: string; fileId: string };
+      Body: unknown;
+    }>(
+      '/public/form/:site/:slug/:responseId/uploads/:fileId/confirm',
+      { config: { rateLimit: limits.write } },
+      async (req) => {
+        const body = ConfirmBody.parse(req.body ?? {});
+        if (body.token === DECOY_TOKEN) throw decoyUpload();
+        const row = await findForm(req.params.site, req.params.slug);
+        const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
+        const { output } = await executeCommand(
+          deps.httpDb,
+          formResponseUploadConfirm,
+          {
+            workspaceId: row.workspace_id,
+            responseId: req.params.responseId,
+            token: body.token,
+            fileId: req.params.fileId,
           },
           { type: 'system', ...scope },
           meta(),

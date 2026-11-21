@@ -1,8 +1,8 @@
-import { ABOUT_YOU_MOST, ABOUT_YOU_WORDS as W } from '@hfos/core';
+import { ABOUT_YOU_INTERVIEW_WORDS as IW, ABOUT_YOU_MOST, ABOUT_YOU_WORDS as W } from '@hfos/core';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { CloudOff, Lock } from '@/components/icons';
+import { CloudOff, Lock, MessageCircleQuestionMark } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Button } from '@/components/ui/button';
@@ -13,11 +13,13 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { useNetwork } from '@/lib/network';
+import { AboutYouInterview } from '@/settings/about-you-interview';
 
 /**
  * About you (docs/outreach.md, decision 165), as on the web's Settings → Account: one box in the person's own words
  * for every AI that writes as them, with what's worth saying under it. Theirs alone, so it's never kept in the phone's
- * copy: it's read and saved with signal. Empty and saved, it's cleared.
+ * copy: it's read and saved with signal. Empty and saved, it's cleared. Answer a few questions (decision 186) asks them
+ * one at a time and fills the box from the answers, unsaved.
  */
 export default function AboutYou() {
   const { business } = useBusiness();
@@ -26,6 +28,7 @@ export default function AboutYou() {
   const [about, setAbout] = React.useState('');
   const [failed, setFailed] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const [asking, setAsking] = React.useState(false);
 
   const load = React.useCallback(() => {
     setFailed(false);
@@ -80,6 +83,32 @@ export default function AboutYou() {
               </Button>
             ) : null}
           </View>
+        </View>
+      ) : null}
+
+      {saved !== null && asking ? (
+        <AboutYouInterview
+          workspaceId={business.id}
+          about={about}
+          online={online}
+          onWritten={(written) => {
+            setAbout(written);
+            setAsking(false);
+          }}
+          onClose={() => setAsking(false)}
+        />
+      ) : saved !== null ? (
+        <View className="gap-1.5">
+          <Button
+            variant="secondary"
+            icon={MessageCircleQuestionMark}
+            onPress={() => setAsking(true)}
+            disabled={!online}
+            testID="about-you-interview-start"
+          >
+            {IW.start}
+          </Button>
+          <Text className="px-0.5 text-[12.5px] leading-[18px] text-text-3">{IW.startHint}</Text>
         </View>
       ) : null}
 

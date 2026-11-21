@@ -3,7 +3,7 @@
  * out. The form itself is read on the server; starting, saving and sending happen from the customer's own
  * browser, so the worker's per-address limits count per customer rather than per page.
  */
-import type { AnswerSheet, FormDefinition } from '@hfos/core';
+import { uploadTypeOf, type AnswerFile, type AnswerSheet, type FormDefinition } from '@hfos/core';
 import { notFound } from 'next/navigation';
 import { publicEnv } from '../env';
 import { ApiError } from './errors';
@@ -164,6 +164,77 @@ export const sendSheet = (
     turnstileToken?: string;
   },
 ) => post<SentForm>(`${formPath(site, slug)}/${seg(responseId)}/submit`, body);
+
+/** What a confirmed file came to: Storage's measure of it, or why it wasn't kept. */
+interface ConfirmedUpload {
+  readonly fileId: string;
+  readonly accepted: boolean;
+  readonly refusal: { readonly rule: string; readonly message: string } | null;
+  readonly name: string;
+  readonly bytes: number;
+}
+
+const STOPPED = 'Your file didn’t finish uploading. Check your connection and try again.';
+
+/** Puts a file at its one-time link, saying how far along it is. */
+function putFile(
+  url: string,
+  file: File,
+  type: string,
+  onProgress: (percent: number) => void,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('content-type', type);
+    xhr.setRequestHeader('x-upsert', 'false');
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.min(99, Math.floor((e.loaded / e.total) * 100)));
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new ApiError(xhr.status, 'internal', STOPPED));
+    xhr.onerror = () => reject(new ApiError(0, 'internal', STOPPED));
+    xhr.onabort = () => reject(new ApiError(0, 'internal', STOPPED));
+    xhr.send(file);
+  });
+}
+
+/**
+ * A file for a file question (product sellers, 5a): its place kept on the sheet, put there, then checked. Resolves
+ * to what the answer keeps; a file the question doesn't take is refused with the words to show beside it.
+ */
+export async function uploadFormFile(
+  site: string,
+  slug: string,
+  responseId: string,
+  token: string,
+  questionId: string,
+  file: File,
+  onProgress: (percent: number) => void = () => {},
+): Promise<AnswerFile> {
+  const path = `${formPath(site, slug)}/${seg(responseId)}/uploads`;
+  const type = uploadTypeOf(file.name, file.type);
+  const begun = await post<{ fileId: string; uploadUrl: string }>(path, {
+    token,
+    questionId,
+    name: file.name,
+    mimeType: type,
+    sizeBytes: file.size,
+  });
+  await putFile(begun.uploadUrl, file, type, onProgress);
+  const done = await post<ConfirmedUpload>(`${path}/${seg(begun.fileId)}/confirm`, { token });
+  if (!done.accepted)
+    throw new ApiError(
+      422,
+      'rule',
+      done.refusal?.message ?? 'That file can’t be added here.',
+      done.refusal?.rule,
+    );
+  onProgress(100);
+  return { fileId: done.fileId, name: done.name, bytes: done.bytes };
+}
 
 export const resumeSheet = (site: string, slug: string, token: string) =>
   call<{ responseId: string; answers: AnswerSheet }>(

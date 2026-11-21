@@ -29,6 +29,7 @@ import {
   type ScoreResult,
 } from './logic';
 import type { FillContext } from './personal';
+import { filesAnswerWords, isAnswerFiles, uploadLimitBytes, uploadMaxFiles } from './uploads';
 import {
   answerIsEmpty,
   CHOICE_TYPES,
@@ -280,12 +281,12 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
       return null;
     }
     case 'file': {
-      if (!Array.isArray(value)) return 'Attach a file.';
-      const files = value as { bytes?: number }[];
-      if (files.length > Number(config.maxFiles)) return `Up to ${config.maxFiles} files.`;
-      const limit = Number(config.maxMb) * 1024 * 1024;
-      return files.some((f) => Number(f.bytes) > limit)
-        ? `Each file under ${config.maxMb}MB.`
+      if (!isAnswerFiles(value)) return 'Add the file again.';
+      const most = uploadMaxFiles(question);
+      if (value.length > most) return most === 1 ? 'Just one file.' : `Up to ${most} files.`;
+      const limit = uploadLimitBytes(question);
+      return value.some((f) => Number(f.bytes) > limit)
+        ? `Each file can be up to ${Math.round(limit / 1024 / 1024)} MB.`
         : null;
     }
     case 'signature': {
@@ -441,6 +442,16 @@ export function recordAnswers(
       };
     }
     const value = state.answers[question.id] ?? null;
+    if (question.type === 'file' && isAnswerFiles(value))
+      // The names, so the phone, the Assistant and search can read what was sent.
+      return {
+        questionId: question.id,
+        title: question.title,
+        type: question.type,
+        value: value.length ? value : null,
+        labels: [],
+        words: filesAnswerWords(value),
+      };
     const labels: string[] = [];
     if (CHOICE_TYPES.has(question.type)) {
       const choices =

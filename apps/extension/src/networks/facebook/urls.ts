@@ -292,6 +292,16 @@ export function postUrlFrom(url: URL): string | null {
   return null;
 }
 
+/**
+ * An event's own page a link points to, made plain (decision 188): /events/<its number>/, without what follows it (a
+ * date of a repeating one, Facebook's tracking). Null for Facebook's own event pages (/events/birthdays, its search).
+ */
+export function eventFromUrl(url: URL): string | null {
+  const [first, second] = pathParts(url);
+  if (first?.toLowerCase() !== 'events' || !second || !/^\d{5,20}$/.test(second)) return null;
+  return `${FACEBOOK}/events/${second}/`;
+}
+
 /** A profile's tab, from /<username>/friends or …?sk=followers. Any other tab (about, photos) is still the profile. */
 function tabKind(tab: string): PageKind {
   const t = tab.toLowerCase();
@@ -330,6 +340,8 @@ export function classifyUrl(href: string): PageAddress {
   if (lower === 'notifications') return { kind: 'notifications', ...none };
   if (lower === 'events' && second?.toLowerCase() === 'birthdays')
     return { kind: 'birthdays', ...none };
+  // An event's own page (decision 188): /events/<its number>/.
+  if (eventFromUrl(url)) return { kind: 'event', ...none };
   if (lower === 'permalink.php' || lower === 'story.php') return { kind: 'post', ...none };
   if (lower === 'profile.php')
     return {

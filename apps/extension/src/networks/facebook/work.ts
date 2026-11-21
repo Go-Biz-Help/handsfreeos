@@ -26,6 +26,7 @@
 import type {
   AutoAnswer,
   AutoAsk,
+  TagCommentAsk,
   BrowseAnswer,
   BrowseAsk,
   CancelSentAnswer,
@@ -67,6 +68,7 @@ import {
   readTheirPosts,
   saysNoPosts,
   writeComment,
+  writeTaggedComment,
   writeMessage,
   type ChatsBefore,
 } from './auto';
@@ -130,7 +132,7 @@ async function cancelSentStep(ask: CancelSentAsk): Promise<CancelSentAnswer> {
 }
 
 /** One of the runner's steps (./auto.ts): a like on someone's profile, a comment on a post, or a message. */
-async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
+async function autoStep(ask: AutoAsk | TagCommentAsk): Promise<AutoAnswer | PostsAnswer> {
   const kind = classifyUrl(location.href).kind;
   if (ask.type === 'hfos-their-posts' || ask.type === 'hfos-like-post') {
     if (kind !== 'profile') return { ok: false, error: 'Facebook didn’t open their profile.' };
@@ -174,6 +176,8 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
     };
   }
   if (kind !== 'post') return { ok: false, error: 'Facebook didn’t open the post.' };
+  if (ask.type === 'hfos-tag-comment')
+    return { ok: true, ...(await writeTaggedComment(document, ask.tag)) };
   return { ok: true, result: await writeComment(document, ask.text) };
 }
 
@@ -414,6 +418,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-group-feed',
   'hfos-like-group-post',
   'hfos-comment',
+  'hfos-tag-comment',
   'hfos-message',
   'hfos-open-message',
   'hfos-join',
@@ -435,6 +440,7 @@ type WorkAsk =
   | CancelSentAsk
   | BrowseAsk
   | AutoAsk
+  | TagCommentAsk
   | GroupFeedAsk
   | GroupLikeAsk
   | OpenMessageAsk
@@ -480,6 +486,7 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-their-posts':
     case 'hfos-like-post':
     case 'hfos-comment':
+    case 'hfos-tag-comment':
     case 'hfos-message':
       return autoStep(known);
     case 'hfos-group-feed':

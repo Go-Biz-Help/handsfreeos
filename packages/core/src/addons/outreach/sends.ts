@@ -321,6 +321,8 @@ export function goesAsItIs(o: {
   readonly autopilot?: boolean;
 }): boolean {
   if (o.wheels || o.sending === 'off') return false;
+  // The thank-you after a networking call waits for the person's OK, Autopilot or not (decision 187, the owner's 5a).
+  if (o.kind === 'thank_you') return false;
   // A partner's messages wait for the person's OK, whatever Sending says (decision 81), and so do another time after
   // a no-show (decision 106) and a birthday or new-job note (decision 108); not under Autopilot (decision 151, answer
   // 1a), where they go as the rest do, to people the person OK'd.

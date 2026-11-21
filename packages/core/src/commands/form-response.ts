@@ -11,11 +11,12 @@
  * the business mapped are filled in, a lead and a task open if it asked for them, its workflows are asked
  * to start, and `form.submitted` goes out for everything else that waits on it.
  */
-import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { and, eq, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import {
   customFields,
+  files,
   formLinks,
   formResponses,
   forms,
@@ -26,10 +27,19 @@ import { HfosError } from '../errors';
 import { bookingLabel, bookingPicked, type BookingAnswer } from '../forms/booking';
 import {
   allQuestions,
+  findQuestion,
   type FormDefinition,
   type FormResult,
   type Question,
 } from '../forms/definition';
+import type { AnswerFile } from '../forms/questions';
+import {
+  FORM_UPLOADS_PER_SHEET,
+  formUploadFolder,
+  isAnswerFiles,
+  uploadMaxFiles,
+  uploadRefusal,
+} from '../forms/uploads';
 import { loadForm, parseStoredForm } from '../forms/load';
 import { runCalculations, scoreAnswers, type AnswerSheet } from '../forms/logic';
 import { choiceValues } from '../forms/definition';
@@ -53,6 +63,7 @@ import {
   writeFormAnswers,
 } from '../forms/submit';
 import { insertWithId } from '../crm/client-ids';
+import { safeFileName } from '../crm/records';
 import { otherPhonesOf } from '../crm/contact-points';
 import { normalizePhone } from '../crm/phone';
 import { findOrCreateCustomer, intakeSourceOf, takeIntakeSlot } from '../crm/intake';
@@ -81,6 +92,10 @@ import {
   FormStartOutput,
   FormSubmitInput,
   FormSubmitOutput,
+  FormUploadBeginInput,
+  FormUploadBeginOutput,
+  FormUploadConfirmInput,
+  FormUploadConfirmOutput,
 } from '../schemas/form';
 import { AppointmentBookOnlineInput } from '../schemas/calendar';
 import { appointmentBookOnline } from './appointment-online';
@@ -985,6 +1000,9 @@ export const formResponseSubmit = defineCommand({
     'task.created',
     'invoice.created',
     'workflow.enrol_requested',
+    // The files they added, copied onto the customer; and any they added then took back, removed.
+    'file.received',
+    'file.deleted',
   ],
   actors: ['system', 'ai_employee'],
   async handler(ctx, input) {
@@ -1016,6 +1034,15 @@ export const formResponseSubmit = defineCommand({
         { problems },
         'form_answers_invalid',
       );
+
+    // Files they added: each must be one this sheet uploaded to that question, and the answer keeps Storage's size.
+    const sent = await sentFiles(ctx, {
+      formId: form.id,
+      responseId: response.id,
+      definition,
+      answers,
+    });
+    answers = sent.answers;
 
     // A time to book (funnels): the calendar it's on, and the time in the calendar's own words, whatever the page
     // sent for them.
@@ -1141,6 +1168,17 @@ export const formResponseSubmit = defineCommand({
       );
       invoiceId = created.invoiceId;
     }
+    // ---- The files they sent ----
+    // Copied onto the customer, where their Files and timeline show them; any they took back are removed.
+    await placeSentFiles(ctx, {
+      formId: form.id,
+      formName: form.name,
+      responseId: response.id,
+      kept: sent.files,
+      personId,
+      leadId,
+    });
+
     if (personId && definition.settings.oneResponsePerPerson) {
       const [already] = await rows<{ id: string }>(
         ctx.tx,
@@ -1240,7 +1278,7 @@ export const formResponseDelete = defineCommand({
   output: FormResponseDeleteOutput,
   permission: 'forms.manage',
   scope: inWorkspace,
-  emits: ['form.response_deleted'],
+  emits: ['form.response_deleted', 'file.deleted'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     requireHuman(ctx);
@@ -1257,6 +1295,15 @@ export const formResponseDelete = defineCommand({
       throw HfosError.notFound(
         'That response isn’t there anymore. It may have been deleted. Refresh and try again.',
       );
+    // The sheet's own copies of the files it sent go with it (taking a file off needs files.delete, which everyone
+    // who looks after forms has unless a custom role says otherwise; then they stay, unseen). The customer's copies
+    // are theirs, and stay.
+    const [mayDeleteFiles] = await rows<{ ok: boolean }>(
+      ctx.tx,
+      sql`select private.has_permission(${ws}::uuid, 'files.delete') as ok`,
+    );
+    if (mayDeleteFiles?.ok)
+      await removeSheetFiles(ctx, formUploadFolder(ws, response.formId, response.id), []);
     await ctx.tx.delete(formResponses).where(eq(formResponses.id, response.id));
     await ctx.emit({
       type: 'form.response_deleted',
@@ -1396,6 +1443,314 @@ export const formResponseRecord = defineCommand({
 });
 
 /** Declared last because `form_response.record` is, and an array cannot name a const it precedes. */
+// ---- Files on a public form (product sellers, 5a) ----
+
+interface SheetFile extends Record<string, unknown> {
+  readonly id: string;
+  readonly name: string;
+  readonly size_bytes: number | string | null;
+  readonly mime_type: string | null;
+  readonly status: 'pending' | 'ready';
+  readonly bucket: string;
+  readonly object_path: string;
+  readonly record_id: string;
+}
+
+/** The files a sheet has uploaded, on the form still, in its own folder. */
+async function sheetFiles(ctx: CommandContext, folder: string): Promise<SheetFile[]> {
+  return rows<SheetFile>(
+    ctx.tx,
+    sql`select id, name, size_bytes, mime_type, status, bucket, object_path, record_id
+        from app.files
+        where workspace_id = ${ctx.scope.workspaceId} and record_type = 'form'
+          and deleted_at is null and starts_with(object_path, ${folder})`,
+  );
+}
+
+/** Takes a sheet's files off, all but those kept, and has the worker remove what was stored (file.deleted). */
+async function removeSheetFiles(
+  ctx: CommandContext,
+  folder: string,
+  keep: readonly string[],
+): Promise<void> {
+  for (const file of await sheetFiles(ctx, folder)) {
+    if (keep.includes(file.id)) continue;
+    await ctx.tx.update(files).set({ deletedAt: new Date() }).where(eq(files.id, file.id));
+    await ctx.emit({
+      type: 'file.deleted',
+      entityType: 'form',
+      entityId: file.record_id,
+      payload: {
+        fileId: file.id,
+        name: file.name,
+        bucket: file.bucket,
+        objectPath: file.object_path,
+      },
+      before: { name: file.name },
+      after: null,
+    });
+  }
+}
+
+/**
+ * The files a sheet is sending, checked against what it uploaded: each one on its own question's folder, and
+ * finished. The answer then keeps the stored name and size, whatever the page said.
+ */
+async function sentFiles(
+  ctx: CommandContext,
+  input: {
+    readonly formId: string;
+    readonly responseId: string;
+    readonly definition: FormDefinition;
+    readonly answers: AnswerSheet;
+  },
+): Promise<{ answers: AnswerSheet; files: readonly SheetFile[] }> {
+  const asked = allQuestions(input.definition).filter(
+    (q) => q.type === 'file' && isAnswerFiles(input.answers[q.id]),
+  );
+  if (!asked.length) return { answers: input.answers, files: [] };
+  const folder = formUploadFolder(ctx.scope.workspaceId!, input.formId, input.responseId);
+  const uploaded = await sheetFiles(ctx, folder);
+  const problems: { questionId: string; message: string }[] = [];
+  const kept: SheetFile[] = [];
+  const answers: Record<string, unknown> = { ...input.answers };
+  for (const question of asked) {
+    const given = input.answers[question.id] as unknown as readonly AnswerFile[];
+    const checked: AnswerFile[] = [];
+    for (const file of given) {
+      const row = uploaded.find(
+        (f) => f.id === file.fileId && f.object_path.startsWith(`${folder}${question.id}/`),
+      );
+      if (!row || row.status !== 'ready') {
+        problems.push({
+          questionId: question.id,
+          message: `${file.name} didn’t finish uploading. Remove it and add it again.`,
+        });
+        continue;
+      }
+      if (kept.some((k) => k.id === row.id)) continue;
+      kept.push(row);
+      checked.push({ fileId: row.id, name: row.name, bytes: Number(row.size_bytes ?? 0) });
+    }
+    answers[question.id] = checked;
+  }
+  if (problems.length) throw answersInvalid(problems);
+  return { answers: answers as AnswerSheet, files: kept };
+}
+
+/**
+ * On sending: each file is copied onto the customer, where their Files tab and timeline show it (the worker copies it
+ * on `file.received`, as it does a file a customer texts in, and `file.finish_copy` marks it ready). The answer sheet
+ * keeps its own copy on the form, so deleting one never takes the other, and with nobody to put them on that copy is
+ * all there is. Files the sheet uploaded and didn't send (taken back, or on a question that ended up hidden) are
+ * removed.
+ */
+async function placeSentFiles(
+  ctx: CommandContext,
+  input: {
+    readonly formId: string;
+    readonly formName: string;
+    readonly responseId: string;
+    readonly kept: readonly SheetFile[];
+    readonly personId: string | null;
+    readonly leadId: string | null;
+  },
+): Promise<void> {
+  const ws = ctx.scope.workspaceId!;
+  await removeSheetFiles(
+    ctx,
+    formUploadFolder(ws, input.formId, input.responseId),
+    input.kept.map((f) => f.id),
+  );
+  if (!input.personId || !input.kept.length) return;
+  const copies: {
+    fileId: string;
+    name: string;
+    from: { bucket: string; objectPath: string };
+    contentType: string;
+    sizeBytes: number;
+  }[] = [];
+  for (const file of input.kept) {
+    const fileId = randomUUID();
+    const contentType = file.mime_type ?? 'application/octet-stream';
+    const sizeBytes = Number(file.size_bytes ?? 0);
+    await ctx.tx.insert(files).values({
+      id: fileId,
+      workspaceId: ws,
+      recordType: 'person',
+      recordId: input.personId,
+      bucket: 'attachments',
+      objectPath: `${ws}/person/${input.personId}/${fileId}/${safeFileName(file.name)}`,
+      name: file.name,
+      mimeType: contentType,
+      sizeBytes,
+    });
+    copies.push({
+      fileId,
+      name: file.name,
+      from: { bucket: file.bucket, objectPath: file.object_path },
+      contentType,
+      sizeBytes,
+    });
+  }
+  await ctx.emit({
+    type: 'file.received',
+    entityType: 'person',
+    entityId: input.personId,
+    payload: {
+      leadId: input.leadId,
+      personId: input.personId,
+      conversationId: null,
+      formId: input.formId,
+      responseId: input.responseId,
+      question: input.formName,
+      // The form's own alerts say it was sent; nobody is told about the files on their own.
+      notify: null,
+      via: 'form',
+      files: copies,
+    },
+    broadcast: false,
+    after: { form: input.formName, files: copies.map((f) => f.name) },
+  });
+}
+
+/** The file question a sheet is adding to, on the version it's answering. */
+function fileQuestionOf(definition: FormDefinition, questionId: string): Question {
+  const found = findQuestion(definition, questionId)?.question;
+  if (!found || found.type !== 'file')
+    throw HfosError.notFound(
+      'That question isn’t on this form anymore. Refresh the page and try again.',
+    );
+  return found;
+}
+
+export const formResponseUploadBegin = defineCommand({
+  name: 'form_response.upload_begin',
+  description:
+    'Someone filling in a form starts adding a file to one of its file questions: its place is kept on their answer sheet, and the worker gives their browser a one-time link to upload it.',
+  risk: 1,
+  input: FormUploadBeginInput,
+  output: FormUploadBeginOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: [],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const { response, definition, form } = await openResponse(ctx, input.responseId, {
+      forUpdate: true,
+    });
+    await assertHolder(ctx, response, input.token);
+    if (response.status === 'completed')
+      throw HfosError.conflict(
+        'These answers were already sent, so files can’t be added to them now.',
+        'response_sent',
+      );
+    assertOpen(form, definition);
+    const question = fileQuestionOf(definition, input.questionId);
+    const refusal = uploadRefusal(question, input);
+    if (refusal) throw HfosError.rule(refusal.rule, 422, refusal.message);
+
+    const folder = formUploadFolder(ws, form.id, response.id);
+    const [count] = await rows<{ all: number; here: number }>(
+      ctx.tx,
+      sql`select count(*)::int as all,
+            (count(*) filter (where starts_with(object_path, ${`${folder}${question.id}/`})
+              and deleted_at is null))::int as here
+          from app.files
+          where workspace_id = ${ws} and record_type = 'form' and starts_with(object_path, ${folder})`,
+    );
+    const most = uploadMaxFiles(question);
+    if ((count?.here ?? 0) >= most)
+      throw HfosError.rule(
+        'form_too_many_files',
+        409,
+        most === 1
+          ? 'This question takes one file. Remove the one you added to add another.'
+          : `This question takes up to ${most} files. Remove one to add another.`,
+      );
+    if ((count?.all ?? 0) >= FORM_UPLOADS_PER_SHEET)
+      throw HfosError.rule(
+        'too_many_uploads',
+        429,
+        'That’s as many files as one form can take. Send it with the ones you have, and the business can ask for the rest.',
+      );
+
+    const fileId = randomUUID();
+    const objectPath = `${folder}${question.id}/${fileId}/${safeFileName(input.name)}`;
+    await ctx.tx.insert(files).values({
+      id: fileId,
+      workspaceId: ws,
+      recordType: 'form',
+      recordId: form.id,
+      bucket: 'attachments',
+      objectPath,
+      name: input.name,
+      mimeType: input.mimeType.toLowerCase(),
+      sizeBytes: input.sizeBytes,
+    });
+    return { fileId, bucket: 'attachments', objectPath };
+  },
+});
+
+export const formResponseUploadConfirm = defineCommand({
+  name: 'form_response.upload_confirm',
+  description:
+    'Someone filling in a form finishes adding a file: what arrived is checked against what the question takes, and kept on their answer sheet until they send it.',
+  risk: 1,
+  input: FormUploadConfirmInput,
+  output: FormUploadConfirmOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: ['file.deleted'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const { response, definition, form } = await openResponse(ctx, input.responseId);
+    await assertHolder(ctx, response, input.token);
+    const folder = formUploadFolder(ws, form.id, response.id);
+    const file = (await sheetFiles(ctx, folder)).find((f) => f.id === input.fileId);
+    if (!file) throw HfosError.notFound('That file isn’t there anymore. Add it again.');
+    const questionId = file.object_path.slice(folder.length).split('/')[0] ?? '';
+    const question = fileQuestionOf(definition, questionId);
+    const done = (sizeBytes: number, mimeType: string) => ({
+      fileId: file.id,
+      name: file.name,
+      bytes: sizeBytes,
+      mimeType: mimeType || 'application/octet-stream',
+    });
+    if (file.status === 'ready')
+      return {
+        ...done(Number(file.size_bytes ?? 0), file.mime_type ?? ''),
+        accepted: true,
+        refusal: null,
+      };
+    const [info] = await rows<{ size_bytes: number | null; mime_type: string | null }>(
+      ctx.tx,
+      sql`select size_bytes, mime_type from private.storage_object_info(${file.bucket}, ${file.object_path})`,
+    );
+    if (!info)
+      throw HfosError.rule(
+        'file_not_uploaded',
+        409,
+        `${file.name} didn’t finish uploading. Check your connection and add it again.`,
+      );
+    const sizeBytes = Number(info.size_bytes ?? 0);
+    const mimeType = (info.mime_type ?? '').toLowerCase();
+    // What arrived is what counts: the browser said what it was sending, Storage says what came.
+    const refusal = uploadRefusal(question, { name: file.name, mimeType, sizeBytes });
+    if (refusal) {
+      await removeSheetFiles(ctx, `${folder}${questionId}/${file.id}/`, []);
+      return { ...done(sizeBytes, mimeType), accepted: false, refusal };
+    }
+    await ctx.tx
+      .update(files)
+      .set({ status: 'ready', sizeBytes, mimeType })
+      .where(eq(files.id, file.id));
+    return { ...done(sizeBytes, mimeType), accepted: true, refusal: null };
+  },
+});
+
 export const formResponseCommands = [
   formResponseStart,
   formResponseSave,
@@ -1405,4 +1760,6 @@ export const formResponseCommands = [
   formResponseSubmit,
   formResponseRecord,
   formResponseDelete,
+  formResponseUploadBegin,
+  formResponseUploadConfirm,
 ] as const;

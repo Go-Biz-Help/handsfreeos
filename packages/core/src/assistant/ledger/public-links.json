@@ -61,9 +61,9 @@
     "apps/web/src/components/chat-widget/chat-window.tsx": "96ea0e00ee8e",
     "apps/web/src/components/documents/signing-page.tsx": "93d3da610fb4",
     "apps/web/src/components/forms/address-field.tsx": "20ece36ae74b",
-    "apps/web/src/components/forms/booking-picker.tsx": "0b81d8526d1a",
-    "apps/web/src/components/forms/public-form.tsx": "74581f9d1c48",
-    "apps/web/src/components/forms/question-field.tsx": "b80ae03048fa",
+    "apps/web/src/components/forms/booking-picker.tsx": "ab0798d78741",
+    "apps/web/src/components/forms/public-form.tsx": "e542de786abd",
+    "apps/web/src/components/forms/question-field.tsx": "2e6905b08154",
     "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
     "apps/web/src/components/money/paypal-buttons.tsx": "d1d0351e7497",
     "apps/web/src/components/money/provider-fields.tsx": "96d28fde2225",
@@ -1417,28 +1417,28 @@
     {
       "path": "Form → head: name, intro",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:428",
+      "file": "apps/web/src/components/forms/public-form.tsx:451",
       "covered": "yes",
       "by": "get_form name, asks"
     },
     {
       "path": "Form → closed",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:437",
+      "file": "apps/web/src/components/forms/public-form.tsx:460",
       "covered": "yes",
       "by": "get_form status"
     },
     {
       "path": "Form → progress",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:443",
+      "file": "apps/web/src/components/forms/public-form.tsx:466",
       "covered": "person",
       "by": "the respondent's own place"
     },
     {
       "path": "Form → 'Details changed?' (personal link)",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:460",
+      "file": "apps/web/src/components/forms/public-form.tsx:483",
       "covered": "person",
       "by": "the respondent's own details"
     },
@@ -1487,42 +1487,42 @@
     {
       "path": "Form → booking question, no times",
       "kind": "do",
-      "file": "apps/web/src/components/forms/booking-picker.tsx:76",
+      "file": "apps/web/src/components/forms/booking-picker.tsx:89",
       "covered": "person",
       "by": "the respondent picks; find_availability for the business"
     },
     {
       "path": "Form → consent box: texts, offers, calls, policy, terms",
       "kind": "do",
-      "file": "apps/web/src/components/forms/public-form.tsx:340",
+      "file": "apps/web/src/components/forms/public-form.tsx:363",
       "covered": "person",
       "by": "the respondent's own yes"
     },
     {
       "path": "Form → bot check failed, 'isn’t fully set up'",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:407",
+      "file": "apps/web/src/components/forms/public-form.tsx:430",
       "covered": "partly",
       "by": "get_form toFix"
     },
     {
       "path": "Form → totals and score",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:517",
+      "file": "apps/web/src/components/forms/public-form.tsx:540",
       "covered": "partly",
       "by": "get_form answers"
     },
     {
       "path": "Form → Back, Send, anonymous note",
       "kind": "do",
-      "file": "apps/web/src/components/forms/public-form.tsx:543",
+      "file": "apps/web/src/components/forms/public-form.tsx:566",
       "covered": "person",
       "by": "the respondent sends"
     },
     {
       "path": "Form → sent: body, score %, '$X to pay', button",
       "kind": "see",
-      "file": "apps/web/src/components/forms/public-form.tsx:302",
+      "file": "apps/web/src/components/forms/public-form.tsx:325",
       "covered": "partly",
       "by": "get_form answers; thank-you words not read"
     },

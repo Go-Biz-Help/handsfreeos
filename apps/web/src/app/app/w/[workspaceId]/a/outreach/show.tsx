@@ -611,11 +611,12 @@ export async function showOutreach(
       .POST('/v1/queries/outreach.helpful', { body: { workspaceId, platform: net } })
       .then(unwrapPage),
     Promise.all(nets.map((p) => readinessOf(p))),
-    // Referrals waiting for the person on the network shown (decision 174): none when they can't be had.
+    // Referrals waiting for the person on the network shown (decision 174), and the asks after two (decision 185):
+    // none when they can't be had.
     api
       .POST('/v1/queries/outreach.referrals', { body: { workspaceId, platform: net } })
-      .then((r) => r.data?.referrals ?? [])
-      .catch(() => []),
+      .then((r) => ({ referrals: r.data?.referrals ?? [], asks: r.data?.asks ?? [] }))
+      .catch(() => ({ referrals: [], asks: [] })),
   ]);
   const networks = nets.flatMap((platform, i) => {
     const live = lives[i];
@@ -656,7 +657,8 @@ export async function showOutreach(
         networks,
         today,
         helpful,
-        referrals: refer,
+        referrals: refer.referrals,
+        referAsks: refer.asks,
         team,
         asks,
         waiting,

@@ -90,7 +90,7 @@ export default async function SettingsPage({
           </Card>
         </div>
         <Card className="p-6 max-md:p-5" {...settingAttrs('account.about_you')}>
-          <AboutYouSection initial={about.about} />
+          <AboutYouSection initial={about.about} workspaceId={workspaceId} />
         </Card>
         <Card className="p-6 max-md:p-5" id="notifications">
           <NotificationsSection

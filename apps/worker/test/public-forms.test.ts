@@ -436,3 +436,115 @@ describe('coming back to one', () => {
     expect(await refOf('not a ref!')).toBeNull();
   });
 });
+
+describe('adding a file (product sellers, 5a)', () => {
+  it('keeps its place, hands back a one-time link, checks what arrived, and sends it with the sheet', async () => {
+    const created = await run(formCreate, { workspaceId: w.workspaceId, name: 'Custom order' });
+    const [row] = await rows<{ definition: { pages: { id: string }[] } }>(
+      admin(),
+      sql`select definition from app.forms where id = ${created.formId}`,
+    );
+    const pageId = row!.definition.pages[0]!.id;
+    const add = (question: Record<string, unknown>) => ({
+      op: 'add_question',
+      pageId,
+      index: null,
+      question,
+    });
+    const saved = await run(formSaveDraft, {
+      workspaceId: w.workspaceId,
+      formId: created.formId,
+      baseRevision: 1,
+      ops: [
+        add({
+          id: qid('name'),
+          type: 'short_text',
+          title: 'Your name',
+          required: true,
+          mapTo: 'person.first_name',
+          config: {},
+        }),
+        add({
+          id: qid('phone'),
+          type: 'phone',
+          title: 'Your phone',
+          mapTo: 'person.phone',
+          config: {},
+        }),
+        add({ id: qid('design'), type: 'file', title: 'Your design', config: { accept: 'image' } }),
+      ],
+    });
+    await run(formPublish, {
+      workspaceId: w.workspaceId,
+      formId: created.formId,
+      baseRevision: saved.revision,
+    });
+    const url = (extra: string) => `/public/form/${w.site}/${created.slug}${extra}`;
+    const started = (await post(w, url('/start'), {}).then((r) => r.json())) as {
+      responseId: string;
+      token: string;
+    };
+
+    const refused = await post(w, url(`/${started.responseId}/uploads`), {
+      token: started.token,
+      questionId: qid('design'),
+      name: 'quote.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 1000,
+    });
+    expect(refused.statusCode).toBe(422);
+    expect(errorOf(refused).rule).toBe('form_file_type');
+
+    const begun = await post(w, url(`/${started.responseId}/uploads`), {
+      token: started.token,
+      questionId: qid('design'),
+      name: 'shirt front.png',
+      mimeType: 'image/png',
+      sizeBytes: 3000,
+    });
+    expect(begun.statusCode, begun.body).toBe(200);
+    const { fileId, uploadUrl } = begun.json() as { fileId: string; uploadUrl: string };
+    expect(uploadUrl).toBeTruthy();
+    const [reserved] = await rows<{ object_path: string }>(
+      admin(),
+      sql`select object_path from app.files where id = ${fileId}`,
+    );
+    expect(reserved!.object_path).toContain(
+      `/form/${created.formId}/responses/${started.responseId}/`,
+    );
+
+    // What the browser's PUT leaves in Storage.
+    const objectPath = reserved!.object_path;
+    await rows(
+      admin(),
+      sql`insert into storage.objects (bucket_id, name, metadata)
+          values ('attachments', ${objectPath}, ${JSON.stringify({ size: 3000, mimetype: 'image/png' })}::jsonb)`,
+    );
+    const stranger = await post(w, url(`/${started.responseId}/uploads/${fileId}/confirm`), {
+      token: 'not-the-key-for-this-sheet',
+    });
+    expect(stranger.statusCode).toBe(404);
+    const confirmed = await post(w, url(`/${started.responseId}/uploads/${fileId}/confirm`), {
+      token: started.token,
+    });
+    expect(confirmed.statusCode, confirmed.body).toBe(200);
+    expect(confirmed.json()).toMatchObject({ fileId, accepted: true, bytes: 3000 });
+
+    const sent = await post(w, url(`/${started.responseId}/submit`), {
+      token: started.token,
+      answers: {
+        [qid('name')]: 'Sherri',
+        [qid('phone')]: '(512) 555-0477',
+        [qid('design')]: [{ fileId, name: 'shirt front.png', bytes: 3000 }],
+      },
+    });
+    expect(sent.statusCode, sent.body).toBe(200);
+    const [copy] = await rows<{ name: string; record_type: string }>(
+      admin(),
+      sql`select f.name, f.record_type::text from app.files f
+          join app.people p on p.id = f.record_id
+          where f.workspace_id = ${w.workspaceId} and p.phone_e164 = '+15125550477'`,
+    );
+    expect(copy).toMatchObject({ name: 'shirt front.png', record_type: 'person' });
+  });
+});
