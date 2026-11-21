@@ -165,6 +165,10 @@ Make one folder in your password manager named `HandsFreeOS`. Every secret in th
 | hfos_sync database password                                                | The `hfos_sync` password and the finished `PS_DATA_SOURCE_URI` string (Sync Part 2)                                                                                                                                                                                                                                                 | Fly.io secret `PS_DATA_SOURCE_URI` on `handsfreeos-sync`                                                                                                                                                                        |
 | Sync storage Postgres password                                             | The password of PowerSync's own Postgres and the finished `PS_STORAGE_URI` string (Sync Part 4)                                                                                                                                                                                                                                     | Fly.io secret `POSTGRES_PASSWORD` on `handsfreeos-sync-storage`, and inside `PS_STORAGE_URI` on `handsfreeos-sync`                                                                                                              |
 | Sync admin token                                                           | `PS_ADMIN_TOKEN`, the sync service's diagnostics token (Sync Part 5)                                                                                                                                                                                                                                                                | Fly.io secret `PS_ADMIN_TOKEN` on `handsfreeos-sync` only                                                                                                                                                                       |
+| Backup encryption key                                                      | The three lines `age-keygen` printed: the `age1…` public key and the `AGE-SECRET-KEY-1…` secret key ("A copy outside Supabase", Part 1). The secret key is the only way to open the nightly copies.                                                                                                                                 | The public key: GitHub variable `BACKUP_AGE_RECIPIENT` in the `backups` environment. The secret key: nowhere else.                                                                                                              |
+| hfos_backup database password                                              | The `hfos_backup` password and its finished session-pooler connection string (Part 4)                                                                                                                                                                                                                                               | GitHub secret `BACKUP_DATABASE_URL` in the `backups` environment                                                                                                                                                                |
+| Cloudflare R2 backup token                                                 | The R2 token's **Access Key ID**, **Secret Access Key** and the account ID (Part 2)                                                                                                                                                                                                                                                 | GitHub secrets `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in the `backups` environment                                                                                                                      |
+| Supabase Storage S3 key (backup)                                           | The Storage S3 **Access key ID** and **Secret access key** (Part 3)                                                                                                                                                                                                                                                                 | GitHub secrets `SUPABASE_S3_ACCESS_KEY_ID` and `SUPABASE_S3_SECRET_ACCESS_KEY` in the `backups` environment                                                                                                                     |
 
 Two values do not follow the pattern. The Fly.io deploy token (`FLY_API_TOKEN`) lives only in GitHub, not in your password manager: if it is lost, you make a new one. The file `.env.hosted` at the repository root already holds the two database passwords, the two finished connection strings and the publishable key. It is gitignored and exists only on your Mac. Never commit, attach or paste it anywhere.
 
@@ -1216,7 +1220,7 @@ Before you start: sign in with your first account and add a lead to a pipeline i
 - Backups do not include Storage files, only the rows that point to them. A backup cannot bring back a deleted photo or recording. Twilio's copy of each call recording and voicemail is deleted once the worker has stored it, so the copy in Storage is the only one.
 - Backups do not keep the `hfos_api`, `hfos_worker` and `hfos_sync` passwords.
 - No backup holds the worker's `WORKER_ENCRYPTION_KEY`. Without it, the clients' Twilio credentials in a restored database cannot be opened. Keep the key in your password manager.
-- Deleting the project deletes its backups. So does anyone who gets into the Supabase account. Only a copy kept outside Supabase ("Keeping your own copy") survives that.
+- Deleting the project deletes its backups. So does anyone who gets into the Supabase account. Only a copy kept outside Supabase survives that ("A copy outside Supabase").
 - A restore puts the whole project back, for every business. When only some records are lost, copy them back from a separate project instead ("Bringing back only what was lost").
 - Point-in-time recovery restores the database to any moment, losing at most about 2 minutes of data. It is an add-on that costs about $100 a month for 7 days. It also needs at least the Small compute size (about $15 a month); the project is on Micro now (about $10 a month). For HandsFreeOS alone, that adds roughly $105 a month. The organization's Pro plan fee stays the same. Point-in-time recovery replaces the daily backups. Turn it on in **Project Settings** → **Add-ons** once clients depend on their data.
 
@@ -1367,6 +1371,131 @@ A copy on your own disk also protects you if the project itself is lost. It hold
    ```
 
 Restoring from this copy into a new project follows Supabase's "Backup and Restore using the CLI" guide. Get help before you try it.
+
+#### A copy outside Supabase
+
+Every night the **Nightly backup** workflow (`.github/workflows/backup.yml`) copies the database and the Storage files to a Cloudflare R2 bucket, `handsfreeos-backups`. It is what survives if the Supabase project is deleted or someone gets into the Supabase account. It runs on GitHub, so nothing needs your Mac to be on. At today's size it fits in R2's free 10 GB; past that, R2 costs 1.5¢ per GB a month.
+
+What lands in the bucket:
+
+- `daily/<date and time>/database.dump.age`: the whole database, auth and storage tables included, made with `pg_dump` and encrypted. Only the secret key in your password manager opens it.
+- `files/<bucket>/`: a mirror of the `attachments`, `telephony`, `brand` and `imports` buckets.
+- `daily/<date and time>/files/<bucket>/`: each file deleted or replaced in Supabase that night, moved here instead of going.
+- Everything under `daily/` is locked for 30 days: nobody can delete or overwrite it sooner, not even with the workflow's own token. It is deleted after 31 days.
+
+The workflow reads the database as `hfos_backup`, a login that reads every table and can change nothing (migration `20261027032200_backup_login.sql`). If a run fails, it opens an issue named "The nightly backup failed" in the repository, and GitHub emails you.
+
+Setting it up takes about 20 minutes, once. Do the parts in order.
+
+**Part 1: Make the encryption key.**
+
+1. In Terminal, install age:
+
+   ```bash
+   brew install age
+   ```
+
+2. Make the key:
+
+   ```bash
+   age-keygen
+   ```
+
+   You should see three lines: `# created: …`, `# public key: age1…` and `AGE-SECRET-KEY-1…`.
+
+3. Save all three lines in a new password manager entry named "Backup encryption key". Without the `AGE-SECRET-KEY-1…` line no copy can ever be opened, so save it nowhere else, and never in a file in the repository.
+4. Keep the `age1…` public key for Part 5. It is not secret.
+
+**Part 2: Make the R2 bucket.**
+
+1. Sign in at `https://dash.cloudflare.com` and open the account that holds `handsfreeos.com`.
+2. Click **R2 Object Storage** in the left sidebar. If it asks you to add a payment method or accept R2's terms, do so; nothing is charged within the free tier.
+3. Click **Create bucket**. Name it `handsfreeos-backups`, leave **Location** on **Automatic** and **Default storage class** on **Standard**, and click **Create bucket**.
+4. Open the bucket's **Settings** tab. Under **Bucket lock rules**, click **Add rule**: name `Keep daily copies 30 days`, prefix `daily/`, retention **30 days**. Save.
+5. Under **Object lifecycle rules**, click **Add rule**: name `Delete daily copies after 31 days`, prefix `daily/`, delete objects **31 days** after they were uploaded. Save.
+6. Back on **R2 Object Storage**, open **Manage API tokens** (under **Account details**, or the **API** menu) and click **Create Account API token**.
+7. Name it `HandsFreeOS nightly backup`. Under **Permissions** choose **Object Read & Write**. Under **Specify bucket(s)** choose **Apply to specific buckets only** and pick `handsfreeos-backups`. Leave **TTL** on **Forever**. Click **Create Account API Token**.
+
+   You should see an **Access Key ID**, a **Secret Access Key** and an S3 endpoint like `https://<account id>.r2.cloudflarestorage.com`. The secret is shown only once.
+
+8. Save all three in a new password manager entry named "Cloudflare R2 backup token". The account ID is the part of the endpoint before `.r2.cloudflarestorage.com`.
+
+**Part 3: Make a Storage key.**
+
+1. Open `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/storage/s3`.
+2. Under **Access keys**, click **New access key**, describe it as `Nightly backup`, and click **Create access key**.
+
+   You should see an **Access key ID** and a **Secret access key**. The secret is shown only once.
+
+3. Save both in a new password manager entry named "Supabase Storage S3 key (backup)". This key can read and change every file, so it goes only into GitHub in Part 5.
+
+**Part 4: Give hfos_backup a password.**
+
+1. Make a password:
+
+   ```bash
+   openssl rand -hex 32
+   ```
+
+2. Save it in a new password manager entry named "hfos_backup database password".
+3. In a new SQL Editor query, run this line with the password in place of the placeholder:
+
+   ```sql
+   alter role hfos_backup with password '<hfos_backup password>';
+   ```
+
+   You should see a success message and no rows. Then delete the saved query, as in steps 16 and 17 of "Change an app role password".
+
+4. Build its connection string through the session pooler (GitHub can't reach the database's direct address), with the host from "Check the pooler host", and save it in the same entry:
+
+   ```text
+   postgresql://hfos_backup.ybupfghakoszfcxhyrby:<hfos_backup password>@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+   ```
+
+**Part 5: Give GitHub the values.**
+
+1. Open `https://github.com/Go-Biz-Help/handsfreeos/settings/environments` and click **New environment**. Name it `backups` and click **Configure environment**.
+2. Under **Deployment branches and tags**, choose **Selected branches and tags**, click **Add deployment branch or tag rule**, type `main` and click **Add rule**. Only `main` can then read these values, never a pull request's branch.
+3. Under **Environment secrets**, click **Add environment secret** for each of these:
+
+   | Name                            | Value                                         |
+   | ------------------------------- | --------------------------------------------- |
+   | `BACKUP_DATABASE_URL`           | The connection string from Part 4             |
+   | `R2_ACCOUNT_ID`                 | The account ID from Part 2                    |
+   | `R2_ACCESS_KEY_ID`              | The R2 **Access Key ID**                      |
+   | `R2_SECRET_ACCESS_KEY`          | The R2 **Secret Access Key**                  |
+   | `SUPABASE_S3_ACCESS_KEY_ID`     | The Storage **Access key ID** from Part 3     |
+   | `SUPABASE_S3_SECRET_ACCESS_KEY` | The Storage **Secret access key** from Part 3 |
+
+4. Under **Environment variables**, click **Add environment variable**: name `BACKUP_AGE_RECIPIENT`, value the `age1…` public key from Part 1.
+
+**Part 6: Run it once.**
+
+1. Open `https://github.com/Go-Biz-Help/handsfreeos/actions/workflows/backup.yml`, click **Run workflow**, leave the branch on `main`, and click **Run workflow**.
+
+   You should see the run go green in about 5 minutes, with lines like `Database copy: 70M, rows for 400 tables.` and `Files copy: 950 files, 88M.`
+
+2. In Cloudflare, open the `handsfreeos-backups` bucket.
+
+   You should see `daily/` with one folder for this run, holding `database.dump.age`, and `files/` with the four buckets.
+
+From then on it runs every night at 08:41 UTC.
+
+##### Restoring from this copy
+
+Get help before you try this: it is the last resort, for when the Supabase project itself is gone.
+
+1. Make a new Supabase project in the same organization and region, on at least the same compute size.
+2. Download the newest `daily/…/database.dump.age` from the bucket, and decrypt it on your Mac with the secret key from "Backup encryption key":
+
+   ```bash
+   age --decrypt --identity <file holding the AGE-SECRET-KEY line> --output database.dump database.dump.age
+   ```
+
+3. Load it into the new project with `pg_restore`, following Supabase's "Backup and Restore using the CLI" guide, and copy the four `files/` folders into new buckets of the same names.
+4. Point the apps at the new project: new keys and connection strings on Fly and Vercel, as in "Keep the web address the same everywhere". Then set the role passwords ("Change an app role password", Sync Part 2) and the sync service's new copy, as in "Restoring a daily backup".
+
+Delete the decrypted `database.dump` when you're done: it holds every client's information.
 
 ### Nightly clean-up
 
