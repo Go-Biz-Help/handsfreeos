@@ -190,9 +190,13 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
           log: deps.log.child({ jobId: id, kind: job.kind }),
         }),
       );
+      // A run that worked starts the count of tries again: the limit is for errors in a row. Counted over a job's
+      // whole life, five errors months apart (or one minute of a provider's outage) ended a recurring job for good:
+      // the hourly reviews read, or a sweep like plan renewals until the next restart.
       if (result?.rescheduleAt) {
         await finish({
           runAt: notLaterThanWake(result.rescheduleAt),
+          attempts: 0,
           payload: withoutWake,
           lastError: null,
         });
@@ -202,6 +206,7 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
           status: sql`(case when ${wakeAt} is null then 'done' else 'pending' end)::app.job_status`,
           runAt: sql`coalesce(${wakeAt}, ${scheduledJobs.runAt})`,
           finishedAt: sql`case when ${wakeAt} is null then now() end`,
+          attempts: sql`case when ${wakeAt} is null then ${scheduledJobs.attempts} else 0 end`,
           payload: withoutWake,
           lastError: null,
         });

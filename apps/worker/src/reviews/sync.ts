@@ -75,7 +75,7 @@ async function stumbled(
   scope: TenantScope,
   c: Connection,
   error: unknown,
-): Promise<void> {
+): Promise<number | null> {
   const needsPerson = error instanceof ReviewAuthError;
   const failures = Math.min(c.failures + 1, 1_000_000);
   const wait = BACKOFF_MS[Math.min(failures - 1, BACKOFF_MS.length - 1)]!;
@@ -91,6 +91,7 @@ async function stumbled(
       })
       .where(eq(reviewConnections.id, c.id)),
   );
+  return needsPerson ? null : wait;
 }
 
 /**
@@ -178,8 +179,16 @@ export const reviewsSync: JobHandler = async (ctx): Promise<JobResult> => {
      */
     return { rescheduleAt: new Date(Date.now() + (cursor ? 60_000 : ctx.reviews.pollMs)) };
   } catch (e) {
-    await stumbled(ctx, scope, c, e);
-    throw e;
+    const wait = await stumbled(ctx, scope, c, e);
+    // A sign-in somebody has to fix stops the read until they do. Anything else is a bad hour at Google or
+    // Facebook: read again after the wait chosen above. Thrown, the job's own five tries ran out within a minute of
+    // one outage and nothing ever read this place again.
+    if (wait === null) throw e;
+    ctx.log.warn(
+      { connectionId: c.id, err: e instanceof Error ? e.message : String(e) },
+      'reviews read failed',
+    );
+    return { rescheduleAt: new Date(Date.now() + wait) };
   }
 };
 
