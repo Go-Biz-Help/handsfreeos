@@ -387,6 +387,35 @@ describe('sending it', () => {
     expect(Number(lead!.valueCents)).toBe(427_500);
   });
 
+  it('still takes the answers and opens the lead after the stage it names is archived away', async () => {
+    const [other] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.pipelines (workspace_id, name, position) values (${wsId}, ${`Installs ${randomUUID().slice(0, 6)}`}, 9)
+          returning id`,
+    );
+    const [otherStage] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.pipeline_stages (workspace_id, pipeline_id, name, position)
+          values (${wsId}, ${other!.id}, 'New', 0) returning id`,
+    );
+    const form = await publishedForm('Install quote', [
+      {
+        op: 'set_on_submit',
+        patch: { lead: { pipelineId: other!.id, stageId: otherStage!.id, title: 'Install' } },
+      },
+    ]);
+    // Weeks later somebody tidies Settings → Pipelines.
+    await rows(admin(), sql`update app.pipelines set archived_at = now() where id = ${other!.id}`);
+    const sent = await submit(await start(form.formId), {
+      [qid('name')]: 'Rosa',
+      [qid('phone')]: '(512) 555-0191',
+    });
+    expect(sent.leadId).toBeTruthy();
+    const [lead] = await admin().select().from(leads).where(eq(leads.id, sent.leadId!));
+    // Where a lead starts when nothing names a stage: the business's first pipeline.
+    expect(lead!.pipelineId).toBe(pipelineId);
+  });
+
   it('opens a lead where Lead intake points forms, when the form names no pipeline (M14)', async () => {
     // The row every form built here files under: nothing has touched it, so it runs on the defaults.
     const form = await publishedForm('Ask us anything');
