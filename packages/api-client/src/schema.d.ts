@@ -21247,7 +21247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Your sign-ins to the browser extension waiting for you to pick the number it shows, newest first.
+         * Your sign-ins to the browser extension waiting for you to type the number it shows, newest first.
          * @description Any signed-in user.
          */
         post: operations["query_extension_sign_in_pending"];

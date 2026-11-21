@@ -5,6 +5,7 @@ import { View } from 'react-native';
 
 import { Screen } from '@/components/shell/screen';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
@@ -15,14 +16,17 @@ type State =
 
 /**
  * Signing in to the browser extension with this person's email (its push, `extension_sign_in`, 20261027002910):
- * "Signing in to the extension on Chrome? Pick the number you see." with three numbers. The right one lets it in;
- * a wrong one, or That wasn’t me, stops it. Answered online, straight away: it lasts two minutes.
+ * "Signing in to the extension on Chrome? Type the number the extension shows." The right number lets it in; a wrong
+ * one, or That wasn’t me, stops it. Typed, never picked from a list: anyone can start a prompt for any email, and a
+ * list of three let a stranger in one tap in three. Answered online, straight away: it lasts two minutes.
  */
 export default function ExtensionSignIn() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const router = useRouter();
   const [state, setState] = React.useState<State>({ kind: 'loading' });
   const [busy, setBusy] = React.useState(false);
+  const [typed, setTyped] = React.useState('');
+  const typedNumber = /^[1-9][0-9]$/.test(typed) ? Number(typed) : null;
 
   React.useEffect(() => {
     let cancelled = false;
@@ -79,20 +83,32 @@ export default function ExtensionSignIn() {
           <>
             <Text variant="heading">{EXTENSION_SIGN_IN_WORDS.question(state.request.browser)}</Text>
             <Text variant="lead">{EXTENSION_SIGN_IN_WORDS.pick}</Text>
-            <View className="flex-row gap-3">
-              {state.request.choices.map((n) => (
-                <Button
-                  key={n}
-                  variant="secondary"
-                  className="h-16 flex-1"
-                  disabled={busy}
-                  onPress={() => void answer(n)}
-                  testID={`extension-sign-in-pick-${n}`}
-                >
-                  <Text className="text-[26px] font-semibold">{String(n)}</Text>
-                </Button>
-              ))}
-            </View>
+            <Input
+              accessibilityLabel={EXTENSION_SIGN_IN_WORDS.numberLabel}
+              autoFocus
+              keyboardType="number-pad"
+              textContentType="oneTimeCode"
+              autoComplete="one-time-code"
+              maxLength={2}
+              value={typed}
+              onChangeText={(t) => setTyped(t.replace(/[^0-9]/g, '').slice(0, 2))}
+              editable={!busy}
+              className="h-16"
+              style={{ fontSize: 26, textAlign: 'center' }}
+              onSubmitEditing={() => {
+                if (typedNumber !== null) void answer(typedNumber);
+              }}
+              testID="extension-sign-in-number"
+            />
+            <Button
+              disabled={busy || typedNumber === null}
+              onPress={() => {
+                if (typedNumber !== null) void answer(typedNumber);
+              }}
+              testID="extension-sign-in-approve"
+            >
+              {EXTENSION_SIGN_IN_WORDS.approve}
+            </Button>
             <Button variant="ghost" disabled={busy} onPress={() => void answer(null)}>
               {EXTENSION_SIGN_IN_WORDS.notMe}
             </Button>

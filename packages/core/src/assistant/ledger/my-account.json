@@ -1,9 +1,9 @@
 {
   "area": "my-account",
   "title": "My account: profile, appearance, notifications, the side menu, my cell, my businesses and the More menu",
-  "checkedOn": "2026-11-20",
+  "checkedOn": "2026-11-21",
   "files": {
-    "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "28e53d7a9844",
+    "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "41fb49747e27",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx": "cc0007aa5c1d",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx": "17139d859bdb",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
@@ -33,7 +33,7 @@
     "apps/web/src/app/(auth)/delete-account/page.tsx": "7e6cbf1364af",
     "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx": "0916b2f663fa",
     "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
-    "apps/web/src/components/account/extension-sign-in-prompt.tsx": "5b27e8511869",
+    "apps/web/src/components/account/extension-sign-in-prompt.tsx": "ce696d72bb25",
     "apps/web/src/components/calls/calls-pill.tsx": "8819d72926f6",
     "apps/web/src/components/clock-check.tsx": "b26e26b8e9ae",
     "apps/web/src/components/look/business-mark.tsx": "e884715ba172",
@@ -692,14 +692,14 @@
       "by": "path only"
     },
     {
-      "path": "Extension sign-in (web) → question and the numbers",
+      "path": "Extension sign-in (web) → question and the number box",
       "kind": "see",
-      "file": "apps/web/src/components/account/extension-sign-in-prompt.tsx:93",
+      "file": "apps/web/src/components/account/extension-sign-in-prompt.tsx:102",
       "covered": "never",
       "by": "extension_sign_in.pending NOT_FOR_THE_ASSISTANT"
     },
     {
-      "path": "Extension sign-in (web and phone) → pick the matching number",
+      "path": "Extension sign-in (web and phone) → type the matching number, Sign in",
       "kind": "do",
       "file": "apps/web/src/components/account/extension-sign-in-prompt.tsx:109",
       "covered": "never",
@@ -708,21 +708,21 @@
     {
       "path": "Extension sign-in (web and phone) → That wasn't me",
       "kind": "do",
-      "file": "apps/web/src/components/account/extension-sign-in-prompt.tsx:116",
+      "file": "apps/web/src/components/account/extension-sign-in-prompt.tsx:137",
       "covered": "never",
       "by": "extension_sign_in.answer NEVER; sign-in"
     },
     {
       "path": "Extension sign-in (web) → signed in / refused toasts",
       "kind": "see",
-      "file": "apps/web/src/components/account/extension-sign-in-prompt.tsx:68",
+      "file": "apps/web/src/components/account/extension-sign-in-prompt.tsx:77",
       "covered": "never",
       "by": "sign-in; NEVER"
     },
     {
       "path": "Phone extension sign-in screen → loading, question, done",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx:75",
+      "file": "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx:79",
       "covered": "never",
       "by": "extension_sign_in.pending NOT_FOR_THE_ASSISTANT"
     },
