@@ -34,6 +34,7 @@ import { onPackPushed, onTemplatePushed } from '../workflows/templates';
 import {
   onAddedConfirm,
   onArmReminders,
+  onCalendarReminders,
   onBookedConfirm,
   onBookedTeamEmail,
   onCancelledNotice,
@@ -438,6 +439,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
         // Booked through a partner's link: the customer becomes that partner's client (partners/handlers.ts).
         onPartnerBooking,
       ],
+      // A calendar's reminders changed: the ones already booked get them too.
+      'calendar.updated': onCalendarReminders,
       'appointment.updated': onAppointmentChanged,
       'appointment.rescheduled': [
         onAppointmentChanged,
