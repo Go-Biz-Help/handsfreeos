@@ -1610,7 +1610,9 @@ export const messageSend = defineCommand({
         lastPreview: preview,
         lastDirection: 'outbound',
         ...afterOutbound(input.keepConversationStatus, created, now),
-        phoneNumberId: conv.phoneNumberId ?? number.id,
+        // The number it goes from: the thread's own while that can send, and the one that replaced it once it
+        // was released, so the thread moves to the new number now rather than when the worker sends.
+        phoneNumberId: number.id,
         ...(claim && ai ? { handledBy: 'ai' as const, aiTeammateId: ai.teammateId } : {}),
       })
       .where(eq(conversations.id, conv.id));

@@ -533,13 +533,17 @@ export const onMessageQueued: EventHandler = async (ctx) => {
   }
   // It fell back, so the timeline has to say what the wire will. Both the thread and the message itself are
   // re-stamped, so the thread is stable again from here and its history does not claim a number it never used.
-  if (conv.phoneNumberId !== number.id) {
-    await ctx.tx
-      .update(conversations)
-      .set({ phoneNumberId: number.id })
-      .where(eq(conversations.id, conv.id));
-    await ctx.tx.update(messages).set({ fromAddress: number.e164 }).where(eq(messages.id, m.id));
-  }
+  // In a transaction of its own, committed before the send: written in the outbox's, the message row stayed locked
+  // while message.update_status (its own transaction) waited to write the carrier's id on it, and the outbox hung
+  // for good, for every business on that machine, with the text already sent.
+  if (conv.phoneNumberId !== number.id)
+    await asWorker(ctx.db, scope, async (tx) => {
+      await tx
+        .update(conversations)
+        .set({ phoneNumberId: number.id })
+        .where(eq(conversations.id, conv.id));
+      await tx.update(messages).set({ fromAddress: number.e164 }).where(eq(messages.id, m.id));
+    });
   // The second wallet gate (M16 step 9). The first is on message.send, but a text can sit queued for minutes —
   // scheduled, held, retried — and the balance can run out in between. Failing here means the message lands
   // `failed` with a code the inbox explains, rather than disappearing into a carrier call nobody paid for.
