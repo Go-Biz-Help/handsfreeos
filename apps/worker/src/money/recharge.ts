@@ -73,6 +73,8 @@ type WalletRow = {
   window_started_at: Date | string | null;
   last_recharge_at: Date | string | null;
   pending_recharges: number | string;
+  /** The top-up before this one, whatever came of it; null before the first. */
+  last_recharge_id?: string | null;
   spent_30d_cents: number | string;
   stage: string;
   workspace_created_at: Date | string;
@@ -94,6 +96,9 @@ async function walletFor(
             w.window_started_at, w.last_recharge_at,
             (select count(*) from app.wallet_recharges r
               where r.workspace_id = w.workspace_id and r.status = 'pending') as pending_recharges,
+            (select r.id from app.wallet_recharges r
+              where r.workspace_id = w.workspace_id and r.status <> 'pending'
+              order by r.created_at desc, r.id desc limit 1) as last_recharge_id,
             coalesce((select sum(abs(l.amount_cents)) from app.usage_ledger l
               where l.workspace_id = w.workspace_id and l.kind = 'spend'
                 and l.occurred_at > now() - interval '30 days'), 0) as spent_30d_cents,
@@ -183,9 +188,12 @@ async function startRecharge(
   const decided = decideRecharge(w, now);
   if (!decided) return null;
 
-  // The key is written before the provider hears anything, and handed to it unchanged. Stripe refuses a reused
-  // key with different parameters, which is exactly the protection wanted: each retry is a new row and key.
-  const idempotencyKey = `wallet-topup:${scope.workspaceId}:${decided.windowStartedAt}:${decided.recharges}`;
+  // One key per try: the run, its place in the run, and the top-up this one follows. Two starters at once (the
+  // balance's own event and the hourly sweep) make the same key, so only one row is written. A try after a
+  // decline follows a different top-up, so it gets a new key: keyed on the run and place alone, the retry the
+  // decline ladder promises in 6 hours was refused as the declined one again, till the 72-hour run ended.
+  // (Unique within the business, which is what its index asks; the business's own id would take it past 100.)
+  const idempotencyKey = `wallet-topup:${decided.windowStartedAt}:${decided.recharges}:${w.last_recharge_id ?? 'first'}`;
   try {
     const { output } = await executeCommand(
       ctx.db,

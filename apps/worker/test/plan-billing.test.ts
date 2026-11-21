@@ -45,6 +45,7 @@ import { FAKE_CARDS } from '../src/payments/fake';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
 import { systemActor } from '../src/services';
+import { mailTo } from './booking-world';
 import { testServices, type TestServices } from './helpers';
 
 const WORKER_ID = `vitest-plan-billing-${process.pid}`;
@@ -496,10 +497,16 @@ describe('a declined payment', () => {
     expect(s.payments.fake.platformCharges()).toHaveLength(charged);
 
     // The first retry, still declined: the next is a day on.
+    const stillOwing = async () =>
+      (await mailTo(owner.email)).filter((m) => m.Subject.includes('still hasn’t gone through'))
+        .length;
+    const toldBefore = await stillOwing();
     await retryDue();
     await sweep();
     const again = await planNow();
     expect(again).toMatchObject({ status: 'past_due', retry_count: 1 });
+    // And the business is emailed that it failed again, as it was the first time.
+    expect(await stillOwing()).toBe(toldBefore + 1);
     expect(new Date(again.next_retry_at!).getTime()).toBeGreaterThan(
       new Date(again.retry_from!).getTime() + 2 * DAY - 1,
     );

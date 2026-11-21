@@ -8,14 +8,17 @@
  * - **The hourly check arms a sweep** for a wallet that could need a top-up. It used to read no wallets at all.
  * - **The sweep tops up a balance under its floor.** It threw on every run from 12 Nov (a timestamp read as text was
  *   treated as a Date), so a business with auto top-up on and a working card ran down to nothing.
+ * - **A top-up that goes through lifts a suspension.** A suspended balance took the money for a Top up now and
+ *   still said texts and calls had stopped, and never topped itself up again.
  */
-import { walletTopUp } from '@hfos/core/server';
+import { executeCommand, walletSuspend, walletTopUp } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, signInTestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { JobContext } from '../src/jobs';
 import { planWallets, RECHARGE_JOBS, sweepWallet, walletSweepKey } from '../src/money/recharge';
 import { FAKE_CARDS } from '../src/payments/fake';
+import { systemActor, workerMeta } from '../src/services';
 import { admin, drain, moneyWorld, run, type MoneyWorld } from './money-world';
 
 let w: MoneyWorld;
@@ -158,5 +161,37 @@ describe('topping up the balance', () => {
     await sweep();
     await drain(on);
     expect(charges().slice(before)).toHaveLength(1);
+  });
+
+  it('puts a suspended balance back to normal once a top-up goes through on its card', async () => {
+    const scope = { workspaceId: w.workspaceId, organizationId: w.organizationId };
+    // The card was declined till the balance was suspended; the owner sorted it out with the bank.
+    await executeCommand(
+      on.s.db,
+      walletSuspend,
+      { workspaceId: w.workspaceId, reason: 'The card was declined.' },
+      systemActor(scope),
+      workerMeta(),
+    );
+    const suspended = async () =>
+      (
+        await rows<{ suspended_at: string | null; suspended_reason: string | null }>(
+          admin(),
+          sql`select suspended_at, suspended_reason from app.usage_wallets
+              where workspace_id = ${w.workspaceId}`,
+        )
+      )[0];
+    expect((await suspended())?.suspended_at).not.toBeNull();
+    const before = await balance();
+    await topUp(2_500);
+    await drain(on);
+    expect(await balance()).toBe(before + 2_500);
+    expect(await suspended()).toEqual({ suspended_at: null, suspended_reason: null });
+    const said = await rows<{ event_type: string }>(
+      admin(),
+      sql`select event_type from app.events
+          where workspace_id = ${w.workspaceId} and event_type = 'wallet.resumed'`,
+    );
+    expect(said).toHaveLength(1);
   });
 });

@@ -367,6 +367,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       // A yearly seat renewed, or the card refused it (20261027009500): the owners and admins are emailed.
       'founding.renewed': onFoundingBilled,
       'founding.renewal_failed': onFoundingBilled,
+      // Each daily try that fails is emailed too, as the business is told it will be; the last one says so.
+      'founding.renewal_retry_failed': onFoundingBilled,
       // Billing for a plan (20261027023600): Try my cards now and a later payment day are charged by jobs, a removed
       // card is forgotten at Stripe, and the owners and admins hear what staff said about more time.
       'billing.pay_now_requested': onPayNowRequested,

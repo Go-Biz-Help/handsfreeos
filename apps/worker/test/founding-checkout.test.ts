@@ -1367,5 +1367,22 @@ describe('the renewal emails', () => {
     // Backups were tried, they'll be tried again daily, and the fix is on Settings → Billing & Usage (20261027023600).
     expect(refused.text).toContain('once a day');
     expect(refused.text).toContain('Settings → Billing & Usage');
+    // A daily try that failed says it's still owed, and the last one that nothing more is tried.
+    const again = (lastRetry: boolean) =>
+      foundingRenewalFailedEmail({
+        business: 'Checkout HVAC',
+        offer: 'Founding Monthly',
+        amount: '$97',
+        reason: 'Your card was declined.',
+        link: 'https://app.test/settings',
+        period: 'month',
+        again: true,
+        lastRetry,
+      });
+    expect(again(false).subject).toContain('still hasn’t gone through');
+    expect(again(false).text).toContain('tried again and still couldn’t take the monthly $97');
+    expect(again(false).text).toContain('once a day');
+    expect(again(true).text).toContain('our last try');
+    expect(again(true).text).not.toContain('once a day');
   });
 });
