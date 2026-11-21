@@ -10,8 +10,8 @@ export interface DnsLookup {
   /** TXT records at a host, each as the strings it was split into. */
   txt(host: string): Promise<string[][]>;
   cname(host: string): Promise<string[]>;
-  /** The mail servers a domain's MX records name. */
-  mx(host: string): Promise<{ exchange: string }[]>;
+  /** The mail servers a domain's MX records name, and their preference (lowest is tried first). */
+  mx(host: string): Promise<{ exchange: string; priority?: number }[]>;
 }
 
 export const systemDns: DnsLookup = {
@@ -88,7 +88,12 @@ export async function tokenInDns(
   return found.some((chunks) => chunks.join('').trim() === token);
 }
 
-/** Whether one of the domain's MX records names the host: true, false, or null when DNS did not answer. */
+/**
+ * Whether the domain's mail goes to the host: true, false, or null when DNS did not answer. Mail goes to the MX
+ * records with the lowest preference, so the host has to be the only name there. One record naming it beside the old
+ * host's (Google's at 1, ours at 10, say) used to count, and then receiving turned on while every reply still went
+ * to the old mailbox, with no Reply-To on our mail any more to bring them back.
+ */
 export async function mxInDns(
   lookup: DnsLookup,
   domain: string,
@@ -96,7 +101,11 @@ export async function mxInDns(
 ): Promise<boolean | null> {
   const found = await lookUp(() => lookup.mx(domain));
   if (found === null) return null;
-  return found.some((r) => hostName(r.exchange) === hostName(exchange));
+  if (found.length === 0) return false;
+  const first = Math.min(...found.map((r) => r.priority ?? 0));
+  return found
+    .filter((r) => (r.priority ?? 0) === first)
+    .every((r) => hostName(r.exchange) === hostName(exchange));
 }
 
 /**
