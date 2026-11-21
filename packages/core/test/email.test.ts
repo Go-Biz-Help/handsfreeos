@@ -380,6 +380,35 @@ describe('receiving email', () => {
       ).outcome,
     ).toBe('skipped');
   });
+
+  it('answers a customer who wrote with no subject, under the business’s name', async () => {
+    const blank = await sys(emailReceive, {
+      workspaceId: wsId,
+      provider: 'postmark',
+      providerMessageId: 'pm-in-no-subject',
+      messageIdHeader: '<pat-blank@example.com>',
+      from: { address: PAT },
+      to: [{ address: shared.address }],
+      subject: null,
+      bodyText: 'Are you open Saturday?',
+    });
+    expect(blank.outcome).toBe('filed');
+    // No subject on the answer either, as the AI teammate's has none: it still goes.
+    const answer = await run(
+      messageSend,
+      {
+        workspaceId: wsId,
+        conversationId: blank.conversationId!,
+        channel: 'email',
+        body: 'We are, 9 to 2.',
+      },
+      member,
+    );
+    expect(await message(answer.messageId)).toMatchObject({
+      subject: 'Email Test HVAC',
+      in_reply_to_header: '<pat-blank@example.com>',
+    });
+  });
 });
 
 describe('a connected mailbox', () => {

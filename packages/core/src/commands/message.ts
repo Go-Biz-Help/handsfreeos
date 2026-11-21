@@ -30,6 +30,7 @@ import { formatBytes } from '../crm/format';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
+import { emailSubjectOf } from '../inbox/composer';
 import { FRESH_MINUTES } from '../mobile';
 import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -836,12 +837,20 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
   }
 
   const thread = await threadHeaders(ctx.tx, conv.id);
-  const subject = input.subject?.trim() || replySubject(thread.subject);
-  if (!subject)
-    throw HfosError.validation(
-      [{ path: 'subject', message: 'Add a subject.' }],
-      'This email has no subject. Add one, then send it.',
-    );
+  // With no subject written and none on the thread (a customer who wrote without one), it goes out under the
+  // business's name, as the web's and the phone's composers already send it. Refused instead, the AI teammate
+  // couldn't answer a customer who left the subject blank: its reply never names one.
+  const subject =
+    input.subject?.trim() ||
+    replySubject(thread.subject) ||
+    emailSubjectOf('', {
+      businessName: (
+        await rows<{ name: string }>(
+          ctx.tx,
+          sql`select name from app.workspaces where id = ${workspaceId}`,
+        )
+      )[0]?.name,
+    });
   const media = await emailAttachments(ctx, input.attachmentFileIds);
   const messageId = randomUUID();
   const now = new Date();
