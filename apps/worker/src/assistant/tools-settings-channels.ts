@@ -23,7 +23,11 @@ import {
   type EmailDnsRecord,
   type EmailDomainRecordsLike,
 } from '@hfos/core';
-import { emailAddressReassign, emailAddressRemove } from '@hfos/core/server';
+import {
+  emailAddressReassign,
+  emailAddressRemove,
+  emailAddressSetAiReads,
+} from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { hasPermission, parseBody } from '../http/common';
 import {
@@ -930,8 +934,11 @@ interface EmailStatus {
     ownerName?: string | null;
     ownerLeft?: boolean;
     mine?: boolean;
+    aiReads?: boolean;
   }[];
   domains: (EmailDomainRecordsLike & { id: string; status: string })[];
+  /** The business's AI teammate by name, and whether it is on; none yet when null. */
+  aiTeammate?: { name: string; on: boolean } | null;
 }
 
 const emailStatus = (db: Db, ctx: ToolContext) =>
@@ -1306,10 +1313,71 @@ const removeCard: ScreenActionCard = {
   },
 };
 
+/**
+ * "Let Ava read this mail" (owner, 2026-11-22), as the switch under a person's own address on Settings → Email: the
+ * card names the address and the AI teammate, and says what on or off means. The command is tried before any card is
+ * drawn, so only the address's own person gets one.
+ */
+const aiReadsCard: ScreenActionCard = {
+  async prepare(db, ctx, args, tool) {
+    const status = await emailStatus(db, ctx);
+    const a = status?.addresses.find((x) => x.id === args['emailAddressId']);
+    if (!a)
+      throw HfosError.notFound(
+        'That isn’t one of this business’s addresses. Its addresses are in get_settings (area email).',
+      );
+    const ai = status?.aiTeammate ?? null;
+    const name = ai?.name ?? 'your AI teammate';
+    const on = args['aiReads'] === true;
+    const resting = !ai
+      ? ' This business has no AI teammate yet, so nothing is drafted until one is set up under AI teammate.'
+      : ai.on
+        ? ''
+        : ` ${name} is turned off, so nothing is drafted until it’s back on: AI teammate, Status.`;
+    return {
+      card: settingsCard(tool.toolCallId, tool.name, {
+        title: on
+          ? `Let ${name} read mail sent to ${a.address}`
+          : `Stop ${name} reading mail sent to ${a.address}`,
+        fields: [
+          { label: 'Address', value: a.address },
+          { label: `Let ${name} read this mail`, value: on ? 'On' : 'Off' },
+        ],
+        confirmLabel: on ? 'Turn it on' : 'Turn it off',
+        warnings: [
+          {
+            kind: on ? 'caution' : 'note',
+            text: on
+              ? `${name} reads new mail sent to ${a.address} and writes a draft answer for you. Only you see the draft, and nothing is sent until you send it.${resting}`
+              : `${name} stops reading mail sent to ${a.address}, and the drafts it left go.`,
+          },
+        ],
+      }),
+      result: { waiting: true },
+    };
+  },
+  async done(db, ctx, _args, output) {
+    const status = await emailStatus(db, ctx);
+    const name = status?.aiTeammate?.name ?? 'Your AI teammate';
+    const address = typeof output['address'] === 'string' ? output['address'] : 'your address';
+    const on = output['aiReads'] === true;
+    return {
+      outcome:
+        output['changed'] === false
+          ? `That was already ${on ? 'on' : 'off'} for ${address}`
+          : on
+            ? `${name} now reads mail sent to ${address}, and drafts answers only you see`
+            : `${name} no longer reads mail sent to ${address}`,
+      href: `/app/w/${ctx.workspaceId}/settings/email`,
+    };
+  },
+};
+
 /** The Email screen's commands drawn on cards of their own, by the commands' own names: they stay screen actions. */
 export const emailScreenCards: Readonly<Record<string, ScreenActionCard>> = {
   [emailAddressReassign.name]: reassignCard,
   [emailAddressRemove.name]: removeCard,
+  [emailAddressSetAiReads.name]: aiReadsCard,
 };
 
 // ---------- the chat box on the website ----------

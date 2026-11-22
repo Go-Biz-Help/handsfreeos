@@ -1605,6 +1605,11 @@ export const conversations = app.table('conversations', {
   folder: conversationFolder('folder').notNull().default('inbox'),
   /** M19: the one person who may read it (their own address's mail); null is the team's. Never linked to a customer. */
   privateTo: uuid('private_to'),
+  /**
+   * The answer the AI teammate drafted for the newest mail in a person's own thread, when their address lets it
+   * read: `{ body, forMessageId, at }`. Only ever on a private thread, so only its person reads it.
+   */
+  aiDraft: jsonb('ai_draft').$type<{ body: string; forMessageId: string; at: string }>(),
   /** The record a thread is about (a portal thread's deal); a private record's thread is sealed with it (round two). */
   customRecordId: uuid('custom_record_id').references(() => customRecords.id, {
     onDelete: 'set null',
@@ -1947,6 +1952,8 @@ export const emailAddresses = app.table('email_addresses', {
   ...timestamps(),
   /** M19: the person whose own address this is; only they send from it, and its mail is theirs alone. */
   ownerUserId: uuid('owner_user_id'),
+  /** Its own person lets the AI teammate read the mail that comes in here and draft answers only they see. */
+  aiReads: boolean('ai_reads').notNull().default(false),
 });
 
 /** An Outlook or Gmail mailbox; tokens and sign-in secrets are sealed by the worker. */

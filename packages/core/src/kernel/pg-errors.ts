@@ -243,6 +243,16 @@ const RULES: Record<string, { status: number; message: string }> = {
     message:
       'That address is one person’s own, and its mail is theirs. Only they can hand it back to the team or remove it, in Settings → Email. Once they’ve left the business, an owner decides.',
   },
+  email_address_ai_reads_is_theirs: {
+    status: 409,
+    message:
+      'That address is one person’s own, so only they can let the AI teammate read its mail: the switch under the address in Settings → Email.',
+  },
+  email_address_ai_reads_team: {
+    status: 409,
+    message:
+      'That address is the team’s, and this switch is for an address only one person reads. Whether the AI teammate answers the team’s email is in AI teammate, the Channels section.',
+  },
   email_address_owner_left: {
     status: 409,
     message:

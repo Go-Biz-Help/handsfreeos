@@ -475,3 +475,163 @@ describe('when its person leaves', () => {
     expect(await sees(owner, mail)).toEqual({ thread: 0, message: 0, file: false });
   });
 });
+
+/**
+ * "Let Ava read this mail" (20261027033700): the switch on a person's own address is theirs alone to turn on, a
+ * new address never arrives with it on, and the draft the AI teammate leaves is as private as the thread it is on.
+ */
+describe('the AI teammate reads own mail only when its person says so', () => {
+  const turn = (u: TestUser, address: string, on: boolean) =>
+    as(u)((tx) =>
+      rows<{ changed: boolean }>(
+        tx,
+        sql`select private.set_email_address_ai_reads(${address}::uuid, ${on}) as changed`,
+      ),
+    );
+  const switchOf = async (address: string) =>
+    (
+      await rows<{ ai_reads: boolean }>(
+        dbs.admin.db,
+        sql`select ai_reads from app.email_addresses where id = ${address}`,
+      )
+    )[0]!.ai_reads;
+  const draft = { body: 'Hi, yes. Mel', forMessageId: '00000000-0000-4000-8000-000000000000' };
+  /** An address of the member's own: someone who can't change the business's email settings. */
+  let own: string;
+  let domainId: string;
+
+  beforeAll(async () => {
+    const [d] = await rows<{ id: string }>(
+      dbs.admin.db,
+      sql`select id from app.email_domains where domain = ${domain}`,
+    );
+    domainId = d!.id;
+    const [a] = await as(owner)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.email_addresses (workspace_id, email_domain_id, local_part, address, display_name,
+              created_by, owner_user_id)
+            values (${ws}, ${domainId}, ${`a${token()}`}, '', 'Own Mail', ${owner.id}, ${member.id}) returning id`,
+      ),
+    );
+    own = a!.id;
+  });
+
+  it('is turned on by its own person and nobody else, by no other road', async () => {
+    // Not an owner for them, not on the team's address, and not from outside the business.
+    expect((await expectPgError(() => turn(owner, own, true))).detail).toBe(
+      'email_address_ai_reads_is_theirs',
+    );
+    expect((await expectPgError(() => turn(owner, teamAddress, true))).detail).toBe(
+      'email_address_ai_reads_team',
+    );
+    const outsider = await createTestUser('own-mail-ai-elsewhere');
+    expect((await expectPgError(() => turn(outsider, own, true))).detail).toBe('no_email_address');
+    // Writing the column itself isn't theirs to do: not the owner's, and not its person's either.
+    for (const u of [owner, member])
+      expect(
+        (
+          await expectPgError(() =>
+            as(u)((tx) =>
+              rows(tx, sql`update app.email_addresses set ai_reads = true where id = ${own}`),
+            ),
+          )
+        ).code,
+      ).toBe('42501');
+    // And an address can't be added for someone with it already on.
+    expect(
+      (
+        await expectPgError(() =>
+          as(owner)((tx) =>
+            rows(
+              tx,
+              sql`insert into app.email_addresses (workspace_id, email_domain_id, local_part, address,
+                    display_name, created_by, owner_user_id, ai_reads)
+                  values (${ws}, ${domainId}, ${`a${token()}`}, '', 'Own Mail', ${owner.id}, ${admin.id}, true)`,
+            ),
+          ),
+        )
+      ).detail,
+    ).toBe('email_address_ai_reads_is_theirs');
+    expect(await switchOf(own)).toBe(false);
+
+    // A member can't change email settings, and the switch on their own address is still theirs.
+    expect(await turn(member, own, true)).toEqual([{ changed: true }]);
+    expect(await switchOf(own)).toBe(true);
+    expect(await turn(member, own, true)).toEqual([{ changed: false }]);
+  });
+
+  it('keeps the draft as private as the thread, and only on someone’s own thread', async () => {
+    const mail = await ownMail(own, member);
+    await worker()((tx) =>
+      rows(
+        tx,
+        sql`update app.conversations set ai_draft = ${JSON.stringify(draft)}::jsonb where id = ${mail.conversation}`,
+      ),
+    );
+    const reads = (u: TestUser) =>
+      as(u)((tx) =>
+        rows<{ body: string | null }>(
+          tx,
+          sql`select ai_draft ->> 'body' as body from app.conversations where id = ${mail.conversation}`,
+        ),
+      );
+    expect(await reads(member)).toEqual([{ body: draft.body }]);
+    for (const u of [owner, admin, chris]) expect(await reads(u)).toEqual([]);
+
+    // The team's thread never holds one.
+    const [teams] = await worker()((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.conversations (workspace_id, channel, counterpart, email_address_id)
+            values (${ws}, 'email', ${`team-${token()}@example.com`}, ${teamAddress}) returning id`,
+      ),
+    );
+    expect(
+      (
+        await expectPgError(() =>
+          worker()((tx) =>
+            rows(
+              tx,
+              sql`update app.conversations set ai_draft = ${JSON.stringify(draft)}::jsonb where id = ${teams!.id}`,
+            ),
+          ),
+        )
+      ).constraint_name,
+    ).toBe('conversations_ai_draft_private');
+
+    // Shared with the team, the thread loses it: nobody else ever reads what was drafted for one person.
+    await as(member)((tx) =>
+      rows(tx, sql`update app.conversations set private_to = null where id = ${mail.conversation}`),
+    );
+    const [shared] = await rows<{ ai_draft: unknown }>(
+      dbs.admin.db,
+      sql`select ai_draft from app.conversations where id = ${mail.conversation}`,
+    );
+    expect(shared!.ai_draft).toBeNull();
+  });
+
+  it('turns off with its drafts, and never outlasts its person', async () => {
+    const mail = await ownMail(own, member);
+    await worker()((tx) =>
+      rows(
+        tx,
+        sql`update app.conversations set ai_draft = ${JSON.stringify(draft)}::jsonb where id = ${mail.conversation}`,
+      ),
+    );
+    expect(await turn(member, own, false)).toEqual([{ changed: true }]);
+    const [after] = await rows<{ ai_draft: unknown }>(
+      dbs.admin.db,
+      sql`select ai_draft from app.conversations where id = ${mail.conversation}`,
+    );
+    expect(after!.ai_draft).toBeNull();
+
+    // Handed back to the team, the yes that was one person's goes with them.
+    await turn(member, own, true);
+    await rows(
+      dbs.admin.db,
+      sql`update app.email_addresses set owner_user_id = null where id = ${own}`,
+    );
+    expect(await switchOf(own)).toBe(false);
+  });
+});

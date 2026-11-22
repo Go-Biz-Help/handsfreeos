@@ -297,7 +297,9 @@ the team's, so it now shows in one list with a mark. His picks:
   Spam.~~ Gone the next day, below.
 - **Badges** count their own unread mail in Mine and All (and the menu's Inbox badge), on their
   screen only. Waiting, Needs a person and the AI teammate's count stay the team's.
-- **The AI teammate never reads or answers anyone's own mail**, as before.
+- **The AI teammate never reads or answers anyone's own mail**, as before. (Changed 2026-11-22: it
+  reads and drafts on an address whose own person turns the switch on, and still never answers. See
+  "Let Ava read this mail" below.)
 - A sender who writes to both someone's own address and a team one is **two rows**, never one with
   two lanes (`GROUP_KEY` and `customerKeyOf` keep own mail apart), so sharing or answering one never
   reaches the other.
@@ -323,8 +325,8 @@ still opened a page of his own mail, and Chris wanted one Inbox. He picked desig
 **Changing addresses after setup (Chris, 2026-11-22).** Burroughs Digital added `blake@` first, so
 it became the address customers hear from and could never be Blake's own. Chris approved the
 "Guided email setup" canvas ("after setup also need to be able to change the email, add more, change
-who can see it"). Its Settings part is built; the guided questions and the switch that lets the AI
-teammate read someone's own mail come next. What changed from the rules above:
+who can see it"). Its Settings part and the switch that lets the AI teammate read someone's own
+mail (below) are built; the guided questions come next. What changed from the rules above:
 
 - **Settings → Email opens on Your addresses.** Each row says who reads it and which one customers
   hear from (the default; the free address is the **Backup** once an own address is). **Change**
@@ -347,6 +349,47 @@ teammate read someone's own mail come next. What changed from the rules above:
   person's address with its mail is still never offered.
 - Changing or removing an address takes `channels.manage`, so someone without it asks an owner or
   admin to add the address again as the team's.
+
+**Let Ava read this mail (Chris, 2026-11-22).** "Need to add a toggle that allows Ava to read the
+Only me emails and it can be changed after setup as well." This reverses the 2026-11-10 pick above
+for the addresses whose own person says so, and only this far: the AI teammate reads and drafts, and
+the person sends.
+
+- **The switch is on the address** (`email_addresses.ai_reads`), under each of a person's own
+  addresses on Settings → Email, and in the Add and Change boxes while **Only me** is picked. It
+  starts off.
+- **Only the address's own person turns it on** (`email_address.set_ai_reads`, through
+  `private.set_email_address_ai_reads`). Not an admin adding their address, and not an owner: the
+  refusal (`email_address_ai_reads_is_theirs`) says whose it is. People can't write the column any
+  other way, and a team address has no such switch (`email_address_ai_reads_team`: the team's mail
+  follows the teammate's own Channels). It takes `inbox.use`, not `channels.manage`, so a member
+  without Settings can still ask the Assistant to flip it.
+- **It goes off when the address changes hands** (handed back, given to someone else): the yes was
+  one person's.
+- **What on does.** New mail to the address that lands in their Inbox queues one job per thread
+  (`ai_teammate.own_mail_draft`, on `email.filed`, after a short wait so a few mails get one draft).
+  The teammate reads the last six mails of the thread, the business profile and its knowledge, and
+  writes a draft answer as the person. Newsletters, automatic mail, Other mail and Spam get none,
+  and neither does a thread they already answered. A teammate that is off drafts nothing.
+- **Where the draft lives.** On the thread itself (`conversations.ai_draft`: the words, which mail it
+  answers, when), never in the team's drafts or the teammate's runs, which the whole business reads.
+  A check keeps it on private threads only, so the policies that hide the thread hide the draft.
+  It goes when they answer, when new mail comes, when they put it away
+  (`conversation.ai_draft_dismiss`), when the thread stops being theirs (shared, or reassigned), and
+  when they turn the switch off.
+- **Nothing is sent.** The thread shows the draft on a card marked **Only you see this**, with
+  **Use this draft** (it fills the message box, where they change what they like and send as
+  themselves) and **No thanks**. There is no run, tool call, customer link, task or approval, and
+  only its person can send from the address, as before.
+- **What the history says.** That the switch changed and that a draft was made on a private thread,
+  never its words or who wrote in. The tokens count toward the business's daily AI limit as the
+  teammate's.
+- **The Assistant** flips the switch on a card that names the address and the teammate
+  (`do_email_address_set_ai_reads`), reads the draft back to its person in `get_conversation`
+  (`draftAnswer`), and puts it away (`do_conversation_ai_draft_dismiss`). It runs as the person, so
+  nobody else is read a draft.
+- **The phone** doesn't show the switch or the draft yet; both come with the guided setup's phone
+  screens, in one sync change.
 
 ### Step 5 — HandsFreeOS's own business (done, 2026-09-30)
 

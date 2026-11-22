@@ -3577,6 +3577,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/conversation.ai_draft_dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put away the answer the AI teammate drafted on your own mail. Nothing was sent, and it drafts again when new mail comes.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.ai_draft_dismissed.
+         */
+        post: operations["command_conversation_ai_draft_dismiss"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/conversation.archive": {
         parameters: {
             query?: never;
@@ -4491,6 +4511,26 @@ export interface paths {
          * @description Risk level 3. Requires channels.manage. Emits email_address.removed.
          */
         post: operations["command_email_address_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_address.set_ai_reads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let the AI teammate read the mail that comes in to your own address and draft answers only you see, or stop it. Only on an address one person reads, and only by that person. Nothing is sent: you send the draft, or don’t.
+         * @description Risk level 2. Requires inbox.use. Emits email_address.ai_reads_changed.
+         */
+        post: operations["command_email_address_set_ai_reads"];
         delete?: never;
         options?: never;
         head?: never;
@@ -35624,6 +35664,39 @@ export interface operations {
             };
         };
     };
+    command_conversation_ai_draft_dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        dismissed: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_conversation_archive: {
         parameters: {
             query?: never;
@@ -37530,6 +37603,42 @@ export interface operations {
                         /** Format: uuid */
                         emailAddressId: string;
                         threads: number;
+                    };
+                };
+            };
+        };
+    };
+    command_email_address_set_ai_reads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    aiReads: boolean;
+                    /** Format: uuid */
+                    emailAddressId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        address: string;
+                        aiReads: boolean;
+                        changed: boolean;
+                        /** Format: uuid */
+                        emailAddressId: string;
                     };
                 };
             };
@@ -81020,6 +81129,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        aiDraft?: {
+                            /** Format: date-time */
+                            at: string;
+                            body: string;
+                            by: string;
+                            /** Format: uuid */
+                            forMessageId: string;
+                        } | null;
                         canText: {
                             ok: boolean;
                             reason: ("no_number" | "not_ready" | "opted_out" | "no_phone" | "email_channel" | "chat_channel" | "portal_channel" | "social_channel") | null;
@@ -82478,6 +82595,7 @@ export interface operations {
                     "application/json": {
                         addresses: {
                             address: string;
+                            aiReads?: boolean;
                             displayName: string;
                             domain: string | null;
                             emailDomainId: string | null;
@@ -82492,6 +82610,10 @@ export interface operations {
                             renamable?: boolean;
                             usable: boolean;
                         }[];
+                        aiTeammate?: {
+                            name: string;
+                            on: boolean;
+                        } | null;
                         counts: {
                             suppressions: number;
                             unmatched: number;

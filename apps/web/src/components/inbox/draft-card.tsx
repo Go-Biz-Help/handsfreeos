@@ -28,6 +28,7 @@ import {
   Link2,
   ListPlus,
   Loader2,
+  Lock,
   Minus,
   Pencil,
   Percent,
@@ -581,6 +582,71 @@ export function TeammateLine({
     >
       <Icon className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
       <span className="min-w-0">{children}</span>
+    </div>
+  );
+}
+
+/**
+ * The AI teammate's draft on someone's own mail ("Let Ava read this mail", owner 2026-11-22). It is theirs alone to
+ * read, as the thread is. "Use this draft" puts the words in the message box, where they change what they like and
+ * send it as their own. Nothing is ever sent from this card.
+ */
+export function OwnMailDraft({
+  draft,
+  busy,
+  onUse,
+  onDismiss,
+}: {
+  draft: { body: string; by: string };
+  /** Putting it away is on its way. */
+  busy: boolean;
+  onUse: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={`${draft.by}’s draft`}
+      data-testid="own-mail-draft"
+      className="mt-2.5 flex w-full max-w-[452px] flex-col gap-2.5 self-end rounded-2xl rounded-br-[6px] border-[1.5px] border-dashed border-[color-mix(in_oklab,#7c3aed_62%,var(--border-strong))] bg-card px-3.5 py-3 shadow-1"
+    >
+      <div
+        className={cn(
+          'flex items-center gap-[7px] whitespace-nowrap text-xs font-semibold',
+          AI_TEXT,
+        )}
+      >
+        <Sparkles className="h-[13px] w-[13px] flex-none" strokeWidth={1.75} />
+        <span className="truncate">{`${draft.by}’s draft`}</span>
+        <span className="ml-auto inline-flex items-center gap-1 font-medium text-text-3">
+          <Lock className="h-3 w-3" strokeWidth={1.75} />
+          Only you see this
+        </span>
+      </div>
+      <div
+        className="whitespace-pre-wrap break-words text-[14.5px] leading-[1.45]"
+        data-testid="own-mail-draft-body"
+      >
+        {draft.body}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="min-w-0 flex-1 text-xs text-text-3">
+          Nothing is sent until you send it.
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          loading={busy}
+          onClick={onDismiss}
+          data-testid="own-mail-draft-dismiss"
+        >
+          No thanks
+        </Button>
+        <Button size="sm" disabled={busy} onClick={onUse} data-testid="own-mail-draft-use">
+          <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Use this draft
+        </Button>
+      </div>
     </div>
   );
 }

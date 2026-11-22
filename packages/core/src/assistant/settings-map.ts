@@ -654,7 +654,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'the addresses you send from, your own sending domain, connected mailboxes and blocked addresses',
     where: ['Settings', 'Email'],
     onScreen: [
-      'Your addresses: each address with who reads it and which one customers hear from; Change on a row (rename it while it has carried no mail, Who reads it: Only me or The team, Make this the one customers hear from, Remove address); Add an address; Name customers see (one name, on every address)',
+      'Your addresses: each address with who reads it and which one customers hear from; Change on a row (rename it while it has carried no mail, Who reads it: Only me or The team, Make this the one customers hear from, Remove address); under your own address, the switch Let Ava read this mail (it names the business’s AI teammate; on, it drafts answers only you see); Add an address; Name customers see (one name, on every address)',
       'Use your own domain: Add domain, Check now, Remove domain, Receive mail here too and Stop receiving here; Another domain for a second one',
       // Connect Gmail is greyed out as Coming soon until Google's review (NEXT_PUBLIC_GMAIL_ENABLED).
       'Connected mailboxes: Connect Outlook, and Connect Gmail marked Coming soon',
@@ -672,6 +672,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'make an address one person’s own, naming the address that takes over when it is the one customers hear from',
       'hand your own address back to the team (only its own person can)',
       'remove one address, keeping the mail it already got',
+      'let the AI teammate read the mail that comes to your own address and draft answers only you see, or stop it (only its own person can)',
       'decide what becomes of the address of someone who has left',
       'add or remove your own sending domain, and check it',
       'receive mail at your own domain, or stop',

@@ -7,6 +7,7 @@ import {
   mailboxConnections,
   users,
 } from '@hfos/db/schema';
+import { loadTeammate } from '../ai-team/load';
 import { userIdOf } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
@@ -95,6 +96,8 @@ export const emailSetupStatus = defineQuery({
         ),
       )
       .orderBy(asc(mailboxConnections.createdAt));
+    // Who "Let … read this mail" names, on a person's own address.
+    const teammate = await loadTeammate(ctx.tx, workspaceId);
     const [counts] = await rows<{ suppressions: number; unmatched: number }>(
       ctx.tx,
       sql`select
@@ -123,8 +126,10 @@ export const emailSetupStatus = defineQuery({
           ownerLeft: !!a.ownerUserId && !ownerHere,
           mine: !!a.ownerUserId && a.ownerUserId === me,
           renamable: !carried,
+          aiReads: !!a.ownerUserId && a.ownerUserId === me && a.aiReads,
         }),
       ),
+      aiTeammate: teammate ? { name: teammate.name, on: teammate.status !== 'off' } : null,
       domains: domains.map((d) => ({
         id: d.id,
         domain: d.domain,

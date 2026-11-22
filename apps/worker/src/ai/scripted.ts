@@ -3562,6 +3562,47 @@ export const SCRIPTED_BUSINESS_CARD = {
   extra: 'TX roofing licence 12345',
 } as const;
 
+/**
+ * The AI teammate's draft on someone's own mail (ai-team/own-mail.ts): an answer to whoever wrote the newest email,
+ * signed with the person's first name, with a note where only they know the answer. A newsletter gets none.
+ */
+export function scriptedOwnMailDraft(message: string): { reply: boolean; body: string } {
+  const person = /^The person: (.+?) \(/m.exec(message)?.[1] ?? '';
+  const emails = [...message.matchAll(/<email from="([^"]*)"[^>]*>\n([\s\S]*?)\n<\/email>/g)];
+  const newest = emails.at(-1);
+  const words = newest?.[2] ?? '';
+  if (!newest || /\bunsubscribe\b|\bnewsletter\b/i.test(words)) return { reply: false, body: '' };
+  const sender =
+    newest[1]!
+      .replace(/<[^>]*>/g, '')
+      .trim()
+      .split(/\s+/)[0] ?? '';
+  const greeting = sender && !sender.includes('@') ? `Hi ${sender},` : 'Hi,';
+  const first = person && person !== 'The person' ? person.split(/\s+/)[0]! : '';
+  const asks = /\?/.test(words);
+  return {
+    reply: true,
+    body: [
+      greeting,
+      '',
+      asks
+        ? 'Thanks for your email. [your answer]'
+        : 'Thanks for your email. I’ll get back to you shortly.',
+      '',
+      ...(first ? [first] : []),
+    ]
+      .join('\n')
+      .trim(),
+  };
+}
+
+export const OWN_MAIL_RULES: readonly ScriptRule[] = [
+  {
+    when: /Write the person’s draft answer to the newest email\.$/,
+    json: (message) => scriptedOwnMailDraft(message),
+  },
+];
+
 export const BUSINESS_CARD_RULES: readonly ScriptRule[] = [
   {
     when: /Read this side of the business card\. The picture is \d+ pixels wide and \d+ pixels high\.$/,
@@ -3741,6 +3782,7 @@ export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...SOCIALCONTENT_RULES,
   ...DOCUMENT_RULES,
   ...BUSINESS_CARD_RULES,
+  ...OWN_MAIL_RULES,
 ];
 
 /** The stand-in model; tests may put their own rules first (and their own teammate rules). */

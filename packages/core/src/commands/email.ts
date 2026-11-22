@@ -9,6 +9,7 @@ import {
   mailboxConnections,
   workspaces,
 } from '@hfos/db/schema';
+import { loadTeammate } from '../ai-team/load';
 import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { requireHuman, userIdOf } from '../kernel/actor';
@@ -24,6 +25,8 @@ import {
   EmailAddressReassignInput,
   EmailAddressReassignOutput,
   EmailAddressRemoveInput,
+  EmailAddressSetAiReadsInput,
+  EmailAddressSetAiReadsOutput,
   EmailAddressRemoveOutput,
   EmailAddressUpdateInput,
   EmailAddressUpdateOutput,
@@ -1083,6 +1086,56 @@ export const emailAddressRemove = defineCommand({
       after: { removed: true, threads: row.threads },
     });
     return { emailAddressId: a.id, address: a.address, threads: row.threads };
+  },
+});
+
+/**
+ * "Let Ava read this mail" (owner, 2026-11-22): a person lets the AI teammate read the mail that comes in to their
+ * own address and draft answers only they see. Theirs alone to turn on, whatever anyone else may change about the
+ * address, so it asks for the inbox and not for channels. Off, the drafts it had waiting go too. The SQL checks
+ * whose address it is again for itself.
+ */
+export const emailAddressSetAiReads = defineCommand({
+  name: 'email_address.set_ai_reads',
+  description:
+    'Let the AI teammate read the mail that comes in to your own address and draft answers only you see, or stop it. Only on an address one person reads, and only by that person. Nothing is sent: you send the draft, or don’t.',
+  risk: 2,
+  input: EmailAddressSetAiReadsInput,
+  output: EmailAddressSetAiReadsOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: ['email_address.ai_reads_changed'],
+  async handler(ctx, input) {
+    const a = await loadAddress(ctx, input.emailAddressId);
+    const teammate = await loadTeammate(ctx.tx, ctx.scope.workspaceId!);
+    const ai = teammate?.name ?? 'the AI teammate';
+    if (!a.ownerUserId)
+      throw HfosError.rule(
+        'email_address_ai_reads_team',
+        409,
+        `${a.address} is the team’s address, and this switch is for an address only one person reads. Whether ${ai} answers the team’s email is in AI teammate, the Channels section.`,
+      );
+    if (a.ownerUserId !== userIdOf(ctx.actor))
+      throw HfosError.rule(
+        'email_address_ai_reads_is_theirs',
+        409,
+        `${a.address} is one person’s own address, so only they can let ${ai} read its mail: the switch under ${a.address} in Settings → Email.`,
+      );
+    const [row] = await rows<{ changed: boolean }>(
+      ctx.tx,
+      sql`select private.set_email_address_ai_reads(${a.id}::uuid, ${input.aiReads}) as changed`,
+    );
+    const changed = !!row?.changed;
+    if (changed)
+      await ctx.emit({
+        type: 'email_address.ai_reads_changed',
+        entityType: 'email_address',
+        entityId: a.id,
+        payload: { aiReads: input.aiReads },
+        before: { address: a.address, aiReads: a.aiReads },
+        after: { aiReads: input.aiReads },
+      });
+    return { emailAddressId: a.id, address: a.address, aiReads: input.aiReads, changed };
   },
 });
 

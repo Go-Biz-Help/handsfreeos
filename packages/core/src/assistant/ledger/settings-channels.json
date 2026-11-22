@@ -14,8 +14,8 @@
     "apps/web/src/components/settings/a2p-wizard.tsx": "16a231581336",
     "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
-    "apps/web/src/components/settings/email-addresses.tsx": "7629a5f124b6",
-    "apps/web/src/components/settings/email-page.tsx": "b8b9789a3099",
+    "apps/web/src/components/settings/email-addresses.tsx": "0a161e86d75f",
+    "apps/web/src/components/settings/email-page.tsx": "3694178ea072",
     "apps/web/src/components/settings/facebook-instagram-page.tsx": "8674fc1c6cbc",
     "apps/web/src/components/settings/inbox-visibility-card.tsx": "e7ce1e333cd7",
     "apps/web/src/components/settings/lead-intake-page.tsx": "f7affad2e1dd",
@@ -1768,161 +1768,189 @@
     {
       "path": "Email → Your addresses → each: address, and who reads it (Only you / Only X / The team / free address)",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:194",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:225",
       "covered": "yes",
       "by": "get_settings email addresses ownerName, mine, domain"
     },
     {
       "path": "Email → Your addresses → Customers hear from this one / Backup / Waiting for its records badges",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:190",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:221",
       "covered": "yes",
       "by": "get_settings email addresses isDefault, domain, usable"
     },
     {
       "path": "Email → Your addresses → Copy address",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:201",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:232",
       "covered": "yes",
       "by": "get_settings email addresses"
     },
     {
       "path": "Email → Your addresses → Change (opens Change this address)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:213",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:244",
       "covered": "yes",
       "by": "manage_email_settings change_address"
     },
     {
       "path": "Email → Your addresses → Add an address (once a domain is verified)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:167",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:198",
       "covered": "yes",
       "by": "manage_email_settings add_address"
     },
     {
       "path": "Email → Your addresses → Name customers see: Change, Save, Cancel",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:271",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:313",
       "covered": "yes",
       "by": "manage_email_settings change_address displayName, which puts it on every address"
     },
     {
       "path": "Email → Your addresses → Change this address → Address: rename while it has carried no mail",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:616",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:735",
       "covered": "yes",
       "by": "manage_email_settings change_address localPart; get_settings email addresses renamable"
     },
     {
       "path": "Email → Your addresses → Change this address → Who reads it: Only me / The team / Or only one teammate",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:338",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:437",
       "covered": "yes",
       "by": "manage_email_settings change_address ownerUserId"
     },
     {
       "path": "Email → Your addresses → Change this address → hand your own address back to the team",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:481",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:583",
       "covered": "yes",
       "by": "manage_email_settings change_address ownerUserId null, its own person only"
     },
     {
       "path": "Email → Your addresses → Change this address → Customers hear from it today: pick the one that takes over",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:648",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:779",
       "covered": "yes",
       "by": "manage_email_settings change_address ownerUserId with defaultToId"
     },
     {
       "path": "Email → Your addresses → Change this address → Make this the one customers hear from",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:684",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:815",
       "covered": "yes",
       "by": "manage_email_settings change_address isDefault"
     },
     {
       "path": "Email → Your addresses → Change this address → When you save: what will change",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:435",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:534",
       "covered": "yes",
       "by": "the manage_email_settings card says whose it becomes, who takes over, and what a hand-back keeps"
     },
     {
       "path": "Email → Your addresses → Change this address → someone else’s own address: only they change or remove it",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:614",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:733",
       "covered": "yes",
       "by": "get_settings email addresses ownerName, mine; the refusal says only its person can"
     },
     {
       "path": "Email → Your addresses → Change this address → why it can’t be removed (customers hear from it / the free backup)",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:710",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:841",
       "covered": "yes",
       "by": "do_email_address_remove refuses with the reason; get_settings email addresses isDefault, domain"
     },
     {
       "path": "Email → Your addresses → Change this address → Remove address → Remove this address?: what stays and where new mail goes",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:567",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:686",
       "covered": "yes",
       "by": "do_email_address_remove card warning"
     },
     {
       "path": "Email → Your addresses → Change this address → Remove address → Remove address / Keep it",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:586",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:705",
       "covered": "yes",
       "by": "do_email_address_remove"
     },
     {
       "path": "Email → Your addresses → Add an address → Website name (with more than one), Address, Ideas",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:851",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:992",
       "covered": "yes",
       "by": "manage_email_settings add_address localPart, emailDomainId"
     },
     {
       "path": "Email → Your addresses → Add an address → Who reads it, picked for you when the name is yours",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:884",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:1025",
       "covered": "yes",
       "by": "manage_email_settings add_address ownerUserId"
     },
     {
       "path": "Email → Your addresses → Add an address → Make this the one customers hear from",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:897",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:1038",
       "covered": "yes",
       "by": "manage_email_settings add_address isDefault"
     },
     {
+      "path": "Email → Your addresses → your own address → Let Ava read this mail (switch, off until you turn it on)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:265",
+      "covered": "yes",
+      "by": "do_email_address_set_ai_reads aiReads"
+    },
+    {
+      "path": "Email → Your addresses → your own address → Let Ava read this mail: what it does, Ava is turned off, no AI teammate yet",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:359",
+      "covered": "yes",
+      "by": "get_settings email addresses aiReads, and aiTeammate name and on"
+    },
+    {
+      "path": "Email → Your addresses → Change this address → Let Ava read this mail (while it is yours)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:771",
+      "covered": "yes",
+      "by": "do_email_address_set_ai_reads aiReads"
+    },
+    {
+      "path": "Email → Your addresses → Add an address → Let Ava read this mail (when only you read it)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:1057",
+      "covered": "yes",
+      "by": "manage_email_settings add_address, then do_email_address_set_ai_reads"
+    },
+    {
       "path": "Email → Your addresses → person left: mail sealed until an owner decides",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:982",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:1136",
       "covered": "yes",
       "by": "get_settings email addresses ownerLeft"
     },
     {
       "path": "Email → Your addresses → person left → Give it to the team",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:991",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:1145",
       "covered": "yes",
       "by": "do_email_address_reassign to team"
     },
     {
       "path": "Email → Your addresses → person left → Or to one person…, Give it to them",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:1016",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:1170",
       "covered": "yes",
       "by": "do_email_address_reassign to person"
     },
     {
       "path": "Email → Your addresses → person left → Remove it, with its mail",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-addresses.tsx:1027",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:1181",
       "covered": "yes",
       "by": "do_email_address_reassign to remove; deletes the mail for good, against the never-delete rule"
     },

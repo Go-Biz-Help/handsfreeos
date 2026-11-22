@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import {
   AssistantCard,
   assistantToolByName,
+  conversationAiDraftSave,
+  emailReceive,
   executeCommand,
   executeQuery,
   organizationCreate,
@@ -225,6 +227,113 @@ describe('an address changed after setup', () => {
         toolCallId: randomUUID(),
       }),
     ).rejects.toMatchObject({ rule: 'email_default_required' });
+  });
+});
+
+/**
+ * "Let Ava read this mail" (owner, 2026-11-22), by asking: the switch on a person's own address is theirs alone, its
+ * card names the address and the AI teammate, and the draft Ava leaves on their mail is read back to them only.
+ */
+describe('Let Ava read this mail', () => {
+  const flip = allScreenActionTools().find((t) => t.name === 'do_email_address_set_ai_reads')!;
+  const putAway = allScreenActionTools().find(
+    (t) => t.name === 'do_conversation_ai_draft_dismiss',
+  )!;
+  const getConversation = assistantToolByName.get('get_conversation')!;
+  const run = () => createToolExecutor(api());
+  const as = (u: TestUser): ToolContext => ({ ...ctx(), actor: actor(u) });
+  const system = () => ({ type: 'system' as const, workspaceId, organizationId });
+  const priyas = async () =>
+    ((await addresses()) as unknown as { id: string; address: string }[]).find(
+      (a) => a.address === `priya@${domain}`,
+    )!.id;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const thread = async (conversationId: string, u: TestUser): Promise<any> =>
+    (
+      (await run().run(
+        getConversation,
+        getConversation.input.parse({ conversationId }) as Record<string, unknown>,
+        as(u),
+      )) as { result: unknown }
+    ).result;
+
+  beforeAll(async () => {
+    await rows(
+      admin(),
+      sql`insert into app.ai_teammates (workspace_id, name, status, training_started_at)
+          values (${workspaceId}, 'Ava', 'training', now())`,
+    );
+  });
+
+  it('turns on only for the address’s own person, on a card that names it and says nothing is sent', async () => {
+    const args = { emailAddressId: await priyas(), aiReads: true };
+    // Not an owner of the business, for her: refused before any card.
+    await expect(run().prepare(flip, args, ctx(), randomUUID())).rejects.toMatchObject({
+      rule: 'email_address_ai_reads_is_theirs',
+    });
+    const { card } = (await run().prepare(flip, args, as(member), randomUUID())) as {
+      card: ConfirmCard;
+    };
+    expect(AssistantCard.safeParse(card).success).toBe(true);
+    expect(card.title).toBe(`Let Ava read mail sent to priya@${domain}`);
+    expect(field(card, 'Let Ava read this mail')).toBe('On');
+    expect(card.warnings[0]!.text).toContain('Only you see the draft');
+    expect(card.warnings[0]!.text).toContain('nothing is sent until you send it');
+
+    const done = await run().commit(flip, args, as(member), { toolCallId: randomUUID() });
+    expect(done.outcome).toBe(
+      `Ava now reads mail sent to priya@${domain}, and drafts answers only you see`,
+    );
+    const again = await run().commit(flip, args, as(member), { toolCallId: randomUUID() });
+    expect(again.outcome).toBe(`That was already on for priya@${domain}`);
+  });
+
+  it('reads Ava’s draft on her own mail to her alone, and puts it away when she says', async () => {
+    const got = (
+      await executeCommand(
+        testDbs().worker.db,
+        emailReceive,
+        {
+          workspaceId,
+          provider: 'postmark',
+          providerMessageId: `pm-${randomUUID()}`,
+          messageIdHeader: `<${randomUUID()}@mail.example.com>`,
+          from: { address: `sam-${mark}@example.com` },
+          to: [{ address: `priya@${domain}` }],
+          subject: 'Friday',
+          bodyText: 'Does Friday still work?',
+          emailAddressId: await priyas(),
+        },
+        system(),
+        meta(),
+      )
+    ).output;
+    await executeCommand(
+      testDbs().worker.db,
+      conversationAiDraftSave,
+      {
+        workspaceId,
+        conversationId: got.conversationId,
+        forMessageId: got.messageId,
+        body: 'Hi Sam, Friday works. Priya',
+      },
+      system(),
+      meta(),
+    );
+
+    const hers = await thread(got.conversationId!, member);
+    expect(hers.draftAnswer).toMatchObject({
+      draftedBy: 'Ava',
+      draft: { ai_teammate_drafted: 'Hi Sam, Friday works. Priya' },
+    });
+    expect(hers.draftAnswer.note).toContain('nothing was sent');
+    // The owner of the business can't open her thread, so there is no draft to read.
+    await expect(thread(got.conversationId!, owner)).rejects.toMatchObject({ code: 'not_found' });
+
+    await run().commit(putAway, { conversationId: got.conversationId }, as(member), {
+      toolCallId: randomUUID(),
+    });
+    expect((await thread(got.conversationId!, member)).draftAnswer).toBeUndefined();
   });
 });
 

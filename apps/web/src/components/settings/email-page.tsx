@@ -1048,6 +1048,7 @@ export function EmailPage({
         domains={status.domains}
         people={people}
         myUserId={myUserId}
+        aiTeammate={status.aiTeammate ?? null}
         onChanged={refresh}
       />
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">

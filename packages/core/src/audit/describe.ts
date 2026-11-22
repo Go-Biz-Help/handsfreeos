@@ -618,6 +618,18 @@ function describeAction(e: AuditEntry): string {
         : s(e.after?.displayName)
           ? `changed the name on ${s(e.after?.address)} to ${s(e.after?.displayName)}`
           : `updated the email address ${s(e.after?.address)}`;
+    case 'email_address.remove':
+      return `removed the email address ${s(e.before?.address)}`;
+    // "Let Ava read this mail": the switch on a person's own address, and the draft it leaves on their mail. The
+    // entries say that it happened, never what was written or who wrote in.
+    case 'email_address.set_ai_reads':
+      return e.after?.aiReads
+        ? `let the AI teammate read mail sent to ${s(e.before?.address)}, their own address, and draft answers only they see`
+        : `stopped the AI teammate reading mail sent to ${s(e.before?.address)}, their own address`;
+    case 'conversation.ai_draft_save':
+      return 'had the AI teammate draft an answer on someone’s own mail, for them alone to read and send';
+    case 'conversation.ai_draft_dismiss':
+      return 'put away the AI teammate’s draft on their own mail';
     case 'mailbox.connect':
       return `started connecting ${s(e.after?.provider) === 'google' ? 'a Gmail' : 'an Outlook'} mailbox`;
     case 'mailbox.activate':

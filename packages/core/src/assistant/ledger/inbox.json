@@ -1,7 +1,7 @@
 {
   "area": "inbox",
   "title": "Inbox, a conversation, phone calls and video calls",
-  "checkedOn": "2026-11-21",
+  "checkedOn": "2026-11-22",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx": "86ce119809c0",
     "apps/mobile/src/app/app/w/[workspaceId]/call/[callId].tsx": "1113c4963af3",
@@ -59,9 +59,9 @@
     "apps/web/src/components/inbox/contact-fields.tsx": "7d30c27cd9bb",
     "apps/web/src/components/inbox/context-panel.tsx": "eb2bcff29f71",
     "apps/web/src/components/inbox/conversation-row.tsx": "7a0eec380561",
-    "apps/web/src/components/inbox/conversation-view.tsx": "1bd5e82dac90",
+    "apps/web/src/components/inbox/conversation-view.tsx": "ed7f5aad827d",
     "apps/web/src/components/inbox/conversations-card.tsx": "f83a51270af2",
-    "apps/web/src/components/inbox/draft-card.tsx": "3a7f8fe6afad",
+    "apps/web/src/components/inbox/draft-card.tsx": "b4bbd5418cba",
     "apps/web/src/components/inbox/hooks.ts": "f08d1f604e13",
     "apps/web/src/components/inbox/inbox-shell.tsx": "19357ba4810d",
     "apps/web/src/components/inbox/lane-switcher.tsx": "22d907e03a2f",
@@ -357,7 +357,7 @@
     {
       "path": "Conversation → header → name",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:683",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:724",
       "covered": "yes",
       "by": "get_conversation"
     },
@@ -378,105 +378,105 @@
     {
       "path": "Conversation → All lines view",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:521",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:542",
       "covered": "partly",
       "by": "get_conversation otherLanes, one lane at a time"
     },
     {
       "path": "Conversation → channel line (number, address)",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:683",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:724",
       "covered": "yes",
       "by": "get_conversation counterpart, line"
     },
     {
       "path": "Conversation → On Home chip",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:689",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:730",
       "covered": "yes",
       "by": "read_attention_for_record"
     },
     {
       "path": "Conversation → On the site tag",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:691",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:732",
       "covered": "yes",
       "by": "get_conversation visitor.onTheSiteNow"
     },
     {
       "path": "Conversation → Private badge",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:695",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:736",
       "covered": "yes",
       "by": "get_conversation private, find_conversations private"
     },
     {
       "path": "Conversation → Assign menu (people, Nobody)",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:708",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:749",
       "covered": "yes",
       "by": "manage_conversation assign"
     },
     {
       "path": "Conversation → Snooze options",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:763",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:804",
       "covered": "yes",
       "by": "manage_conversation snooze until"
     },
     {
       "path": "Conversation → Close",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:775",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:816",
       "covered": "yes",
       "by": "manage_conversation close"
     },
     {
       "path": "Conversation → Reopen",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:786",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:827",
       "covered": "yes",
       "by": "manage_conversation reopen"
     },
     {
       "path": "Conversation → Customer details",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:796",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:837",
       "covered": "yes",
       "by": "get_customer"
     },
     {
       "path": "Conversation → More → Call",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:818",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:859",
       "covered": "never",
       "by": "call.start on NEVER list"
     },
     {
       "path": "Conversation → More → Video call",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:828",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:869",
       "covered": "yes",
       "by": "start_video_call"
     },
     {
       "path": "Conversation → More → Open customer",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:837",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:878",
       "covered": "yes",
       "by": "get_customer href"
     },
     {
       "path": "Conversation → More → Share with a teammate",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:841",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:882",
       "covered": "yes",
       "by": "do_conversation_share"
     },
     {
       "path": "Conversation → More → Add as a new person",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:849",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:890",
       "covered": "partly",
       "by": "create_customer + link_customer"
     },
@@ -490,84 +490,84 @@
     {
       "path": "Conversation → More → Hand to the AI",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:864",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:905",
       "covered": "yes",
       "by": "manage_conversation hand_to_ai"
     },
     {
       "path": "Conversation → More → Mark unread",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:871",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:912",
       "covered": "yes",
       "by": "manage_conversation mark_unread"
     },
     {
       "path": "Conversation → More → Close every line",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:882",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:923",
       "covered": "yes",
       "by": "do_conversation_close_all"
     },
     {
       "path": "Conversation → More → Copy phone / email",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:889",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:930",
       "covered": "yes",
       "by": "get_customer phone, email"
     },
     {
       "path": "Conversation → More → Move to Inbox / Other / Spam, Not spam",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:900",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:941",
       "covered": "yes",
       "by": "do_conversation_move folder"
     },
     {
       "path": "Conversation → More → Always put their mail there",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:900",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:941",
       "covered": "yes",
       "by": "do_conversation_move remember"
     },
     {
       "path": "Conversation → More → Archive",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:924",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:965",
       "covered": "yes",
       "by": "archive_or_restore"
     },
     {
       "path": "Conversation → More → Bring it back",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:915",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:956",
       "covered": "yes",
       "by": "archive_or_restore"
     },
     {
       "path": "Conversation → More → Delete (to the bin) + dialog",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:934",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:975",
       "covered": "yes",
       "by": "move_to_bin conversation"
     },
     {
       "path": "Conversation → details sheet (name, since, lead)",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:1180",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1221",
       "covered": "yes",
       "by": "get_customer added, badge, openLeads"
     },
     {
       "path": "Conversation → details sheet → assign / snooze / close",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:1260",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1301",
       "covered": "yes",
       "by": "manage_conversation"
     },
     {
       "path": "Conversation → Assign sheet",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:1336",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1377",
       "covered": "yes",
       "by": "manage_conversation assign"
     },
@@ -609,21 +609,21 @@
     {
       "path": "Conversation → not-a-customer / add-person banners",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:1038",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1079",
       "covered": "yes",
       "by": "get_conversation personId null; find_conversations looksLike; create_customer, link_customer"
     },
     {
       "path": "Conversation → known sender link",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:436",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:441",
       "covered": "yes",
       "by": "find_conversations looksLike"
     },
     {
       "path": "Conversation → shared-with-you banner",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:1018",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1059",
       "covered": "partly",
       "by": "assignee only, share not read back"
     },
@@ -693,28 +693,28 @@
     {
       "path": "Conversation → snoozed banner",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:1071",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1112",
       "covered": "yes",
       "by": "snoozedUntil; reopen"
     },
     {
       "path": "Conversation → closed banner",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:1086",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1127",
       "covered": "yes",
       "by": "status; reopen"
     },
     {
       "path": "Conversation → quiet hours strip",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:1097",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1138",
       "covered": "yes",
       "by": "send_text quiet hours refusal"
     },
     {
       "path": "Conversation → no texting number notice",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:1103",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1144",
       "covered": "yes",
       "by": "get_settings texting, manage_phone_number"
     },
@@ -987,114 +987,142 @@
     {
       "path": "Draft card → title, waiting, expires",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:407",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:408",
       "covered": "yes",
       "by": "list_teammate_drafts"
     },
     {
       "path": "Draft card → add-on's ask",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:415",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:416",
       "covered": "yes",
       "by": "list_teammate_drafts ask, decide_teammate_draft"
     },
     {
       "path": "Draft card → drafted words and subject",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:464",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:465",
       "covered": "yes",
       "by": "list_teammate_drafts"
     },
     {
       "path": "Draft card → approving also, discount, call",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:464",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:465",
       "covered": "yes",
       "by": "approvingAlso, discount, call"
     },
     {
       "path": "Draft card → held flags",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:475",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:476",
       "covered": "yes",
       "by": "list_teammate_drafts flags"
     },
     {
       "path": "Draft card → safety and knowledge notes",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:487",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:488",
       "covered": "no",
       "by": "not returned"
     },
     {
       "path": "Draft card → who decides",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:502",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:503",
       "covered": "yes",
       "by": "canDecide"
     },
     {
       "path": "Draft card → text segment count",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:510",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:511",
       "covered": "no",
       "by": "not returned"
     },
     {
       "path": "Draft card → Approve",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:310",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:311",
       "covered": "yes",
       "by": "decide_teammate_draft approve"
     },
     {
       "path": "Draft card → Edit, Send my version",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:323",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:324",
       "covered": "yes",
       "by": "decide_teammate_draft message, subject"
     },
     {
       "path": "Draft card → Reject, reason, confirm",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:335",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:336",
       "covered": "yes",
       "by": "decide_teammate_draft reject, reason"
     },
     {
       "path": "Draft card → training progress",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:341",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:342",
       "covered": "yes",
       "by": "get_settings ai_teammate"
     },
     {
       "path": "Draft card → sending bubble",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:596",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:662",
       "covered": "no",
       "by": "not returned"
     },
     {
       "path": "Draft card → rejected → I'll reply",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:648",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:714",
       "covered": "yes",
       "by": "manage_conversation take_over"
     },
     {
       "path": "Draft card → rejected → Try again",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:656",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:722",
       "covered": "yes",
       "by": "do_ai_teammate_retry"
     },
     {
       "path": "Draft card → expired / dropped notes",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:642",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:683",
       "covered": "no",
       "by": "only waiting drafts listed"
+    },
+    {
+      "path": "Thread → your own mail → Ava’s draft: the words, Only you see this, Nothing is sent until you send it",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:594",
+      "covered": "yes",
+      "by": "get_conversation draftAnswer"
+    },
+    {
+      "path": "Thread → your own mail → Ava’s draft → Use this draft (puts the words in the message box)",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:645",
+      "covered": "yes",
+      "by": "get_conversation draftAnswer, then send_email with the conversationId"
+    },
+    {
+      "path": "Thread → your own mail → Ava’s draft → No thanks",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:641",
+      "covered": "yes",
+      "by": "do_conversation_ai_draft_dismiss"
+    },
+    {
+      "path": "Thread → your own mail → Ava’s draft is in your message box",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:624",
+      "covered": "person",
+      "by": "the message box on this screen; the Assistant sends with send_email"
     },
     {
       "path": "Composer → Text / Email switch",

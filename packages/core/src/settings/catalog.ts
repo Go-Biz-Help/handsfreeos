@@ -523,6 +523,9 @@ const ROWS = {
       'add an address',
       'remove an address',
       'customers hear from',
+      'let ava read this mail',
+      'ai reads my email',
+      'draft answers',
     ],
   },
   'email.own_domain': {

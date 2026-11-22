@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { createTeammate, runDue } from './ai-team';
 import { emailFromCustomer, mailDetail, pdfAttachment, pdfFile } from './email';
 import { leadIntakeOff, signInOwner } from './booking-helpers';
 import { createBusiness, signUpAndConfirm, uniqueEmail, waitForMail } from './helpers';
@@ -322,4 +323,109 @@ test('email: an own domain shows its DNS records, verifies, and becomes the send
   );
   expect(detail.from.Address).toBe(`office@${domain}`);
   expect(detail.replyTo[0]!.Address).toMatch(/@mail\.handsfreeos\.com$/);
+});
+
+/**
+ * "Let Ava read this mail" (owner, 2026-11-22): the AI teammate leaves a person's own mail alone until they turn the
+ * switch on under their address. Then new mail gets a draft answer only they see; they use it, change what they like
+ * and send it as themselves. Nothing is ever sent for them.
+ */
+test('email: Ava drafts an answer to my own mail once I let her, and I send it', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const { email } = await signUpAndConfirm(page, 'email-ava');
+  const workspaceId = await createBusiness(page, { name: BUSINESS });
+  const { token } = await signInOwner(email);
+  await createTeammate(token, workspaceId);
+  await page.goto(`/app/w/${workspaceId}/settings/email`);
+  const domain = `lonestarhvac-${Date.now().toString(36)}.com`;
+  await page.getByTestId('domain-input').fill(domain);
+  await page.getByRole('button', { name: 'Add domain' }).click();
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByTestId('dns-TXT')).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
+  // The (local) mail service finds its records. Asked again if the first click came before the page was ready.
+  await expect(async () => {
+    const check = page.getByTestId('domain-check');
+    if (await check.isVisible()) await check.click();
+    await expect(page.getByTestId('address-add')).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  // Mail to the domain comes here (the local mail service says its MX record points here).
+  await page.getByRole('button', { name: 'Receive mail here' }).click();
+  await expect(async () => {
+    await page.reload();
+    const check = page.getByRole('button', { name: 'Check now' });
+    if (await check.isVisible()) await check.click();
+    await expect(page.getByTestId('domain-receiving')).toContainText('Receiving', {
+      timeout: 3000,
+    });
+  }).toPass({ timeout: 60_000 });
+
+  // My own address: the switch is there from the start, and off until I say so.
+  await page.getByTestId('address-add').click();
+  await page.getByLabel('Address name').fill('dale');
+  await page.getByTestId('reader-me').click();
+  await expect(page.getByTestId('address-add-ai-reads')).toHaveAttribute('aria-checked', 'false');
+  await page.getByRole('button', { name: 'Add address' }).click();
+  await expect(page.getByTestId('email-address-dale')).toContainText('Only you read it');
+  const letAva = page.getByTestId('address-ai-reads-dale');
+  await expect(letAva).toHaveAttribute('aria-checked', 'false');
+  await letAva.click();
+  await expect(
+    page.getByText(`Ava now reads mail sent to dale@${domain} and drafts answers for you`),
+  ).toBeVisible();
+  await expect(letAva).toHaveAttribute('aria-checked', 'true');
+
+  // Someone writes to it. Ava's draft shows in the thread, which is still only mine.
+  const kim = uniqueEmail('kim');
+  await emailFromCustomer({
+    from: kim,
+    fromName: 'Kim Lee',
+    to: `dale@${domain}`,
+    subject: 'A quote for the patio',
+    text: 'Could you send me a quote for the patio?',
+  });
+  await page.goto(`/app/w/${workspaceId}/inbox`);
+  const list = page.getByTestId('conversation-list');
+  await expect(list).toContainText(kim, { timeout: 20_000 });
+  await list.getByText(kim).first().click();
+  const conversation = page.getByTestId('conversation');
+  const draft = conversation.getByTestId('own-mail-draft');
+  // Ava waits a little before she writes; the test runs her now, and the open thread shows the draft by itself.
+  await expect(async () => {
+    await runDue(workspaceId, true);
+    await expect(draft).toBeVisible({ timeout: 4000 });
+  }).toPass({ timeout: 60_000 });
+  await expect(draft).toContainText('Ava’s draft');
+  await expect(draft).toContainText('Only you see this');
+  await expect(draft.getByTestId('own-mail-draft-body')).toContainText('Hi Kim,');
+  await expect(
+    conversation.getByTestId('message-log').locator('[data-direction="outbound"]'),
+  ).toHaveCount(0);
+
+  // Use this draft puts her words in my message box; I finish them and send as myself.
+  await draft.getByTestId('own-mail-draft-use').click();
+  await expect(conversation.getByTestId('own-mail-draft-used')).toBeVisible();
+  const composer = conversation.getByTestId('composer');
+  await expect(composer.getByTestId('composer-from')).toHaveText(`From dale@${domain}`);
+  const box = composer.getByRole('textbox', { name: 'Message', exact: true });
+  await expect(box).toHaveValue(/Hi Kim,/);
+  await box.fill('Hi Kim,\n\nHappy to. The quote is on its way today.\n\nDale');
+  const started = Date.now();
+  await composer.getByTestId('composer-send').click();
+  const answer = conversation
+    .getByTestId('message-log')
+    .locator('[data-kind="email"][data-direction="outbound"]')
+    .last();
+  await expect(answer).toContainText('The quote is on its way today.');
+  await expect(answer).toHaveAttribute('data-status', 'delivered', { timeout: 20_000 });
+  const sent = await mailDetail(
+    (await waitForMail(kim, 'Re: A quote for the patio', { after: started })).id,
+  );
+  expect(sent.from.Address).toBe(`dale@${domain}`);
+  // The draft went with my answer.
+  await expect(draft).toHaveCount(0);
+  await expect(conversation.getByTestId('own-mail-draft-used')).toHaveCount(0);
 });

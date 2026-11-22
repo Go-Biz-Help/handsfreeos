@@ -215,6 +215,20 @@ export const EmailAddressUpdateOutput = z.object({
   updated: z.array(z.string()),
 });
 /** One address removed. The mail it carried stays; what comes after goes to the default address. */
+/** "Let the AI teammate read this mail": its own person's switch on their own address. */
+export const EmailAddressSetAiReadsInput = z.object({
+  workspaceId: uuid,
+  emailAddressId: uuid,
+  /** On: it reads mail that comes in to this address and drafts answers only its person sees. */
+  aiReads: z.boolean(),
+});
+export const EmailAddressSetAiReadsOutput = z.object({
+  emailAddressId: uuid,
+  address: z.string(),
+  aiReads: z.boolean(),
+  /** False when it was already that way. */
+  changed: z.boolean(),
+});
 export const EmailAddressRemoveInput = z.object({ workspaceId: uuid, emailAddressId: uuid });
 export const EmailAddressRemoveOutput = z.object({
   emailAddressId: uuid,
@@ -318,6 +332,11 @@ export const EmailAddressOut = z.object({
   mine: z.boolean().optional(),
   /** It has carried no mail the reader can see, so it can still be renamed. */
   renamable: z.boolean().optional(),
+  /**
+   * The reader's own address, and they let the AI teammate read its mail and draft answers only they see. Always
+   * false on anyone else's address: whether a person lets it read their mail is theirs to know.
+   */
+  aiReads: z.boolean().optional(),
 });
 export const EmailDomainOut = z.object({
   id: uuid,
@@ -367,6 +386,11 @@ export const EmailSetupStatusOutput = z.object({
   /** Where a domain's MX points for its mail to arrive here. */
   inboundMxHost: z.string(),
   addresses: z.array(EmailAddressOut),
+  /**
+   * The business's AI teammate, for the switch that lets it read a person's own mail: its name, and whether it is
+   * working (in training or on its own). Null when the business has none yet.
+   */
+  aiTeammate: z.object({ name: z.string(), on: z.boolean() }).nullable().optional(),
   domains: z.array(EmailDomainOut),
   mailboxes: z.array(MailboxOut),
   counts: z.object({

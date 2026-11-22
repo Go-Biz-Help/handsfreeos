@@ -1,6 +1,6 @@
 'use client';
 import { firstName, type SettingKey } from '@hfos/core';
-import { Check, Info, Lock, Plus, Shield, Trash2, Users } from 'lucide-react';
+import { Check, Info, Lock, Plus, Shield, Sparkles, Trash2, Users } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { ChannelIcon } from '@/components/inbox/bits';
@@ -13,8 +13,9 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
+import { Switch } from '@/components/ui/switch';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { EmailAddressInfo, EmailDomainInfo } from '@/lib/api/types';
+import type { EmailAddressInfo, EmailDomainInfo, EmailSetupStatus } from '@/lib/api/types';
 import { settingAttrs } from './setting-anchor';
 
 /** One card on Settings → Email. */
@@ -77,7 +78,19 @@ export type Person = { userId: string; name: string };
 type Reader = string;
 const TEAM: Reader = 'team';
 
+/** The business's AI teammate, for "Let Ava read this mail": null when it has none yet. */
+export type AiReader = NonNullable<EmailSetupStatus['aiTeammate']> | null;
+
 const cleanLocal = (v: string) => v.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+
+/** Turns the switch on a person's own address on or off. Only they can: the API refuses anyone else. */
+async function setAiReads(workspaceId: string, emailAddressId: string, aiReads: boolean) {
+  return unwrap(
+    await apiBrowser().POST('/v1/commands/email_address.set_ai_reads', {
+      body: { workspaceId, emailAddressId, aiReads },
+    }),
+  );
+}
 /** "blake@", the short way a dialog names an address it has already shown in full. */
 const short = (a: { localPart: string }) => `${a.localPart}@`;
 
@@ -92,6 +105,7 @@ export function YourAddresses({
   domains,
   people,
   myUserId,
+  aiTeammate,
   onChanged,
 }: {
   workspaceId: string;
@@ -100,6 +114,8 @@ export function YourAddresses({
   people: Person[];
   /** The person looking: "Only me" is theirs, and only they hand their own address back. */
   myUserId: string;
+  /** Who "Let … read this mail" names, on the reader's own addresses. */
+  aiTeammate: AiReader;
   onChanged: () => void;
 }) {
   const ordered = [...addresses].sort((a, b) => Number(!!b.domain) - Number(!!a.domain));
@@ -112,6 +128,7 @@ export function YourAddresses({
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState(current);
   const [saving, setSaving] = useState(false);
+  const [flipping, setFlipping] = useState<string | null>(null);
   const open = addresses.find((a) => a.id === changing) ?? null;
   const isBackup = (a: EmailAddressInfo) => !a.domain && !a.isDefault && ownDefault;
 
@@ -132,6 +149,20 @@ export function YourAddresses({
       setNaming(false);
       onChanged();
     }
+  }
+
+  // The switch saves as it is flipped: it is one person's yes or no, with nothing else to save beside it.
+  async function letRead(a: EmailAddressInfo, on: boolean) {
+    const name = aiTeammate?.name ?? 'Your AI teammate';
+    setFlipping(a.id);
+    await run(
+      () => setAiReads(workspaceId, a.id, on),
+      on
+        ? `${name} now reads mail sent to ${a.address} and drafts answers for you`
+        : `${name} no longer reads mail sent to ${a.address}`,
+    );
+    setFlipping(null);
+    onChanged();
   }
 
   const reads = (a: EmailAddressInfo) =>
@@ -223,6 +254,17 @@ export function YourAddresses({
                 people={people}
                 onChanged={onChanged}
               />
+            ) : a.mine ? (
+              <div className="border-t border-border px-3.5 py-3">
+                <LetAiRead
+                  ai={aiTeammate}
+                  address={short(a)}
+                  checked={!!a.aiReads}
+                  busy={flipping === a.id}
+                  onChange={(on) => void letRead(a, on)}
+                  testId={`address-ai-reads-${a.localPart}`}
+                />
+              </div>
             ) : null}
           </div>
         ))}
@@ -287,6 +329,7 @@ export function YourAddresses({
           addresses={ordered}
           people={people}
           myUserId={myUserId}
+          aiTeammate={aiTeammate}
           onClose={() => setChanging(null)}
           onChanged={onChanged}
         />
@@ -298,12 +341,68 @@ export function YourAddresses({
           addresses={ordered}
           people={people}
           myUserId={myUserId}
+          aiTeammate={aiTeammate}
           displayName={current}
           onClose={() => setAdding(false)}
           onChanged={onChanged}
         />
       ) : null}
     </Section>
+  );
+}
+
+/**
+ * "Let Ava read this mail" (owner, 2026-11-22): the switch a person has on their own address. On, the AI teammate
+ * reads the mail that comes in to it and drafts answers only they see; they send a draft, or don't. It starts off.
+ * A business with no AI teammate yet has nothing to switch on, so it says where to make one instead.
+ */
+function LetAiRead({
+  ai,
+  address,
+  checked,
+  onChange,
+  busy,
+  testId,
+}: {
+  ai: AiReader;
+  /** "blake@". */
+  address: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  busy?: boolean;
+  testId: string;
+}) {
+  if (!ai)
+    return (
+      <p className="flex items-start gap-2 text-[13px] text-text-2" data-testid={`${testId}-none`}>
+        <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
+        <span>
+          {`An AI teammate can draft answers to mail sent to ${address}. Set one up under AI teammate, and the switch shows here.`}
+        </span>
+      </p>
+    );
+  return (
+    <div className="flex items-start gap-3">
+      <Sparkles className="mt-0.5 h-4 w-4 flex-none text-accent" strokeWidth={1.5} />
+      <div className="min-w-0 flex-1">
+        <div className="text-[13.5px] font-medium">{`Let ${ai.name} read this mail`}</div>
+        <p className="mt-0.5 text-[13px] text-text-2">
+          {`${ai.name} reads new mail sent to ${address} and writes a draft answer for you. Only you see the draft, and nothing is sent until you send it.`}
+        </p>
+        {checked && !ai.on ? (
+          <p className="mt-1 text-[13px] text-warning-text">
+            {`${ai.name} is turned off, so nothing is drafted until it’s back on: AI teammate, Status.`}
+          </p>
+        ) : null}
+      </div>
+      <Switch
+        checked={checked}
+        onChange={onChange}
+        busy={busy}
+        label={`Let ${ai.name} read mail sent to ${address}`}
+        testId={testId}
+      />
+    </div>
   );
 }
 
@@ -451,6 +550,7 @@ function ChangeAddress({
   addresses,
   people,
   myUserId,
+  aiTeammate,
   onClose,
   onChanged,
 }: {
@@ -459,6 +559,7 @@ function ChangeAddress({
   addresses: EmailAddressInfo[];
   people: Person[];
   myUserId: string;
+  aiTeammate: AiReader;
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -473,6 +574,7 @@ function ChangeAddress({
   const [reader, setReader] = useState<Reader>(a.ownerUserId ?? TEAM);
   const [takeover, setTakeover] = useState(candidates[0]?.id ?? '');
   const [makeDefault, setMakeDefault] = useState(false);
+  const [aiReads, setAiReadsPick] = useState(!!a.aiReads);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState<'save' | 'remove' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -486,12 +588,27 @@ function ChangeAddress({
   const takes = candidates.find((x) => x.id === takeover) ?? null;
   const changed = renamed || becomesPersons || handsBack || (canBeDefault && makeDefault);
   const whose = reader === myUserId ? 'yours alone' : `${firstName(to?.name ?? '')}’s alone`;
+  // The switch is only for an address that is, or is becoming, the reader's own.
+  const mineAfter = reader === myUserId && !!a.domain;
+  const flips = mineAfter && aiReads !== !!a.aiReads;
+  const ai = aiTeammate?.name ?? 'Your AI teammate';
 
   async function save() {
-    if (!changed) return onClose();
+    if (!changed && !flips) return onClose();
     setBusy('save');
     setError(null);
     try {
+      if (!changed) {
+        // Only the switch moved.
+        const out = await setAiReads(workspaceId, a.id, aiReads);
+        toast.success(
+          aiReads
+            ? `${ai} now reads mail sent to ${out.address} and drafts answers for you`
+            : `${ai} no longer reads mail sent to ${out.address}`,
+        );
+        onChanged();
+        return onClose();
+      }
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/email_address.update', {
           body: {
@@ -506,6 +623,8 @@ function ChangeAddress({
           },
         }),
       );
+      // After the address is theirs: the switch is its own person's alone.
+      if (flips) await setAiReads(workspaceId, a.id, aiReads);
       toast.success(
         becomesPersons && takes
           ? `${out.address} is ${whose} now, and customers hear from ${takes.address}`
@@ -642,6 +761,18 @@ function ChangeAddress({
           )}
         </div>
 
+        {mineAfter ? (
+          <div className="mt-4 rounded-menu border border-border p-3.5">
+            <LetAiRead
+              ai={aiTeammate}
+              address={short(a)}
+              checked={aiReads}
+              onChange={setAiReadsPick}
+              testId="address-ai-reads"
+            />
+          </div>
+        ) : null}
+
         {needsTakeover ? (
           <div
             className="mt-4 rounded-menu border border-warning/30 bg-warning-soft p-3.5"
@@ -751,6 +882,7 @@ function AddAddress({
   addresses,
   people,
   myUserId,
+  aiTeammate,
   displayName,
   onClose,
   onChanged,
@@ -761,6 +893,7 @@ function AddAddress({
   addresses: EmailAddressInfo[];
   people: Person[];
   myUserId: string;
+  aiTeammate: AiReader;
   /** The name customers see, which every address carries. */
   displayName: string;
   onClose: () => void;
@@ -774,6 +907,7 @@ function AddAddress({
   const [local, setLocal] = useState('');
   const [picked, setPicked] = useState<Reader | null>(null);
   const [defaultPicked, setDefaultPicked] = useState<boolean | null>(null);
+  const [aiReads, setAiReadsPick] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const domain = domains.find((d) => d.id === domainId) ?? domains[0]!;
@@ -804,14 +938,21 @@ function AddAddress({
           },
         }),
       );
+      // The address is theirs now, so the switch is theirs to turn on. If that part fails, the address still stands.
+      const reads =
+        reader === myUserId && aiReads && aiTeammate
+          ? await run(() => setAiReads(workspaceId, made.emailAddressId, true))
+          : null;
       toast.success(
         isDefault
           ? `Customers now hear from ${made.address}`
-          : reader === myUserId
-            ? `${made.address} added. Only you see its mail.`
-            : to
-              ? `${made.address} added. Only ${firstName(to.name)} sees its mail.`
-              : `${made.address} added`,
+          : reader === myUserId && reads
+            ? `${made.address} added. Only you see its mail, and ${aiTeammate?.name ?? 'your AI teammate'} drafts answers for you.`
+            : reader === myUserId
+              ? `${made.address} added. Only you see its mail.`
+              : to
+                ? `${made.address} added. Only ${firstName(to.name)} sees its mail.`
+                : `${made.address} added`,
       );
       onChanged();
       onClose();
@@ -905,11 +1046,24 @@ function AddAddress({
             ) : null}
           </div>
         ) : (
-          <WhenYouSave>
-            {reader === myUserId
-              ? 'Only you see the mail that comes to it and send from it. You can hand it to the team later.'
-              : `Only ${firstName(to?.name ?? '')} sees the mail that comes to it and sends from it. Only they can hand it to the team later.`}
-          </WhenYouSave>
+          <>
+            {reader === myUserId ? (
+              <div className="mt-4 rounded-menu border border-border p-3.5">
+                <LetAiRead
+                  ai={aiTeammate}
+                  address={`${local || 'this address'}${local ? '@' : ''}`}
+                  checked={aiReads}
+                  onChange={setAiReadsPick}
+                  testId="address-add-ai-reads"
+                />
+              </div>
+            ) : null}
+            <WhenYouSave>
+              {reader === myUserId
+                ? 'Only you see the mail that comes to it and send from it. You can hand it to the team later.'
+                : `Only ${firstName(to?.name ?? '')} sees the mail that comes to it and sends from it. Only they can hand it to the team later.`}
+            </WhenYouSave>
+          </>
         )}
 
         {error ? (

@@ -87,6 +87,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'conversation.move': {},
   'conversation.open': {},
   'conversation.share': {},
+  // "No thanks" on the draft the AI teammate left on someone's own mail (2026-11-22). Nothing was sent.
+  'conversation.ai_draft_dismiss': {
+    about:
+      'Only on the asker’s own mail, when their address lets the AI teammate read it. The draft goes; a new one comes with the next mail.',
+  },
   'video_link.create': {},
   'ai_teammate.answer_feedback': {},
   'ai_teammate.give_feedback': {},
@@ -315,6 +320,13 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
       'emailAddressId from get_settings (area email). Never the one customers hear from, nor the last free address; a person’s own address only that person removes.',
     warning:
       'The mail it already got stays where it is. New mail sent to it goes to the team’s Inbox.',
+  },
+  // "Let Ava read this mail", the switch under a person's own address (2026-11-22). Only that person turns it on.
+  'email_address.set_ai_reads': {
+    about:
+      'emailAddressId from get_settings (area email): only the asker’s own address (mine true), never the team’s or someone else’s. aiReads true lets the AI teammate read new mail sent to it and draft answers only they see; false stops it and clears the drafts it left.',
+    warning:
+      'On, the AI teammate reads the mail that comes in to this address. It only drafts: nothing is sent until you send it, and nobody else sees the drafts.',
   },
   'email_sender_rule.remove': {},
   // ---- Settings → Website chat, Facebook & Instagram ----
@@ -833,6 +845,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_email_settings', field: 'defaultToId' },
     { tool: 'do_email_address_reassign', field: 'to' },
     { tool: 'do_email_address_remove', field: 'emailAddressId' },
+    { tool: 'do_email_address_set_ai_reads', field: 'aiReads' },
   ],
   'email.own_domain': [
     { tool: 'manage_email_settings', field: 'action', value: 'add_domain' },

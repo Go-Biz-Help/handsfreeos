@@ -113,6 +113,7 @@ import { LaneSwitcher } from './lane-switcher';
 import { ContextPanel } from './context-panel';
 import {
   DraftCard,
+  OwnMailDraft,
   PhoneDraftBar,
   RejectedNext,
   SendingDraft,
@@ -269,6 +270,10 @@ export function ConversationView({
   const [handBackOpen, setHandBackOpen] = useState(false);
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(() => new Set());
   const [retry, setRetry] = useState<{ id: string; at: number } | null>(null);
+  // Their own mail, when their address lets the AI teammate read it: its draft, and whether they took it.
+  const ownDraft = data.conversation.private ? (data.aiDraft ?? null) : null;
+  const [usedDraft, setUsedDraft] = useState<{ forMessageId: string; text: string } | null>(null);
+  const [puttingAway, setPuttingAway] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -515,6 +520,22 @@ export function ConversationView({
    * can, and the switcher above is where. A greyed-out box would leave somebody typing into something that
    * was never going to send.
    */
+  /** No thanks: the draft on their own mail goes. Nothing was sent, and new mail gets a new one. */
+  async function putAwayOwnDraft() {
+    setPuttingAway(true);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/conversation.ai_draft_dismiss', {
+          body: { workspaceId, conversationId: c.id },
+        }),
+      );
+      after();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setPuttingAway(false);
+    }
+  }
   const composer = allLanes ? (
     <div
       className="flex-none border-t border-border bg-card px-4 py-3 text-center text-[13px] text-text-2"
@@ -524,14 +545,20 @@ export function ConversationView({
     </div>
   ) : (
     <Composer
-      key={handedDraft ? `${c.id}:${handedDraft.id}` : c.id}
+      key={
+        handedDraft
+          ? `${c.id}:${handedDraft.id}`
+          : usedDraft
+            ? `${c.id}:own:${usedDraft.forMessageId}`
+            : c.id
+      }
       target={target}
       variant={phone ? 'phone' : 'desktop'}
       onPending={t.addPending}
       onSettled={t.settlePending}
       onDropPending={t.dropPending}
       onEditPerson={person ? () => void editPerson() : undefined}
-      initialText={handedDraft?.text}
+      initialText={handedDraft?.text ?? usedDraft?.text}
       initialSubject={handedDraft?.subject}
       onSent={(out) => {
         if (!out.crossChannel && c.status !== 'open') toast.success(SENT_WORDS.reopened);
@@ -591,7 +618,21 @@ export function ConversationView({
   const since = (iso: string | null) =>
     !!iso && (!lastAt || Date.parse(iso) >= Date.parse(lastAt) - 1000);
   let tail: ReactNode = null;
-  if (waiting) {
+  if (ownDraft) {
+    tail =
+      usedDraft?.forMessageId === ownDraft.forMessageId ? (
+        <TeammateLine testId="own-mail-draft-used">
+          {`${ownDraft.by}’s draft is in your message box. Change what you like, then send it.`}
+        </TeammateLine>
+      ) : (
+        <OwnMailDraft
+          draft={ownDraft}
+          busy={puttingAway}
+          onUse={() => setUsedDraft({ forMessageId: ownDraft.forMessageId, text: ownDraft.body })}
+          onDismiss={() => void putAwayOwnDraft()}
+        />
+      );
+  } else if (waiting) {
     tail = (
       <DraftCard
         d={decision}
