@@ -43,8 +43,10 @@ import {
   resoFromFields,
   tryResoFields,
 } from '../src/addons/realestate/feed/reso';
+import { safeFeedFetch } from '../src/addons/realestate/feed/http';
 import { createStandinFeed } from '../src/addons/realestate/feed/standin';
 import type { FeedFetch } from '../src/addons/realestate/feed/types';
+import { createSafeFetch } from '../src/http/safe-fetch';
 import { workerMeta } from '../src/services';
 import { testServices, type TestServices } from './helpers';
 
@@ -577,5 +579,29 @@ describe('asking the business’s feed', () => {
     const answer = (await askFeed(ctx(true), { zips: ['78745'], limit: 5 }))!;
     expect(answer.listings.length).toBeGreaterThan(0);
     expect(answer.listings.every((l) => l.provider === 'standin')).toBe(true);
+  });
+});
+
+describe('a direct RESO feed’s addresses', () => {
+  it.each([
+    ['https://127.0.0.1.nip.io/odata', 'loopback by name'],
+    ['https://10.0.0.1.example/odata', 'a private address'],
+    ['https://169.254.169.254/latest', 'the cloud’s metadata address'],
+    ['https://handsfreeos-sync-storage.internal/odata', 'Fly’s private network'],
+  ])('never reach inside our own network: %s (%s)', async (serviceUrl) => {
+    // A resolver that says every name is a private address, so nothing has to resolve for real.
+    const safe = safeFeedFetch(
+      createSafeFetch({ resolve: async () => [{ address: '10.0.0.7', family: 4 }] }),
+    );
+    await expect(tryResoFields({ serviceUrl, accessToken: 't' }, signal(), safe)).rejects.toThrow(
+      /didn’t answer/,
+    );
+  });
+
+  it('are asked through the safe fetcher unless a test hands one in', async () => {
+    // No fetch handed in: an address on a private network is refused before anything is sent.
+    await expect(
+      tryResoFields({ serviceUrl: 'https://169.254.169.254/odata', accessToken: 't' }, signal()),
+    ).rejects.toThrow(/didn’t answer/);
   });
 });

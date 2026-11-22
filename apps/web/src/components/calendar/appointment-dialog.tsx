@@ -1,21 +1,17 @@
 'use client';
 import {
-  contactFromSearch,
   fmtAtPicked,
   localInstant,
   minutesToClock,
   parseClock,
   resolveTerms,
   type CalendarConfig,
-  type ContactStart,
   type LocationKind,
 } from '@hfos/core';
 import { AlertTriangle, CircleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { seatsLabel } from '@/components/booking/format';
-import { PersonDialog } from '@/components/crm/person-dialog';
-import { useCan } from '@/components/shell/workspace-shell';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field, Label } from '@/components/ui/field';
@@ -196,9 +192,6 @@ export function AppointmentDialog({
   const [full, setFull] = useState<{ message: string; times: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  /** A new contact being added from a Customer search that found nobody, started with what was typed. */
-  const [newContact, setNewContact] = useState<ContactStart | null>(null);
-  const canAddContact = useCan('records.write');
   const clientId = useRef(crypto.randomUUID());
   const textingReady = useTextingReady(workspaceId, open);
 
@@ -560,9 +553,6 @@ export function AppointmentDialog({
                     value={person}
                     locked={lockCustomer}
                     onChange={pickCustomer}
-                    onAddNew={
-                      canAddContact ? (typed) => setNewContact(contactFromSearch(typed)) : undefined
-                    }
                   />
                 </div>
               )}
@@ -873,20 +863,6 @@ export function AppointmentDialog({
           </Button>
         </div>
       </DialogContent>
-      {newContact ? (
-        <PersonDialog
-          workspaceId={workspaceId}
-          open
-          onOpenChange={(o) => {
-            if (!o) setNewContact(null);
-          }}
-          defaultName={newContact.name}
-          defaultPhone={newContact.phone}
-          defaultEmail={newContact.email}
-          onSaved={(id, fullName) => pickCustomer({ id, fullName })}
-          onChooseMatch={(match) => pickCustomer({ id: match.id, fullName: match.name })}
-        />
-      ) : null}
     </Dialog>
   );
 }

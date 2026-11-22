@@ -4527,7 +4527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start receiving the business’s mail at one of its verified domains. Once its MX record points at inbound.postmarkapp.com, mail to every address there arrives in the Inbox.
+         * Start receiving the business’s mail at one of its verified domains. Once its MX record points at inbound.postmarkapp.com, mail to every address there arrives in the Inbox. Asked again while it waits, it looks for the MX record now.
          * @description Risk level 2. Requires channels.manage. Emits email_domain.receiving_requested.
          */
         post: operations["command_email_domain_receive"];
@@ -10587,7 +10587,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start connecting a Stripe or Square account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once.
+         * Start connecting a Stripe, Square or PayPal account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once. PayPal takes one-time payments only (invoices, pay links and deposits), never plans.
          * @description Risk level 2. Requires money.manage. Emits payment_connection.connect_started.
          */
         post: operations["command_payment_connection_connect"];
@@ -21247,7 +21247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Your sign-ins to the browser extension waiting for you to pick the number it shows, newest first.
+         * Your sign-ins to the browser extension waiting for you to type the number it shows, newest first.
          * @description Any signed-in user.
          */
         post: operations["query_extension_sign_in_pending"];
@@ -44539,6 +44539,8 @@ export interface operations {
                                 prefix?: string;
                             };
                         };
+                        /** @default true */
+                        payLater?: boolean;
                         /** @default {} */
                         reminders?: {
                             /**
@@ -44574,6 +44576,8 @@ export interface operations {
                          * @enum {string}
                          */
                         terms?: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                        /** @default true */
+                        venmo?: boolean;
                     };
                     /** Format: uuid */
                     workspaceId: string;
@@ -44633,6 +44637,8 @@ export interface operations {
                                     prefix: string;
                                 };
                             };
+                            /** @default true */
+                            payLater: boolean;
                             reminders: {
                                 /**
                                  * @default [
@@ -44666,6 +44672,8 @@ export interface operations {
                              * @enum {string}
                              */
                             terms: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                            /** @default true */
+                            venmo: boolean;
                         };
                         /** Format: uuid */
                         workspaceId: string;
@@ -45460,7 +45468,7 @@ export interface operations {
                          * @default later
                          * @enum {string}
                          */
-                        payWith?: "stripe" | "square" | "later";
+                        payWith?: "stripe" | "square" | "paypal" | "later";
                         /** @default  */
                         reviewLink?: string;
                         /**
@@ -45806,7 +45814,7 @@ export interface operations {
                          * @default later
                          * @enum {string}
                          */
-                        payWith?: "stripe" | "square" | "later";
+                        payWith?: "stripe" | "square" | "paypal" | "later";
                         /** @default  */
                         reviewLink?: string;
                         /**
@@ -54559,7 +54567,7 @@ export interface operations {
                     environment?: "live" | "test";
                     label?: string | null;
                     /** @enum {string} */
-                    provider: "stripe" | "square";
+                    provider: "stripe" | "square" | "paypal";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -56446,6 +56454,16 @@ export interface operations {
                      */
                     kind?: "product" | "service" | "fee";
                     name: string;
+                    options?: {
+                        choices: {
+                            id?: string;
+                            label: string;
+                            /** @default 0 */
+                            priceCents?: number;
+                        }[];
+                        id?: string;
+                        name: string;
+                    }[];
                     serviceId?: string | null;
                     sku?: string | null;
                     taxable?: boolean;
@@ -56475,6 +56493,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "product" | "service" | "fee";
                             name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
                             serviceId: string | null;
                             sku: string | null;
                             taxable: boolean;
@@ -56504,6 +56532,16 @@ export interface operations {
                     /** @enum {string} */
                     kind?: "product" | "service" | "fee";
                     name?: string;
+                    options?: {
+                        choices: {
+                            id?: string;
+                            label: string;
+                            /** @default 0 */
+                            priceCents?: number;
+                        }[];
+                        id?: string;
+                        name: string;
+                    }[];
                     /** Format: uuid */
                     productId: string;
                     serviceId?: string | null;
@@ -56533,6 +56571,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "product" | "service" | "fee";
                             name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
                             serviceId: string | null;
                             sku: string | null;
                             taxable: boolean;
@@ -75394,6 +75442,8 @@ export interface operations {
                                     /** @enum {string} */
                                     kind: "create_invoice";
                                     lines: {
+                                        /** @default [] */
+                                        choices: string[];
                                         /** Format: uuid */
                                         productId: string;
                                         quantity: number;
@@ -75406,6 +75456,8 @@ export interface operations {
                                     /** @enum {string} */
                                     kind: "create_estimate";
                                     lines: {
+                                        /** @default [] */
+                                        choices: string[];
                                         /** Format: uuid */
                                         productId: string;
                                         quantity: number;
@@ -82908,6 +82960,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "product" | "service" | "fee";
                             name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
                             priceCents: number;
                             sku: string | null;
                             unitLabel: string;
@@ -83367,6 +83429,7 @@ export interface operations {
                         selfServe: boolean;
                         /** @enum {string} */
                         status: "pending" | "open" | "paid" | "expired" | "failed";
+                        trialEndsAt: string | null;
                         url: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -85067,7 +85130,7 @@ export interface operations {
                             /** Format: uuid */
                             invoiceId: string;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo";
                             netCents: number | null;
                             note: string | null;
                             paidThrough: string | null;
@@ -87584,6 +87647,8 @@ export interface operations {
                                     prefix: string;
                                 };
                             };
+                            /** @default true */
+                            payLater: boolean;
                             reminders: {
                                 /**
                                  * @default [
@@ -87617,6 +87682,8 @@ export interface operations {
                              * @enum {string}
                              */
                             terms: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                            /** @default true */
+                            venmo: boolean;
                         };
                     };
                 };
@@ -88173,7 +88240,7 @@ export interface operations {
                              * @default later
                              * @enum {string}
                              */
-                            payWith: "stripe" | "square" | "later";
+                            payWith: "stripe" | "square" | "paypal" | "later";
                             /** @default  */
                             reviewLink: string;
                             /**
@@ -88495,7 +88562,7 @@ export interface operations {
                              * @default later
                              * @enum {string}
                              */
-                            payWith: "stripe" | "square" | "later";
+                            payWith: "stripe" | "square" | "paypal" | "later";
                             /** @default  */
                             reviewLink: string;
                             /**
@@ -88777,7 +88844,7 @@ export interface operations {
                                 broken: boolean;
                                 checking: boolean;
                                 needsInfo: boolean;
-                                provider: ("stripe" | "square") | null;
+                                provider: ("stripe" | "square" | "paypal") | null;
                             };
                             phones: number;
                             priceList: {
@@ -95572,7 +95639,7 @@ export interface operations {
                     invoiceId?: string;
                     /** @default 25 */
                     limit?: number;
-                    method?: ("card" | "ach" | "cash" | "check" | "other" | "card_outside")[];
+                    method?: ("card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo")[];
                     /** Format: uuid */
                     personId?: string;
                     /** Format: date-time */
@@ -95609,7 +95676,7 @@ export interface operations {
                             invoiceId: string;
                             invoiceNumber: string | null;
                             /** @enum {string} */
-                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside";
+                            method: "card" | "ach" | "cash" | "check" | "other" | "card_outside" | "paypal" | "venmo";
                             netCents: number | null;
                             note: string | null;
                             paidThrough: string | null;
@@ -97960,6 +98027,16 @@ export interface operations {
                             /** @enum {string} */
                             kind: "product" | "service" | "fee";
                             name: string;
+                            /** @default [] */
+                            options: {
+                                choices: {
+                                    id: string;
+                                    label: string;
+                                    priceCents: number;
+                                }[];
+                                id: string;
+                                name: string;
+                            }[];
                             serviceId: string | null;
                             sku: string | null;
                             taxable: boolean;

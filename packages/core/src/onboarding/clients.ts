@@ -3,6 +3,7 @@
  * where each business stands, as the Client businesses page and the daily digest show it. Browser-safe: the facts
  * are read on the server (`onboarding.clients`), and this decides what they add up to.
  */
+import { PAYMENT_PROVIDER_NAMES } from '../schemas/money';
 import type { OnboardingStep } from './steps';
 import { stepTitle, stepWords } from './words';
 
@@ -19,7 +20,7 @@ export interface ClientStanding {
   readonly note: string;
 }
 
-const PROVIDERS: Readonly<Record<string, string>> = { stripe: 'Stripe', square: 'Square' };
+const PROVIDERS: Readonly<Record<string, string>> = PAYMENT_PROVIDER_NAMES;
 
 /** The words on the agency's Setup column, its filters and its sheet. */
 export const AGENCY_SETUP_WORDS = {
@@ -58,7 +59,7 @@ export const AGENCY_SETUP_WORDS = {
   later: 'When they’re ready',
   doItForThem: 'Do it for them',
   ownersCall: 'The owner’s call',
-  ownerSignsIn: 'The owner signs in to Stripe or Square',
+  ownerSignsIn: 'The owner signs in to Stripe, Square or PayPal',
   remind: (firstName: string) => `Email ${firstName} a reminder`,
   remindNoOwner: 'Email a reminder',
   openWorkspace: 'Open their workspace',

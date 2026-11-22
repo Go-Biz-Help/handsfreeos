@@ -13,13 +13,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RadioCard } from '@/components/ui/radio-card';
 import { errorMessage } from '@/lib/api/client';
+import { publicEnv } from '@/lib/env';
 import { keepSetupReturn } from '@/lib/setup-return';
 import { setupHref } from '@/lib/setup';
+import { cn } from '@/lib/utils';
 
-type Provider = 'stripe' | 'square';
+type Provider = 'stripe' | 'square' | 'paypal';
+
+/** PayPal is offered once Connect PayPal is open (`NEXT_PUBLIC_PAYPAL_ENABLED`), as on Settings → Payments. */
+const offered = (): readonly Provider[] =>
+  publicEnv.payPalEnabled ? ['stripe', 'square', 'paypal'] : ['stripe', 'square'];
 
 /**
- * The wizard's payments step (board 5b): Stripe or Square, through the same sign-in as Settings → Payments. The
+ * The wizard's payments step (board 5b): Stripe, Square or PayPal, through the same sign-in as Settings → Payments. The
  * sign-in comes back here rather than to Settings (`keepSetupReturn`), with `?payments=` saying how it went.
  */
 export function PaymentsSetup({
@@ -77,9 +83,12 @@ export function PaymentsSetup({
       <div
         role="radiogroup"
         aria-label={WIZARD_WORDS.titles.payments}
-        className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+        className={cn(
+          'grid grid-cols-1 gap-3',
+          offered().length > 2 ? 'sm:grid-cols-3' : 'sm:grid-cols-2',
+        )}
       >
-        {(['stripe', 'square'] as const).map((p) => {
+        {offered().map((p) => {
           const words = WIZARD_WORDS.providers[p];
           return (
             <RadioCard

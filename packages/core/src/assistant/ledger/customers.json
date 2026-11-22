@@ -1,7 +1,7 @@
 {
   "area": "customers",
   "title": "Contacts: people, companies, a business's own kinds of records, leads, imports and files",
-  "checkedOn": "2026-11-19",
+  "checkedOn": "2026-11-21",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx": "b86a46e367a4",
     "apps/mobile/src/app/app/w/[workspaceId]/customers/companies/[companyId].tsx": "cb2d19dfb095",
@@ -60,12 +60,13 @@
     "apps/web/src/components/crm/hands.tsx": "a938b129c5de",
     "apps/web/src/components/crm/lead-dialog.tsx": "228bdf162fa0",
     "apps/web/src/components/crm/maintenance-card.tsx": "91e8a26432e6",
-    "apps/web/src/components/crm/merge-dialog.tsx": "c4d177bfdc4e",
+    "apps/web/src/components/crm/merge-dialog.tsx": "8a076a500d6c",
+    "apps/web/src/components/crm/new-contact.tsx": "15f5c39cec05",
     "apps/web/src/components/crm/next-action-dialog.tsx": "da25b96eb9d0",
-    "apps/web/src/components/crm/person-dialog.tsx": "c9d492d7b457",
+    "apps/web/src/components/crm/person-dialog.tsx": "d926ebf3dcdb",
     "apps/web/src/components/crm/record-money.tsx": "a55e39f309ec",
     "apps/web/src/components/crm/record-page.tsx": "0d5dca70ea88",
-    "apps/web/src/components/crm/record-picker.tsx": "415ed8b189ad",
+    "apps/web/src/components/crm/record-picker.tsx": "0fad37decba8",
     "apps/web/src/components/crm/tag-picker.tsx": "74b0055a510a",
     "apps/web/src/components/files/file-grid.tsx": "0b455a816429",
     "apps/web/src/components/files/upload-zone.tsx": "7a46c36f47d1",
@@ -602,9 +603,23 @@
     {
       "path": "Record picker → type a name, phone or company",
       "kind": "do",
-      "file": "apps/web/src/components/crm/record-picker.tsx:127",
+      "file": "apps/web/src/components/crm/record-picker.tsx:149",
       "covered": "yes",
       "by": "search_customers"
+    },
+    {
+      "path": "Record picker → Add “…” as a new contact, under the results or when nobody’s found (New lead, a deal’s people, New message; not Link to an existing contact)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-picker.tsx:199",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "Every web contact picker → Add a person over the screen, started with what was typed; Choose X when the number or email is someone’s",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/new-contact.tsx:23",
+      "covered": "yes",
+      "by": "create_customer"
     },
     {
       "path": "Customer page → header → name, company",

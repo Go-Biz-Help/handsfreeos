@@ -243,6 +243,18 @@ export interface WorkerEnv {
   /** Which Square to talk to: its sandbox has its own application and its own hosts. */
   readonly squareEnvironment: 'live' | 'test';
   /**
+   * PayPal, as a partner (the PayPal plan): our REST app's client id and secret, our own merchant id as the
+   * partner, the BN code PayPal gives a partner, and the id of the app's webhook. The client id is public: the
+   * customer's page loads PayPal's buttons with it.
+   */
+  readonly paypalClientId: string | null;
+  readonly paypalClientSecret: string | null;
+  readonly paypalPartnerMerchantId: string | null;
+  readonly paypalBnCode: string | null;
+  readonly paypalWebhookId: string | null;
+  /** Which PayPal to talk to: the sandbox has its own app, its own accounts and its own hosts. */
+  readonly paypalEnvironment: 'live' | 'test';
+  /**
    * Moving a business here from another CRM (M11). `real` talks to GoHighLevel; `fake` is the stand-in agency
    * the tests and local development migrate from, so nothing ever reaches a real account by accident.
    * Production refuses the stand-in, exactly as payments and telephony do.
@@ -532,8 +544,14 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   const stripeSecretKey = env.STRIPE_SECRET_KEY || null;
   const squareApplicationId = env.SQUARE_APPLICATION_ID || null;
   const squareApplicationSecret = env.SQUARE_APPLICATION_SECRET || null;
+  const paypalClientId = env.PAYPAL_CLIENT_ID || null;
+  const paypalClientSecret = env.PAYPAL_CLIENT_SECRET || null;
+  const paypalPartnerMerchantId = env.PAYPAL_PARTNER_MERCHANT_ID || null;
+  const paypalBnCode = env.PAYPAL_BN_CODE || null;
   const paymentsProvider = (env.PAYMENTS_PROVIDER ??
-    (production || stripeClientId || squareApplicationId ? 'real' : 'fake')) as string;
+    (production || stripeClientId || squareApplicationId || paypalClientId
+      ? 'real'
+      : 'fake')) as string;
   if (paymentsProvider !== 'real' && paymentsProvider !== 'fake')
     throw new Error('PAYMENTS_PROVIDER must be real or fake');
   if (production && paymentsProvider === 'fake')
@@ -550,6 +568,17 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('SQUARE_ENVIRONMENT must be live or test');
   if (production && squareEnvironment === 'test')
     throw new Error('SQUARE_ENVIRONMENT=test is for development and tests only');
+  if (paypalClientId && !paypalClientSecret)
+    throw new Error('PAYPAL_CLIENT_SECRET is required with PAYPAL_CLIENT_ID');
+  if (paypalClientId && !paypalPartnerMerchantId)
+    throw new Error('PAYPAL_PARTNER_MERCHANT_ID is required with PAYPAL_CLIENT_ID');
+  // PayPal's partner agreement: every live call says which partner made it.
+  if (production && paypalClientId && !paypalBnCode)
+    throw new Error('PAYPAL_BN_CODE is required with PAYPAL_CLIENT_ID in production');
+  // PayPal's sandbox is where its partner app lives until PayPal approves it, so a live server may still use it.
+  const paypalEnvironment = (env.PAYPAL_ENVIRONMENT ?? (production ? 'live' : 'test')) as string;
+  if (paypalEnvironment !== 'live' && paypalEnvironment !== 'test')
+    throw new Error('PAYPAL_ENVIRONMENT must be live or test');
   const fakeSettleMs = env.PAYMENTS_FAKE_SETTLE_MS ? Number(env.PAYMENTS_FAKE_SETTLE_MS) : null;
   if (fakeSettleMs !== null && (!Number.isFinite(fakeSettleMs) || fakeSettleMs < 0))
     throw new Error('PAYMENTS_FAKE_SETTLE_MS must be a whole number of milliseconds');
@@ -803,6 +832,12 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     squareApplicationSecret,
     squareWebhookSignatureKeys: list(env.SQUARE_WEBHOOK_SIGNATURE_KEYS),
     squareEnvironment,
+    paypalClientId,
+    paypalClientSecret,
+    paypalPartnerMerchantId,
+    paypalBnCode,
+    paypalWebhookId: env.PAYPAL_WEBHOOK_ID?.trim() || null,
+    paypalEnvironment,
     paymentsFakeSettleMs: fakeSettleMs,
     assistantProvider: assistantProvider as WorkerEnv['assistantProvider'],
     anthropicApiKey,

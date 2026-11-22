@@ -97,6 +97,11 @@ export const IG_CREATE = /^(create|new post)$/i;
 const IG_KIND = /^post$/i;
 /** Create new post's button that opens the computer's file picker. */
 const IG_PICK = /^select (from (your )?computer|photos( and videos)?)$/i;
+/**
+ * What Instagram asks over its page with nothing of a post in it (Turn on Notifications, Save your login info), and the
+ * answer that closes it without changing anything: Not Now.
+ */
+const IG_NOT_NOW = /^not now$/i;
 /** Instagram's note that a video goes up as a reel, and its OK. */
 const IG_OK = /^ok$/i;
 /**
@@ -503,6 +508,28 @@ function igDialog(doc: Document): Element | null {
   return [...doc.querySelectorAll(OVER_THE_PAGE)].filter(shown).at(-1) ?? null;
 }
 
+/**
+ * Closes what Instagram asks over its page before Create can be pressed under it, by its Not Now: the owner's post of
+ * 21 Nov 2026 found the page hidden under Turn on Notifications, Create with it, and nothing went up. Never a dialog
+ * holding a file field or words (a post someone started), and never anything but Not Now, so nothing is turned on.
+ */
+async function igCloseAsks(doc: Document, steps: string[]): Promise<void> {
+  for (let round = 0; round < 3; round++) {
+    const asked = igDialog(doc);
+    if (
+      !asked ||
+      asked.querySelector('input[type="file"]') ||
+      [...asked.querySelectorAll(WRITING_BOX)].some(shown)
+    )
+      return;
+    const notNow = controlIn(asked, IG_NOT_NOW);
+    if (!notNow) return;
+    notNow.click();
+    steps.push('ask:not_now');
+    await waitFor(() => (asked.isConnected && shown(asked) ? null : true), 3_000);
+  }
+}
+
 /** Whether Instagram took the files: it moved on to cropping (Next), asked about reels (OK), or shows them. */
 function igTook(doc: Document): boolean {
   const box = igDialog(doc);
@@ -573,6 +600,7 @@ async function instagramPost(
   steps: string[],
   end: (result: PostDone['result'], pressed?: boolean) => PostDone,
 ): Promise<PostDone> {
+  await igCloseAsks(doc, steps);
   let box = igDialog(doc);
   const hasField = (d: Element | null) =>
     !!d && [...d.querySelectorAll<HTMLInputElement>('input[type="file"]')].some(takesMedia);

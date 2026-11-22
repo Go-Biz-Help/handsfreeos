@@ -151,8 +151,22 @@ export function createLocalEmail(opts: {
           ns: ['ns51.domaincontrol.com', 'ns52.domaincontrol.com'],
         };
       },
-      // A server for every domain, except elsewhere-… (another account receives it) and full-… (no room left).
+      // A server for every domain, except elsewhere-… (another account receives it) and full-… (no room left). As
+      // with Postmark, only once the MX points here: never for nomx-…, after the first MX check for latemx-…, and
+      // after the second for slowmx-… (our DNS sees the change before Postmark's does).
       async openInbound(domain) {
+        const looked = mxChecks.get(domain) ?? 0;
+        if (
+          /^nomx-/.test(domain) ||
+          (/^latemx-/.test(domain) && looked < 1) ||
+          (/^slowmx-/.test(domain) && looked < 2)
+        )
+          throw new EmailError(
+            'We could not find an MX record pointing to the expected domain.',
+            INBOUND_REFUSALS.noMx,
+            true,
+            422,
+          );
         if (/^elsewhere-/.test(domain))
           throw new EmailError(
             'The specified inbound domain is already registered or in use on another server.',

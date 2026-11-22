@@ -18,7 +18,7 @@ export const GROUP_BADGE: Record<OnboardingClient['group'], BadgeVariant> = {
   done: 'ok',
 };
 
-/** Steps only the owner can do: their own team, and their own sign-in to Stripe or Square. */
+/** Steps only the owner can do: their own team, and their own sign-in to Stripe, Square or PayPal. */
 const OWNERS_CALL: Partial<Record<OnboardingStep['key'], string>> = {
   team: AGENCY_SETUP_WORDS.ownersCall,
   payments: AGENCY_SETUP_WORDS.ownerSignsIn,

@@ -11638,7 +11638,7 @@
     "/v1/commands/email_domain.receive": {
       "post": {
         "operationId": "command_email_domain_receive",
-        "summary": "Start receiving the business’s mail at one of its verified domains. Once its MX record points at inbound.postmarkapp.com, mail to every address there arrives in the Inbox.",
+        "summary": "Start receiving the business’s mail at one of its verified domains. Once its MX record points at inbound.postmarkapp.com, mail to every address there arrives in the Inbox. Asked again while it waits, it looks for the MX record now.",
         "tags": [
           "commands"
         ],
@@ -40714,6 +40714,56 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "options": {
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^o_[a-z0-9]{8}$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        },
+                        "choices": {
+                          "minItems": 1,
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^v_[a-z0-9]{8}$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              },
+                              "priceCents": {
+                                "default": 0,
+                                "type": "integer",
+                                "minimum": -10000000,
+                                "maximum": 10000000
+                              }
+                            },
+                            "required": [
+                              "label"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "choices"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -40792,6 +40842,52 @@
                             }
                           ]
                         },
+                        "options": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "choices": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "priceCents": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "label",
+                                    "priceCents"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "choices"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "archivedAt": {
                           "anyOf": [
                             {
@@ -40815,6 +40911,7 @@
                         "unitLabel",
                         "taxable",
                         "serviceId",
+                        "options",
                         "archivedAt"
                       ],
                       "additionalProperties": false
@@ -40926,6 +41023,56 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "options": {
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^o_[a-z0-9]{8}$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        },
+                        "choices": {
+                          "minItems": 1,
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^v_[a-z0-9]{8}$"
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              },
+                              "priceCents": {
+                                "default": 0,
+                                "type": "integer",
+                                "minimum": -10000000,
+                                "maximum": 10000000
+                              }
+                            },
+                            "required": [
+                              "label"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "choices"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -41004,6 +41151,52 @@
                             }
                           ]
                         },
+                        "options": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "choices": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "priceCents": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "label",
+                                    "priceCents"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "choices"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "archivedAt": {
                           "anyOf": [
                             {
@@ -41027,6 +41220,7 @@
                         "unitLabel",
                         "taxable",
                         "serviceId",
+                        "options",
                         "archivedAt"
                       ],
                       "additionalProperties": false
@@ -41661,7 +41855,7 @@
     "/v1/commands/payment_connection.connect": {
       "post": {
         "operationId": "command_payment_connection_connect",
-        "summary": "Start connecting a Stripe or Square account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once.",
+        "summary": "Start connecting a Stripe, Square or PayPal account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once. PayPal takes one-time payments only (invoices, pay links and deposits), never plans.",
         "tags": [
           "commands"
         ],
@@ -41682,7 +41876,8 @@
                     "type": "string",
                     "enum": [
                       "stripe",
-                      "square"
+                      "square",
+                      "paypal"
                     ]
                   },
                   "environment": {
@@ -50824,6 +51019,14 @@
                         "default": true,
                         "type": "boolean"
                       },
+                      "venmo": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "payLater": {
+                        "default": true,
+                        "type": "boolean"
+                      },
                       "reminders": {
                         "default": {},
                         "type": "object",
@@ -51070,6 +51273,14 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "venmo": {
+                          "default": true,
+                          "type": "boolean"
+                        },
+                        "payLater": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "reminders": {
                           "type": "object",
                           "properties": {
@@ -51135,6 +51346,8 @@
                         "estimateGoodForDays",
                         "deposit",
                         "bankTransfer",
+                        "venmo",
+                        "payLater",
                         "reminders"
                       ],
                       "additionalProperties": false
@@ -69155,6 +69368,7 @@
                         "enum": [
                           "stripe",
                           "square",
+                          "paypal",
                           "later"
                         ]
                       },
@@ -70170,6 +70384,7 @@
                         "enum": [
                           "stripe",
                           "square",
+                          "paypal",
                           "later"
                         ]
                       },
@@ -146674,6 +146889,18 @@
                     },
                     "selfServe": {
                       "type": "boolean"
+                    },
+                    "trialEndsAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -146689,7 +146916,8 @@
                     "renewal",
                     "billing",
                     "paidThrough",
-                    "selfServe"
+                    "selfServe",
+                    "trialEndsAt"
                   ],
                   "additionalProperties": false
                 }
@@ -150549,7 +150777,7 @@
     "/v1/queries/extension_sign_in.pending": {
       "post": {
         "operationId": "query_extension_sign_in_pending",
-        "summary": "Your sign-ins to the browser extension waiting for you to pick the number it shows, newest first.",
+        "summary": "Your sign-ins to the browser extension waiting for you to type the number it shows, newest first.",
         "tags": [
           "queries"
         ],
@@ -150587,7 +150815,6 @@
                             "type": "string"
                           },
                           "choices": {
-                            "minItems": 3,
                             "maxItems": 3,
                             "type": "array",
                             "items": {
@@ -184385,11 +184612,22 @@
                                                 "type": "number",
                                                 "exclusiveMinimum": 0,
                                                 "maximum": 10000
+                                              },
+                                              "choices": {
+                                                "default": [],
+                                                "maxItems": 3,
+                                                "type": "array",
+                                                "items": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 60
+                                                }
                                               }
                                             },
                                             "required": [
                                               "productId",
-                                              "quantity"
+                                              "quantity",
+                                              "choices"
                                             ],
                                             "additionalProperties": false
                                           }
@@ -184445,11 +184683,22 @@
                                                 "type": "number",
                                                 "exclusiveMinimum": 0,
                                                 "maximum": 10000
+                                              },
+                                              "choices": {
+                                                "default": [],
+                                                "maxItems": 3,
+                                                "type": "array",
+                                                "items": {
+                                                  "type": "string",
+                                                  "minLength": 1,
+                                                  "maxLength": 60
+                                                }
                                               }
                                             },
                                             "required": [
                                               "productId",
-                                              "quantity"
+                                              "quantity",
+                                              "choices"
                                             ],
                                             "additionalProperties": false
                                           }
@@ -195044,6 +195293,52 @@
                               }
                             ]
                           },
+                          "options": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "choices": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "type": "string"
+                                      },
+                                      "priceCents": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "label",
+                                      "priceCents"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name",
+                                "choices"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "archivedAt": {
                             "anyOf": [
                               {
@@ -195067,6 +195362,7 @@
                           "unitLabel",
                           "taxable",
                           "serviceId",
+                          "options",
                           "archivedAt"
                         ],
                         "additionalProperties": false
@@ -197650,7 +197946,9 @@
                               "cash",
                               "check",
                               "other",
-                              "card_outside"
+                              "card_outside",
+                              "paypal",
+                              "venmo"
                             ]
                           },
                           "provider": {
@@ -197975,7 +198273,7 @@
                     }
                   },
                   "method": {
-                    "maxItems": 6,
+                    "maxItems": 8,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -197985,7 +198283,9 @@
                         "cash",
                         "check",
                         "other",
-                        "card_outside"
+                        "card_outside",
+                        "paypal",
+                        "venmo"
                       ]
                     }
                   },
@@ -198062,7 +198362,9 @@
                               "cash",
                               "check",
                               "other",
-                              "card_outside"
+                              "card_outside",
+                              "paypal",
+                              "venmo"
                             ]
                           },
                           "provider": {
@@ -200570,6 +200872,14 @@
                           "default": true,
                           "type": "boolean"
                         },
+                        "venmo": {
+                          "default": true,
+                          "type": "boolean"
+                        },
+                        "payLater": {
+                          "default": true,
+                          "type": "boolean"
+                        },
                         "reminders": {
                           "type": "object",
                           "properties": {
@@ -200635,6 +200945,8 @@
                         "estimateGoodForDays",
                         "deposit",
                         "bankTransfer",
+                        "venmo",
+                        "payLater",
                         "reminders"
                       ],
                       "additionalProperties": false
@@ -201855,6 +202167,52 @@
                           },
                           "unitLabel": {
                             "type": "string"
+                          },
+                          "options": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "choices": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "type": "string"
+                                      },
+                                      "priceCents": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "label",
+                                      "priceCents"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name",
+                                "choices"
+                              ],
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "required": [
@@ -201863,7 +202221,8 @@
                           "sku",
                           "kind",
                           "priceCents",
-                          "unitLabel"
+                          "unitLabel",
+                          "options"
                         ],
                         "additionalProperties": false
                       }
@@ -214993,7 +215352,8 @@
                                   "type": "string",
                                   "enum": [
                                     "stripe",
-                                    "square"
+                                    "square",
+                                    "paypal"
                                   ]
                                 },
                                 {
@@ -215911,6 +216271,7 @@
                           "enum": [
                             "stripe",
                             "square",
+                            "paypal",
                             "later"
                           ]
                         },
@@ -216632,6 +216993,7 @@
                           "enum": [
                             "stripe",
                             "square",
+                            "paypal",
                             "later"
                           ]
                         },

@@ -613,6 +613,50 @@ describe('money, only with an owner’s or admin’s OK', () => {
     await saveTeammate(a, { money: { newBills: false } });
   });
 
+  it('bills a T-shirt in the size the customer named, at that size’s price', async () => {
+    const shirt = (
+      await run(
+        productCreate,
+        {
+          workspaceId: a.wsId,
+          name: 'T-shirt',
+          unitPriceCents: 1_200,
+          taxable: false,
+          options: [
+            {
+              name: 'Size',
+              choices: [{ label: 'Adult M' }, { label: 'Adult 2XL', priceCents: 200 }],
+            },
+          ],
+        },
+        a.owner,
+      )
+    ).productId;
+    const joy = await aiChat(a, 'Joy');
+    const bill = (choices?: string[]) =>
+      asAva(
+        a,
+        { conversationId: joy.conversationId, approvedBy: a.owner.id },
+        invoiceCreateForCustomer,
+        { workspaceId: a.wsId, lines: [{ productId: shirt, quantity: 3, choices }] },
+      );
+    await saveTeammate(a, { money: { newBills: true } });
+    // A shirt with sizes needs one: the model is told which there are.
+    const missing = await expectHfos(() => bill(), 'validation');
+    expect(missing.message).toBe(
+      'Line 1: T-shirt comes in more than one Size. Say which in choices: Adult M, Adult 2XL.',
+    );
+    const { output } = await bill(['adult 2xl']);
+    expect(output).toMatchObject({ status: 'sent', totalCents: 4_200 });
+    const [line] = await rows<{ name: string; unit_price_cents: string }>(
+      admin(),
+      sql`select name, unit_price_cents::text as unit_price_cents from app.invoice_lines
+          where invoice_id = ${output.invoiceId}`,
+    );
+    expect(line).toEqual({ name: 'T-shirt (Adult 2XL)', unit_price_cents: '1400' });
+    await saveTeammate(a, { money: { newBills: false } });
+  });
+
   it('quotes from the price list only in build mode, and records the answer in the approver’s name', async () => {
     const lee = await aiChat(a, 'Lee');
     const me = { conversationId: lee.conversationId, approvedBy: a.owner.id };

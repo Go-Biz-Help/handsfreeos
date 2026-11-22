@@ -13,6 +13,7 @@ import {
   localDateOf,
   messageAttachMedia,
   offerCreate,
+  productCreate,
   pushDeviceRegister,
   territoryCreate,
   videoLinkTokenHash,
@@ -172,6 +173,40 @@ const RULES: TeammateRule[] = [
       return {
         calls: [
           { name: 'reply', arguments: { message: 'I’ve asked the team to send your pay link.' } },
+        ],
+      };
+    },
+  },
+  {
+    // Sizes on the price list: the first try names no size and is told which there are.
+    when: /team tees/i,
+    step: (t) => {
+      const id =
+        /Team tee\b.{0,40}\(product id ([0-9a-f-]{36})\); pick one Size: Adult M, Adult 2XL/.exec(
+          t.context,
+        )?.[1] ?? '';
+      const tried = t.results['propose_bill'] ?? [];
+      if (tried.length < 2)
+        return {
+          calls: [
+            {
+              name: 'propose_bill',
+              arguments: {
+                items: [
+                  {
+                    productId: id,
+                    quantity: 2,
+                    ...(tried.length ? { choices: ['adult 2xl'] } : {}),
+                  },
+                ],
+                message: 'Here’s your bill for the tees.',
+              },
+            },
+          ],
+        };
+      return {
+        calls: [
+          { name: 'reply', arguments: { message: 'I’ve asked the team to get your bill ready.' } },
         ],
       };
     },
@@ -571,6 +606,42 @@ describe('money', () => {
     const sent = (await aiReplies(m.conversationId)).map((x) => x.body_text);
     expect(sent).toHaveLength(2);
     expect(sent[1]).toBe(preview.message.body);
+  });
+});
+
+describe('money from the price list', () => {
+  it('bills shirts in the size they asked for, once it’s told which sizes there are', async () => {
+    await run(w, productCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Team tee',
+      unitPriceCents: 1_200,
+      taxable: false,
+      options: [
+        { name: 'Size', choices: [{ label: 'Adult M' }, { label: 'Adult 2XL', priceCents: 200 }] },
+      ],
+    });
+    await saveTeammate(w, { money: { newBills: true } });
+    const c = await newCustomer(w, 'Gus');
+    const m = await textIn(w, c.phone, 'Can you bill me for two team tees in 2XL?');
+    await replyNow(w, m.conversationId);
+    await drain(w);
+    const [last] = (await runsOf(m.conversationId)).slice(-1);
+    const bills = (await toolCallsOf(last!.id)).filter((x) => x.tool === 'propose_bill');
+    expect(JSON.stringify(bills[0]!.result)).toContain(
+      'Team tee comes in more than one Size. Say which in choices: Adult M, Adult 2XL.',
+    );
+    const ask = (await draftsOf(m.conversationId)).find((d) => d.kind === 'approval')!;
+    const preview = (
+      await rows<{
+        preview: { actions: { kind: string; summary: string; lines: unknown[] }[] };
+      }>(admin(), sql`select preview from app.ai_teammate_drafts where id = ${ask.id}`)
+    )[0]!.preview;
+    expect(preview.actions[0]).toMatchObject({
+      kind: 'create_invoice',
+      summary: 'Bill them $28 for 2 × Team tee (Adult 2XL)',
+      lines: [{ quantity: 2, choices: ['Adult 2XL'] }],
+    });
+    await saveTeammate(w, { money: { newBills: false } });
   });
 });
 

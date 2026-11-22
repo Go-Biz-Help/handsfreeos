@@ -82,6 +82,8 @@ export type DraftMessage = z.infer<typeof DraftMessage>;
 export const CatalogueLine = z.object({
   productId: uuid,
   quantity: z.number().gt(0).max(10_000),
+  /** For a product with sizes, colors or other choices: one choice of each, by name ("Adult 2XL", "Black"). */
+  choices: z.array(z.string().trim().min(1).max(60)).max(3).default([]),
 });
 export type CatalogueLine = z.infer<typeof CatalogueLine>;
 

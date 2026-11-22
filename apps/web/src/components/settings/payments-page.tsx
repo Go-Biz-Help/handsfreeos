@@ -43,6 +43,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -53,6 +54,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { PaymentConnectionRow } from '@/lib/api/types';
+import { publicEnv } from '@/lib/env';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import type { TeamMember } from './payment-access-dialog';
@@ -60,6 +62,7 @@ import {
   connectPaymentAccount,
   PAYMENT_RESULT,
   PaymentConnectionCard,
+  type ConnectableProvider,
 } from './payment-connection-card';
 import { SetRow } from './set-row';
 import { settingAttrs } from './setting-anchor';
@@ -226,6 +229,11 @@ export function PaymentsSettings({
 }) {
   const router = useRouter();
   useLiveRefresh(['payment_connection', 'workspace']);
+  // Until PayPal approves HandsFreeOS, Connect PayPal is open only to HandsFreeOS staff, so the owner can try it
+  // against PayPal's sandbox on the live site (a practice business) without any business connecting to it.
+  const { staffPermissions } = useWorkspaceShell();
+  const payPalStaffOnly = !publicEnv.payPalEnabled && staffPermissions.length > 0;
+  const payPalOpen = publicEnv.payPalEnabled || payPalStaffOnly;
 
   // The counter is the authority, not the settings document: a business that has sent invoices is further on
   // than its settings say, so the editable number starts where the counter actually is.
@@ -304,7 +312,7 @@ export function PaymentsSettings({
     box?.focus({ preventScroll: true });
   };
 
-  const connect = (provider: 'stripe' | 'square') => {
+  const connect = (provider: ConnectableProvider) => {
     setConnecting(provider);
     connectPaymentAccount(workspaceId, provider).catch((e: unknown) => {
       toast.error(errorMessage(e));
@@ -314,6 +322,8 @@ export function PaymentsSettings({
 
   // A sign-in that was started and never finished isn't an account yet: it stays out of the list.
   const live = connections.filter((c) => c.status !== 'pending' && c.status !== 'disconnected');
+  // PayPal's buttons show on the customer's page while a PayPal account is connected and working.
+  const payPalOn = live.some((c) => c.provider === 'paypal' && c.status === 'active');
   const { tax, numbering, deposit, reminders } = settings;
   const beforeDays = uniqueSorted([...BEFORE_STEPS, ...reminders.beforeDueDays], -1);
   const afterDays = uniqueSorted([...AFTER_STEPS, ...reminders.afterDueDays], 1);
@@ -435,7 +445,8 @@ export function PaymentsSettings({
             ) : (
               <div className="mt-3" data-testid="pay-no-accounts">
                 <EmptyState title="No account connected yet" className="py-7" dashed>
-                  Connect Stripe or Square and customers can pay an invoice from its own link.
+                  Connect Stripe, Square or PayPal and customers can pay an invoice from its own
+                  link.
                 </EmptyState>
               </div>
             )}
@@ -460,6 +471,22 @@ export function PaymentsSettings({
                 <Plus className="h-4 w-4" strokeWidth={1.75} />
                 Connect Square
               </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!payPalOpen}
+                loading={connecting === 'paypal'}
+                onClick={() => connect('paypal')}
+                data-testid="connect-paypal"
+              >
+                <Plus className="h-4 w-4" strokeWidth={1.75} />
+                Connect PayPal
+              </Button>
+              {payPalStaffOnly ? (
+                <Badge data-testid="connect-paypal-staff-only">Staff only, for testing</Badge>
+              ) : payPalOpen ? null : (
+                <Badge variant="pending">Coming soon</Badge>
+              )}
             </div>
             <p className="mt-2 text-[12.5px] text-text-3">
               You can connect several, including two of the same kind, and keep each one to the
@@ -514,6 +541,44 @@ export function PaymentsSettings({
                   <Lock className="h-3 w-3" strokeWidth={1.75} aria-hidden />
                   Always on
                 </span>
+              </SetRow>
+              <SetRow center setting="payments.paypal" title="PayPal" description={W.payPal}>
+                <span
+                  className="whitespace-nowrap text-[11.5px] font-medium text-text-3"
+                  data-testid="paypal-state"
+                >
+                  {payPalOn ? 'On' : 'Not connected'}
+                </span>
+              </SetRow>
+              <SetRow setting="payments.venmo" title="Venmo" description={W.venmo}>
+                <Switch
+                  checked={settings.venmo}
+                  label="Offer Venmo"
+                  onChange={(on) =>
+                    void save(
+                      (s) => ({ ...s, venmo: on }),
+                      on
+                        ? 'Venmo shows beside the PayPal button.'
+                        : 'Venmo is off. Customers still see the PayPal button.',
+                    )
+                  }
+                  testId="venmo-switch"
+                />
+              </SetRow>
+              <SetRow setting="payments.pay_later" title="Pay Later" description={W.payLater}>
+                <Switch
+                  checked={settings.payLater}
+                  label="Offer Pay Later"
+                  onChange={(on) =>
+                    void save(
+                      (s) => ({ ...s, payLater: on }),
+                      on
+                        ? 'Pay Later shows beside the PayPal button.'
+                        : 'Pay Later is off. Customers still see the PayPal button.',
+                    )
+                  }
+                  testId="pay-later-switch"
+                />
               </SetRow>
               <SetRow
                 center

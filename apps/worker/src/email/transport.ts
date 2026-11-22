@@ -93,6 +93,11 @@ export const INBOUND_REFUSALS = {
   elsewhere: '602',
   /** The account's plan has no room for another server. */
   full: '614',
+  /**
+   * The domain's MX doesn't point at Postmark yet. Postmark takes a domain only once it does, so this is no refusal:
+   * the domain waits for its MX, and gets its server when the MX check finds it.
+   */
+  noMx: '610',
 } as const;
 
 /** A refusal. Permanent ones (a bad address, a stopped recipient) are recorded on the message; the rest retry. */

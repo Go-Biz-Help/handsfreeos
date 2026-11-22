@@ -95,7 +95,30 @@ type StateRow = {
   status: string;
   state_expires_at: Date | string | null;
 };
-type CallbackQuery = { state?: string; code?: string; error?: string; error_description?: string };
+type CallbackQuery = {
+  state?: string;
+  /** The state's hash, when the provider handed back that instead of the state (PayPal's tracking id). */
+  stateHash?: string;
+  code?: string;
+  error?: string;
+  error_description?: string;
+};
+
+/**
+ * PayPal's return from its sign-up, in the shape every other sign-in comes back in. `merchantId` is the tracking
+ * id we gave it, which is the state's hash; `merchantIdInPayPal` is the seller, and stands in for a code only
+ * to be checked against what PayPal itself says (payments/paypal.ts `exchangeCode`). A seller who never
+ * finished comes back with no merchant id at all.
+ */
+function payPalReturn(query: unknown): CallbackQuery {
+  const q = (query ?? {}) as Record<string, string | undefined>;
+  const tracking = (q['merchantId'] ?? '').trim().toLowerCase();
+  const merchant = (q['merchantIdInPayPal'] ?? '').trim();
+  return {
+    ...(/^[0-9a-f]{64}$/.test(tracking) ? { stateHash: tracking } : {}),
+    ...(merchant ? { code: merchant } : { error: 'access_denied' }),
+  };
+}
 
 interface GraphItem {
   subscriptionId?: string;
@@ -283,14 +306,20 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
    */
   app.get('/oauth/:provider/callback', async (req, reply) => {
     const { provider } = req.params as { provider: string };
-    const q = req.query as CallbackQuery;
-    const found = await lookup(provider, q.state);
+    // PayPal comes home its own way: no state and no code, but the tracking id we gave it (the state's hash).
+    const q = provider === 'paypal' ? payPalReturn(req.query) : (req.query as CallbackQuery);
+    const stateHash = q.state
+      ? q.state.length <= 200
+        ? sha256Hex(q.state)
+        : null
+      : (q.stateHash ?? null);
+    const found = stateHash ? await lookupHash(provider, stateHash) : null;
     const row = waiting(provider, found);
-    if (!row || !q.state) return expired(reply, kindOf(provider, found), provider);
+    if (!row || !stateHash) return expired(reply, kindOf(provider, found), provider);
     const sealed = sealHandoff(deps.sealer, {
       door: 'oauth',
       provider,
-      stateHash: sha256Hex(q.state),
+      stateHash,
       code: q.code?.slice(0, 4000) ?? null,
       error: q.error?.slice(0, 200) ?? null,
       errorDescription: q.error_description?.slice(0, 500) ?? null,
@@ -332,6 +361,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     return {
       row,
       q: {
+        stateHash: h.stateHash,
         ...(h.code ? { code: h.code } : {}),
         ...(h.error ? { error: h.error } : {}),
         ...(h.errorDescription ? { error_description: h.errorDescription } : {}),
@@ -892,9 +922,24 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       );
     // No PKCE here (see the file's header), so there is nothing to seal before sending the browser on: the
     // one-time state, already hashed on the row with ten minutes to live, is what ties the callback back.
-    return reply
-      .header('referrer-policy', 'no-referrer')
-      .redirect(p.authorizeUrl({ state, redirectUri: callbackUrl(row.provider) }), 302);
+    let url: string;
+    try {
+      // PayPal's sign-up link is made by its API for each attempt; the others are built here.
+      url = await p.authorizeUrl({ state, redirectUri: callbackUrl(row.provider) });
+    } catch (e) {
+      deps.log.warn(
+        { connectionId: row.connection_id, provider: row.provider, err: errorMessage(e) },
+        'a payment sign-in link could not be made',
+      );
+      return deadEnd(
+        reply,
+        502,
+        `${name} didn’t open its sign-in`,
+        `${name} didn’t answer just now, so nothing was connected. Go back to Payments and choose Connect ${name} again in a minute.`,
+        { href: paymentsUrl(row.workspace_id), label: 'Back to Payments' },
+      );
+    }
+    return reply.header('referrer-policy', 'no-referrer').redirect(url, 302);
   }
 
   async function paymentCallback(row: StateRow, q: CallbackQuery): Promise<FinishOutcome> {
@@ -920,7 +965,11 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     }
     const p = payments.providers[provider];
     try {
-      const tokens = await p.exchangeCode({ code: q.code, redirectUri: callbackUrl(provider) });
+      const tokens = await p.exchangeCode({
+        code: q.code,
+        redirectUri: callbackUrl(provider),
+        ...(q.stateHash ? { stateHash: q.stateHash } : {}),
+      });
       // The account's own name and what it can actually do, read once, here.
       const account = await p.describe(tokens);
       if (account.missingScopes.length > 0) {
@@ -1112,20 +1161,27 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
           'Go back to Settings → Payments and try again.',
         );
       const target = new URL(q.redirect_uri);
-      target.searchParams.set('state', q.state);
       const account = (q.account ?? '').trim();
-      if (q.decision !== 'allow' || !account) target.searchParams.set('error', 'access_denied');
-      else {
-        if (q.held === '1') payments.fake?.holdAccount(account);
-        target.searchParams.set(
-          'code',
-          fakePaymentCode({
+      const allowed = q.decision === 'allow' && !!account;
+      if (allowed && q.held === '1') payments.fake?.holdAccount(account);
+      const code = allowed
+        ? fakePaymentCode({
             provider,
             accountId: account,
             displayName: account,
             partialScopes: q.partial === '1',
-          }),
-        );
+          })
+        : null;
+      if (provider === 'paypal') {
+        // PayPal's way home: the tracking id (the state's hash) and the seller, and no merchant at all when the
+        // seller gave up.
+        target.searchParams.set('merchantId', sha256Hex(q.state));
+        if (code) target.searchParams.set('merchantIdInPayPal', code);
+        target.searchParams.set('permissionsGranted', code ? 'true' : 'false');
+      } else {
+        target.searchParams.set('state', q.state);
+        if (code) target.searchParams.set('code', code);
+        else target.searchParams.set('error', 'access_denied');
       }
       return reply.redirect(target.toString(), 302);
     });

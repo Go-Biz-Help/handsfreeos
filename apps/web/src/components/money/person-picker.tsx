@@ -1,6 +1,8 @@
 'use client';
+import { NEW_CONTACT_WORDS } from '@hfos/core';
 import { Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { AddContactOption, useNewContact } from '@/components/crm/new-contact';
 import { Avatar } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
@@ -14,7 +16,8 @@ export interface PickedPerson {
 
 /**
  * Who a document is for. A person, not a company: an estimate is approved by someone, and a receipt goes to an
- * inbox. Companies come along through the person's record.
+ * inbox. Companies come along through the person's record. Under what it finds, and when it finds nobody, it offers
+ * to add what was typed as a new contact, who is then the one picked (`useNewContact`).
  */
 export function PersonPicker({
   workspaceId,
@@ -32,6 +35,13 @@ export function PersonPicker({
   const [open, setOpen] = useState(false);
   const [searched, setSearched] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const adding = useNewContact({
+    workspaceId,
+    onAdded: (c) => {
+      setQ('');
+      onPick(c);
+    },
+  });
 
   useEffect(() => {
     const query = q.trim();
@@ -77,6 +87,9 @@ export function PersonPicker({
     return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
+  const typed = q.trim();
+  const offer = adding.canAdd && searched && typed.length >= 2;
+
   return (
     <div ref={box} className="relative w-full">
       <Search
@@ -91,7 +104,7 @@ export function PersonPicker({
         autoFocus={autoFocus}
         autoComplete="off"
         onChange={(e) => setQ(e.target.value)}
-        onFocus={() => results.length && setOpen(true)}
+        onFocus={() => (results.length || searched) && setOpen(true)}
         data-testid="money-person-picker"
       />
       {open && (results.length > 0 || searched) ? (
@@ -100,8 +113,8 @@ export function PersonPicker({
           role="listbox"
         >
           {results.length === 0 ? (
-            <li className="px-2.5 py-2 text-[13px] text-text-3">
-              Nobody matches. Add them from Contacts first.
+            <li role="status" className="truncate px-2.5 py-2 text-[13px] text-text-3">
+              {NEW_CONTACT_WORDS.nobody(typed)}
             </li>
           ) : null}
           {results.map((p) => (
@@ -124,8 +137,20 @@ export function PersonPicker({
               </button>
             </li>
           ))}
+          {offer ? (
+            <li className={results.length ? 'mt-1 border-t border-border pt-1' : undefined}>
+              <AddContactOption
+                typed={typed}
+                onAdd={() => {
+                  setOpen(false);
+                  adding.begin(typed);
+                }}
+              />
+            </li>
+          ) : null}
         </ul>
       ) : null}
+      {adding.dialog}
     </div>
   );
 }

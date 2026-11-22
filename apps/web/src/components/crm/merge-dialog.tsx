@@ -164,6 +164,7 @@ export function MergeDialog({
                 setKeepThis(true);
               }}
               exceptId={person.id}
+              addNew={false}
             />
           </div>
           {keep && dup ? (

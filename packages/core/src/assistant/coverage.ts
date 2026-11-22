@@ -530,7 +530,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'mailbox.connect': 'signing in to Outlook or Gmail, which only the person can do',
   'meeting_connection.connect': 'signing in to Zoom, which only the person can do',
   'meta_connection.connect': 'signing in to Facebook, which only the person can do',
-  'payment_connection.connect': 'signing in to Stripe or Square, which only the person can do',
+  'payment_connection.connect':
+    'signing in to Stripe, Square or PayPal, which only the person can do',
   'review_connection.connect': 'signing in to Google or Facebook, which only the person can do',
   'migration.connect':
     'pasting a private token from the CRM the business is leaving, which goes straight to HandsFreeOS and never through the Assistant, so only the person can do it',
@@ -1006,7 +1007,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     field,
   })),
   // ---- Payments ----
-  // Connecting Stripe or Square is signing in to them (payment_connection.connect is NEVER, with a handover);
+  // Connecting Stripe, Square or PayPal is signing in to them (payment_connection.connect is NEVER, with a handover);
   // what is already connected is here.
   'payments.accounts': [
     ...['rename', 'make_default', 'disconnect'].map((value) => ({
@@ -1019,7 +1020,13 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'do_payment_connection_set_access', field: 'usedBy' },
     { tool: 'do_payment_connection_set_access', field: 'userIds' },
   ],
-  'payments.ways_to_pay': [{ tool: 'update_money_settings', field: 'offerBankTransfer' }],
+  'payments.ways_to_pay': [
+    { tool: 'update_money_settings', field: 'offerBankTransfer' },
+    { tool: 'update_money_settings', field: 'offerVenmo' },
+    { tool: 'update_money_settings', field: 'offerPayLater' },
+  ],
+  'payments.venmo': [{ tool: 'update_money_settings', field: 'offerVenmo' }],
+  'payments.pay_later': [{ tool: 'update_money_settings', field: 'offerPayLater' }],
   'payments.bank_transfer': [
     { tool: 'update_money_settings', field: 'offerBankTransfer' },
     { tool: 'update_numbering_and_ways_to_pay', field: 'offerBankTransfer' },
@@ -1102,6 +1109,8 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
     'the card partner payouts are charged to is typed on the payment provider’s own page, which only the person can do (do_partner_payout_forget_card takes it off); what each partner is owed and the next payout are read with get_settings (area partners), a month’s statement with read_partner_payout_get, and one partner’s commissions and payouts with read_partner_get',
   'payments.card':
     'always on, with nothing to switch: every customer can pay by card, Apple Pay or Google Pay, and nothing is ever added for paying that way',
+  'payments.paypal':
+    'on whenever a PayPal account is connected, with nothing to switch; connecting PayPal is signing in to it, which only the person can do (a handover)',
   'payments.cash':
     'never offered to customers, so nothing to set; a cash or cheque payment is recorded by hand on its invoice (record_payment)',
   'facebook_instagram.lead_ads':

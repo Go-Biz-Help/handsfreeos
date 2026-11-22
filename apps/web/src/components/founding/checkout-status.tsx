@@ -10,7 +10,11 @@
  * A refused renewal, paid with another card from Settings → Billing & Usage, comes through here too: then "done" is
  * the month or year having moved on. A spot the business bought itself from the plan page (20261027012700) goes on
  * to the setup when it's done, and back to the plan page when it didn't go through.
+ *
+ * A free trial's page (20261027027000) only keeps the card, so when its spot is on the note says the trial is on and
+ * nothing was charged, never "Paid" or a receipt.
  */
+import { money } from '@hfos/core';
 import { CheckCircle2, Clock, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ButtonLink } from '@/components/ui/button';
@@ -122,12 +126,16 @@ export function CheckoutStatus({
           testId="checkout-done"
           icon={<CheckCircle2 className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />}
         >
-          {s.renewal
-            ? `Paid: your ${s.offerName} spot is renewed through ${longDay(s.paidThrough)}. This card is the one charged next ${period}.`
-            : s.billing === 'yearly' || s.billing === 'monthly'
-              ? `Paid, and it’s yours: ${s.offerName}, through ${longDay(s.paidThrough)}. It renews each ${period} on this card; you can stop that any time in Settings → Billing & Usage.`
-              : `Paid, and it’s yours: ${s.offerName}, for as long as HandsFreeOS exists.`}{' '}
-          A receipt is on its way from Stripe.
+          {s.trialEndsAt
+            ? // A free trial's page only kept the card: nothing was charged, so nothing here may say paid.
+              `Your free trial is on: ${s.offerName}, free until ${longDay(s.trialEndsAt)}. Nothing was charged today. This card is charged ${money(s.amountCents)} on that day, and it renews each ${period} from there. You can stop it any time before then in Settings → Billing & Usage.`
+            : `${
+                s.renewal
+                  ? `Paid: your ${s.offerName} spot is renewed through ${longDay(s.paidThrough)}. This card is the one charged next ${period}.`
+                  : s.billing === 'yearly' || s.billing === 'monthly'
+                    ? `Paid, and it’s yours: ${s.offerName}, through ${longDay(s.paidThrough)}. It renews each ${period} on this card; you can stop that any time in Settings → Billing & Usage.`
+                    : `Paid, and it’s yours: ${s.offerName}, for as long as HandsFreeOS exists.`
+              } A receipt is on its way from Stripe.`}
         </Note>
         {s.selfServe ? (
           <ButtonLink
@@ -156,9 +164,10 @@ export function CheckoutStatus({
 
   if (s.status === 'paid')
     return s.problem ? (
+      // A free trial's page lands here too when Stripe kept no card, and it charged nothing: so no "payment".
       <Note tone="warn" testId="checkout-stranded" icon={clock}>
-        Your payment went through, but we couldn’t turn the spot on by ourselves. We’ve been told
-        and will sort it out with you — you won’t be charged again.
+        We heard back from Stripe, but we couldn’t turn your spot on by ourselves. We’ve been told
+        and will sort it out with you. You won’t be charged twice.
       </Note>
     ) : (
       <Note tone="wait" testId="checkout-finishing" icon={spinner}>

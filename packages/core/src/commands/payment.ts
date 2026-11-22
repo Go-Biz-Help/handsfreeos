@@ -30,9 +30,11 @@ import {
   PaymentRecordDisputeInput,
   PaymentRecordDisputeOutput,
   PaymentRecordRefundInput,
+  PAYMENT_PROVIDER_NAMES,
   PaymentRefundInput,
   RefundStateOutput,
   type DisputeStatus,
+  type PaymentProvider,
 } from '../schemas/money';
 import { requireInvoice } from './money-shared';
 
@@ -101,7 +103,7 @@ async function connectionForRefund(
   throw HfosError.rule(
     'payment_connection_not_connected',
     409,
-    `That ${p.provider === 'square' ? 'Square' : 'Stripe'} account isn’t connected anymore. Reconnect it in Settings → Payments and try again, or refund it at the provider.`,
+    `That ${PAYMENT_PROVIDER_NAMES[p.provider as PaymentProvider] ?? 'payment'} account isn’t connected anymore. Reconnect it in Settings → Payments and try again, or refund it at the provider.`,
   );
 }
 

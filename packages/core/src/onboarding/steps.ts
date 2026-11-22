@@ -5,6 +5,7 @@
  * browser add what only they know (`DeviceFacts`).
  */
 import type { Permission } from '../permissions';
+import type { ConnectableProvider } from '../schemas/money';
 import type { PhoneNextStep } from '../schemas/telephony';
 
 /** Shared by everyone who manages the business, and what the agency view counts. */
@@ -110,7 +111,7 @@ export interface OnboardingFacts {
       readonly needsInfo: boolean;
       /** Signed out or erroring, with none working. */
       readonly broken: boolean;
-      readonly provider: 'stripe' | 'square' | null;
+      readonly provider: ConnectableProvider | null;
     };
     readonly customers: {
       /** People and companies, as Home counts them. */

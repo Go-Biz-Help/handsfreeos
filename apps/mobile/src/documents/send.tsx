@@ -1,4 +1,5 @@
 import {
+  contactFromSearch,
   DEFAULT_REMIND_AFTER_DAYS,
   DEFAULT_REMIND_EVERY_DAYS,
   DOCUMENT_EDITOR_WORDS as E,
@@ -6,9 +7,13 @@ import {
   DOCUMENT_SCREEN_WORDS as W,
   DocumentDefinition,
   fieldName,
+  holds,
+  NEW_CONTACT_WORDS,
+  SEARCH_MIN_CHARS,
   SENDER_ROLE,
   sendFillable,
   valueProblem,
+  type ContactStart,
   type DocumentField,
   type DocumentSettings,
   type DocumentValueInput,
@@ -19,6 +24,7 @@ import { Modal, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCustomers, type CustomerChoice } from '@/calendar/use-calendar';
+import { AddContactOffer, NewContactForm } from '@/components/customers/new-contact-form';
 import { Plus, Replace, Send, X } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { List, ListLabel, ListRow } from '@/components/shell/list';
@@ -292,7 +298,11 @@ function Chosen({
   );
 }
 
-/** A customer from the phone's copy: what's typed, matched the way the database matches it, six at a time. */
+/**
+ * A customer from the phone's copy: what's typed, matched the way the database matches it, six at a time. Under what
+ * it finds it offers "Add “Dana” as a new contact" to someone who may add contacts, and the new contact, once it has
+ * reached HandsFreeOS, is the one picked (core `new-contact.ts`).
+ */
 function CustomerSearch({
   onPick,
   testID,
@@ -300,12 +310,31 @@ function CustomerSearch({
   onPick: (c: CustomerChoice) => void;
   testID?: string;
 }) {
+  const { business, viewing } = useBusiness();
   const customers = useCustomers();
   const [typed, setTyped] = React.useState('');
+  /** The New contact form, open, with what's in its boxes. */
+  const [contact, setContact] = React.useState<ContactStart | null>(null);
   const wanted = typed.trim().toLowerCase();
   const found = (
     wanted ? customers.filter((c) => matchesSearch(c.searchText, wanted)) : customers
   ).slice(0, 6);
+  const offer =
+    !viewing && holds(business, 'records.write') && typed.trim().length >= SEARCH_MIN_CHARS;
+  if (contact)
+    return (
+      <NewContactForm
+        value={contact}
+        onChange={setContact}
+        onCancel={() => setContact(null)}
+        onAdded={(customer) => onPick(customer)}
+        onChooseExisting={(id, name) =>
+          onPick(customers.find((c) => c.id === id) ?? { id, name, address: null, searchText: '' })
+        }
+        hint={NEW_CONTACT_WORDS.hintAny}
+        rightAway
+      />
+    );
   return (
     <View className="gap-1.5">
       <Input
@@ -328,8 +357,16 @@ function CustomerSearch({
             />
           ))}
         </List>
-      ) : wanted ? (
+      ) : wanted && !offer ? (
         <Text className="text-[13px] text-text-2">{W.phone.nobody(typed.trim())}</Text>
+      ) : null}
+      {offer ? (
+        <AddContactOffer
+          typed={typed.trim()}
+          nobody={!found.length}
+          onAdd={() => setContact(contactFromSearch(typed))}
+          testID={testID}
+        />
       ) : null}
     </View>
   );

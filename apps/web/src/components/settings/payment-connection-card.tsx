@@ -2,12 +2,18 @@
 /**
  * One account a business is paid into (design/m9 Settings). Connecting is the same two steps as a calendar:
  * a one-time state from `payment_connection.connect`, then the browser goes to the worker's `/oauth/<provider>/start`,
- * which sends it to Stripe or Square and brings it back to this page with `?payments=…`.
+ * which sends it to Stripe, Square or PayPal and brings it back to this page with `?payments=…`.
  *
  * Nothing secret is ever here: the query hands over the account id, the label, what it can do and how it stands,
  * and the token columns aren't granted to people at all.
  */
-import { PAYMENT_ACCOUNT_BADGES as B, PAYMENTS_PAGE_WORDS } from '@hfos/core';
+import {
+  PAYMENT_ACCOUNT_BADGES as B,
+  PAYMENT_PROVIDER_DASHBOARDS,
+  PAYMENT_PROVIDER_NAMES,
+  PAYMENTS_PAGE_WORDS,
+  type ConnectableProvider,
+} from '@hfos/core';
 import { Lock, MoreHorizontal, Unplug } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -27,9 +33,9 @@ import { publicEnv } from '@/lib/env';
 import { cn } from '@/lib/utils';
 import { PaymentAccessDialog, usedByWords, type TeamMember } from './payment-access-dialog';
 
-export type ConnectableProvider = 'stripe' | 'square';
+export type { ConnectableProvider };
 
-/** What the redirect from Stripe or Square says when it lands back here. */
+/** What the redirect from Stripe, Square or PayPal says when it lands back here. */
 export const PAYMENT_RESULT: Readonly<
   Record<string, { tone: 'success' | 'error' | 'plain'; text: string }>
 > = {
@@ -42,13 +48,10 @@ export const PAYMENT_RESULT: Readonly<
   failed: { tone: 'error', text: 'That account didn’t connect. Try again.' },
 };
 
-export const PROVIDER_NAME: Readonly<Record<string, string>> = {
-  stripe: 'Stripe',
-  square: 'Square',
-  paypal: 'PayPal',
-  nmi: 'NMI',
-  authorize_net: 'Authorize.net',
-};
+export const PROVIDER_NAME: Readonly<Record<string, string>> = PAYMENT_PROVIDER_NAMES;
+
+/** Where each provider's own dashboard is, for what only the business can fix there. */
+const DASHBOARD: Readonly<Record<string, string>> = PAYMENT_PROVIDER_DASHBOARDS;
 
 /**
  * Starts connecting an account to be paid into: a one-time state, then the provider's own sign-in through the
@@ -76,7 +79,9 @@ function ProviderMark({ provider }: { provider: string }) {
       aria-hidden
       className={cn(
         'inline-flex h-8 w-8 flex-none items-center justify-center rounded-control border border-border text-[13px] font-semibold',
-        provider === 'stripe' ? 'bg-accent-soft text-accent-text' : 'bg-card-2 text-text-2',
+        provider === 'stripe' || provider === 'paypal'
+          ? 'bg-accent-soft text-accent-text'
+          : 'bg-card-2 text-text-2',
       )}
     >
       {name.slice(0, 1)}
@@ -86,8 +91,8 @@ function ProviderMark({ provider }: { provider: string }) {
 
 /**
  * When the provider is waiting on the business for something. Deliberately only ever *says* so: every business
- * here keeps its own full Stripe dashboard, so that is where the fix belongs, and asking them for an identity
- * document inside HandsFreeOS would be collecting something we have no business holding.
+ * here keeps its own full Stripe, Square or PayPal account, so that is where the fix belongs, and asking them for
+ * an identity document inside HandsFreeOS would be collecting something we have no business holding.
  */
 export function needsInfoWords(capabilities: Record<string, unknown>): string | null {
   if (capabilities['needsInfo'] !== true) return null;
@@ -96,6 +101,12 @@ export function needsInfoWords(capabilities: Record<string, unknown>): string | 
   const when = new Date(by * 1000);
   if (Number.isNaN(when.getTime())) return 'before you can keep taking payments';
   return `by ${when.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}`;
+}
+
+/** The provider's own sentence for what it waits on, where it says which thing it is (PayPal does). */
+function providerNeeds(capabilities: Record<string, unknown>): string | null {
+  const what = capabilities['needsInfoWhat'];
+  return typeof what === 'string' && what.trim() ? what.trim() : null;
 }
 
 /** "Card · bank transfer · plans · refunds", in the order the canvas lists them. */
@@ -280,16 +291,20 @@ export function PaymentConnectionCard({
         <span className="text-xs text-text-3">{capabilityWords(c.capabilities)}</span>
         {needsInfoWords(c.capabilities) ? (
           <span className="text-xs text-danger-text" data-testid={`pay-needs-info-${c.id}`}>
-            {provider} needs more details from you {needsInfoWords(c.capabilities)}. Sign in to{' '}
+            {providerNeeds(c.capabilities) ??
+              `${provider} needs more details from you ${needsInfoWords(c.capabilities)}.`}{' '}
+            Sign in to{' '}
             <a
               className="underline"
-              href="https://dashboard.stripe.com/"
+              href={DASHBOARD[c.provider] ?? DASHBOARD['stripe']}
               target="_blank"
               rel="noreferrer noopener"
             >
-              your {provider} dashboard
+              your {provider} account
             </a>{' '}
-            to finish — otherwise they stop this account taking payments.
+            {providerNeeds(c.capabilities)
+              ? 'to fix it.'
+              : 'to finish — otherwise they stop this account taking payments.'}
           </span>
         ) : null}
         {standing.note ? (

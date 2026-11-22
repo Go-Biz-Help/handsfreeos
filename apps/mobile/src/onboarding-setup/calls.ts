@@ -3,6 +3,7 @@ import {
   OnboardingSetupFinishOutput,
   OnboardingSetupGetOutput,
   OnboardingSetupSaveOutput,
+  type ConnectableProvider,
   type IndustryId,
   type onboardingSetupBusinessOf,
   type OnboardingSetupAnswers,
@@ -164,8 +165,8 @@ export function onboardingSetupCalls(workspaceId: string) {
         }),
       );
     },
-    /** Where Stripe's or Square's own sign-in starts, through the worker, which keeps what it gives back. */
-    paymentsSignIn: async (provider: 'stripe' | 'square'): Promise<string> => {
+    /** Where Stripe's, Square's or PayPal's own sign-in starts, through the worker, which keeps what it gives back. */
+    paymentsSignIn: async (provider: ConnectableProvider): Promise<string> => {
       if (!config.workerUrl) throw new NotInThisBuild();
       const { state } = unwrap(
         await api.POST('/v1/commands/payment_connection.connect', {

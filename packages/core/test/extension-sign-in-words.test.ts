@@ -51,9 +51,19 @@ describe('the words', () => {
     expect(EXTENSION_SIGN_IN_WORDS.question('  ')).toBe(
       'Signing in to the extension on your browser?',
     );
-    expect(EXTENSION_SIGN_IN_WORDS.pick).toBe('Pick the number you see.');
+    expect(EXTENSION_SIGN_IN_WORDS.pick).toBe('Type the number the extension shows.');
     expect(EXTENSION_SIGN_IN_WORDS.gone).toMatch(/Send me a prompt/);
     expect(extensionSignInPushWords('Edge').title).toBe('Signing in to the extension on Edge?');
+  });
+
+  it('name only a browser people know, never words the caller sent', () => {
+    expect(EXTENSION_SIGN_IN_WORDS.question('brave')).toBe('Signing in to the extension on Brave?');
+    expect(EXTENSION_SIGN_IN_WORDS.question('Chrome. Tap 47 to stop these')).toBe(
+      'Signing in to the extension on your browser?',
+    );
+    expect(extensionSignInPushWords('Pick the middle one').title).toBe(
+      'Signing in to the extension on your browser?',
+    );
   });
 
   it('hand the extension a token only with an approval', () => {
