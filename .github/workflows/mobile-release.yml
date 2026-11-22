@@ -78,6 +78,11 @@ jobs:
       # when the build is already in the stores and only its resubmission fails. On 11 November App Store review had
       # approved 1.0.0, so TestFlight refused every new 1.0.0 build ("The train version '1.0.0' is closed"), and each
       # release after one failed release rebuilt both phones and failed the same way. Its updates still went out.
+      #
+      # So it rebuilds once, not every time. When the two newest releases both failed, the newer one was already the
+      # rebuild, and building again would fail the same way: this one goes as an ordinary release and says so. From
+      # 20 to 22 November one release that failed in its first minute at EAS set off seventeen rebuilds in a row, each
+      # two builds and a refused TestFlight send, before anyone noticed.
       - name: Did the last release finish?
         id: last
         if: steps.check.outputs.ready == 'true'
@@ -108,22 +113,39 @@ jobs:
           }
           runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/mobile-release.yml/runs?branch=main&status=completed&per_page=30" \
             --jq ".workflow_runs[] | select(.id != $GITHUB_RUN_ID) | .id") || unsure
+          # The newest release that asked EAS decides; when it failed, the one before it says whether it was already
+          # the rebuild.
+          last=""
           for id in $runs; do
             job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" \
               --jq '[.jobs[] | select(any(.steps[]?; .name == "Ask EAS to ship this commit" and .conclusion == "success"))][0] // empty | "\(.conclusion) \(.html_url)"') || unsure
             [ -n "$job" ] || continue
             conclusion=${job%% *}
+            if [ -z "$last" ]; then
+              if [ "$conclusion" = "success" ]; then
+                echo "rebuild=false" >> "$GITHUB_OUTPUT"
+                echo "The last release finished: ${job#* }"
+                exit 0
+              fi
+              last=$job
+              continue
+            fi
             if [ "$conclusion" = "success" ]; then
-              echo "rebuild=false" >> "$GITHUB_OUTPUT"
-              echo "The last release finished: ${job#* }"
-            else
               echo "rebuild=true" >> "$GITHUB_OUTPUT"
-              echo "::notice::The last release asked EAS to ship and then ended as $conclusion (${job#* }), so this one builds and submits again."
+              echo "::notice::The last release asked EAS to ship and then ended as ${last%% *} (${last#* }), so this one builds and submits again."
+            else
+              echo "rebuild=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::The last two releases both failed (${last#* } and ${job#* }), so the newer one was already the rebuild and this is an ordinary release. Open the newer one's EAS run to see which job stopped it. If a build never reached TestFlight or Play, fix that, then run this workflow by hand with rebuild."
             fi
             exit 0
           done
-          echo "rebuild=false" >> "$GITHUB_OUTPUT"
-          echo "No earlier release asked EAS for anything."
+          if [ -n "$last" ]; then
+            echo "rebuild=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::The last release asked EAS to ship and then ended as ${last%% *} (${last#* }), so this one builds and submits again."
+          else
+            echo "rebuild=false" >> "$GITHUB_OUTPUT"
+            echo "No earlier release asked EAS for anything."
+          fi
 
       - name: Ask EAS to ship this commit
         id: dispatch
