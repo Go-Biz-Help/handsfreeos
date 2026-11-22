@@ -1,4 +1,13 @@
-import { BIN_WORDS, formatDate, holds, RECORD_WORDS, telHref, VIDEO_CALL_WORDS } from '@hfos/core';
+import {
+  BIN_WORDS,
+  COMPOSE_WORDS,
+  composeTargets,
+  formatDate,
+  holds,
+  RECORD_WORDS,
+  telHref,
+  VIDEO_CALL_WORDS,
+} from '@hfos/core';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
@@ -32,6 +41,7 @@ import { FilePenLine, Video } from '@/components/icons';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { startCall } from '@/inbox/calls';
+import { startConversation } from '@/inbox/start';
 import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
 import { sees } from '@/view-as/state';
@@ -54,7 +64,7 @@ import { useSendsDocuments } from '@/documents/calls';
  */
 export default function PersonScreen() {
   const { personId, compose } = useLocalSearchParams<{ personId: string; compose?: string }>();
-  const { business } = useBusiness();
+  const { business, viewing } = useBusiness();
   const data = useRecord('person', personId);
   const person = data.person;
   const canDelete = holds(useGrants(), 'records.delete');
@@ -85,17 +95,39 @@ export default function PersonScreen() {
     conversations.find((c) => c.channel === channel)?.id ??
     (channel === 'sms' ? undefined : conversations.find((c) => c.channel === 'chat')?.id);
 
+  // Starting their first conversation asks HandsFreeOS: a second press while it does is ignored.
+  const starting = React.useRef(false);
   const openThread = (channel: 'sms' | 'email') => {
+    const go = (id: string) => router.push(businessHref(business.id, `inbox/${id}`) as Href);
     const id = threadFor(channel);
-    if (!id) {
+    if (id) return go(id);
+    // Nobody has written to them this way yet: their conversation is started, as the Inbox's New message starts it.
+    // Not while viewing as a teammate, when nothing is changed, nor for someone who can't use the inbox.
+    const counterpart = person
+      ? composeTargets({ phoneE164: person.phoneE164, email: person.email })[channel]
+      : null;
+    if (!person || !counterpart || viewing || !holds(business, 'inbox.use')) {
       toast.error(
-        channel === 'sms'
-          ? 'No text thread with them yet. Start one from the Inbox.'
-          : 'No email thread with them yet. Start one from the Inbox.',
+        channel === 'sms' ? 'No text thread with them yet.' : 'No email thread with them yet.',
       );
       return;
     }
-    router.push(businessHref(business.id, `inbox/${id}`) as Href);
+    if (starting.current) return;
+    starting.current = true;
+    void startConversation({
+      workspaceId: business.id,
+      personId,
+      name: person.fullName,
+      channel,
+      counterpart,
+    })
+      .then((started) => (started.ok ? go(started.conversationId) : toast.error(started.message)))
+      .catch((error: unknown) =>
+        toast.error(error instanceof Error ? error.message : COMPOSE_WORDS.notReached),
+      )
+      .finally(() => {
+        starting.current = false;
+      });
   };
 
   // Text, from a search result (`?compose=sms`): their text thread, as the Text button opens it, once.

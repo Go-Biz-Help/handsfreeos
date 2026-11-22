@@ -70,9 +70,10 @@ the one picked, and the rest of the screen is as it was.
     contractor estimate builder, the Sales Coach's Zoom panel.
   - `RecordPicker`: New lead, a Real Estate deal's people and Start a deal, New message.
 - **On the phone**, the New contact form (`apps/mobile/src/components/customers/new-contact-form.tsx`) opens in place of
-  the search: New appointment, and a document's Who it's for, customer signers and customer copies. A document is
-  filled in from HandsFreeOS straight away, so there the new contact is sent at once and picked only once it's there;
-  with no signal it stays on the phone and the form says so.
+  the search: New appointment, the Inbox's New message, and a document's Who it's for, customer signers and customer
+  copies. A document is filled in from HandsFreeOS straight away, and New message has HandsFreeOS start their
+  conversation, so in both the new contact is sent at once and picked only once it's there; with no signal it stays
+  on the phone and the form says so.
 
 Left out on purpose (`addNew={false}`): merging two records, Link to an existing contact (the inbox's own **Add
 contact** fills in the number or email), claiming an email in Settings → Email (its own **Add as a new person** does the

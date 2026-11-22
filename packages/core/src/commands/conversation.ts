@@ -10,6 +10,7 @@ import {
 import { formatPhone, normalizePhone } from '../crm/phone';
 import { fullName, requirePerson, userRef } from '../crm/records';
 import { HfosError } from '../errors';
+import { composeMissing } from '../inbox/compose';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { stampSql } from '../kernel/field-merge';
@@ -126,17 +127,11 @@ export const conversationOpen = defineCommand({
         ? person.phoneE164
         : (person.email?.toLowerCase() ?? null);
     if (!counterpart)
-      throw input.channel === 'sms'
-        ? HfosError.rule(
-            'no_phone',
-            400,
-            `${capitalized(customerName(person))} has no mobile number yet. Add one to their details to text them.`,
-          )
-        : HfosError.rule(
-            'no_email',
-            400,
-            `${capitalized(customerName(person))} has no email address yet. Add one to their details to email them.`,
-          );
+      throw HfosError.rule(
+        input.channel === 'sms' ? 'no_phone' : 'no_email',
+        400,
+        composeMissing(input.channel, customerName(person)),
+      );
     // Opening a customer's thread means the one they are actually on (0089), not a fresh one on the
     // business's default line. Only a customer with no thread at all starts one, and a text starts on the
     // default number exactly as it did before lines existed.

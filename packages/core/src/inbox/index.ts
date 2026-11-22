@@ -14,3 +14,4 @@ export * from './rows';
 export * from './calls';
 export * from './notes';
 export * from './contact';
+export * from './compose';
