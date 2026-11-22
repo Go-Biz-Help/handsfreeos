@@ -213,6 +213,27 @@ describe('who wrote it', () => {
     expect((await receive({ from: { address: shared.address } })).outcome).toBe('skipped');
   });
 
+  it('never takes a Reply-To visitor as proven, however well the site signed it (FDE1)', async () => {
+    const verifiedOf = async (messageId: string) =>
+      (
+        await rows<{ sender_verified: boolean | null }>(
+          admin(),
+          sql`select sender_verified from app.messages where id = ${messageId}`,
+        )
+      )[0]!.sender_verified;
+    // Anyone can type a customer's address into a website form: the site vouched for itself, not for them.
+    const viaForm = await receive({
+      from: { address: 'wordpress@folders-site.example' },
+      replyTo: { address: mike },
+      senderVerified: true,
+    });
+    expect(await counterpartOf(viaForm.conversationId!)).toBe(mike);
+    expect(await verifiedOf(viaForm.messageId!)).toBe(false);
+    // Mike writing as himself, from a domain that vouched for it, is still him.
+    const himself = await receive({ from: { address: mike }, senderVerified: true });
+    expect(await verifiedOf(himself.messageId!)).toBe(true);
+  });
+
   it('is still the sender for a person, a company’s own help desk, or automatic mail', async () => {
     const elsewhere = { address: stranger() };
     // A customer writes as themselves, whatever their Reply-To says.
