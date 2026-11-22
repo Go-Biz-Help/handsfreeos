@@ -714,6 +714,16 @@ export function phoneSetupSaveBody(
 export const phoneSetupDefaultGreeting = (businessName: string) =>
   `You’ve reached ${businessName}. Leave your name, number and what you need, and we’ll call you back today.`;
 
+/**
+ * A reason without the full stops and spaces at its end, so a sentence can carry on after it. Walked by hand: the
+ * carrier's words come in as they are, and a pattern that looks for the end can take very long on a long reason.
+ */
+function withoutFullStop(reason: string): string {
+  let end = reason.length;
+  while (end > 0 && (reason[end - 1] === '.' || reason[end - 1]!.trim() === '')) end -= 1;
+  return reason.slice(0, end);
+}
+
 /** The setup's words, shared by the web and the phone. */
 export const PHONE_SETUP_WORDS = {
   settingUp: (business: string) => `Setting up the number for ${business}`,
@@ -827,7 +837,7 @@ export const PHONE_SETUP_WORDS = {
     /** Buying it failed at the carrier. */
     failedTitle: (display: string) => `We couldn’t get ${display}`,
     failed: (reason: string | null) =>
-      `${reason ? `${reason.replace(/[.\s]+$/, '')}. ` : ''}Nothing was bought. Pick another number and carry on.`,
+      `${reason && withoutFullStop(reason) ? `${withoutFullStop(reason)}. ` : ''}Nothing was bought. Pick another number and carry on.`,
     features: 'Calls · Texts · Photos',
   },
   ring: {

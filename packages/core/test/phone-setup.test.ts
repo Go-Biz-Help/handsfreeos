@@ -22,6 +22,7 @@ import {
   phoneSetupQuestions,
   phoneSetupSaveBody,
   phoneSetupStart,
+  PHONE_SETUP_WORDS,
   guidedSetupSavedWhen,
   type PhoneSetupAnswers,
   type PhoneSetupContext,
@@ -119,6 +120,21 @@ const picked = (e164: string, numberType: 'local' | 'toll_free' = 'local') => ({
 });
 
 describe('the phone setup’s questions, worked out in one place', () => {
+  it('says why a number couldn’t be bought in one sentence, however the carrier ended its own', () => {
+    const { failed } = PHONE_SETUP_WORDS.number;
+    expect(failed('That number was just taken.')).toBe(
+      'That number was just taken. Nothing was bought. Pick another number and carry on.',
+    );
+    expect(failed('Not available...  \t\n')).toMatch(/^Not available\. Nothing was bought\./);
+    expect(failed(null)).toBe('Nothing was bought. Pick another number and carry on.');
+    expect(failed(' . ')).toBe('Nothing was bought. Pick another number and carry on.');
+    // A very long reason is read once, end to start, not once for every place in it.
+    const long = `${'\t'.repeat(200_000)}x`;
+    const began = Date.now();
+    expect(failed(long).startsWith(long)).toBe(true);
+    expect(Date.now() - began).toBeLessThan(1_000);
+  });
+
   it('starts on the picks marked Best, and asks about an EIN and quiet hours only when they text', () => {
     const start = phoneSetupStart(NO_TEAMMATE, { city: 'Huntsville', state: 'AL' });
     expect(start).toMatchObject({
