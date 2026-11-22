@@ -5948,6 +5948,11 @@ the server is made when the MX check finds the record: at once if the MX was alr
 minutes, or straight away when the business clicks **Check now**. If our DNS sees the record before Postmark's
 does, the worker asks Postmark again every 5 minutes until it takes it.
 
+The MX check asks the domain's own name servers, so a record changed a minute ago shows at the next look. A
+resolver keeps the old records for as long as they said to, a day at some DNS hosts, and the old host's record
+left beside ours reads as mail still going there. When the name servers can't be found, don't answer or give no
+MX record, the worker asks its usual resolver instead.
+
 Before the first business turns it on:
 
 1. **Room for the servers.** Each receiving domain is one Postmark server. The Pro plan stops at 10 servers, and
@@ -5998,9 +6003,11 @@ If it goes wrong:
   first clicks **Stop receiving here**, then the second turns it on.
 - **"Another HandsFreeOS business still has … working. This one waits…".** Two businesses claimed the same name
   and the other verified it first. It stays waiting, checked daily, until the other removes it.
-- **Stuck on "Waiting for the MX record".** Check the domain's MX with `dig MX <domain>`. It should name
-  `inbound.postmarkapp.com` and nothing else. Once it does, the business clicks **Check now**. The worker logs
-  nothing while Postmark answers 610; that is the normal wait.
+- **Stuck on "Waiting for the MX record".** Ask the domain's own name servers, which is what the worker does:
+  `dig NS <domain>`, then `dig MX <domain> @<one of those name servers>`. It should name
+  `inbound.postmarkapp.com` and nothing else. Once it does, the business clicks **Check now**. A plain
+  `dig MX <domain>` can show the old records for hours after they were deleted, from a resolver's memory. The
+  worker logs nothing while Postmark answers 610; that is the normal wait.
 - **Mail doesn't arrive.**
   1. In Postmark, open the domain's `Inbound · <domain>` server → the inbound stream → **Activity**.
   2. If the mail isn't there, the MX isn't pointing at Postmark yet.
