@@ -6,8 +6,9 @@
 import { readBirthdays } from './birthdays';
 import { readChat, type ChatOptions } from './chat';
 import { readChats } from './chats';
-import { inTopBar, mainOf, tabsIn } from './dom';
+import { clean, inTopBar, mainOf, tabsIn } from './dom';
 import { readEventCards, readEventPage } from './events';
+import { visible } from './fetch';
 import { friendListOf, listBeside, readListBeside, withRequests } from './friends';
 import { readGroupAbout, readGroupLinks, readGroupPage } from './groups';
 import { readNotices } from './notifications';
@@ -46,6 +47,25 @@ const SCROLLS: ReadonlySet<PageKind> = new Set([
   'search',
 ]);
 
+/** Facebook's boxes over a page. */
+const BOXES = '[role="dialog"], [role="alertdialog"]';
+
+/**
+ * The boxes over the page, each by its heading in Facebook's own words (decision 191): a box that wasn't there before
+ * Add friend, and is after, is Facebook's answer to the request. One with no heading goes by its label.
+ */
+export function boxesOver(doc: Document): string[] {
+  const words = [...doc.querySelectorAll(BOXES)]
+    .filter(visible)
+    .map((box) =>
+      clean(
+        box.querySelector('h1, h2, h3, [role="heading"]')?.textContent ||
+          box.getAttribute('aria-label'),
+      ).slice(0, 200),
+    );
+  return words.filter(Boolean);
+}
+
 /** The groups a page lists: in the main column, or in the list beside it, whichever has more. */
 function readGroupsAnywhere(doc: Document, main: Element, base: string): GroupLink[] {
   const places = [main, ...doc.querySelectorAll('[role="navigation"]')].filter(
@@ -74,7 +94,13 @@ export function readPage(
   switch (address.kind) {
     case 'profile': {
       const { profile, posts, pages } = readProfile(main, address, base, doc.title);
-      found = { profile, posts, ...(pages.length ? { pages } : {}) };
+      const boxes = boxesOver(doc);
+      found = {
+        profile,
+        posts,
+        ...(pages.length ? { pages } : {}),
+        ...(boxes.length ? { boxes } : {}),
+      };
       if (!profile.name) notes.push('Couldn’t find the name on this profile.');
       break;
     }

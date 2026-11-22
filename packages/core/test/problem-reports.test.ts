@@ -22,6 +22,7 @@ import {
   WALLET_REFUSALS,
 } from '../src/server';
 import {
+  BOX_SAID_NO,
   PROBLEM_OUTLINE_MOST,
   ProblemReport,
   type ProblemLimitGroup,
@@ -191,6 +192,15 @@ describe('a limit or a fix (20261027023100)', () => {
     expect(sorted('Alignable says you reached your monthly connection limit').limitKind).toBe(
       'network',
     );
+  });
+
+  it('sorts a network that said no in a box of its own as the network’s, whatever the helper saw (decision 191)', () => {
+    const note = `Facebook ${BOX_SAID_NO}: “Can’t send request”`;
+    expect(sorted(note)).toEqual({ kind: 'limit', limitKind: 'network' });
+    expect(sorted(note, 'unclear').limitKind).toBe('network');
+    expect(sorted(note, 'in_the_way').limitKind).toBe('network');
+    // Without a box, Facebook not taking it is still one to look at.
+    expect(sorted('Facebook didn’t take it', 'unclear').kind).toBe('fix');
   });
 
   it('sorts everything else as a fix, the helper’s other verdicts too', () => {

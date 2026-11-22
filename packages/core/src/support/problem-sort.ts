@@ -6,14 +6,15 @@
  * - `ai_daily`: the business reached its daily AI limit (money/wallet-words.ts `aiLimitReached`, the words the API
  *   refuses with and the tool copies as its note);
  * - `ai_balance`: the business's balance ran out, so the AI paused (`WALLET_REFUSALS.ai`);
- * - `network`: the network refused the step or warned (the AI helper's verdict), or the tool's own words say it hit
- *   a network's daily, weekly or monthly limit.
+ * - `network`: the network refused the step or warned (the AI helper's verdict), the tool's own words say it hit
+ *   a network's daily, weekly or monthly limit, or that the network said no in a box of its own (`BOX_SAID_NO`,
+ *   decision 191 in docs/outreach.md).
  *
  * Everything else is a fix. Reports sent before this were sorted the same way by the migration.
  *
  * Browser-safe: words and plain values only.
  */
-import type { ProblemKind, ProblemLimit } from '../schemas/problem-report';
+import { BOX_SAID_NO, type ProblemKind, type ProblemLimit } from '../schemas/problem-report';
 
 /** The start of `aiLimitReached`, with the amount or without: "This business reached the $10 daily AI limit, …". */
 const AI_DAILY = /^This business reached (?:the \$[0-9.,]+ daily AI limit|today’s AI limit)/;
@@ -38,7 +39,11 @@ export function problemKind(report: {
   const note = report.note ?? '';
   if (AI_DAILY.test(note)) return { kind: 'limit', limitKind: 'ai_daily' };
   if (note.startsWith(AI_BALANCE_NOTE)) return { kind: 'limit', limitKind: 'ai_balance' };
-  if ((report.helper && NETWORK_SAID_NO.has(report.helper.verdict)) || NETWORK_LIMIT.test(note))
+  if (
+    (report.helper && NETWORK_SAID_NO.has(report.helper.verdict)) ||
+    NETWORK_LIMIT.test(note) ||
+    note.includes(BOX_SAID_NO)
+  )
     return { kind: 'limit', limitKind: 'network' };
   return { kind: 'fix', limitKind: null };
 }

@@ -377,6 +377,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 703,
     said: 'The post’s bar had Like and Share but no Comment, and no box: its author limited who can comment. The step passes such a post over (“it doesn’t let you comment on it”) with nothing reported (0.141.1, #643). Then a post’s own page showed only Facebook’s “This content isn’t available right now”, as its writer deleted or hid it after it was found: such a post is passed over too now, before the AI is asked for a comment.',
   },
+  {
+    area: 'facebook',
+    job: 'friend_request',
+    note: 'Facebook didn’t take it',
+    fixedIn: '0.151.1',
+    pr: 733,
+    said: 'From 20 Nov 2026 Facebook answered Add friend with a box of its own (a heading, a line and one button), and the request didn’t go: none of 8 on 22 Nov, the box’s words hidden from the reports. The step now says Facebook showed a box, in its words, the desk sorts that as Facebook’s limit, and after 2 in a row no more friend requests go that day (decision 191).',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */

@@ -56,7 +56,7 @@ import { visitLine, visitPicks } from '@hfos/core/addons/outreach/keep-warm';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { mentionParts } from '@hfos/core/addons/outreach/referrals';
 import { buttonFor } from '@hfos/core/addons/outreach/helper';
-import type { ProblemHelper } from '@hfos/core/problem-report';
+import { BOX_SAID_NO, type ProblemHelper } from '@hfos/core/problem-report';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import {
   AUTO_PLANS,
@@ -146,6 +146,8 @@ import {
   helpfulDue,
   referDue,
   REFER_AGAIN_MS,
+  REFUSED_IN_A_ROW,
+  refusedAfter,
   IDLE_MS,
   isState,
   listTurn,
@@ -163,6 +165,7 @@ import {
   watchDue,
   withReplied,
   workKey,
+  withoutRequests,
   workLeft,
   type AutoKind,
   type AutoState,
@@ -265,6 +268,11 @@ type Outcome =
       readonly look?: true;
       /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 145). */
       readonly skip?: true;
+      /**
+       * Facebook didn't take it and said why in a box of its own over the page (decision 191): two friend requests in a
+       * row like that, and it sends no more today.
+       */
+      readonly refused?: true;
       /** What the AI helper did inside the step, for its report (decision 142). */
       readonly helper?: ProblemHelper;
     }
@@ -339,6 +347,8 @@ function keptOf(item: TodayListItem): ProfileRef | null {
 /** What the runner says of a profile Facebook won't show. */
 const PROFILE_UNAVAILABLE = 'Facebook says their profile isn’t available right now';
 const POST_UNAVAILABLE = 'Facebook says it isn’t available any more';
+/** What it says when Facebook's said no to friend requests too often in a row today (decision 191). */
+const REQUESTS_OFF = `Facebook said no to ${REFUSED_IN_A_ROW} friend requests in a row, each in a box of its own, so no more friend requests today. Likes, comments and messages go on, and your limits stay as they are.`;
 
 /**
  * Opens someone's profile and checks it's them: the page and its profile, and the profile to note the step against
@@ -436,13 +446,19 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
-  if (page.profile?.friendship !== plan.after)
+  if (page.profile?.friendship !== plan.after) {
+    // A box over the page that wasn't there before the press: Facebook's answer, a no (decision 191), in its words.
+    const box = (page.boxes ?? []).find((words) => !(opened.page.boxes ?? []).includes(words));
     return {
       done: false,
-      line: `${item.name}: Facebook didn’t take it`,
+      line: box
+        ? `${item.name}: Facebook ${BOX_SAID_NO}: “${box}”`
+        : `${item.name}: Facebook didn’t take it`,
       need: true,
+      ...(box ? { refused: true as const } : {}),
       helper: await help.end(false),
     };
+  }
   const helper = await help.end(true);
   const to = { name: page.profile.name ?? item.name, profile: opened.noted };
   if (job === 'confirm') {
@@ -1790,7 +1806,8 @@ async function listNow(
   const says = listSays(list);
   const kept = await stateNow();
   if (kept.more !== says.more || (kept.retryAt ?? null) !== says.retryAt) await setState(says);
-  return { list, left: workLeft(list, tried, replied) };
+  // No friend requests once Facebook's said no to too many in a row today (decision 191).
+  return { list, left: withoutRequests(workLeft(list, tried, replied), kept.requestsOff) };
 }
 
 /**
@@ -1855,10 +1872,15 @@ async function workNext(
     'done' in outcome && outcome.done
       ? { ...state.done, [kind]: (state.done[kind] ?? 0) + 1 }
       : state.done;
+  // Friend requests Facebook said no to in a row: at two, no more today (decision 191).
+  const refusedInRow = refusedAfter(state.refusedInRow ?? 0, work, outcome);
+  const requestsOff = !state.requestsOff && refusedInRow >= REFUSED_IN_A_ROW;
   await setState({
     tried: [...state.tried, workKey(work)],
     done,
     replied: repliedAfter(state.replied ?? [], work),
+    refusedInRow,
+    ...(requestsOff ? { requestsOff: true } : {}),
   });
   if ('stop' in outcome) {
     await closeWindow();
@@ -1877,6 +1899,10 @@ async function workNext(
   if (work.do === 'step') void clearRetried(item, outcome, businessId);
   // The feed of today's steps in HandsFreeOS. A stop on a warning isn't one: HandsFreeOS writes that line itself.
   void feed(outcomeKind(outcome), outcome.line);
+  if (requestsOff) {
+    await say(REQUESTS_OFF);
+    void feed('job', REQUESTS_OFF);
+  }
   // Stop for today, pressed while that step went.
   if ((await stateNow()).stopped) {
     await closeWindow();

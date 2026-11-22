@@ -231,6 +231,11 @@ export interface ReadResult {
    * whoever wrote it deleted it, or hid it from you (./profile.ts).
    */
   readonly unavailable?: true;
+  /**
+   * On a profile, the boxes over the page, each by its heading as Facebook worded it (decision 191, ./page.ts
+   * `boxesOver`): a new one after Add friend is Facebook saying no to the request.
+   */
+  readonly boxes?: readonly string[];
   /** The events an event search lists (decision 188). */
   readonly events?: readonly EventCard[];
   /** An event's own page (decision 188). */
