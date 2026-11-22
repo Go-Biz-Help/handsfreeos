@@ -49,6 +49,7 @@ import {
   onboardingSetupScreens,
   onboardingSetupStopName,
   onboardingSetupSummary,
+  onboardingSetupTimeZoneLine,
   onboardingSetupTitle,
   OnboardingSetupAnswers,
   pickerKeyOf,
@@ -70,7 +71,9 @@ import {
   teammateConfigFromPreset,
   timeZoneForAddress,
   usTimeZoneLabel,
+  usTimeZoneLike,
   withBusinessAddress,
+  withDeviceTimeZone,
   type OnboardingSetupAnswersInput,
   type OnboardingSetupState,
 } from '../src';
@@ -1073,6 +1076,30 @@ describe('the screens’ behaviour', () => {
     });
   });
 
+  it('start a new business on the device’s time zone, and say "from your address" only when it is', () => {
+    const blank = NEW_ONBOARDING_SETUP_BUSINESS;
+    // Nothing typed: Central isn't "from your address".
+    expect(onboardingSetupTimeZoneLine(blank)).toBe('Central time.');
+    // A browser in Los Angeles, or one whose zone keeps the same clock as a US one.
+    const west = withDeviceTimeZone(blank, 'America/Los_Angeles');
+    expect(west.timeZone).toBe('America/Los_Angeles');
+    expect(onboardingSetupTimeZoneLine(west)).toBe('Pacific time.');
+    expect(usTimeZoneLike('America/Detroit')).toBe('America/New_York');
+    expect(usTimeZoneLike('US/Mountain')).toBe('America/Denver');
+    expect(usTimeZoneLike('America/Phoenix')).toBe('America/Phoenix');
+    // A device abroad, or one that says nothing, leaves it be.
+    expect(usTimeZoneLike('Asia/Manila')).toBeNull();
+    expect(withDeviceTimeZone(blank, 'Asia/Manila')).toBe(blank);
+    expect(withDeviceTimeZone(blank, undefined)).toBe(blank);
+    // The address wins over the device, and so does the person's own pick.
+    const austin = withBusinessAddress(west, AUSTIN);
+    expect(austin.timeZone).toBe('America/Chicago');
+    expect(onboardingSetupTimeZoneLine(austin)).toBe('Central time, from your address.');
+    expect(withDeviceTimeZone(austin, 'America/Los_Angeles')).toBe(austin);
+    const picked = { ...blank, timeZone: 'America/Denver', timeZonePicked: true };
+    expect(withDeviceTimeZone(picked, 'America/Los_Angeles')).toBe(picked);
+  });
+
   it('say what a screen still needs, at the answer it’s about', () => {
     const state = business();
     const draft = onboardingSetupBusinessDraftOf(state);
@@ -1097,6 +1124,25 @@ describe('the screens’ behaviour', () => {
       'ai.services': 'Add what customers book, so your booking page has something to book.',
       'ai.description':
         'Say what your business does in a sentence or two, so Ava can tell customers.',
+    });
+    // A No to "Do customers book a time with you?" asks for no services, before Ava's jobs have caught up with it.
+    expect(
+      onboardingSetupScreenProblemsOf(
+        'about',
+        answers({ booksTime: false, ai: { jobs: ['answer', 'book'], description: 'We fix AC.' } }),
+        state,
+        draft,
+      ),
+    ).toEqual({});
+    expect(
+      onboardingSetupScreenProblemsOf(
+        'about',
+        answers({ booksTime: true, ai: { jobs: ['answer', 'book'], description: 'We fix AC.' } }),
+        state,
+        draft,
+      ),
+    ).toEqual({
+      'ai.services': 'Add what customers book, so your booking page has something to book.',
     });
     expect(
       onboardingSetupScreenProblemsOf(

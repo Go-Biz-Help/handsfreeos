@@ -341,6 +341,7 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
         batch: [],
         webUrl: deps.webUrl,
         now: Date.now(),
+        mapsOn: deps.geocoder.name !== 'off',
       });
       return {
         call: {
@@ -424,6 +425,7 @@ async function openToCaller(deps: BrainDeps, call: PreparedCall): Promise<void> 
       batch: [],
       webUrl: deps.webUrl,
       now: Date.now(),
+      mapsOn: deps.geocoder.name !== 'off',
     }),
   );
   call.rc = { ...rc, discloseNow: false, firstAiMessage: false };

@@ -659,6 +659,7 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
       batch: run.batch,
       webUrl: ctx.webUrl,
       now: Date.now(),
+      mapsOn: ctx.geocoder.name !== 'off',
     }),
   );
   const ai = aiActorOf(run);

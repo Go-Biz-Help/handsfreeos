@@ -5,7 +5,7 @@
  * or rejecting did. Browser-safe.
  */
 import { plainSpaces } from '../intl/spaces';
-import { smsSegments } from '../messaging/sms';
+import { sentSmsSegments } from '../messaging/sms';
 import type { ConversationHandoffReason, TeammateStatus } from '../schemas/ai-team';
 import { zonedWhen } from './time';
 
@@ -409,7 +409,7 @@ export function rejectedToast(d: DraftFacts, who: string): string {
 
 /** "132 of 160 · 1 text": a draft's length as texts, while editing it. */
 export function draftSegmentsLabel(text: string): string {
-  const s = smsSegments(text);
+  const s = sentSmsSegments(text);
   const single = s.encoding === 'gsm7' ? 160 : 70;
   const parts = Math.max(1, s.segments);
   return `${s.units} of ${parts === 1 ? single : parts * s.perSegment} · ${parts} ${parts === 1 ? 'text' : 'texts'}`;

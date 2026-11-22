@@ -4,7 +4,7 @@
  * their question, what sending did, and a saved template filled in for the customer. Browser-safe.
  */
 import { formatClock } from '../messaging/quiet-hours';
-import { smsSegments } from '../messaging/sms';
+import { sentSmsSegments } from '../messaging/sms';
 import {
   isSocialChannel,
   SOCIAL_CHANNEL_NAMES,
@@ -334,7 +334,7 @@ export const photosSavedLine = (firstName: string | null): string =>
 export function segmentCounterLabel(text: string, photos = 0): string {
   if (photos > 0) return `${photos === 1 ? '1 photo' : `${photos} photos`} · 1 picture message`;
   if (!text) return '160 characters per text';
-  const s = smsSegments(text);
+  const s = sentSmsSegments(text);
   const single = s.encoding === 'gsm7' ? 160 : 70;
   const parts = Math.max(1, s.segments);
   const limit = parts === 1 ? single : parts * s.perSegment;

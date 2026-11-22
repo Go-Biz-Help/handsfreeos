@@ -441,6 +441,11 @@ export const EmailReceiveInput = z.object({
   inReplyTo: z.string().trim().max(998).nullable().optional(),
   references: z.array(z.string().trim().max(998)).max(50).default([]),
   from: EmailParty,
+  /**
+   * The Reply-To address. A website form sends From the site and puts the visitor here, and then the visitor is
+   * who wrote (`senderOf` in commands/email-inbound.ts).
+   */
+  replyTo: EmailParty.nullable().optional(),
   to: z.array(EmailParty).max(50).default([]),
   cc: z.array(EmailParty).max(50).default([]),
   subject: z.string().trim().max(998).nullable().optional(),

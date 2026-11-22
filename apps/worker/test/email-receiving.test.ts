@@ -254,6 +254,51 @@ describe('mail to a receiving domain', () => {
     expect((await filed(p.MessageID))?.emailAddressId).toBe(addressId);
   });
 
+  it('takes a website form’s visitor from Reply-To, From the site or from the business’s own address', async () => {
+    const domain = `forms-${token()}.example.com`;
+    await domainWith(domain, 'on', 'office');
+    const dana = `dana-${token()}@example.net`;
+    const lee = `lee-${token()}@example.net`;
+    // Contact Form 7's way: From the site, the visitor in Reply-To. WPForms' way: From the business's own address.
+    const fromSite = inbound(`office@${domain}`, {
+      From: `wordpress@${domain}`,
+      FromName: 'Receiving HVAC',
+      FromFull: { Email: `wordpress@${domain}`, Name: 'Receiving HVAC', MailboxHash: '' },
+      ReplyTo: `Dana Rivera <${dana.toUpperCase()}>`,
+    });
+    const fromOffice = inbound(`office@${domain}`, {
+      From: `office@${domain}`,
+      FromName: 'Receiving HVAC',
+      FromFull: { Email: `office@${domain}`, Name: 'Receiving HVAC', MailboxHash: '' },
+      ReplyTo: lee,
+    });
+    for (const p of [fromSite, fromOffice]) expect((await post(p)).statusCode).toBe(200);
+    await drain();
+    const withWhom = async (providerMessageId: string) =>
+      (
+        await rows<{ counterpart: string; from_address: string }>(
+          admin(),
+          sql`select c.counterpart, m.from_address from app.messages m
+                join app.conversations c on c.id = m.conversation_id
+              where m.provider_message_id = ${providerMessageId}`,
+        )
+      )[0];
+    // Each visitor has a thread of their own, and the answer goes to them; the message still says who sent it.
+    expect(await withWhom(fromSite.MessageID)).toEqual({
+      counterpart: dana,
+      from_address: `wordpress@${domain}`,
+    });
+    expect(await withWhom(fromOffice.MessageID)).toEqual({
+      counterpart: lee,
+      from_address: `office@${domain}`,
+    });
+    const [person] = await rows<{ first_name: string; last_name: string }>(
+      admin(),
+      sql`select first_name, last_name from app.people where workspace_id = ${workspaceId} and email = ${dana}`,
+    );
+    expect(person).toEqual({ first_name: 'Dana', last_name: 'Rivera' });
+  });
+
   it('is dropped while the domain doesn’t receive', async () => {
     const domain = `off-${token()}.example.com`;
     await domainWith(domain, 'off');

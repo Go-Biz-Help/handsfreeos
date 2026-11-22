@@ -15,9 +15,9 @@
  * - series.cancelled: one notice to each customer when asked, about their first visit and how many went with it.
  * - attendee.confirmed: a short thank-you when the customer confirmed by text (onConfirmedThanks).
  */
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray } from 'drizzle-orm';
 import type { Tx } from '@hfos/db/client';
-import { appointmentAttendees } from '@hfos/db/schema';
+import { appointmentAttendees, appointments } from '@hfos/db/schema';
 import { readingBin } from '../bin/index';
 import { sendConfirmedThanks } from '../booking/confirm';
 import { sendNotice, type NoticeKind, type NoticeOptions } from '../booking/notices';
@@ -169,6 +169,33 @@ export const onArmReminders: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const bookedAt = ctx.event.createdAt.getTime();
   for (const id of new Set(ids)) await armReminders(ctx, ctx.tx, scope, id, bookedAt, metaOf(ctx));
+};
+
+/**
+ * calendar.updated, when its reminders or the ways they go out changed: everyone already booked on it gets the
+ * reminders it now sends. Bookings armed their reminders when they were made, so a reminder added, retimed or
+ * switched on later reached only the customers who booked after; the old ones found their reminder gone and
+ * skipped it. Arming is idempotent: what was sent stays sent, and what is too late now is skipped as it would be.
+ */
+export const onCalendarReminders: EventHandler = async (ctx) => {
+  const calendarId = ctx.event.entityId;
+  if (!calendarId || payloadOf(ctx)['remindersChanged'] !== true) return;
+  const booked = await ctx.tx
+    .select({ id: appointmentAttendees.id })
+    .from(appointmentAttendees)
+    .innerJoin(appointments, eq(appointments.id, appointmentAttendees.appointmentId))
+    .where(
+      and(
+        eq(appointments.calendarId, calendarId),
+        eq(appointments.status, 'scheduled'),
+        gt(appointments.startsAt, new Date()),
+        eq(appointmentAttendees.status, 'booked'),
+      ),
+    )
+    .orderBy(asc(appointments.startsAt));
+  const scope = tenantOf(ctx.scope);
+  const changedAt = ctx.event.createdAt.getTime();
+  for (const { id } of booked) await armReminders(ctx, ctx.tx, scope, id, changedAt, metaOf(ctx));
 };
 
 /** appointment.rescheduled and attendee.rescheduled: "Your AC tune-up is now ...". */

@@ -9,7 +9,13 @@ import {
   cleanAiSetupAnswers,
   type AiSetupProblems,
 } from '../ai-setup/flow';
-import { BusinessAddress, timeZoneForAddress, type BusinessAddressInput } from './address';
+import {
+  BusinessAddress,
+  timeZoneForAddress,
+  usTimeZoneLabel,
+  usTimeZoneLike,
+  type BusinessAddressInput,
+} from './address';
 import {
   ONBOARDING_SETUP_SCREEN_FIELDS,
   ONBOARDING_SETUP_SCREENS,
@@ -297,6 +303,30 @@ export const NEW_ONBOARDING_SETUP_BUSINESS: OnboardingSetupBusinessDraft = {
   site: '',
   noSite: false,
 };
+
+/**
+ * The draft on the time zone of the browser or phone it's typed on, when that's one a US business keeps and neither
+ * an address nor the person has picked one. The address is optional: left on Central, a business in Denver that typed
+ * none had its hours, its booking times and its reminders an hour out.
+ */
+export function withDeviceTimeZone(
+  draft: OnboardingSetupBusinessDraft,
+  deviceTimeZone: unknown,
+): OnboardingSetupBusinessDraft {
+  if (draft.timeZonePicked || timeZoneForAddress(draft.address)) return draft;
+  const zone = usTimeZoneLike(deviceTimeZone);
+  return zone && zone !== draft.timeZone ? { ...draft, timeZone: zone } : draft;
+}
+
+/** The line under the address: "Central time, from your address." only when the address is what picked it. */
+export function onboardingSetupTimeZoneLine(
+  draft: Pick<OnboardingSetupBusinessDraft, 'address' | 'timeZone'>,
+): string {
+  const zone = usTimeZoneLabel(draft.timeZone);
+  return timeZoneForAddress(draft.address) === draft.timeZone
+    ? W.timeZoneFromAddress(zone)
+    : W.timeZoneAlone(zone);
+}
 
 /** The first screen to start from: the business as it is. */
 export const onboardingSetupBusinessDraftOf = (

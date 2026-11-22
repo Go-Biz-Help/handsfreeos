@@ -58,6 +58,8 @@ export interface WalletShown {
   readonly floorCents: number;
   readonly card: unknown | null;
   readonly suspended: { readonly reason: string | null } | null;
+  /** In the plan's free trial, when automatic top-ups wait. Missing from an older server: read as not. */
+  readonly inTrial?: boolean;
 }
 
 /** How the balance is read: fine, worth a glance, or stopped. */
@@ -70,17 +72,18 @@ export interface BalanceHeadline {
 
 /**
  * The sentence over the number. A balance under the floor with a card and automatic top-up on is not a worry —
- * it is a charge on its way — so it reads as fine; the same balance with nothing to charge does not.
+ * it is a charge on its way — so it reads as fine; the same balance with nothing to charge does not. Nor does it
+ * in a free trial, where the charge waits until the trial ends.
  */
 export function balanceHeadline(w: WalletShown): BalanceHeadline {
   if (w.suspended) return { headline: 'Texts and calls have stopped', tone: 'bad' };
   if (!w.opened) return { headline: 'Nothing used yet', tone: 'ok' };
   if (w.balanceCents <= 0) return { headline: 'Your balance has run out', tone: 'bad' };
-  if (w.balanceCents <= w.floorCents)
-    return {
-      headline: w.autoTopup && w.card ? 'Topping up shortly' : 'Running low',
-      tone: w.autoTopup && w.card ? 'ok' : 'warn',
-    };
+  if (w.balanceCents <= w.floorCents) {
+    if (!w.autoTopup || !w.card) return { headline: 'Running low', tone: 'warn' };
+    if (w.inTrial) return { headline: 'Running low: top-ups start after your trial', tone: 'warn' };
+    return { headline: 'Topping up shortly', tone: 'ok' };
+  }
   return { headline: 'You’re fine', tone: 'ok' };
 }
 

@@ -499,7 +499,10 @@ export async function recordPlanCycle(
               quantity: 1,
               unitLabel: 'each',
               unitPriceCents: amountCents,
-              taxable: plan.taxable,
+              // The invoice says what was charged, and the provider charged this figure and no tax on top (a
+              // plan is created there for its bare price). Taxed again here, every cycle read as partly paid
+              // and the customer was chased for tax nobody had asked them for.
+              taxable: false,
               discountCents: 0,
             },
           ],

@@ -23,6 +23,7 @@ import {
   conversationTakeOver,
   messageSend,
   pushDeviceRegister,
+  taskComplete,
   workflowEnrol,
   type WorkflowDefinitionInput,
 } from '@hfos/core/server';
@@ -302,7 +303,13 @@ describe('tasks from what you say', () => {
       },
     ]);
 
-    // Something that promises nothing makes nothing, and what was read isn't read again.
+    // Something that promises nothing makes nothing, and what was read isn't read again: with the quote sent and
+    // the task ticked off, the next message doesn't bring it back.
+    const [made] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.tasks where person_id = ${ned.id}`,
+    );
+    await run(w, taskComplete, { workspaceId: w.workspaceId, taskId: made!.id });
     await run(w, messageSend, {
       workspaceId: w.workspaceId,
       conversationId: asked.conversationId,

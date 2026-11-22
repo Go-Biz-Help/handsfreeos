@@ -44,9 +44,14 @@ function PanelContent({ phone, titleId }: { phone: boolean; titleId?: string }) 
   const toggleHistory = () => a.setView(chat ? 'history' : 'chat');
   const close = () => a.setOpen(false);
 
-  /** Edit on a text or email card: the customer's message sheet, or the conversation's own composer. */
+  /**
+   * Edit on a card that sends words, so their version goes where the card said it would. A text or an email to a
+   * customer opens their message sheet, on the card's own conversation when it has one (it may be with another of
+   * their numbers or emails). A reply where the customer wrote (a website chat, their portal, Messenger, Instagram)
+   * and a number that isn't in Contacts hand the draft to that conversation's own composer.
+   */
   async function edit(card: ConfirmCardData) {
-    const channel = card.tool === 'send_email' ? 'email' : 'sms';
+    const channel = card.tool === 'send_email' ? 'email' : card.tool === 'send_text' ? 'sms' : null;
     const subject = card.fields.find((f) => f.label === 'Subject')?.value;
     // Their own version goes out instead: the card's draft never will.
     const sentOwn = () => {
@@ -56,7 +61,7 @@ function PanelContent({ phone, titleId }: { phone: boolean; titleId?: string }) 
         note: 'You sent your own version instead.',
       });
     };
-    if (card.personId) {
+    if (card.personId && channel) {
       try {
         const { person } = unwrap(
           await apiBrowser().POST('/v1/queries/person.get', {
@@ -80,7 +85,7 @@ function PanelContent({ phone, titleId }: { phone: boolean; titleId?: string }) 
       return;
     }
     if (card.conversationId) {
-      // A number that isn't in Contacts: its conversation in the inbox takes the draft.
+      // Its conversation in the inbox takes the draft, whatever it's on.
       handDraft(card.conversationId, { text: card.body ?? '', subject, onSent: sentOwn });
       const href = `/app/w/${a.workspaceId}/inbox/${card.conversationId}`;
       a.closeIfCovering(href);
@@ -178,6 +183,7 @@ function PanelContent({ phone, titleId }: { phone: boolean; titleId?: string }) 
           workspaceId={a.workspaceId}
           person={editing.person}
           channel={editing.channel}
+          conversationId={editing.card.conversationId}
           open
           onOpenChange={(open) => {
             if (!open) setEditing(null);

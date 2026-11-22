@@ -20,9 +20,11 @@ import {
   DocumentItemId,
   DocumentValue,
   executeCommand,
+  formatClock,
   formatPhone,
   HfosError,
   loadDocument,
+  quietHoursState,
   signersOf,
   signersUp,
   valuesOf,
@@ -174,7 +176,13 @@ const maskEmail = (email: string): string => {
   return `${user.slice(0, 1)}•••@${domain}`;
 };
 
-/** Where their code goes: a text when one can reach them, else email; for the team, always email. */
+/**
+ * Where their code goes: a text when one can reach them, else email; for the team, always email.
+ *
+ * In quiet hours nothing texts (docs/documents.md, "Texts wait for quiet hours"), and a code can't wait till
+ * morning: it goes to their email when there is one. With only a phone, `quietUntil` is when a text can go again,
+ * so the page can say that, where it used to say "Try again in a minute" all night.
+ */
 async function codeRoute(
   tx: Tx,
   scope: TenantScope,
@@ -184,7 +192,13 @@ async function codeRoute(
     personId: string | null;
     userId: string | null;
   },
-): Promise<{ channel: 'sms' | 'email'; to: string; shown: string } | null> {
+): Promise<{
+  channel: 'sms' | 'email';
+  to: string;
+  shown: string;
+  /** The clock time quiet hours end ("08:00"), when it's a text that can't go till then. */
+  quietUntil: string | null;
+} | null> {
   if (!s.userId && s.phoneE164) {
     const [p] = s.personId
       ? await rows<{ consent: 'unknown' | 'opted_in' | 'opted_out' }>(
@@ -198,14 +212,21 @@ async function codeRoute(
       { phone: s.phoneE164, email: s.email, smsOk: true, personConsent: p?.consent ?? 'unknown' },
       { text: true, email: true },
     );
-    if (reach.text === null)
-      return {
-        channel: 'sms',
-        to: s.phoneE164,
-        shown: `your phone ending in ${s.phoneE164.slice(-4)}`,
-      };
+    if (reach.text === null) {
+      const m = await workspaceMessaging(tx, scope.workspaceId);
+      const q = quietHoursState(m.settings.quietHours, m.timezone || 'UTC');
+      if (!q.quiet || !s.email)
+        return {
+          channel: 'sms',
+          to: s.phoneE164,
+          shown: `your phone ending in ${s.phoneE164.slice(-4)}`,
+          quietUntil: q.quiet ? (q.endsAt ?? null) : null,
+        };
+    }
   }
-  return s.email ? { channel: 'email', to: s.email, shown: maskEmail(s.email) } : null;
+  return s.email
+    ? { channel: 'email', to: s.email, shown: maskEmail(s.email), quietUntil: null }
+    : null;
 }
 
 const roleLabelOf = (definition: DocumentDefinition, key: string): string =>
@@ -422,6 +443,13 @@ export async function registerDocumentRoutes(app: FastifyInstance, deps: HttpDep
             `We have no way to send you a code. Call ${found.business} and ask them to send it again.`,
           );
         const lastAt = signer.codeExpiresAt ? signer.codeExpiresAt.getTime() - 10 * MIN : 0;
+        // Before a code is made: one that can't be sent would only start the wait for the next.
+        if (route.quietUntil)
+          throw HfosError.rule(
+            'document_code_quiet_hours',
+            409,
+            `It’s too late to text you a code today. ${found.business} can text again at ${formatClock(route.quietUntil)}. Open this link again then, or ask them to add your email so the code can be emailed.`,
+          );
         if (Date.now() - lastAt < CODE_GAP_MS)
           throw HfosError.rule(
             'document_code_wait',

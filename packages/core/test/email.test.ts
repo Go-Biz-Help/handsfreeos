@@ -380,6 +380,35 @@ describe('receiving email', () => {
       ).outcome,
     ).toBe('skipped');
   });
+
+  it('answers a customer who wrote with no subject, under the business’s name', async () => {
+    const blank = await sys(emailReceive, {
+      workspaceId: wsId,
+      provider: 'postmark',
+      providerMessageId: 'pm-in-no-subject',
+      messageIdHeader: '<pat-blank@example.com>',
+      from: { address: PAT },
+      to: [{ address: shared.address }],
+      subject: null,
+      bodyText: 'Are you open Saturday?',
+    });
+    expect(blank.outcome).toBe('filed');
+    // No subject on the answer either, as the AI teammate's has none: it still goes.
+    const answer = await run(
+      messageSend,
+      {
+        workspaceId: wsId,
+        conversationId: blank.conversationId!,
+        channel: 'email',
+        body: 'We are, 9 to 2.',
+      },
+      member,
+    );
+    expect(await message(answer.messageId)).toMatchObject({
+      subject: 'Email Test HVAC',
+      in_reply_to_header: '<pat-blank@example.com>',
+    });
+  });
 });
 
 describe('a connected mailbox', () => {
@@ -437,6 +466,39 @@ describe('a connected mailbox', () => {
     expect(imported.outcome).toBe('filed');
     expect(await message(imported.messageId!)).toMatchObject({ status: 'sent', sent_by: owner.id });
     expect(await conversation(imported.conversationId!)).toMatchObject({ unread_count: 0 });
+
+    // Pat's mail from before Dale connected Outlook is history: nothing answers it or hears of it now. What Pat
+    // writes today is a customer writing.
+    const fromPat = {
+      ...synced,
+      direction: 'inbound',
+      from: { address: PAT },
+      to: [{ address: DALE_MAILBOX }],
+    };
+    const old = await sys(emailReceive, {
+      ...fromPat,
+      providerMessageId: 'graph-old',
+      messageIdHeader: '<pat-old@example.com>',
+      subject: 'Can you come Tuesday?',
+      occurredAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+    });
+    const today = await sys(emailReceive, {
+      ...fromPat,
+      providerMessageId: 'graph-new',
+      messageIdHeader: '<pat-new@example.com>',
+      subject: 'One more question',
+      occurredAt: new Date().toISOString(),
+    });
+    const woke = async (messageId: string) =>
+      (
+        await rows<{ event_type: string }>(
+          admin(),
+          sql`select event_type from app.events where entity_id = ${messageId}`,
+        )
+      ).map((e) => e.event_type);
+    expect(old.outcome).toBe('filed');
+    expect(await woke(old.messageId!)).toEqual(['message.imported']);
+    expect(await woke(today.messageId!)).toEqual(['message.received']);
 
     // Mail between Dale and someone who isn't a customer stays in Outlook.
     expect(

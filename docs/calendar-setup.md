@@ -254,7 +254,7 @@ says the real providers are on — production always uses them. These steps chec
 9. `fly logs --app handsfreeos-worker --no-tail` should show no `a calendar did not connect`,
    `calendar refresh failed` or `calendar write-through failed`.
 
-Busy times are read every 10 minutes after that, 60 days ahead, and at once on **Sync now**.
+Busy times are read every 10 minutes after that, 60 days ahead, and at once on **Sync now**. For someone on a calendar that books further ahead than 60 days, they are read as far ahead as that calendar books.
 
 ---
 
@@ -283,6 +283,12 @@ second link). The worker saves the link on the appointment with `appointment.set
 portal and everyone else's calendar event show it. It should need no new scope (`calendar.events.owned` covers conference data on the person’s own events); check it on the first real connection. It only happens when the host (or someone
 on the appointment) has Google Calendar connected and the calendar adds appointments to people's calendars; a link
 someone typed in is never replaced. Locally the stand-in makes `https://meet.google.com/fake-…` links.
+
+A link Google is still making is asked for again every 30 seconds, for 10 minutes after the appointment last
+changed. If Google says it couldn't make one (an account with Meet turned off), or the 10 minutes pass, the worker
+stops asking and the appointment says so (`meetingError` on its place, which the phone and the Assistant show):
+"Google didn’t make a Meet link for this appointment…". A later change to the appointment asks once more, and a link
+that comes then clears it.
 
 ### Meet transcripts
 

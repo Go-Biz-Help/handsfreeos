@@ -46,6 +46,8 @@ interface StoredInbound {
   TextBody?: string;
   HtmlBody?: string;
   StrippedTextReply?: string;
+  /** "Dana Rivera <dana@example.com>", as Postmark copies it from the Reply-To header. */
+  ReplyTo?: string;
   Headers?: MailHeader[];
   Attachments?: StoredMedia[];
   route?: { emailAddressId: string | null; replyToken: string | null };
@@ -61,6 +63,22 @@ const parties = (list: StoredParty[] | undefined) =>
     .map((x) => ({ address: (x.Email ?? '').trim().toLowerCase(), name: x.Name?.trim() || null }))
     .filter((x) => EMAIL.test(x.address))
     .slice(0, 50);
+
+/**
+ * The first address in Reply-To, with its name: "Dana Rivera <dana@example.com>", "dana@example.com" or
+ * "\"Rivera, Dana\" <dana@example.com>, …". A website form puts its visitor there (email.receive decides).
+ */
+export function replyToOf(
+  raw: string | undefined | null,
+): { address: string; name: string | null } | null {
+  const value = (raw ?? '').trim();
+  if (!value) return null;
+  const angled = /^\s*(?:"((?:[^"\\]|\\.)*)"|([^<,"]*?))\s*<([^>]+)>/.exec(value);
+  const address = (angled ? angled[3]! : (value.split(/[,;\s]+/)[0] ?? '')).trim().toLowerCase();
+  if (!EMAIL.test(address)) return null;
+  const name = (angled ? (angled[1] ?? angled[2] ?? '') : '').replace(/\\(.)/g, '$1').trim();
+  return { address, name: name ? name.slice(0, 200) : null };
+}
 
 /** The date the customer's mail program stamped, unless it is missing or in the future. */
 function sentAt(value: string | undefined): string | undefined {
@@ -100,6 +118,7 @@ export const onInboundEmail: DeliveryProcessor = async (ctx) => {
       inReplyTo: messageIds(headerOf(headers, 'In-Reply-To'))[0] ?? null,
       references: messageIds(headerOf(headers, 'References')),
       from: { address: from, name: p.FromFull?.Name?.trim() || p.FromName?.trim() || null },
+      replyTo: replyToOf(p.ReplyTo || headerOf(headers, 'Reply-To')),
       to: parties(p.ToFull),
       cc: parties(p.CcFull),
       subject: p.Subject?.slice(0, 998) || null,

@@ -20,11 +20,12 @@ import {
   onboardingSetupTitle,
   type AiSetupProblems,
   type IndustryId,
+  withDeviceTimeZone,
   type OnboardingSetupBusinessDraft,
 } from '@hfos/core';
 import { ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -46,6 +47,15 @@ const PROGRESS = onboardingSetupProgress('business', STARTING, {
   page: false,
   chat: false,
 });
+
+/** The zone this browser is set to, for the business's first guess at its own. */
+function deviceTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
 
 export function CreateBusiness({
   plan = null,
@@ -74,6 +84,10 @@ export function CreateBusiness({
     name: start.name ?? '',
     industry: start.industry ?? '',
   }));
+  // The server draws it on Central, which says nothing about this business; the browser then says its own zone.
+  useEffect(() => {
+    setBusiness((b) => withDeviceTimeZone(b, deviceTimeZone()));
+  }, []);
   const [agency, setAgency] = useState(false);
   const [agencyName, setAgencyName] = useState('');
   const [problems, setProblems] = useState<AiSetupProblems>({});

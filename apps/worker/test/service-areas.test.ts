@@ -2,9 +2,9 @@
  * M18 service areas by distance or drawn on a map, through the worker: the address lookup (Google, the
  * stand-in, and the kept answers) and the public booking page asking for the street address.
  */
-import { territoryCreate } from '@hfos/core/server';
+import { attendeeRescheduleOnline, executeCommand, territoryCreate } from '@hfos/core/server';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
-import { asWorker } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createFakeGeocoder, createGoogleGeocoder, placeOf } from '../src/geo/geocoder';
 import { pino } from 'pino';
@@ -171,5 +171,39 @@ describe('the booking page, for an area by distance', () => {
       postalCode: null,
     });
     expect(booked.statusCode, booked.body).toBe(200);
+
+    // The customer moves it from their link: the visit's address is still where the area goes.
+    const token = (booked.json() as { manageToken: string }).manageToken;
+    const open = await get(w, `/public/manage/${token}/slots?${new URLSearchParams({ from, to })}`);
+    expect(open.statusCode, open.body).toBe(200);
+    const times = (open.json() as { slots: { startsAt: string }[] }).slots;
+    const later = times.find((t) => t.startsAt !== near[0]!.startsAt);
+    expect(later).toBeTruthy();
+    const moved = await post(w, `/public/manage/${token}/reschedule`, {
+      startsAt: later!.startsAt,
+    });
+    expect(moved.statusCode, moved.body).toBe(200);
+
+    // Moved with no point handed over, as the AI teammate moves a visit: the point found at booking is read back.
+    const [att] = await rows<{ id: string; manage_version: number }>(
+      testDbs().admin.db,
+      sql`select id, manage_version from app.appointment_attendees where public_ref = ${token.slice(0, 8)}`,
+    );
+    const again = times.find(
+      (t) => t.startsAt !== near[0]!.startsAt && t.startsAt !== later!.startsAt,
+    );
+    const { output } = await executeCommand(
+      testDbs().worker.db,
+      attendeeRescheduleOnline,
+      {
+        workspaceId: w.workspaceId,
+        attendeeId: att!.id,
+        manageVersion: att!.manage_version,
+        startsAt: again!.startsAt,
+      },
+      { type: 'system', workspaceId: w.workspaceId, organizationId: w.organizationId },
+      { correlationId: crypto.randomUUID(), channel: 'test' },
+    );
+    expect(output.startsAt).toBe(new Date(again!.startsAt).toISOString());
   });
 });

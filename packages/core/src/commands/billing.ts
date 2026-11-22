@@ -554,7 +554,7 @@ export const billingAnswerMoreTime = defineCommand({
   output: BillingAnswerMoreTimeOutput,
   permission: 'platform.founding.manage',
   scope: onPlatform,
-  emits: ['billing.more_time_answered'],
+  emits: ['platform.plan_more_time_answered'],
   async handler(ctx, input) {
     const [req] = await rows<{
       id: string;
@@ -604,11 +604,13 @@ export const billingAnswerMoreTime = defineCommand({
              where workspace_id = ${req.workspace_id}::uuid and renewal_failed_at is not null`,
       );
     await ctx.emit({
-      type: 'billing.more_time_answered',
+      type: 'platform.plan_more_time_answered',
       entityType: 'plan_time_request',
       entityId: req.id,
       // Staff act on HandsFreeOS, not inside the business, so the event is HandsFreeOS's; the worker reads the
-      // business from the payload to email its owners (as founding.revoked does).
+      // business from the payload to email its owners. Named under `platform.`, as every event of HandsFreeOS's
+      // own that the worker handles is: it reads no other event that has no business on its row, so under
+      // `billing.` this one was marked done and the email never went.
       payload: {
         workspaceId: req.workspace_id,
         organizationId: req.organization_id,

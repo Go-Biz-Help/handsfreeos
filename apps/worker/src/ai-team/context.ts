@@ -15,6 +15,8 @@ import {
   chatAddedCustomer,
   chatVerified,
   unverifiedEmailAddedCustomer,
+  defaultLocationKind,
+  goesOut,
   LeadQualification,
   parseStoredForm,
   quantitiesWords,
@@ -263,6 +265,12 @@ export interface RunCalendar {
   readonly deposit: { readonly amountCents: number; readonly mode: 'deposit' | 'full' } | null;
   /** The page a customer books it on, when the booking site is on. */
   readonly bookingPath: string | null;
+  /**
+   * It leaves time to drive between visits (docs/outreach.md, decision 179). The drive is timed by road from the
+   * customer's address on the booking page, so like a calendar that takes a deposit it is **not the teammate's to
+   * book**: a time it offered would be a guess, back to back with a visit across town.
+   */
+  readonly drives: boolean;
   /** It offers times by the customer's ZIP code, so find_times needs theirs (M18). */
   readonly byZip: boolean;
   /** M18: some of its service areas go by distance or a drawn shape, so find_times needs their address. */
@@ -485,6 +493,11 @@ export interface LoadInput {
   readonly now: number;
   /** A live phone call it's answering or placed (its record): whether the caller is proven decides what it reads. */
   readonly callId?: string | null;
+  /**
+   * False where addresses can't be found on a map (no geocoder): then no page times a drive either, and a calendar
+   * that leaves time to drive is booked like any other. Left out, it counts as on.
+   */
+  readonly mapsOn?: boolean;
 }
 
 /** The teammate's Instructions list, oldest first. */
@@ -548,7 +561,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
   const lead = customer && !strangerInChat ? await openLeadOf(tx, ws, customer.id) : null;
   const stages = lead ? await stagesOf(tx, lead.pipelineId) : [];
   const calendars = input.config.book.enabled
-    ? await calendarsOf(tx, ws, input.config.book.calendarIds)
+    ? await calendarsOf(tx, ws, input.config.book.calendarIds, input.mapsOn !== false)
     : [];
   const appointments =
     customer && !unverifiedChat ? await upcomingAppointments(tx, ws, customer.id, timeZone) : [];
@@ -792,6 +805,7 @@ async function calendarsOf(
   tx: Tx,
   workspaceId: string,
   ids: readonly string[],
+  mapsOn: boolean,
 ): Promise<RunCalendar[]> {
   const out: RunCalendar[] = [];
   const [row] = await rows<{ site: string | null }>(
@@ -825,6 +839,7 @@ async function calendarsOf(
       services,
       deposit: most ? { amountCents: most.amountCents, mode: most.mode } : null,
       bookingPath: site ? `/book/${site}/${cal.slug}` : null,
+      drives: mapsOn && cal.config.buffers.driveBetween && goesOut(defaultLocationKind(cal.config)),
       byZip: cal.config.territory.routing === 'zip',
       byAddress:
         cal.config.territory.routing === 'zip' &&

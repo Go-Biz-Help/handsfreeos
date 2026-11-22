@@ -204,6 +204,8 @@ export const ONBOARDING_SETUP_WORDS = {
   postalCode: 'ZIP code',
   timeZone: 'Time zone',
   timeZoneFromAddress: (zone: string) => `${zone} time, from your address.`,
+  /** With no address to go by: the zone alone, beside Change. */
+  timeZoneAlone: (zone: string) => `${zone} time.`,
   changeTimeZone: 'Change',
   website: 'Your website',
   noWebsite: QUESTION_WORDS.noWebsite,

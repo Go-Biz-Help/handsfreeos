@@ -710,11 +710,19 @@ export function foundingRenewalFailedEmail(input: {
   reason: string;
   link: string;
   period: 'month' | 'year';
+  /** One of the daily tries after the first failure. */
+  again?: boolean;
+  /** That was the last daily try: nothing more is charged until they pay it themselves. */
+  lastRetry?: boolean;
 }): EmailContent {
-  const subject = `Your ${input.offer} renewal for ${input.business} didn’t go through`;
+  const subject = input.again
+    ? `Your ${input.offer} renewal for ${input.business} still hasn’t gone through`
+    : `Your ${input.offer} renewal for ${input.business} didn’t go through`;
   const lines = [
-    `We couldn’t take the ${input.period === 'month' ? 'monthly' : 'yearly'} ${input.amount} for your founding spot: ${input.reason}`,
-    'We tried your default card and every backup card. We’ll try them again once a day on our own.',
+    `We ${input.again ? 'tried again and still couldn’t' : 'couldn’t'} take the ${input.period === 'month' ? 'monthly' : 'yearly'} ${input.amount} for your founding spot: ${input.reason}`,
+    input.lastRetry
+      ? 'We tried your default card and every backup card. That was our last try on our own, so it won’t be paid until you pay it.'
+      : 'We tried your default card and every backup card. We’ll try them again once a day on our own.',
     'Please pay it, or add another card, in Settings → Billing & Usage. If you need a little longer, you can ask for more time there. After 72 hours, HandsFreeOS stays closed until it’s paid.',
   ];
   const text = `${lines.join('\n\n')}\n\nOpen Billing: ${input.link}`;

@@ -13,7 +13,7 @@ import { readGroupAbout, readGroupLinks, readGroupPage } from './groups';
 import { readNotices } from './notifications';
 import { readPeople, readPeopleAnywhere } from './people';
 import { readPosts } from './posts';
-import { readProfile } from './profile';
+import { readProfile, unavailableIn } from './profile';
 import type { GroupLink, PageKind, ReadResult } from './types';
 import { classifyUrl, facebookUrl, pathParts } from './urls';
 import { readWarnings } from './warnings';
@@ -152,9 +152,16 @@ export function readPage(
       break;
     }
     case 'post':
-    case 'feed':
-      found = { posts: readPosts(main, base) };
+    case 'feed': {
+      const posts = readPosts(main, base);
+      found = {
+        posts,
+        ...(address.kind === 'post' && !posts.length && unavailableIn(main)
+          ? { unavailable: true as const }
+          : {}),
+      };
       break;
+    }
     case 'other':
       notes.push('The extension doesn’t read this kind of page yet.');
       break;

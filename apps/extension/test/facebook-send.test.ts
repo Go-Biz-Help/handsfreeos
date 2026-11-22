@@ -31,6 +31,8 @@ const world = vi.hoisted(() => ({
   unreachable: null as string | null,
   /** What the AI wrote for a comment, checked. */
   commentDrafts: ['Love these tiles.'] as string[],
+  /** How many times the AI was asked for a comment. */
+  draftsAsked: 0,
 }));
 
 vi.mock('../src/hfos/session', () => {
@@ -43,10 +45,13 @@ vi.mock('../src/hfos/session', () => {
     Refused,
     savingTo: async () => ME,
     // A comment's draft (decision 20) has the AI's words; nothing else here asks the AI.
-    answer: async (ask: { input?: { kind?: string } }) => ({
-      ok: true,
-      value: ask?.input?.kind === 'comment' ? { drafts: world.commentDrafts } : {},
-    }),
+    answer: async (ask: { input?: { kind?: string } }) => {
+      if (ask?.input?.kind === 'comment') world.draftsAsked++;
+      return {
+        ok: true,
+        value: ask?.input?.kind === 'comment' ? { drafts: world.commentDrafts } : {},
+      };
+    },
     answerWith: async (_t: string, fn: () => Promise<unknown>) => ({ ok: true, value: await fn() }),
     api: () => ({
       POST: async (path: string, options: { body: Record<string, unknown> }) => {
@@ -1032,6 +1037,38 @@ describe('a comment on a good post in their groups on Facebook (decision 20)', (
       skip: true,
     });
     expect(world.opened).toEqual([POST]);
+    expect(world.noted).toEqual([]);
+  });
+
+  it('passes over a post Facebook says isn’t available any more, with nothing drafted, reported or handed over', async () => {
+    // The owner's problem report of 21 Nov 2026: the post's own page showed only Facebook's "This content isn't
+    // available right now", a line on why, Go to Feed, Go back and Help Center, as whoever wrote it deleted it or hid
+    // it after it was found. The AI was asked for a comment, then it said "couldn’t find the box to comment in".
+    world.draftsAsked = 0;
+    world.pages = (url) =>
+      url === POST
+        ? new JSDOM(
+            `<!doctype html><html><body><div><div><form><input><input></form><div role="progressbar"></div>
+            <div role="banner"><a href="/" aria-label="Facebook">Facebook</a></div>
+            <div><div><div role="main"><div><div><svg aria-hidden="true"></svg>
+              <div><h2 dir="auto"><span dir="auto">This content isn't available right now</span></h2>
+                <span dir="auto">When this happens, it's usually because the owner only shared it with a small group
+                of people, changed who can see it or it's been deleted.</span></div>
+              <a role="link" aria-label="Go to Feed" href="/"><div role="none"><div role="none"><span dir="auto">
+                <span>Go to Feed</span></span></div><div role="none"></div></div></a></div>
+              <div><div role="button"><span dir="auto">Go back</span></div>
+                <a role="link" href="/help"><span dir="auto">Visit Help Center</span></a></div></div></div></div>
+            <div><div><div><div role="button" aria-label="New message"><svg aria-hidden="true"></svg>
+              <div role="none"></div></div></div></div></div></div></div></body></html>`,
+            { url: POST },
+          ).window.document
+        : null;
+    expect(await step(comment)).toEqual({
+      done: false,
+      line: 'Dana Reyes’s post: Facebook says it isn’t available any more',
+      skip: true,
+    });
+    expect(world.draftsAsked).toBe(0);
     expect(world.noted).toEqual([]);
   });
 

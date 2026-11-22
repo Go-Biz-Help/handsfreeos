@@ -127,7 +127,7 @@ import {
 } from './prompt';
 import { coachingLines } from './turns';
 import { checkReply, closeRun, immediateHandOff, REWRITE_ONLY } from './run';
-import { newRunState, timeKey, toolDefinition, type RunState } from './tools';
+import { drivesInstead, newRunState, timeKey, toolDefinition, type RunState } from './tools';
 
 export { TestConsoleInput };
 
@@ -457,6 +457,7 @@ async function contextFor(deps: ConsoleDeps, t: PreparedTest): Promise<RunContex
         batch: [],
         webUrl: deps.webUrl,
         now: t.now,
+        mapsOn: deps.geocoder.name !== 'off',
       }),
     );
     return { ...rc, history: [], firstAiMessage: false, discloseNow: false };
@@ -481,6 +482,7 @@ async function contextFor(deps: ConsoleDeps, t: PreparedTest): Promise<RunContex
       batch,
       webUrl: deps.webUrl,
       now: t.now,
+      mapsOn: deps.geocoder.name !== 'off',
     }),
   );
   const history: HistoryLine[] = msgs.slice(0, lastTeammate + 1).map((m, i) => ({
@@ -733,6 +735,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const cal = h.rc.calendars.find((c) => c.id === calendarId);
     if (!cal)
       return refuse('That isn’t one of your calendars. Use a calendar id from the context.');
+    if (cal.drives) return refuse(drivesInstead(cal));
     const address = str(args['address']);
     if (cal.byAddress && !address && h.deps.geocoder.name !== 'off')
       return refuse(

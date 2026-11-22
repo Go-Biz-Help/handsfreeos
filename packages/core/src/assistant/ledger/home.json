@@ -1,7 +1,7 @@
 {
   "area": "home",
   "title": "Home, Search everything, Needs you, the bell's notifications, Audit log, Changes and the Assistant panel itself",
-  "checkedOn": "2026-11-15",
+  "checkedOn": "2026-11-21",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/get-help.tsx": "a1fa8bee58ff",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx": "242f970f8798",
@@ -40,7 +40,7 @@
     "apps/web/src/app/app/w/[workspaceId]/page.tsx": "beb84593c83a",
     "apps/web/src/app/app/w/[workspaceId]/search/page.tsx": "f23d0369d4f7",
     "apps/web/src/components/assistant/ask-button.tsx": "1189fdcab4d4",
-    "apps/web/src/components/assistant/assistant-panel.tsx": "1f1bf3886050",
+    "apps/web/src/components/assistant/assistant-panel.tsx": "b97d3735b38e",
     "apps/web/src/components/assistant/calendar-cards.tsx": "29df0d91f23f",
     "apps/web/src/components/assistant/card-parts.tsx": "8255351aebbd",
     "apps/web/src/components/assistant/cards.tsx": "696fa43a3910",
@@ -2702,7 +2702,7 @@
       "severity": "low",
       "kind": "words",
       "where": "The Ask HandsFreeOS panel itself: Your chats (rename and archive under ⋯), New chat, Close, the microphone / Talk, Stop, editing a sent message; on the phone the Ask tab",
-      "gap": "The panel appears in the Assistant's words only as 'Ask HandsFreeOS (⌘J or Ctrl J), which is you' (places-map.ts:605). The panel itself has: Your chats, New chat, Close (assistant-panel.tsx:43, 97-156); each chat's ⋯ with Rename and Archive (thread-list.tsx:161-180); and Talk/microphone, Stop and Send (composer.tsx:105, 149, 203). None of the place text or the prompt names them.",
+      "gap": "The panel appears in the Assistant's words only as 'Ask HandsFreeOS (⌘J or Ctrl J), which is you' (places-map.ts:605). The panel itself has: Your chats, New chat, Close (assistant-panel.tsx:43, 102-161); each chat's ⋯ with Rename and Archive (thread-list.tsx:161-180); and Talk/microphone, Stop and Send (composer.tsx:105, 149, 203). None of the place text or the prompt names them.",
       "fix": "Fixed: EVERY_PAGE describes the panel (Your chats with ⋯ Rename and Archive, New chat, Close, Talk out loud, Stop, Send, Copy) and PHONE_APP says the HandsFreeOS mark in the top bar opens Ask HandsFreeOS.",
       "status": "fixed",
       "pr": null
