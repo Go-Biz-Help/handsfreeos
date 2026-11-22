@@ -121,7 +121,7 @@ const alert = async (openingId: string) =>
       sql`select title, detail from app.addon_alerts where workspace_id = ${ws} and key = ${`lockbox:${openingId}`}`,
     )
   )[0];
-const receive = (from: string, subject: string, bodyText: string) =>
+const receive = (from: string, subject: string, bodyText: string, senderVerified?: boolean) =>
   executeCommand(
     testDbs().worker.db,
     emailReceive,
@@ -134,6 +134,7 @@ const receive = (from: string, subject: string, bodyText: string) =>
       to: [{ address: 'dana@lockbox-worker.example' }],
       subject,
       bodyText,
+      ...(senderVerified === undefined ? {} : { senderVerified }),
       reminderAfterMs: 86_400_000,
     },
     { type: 'system', workspaceId: ws, organizationId: org },
@@ -386,6 +387,35 @@ describe('a lockbox opened', () => {
         /^Sam Ortiz of Keller Williams opened it .+, as SentriLock’s email says\. /,
       ),
     });
+  });
+
+  it('is left alone when SentriLock’s domain didn’t vouch for it, or only the subject says SentriLock', async () => {
+    const before = (await run('realestate.lockbox.list', { dealId: deal })).openings.length;
+    // Anyone can write SentriLock's address in From, or its name in a subject.
+    await receive(
+      'notifications@sentrilock.com',
+      'Lockbox Access Notification',
+      sentrilock('12345678', '01/05/2026 03:05 AM'),
+      false,
+    );
+    await receive(
+      'someone@elsewhere.example',
+      'SentriLock Lockbox Access Notification',
+      sentrilock('12345678', '01/06/2026 03:05 AM'),
+    );
+    await drain();
+    expect((await run('realestate.lockbox.list', { dealId: deal })).openings).toHaveLength(before);
+    // Signed by SentriLock, it's read as before.
+    await receive(
+      'notifications@sentrilock.com',
+      'Lockbox Access Notification',
+      sentrilock('12345678', '01/07/2026 03:05 AM'),
+      true,
+    );
+    await drain();
+    expect((await run('realestate.lockbox.list', { dealId: deal })).openings).toHaveLength(
+      before + 1,
+    );
   });
 
   it('is left alone when the business turned reading them off', async () => {

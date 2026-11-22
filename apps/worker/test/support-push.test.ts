@@ -299,7 +299,11 @@ describe('a new support ticket, on the support people’s phones', () => {
       Subject: subject,
       Date: new Date().toUTCString(),
       TextBody: 'Every invoice says it failed to send.',
-      Headers: [{ Name: 'Message-ID', Value: `<${randomUUID()}@mail.example.com>` }],
+      Headers: [
+        // Signed by the writer's own domain: only then is it theirs (support/inbound.ts).
+        { Name: 'X-Spam-Tests', Value: 'DKIM_SIGNED,DKIM_VALID,DKIM_VALID_AU' },
+        { Name: 'Message-ID', Value: `<${randomUUID()}@mail.example.com>` },
+      ],
       Attachments: [],
       ...over,
     });

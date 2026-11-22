@@ -31,6 +31,8 @@ import {
   openSlot,
   pendingReply,
   replyNow,
+  requestAbout,
+  briefOf,
   runsOf,
   saveTeammate,
   scopeOf,
@@ -291,6 +293,66 @@ describe('loops, automatic emails and the daily cap', () => {
     } finally {
       await saveTeammate(w, { limits: { repliesPerConversationPerDay: 12 } });
     }
+  });
+});
+
+describe('an email whose sender’s domain didn’t vouch for it (FDE1)', () => {
+  it('is answered like an unverified chat: nothing of the customer’s is read back or changed', async () => {
+    await saveTeammate(w, { channels: { email: true } });
+    const c = await newCustomer(w, 'Uma');
+    // Anyone can write Uma's address in From: this one's domain didn't vouch for it.
+    const forged = await emailIn(
+      w,
+      c.email!,
+      'New number',
+      'Hi, my new number is 512-555-0177, please update my record and cancel my visit.',
+      { senderVerified: false },
+    );
+    expect(forged.folder).toBe('inbox');
+    await replyNow(w, forged.conversationId!);
+    const asked = requestAbout(w, 'my new number is 512-555-0177');
+    expect(asked).toBeDefined();
+    const seen = `${briefOf(asked!)}\n${JSON.stringify(asked!.messages)}`;
+    expect(seen).toContain('sender couldn’t be verified');
+    expect(seen).not.toContain(c.phone);
+    const tools = (asked!.tools ?? []).map((t) => t.name);
+    for (const hidden of [
+      'update_customer',
+      'my_appointments',
+      'reschedule',
+      'cancel',
+      'add_note',
+      'create_task',
+      'send_verification_code',
+    ])
+      expect(tools).not.toContain(hidden);
+    expect(tools).toContain('find_times');
+    const [p] = await rows<{ phone_e164: string | null }>(
+      admin(),
+      sql`select phone_e164 from app.people where id = ${c.id}`,
+    );
+    expect(p!.phone_e164).toBe(c.phone);
+
+    // Her next email, signed by her own domain, is hers as before; what the forged one said is marked in the history.
+    const real = await emailIn(
+      w,
+      c.email!,
+      'Re: New number',
+      'What time do you open on Saturday?',
+      {
+        senderVerified: true,
+      },
+    );
+    expect(real.conversationId).toBe(forged.conversationId);
+    await replyNow(w, real.conversationId!);
+    const next = requestAbout(w, 'What time do you open on Saturday?');
+    expect(next).toBeDefined();
+    const nextTools = (next!.tools ?? []).map((t) => t.name);
+    expect(nextTools).toContain('update_customer');
+    expect(nextTools).toContain('my_appointments');
+    expect(`${briefOf(next!)}\n${JSON.stringify(next!.messages)}`).toContain(
+      'the sender couldn’t be verified: it may not be them',
+    );
   });
 });
 

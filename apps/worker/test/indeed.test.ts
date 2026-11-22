@@ -67,7 +67,10 @@ async function drain(): Promise<void> {
 }
 
 /** Indeed's email about an applicant, the way Postmark's inbound webhook delivers it. */
-const fromIndeed = (over: { subject?: string; text?: string; messageId?: string } = {}) => ({
+/** Indeed's email, signed by indeed.com as Postmark's spam filter found it (unless `signed` is false: a forgery). */
+const fromIndeed = (
+  over: { subject?: string; text?: string; messageId?: string; signed?: boolean } = {},
+) => ({
   MessageID: randomUUID(),
   From: 'noreply@indeed.com',
   FromName: 'Indeed',
@@ -80,7 +83,14 @@ const fromIndeed = (over: { subject?: string; text?: string; messageId?: string 
     over.text ??
     'Jordan Reyes applied to your job Sales Associate in Austin, TX.\n' +
       'Email: jordanreyes-4kq@indeedemail.com\nPhone: (512) 555-0801\nView resume on Indeed.',
-  Headers: [{ Name: 'Message-ID', Value: over.messageId ?? `<${randomUUID()}@indeed.com>` }],
+  Headers: [
+    {
+      Name: 'X-Spam-Tests',
+      Value:
+        over.signed === false ? 'SPF_SOFTFAIL' : 'DKIM_SIGNED,DKIM_VALID,DKIM_VALID_AU,SPF_PASS',
+    },
+    { Name: 'Message-ID', Value: over.messageId ?? `<${randomUUID()}@indeed.com>` },
+  ],
   Attachments: [],
 });
 const post = (body: unknown) =>
@@ -180,6 +190,21 @@ describe('an applicant Indeed emailed about', () => {
     await drain();
     const again = await rows(admin(), sql`select 1 from app.leads where person_id = ${jordan!.id}`);
     expect(again).toHaveLength(1);
+  });
+
+  it('opens nothing for mail that only says it’s from Indeed', async () => {
+    // Anyone can write Indeed's address in From: its domain didn't vouch for this one, so the number in it is never
+    // a lead (an Indeed funnel would text it).
+    const before = (await applicants()).length;
+    await post(
+      fromIndeed({
+        signed: false,
+        subject: 'Pat Lee applied to Sales Associate',
+        text: 'Pat Lee applied to your job.\nPhone: (512) 555-0899',
+      }),
+    );
+    await drain();
+    expect(await applicants()).toHaveLength(before);
   });
 
   it('opens nothing for Indeed’s other mail', async () => {

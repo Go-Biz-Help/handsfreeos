@@ -1667,7 +1667,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   // ---- A website chat visitor proving who they are (M18) ----
 
   async send_verification_code(d, tx) {
-    if (!d.rc.unverifiedChat || !d.rc.customer)
+    if (!d.rc.unverifiedChat || d.rc.unverifiedEmail || !d.rc.customer)
       return refused({ error: 'There’s nobody on file for this chat to send a code to.' });
     const canText = await d.chatCodes.canText(tx, d.scope.workspaceId);
     const r = await executeCommandIn(
@@ -1698,7 +1698,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   },
 
   async check_verification_code(d, tx, args) {
-    if (!d.rc.unverifiedChat || !d.rc.customer)
+    if (!d.rc.unverifiedChat || d.rc.unverifiedEmail || !d.rc.customer)
       return refused({ error: 'There’s nobody on file for this chat to check a code for.' });
     const r = await executeCommandIn(
       tx,

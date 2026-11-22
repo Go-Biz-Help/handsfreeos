@@ -69,6 +69,11 @@ export interface IndeedEmail {
   readonly occurredAt?: string;
   /** The business's own addresses, never the applicant's. */
   readonly ours?: readonly string[];
+  /**
+   * Whether Indeed's domain vouched for it (sender-check.ts). False: anyone could have written Indeed's address in
+   * From, so no applicant is filed. Left out (a connected mailbox's mail): nobody checked, and it's read as before.
+   */
+  readonly senderVerified?: boolean | null;
 }
 
 export const indeedPrompt = (e: IndeedEmail): string =>
@@ -144,8 +149,10 @@ export async function fileIndeedApplicant(
   ctx: Pick<WorkerServices, 'db' | 'ai' | 'log' | 'wallet'>,
   scope: TenantScope,
   e: IndeedEmail,
-): Promise<'filed' | 'not_indeed' | 'turned_off' | 'not_an_applicant'> {
+): Promise<'filed' | 'not_indeed' | 'not_verified' | 'turned_off' | 'not_an_applicant'> {
   if (!isIndeedApplicantEmail({ from: e.from, subject: e.subject })) return 'not_indeed';
+  // Matched by Indeed's domain, and only once that domain vouched for it: a forged one would text whoever it names.
+  if (e.senderVerified === false) return 'not_verified';
   if (!(await takesApplicants(ctx, scope))) return 'turned_off';
   const applicant = await applicantOf(ctx, scope, e);
   if (!applicant) return 'not_an_applicant';

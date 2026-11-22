@@ -234,8 +234,17 @@ export async function textIn(
   return { messageId: output.messageId, conversationId: output.conversationId, at };
 }
 
-/** A customer's email to the business. */
-export async function emailIn(w: World, from: string, subject: string, body: string) {
+/**
+ * A customer's email to the business. `senderVerified` is what the mail service's checks said of its From domain
+ * (left out: nobody checked, like a connected mailbox's mail).
+ */
+export async function emailIn(
+  w: World,
+  from: string,
+  subject: string,
+  body: string,
+  opts: { readonly senderVerified?: boolean } = {},
+) {
   const { output } = await executeCommand(
     testDbs().worker.db,
     emailReceive,
@@ -248,6 +257,7 @@ export async function emailIn(w: World, from: string, subject: string, body: str
       to: [{ address: 'hello@business.example.com' }],
       subject,
       bodyText: body,
+      ...(opts.senderVerified === undefined ? {} : { senderVerified: opts.senderVerified }),
       reminderAfterMs: 86_400_000,
     },
     systemActor(scopeOf(w)),

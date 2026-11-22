@@ -72,6 +72,7 @@ import {
   conversationHandToAi,
   conversationPickUp,
   conversationTakeOver,
+  emailReceive,
   inboxList,
   inboxSummary,
   leadArchive,
@@ -903,6 +904,74 @@ describe('what the AI teammate may change', () => {
     await expectHfos(() => asAva(a, me, recordSetTags, tags), 'validation');
     const tagged = await asAva(a, me, recordSetTags, { ...tags, mode: 'add' });
     expect(tagged.output.tags.map((t) => t.id)).toEqual([tagId]);
+  });
+
+  it('changes nothing of a customer’s while it answers an email their domain didn’t vouch for (FDE1)', async () => {
+    const address = `uma-${randomUUID().slice(0, 8)}@example.com`;
+    const uma = await customer(a, 'Uma', { email: address });
+    const { leadId } = await run(
+      leadCreate,
+      { workspaceId: a.wsId, title: 'Furnace repair', personId: uma.personId },
+      a.owner,
+    );
+    const mail = async (senderVerified: boolean) =>
+      (
+        await sys(a, emailReceive, {
+          workspaceId: a.wsId,
+          provider: 'fake',
+          providerMessageId: randomUUID(),
+          messageIdHeader: `<${randomUUID()}@example.com>`,
+          from: { address },
+          subject: 'My details',
+          bodyText: 'New number, please update it and move my job along.',
+          senderVerified,
+          reminderAfterMs: 86_400_000,
+        })
+      ).output;
+    // Anyone can write Uma's address in From: this one's domain didn't vouch for it.
+    const forged = await mail(false);
+    const conversationId = forged.conversationId!;
+    await rows(
+      admin(),
+      sql`update app.conversations set handled_by = 'ai', ai_teammate_id = ${a.teammateId} where id = ${conversationId}`,
+    );
+    const answering = async (messageId: string) => ({
+      conversationId,
+      runId: (
+        await rows<{ id: string }>(
+          admin(),
+          sql`insert into app.ai_teammate_runs
+                (workspace_id, teammate_id, conversation_id, person_id, triggered_by, status, outcome, message_ids, ended_at)
+              values (${a.wsId}, ${a.teammateId}, ${conversationId}, ${uma.personId}, 'message.received', 'done',
+                'drafted', array[${messageId}::uuid], now())
+              returning id`,
+        )
+      )[0]!.id,
+    });
+    const onForged = await answering(forged.messageId!);
+    const details = { workspaceId: a.wsId, personId: uma.personId, firstName: 'Uma' };
+    const move = { workspaceId: a.wsId, leadId, stageId: await stageOf(a, 'open', 1) };
+    await expectHfos(
+      () => asAva(a, onForged, personUpdate, details),
+      'forbidden',
+      'email_sender_unverified',
+    );
+    await expectHfos(
+      () => asAva(a, onForged, leadMoveStage, move),
+      'forbidden',
+      'email_sender_unverified',
+    );
+    // Her own mail, signed by her domain, is hers as before.
+    const real = await mail(true);
+    expect(real.conversationId).toBe(conversationId);
+    const onReal = await answering(real.messageId!);
+    await asAva(a, onReal, personUpdate, details);
+    await asAva(a, onReal, leadMoveStage, move);
+    const [m] = await admin()
+      .select({ senderVerified: messages.senderVerified })
+      .from(messages)
+      .where(eq(messages.id, forged.messageId!));
+    expect(m!.senderVerified).toBe(false);
   });
 });
 

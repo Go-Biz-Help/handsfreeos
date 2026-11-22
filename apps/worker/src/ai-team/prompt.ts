@@ -315,6 +315,12 @@ function skillLines(rc: RunContext, texting: boolean, call = false): string[] {
 }
 
 function customerLines(rc: RunContext): string[] {
+  // FDE1: anyone can write a customer's address in an email's From.
+  if (rc.unverifiedEmail)
+    return [
+      'This email’s sender couldn’t be verified: anyone can put a customer’s address on an email, so it may not be them. You can’t see or change their bookings, bills, quotes, deals or details here.',
+      'Answer general questions and offer to help. For anything about their account, say the team will be in touch through the contact on file, or hand off.',
+    ];
   if (rc.unverifiedChat)
     return [
       'The customer is a website chat visitor. Anyone can type a name, number or email into a chat, so you can’t see or change bookings or records here yet.',

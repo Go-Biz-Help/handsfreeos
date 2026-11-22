@@ -166,7 +166,9 @@ describe('the AI’s contact details', () => {
     );
   });
 
-  it('adds and removes other emails and numbers, and never takes a name away', () => {
+  // AI3: this used to take the number and the city off with nothing the customer wrote about them, so a chat
+  // visitor's say-so could wipe a customer's details. A detail taken off must now be in what they wrote or said.
+  it('adds other emails and numbers, takes one off only when they said so, and never takes a name away', () => {
     const plan = planContactChanges(
       decision({
         details: [
@@ -177,7 +179,10 @@ describe('the AI’s contact details', () => {
         ],
       }),
       mike({ otherPhones: [{ phone: '+15125550111', label: 'Work' }] }),
-      opts,
+      {
+        ...opts,
+        trustedText: `${said}\nPlease stop calling 512-555-0111, that line is gone. And we were never in Austin.`,
+      },
     );
     expect(plan.personPatch).toEqual({
       otherEmails: [{ email: 'mike.j@new.test' }],
@@ -187,6 +192,71 @@ describe('the AI’s contact details', () => {
     expect(plan.skipped).toEqual([
       { what: 'the last name', why: 'a customer always keeps their name' },
     ]);
+  });
+
+  it('takes off nothing that isn’t in what the customer or the team wrote or said (AI3)', () => {
+    // Somebody in an unverified chat asked for these to go: none of it is in the trusted text.
+    const plan = planContactChanges(
+      decision({
+        details: [
+          { field: 'otherPhone', action: 'remove', value: '+15125550111', reason: 'Not theirs' },
+          { field: 'otherEmail', action: 'remove', value: 'mike@work.test', reason: 'Old job' },
+          { field: 'city', action: 'remove', value: null, reason: 'Wrong city' },
+        ],
+      }),
+      mike({
+        otherPhones: [{ phone: '+15125550111', label: 'Work' }],
+        otherEmails: [{ email: 'mike@work.test' }],
+      }),
+      opts,
+    );
+    expect(plan.personPatch).toBeNull();
+    expect(plan.skipped.map((s) => s.why)).toEqual([
+      'it isn’t in anything the customer or the team wrote or said',
+      'it isn’t in anything the customer or the team wrote or said',
+      'it isn’t in anything the customer or the team wrote or said',
+    ]);
+  });
+
+  it('never takes off a main email or number, even when they said so: only a new one replaces it', () => {
+    const plan = planContactChanges(
+      decision({
+        details: [
+          { field: 'email', action: 'remove', value: null, reason: 'Not theirs anymore' },
+          { field: 'phone', action: 'remove', value: null, reason: 'Not theirs anymore' },
+        ],
+      }),
+      mike(),
+      { ...opts, trustedText: 'mike@old.test and (512) 555-0101 aren’t mine anymore' },
+    );
+    expect(plan.personPatch).toBeNull();
+    expect(plan.skipped).toEqual([
+      {
+        what: 'the email',
+        why: 'it never takes off a main email or number, only replaces it with a new one',
+      },
+      {
+        what: 'the phone number',
+        why: 'it never takes off a main email or number, only replaces it with a new one',
+      },
+    ]);
+  });
+
+  it('keeps the number it replaces as Previous, beside the other numbers already on file', () => {
+    const plan = planContactChanges(
+      decision({
+        details: [{ field: 'phone', action: 'set', value: '(512) 555-0199', reason: 'New cell' }],
+      }),
+      mike({ otherPhones: [{ phone: '+15125550111', label: 'Work' }] }),
+      opts,
+    );
+    expect(plan.personPatch).toEqual({
+      phone: '+15125550199',
+      otherPhones: [
+        { phone: '+15125550111', label: 'Work' },
+        { phone: '+15125550101', label: CONTACT_AI_PREVIOUS_LABEL },
+      ],
+    });
   });
 
   it('finds a number however it was typed, and words whatever their case', () => {

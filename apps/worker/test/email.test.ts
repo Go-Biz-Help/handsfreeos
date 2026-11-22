@@ -832,3 +832,76 @@ describe('spam', () => {
     expect(await s.store.exists('telephony', file)).toBe(false);
   });
 });
+
+describe('mail whose sender’s domain didn’t vouch for it (FDE1)', () => {
+  it('is filed, but a customer’s address in From doesn’t spare it the spam check', async () => {
+    const jane = `jane-${token()}@example.com`;
+    await executeCommand(
+      api(),
+      personCreate,
+      { workspaceId, firstName: 'Jane', lastName: 'Doe', email: jane },
+      actor(owner),
+      meta(),
+    );
+    const from = { From: jane, FromName: 'Jane Doe', FromFull: { Email: jane, Name: 'Jane Doe' } };
+    // Sent from a forger's server: SPF passes for its own domain, not Jane's, and nothing is signed by hers.
+    const forged = inbound({
+      ...from,
+      Subject: 'New number',
+      Headers: [
+        { Name: 'Return-Path', Value: '<x@attacker.example>' },
+        { Name: 'X-Spam-Score', Value: '6.2' },
+        { Name: 'X-Spam-Tests', Value: 'HEADER_FROM_DIFFERENT_DOMAINS,SPF_PASS' },
+        {
+          Name: 'Received-SPF',
+          Value: 'pass (sender SPF authorized) identity=mailfrom; envelope-from=x@attacker.example',
+        },
+        { Name: 'Message-ID', Value: `<${randomUUID()}@attacker.example>` },
+      ],
+    });
+    expect((await post('/webhooks/postmark/inbound', forged)).statusCode).toBe(200);
+    await drain();
+    const [m] = await admin()
+      .select()
+      .from(messages)
+      .where(eq(messages.providerMessageId, forged.MessageID));
+    expect(m!.senderVerified).toBe(false);
+    const [c] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, m!.conversationId));
+    expect(c).toMatchObject({ counterpart: jane, folder: 'spam' });
+
+    // The same score on mail signed by her domain is hers, in the Inbox, as before.
+    const kim = `kim-${token()}@example.com`;
+    await executeCommand(
+      api(),
+      personCreate,
+      { workspaceId, firstName: 'Kim', lastName: 'Lee', email: kim },
+      actor(owner),
+      meta(),
+    );
+    const signed = inbound({
+      From: kim,
+      FromName: 'Kim Lee',
+      FromFull: { Email: kim, Name: 'Kim Lee' },
+      Headers: [
+        { Name: 'X-Spam-Score', Value: '6.2' },
+        { Name: 'X-Spam-Tests', Value: 'DKIM_SIGNED,DKIM_VALID,DKIM_VALID_AU,SPF_PASS' },
+        { Name: 'Message-ID', Value: `<${randomUUID()}@example.com>` },
+      ],
+    });
+    expect((await post('/webhooks/postmark/inbound', signed)).statusCode).toBe(200);
+    await drain();
+    const [k] = await admin()
+      .select()
+      .from(messages)
+      .where(eq(messages.providerMessageId, signed.MessageID));
+    expect(k!.senderVerified).toBe(true);
+    const [kc] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, k!.conversationId));
+    expect(kc).toMatchObject({ counterpart: kim, folder: 'inbox' });
+  });
+});

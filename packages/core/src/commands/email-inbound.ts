@@ -339,6 +339,10 @@ export const emailReceive = defineCommand({
       // Mail a person claimed for a customer is theirs, whatever a rule says.
       const rule = input.personId ? null : await senderRule(ctx.tx, workspaceId, counterpart);
       if (rule) folder = rule;
+      // Anyone can write a customer's address in From (FDE1): mail its domain didn't vouch for gets the spam check a
+      // stranger's mail does before it can be theirs.
+      else if (input.senderVerified === false && (input.spamScore ?? 0) >= SPAM_SCORE)
+        folder = 'spam';
       else if (matched || (await hasInboxThread(ctx.tx, workspaceId, counterpart))) {
         if (input.automatic) return { outcome: 'skipped' as const, ...none };
         folder = 'inbox';
@@ -486,6 +490,7 @@ export const emailReceive = defineCommand({
       occurredAt: at,
       sentAt: inbound ? null : at,
       activityId,
+      senderVerified: inbound ? (input.senderVerified ?? null) : null,
     });
     // New mail counts as unread and brings a closed thread back, in any folder; only the Inbox waits on a reply.
     const wake = inbound && fresh;

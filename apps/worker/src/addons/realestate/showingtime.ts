@@ -25,12 +25,12 @@ export interface ShowingTimeEmail {
   readonly feedback: ShowingFeedback | null;
 }
 
-/** Whether an email is ShowingTime's: from its domain, or saying so. */
-export function isShowingTimeEmail(from: string | null, subject: string | null): boolean {
-  return (
-    /@([a-z0-9-]+\.)*showingtime\.com\s*>?$/i.test((from ?? '').trim()) ||
-    /\bshowingtime\b/i.test(subject ?? '')
-  );
+/**
+ * Whether an email is ShowingTime's: from its domain. Never by its subject alone: anyone can write "ShowingTime" in a
+ * subject (FDE1), and the worker also reads it only when that domain vouched for it.
+ */
+export function isShowingTimeEmail(from: string | null): boolean {
+  return /@([a-z0-9-]+\.)*showingtime\.com\s*>?$/i.test((from ?? '').trim());
 }
 
 const MONTHS = [

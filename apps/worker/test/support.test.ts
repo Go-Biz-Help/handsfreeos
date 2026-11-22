@@ -130,7 +130,11 @@ const inbound = (over: Record<string, unknown> = {}) => ({
   Date: new Date().toUTCString(),
   TextBody: 'They went out on Monday and not since. Nothing changed at our end.',
   HtmlBody: '<p>They went out on Monday and not since.</p>',
-  Headers: [{ Name: 'Message-ID', Value: `<${randomUUID()}@mail.example.com>` }],
+  Headers: [
+    // Signed by the sender's own domain, as Postmark's spam filter found it.
+    { Name: 'X-Spam-Tests', Value: 'DKIM_SIGNED,DKIM_VALID,DKIM_VALID_AU,SPF_PASS' },
+    { Name: 'Message-ID', Value: `<${randomUUID()}@mail.example.com>` },
+  ],
   Attachments: [],
   ...over,
 });
@@ -394,5 +398,40 @@ describe('the desk belongs to the people who work here', () => {
         meta(),
       ),
     ).rejects.toMatchObject({ code: 'not_found' });
+  });
+});
+
+describe('mail whose sender’s domain didn’t vouch for it', () => {
+  it('is filed as from an unverified sender, never under the user’s account or business', async () => {
+    // Anyone can write Dana's address in From.
+    const subject = `Please reset my password ${randomUUID().slice(0, 8)}`;
+    const forged = inbound({
+      Subject: subject,
+      Headers: [
+        { Name: 'X-Spam-Tests', Value: 'HEADER_FROM_DIFFERENT_DOMAINS,SPF_SOFTFAIL' },
+        { Name: 'Message-ID', Value: `<${randomUUID()}@mail.example.com>` },
+      ],
+    });
+    expect((await post(forged)).statusCode).toBe(200);
+    await drain();
+    const [t] = await rows<{
+      id: string;
+      requester_email: string;
+      requester_user_id: string | null;
+      workspace_id: string | null;
+    }>(
+      admin(),
+      sql`select id, requester_email, requester_user_id, workspace_id from platform.tickets where subject = ${subject}`,
+    );
+    expect(t).toMatchObject({
+      requester_email: customer.email.toLowerCase(),
+      requester_user_id: null,
+      workspace_id: null,
+    });
+    const [opened] = await rows<{ data: Record<string, unknown> }>(
+      admin(),
+      sql`select data from platform.ticket_events where ticket_id = ${t!.id} and kind = 'opened'`,
+    );
+    expect(opened!.data).toMatchObject({ senderVerified: false });
   });
 });

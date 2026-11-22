@@ -437,7 +437,11 @@ describe('ShowingTime’s emails', () => {
   });
 
   it('become a showing to check, then its feedback, and nobody is emailed for them', async () => {
-    const receive = (subject: string, text: string) =>
+    const receive = (
+      subject: string,
+      text: string,
+      opts: { from?: string; senderVerified?: boolean } = {},
+    ) =>
       executeCommand(
         worker(),
         emailReceive,
@@ -446,10 +450,11 @@ describe('ShowingTime’s emails', () => {
           provider: 'fake',
           providerMessageId: randomUUID(),
           messageIdHeader: `<${randomUUID()}@showingtime.com>`,
-          from: { address: 'callcenter@showingtime.com' },
+          from: { address: opts.from ?? 'callcenter@showingtime.com' },
           to: [{ address: 'dana@showing-worker.example' }],
           subject,
           bodyText: text,
+          ...(opts.senderVerified === undefined ? {} : { senderVerified: opts.senderVerified }),
           reminderAfterMs: 86_400_000,
         },
         { type: 'system', workspaceId: ws, organizationId: org },
@@ -487,6 +492,14 @@ describe('ShowingTime’s emails', () => {
           where workspace_id = ${ws} and status = 'pending' and payload->>'showingId' = ${sam.id}`,
     );
     expect(n!.n).toBe(0);
+
+    // Anyone can write ShowingTime's address in From, or its name in a subject (FDE1): neither makes a showing.
+    const count = (await run('realestate.showing.list', { dealId: deal })).showings.length;
+    const planted = body(['Showing ID: 99902']).replace('Sam Ortiz', 'Kim Fox');
+    await receive('Showing Request', planted, { senderVerified: false });
+    await receive('ShowingTime: Showing Request', planted, { from: 'kim@elsewhere.example' });
+    await drain();
+    expect((await run('realestate.showing.list', { dealId: deal })).showings).toHaveLength(count);
 
     // Turned off in Deal settings → Connections, they're left in the Inbox as they are.
     await rows(

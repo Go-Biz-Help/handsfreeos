@@ -773,6 +773,11 @@ export interface TeammateToolOptions {
   readonly unverifiedChat?: boolean;
   /** And its customer was on file already, not added by the chat. */
   readonly strangerInChat?: boolean;
+  /**
+   * With `unverifiedChat`: it's an email whose sender's domain didn't vouch for it (FDE1), not a chat. The same tools
+   * are hidden, and a chat's code isn't offered: there's no chat to type it into.
+   */
+  readonly unverifiedEmail?: boolean;
   /** It's answering a conversation by text. */
   readonly texting?: boolean;
   /** It's answering a live phone call (M18 step 5). */
@@ -828,7 +833,7 @@ export function teammateTools(
     if (PHONE_ONLY.has(t.name)) return !!opts.phone;
     if (TEXTING_ONLY.has(t.name)) return !!opts.texting && !opts.phone;
     if (opts.phone && PHONE_HIDDEN.has(t.name)) return false;
-    if (UNVERIFIED_CHAT_ONLY.has(t.name)) return !!opts.unverifiedChat;
+    if (UNVERIFIED_CHAT_ONLY.has(t.name)) return !!opts.unverifiedChat && !opts.unverifiedEmail;
     if (opts.unverifiedChat && opts.strangerInChat && STRANGER_IN_CHAT_HIDDEN.has(t.name))
       return false;
     return !(opts.unverifiedChat && UNVERIFIED_CHAT_HIDDEN.has(t.name));

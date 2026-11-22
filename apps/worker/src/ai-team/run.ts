@@ -596,6 +596,7 @@ function toolsFor(run: StartedRun, rc: RunContext): TeammateTool[] {
   const all = teammateTools(rc.config, {
     unverifiedChat: rc.unverifiedChat,
     strangerInChat: rc.strangerInChat,
+    unverifiedEmail: !!rc.unverifiedEmail,
     texting: rc.conversation.channel === 'sms',
     funnel: !!rc.funnel?.replyMoves.length,
     suggestFunnels: !rc.funnel && !!rc.suggestible?.length,

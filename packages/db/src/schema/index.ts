@@ -1740,6 +1740,11 @@ export const messages = app.table('messages', {
   social: jsonb('social').$type<SocialExtras>().notNull().default({}),
   /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
   binItemId: binItemRef(),
+  /**
+   * Email (20261027033000): true when the From domain vouched for it (DMARC, or DKIM or SPF for that domain), false
+   * when it didn't, null when nobody checked (a connected mailbox's mail, older mail, other channels).
+   */
+  senderVerified: boolean('sender_verified'),
 });
 
 /**

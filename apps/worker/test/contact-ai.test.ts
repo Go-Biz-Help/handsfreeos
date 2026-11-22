@@ -28,7 +28,8 @@ import {
   contactAiReviewKey,
   contactAiSweepKey,
 } from '../src/contact-ai/index';
-import { textIn } from './ai-team-world';
+import { randomUUID } from 'node:crypto';
+import { emailIn, textIn } from './ai-team-world';
 import { attentionWorld, filedCustomer, type AttentionWorld } from './attention-world';
 import { admin, drain, jobRow, makeWorld, query, run } from './booking-world';
 import type { TestServices } from './helpers';
@@ -166,6 +167,46 @@ describe('after something happens with a customer', () => {
     expect(items[0]!.skipped).toEqual([
       { what: 'taking off “Commercial”', why: 'someone on the team put it on' },
     ]);
+  });
+
+  it('never takes a detail from an email whose sender’s domain didn’t vouch for it (AI2)', async () => {
+    const c = await filedCustomer(w, 'Ida');
+    const address = `ida-${randomUUID().slice(0, 8)}@example.com`;
+    await rows(admin(), sql`update app.people set email = ${address} where id = ${c.id}`);
+    // Anyone can write Ida's address in From: this one's domain didn't vouch for it.
+    await emailIn(w, address, 'New number', 'Hi, my new number is (512) 555-0166 thanks', {
+      senderVerified: false,
+    });
+    await runNow(w, CONTACT_AI_REVIEW_JOB, contactAiReviewKey(c.id));
+    const unread = 'it isn’t in anything the customer or the team wrote or said';
+    let { person } = await query(w, personGet, { workspaceId: w.workspaceId, personId: c.id });
+    expect(person.phoneE164).toBe(c.phone);
+    let { items } = await query(w, contactAiReviews, {
+      workspaceId: w.workspaceId,
+      personId: c.id,
+    });
+    // The forged email is all there is, and it doesn't count.
+    expect(items[0]!.skipped).toEqual([
+      {
+        what: 'the phone number',
+        why: 'there’s nothing the customer or the team is known to have written to go on',
+      },
+    ]);
+
+    // Her own email, signed by her domain, counts; the forged number still doesn't, and the old email is kept.
+    await backdateReviews(c.id, 31);
+    await emailIn(w, address, 'Re: New number', 'Also my new email is ida@new.test', {
+      senderVerified: true,
+    });
+    await runNow(w, CONTACT_AI_REVIEW_JOB, contactAiReviewKey(c.id));
+    ({ person } = await query(w, personGet, { workspaceId: w.workspaceId, personId: c.id }));
+    expect(person).toMatchObject({
+      email: 'ida@new.test',
+      otherEmails: [{ email: address, label: 'Previous' }],
+      phoneE164: c.phone,
+    });
+    ({ items } = await query(w, contactAiReviews, { workspaceId: w.workspaceId, personId: c.id }));
+    expect(items[0]!.skipped).toEqual([{ what: 'the phone number', why: unread }]);
   });
 
   it('takes off a tag it put on itself once it no longer fits', async () => {

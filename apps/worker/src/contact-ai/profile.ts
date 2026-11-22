@@ -4,8 +4,9 @@
  * newest last. Everything the customer or the team wrote is quoted as data.
  *
  * It also works out the text a detail must be found in (`trustedText`): what the customer and the team wrote or
- * said, never a website chat whose visitor didn't prove who they are, never what the AI teammate wrote, and never
- * a public form's answers (anybody can fill one in with a customer's email on it).
+ * said, never a website chat whose visitor didn't prove who they are, never an email whose sender's domain didn't
+ * vouch for it, never what the AI teammate wrote, and never a public form's answers (anybody can fill one in with a
+ * customer's email on it). `trusted` decides it for each message and call.
  */
 import {
   formatPhone,
@@ -24,7 +25,10 @@ const MAX_CONVERSATION_CHARS = 14_000;
 export interface ProfileLine {
   /** When, as the business reads it. */
   readonly at: string;
-  /** Who: "the customer", "the team", "the AI teammate", "a website visitor (not verified)". */
+  /**
+   * Who: "the customer", "the team", "the AI teammate", "a website visitor (not verified)", "someone writing from the
+   * customer’s address (not verified)".
+   */
   readonly who: string;
   /** How: text, email, website chat, call. */
   readonly how: string;
@@ -66,6 +70,41 @@ interface PersonRow extends Record<string, unknown> {
   created_at: Date;
   archived: boolean;
   tz: string | null;
+}
+
+/** A message or call, as `trusted` judges it. */
+export type Heard =
+  | {
+      readonly kind: 'message';
+      readonly channel: 'sms' | 'email' | 'chat' | 'portal';
+      readonly direction: 'inbound' | 'outbound';
+      /** Someone on the team sent it (not the AI teammate, not HandsFreeOS by itself). */
+      readonly byPerson: boolean;
+      /** A website chat: its visitor typed back the code sent to this customer. */
+      readonly chatVerified: boolean;
+      /** An email: whether its From domain vouched for it (messages.sender_verified; null when nobody checked). */
+      readonly senderVerified: boolean | null;
+    }
+  | { readonly kind: 'call'; readonly direction: 'inbound' | 'outbound' };
+
+/**
+ * Whether what was said counts as the customer's or the team's own words, so a detail may come from it
+ * (`trustedText`). The one place this is decided:
+ * - the team's own messages count; the AI teammate's and HandsFreeOS's automatic ones never do;
+ * - a website chat counts only once its visitor proved who they are with a code;
+ * - an email from the customer counts only when its From domain vouched for it (DMARC, or DKIM or SPF for that
+ *   domain). Anyone can write a customer's address in From, so a forged one, and one nobody checked (a connected
+ *   Gmail or Outlook mailbox's mail, older mail), never changes their details;
+ * - a text or portal message counts;
+ * - a call's transcript counts, for now. A caller ID can be faked too: when calls carry the carrier's attestation,
+ *   an unattested call stops counting here.
+ */
+export function trusted(h: Heard): boolean {
+  if (h.kind === 'call') return true;
+  if (h.direction === 'outbound' && !h.byPerson) return false;
+  if (h.channel === 'chat') return h.chatVerified;
+  if (h.channel === 'email' && h.direction === 'inbound') return h.senderVerified === true;
+  return true;
 }
 
 const clip = (s: string | null | undefined, max: number): string => {
@@ -291,12 +330,12 @@ export async function loadContactProfile(
         where r.workspace_id = ${workspaceId} and r.person_id = ${personId} and r.status = 'completed'
         order by r.completed_at desc limit 3`,
   );
-  const trusted: string[] = [];
+  const heard: string[] = [];
   for (const f of forms) {
     history.push(`Form “${clip(f.form, 100)}” filled in ${day(f.at)}:\n${clip(f.answers, 1500)}`);
     // Only a sheet the team filled in for them. A public link, an embed or a chat form proves nothing about
     // who typed it: anybody can put a customer's email on one and a new number beside it.
-    if (f.answers && f.by_team) trusted.push(f.answers);
+    if (f.answers && f.by_team) heard.push(f.answers);
   }
 
   const notes = await rows<{ body: string | null; at: Date; by_team: boolean }>(
@@ -309,7 +348,7 @@ export async function loadContactProfile(
   );
   const noteLines = notes.map((n) => `${day(n.at)}: ${clip(n.body, 400)}`);
   // A note the AI teammate wrote may be a website visitor's words it passed on, so only the team's count.
-  for (const n of notes) if (n.body && n.by_team) trusted.push(n.body);
+  for (const n of notes) if (n.body && n.by_team) heard.push(n.body);
   // The notes on file are shown but never trusted: a public form fills them in when they're empty.
   if (p.notes) noteLines.unshift(`On file: ${clip(p.notes, 800)}`);
 
@@ -321,14 +360,16 @@ export async function loadContactProfile(
     body: string | null;
     by_person: boolean;
     by_ai: boolean;
-    verified: boolean;
+    chat_verified: boolean;
+    sender_verified: boolean | null;
   }>(
     tx,
     sql`select * from (
           select m.created_at as at, m.channel, m.direction, m.subject, m.body_text as body,
             m.sent_by is not null as by_person, m.sent_by_teammate_id is not null as by_ai,
-            c.channel <> 'chat' or exists (select 1 from app.chat_visitors v
-              where v.conversation_id = c.id and v.verified_person_id = ${personId}) as verified
+            exists (select 1 from app.chat_visitors v
+              where v.conversation_id = c.id and v.verified_person_id = ${personId}) as chat_verified,
+            m.sender_verified
           from app.messages m join app.conversations c on c.id = m.conversation_id
           where c.workspace_id = ${workspaceId} and c.person_id = ${personId}
             -- A thread on a private record (a client's portal thread about their deal) is for that record's people:
@@ -359,17 +400,27 @@ export async function loadContactProfile(
   const lines: (ProfileLine & { t: number })[] = [
     ...messages.map((m) => {
       const words = [m.subject, m.body].filter(Boolean).join('\n');
+      const ok = trusted({
+        kind: 'message',
+        channel: m.channel,
+        direction: m.direction,
+        byPerson: m.by_person,
+        chatVerified: m.chat_verified,
+        senderVerified: m.sender_verified,
+      });
       const who =
         m.direction === 'inbound'
-          ? m.verified
+          ? ok
             ? 'the customer'
-            : 'a website visitor (not verified)'
+            : m.channel === 'chat'
+              ? 'a website visitor (not verified)'
+              : 'someone writing from the customer’s address (not verified)'
           : m.by_ai
             ? 'the AI teammate'
             : m.by_person
               ? 'the team'
               : 'HandsFreeOS (automatic)';
-      if (m.verified && (m.direction === 'inbound' || m.by_person)) trusted.push(words);
+      if (ok) heard.push(words);
       return {
         t: new Date(m.at).getTime(),
         at: day(m.at),
@@ -379,7 +430,8 @@ export async function loadContactProfile(
       };
     }),
     ...calls.map((c) => {
-      if (c.transcript) trusted.push(c.transcript);
+      if (c.transcript && trusted({ kind: 'call', direction: c.direction }))
+        heard.push(c.transcript);
       return {
         t: new Date(c.at).getTime(),
         at: day(c.at),
@@ -408,7 +460,7 @@ export async function loadContactProfile(
     history,
     conversation: kept,
     notes: noteLines,
-    trustedText: trusted.join('\n'),
+    trustedText: heard.join('\n'),
     hasHistory:
       history.length + kept.length + noteLines.length > 0 || !!p.source || fields.length > 0,
   };
