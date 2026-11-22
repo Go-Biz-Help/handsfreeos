@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { createTeammate, runDue } from './ai-team';
 import { emailFromCustomer, mailDetail, pdfAttachment, pdfFile } from './email';
-import { leadIntakeOff, signInOwner } from './booking-helpers';
+import { api, leadIntakeOff, signInOwner } from './booking-helpers';
 import { createBusiness, signUpAndConfirm, uniqueEmail, waitForMail } from './helpers';
 
 const BUSINESS = 'Lone Star HVAC & Roofing';
@@ -230,21 +230,25 @@ test('email: an own domain shows its DNS records, verifies, and becomes the send
   page,
 }) => {
   test.setTimeout(180_000);
-  await signUpAndConfirm(page, 'email-domain');
+  const { email } = await signUpAndConfirm(page, 'email-domain');
   const workspaceId = await createBusiness(page, { name: BUSINESS });
   const shared = await sharedAddress(page, workspaceId);
   const domain = `lonestarhvac-${Date.now().toString(36)}.com`;
 
-  await page.getByTestId('domain-input').fill(domain);
-  await page.getByRole('button', { name: 'Add domain' }).click();
-  await expect(page.getByText('Domain added. Now add the records it shows.')).toBeVisible();
+  // With no website name yet, Settings → Email offers the guided setup (its questions have a test of their own,
+  // below). Here the name is added for it, and the card shows what it needs.
+  await expect(page.getByTestId('email-guided-open')).toBeVisible();
+  const { token } = await signInOwner(email);
+  await api(token, 'commands', 'email_domain.add', { workspaceId, domain });
+  await page.reload();
   await expect(page.getByTestId('domain-name')).toHaveText(domain);
-  await expect(page.getByText('Waiting for DNS')).toBeVisible();
-  // The worker asks the mail service for the records; they show a moment later.
+  await expect(page.getByText('Waiting for its records').first()).toBeVisible();
+  // The worker asks the mail service for the records; they show a moment later, unfolded while any is missing.
   await expect(async () => {
     await page.reload();
     await expect(page.getByTestId('dns-TXT')).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 20_000 });
+  await expect(page.getByTestId('domain-records')).toContainText('of 3 found');
   await expect(page.getByTestId('dns-TXT')).toContainText('pm._domainkey');
   await expect(page.getByTestId('dns-CNAME')).toContainText('pm-bounces');
   // And the one that says this business set the domain up (M19).
@@ -338,10 +342,9 @@ test('email: Ava drafts an answer to my own mail once I let her, and I send it',
   const workspaceId = await createBusiness(page, { name: BUSINESS });
   const { token } = await signInOwner(email);
   await createTeammate(token, workspaceId);
-  await page.goto(`/app/w/${workspaceId}/settings/email`);
   const domain = `lonestarhvac-${Date.now().toString(36)}.com`;
-  await page.getByTestId('domain-input').fill(domain);
-  await page.getByRole('button', { name: 'Add domain' }).click();
+  await api(token, 'commands', 'email_domain.add', { workspaceId, domain });
+  await page.goto(`/app/w/${workspaceId}/settings/email`);
   await expect(async () => {
     await page.reload();
     await expect(page.getByTestId('dns-TXT')).toBeVisible({ timeout: 2000 });
@@ -358,7 +361,7 @@ test('email: Ava drafts an answer to my own mail once I let her, and I send it',
     await page.reload();
     const check = page.getByRole('button', { name: 'Check now' });
     if (await check.isVisible()) await check.click();
-    await expect(page.getByTestId('domain-receiving')).toContainText('Receiving', {
+    await expect(page.getByTestId('domain-receiving')).toContainText('Lands in HandsFreeOS', {
       timeout: 3000,
     });
   }).toPass({ timeout: 60_000 });

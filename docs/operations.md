@@ -5892,9 +5892,10 @@ Do it once the M19 migrations are on the hosted database and M19 is on `main`:
 1. **Mark the business.** Sign in at `https://app.handsfreeos.com/admin` as a staff admin, open
    **Businesses**, find HandsFreeOS's own business, and set **HandsFreeOS's own business** to **Yes**. Only one
    business should carry it. Only staff with `platform.own_business.manage` (staff admins) can change it.
-2. **Add the domain.** Switch to that business and open **Settings → Email**. Under **Use your own domain**,
-   type `handsfreeos.com` and click **Add domain**. Postmark already has this domain, so the worker reuses it and
-   its records are already in DNS: click **Check now** and it should say **Verified** within a minute.
+2. **Add the domain.** Switch to that business and open **Settings → Email**. Under **Use your own website
+   name**, click **Set it up** and answer the questions with `handsfreeos.com`. Postmark already has this domain,
+   so the worker reuses it and its records are already in DNS: on the last step, click **Check now** and it
+   should say **Verified** within a minute.
 3. **Add the addresses.** Under **Add an address on handsfreeos.com**:
    - `chris`, with **Who reads it** set to **Only Chris**. Only Chris reads and sends from it.
    - Any shared address, like `office` or `hello`, left as **The team**. It goes to the team's Inbox.
@@ -5902,8 +5903,8 @@ Do it once the M19 migrations are on the hosted database and M19 is on `main`:
 
    The first team address becomes the business's default, and mail to a name nobody has added goes there.
 
-4. **Receive mail here too.** In the same card, click **Receive mail here**. The MX record already points at
-   `inbound.postmarkapp.com`, so the badge turns to **Receiving** within 15 minutes.
+4. **Mail coming in.** In the **Your website name** card, click **Receive mail here**. The MX record already
+   points at `inbound.postmarkapp.com`, so the row turns to **Working** within 15 minutes.
 5. **Test it from outside.** From a personal email account, write to `chris@handsfreeos.com`.
    - Within a minute it shows in the **Inbox** marked **Only you**, and Chris's phone buzzes.
    - Nobody else in the business sees it.
@@ -12549,7 +12550,7 @@ The worker uses the fake carrier whenever `TELEPHONY_PROVIDER` is `fake` or not 
 
 - **Every email** the local stack sends lands in Mailpit at `http://127.0.0.1:54424`: sign-in emails from Supabase Auth, invitations and reminder alerts from the worker, and email a business sends to its customers. Nothing reaches a real inbox.
 - **Delivery reports.** About 0.6 seconds after a business emails a customer, the worker reports the email as delivered to itself, the way Postmark would. If the first recipient's address ends in `@bounce.example.com`, it reports a hard bounce (`smtp;550 5.1.1 user unknown`) instead.
-- **A business's own domain.** In **Settings** → **Email**, type the domain and click **Add domain**, then click **Check now**. It verifies at once. The DNS records it shows are placeholders (the DKIM value reads `LOCAL-DEVELOPMENT-KEY-NOT-REAL`). After a worker restart, domains it no longer remembers count as verified. A domain whose name starts with `lapsed-` (for example `lapsed-test.com`) verifies once, then stops verifying at the next check, so you can see how a lapsed domain looks. The daily check runs an hour after the worker first starts, then once a day, and its emails land in Mailpit.
+- **A business's own domain.** In **Settings** → **Email**, click **Set it up**, answer the questions with the domain, then click **Check now** on the last step. It verifies at once. The questions look the name up first: locally every name is at GoDaddy with no mail, except a name starting with `oldmx-` (looked after at SiteGround, with two old mail records that go away after two checks), `mail-` (its mail is at Google) and `typo-` (no such name). The DNS records it shows are placeholders (the DKIM value reads `LOCAL-DEVELOPMENT-KEY-NOT-REAL`). After a worker restart, domains it no longer remembers count as verified. A domain whose name starts with `lapsed-` (for example `lapsed-test.com`) verifies once, then stops verifying at the next check, so you can see how a lapsed domain looks. The daily check runs an hour after the worker first starts, then once a day, and its emails land in Mailpit.
 - **A customer writing in** has no button either. Post a message to the worker the way Postmark's inbound webhook would. The example writes as Mike Johnson (`mike.johnson@example.com`), one of Lone Star's seeded customers. Replace `<Lone Star address>` in both places with Lone Star's address on `mail.handsfreeos.com`, shown in Lone Star's **Settings** → **Email**. The first line sets the local webhook password, a fixed value that is not a secret. If you set your own `POSTMARK_WEBHOOK_PASSWORD` in `apps/worker/.env`, use that instead.
 
   ```bash
@@ -13983,21 +13984,20 @@ You should see the email marked delivered within a minute (that proves Postmark'
 
 Use a domain the business owns, where you can edit DNS.
 
-1. In **Settings** → **Email**, find **Use your own domain**, type the domain (for example `yourbusiness.com`), and click **Add domain**.
+1. In **Settings** → **Email**, find **Use your own website name** and click **Set it up**. Pick **My own, with my website name**, type the domain (for example `yourbusiness.com`), and answer the questions: an address for the team (for example `office`), who reads it, and where the mail arrives. On **Check it over**, click **Set it up**.
 
-   You should see "Domain added. Now add the two records." and the badge **Waiting for DNS**.
+   You should see the last step, **Add your records**, with the records to copy.
 
-2. At the domain's DNS provider, add the TXT record labeled "Proves the mail is yours (DKIM)", copying its Host and Value from the page.
-3. Add the CNAME record labeled "Handles bounces (Return-Path)": Host `pm-bounces`, Value `pm.mtasv.net`. The hosts are shown relative to the domain; most DNS providers add the domain for you, so type them as shown.
-4. Wait a few minutes, then click **Check now**. Click it again until both records show **Verified**. If you don't, the worker checks once a day and emails the owners and admins when the domain verifies.
+2. At the domain's DNS provider, add each record the last step lists, copying its Name and Value from the page. The names are shown relative to the domain; most DNS providers add the domain for you, so type them as shown.
+3. Wait a few minutes, then click **Check now**. Click it again until every record shows **Found**. If you don't, the worker checks on its own and emails the owners and admins when the domain verifies.
 
-   You should see "{domain} is verified".
+   You should see **Your email is ready** (or, if you picked mail arriving in HandsFreeOS, the mail record to change next).
 
-5. Under **Add an address on {domain}**, type the part before the @ (for example `office`) and click **Add address**.
+4. Open **Settings** → **Email**.
 
-   You should see "{address} is now the default address". The `mail.handsfreeos.com` address stays as the backup.
+   You should see the new address marked **Customers hear from this one**. The `mail.handsfreeos.com` address stays as the backup.
 
-6. Send another email to your personal address and reply to it.
+5. Send another email to your personal address and reply to it.
 
    You should see it come from the new address, with the reply address still on `mail.handsfreeos.com`, and the reply arrive in the inbox.
 
@@ -14452,7 +14452,7 @@ If a Gmail mailbox shows **Not syncing** with "Google refused the sign-in (<code
 
 #### A business's own domain never verifies, or stops verifying
 
-**Symptom.** The domain stays at **Waiting for DNS**, or shows **Needs attention**.
+**Symptom.** The website name stays at **Waiting for its records**, or shows **Needs attention**.
 
 **Likely cause.** The records are not visible yet, or were typed with the domain twice (for example `pm-bounces.yourbusiness.com.yourbusiness.com`). The worker also checks every domain once a day and emails the owners and admins when it verifies, so a domain left waiting verifies on its own once the records show. A verified domain moves to **Needs attention** when a daily check finds one of its records gone.
 

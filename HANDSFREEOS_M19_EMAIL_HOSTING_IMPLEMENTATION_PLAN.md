@@ -393,7 +393,8 @@ the person sends.
 
 **The guided questions: what the server does (Chris, 2026-11-22).** The same canvas, one question at
 a time: which email, the addresses, who reads each one, the one customers hear from, where mail
-arrives, then **Check it over** and **Set it up**. The server side is built; the screens come next.
+arrives, then **Check it over** and **Set it up**. The server side is below, then the web screens;
+the phone's come next.
 
 - **The questions' rules live once**, in `packages/core/src/messaging/email-guided.ts`: the answers
   (`EmailGuidedAnswers`), which screens a path has, what each screen still needs
@@ -419,6 +420,32 @@ arrives, then **Check it over** and **Set it up**. The server side is built; the
   (`email_domains.mx_records`, with priorities). The last step lists ours to add and the old ones
   to delete, and says which are still there; the steps email names them too. Receiving still turns
   on only when ours is the only record at the lowest priority.
+
+**The guided questions: the web screens (Chris, 2026-11-22).**
+
+- **One page**, `/onboarding/<business>/email`, on the shared guided-setup frame
+  (`apps/web/src/components/guided-setup/frame.tsx`): the questions and Check it over in
+  `email-setup/guided-flow.tsx`, the last step and Done in `email-setup/guided-last.tsx`. Only
+  someone who can change the business's email opens it.
+- **The answers save as they are given** (`guided_setup.save_draft`, setup `email`), with the
+  question they were left on and who was answering, so leaving and coming back lands on the same
+  question. Nothing is saved until something is answered, and Set it up puts the saved answers away.
+- **The last step** is for a website name with something left: its records to add, then our mail
+  record to add and the old ones to delete, each marked found or still there. It checks again on its
+  own every minute for ten minutes, and **Send these steps** emails them to whoever looks after the
+  website. What it lists and says is worked out once, in core (`emailGuidedLastStep`,
+  `emailGuidedDone`), for the phone too.
+- **Home's card** (`emailGuidedHomeOf`) says "Set up your business email", "Finish your email
+  records" or "Bring your mail in", and opens the page on the questions or the last step.
+- **Settings → Email** has no form for typing a website name any more. With none yet, **Use your own
+  website name** has **Set it up**. With one, **Your website name** has two rows, **Mail coming in**
+  and **Records** (folded once they're all found), **Open the steps** while something is left, and
+  **Run the guided setup again** under it. The Assistant still adds a name without the questions
+  (`manage_email_settings` add_domain), and does Set it up itself (`do_email_setup_apply`).
+- **Addresses in the page's address:** `?from=settings` (Finish later goes back to Settings),
+  `?at=records` (the last step), `&d=<website name's id>` (which one, with more than one),
+  `?again=1` (the questions, whatever is left) and `?done=1` (Done).
+- **Not built yet:** "Send a test" on Done and in Settings.
 
 ### Step 5 — HandsFreeOS's own business (done, 2026-09-30)
 
