@@ -7,6 +7,11 @@
  * answer is used, and the document that comes back. The model only says where things go, so the tokens are
  * few; they count as `texting_policy` usage for the person asking, against the daily AI limit.
  *
+ * **What it makes is kept** (`registration.record_policy`, the owner, 2026-11-22): the last one for each document,
+ * with the address it's for. The wizard shows it again when the business comes back, and "Email your web person"
+ * sends it whole, so the page is read and the AI asked once. Keeping it never fails the answer: the business has its
+ * document either way.
+ *
  * POST /v1/telephony/policy-update {workspaceId, kind, url?, text?, business} → {blocks, changes, url}
  * 403 without channels.manage; 422 `policy_missing`, `policy_unreachable`, `policy_unreadable` (too few words, a
  * PDF, or the host's robot check instead of the page),
@@ -16,6 +21,7 @@
 import rateLimit from '@fastify/rate-limit';
 import {
   checkedPolicyPlan,
+  executeCommand,
   HfosError,
   POLICY_PLACE_SCHEMA,
   POLICY_PLACE_SYSTEM,
@@ -24,6 +30,7 @@ import {
   policyPlacePrompt,
   policyReadRefusal,
   PolicyUpdateInput,
+  registrationRecordPolicy,
   robotCheck,
   robotCheckWhy,
   textingSection,
@@ -42,7 +49,7 @@ import {
   askStructured,
 } from '../ai/ask';
 import { pageText } from '../knowledge/crawl';
-import type { TenantScope } from '../services';
+import { systemActor, workerMeta, type TenantScope } from '../services';
 import { authenticate, parseBody, requirePermission, type HttpDeps } from './common';
 import { SafeFetchError } from './safe-fetch';
 
@@ -211,7 +218,28 @@ export async function policyUpdate(
         ? `That doesn’t look like a ${NAMES[input.kind]}. Paste the whole of yours, from its title to its contact details.`
         : `${read.url} doesn’t look like a ${NAMES[input.kind]}. Check the address, or copy yours from its page and paste it here instead.`,
     );
-  return { ...updatedPolicy(blocks, plan, section), url: read.url };
+  const made = updatedPolicy(blocks, plan, section);
+  // Kept for the next visit and for the web person's files, under the address the registration names it by.
+  const named = input.url?.trim();
+  try {
+    await executeCommand(
+      deps.httpDb,
+      registrationRecordPolicy,
+      {
+        workspaceId: input.workspaceId,
+        kind: input.kind,
+        sourceUrl: named ? (/^https?:\/\//i.test(named) ? named : `https://${named}`) : null,
+        pasted,
+        blocks: made.blocks.map((b) => ({ ...b })),
+        changes: made.changes.map((c) => ({ ...c })),
+      },
+      systemActor(scope, userId),
+      workerMeta(),
+    );
+  } catch (err) {
+    deps.log.warn({ err, workspaceId: input.workspaceId, kind: input.kind }, 'policy not kept');
+  }
+  return { ...made, url: read.url };
 }
 
 export async function registerPolicyUpdateRoutes(

@@ -3,6 +3,8 @@
  * agree (the owner's pick 9a, 2026-11-22): only for people who manage the business's channels; every form on the
  * business's website that asks for a phone number, each once with the page it's on; the business's own HandsFreeOS
  * form, framed on its contact page, known as its own; and a site that doesn't open comes back as no pages opened.
+ *
+ * The same look says where the site's own privacy policy and terms are (the owner's pick 10a), for the question after.
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -29,7 +31,11 @@ const env = testEnv();
 const admin = () => testDbs().admin.db;
 
 const SITE = 'https://formsfound.test';
-const NAV = `<nav><a href="/">Home</a> <a href="/contact">Contact</a> <a href="/quote">Get a quote</a></nav>`;
+// The footer names the site's privacy policy and terms the way sites do. Neither page is served: where they are is
+// read from the links alone, and a blog post about privacy isn't taken for the policy.
+const NAV = `<nav><a href="/">Home</a> <a href="/contact">Contact</a> <a href="/quote">Get a quote</a></nav>
+<footer><a href="/blog/why-privacy-matters">Why privacy matters</a> <a href="/privacy-policy">Privacy</a>
+<a href="/legal/terms-of-service">Terms</a></footer>`;
 const page = (body: string) => ({
   bytes: Buffer.from(`<html><body>${NAV}${body}</body></html>`),
   contentType: 'text/html; charset=utf-8',
@@ -141,9 +147,22 @@ describe('the forms on a business’s website, before it picks how customers agr
     });
   });
 
+  it('says where the site’s own privacy policy and terms are, from the pages it links', async () => {
+    const res = await post(ownerToken, 'formsfound.test');
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { policyPages: unknown }).policyPages).toEqual({
+      privacy: `${SITE}/privacy-policy`,
+      terms: `${SITE}/legal/terms-of-service`,
+    });
+  });
+
   it('answers with no pages opened for a site that isn’t there', async () => {
     const res = await post(ownerToken, 'nobody-home.test');
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ opened: 0, forms: [] });
+    expect(res.json()).toMatchObject({
+      opened: 0,
+      forms: [],
+      policyPages: { privacy: null, terms: null },
+    });
   });
 });

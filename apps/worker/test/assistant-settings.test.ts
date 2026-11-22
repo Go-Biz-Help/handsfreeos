@@ -1680,6 +1680,7 @@ describe('the carrier registration', () => {
       ein: '12-3456789',
       samples: [sample, ''],
     });
+    expect(saved.answers!.form).not.toHaveProperty('policyLooked');
     expect(saved.answers!.at).toBe(5);
 
     // A later answer keeps the earlier ones. With a way customers agree but nothing yet to tell the carriers about
@@ -1705,6 +1706,8 @@ describe('the carrier registration', () => {
       optInPath: 'hosted',
       sensitive: [],
       ownPolicyUrl: '',
+      // The person's own pick: the screen's look at their website for a policy leaves it alone.
+      policyLooked: true,
       samples: [sample, ''],
     });
     expect(again.answers!.at).toBe(5);

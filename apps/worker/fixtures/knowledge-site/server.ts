@@ -89,13 +89,18 @@ export async function startFixtureSite(
     }
     // A home page for any business, by name (/for/<name>): a texting registration's review looks for the business's
     // name on its website, and the browser specs register businesses of many names. Nothing links to it.
-    if (path.startsWith('/for/')) {
-      const name = decodeURIComponent(path.slice('/for/'.length))
+    // The same page with its privacy policy linked in the footer (/with-policy/<name>), the way a real site does:
+    // texting approval finds a site's own policy among the pages it links. Nothing links to this one either.
+    const named = /^\/(for|with-policy)\/(.+)$/.exec(path);
+    if (named) {
+      const name = decodeURIComponent(named[2]!)
         .replace(/[<>&"]/g, '')
         .slice(0, 120);
+      const footer =
+        named[1] === 'with-policy' ? '<footer><a href="/privacy">Privacy policy</a></footer>' : '';
       return html(
         res,
-        `<!doctype html><html lang="en"><head><title>${name}</title></head><body><main><h1>${name}</h1><p>${`${name} fixes heating and cooling across the city, fast and friendly, with upfront prices and same-day visits. `.repeat(3)}</p></main></body></html>`,
+        `<!doctype html><html lang="en"><head><title>${name}</title></head><body><main><h1>${name}</h1><p>${`${name} fixes heating and cooling across the city, fast and friendly, with upfront prices and same-day visits. `.repeat(3)}</p></main>${footer}</body></html>`,
       );
     }
     // A contact page that shows a form in a frame (/with-form?src=<the form's address>), the way a business's own

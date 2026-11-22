@@ -138,7 +138,7 @@ export async function tapFromCustomer(opts: {
 }
 
 /** The stand-in website playwright.config.ts serves, which the worker may open (FETCH_TEST_ORIGINS). */
-const KNOWLEDGE_SITE = 'http://127.0.0.1:4190';
+export const KNOWLEDGE_SITE = 'http://127.0.0.1:4190';
 
 /** The guided setup's Next: on to the screen named, or Check it over. */
 export async function nextTo(page: Page, screen: string): Promise<void> {

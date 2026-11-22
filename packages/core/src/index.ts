@@ -59,6 +59,8 @@ export * from './messaging/a2p';
 export * from './messaging/policies';
 // A business's own policy or terms, given back with the texting section in place.
 export * from './messaging/policy-update';
+// Which pages of a website are its own privacy policy and terms, by their addresses.
+export * from './messaging/policy-pages';
 export * from './messaging/preflight';
 export * from './messaging/site-forms';
 // The page a website's host shows a bot instead of the page asked for.

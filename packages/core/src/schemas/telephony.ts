@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { normalizePhone } from '../crm/phone';
 import { SENSITIVE_TOPIC_IDS, SENSITIVE_TOPICS } from '../messaging/a2p';
+import {
+  POLICY_MAX_BLOCKS,
+  POLICY_MAX_CHANGES,
+  POLICY_MAX_CHARS,
+} from '../messaging/policy-update';
 import { CONFIRMATION_IDS } from '../messaging/preflight';
 import { WEBSITE_FIX_IDS } from '../messaging/website-fixes';
 import { isoDateTime, uuid } from './common';
@@ -577,6 +582,60 @@ export const RegistrationEnsureContactFormOutput = z.object({
   embedOrigins: z.array(z.string()),
   /** It was made just now; false when the business already had one. */
   created: z.boolean(),
+});
+
+// ---------- the business's own policy and terms, kept whole (the owner, 2026-11-22) ----------
+
+/** One block of a policy handed back whole (core's UpdatedPolicyBlock). */
+const policyBlockOut = z.object({
+  kind: z.enum(['heading', 'paragraph', 'item']),
+  text: z.string().max(POLICY_MAX_CHARS),
+  level: z.number().int().min(1).max(6).optional(),
+  gap: z.boolean(),
+  /** `added` for the part about texts, `changed` for a line of the business's own that had to change. */
+  mark: z.enum(['added', 'changed']).nullable(),
+});
+/** A line of the business's own that changed (core's PolicyChange). */
+const policyChangeOut = z.object({
+  action: z.enum(['remove', 'replace']),
+  before: z.string().max(POLICY_MAX_CHARS),
+  after: z.string().max(POLICY_MAX_CHARS).nullable(),
+  why: z.string().max(1000),
+});
+
+/**
+ * Worker: a business's own privacy policy or terms as it was just handed back, whole, with the part about texts in
+ * place. Kept so coming back shows it without reading the page again, and so "Email your web person" can send it.
+ */
+export const RegistrationRecordPolicyInput = z.object({
+  workspaceId: uuid,
+  kind: z.enum(['privacy', 'terms']),
+  /** The page it's on, as the registration names it. Null when it was pasted with no address given. */
+  sourceUrl: z.string().trim().min(1).max(2000).nullable(),
+  /** Its words were pasted in, because the page couldn't be read. */
+  pasted: z.boolean(),
+  // The business's blocks, and the section's own few.
+  blocks: z
+    .array(policyBlockOut)
+    .min(1)
+    .max(POLICY_MAX_BLOCKS + 50),
+  changes: z.array(policyChangeOut).max(POLICY_MAX_CHANGES),
+});
+export const RegistrationRecordPolicyOutput = z.object({ madeAt: isoDateTime });
+
+/** A policy or terms as it was last handed back. */
+const keptPolicy = z.object({
+  sourceUrl: z.string().nullable(),
+  pasted: z.boolean(),
+  blocks: z.array(policyBlockOut),
+  changes: z.array(policyChangeOut),
+  madeAt: isoDateTime,
+});
+export const RegistrationGetPoliciesInput = z.object({ workspaceId: uuid });
+export const RegistrationGetPoliciesOutput = z.object({
+  /** Null when the business's own privacy policy hasn't been handed back yet. */
+  privacy: keptPolicy.nullable(),
+  terms: keptPolicy.nullable(),
 });
 
 /** Worker: send what HandsFreeOS approved, exactly as the business left it. */

@@ -79,6 +79,11 @@ export interface SiteScan {
   }[];
   /** Where pages came from when not our own read: the business's browser, or its screenshots (`site-pages.ts`). */
   readonly via?: readonly ('browser' | 'screenshot')[];
+  /**
+   * Every page address on the site the walk came across, opened or not: where its privacy policy and terms are is
+   * read from them (`policyPagesAmong`).
+   */
+  readonly seen?: readonly string[];
 }
 
 // ---------- reading a page ----------
