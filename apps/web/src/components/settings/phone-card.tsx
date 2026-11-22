@@ -328,7 +328,10 @@ export function PhoneCard({
                   variant={step === 'rejected' ? 'secondary' : 'primary'}
                   size="sm"
                   onClick={() =>
-                    document.getElementById('approval')?.scrollIntoView({ behavior: 'smooth' })
+                    // Approval is a guided page of its own; what the carriers turned down is read on this one first.
+                    step === 'submit_registration' && !setup
+                      ? router.push(`/onboarding/${workspaceId}/texting`)
+                      : document.getElementById('approval')?.scrollIntoView({ behavior: 'smooth' })
                   }
                   data-testid="start-approval"
                 >

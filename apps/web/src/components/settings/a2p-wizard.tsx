@@ -30,8 +30,13 @@ import {
   optInDescriptionFor,
   ownSiteBoxText,
   privacyPolicy,
+  industryLabel,
   sameDescription,
-  sampleSuggestions,
+  SAMPLE_KINDS,
+  sampleChoices,
+  sampleHasOptOut,
+  sampleNamesBusiness,
+  samplesFitIndustry,
   senderForCarriers,
   SENSITIVE_TOPICS,
   sendsOffers,
@@ -58,6 +63,7 @@ import {
   type PolicyUpdateInput,
   type PolicyUpdateOutput,
   type PreflightCheck,
+  type SampleKind,
   type SensitiveTopicId,
   type TextingFeesPaidFor,
 } from '@hfos/core';
@@ -73,9 +79,19 @@ import {
   MessageCircle,
   Sparkles,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
+import { GuidedCard, type GuidedStep, type SavedState } from '@/components/guided-setup/frame';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/field';
@@ -372,7 +388,29 @@ interface Step {
   readonly blurb: string;
   /** The fields this step owns. A blocker on one of these stops the step advancing. */
   readonly fields: readonly A2pField[];
+  /** Which of the four parts it belongs to (`PARTS`), and what the list beside the question calls it. */
+  readonly part: number;
+  readonly label: string;
 }
+
+/** The eight questions in four parts (the owner's design, 22 Nov 2026): what the start screen and the side list name. */
+const PARTS: readonly { readonly title: string; readonly about: string }[] = [
+  {
+    title: 'Your business',
+    about: 'Your legal name and EIN, your website and who to write to. The carriers look you up.',
+  },
+  { title: 'Your texts', about: 'What you’ll text about, and two texts you’d really send.' },
+  {
+    title: 'Your website',
+    about:
+      'Customers need a place to say yes to texts, and a privacy policy and terms that mention them. We hand you both. You or your web person put them on your site.',
+  },
+  {
+    title: 'We check it, then you send it',
+    about:
+      'We open your site the way a carrier’s reviewer does and show you anything they’d turn down. Then the carriers take 1 to 3 weeks.',
+  },
+];
 
 const STEPS: readonly Step[] = [
   {
@@ -380,48 +418,64 @@ const STEPS: readonly Step[] = [
     title: 'Who the carriers will look up',
     blurb: 'They check this against IRS records before they let you text anyone.',
     fields: ['legalName', 'businessType', 'ein'],
+    part: 0,
+    label: 'Who the carriers look up',
   },
   {
     key: 'where',
     title: 'Where to find you',
     blurb: 'Someone reviewing this will open your website and read it.',
     fields: ['website'],
+    part: 0,
+    label: 'Where to find you',
   },
   {
     key: 'contact',
     title: 'Who to write to',
     blurb: 'The carriers write here if they need something. Nobody else sees it.',
     fields: ['contact'],
+    part: 0,
+    label: 'Who to write to',
   },
   {
     key: 'about',
     title: 'What you will text about',
     blurb: 'Pick the one that matches your week, not the one that sounds best.',
     fields: ['useCase', 'monthlyVolume', 'sensitiveTopics'],
+    part: 1,
+    label: 'What you’ll text about',
   },
   {
     key: 'samples',
     title: 'Two texts you would really send',
     blurb: 'These are read as the actual messages you plan to send.',
     fields: ['messageSamples'],
+    part: 1,
+    label: 'Two texts you’d really send',
   },
   {
     key: 'optin',
     title: 'How customers agree to get texts',
     blurb: 'The part that is checked hardest — and the part we can do for you.',
     fields: ['optInPath', 'optInUrl', 'optInProofUrl', 'otherWays', 'optInDescription'],
+    part: 2,
+    label: 'How customers agree',
   },
   {
     key: 'policy',
     title: 'Your privacy policy and terms',
     blurb: 'The reviewer opens both, and reads the policy for one particular sentence.',
     fields: ['policyContact'],
+    part: 2,
+    label: 'Privacy policy and terms',
   },
   {
     key: 'review',
     title: 'Before it goes',
     blurb: 'Everything the carriers will see.',
     fields: [],
+    part: 3,
+    label: 'Checks before it goes',
   },
 ];
 
@@ -1270,6 +1324,12 @@ function OtherWays({
 
 // ---------- the wizard ----------
 
+/** What the page around the wizard can ask of it. */
+export interface A2pWizardHandle {
+  /** Saves any answer the wizard hasn't saved yet, and comes back when it's kept. */
+  flush: () => Promise<void>;
+}
+
 export function A2pWizard({
   workspaceId,
   businessName,
@@ -1281,11 +1341,24 @@ export function A2pWizard({
   draft = null,
   surfaces: initialSurfaces = EMPTY_SURFACES,
   feesPaidFor = null,
+  industry = null,
+  guided = null,
+  handle,
   onBack,
   onSubmitted,
 }: {
   workspaceId: string;
+  /** For the page around it: `flush` saves what hasn't been saved yet, before the page goes somewhere else. */
+  handle?: Ref<A2pWizardHandle>;
   businessName: string;
+  /** The kind of business, which the example texts are worded for. */
+  industry?: string | null;
+  /**
+   * On its own guided page (`/onboarding/<business>/texting`): the question sits in the guided setup's card, with the
+   * four parts listed beside it and a start screen before the first question. `onSaved` tells the page's Saved mark.
+   * Left out, it's the plain wizard inside another page (sign-up's number step).
+   */
+  guided?: { readonly onSaved: (state: SavedState) => void; readonly onLater: () => void } | null;
   /** The website the business already gave, which a first registration starts from. */
   businessWebsite?: string | null;
   /** The address setup asked for, which a first registration starts from too. */
@@ -1318,6 +1391,8 @@ export function A2pWizard({
     const step = typeof draft?.['at'] === 'number' ? Math.floor(draft['at']) : 0;
     return Math.min(Math.max(step, 0), STEPS.length - 1);
   });
+  // The guided page opens on what's about to happen, the first time; with answers already, on the question left.
+  const [started, setStarted] = useState(!guided || !!draft || !!initial);
   const [busy, setBusy] = useState(false);
   const [serverErrors, setServerErrors] = useState<string[]>([]);
   // The business says these details are true before they go to a carrier. Kept from the old form: it is
@@ -1412,6 +1487,46 @@ export function A2pWizard({
     }, 800);
     return () => clearTimeout(timer);
   }, [form, at, workspaceId]);
+  // Leaving inside that moment (Finish later straight after typing) still keeps the last answer: the page around the
+  // wizard asks for what hasn't been saved yet to be saved before it goes, and so does the wizard going away.
+  const latest = useRef({ form, at });
+  useEffect(() => {
+    latest.current = { form, at };
+  }, [form, at]);
+  const flush = useCallback(async () => {
+    await saving.current;
+    const answers = latest.current;
+    const json = JSON.stringify(answers);
+    if (sent.current || json === lastSaved.current) return;
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/registration.save_draft', {
+          body: { workspaceId, answers },
+        }),
+      );
+      lastSaved.current = json;
+      setSaveState('saved');
+    } catch {
+      setSaveState('failed');
+    }
+  }, [workspaceId]);
+  useImperativeHandle(handle, () => ({ flush }), [flush]);
+  useEffect(
+    () => () => {
+      if (sent.current || JSON.stringify(latest.current) === lastSaved.current) return;
+      void apiBrowser()
+        .POST('/v1/commands/registration.save_draft', {
+          body: { workspaceId, answers: latest.current },
+        })
+        .catch(() => undefined);
+    },
+    [workspaceId],
+  );
+
+  const onSaved = guided?.onSaved;
+  useEffect(() => {
+    onSaved?.(saveState === 'failed' ? 'error' : saveState);
+  }, [onSaved, saveState]);
 
   const local = !number || number.numberType === 'local';
   // What sending it costs: the carriers' fees, from what is already sent or paid for and the volume picked.
@@ -1667,22 +1782,8 @@ export function A2pWizard({
     </Field>
   );
 
-  return (
-    <div className="mx-auto max-w-[620px]" data-testid="business-step">
-      <Progress current={at} total={STEPS.length} />
-      <p className="-mt-3 mb-4 text-right text-[12px] text-text-3" aria-live="polite">
-        {saveState === 'saving'
-          ? 'Saving…'
-          : saveState === 'saved'
-            ? 'Saved. You can come back to this later.'
-            : saveState === 'failed'
-              ? 'Couldn’t save just now. We’ll try again when you change something.'
-              : null}
-      </p>
-      <ReviewBanner review={review} />
-      <h2 className="text-[19px] font-semibold">{step.title}</h2>
-      <p className="mb-5 mt-1 text-[13.5px] text-text-2">{step.blurb}</p>
-
+  const body = (
+    <>
       {step.key === 'business' ? (
         <div className="space-y-3.5">
           {field('legalName', 'The name on your IRS letter', {
@@ -1868,29 +1969,16 @@ export function A2pWizard({
                   )
                 }
               />
+              <SampleMarks sample={sample} businessName={businessName} />
             </Field>
           ))}
-          <div className="rounded-menu border border-border bg-card-2 p-3.5">
-            <p className="text-[13.5px] font-semibold">Stuck? Start from one of these</p>
-            <div className="mt-2 space-y-2">
-              {sampleSuggestions(businessName, form.useCase).map((suggestion, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    const next = [...form.samples];
-                    const slot = next.findIndex((s) => !s.trim());
-                    next[slot === -1 ? 0 : slot] = suggestion;
-                    set('samples', next);
-                  }}
-                  data-testid={`a2p-suggestion-${i}`}
-                  className="block w-full rounded-menu bg-card p-2.5 text-left text-[13px] text-text-2 hover:bg-card-3"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          </div>
+          <SamplePicker
+            businessName={businessName}
+            useCase={form.useCase}
+            industry={industry}
+            samples={form.samples}
+            onUse={(next) => set('samples', next)}
+          />
           <Issues issues={issuesFor(issues, 'messageSamples')} />
         </div>
       ) : null}
@@ -2042,13 +2130,16 @@ export function A2pWizard({
           ) : null}
         </div>
       ) : null}
-
+    </>
+  );
+  const footer = (
+    <div>
       <div className="mt-6 flex items-center justify-between gap-3">
         <Button
           type="button"
           variant="secondary"
-          onClick={() => (at === 0 ? onBack?.() : setAt(at - 1))}
-          disabled={busy || (at === 0 && !onBack)}
+          onClick={() => (at > 0 ? setAt(at - 1) : guided ? setStarted(false) : onBack?.())}
+          disabled={busy || (at === 0 && !onBack && !guided)}
         >
           <ArrowLeft className="h-4 w-4" />
           Back
@@ -2086,6 +2177,274 @@ export function A2pWizard({
           Fix the above to carry on. It saves a week of waiting.
         </p>
       ) : null}
+    </div>
+  );
+
+  if (guided) {
+    // What each question was answered with, for the list beside it.
+    const said: Record<string, string | null> = {
+      business: form.legalName.trim() || null,
+      where: form.website.trim() ? hostOf(withScheme(form.website)) : null,
+      contact: `${form.contactFirst} ${form.contactLast}`.trim() || null,
+      about: USE_CASES.find((u) => u.value === form.useCase)?.title ?? null,
+      samples: `${form.samples.filter((x) => x.trim()).length} written`,
+      optin: WAY_CHOICES.find((w) => w.value === form.optInPath)?.title ?? null,
+      policy:
+        form.ownPolicyUrl.trim() && form.ownTermsUrl.trim()
+          ? 'Your own'
+          : form.ownPolicyUrl.trim() || form.ownTermsUrl.trim()
+            ? 'One of yours, one of ours'
+            : 'The ones we write for you',
+      review: null,
+    };
+    const steps: GuidedStep[] = STEPS.map((x, i) => ({
+      key: x.key,
+      label: x.label,
+      value: started && i < at ? (said[x.key] ?? null) : null,
+      state: !started || i > at ? 'todo' : i === at ? 'now' : 'done',
+      group: PARTS[x.part]!.title.replace('We check it, then you send it', 'Send it'),
+    }));
+    if (!started)
+      return (
+        <GuidedCard
+          screen="start"
+          testId="texting-approval"
+          kicker="Texting approval"
+          title="Let’s get you approved to text"
+          hint="The phone carriers check every business before it can text. Here’s what happens, in four parts."
+          banner={<ReviewBanner review={review} />}
+          steps={steps}
+          stepsTitle="Texting approval so far"
+          footer={
+            <div className="flex items-center justify-between gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={guided.onLater}
+                data-testid="texting-approval-later"
+              >
+                Do it later
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                onClick={() => setStarted(true)}
+                data-testid="texting-approval-start"
+              >
+                Start
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          }
+        >
+          <ol className="flex flex-col gap-3.5">
+            {PARTS.map((part, i) => (
+              <li key={part.title} className="flex items-start gap-3">
+                <span
+                  aria-hidden
+                  className="mt-px inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-accent-soft text-[13px] font-semibold text-accent-text"
+                >
+                  {i + 1}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[14.5px] font-semibold">{part.title}</span>
+                  <span className="block text-[13.5px] leading-normal text-text-2">
+                    {part.about}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ol>
+          <div className="rounded-card bg-card-2 p-4">
+            <p className="text-[13.5px] font-semibold">Have these handy</p>
+            <ul className="mt-2 flex flex-col gap-1.5 text-[13.5px] text-text-2">
+              {[
+                'Your EIN, and your business name the way your IRS letter writes it.',
+                'A way to change your website, or the email of the person who looks after it.',
+              ].map((line) => (
+                <li key={line} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 flex-none text-success-text" aria-hidden />
+                  {line}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </GuidedCard>
+      );
+    return (
+      <GuidedCard
+        screen={step.key}
+        testId="texting-approval"
+        kicker={`Texting approval · ${steps[at]!.group} · Question ${at + 1} of ${STEPS.length}`}
+        title={step.title}
+        hint={step.blurb}
+        banner={<ReviewBanner review={review} />}
+        steps={steps}
+        stepsTitle="Texting approval so far"
+        footer={footer}
+      >
+        <div data-testid="business-step">{body}</div>
+      </GuidedCard>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-[620px]" data-testid="business-step">
+      <Progress current={at} total={STEPS.length} />
+      <p className="-mt-3 mb-4 text-right text-[12px] text-text-3" aria-live="polite">
+        {saveState === 'saving'
+          ? 'Saving…'
+          : saveState === 'saved'
+            ? 'Saved. You can come back to this later.'
+            : saveState === 'failed'
+              ? 'Couldn’t save just now. We’ll try again when you change something.'
+              : null}
+      </p>
+      <ReviewBanner review={review} />
+      <h2 className="text-[19px] font-semibold">{step.title}</h2>
+      <p className="mb-5 mt-1 text-[13.5px] text-text-2">{step.blurb}</p>
+      {body}
+      {footer}
+    </div>
+  );
+}
+
+// ---------- the example texts ----------
+
+/** Under an example as it's typed: what a reviewer looks for that it already says, and how long it is. */
+function SampleMarks({ sample, businessName }: { sample: string; businessName: string }) {
+  const text = sample.trim();
+  const marks = [
+    ...(text && sampleNamesBusiness(text, businessName) ? [`Says ${businessName}`] : []),
+    ...(text && sampleHasOptOut(text) ? ['Says how to stop'] : []),
+  ];
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[12.5px]">
+      <span className="flex flex-wrap gap-x-3 gap-y-1">
+        {marks.map((mark) => (
+          <span key={mark} className="inline-flex items-center gap-1 text-success-text">
+            <Check className="h-3.5 w-3.5" aria-hidden />
+            {mark}
+          </span>
+        ))}
+      </span>
+      <span className={cn('text-text-3', text.length > 320 && 'font-medium text-danger-text')}>
+        {text.length} of 320
+      </span>
+    </div>
+  );
+}
+
+/**
+ * "Pick from these": example texts sorted by kind, worded for the business's kind when we know it (the owner, 22 Nov
+ * 2026: three written for a repair business "didn't always fit or maybe only one did"). Use this fills the first
+ * empty example, then takes turns between the two.
+ */
+function SamplePicker({
+  businessName,
+  useCase,
+  industry,
+  samples,
+  onUse,
+}: {
+  businessName: string;
+  useCase: string;
+  industry: string | null;
+  samples: readonly string[];
+  onUse: (next: string[]) => void;
+}) {
+  const fits = samplesFitIndustry(industry);
+  const [general, setGeneral] = useState(false);
+  const [kind, setKind] = useState<SampleKind | 'all'>('all');
+  const turn = useRef(0);
+  const choices = sampleChoices(businessName, useCase, general ? null : industry);
+  const kinds = SAMPLE_KINDS.filter((k) => choices.some((c) => c.kind === k.id));
+  const use = (text: string) => {
+    const next = [...samples];
+    const empty = next.findIndex((x) => !x.trim());
+    const slot = empty === -1 ? turn.current % Math.max(next.length, 1) : empty;
+    turn.current = slot + 1;
+    next[slot] = text;
+    onUse(next);
+  };
+  const chip = (id: SampleKind | 'all', label: string) => (
+    <button
+      key={id}
+      type="button"
+      onClick={() => setKind(id)}
+      aria-pressed={kind === id}
+      data-testid={`a2p-sample-kind-${id}`}
+      className={cn(
+        'inline-flex h-[30px] items-center rounded-full border px-3 text-[13px] font-medium',
+        kind === id
+          ? 'border-text bg-text text-card'
+          : 'border-border-strong bg-card text-text hover:bg-card-2',
+      )}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="rounded-card border border-border bg-card-2 p-3.5" data-testid="a2p-samples">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="text-[13.5px] font-semibold">Pick from these</p>
+        {fits ? (
+          <p className="text-[13px] text-text-2">
+            {general
+              ? 'General wording.'
+              : `Worded for your kind of business (${industryLabel(industry)}).`}{' '}
+            <button
+              type="button"
+              className="font-medium text-accent-text underline"
+              onClick={() => setGeneral(!general)}
+              data-testid="a2p-samples-general"
+            >
+              {general ? 'Show the ones for my kind' : 'Show general ones'}
+            </button>
+          </p>
+        ) : null}
+      </div>
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        {chip('all', `All ${choices.length}`)}
+        {kinds.map((k) => chip(k.id, k.label))}
+      </div>
+      <ul className="mt-2.5 flex flex-col gap-2">
+        {choices.map((choice, i) => {
+          if (kind !== 'all' && choice.kind !== kind) return null;
+          const used = samples.findIndex((x) => x.trim() === choice.text);
+          return (
+            <li
+              key={choice.id}
+              className={cn(
+                'flex items-center gap-3 rounded-menu border bg-card px-3 py-2.5',
+                used === -1 ? 'border-border' : 'border-accent bg-accent-soft',
+              )}
+            >
+              <span className="min-w-0 flex-1 text-[13.5px] leading-snug">
+                <span className="mb-0.5 block text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
+                  {choice.label}
+                </span>
+                {choice.text}
+              </span>
+              {used === -1 ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => use(choice.text)}
+                  data-testid={`a2p-suggestion-${i}`}
+                >
+                  Use this
+                </Button>
+              ) : (
+                <span className="flex-none text-[12.5px] font-semibold text-accent-text">
+                  Example {used + 1}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
