@@ -4,12 +4,14 @@
   "checkedOn": "2026-11-22",
   "files": {
     "apps/mobile/src/app/app/index.tsx": "73fbf8b3712b",
-    "apps/mobile/src/app/app/w/[workspaceId]/email-setup.tsx": "281bc322da7c",
+    "apps/mobile/src/app/app/w/[workspaceId]/email-setup.tsx": "e0a5aca6094a",
     "apps/mobile/src/app/app/w/[workspaceId]/setup.tsx": "db9834128278",
     "apps/mobile/src/components/ai-setup/screens.tsx": "cda7ad04ca31",
     "apps/mobile/src/components/ai-setup/try-ava.tsx": "98bce89daa16",
-    "apps/mobile/src/components/email-setup/email-setup-flow.tsx": "5e68d3bf29df",
+    "apps/mobile/src/components/email-setup/guided-flow.tsx": "86b4db79d021",
+    "apps/mobile/src/components/email-setup/guided-last.tsx": "5cb3684d3242",
     "apps/mobile/src/components/email-setup/screens.tsx": "d611416b7a54",
+    "apps/mobile/src/components/guided-setup/frame.tsx": "c43a93cbfd06",
     "apps/mobile/src/components/onboarding-setup/business.tsx": "c8d4223a317b",
     "apps/mobile/src/components/onboarding-setup/create-business.tsx": "6cbd61109a08",
     "apps/mobile/src/components/onboarding-setup/frame.tsx": "9c4dd3dcf6cb",
@@ -1182,42 +1184,42 @@
       "kind": "do",
       "file": "apps/web/src/components/email-setup/screens.tsx:108",
       "covered": "yes",
-      "by": "do_email_setup_save part sender, email.with (onboarding_setup.save saves the same on its stop)"
+      "by": "do_email_setup_apply email.with (onboarding_setup.save saves the same on its stop)"
     },
     {
       "path": "Set up → Your business email → Your domain, From your website / sign-up email",
       "kind": "do",
       "file": "apps/web/src/components/email-setup/screens.tsx:122",
       "covered": "yes",
-      "by": "do_email_setup_save email.domain; read_email_setup_get state.websiteDomain and answers.domain"
+      "by": "do_email_setup_apply email.domain; read_email_setup_get state.websiteDomain and guided.domain"
     },
     {
       "path": "Set up → Your business email → The address @domain, with hello / info / office / bookings chips",
       "kind": "do",
       "file": "apps/web/src/components/email-setup/screens.tsx:148",
       "covered": "yes",
-      "by": "do_email_setup_save email.local"
+      "by": "do_email_setup_apply email.addresses[].local, and email.sender for the one customers hear from"
     },
     {
       "path": "Set up → Your business email → Your team reads it note",
       "kind": "see",
       "file": "apps/web/src/components/email-setup/screens.tsx:180",
       "covered": "yes",
-      "by": "do_email_setup_save’s description: the default sender is always a team address"
+      "by": "do_email_setup_apply’s description: the address customers hear from is one the team reads"
     },
     {
       "path": "Set up → Your business email → Your free address @mail.handsfreeos.com, why not Gmail",
       "kind": "do",
       "file": "apps/web/src/components/email-setup/screens.tsx:203",
       "covered": "yes",
-      "by": "do_email_setup_save email.freeLocal; read_email_setup_get state.free"
+      "by": "do_email_setup_apply email.freeLocal; read_email_setup_get state.free"
     },
     {
       "path": "Set up → Your business email → Name customers see",
       "kind": "do",
       "file": "apps/web/src/components/email-setup/screens.tsx:220",
       "covered": "yes",
-      "by": "do_email_setup_save email.name"
+      "by": "do_email_setup_apply email.name"
     },
     {
       "path": "Set up → Your business email → inbox preview",
@@ -1245,7 +1247,7 @@
       "kind": "do",
       "file": "apps/web/src/components/email-setup/screens.tsx:385",
       "covered": "yes",
-      "by": "do_email_setup_save part records, email.receive"
+      "by": "do_email_setup_apply email.receive"
     },
     {
       "path": "Set up → Add your domain’s records → its mail is at Google / Microsoft note",
@@ -1308,7 +1310,7 @@
       "kind": "do",
       "file": "apps/web/src/components/email-setup/screens.tsx:549",
       "covered": "yes",
-      "by": "do_email_setup_save part own, email.mine and email.mineLocal"
+      "by": "do_email_setup_apply email.addresses[] with reader me"
     },
     {
       "path": "Set up → Your own email → connected mailbox",
@@ -1518,7 +1520,7 @@
       "kind": "do",
       "file": "apps/mobile/src/components/email-setup/screens.tsx:131",
       "covered": "yes",
-      "by": "do_email_setup_save part sender"
+      "by": "do_email_setup_apply email.with, domain, addresses, sender, freeLocal and name"
     },
     {
       "path": "Phone → Set up → Add your domain’s records → Easier on a computer: Email me the steps, Send to someone",
@@ -1532,21 +1534,105 @@
       "kind": "do",
       "file": "apps/mobile/src/components/email-setup/screens.tsx:483",
       "covered": "yes",
-      "by": "do_email_setup_save part records; do_email_domain_verify; read_email_setup_get records"
+      "by": "do_email_setup_apply email.receive; do_email_domain_verify; read_email_setup_get records"
     },
     {
       "path": "Phone → Set up → Your own email → address just for you, Connect Gmail / Outlook",
       "kind": "do",
       "file": "apps/mobile/src/components/email-setup/screens.tsx:582",
       "covered": "partly",
-      "by": "do_email_setup_save part own; connecting is the person’s own sign-in"
+      "by": "do_email_setup_apply email.addresses[] with reader me; connecting is the person’s own sign-in"
     },
     {
-      "path": "Phone → Set up your business email (from Home) → N of M, Back, Next, Done",
+      "path": "Phone → Guided email setup (from Home) → Question N of M, Back, Next, Check it over, Finish later, Saved as you go",
       "kind": "do",
-      "file": "apps/mobile/src/components/email-setup/email-setup-flow.tsx:135",
+      "file": "apps/mobile/src/components/email-setup/guided-flow.tsx:405",
       "covered": "yes",
-      "by": "do_email_setup_save, a part at a time"
+      "by": "read_guided_setup_get_draft (setup email) has the answers so far; do_email_setup_apply carries them out, so the Assistant has no screen to step through"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → Welcome back, Start over",
+      "kind": "do",
+      "file": "apps/mobile/src/components/guided-setup/frame.tsx:404",
+      "covered": "never",
+      "by": "the screen putting its own kept answers away (guided_setup.clear_draft)"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → Which email → My own, with my website name (Best) and Found it / A free HandsFreeOS address",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/guided-flow.tsx:431",
+      "covered": "yes",
+      "by": "do_email_setup_apply email.with, email.domain, email.freeLocal; do_email_setup_look_up, then read_email_setup_get state.lookup"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → Which addresses → the ones already set up, each address, remove, Add another address, Ideas",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/guided-flow.tsx:569",
+      "covered": "yes",
+      "by": "do_email_setup_apply email.addresses[].local; read_email_setup_get state.addresses"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → Who reads each one → Only me / The team, picked from the names, Let Ava read this mail",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/guided-flow.tsx:620",
+      "covered": "yes",
+      "by": "do_email_setup_apply email.addresses[].reader and aiReads; read_email_setup_get state.aiTeammate"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → The one customers hear from → each address the team reads, Picked for you, inbox preview",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/guided-flow.tsx:685",
+      "covered": "yes",
+      "by": "do_email_setup_apply email.sender"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → Where your mail arrives → In HandsFreeOS / Keep it at <host> / Not yet",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/guided-flow.tsx:762",
+      "covered": "yes",
+      "by": "do_email_setup_apply email.receive; read_email_setup_get state.lookup"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → Check it over → Your email, Addresses, Where mail arrives, each with Change; Name customers see; Set it up",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/guided-flow.tsx:897",
+      "covered": "yes",
+      "by": "do_email_setup_apply (email.name too); its card shows what will change"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → Last step → Easier on a computer: Email me the steps, Send the steps to someone",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/guided-last.tsx:227",
+      "covered": "yes",
+      "by": "do_email_domain_send_steps"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → Last step → Open your records at <host>, Share, the records to add (Found / Waiting), our mail record, the old mail records (Still there)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/email-setup/guided-last.tsx:277",
+      "covered": "partly",
+      "by": "read_email_setup_get domains[].records and mxRecords, state.inboundMxHost; the host’s own steps are the screen’s words (dnsHostFor), and Share is the phone’s own share sheet"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → Last step → Not done yet, Where things stand, Nothing is lost while you wait",
+      "kind": "see",
+      "file": "apps/mobile/src/components/email-setup/guided-last.tsx:355",
+      "covered": "yes",
+      "by": "read_email_setup_get domains[].status, receiving, plan"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → Last step → Check now, I’ll do this later",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/guided-last.tsx:206",
+      "covered": "yes",
+      "by": "do_email_domain_verify for its records, do_email_domain_receive for its mail record; later is leaving the screen"
+    },
+    {
+      "path": "Phone → Guided email setup (from Home) → Done → Your email is ready, each address with who reads it, Email settings (on the web), Go to the Inbox",
+      "kind": "see",
+      "file": "apps/mobile/src/components/email-setup/guided-last.tsx:555",
+      "covered": "yes",
+      "by": "read_email_setup_get state.addresses, sender, aiTeammate; settings_help email and the Inbox, the way there in words"
     },
     {
       "path": "Set up → Number → Texting & calls (setup) → Numbers on their way here: title, each number, where from, status and texting badges, not in Twilio, last error",

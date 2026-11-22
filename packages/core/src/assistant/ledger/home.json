@@ -26,7 +26,7 @@
     "apps/mobile/src/components/home/attention-card.tsx": "239bce447d99",
     "apps/mobile/src/components/home/attention-group.tsx": "88d3150e9000",
     "apps/mobile/src/components/home/bits.tsx": "4052994a191e",
-    "apps/mobile/src/components/home/email-setup-card.tsx": "f1a96e378453",
+    "apps/mobile/src/components/home/email-setup-card.tsx": "497572931e61",
     "apps/mobile/src/components/home/handled.tsx": "79284e3cff99",
     "apps/mobile/src/components/home/home-header.tsx": "919ae0a3a30b",
     "apps/mobile/src/components/home/item-sheets.tsx": "1e0fc20a6146",
@@ -2579,11 +2579,11 @@
       "by": "sets the card aside on this browser only, kept in the browser"
     },
     {
-      "path": "Phone → Home → Set up your business email / Finish your email records card, Set it up, Not now",
+      "path": "Phone → Home → Set up your business email / Finish your email records / Bring your mail in card, its button, Not now",
       "kind": "do",
-      "file": "apps/mobile/src/components/home/email-setup-card.tsx:78",
+      "file": "apps/mobile/src/components/home/email-setup-card.tsx:96",
       "covered": "yes",
-      "by": "read_email_setup_get; do_email_setup_save; Not now is kept on the phone"
+      "by": "read_email_setup_get; do_email_setup_apply does what its questions do, and do_email_domain_verify, do_email_domain_receive and do_email_domain_send_steps what its last step does; Not now is kept on the phone"
     }
   ],
   "gaps": [

@@ -307,13 +307,8 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
     warning:
       'This adds the website name and its addresses, which are made once its records are found; booking emails move to the address customers hear from then. Mail arrives here only after the mail record is changed where the website name is looked after.',
   },
-  // "Set up your business email" (Home's card and the guided setup's stop), a part at a time, from read_email_setup_get.
-  'email_setup.save': {
-    about:
-      'part is sender (which address customers see: with is domain or free, then domain and local for the domain, or freeLocal for the free address, and name, the name customers see), records (receive: whether the domain’s email comes here too) or own (mine and mineLocal: an address only the person reads, on the domain). Pass email whole: read_email_setup_get’s answers with what changes.',
-    warning:
-      'Your business email adds the domain and moves booking emails to the address picked once its records are found; the free address is renamed straight away.',
-  },
+  // email_setup.save (a part at a time) isn't here: no screen runs it since the phone's Home card moved to the guided
+  // setup too. The command stays for phones that haven't updated; the Assistant sets email up with email_setup.apply.
   'email_domain.send_steps': {
     about: 'to is the email address the domain’s records and where to add them go to.',
   },

@@ -388,8 +388,8 @@ the person sends.
   (`do_email_address_set_ai_reads`), reads the draft back to its person in `get_conversation`
   (`draftAnswer`), and puts it away (`do_conversation_ai_draft_dismiss`). It runs as the person, so
   nobody else is read a draft.
-- **The phone** doesn't show the switch or the draft yet; both come with the guided setup's phone
-  screens, in one sync change.
+- **The phone** has the switch in its guided setup ("Who reads each one?"). It doesn't show the
+  draft in a thread yet; that comes in one batched sync change.
 
 **The guided questions: what the server does (Chris, 2026-11-22).** The same canvas, one question at
 a time: which email, the addresses, who reads each one, the one customers hear from, where mail
@@ -446,6 +446,33 @@ the phone's come next.
   `?at=records` (the last step), `&d=<website name's id>` (which one, with more than one),
   `?again=1` (the questions, whatever is left) and `?done=1` (Done).
 - **Not built yet:** "Send a test" on Done and in Settings.
+
+**The guided questions: the phone's screens (Chris, 2026-11-22).**
+
+- **The same setup, one question a screen.** Home's card opens it full screen
+  (`app/w/<business>/email-setup`): the questions and Check it over in
+  `apps/mobile/src/components/email-setup/guided-flow.tsx`, the last step and Done in
+  `guided-last.tsx`. It reads the same rules and words as the web
+  (`messaging/email-guided.ts`) and saves the same answers (`guided_setup.save_draft`), so answers
+  begun on the web carry on here, and the other way round. `?at=records`, `&d=` and `?again=1` mean
+  what they do on the web.
+- **The phone's frame for guided setups** is `apps/mobile/src/components/guided-setup/frame.tsx`,
+  with the web frame's names (`GuidedPage`, `ChoiceTile`, `GuidedFooter`, `WelcomeBack`,
+  `useGuidedDraft`): the question's number and Saved in the top bar beside **Finish later**, how far
+  along under it, Back and Next pinned at the bottom. The other guided setups use it too.
+- **What only the phone says** is in `apps/mobile/src/email-setup/words.ts`: "tap" where the web
+  says "click", and that Settings → Email is on the web. The phone has no Settings → Email, so
+  Done's **Email settings** opens it in the browser.
+- **The last step leads with "Easier on a computer"**: **Email me the steps**, or send them to
+  whoever looks after the website (`email_domain.send_steps`). The records are there too, to read
+  off, hold to copy, or **Share**.
+- **No live updates for email on the phone.** The setup asks again after **Check now**, every minute
+  while something is left, and when the app comes back to the front. It needs signal.
+- **`email_setup.save` has no screen now.** The older three-part flow from Home's card is gone, on
+  the web and the phone. The command stays for phones that haven't updated, and the Assistant sets
+  email up with `do_email_setup_apply` instead of `do_email_setup_save`.
+- **Not built yet:** the "Let Ava read this mail" draft card in a phone thread, which needs
+  `conversations.ai_draft` on the phone in one batched sync change.
 
 ### Step 5 — HandsFreeOS's own business (done, 2026-09-30)
 
