@@ -1,7 +1,7 @@
 {
   "area": "home",
   "title": "Home, Search everything, Needs you, the bell's notifications, Audit log, Changes and the Assistant panel itself",
-  "checkedOn": "2026-11-21",
+  "checkedOn": "2026-11-22",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/get-help.tsx": "a1fa8bee58ff",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx": "242f970f8798",
@@ -37,7 +37,7 @@
     "apps/mobile/src/search/recent.ts": "6d3884953cf1",
     "apps/mobile/src/search/rows.tsx": "4c8fee7ac09c",
     "apps/web/src/app/app/w/[workspaceId]/audit/page.tsx": "260b09810a61",
-    "apps/web/src/app/app/w/[workspaceId]/page.tsx": "beb84593c83a",
+    "apps/web/src/app/app/w/[workspaceId]/page.tsx": "756b080539a0",
     "apps/web/src/app/app/w/[workspaceId]/search/page.tsx": "f23d0369d4f7",
     "apps/web/src/components/assistant/ask-button.tsx": "1189fdcab4d4",
     "apps/web/src/components/assistant/assistant-panel.tsx": "b97d3735b38e",
@@ -66,7 +66,7 @@
     "apps/web/src/components/home/attention-header.tsx": "9f8029ee68da",
     "apps/web/src/components/home/coming-up.tsx": "7b55e17c731a",
     "apps/web/src/components/home/dismiss-dialog.tsx": "18a3559ad253",
-    "apps/web/src/components/home/email-setup-card.tsx": "84c9ddf526fe",
+    "apps/web/src/components/home/email-setup-card.tsx": "4a80c55afcf7",
     "apps/web/src/components/home/getting-started.tsx": "1dc783e5cb67",
     "apps/web/src/components/home/handled-today.tsx": "30e0ef08c643",
     "apps/web/src/components/home/let-handle-sheet.tsx": "fce319584f82",
@@ -2558,23 +2558,23 @@
       "by": "read_email_setup_get: state.sender and state.free (the card shows while the free address still has the random letters)"
     },
     {
-      "path": "Home → Finish your email records card (N of M found at <host>)",
+      "path": "Home → Finish your email records card (N of M found at <host>), or Bring your mail in (its mail record still to change)",
       "kind": "see",
       "file": "apps/web/src/components/home/email-setup-card.tsx:66",
       "covered": "yes",
-      "by": "read_email_setup_get: the domain with a plan, its records found or waiting"
+      "by": "read_email_setup_get: the website name with something left, its records found or waiting, and its mail records"
     },
     {
       "path": "Home → email card → Set it up / Open the steps",
       "kind": "do",
       "file": "apps/web/src/components/home/email-setup-card.tsx:76",
       "covered": "yes",
-      "by": "do_email_setup_save and do_email_domain_send_steps do what its page does"
+      "by": "do_email_setup_apply does what its questions do; do_email_domain_verify, do_email_domain_receive and do_email_domain_send_steps what its last step does"
     },
     {
       "path": "Home → email card → Not now",
       "kind": "do",
-      "file": "apps/web/src/components/home/email-setup-card.tsx:84",
+      "file": "apps/web/src/components/home/email-setup-card.tsx:80",
       "covered": "never",
       "by": "sets the card aside on this browser only, kept in the browser"
     },

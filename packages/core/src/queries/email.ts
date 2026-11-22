@@ -150,6 +150,7 @@ export const emailSetupStatus = defineQuery({
         ownershipHost: d.domain === HANDSFREEOS_DOMAIN ? null : ownershipHost(d.domain),
         ownershipToken: d.ownershipToken,
         ownershipProvedAt: iso(d.ownershipProvedAt),
+        dnsHost: d.dnsHost,
       })),
       mailboxes: mailboxes.map((m) => ({
         id: m.id,

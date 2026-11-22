@@ -654,7 +654,8 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     where: ['Settings', 'Email'],
     onScreen: [
       'Your addresses: each address with who reads it and which one customers hear from; Change on a row (rename it while it has carried no mail, Who reads it: Only me or The team, Make this the one customers hear from, Remove address); under your own address, the switch Let Ava read this mail (it names the business’s AI teammate; on, it drafts answers only you see); Add an address; Name customers see (one name, on every address)',
-      'Use your own domain: Add domain, Check now, Remove domain, Receive mail here too and Stop receiving here; Another domain for a second one',
+      'Use your own website name: Set it up, which opens the guided setup on a page of its own (which email, which addresses, who reads each one, the one customers hear from, where the mail arrives, Check it over, Set it up, then the records to add)',
+      'Your website name, once there is one: Mail coming in (Receive mail here, Check now, Stop receiving here), Records with Show and Check now, Open the steps while something is left, Remove this website name; under it, Run the guided setup again',
       // Connect Gmail is greyed out as Coming soon until Google's review (NEXT_PUBLIC_GMAIL_ENABLED).
       'Connected mailboxes: Connect Outlook, and Connect Gmail marked Coming soon',
       'Where senders’ mail goes: Remove',

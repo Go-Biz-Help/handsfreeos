@@ -20,7 +20,7 @@
     "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
     "apps/web/src/components/settings/email-addresses.tsx": "0a161e86d75f",
-    "apps/web/src/components/settings/email-page.tsx": "3694178ea072",
+    "apps/web/src/components/settings/email-page.tsx": "f050b6292547",
     "apps/web/src/components/settings/facebook-instagram-page.tsx": "8674fc1c6cbc",
     "apps/web/src/components/settings/inbox-visibility-card.tsx": "e7ce1e333cd7",
     "apps/web/src/components/settings/lead-intake-page.tsx": "f7affad2e1dd",
@@ -1758,172 +1758,172 @@
       "by": "do_email_address_reassign to remove; deletes the mail for good, against the never-delete rule"
     },
     {
-      "path": "Email → Use your own domain → description by status",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:286",
-      "covered": "yes",
-      "by": "get_settings email domains status"
-    },
-    {
-      "path": "Email → Use your own domain → Verified / Needs attention / Waiting for DNS",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:300",
-      "covered": "yes",
-      "by": "get_settings email domains status"
-    },
-    {
-      "path": "Email → Use your own domain → Your domain, Add domain",
+      "path": "Email → Use your own website name → Set it up (opens the guided setup), with no website name yet",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:141",
+      "file": "apps/web/src/components/settings/email-page.tsx:167",
       "covered": "yes",
-      "by": "manage_email_settings add_domain"
+      "by": "do_email_setup_apply carries the guided answers out; read_email_setup_get guided is where they start"
     },
     {
-      "path": "Email → Use your own domain → add error or three-records hint",
+      "path": "Email → Your website name → description by status",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:155",
+      "file": "apps/web/src/components/settings/email-page.tsx:287",
       "covered": "yes",
-      "by": "add_domain returns the refusal"
+      "by": "get_settings email domains status"
     },
     {
-      "path": "Email → Use your own domain → domain, Verified or Added date, last checked",
+      "path": "Email → Your website name → Verified / Needs attention / Waiting for its records",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:315",
+      "file": "apps/web/src/components/settings/email-page.tsx:292",
+      "covered": "yes",
+      "by": "get_settings email domains status"
+    },
+    {
+      "path": "Email → Your website name → the name, Verified or Added date, last checked",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-page.tsx:302",
       "covered": "yes",
       "by": "get_settings email domains createdAt, lastCheckedAt"
     },
     {
-      "path": "Email → Use your own domain → last error callout",
+      "path": "Email → Your website name → last error callout",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:327",
+      "file": "apps/web/src/components/settings/email-page.tsx:319",
       "covered": "yes",
       "by": "get_settings email domains lastError"
     },
     {
-      "path": "Email → Use your own domain → add these records text",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:336",
-      "covered": "yes",
-      "by": "get_settings email domains"
-    },
-    {
-      "path": "Email → Use your own domain → DKIM TXT: host, value, status, copy",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:344",
-      "covered": "yes",
-      "by": "get_settings email domains dkimHost, dkimValue, dkimVerifiedAt"
-    },
-    {
-      "path": "Email → Use your own domain → Return-Path CNAME: host, value, status, copy",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:352",
-      "covered": "yes",
-      "by": "get_settings email domains returnPath*"
-    },
-    {
-      "path": "Email → Use your own domain → ownership TXT: host, value, status, copy",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:361",
-      "covered": "yes",
-      "by": "get_settings email domains ownershipHost, ownershipToken"
-    },
-    {
-      "path": "Email → Use your own domain → Check now",
+      "path": "Email → Your website name → One step left (its records, or the mail record) → Open the steps",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:391",
+      "file": "apps/web/src/components/settings/email-page.tsx:327",
       "covered": "yes",
-      "by": "manage_email_settings check_domain"
+      "by": "read_email_setup_get domains with what is left; do_email_domain_verify and do_email_domain_receive check; do_email_domain_send_steps emails the steps"
     },
     {
-      "path": "Email → Use your own domain → what the check found",
+      "path": "Email → Your website name → Mail coming in → Working, Lands in HandsFreeOS, when it was checked",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:240",
+      "file": "apps/web/src/components/settings/email-page.tsx:557",
       "covered": "yes",
-      "by": "get_settings email domains verified times, lastError"
+      "by": "get_settings email domains receiving, mxCheckedAt"
     },
     {
-      "path": "Email → Use your own domain → Remove domain",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:401",
-      "covered": "yes",
-      "by": "manage_email_settings remove_domain"
-    },
-    {
-      "path": "Email → Another domain (up to three)",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:188",
-      "covered": "yes",
-      "by": "manage_email_settings add_domain"
-    },
-    {
-      "path": "Email → Receive mail here too → Receiving / Waiting for the MX record / Not receiving",
+      "path": "Email → Your website name → Mail coming in → Not yet, while its records are still to find",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:482",
+      "file": "apps/web/src/components/settings/email-page.tsx:550",
       "covered": "yes",
-      "by": "get_settings email domains receiving"
+      "by": "get_settings email domains status"
     },
     {
-      "path": "Email → Receive mail here too → receiving error",
+      "path": "Email → Your website name → Mail coming in → Off, Stays where it goes today, and the warning before turning on",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:491",
-      "covered": "yes",
-      "by": "get_settings email domains receivingError"
-    },
-    {
-      "path": "Email → Receive mail here too → explanation and warning before turning on",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:501",
+      "file": "apps/web/src/components/settings/email-page.tsx:587",
       "covered": "partly",
       "by": "do_email_domain_receive has no warning; settings_help email names it"
     },
     {
-      "path": "Email → Receive mail here too → Receive mail here",
+      "path": "Email → Your website name → Mail coming in → receiving error",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-page.tsx:605",
+      "covered": "yes",
+      "by": "get_settings email domains receivingError"
+    },
+    {
+      "path": "Email → Your website name → Mail coming in → Receive mail here",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:505",
+      "file": "apps/web/src/components/settings/email-page.tsx:591",
       "covered": "yes",
       "by": "do_email_domain_receive"
     },
     {
-      "path": "Email → Receive mail here too → MX record: host @, value and priority 10, each with a copy button, and status",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:467",
-      "covered": "yes",
-      "by": "get_settings email inboundMxHost, mxVerifiedAt"
-    },
-    {
-      "path": "Email → Receive mail here too → Check now, while waiting for the MX record",
+      "path": "Email → Your website name → Mail coming in → Waiting, Not here yet → Check now",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:517",
+      "file": "apps/web/src/components/settings/email-page.tsx:564",
       "covered": "yes",
       "by": "do_email_domain_receive, which looks again now while the domain waits"
     },
     {
-      "path": "Email → Receive mail here too → MX doesn’t point here anymore",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:527",
-      "covered": "yes",
-      "by": "get_settings email domains receiving lapsed"
-    },
-    {
-      "path": "Email → Receive mail here too → Check again",
+      "path": "Email → Your website name → Mail coming in → Not working, the mail record doesn’t point here anymore → Check again",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:533",
+      "file": "apps/web/src/components/settings/email-page.tsx:576",
       "covered": "yes",
-      "by": "do_email_domain_receive"
+      "by": "get_settings email domains receiving lapsed; do_email_domain_receive"
     },
     {
-      "path": "Email → Receive mail here too → receiving on text",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:539",
-      "covered": "yes",
-      "by": "get_settings email domains receiving"
-    },
-    {
-      "path": "Email → Receive mail here too → Stop receiving here, with confirm",
+      "path": "Email → Your website name → Mail coming in → Stop receiving here, with confirm",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:551",
+      "file": "apps/web/src/components/settings/email-page.tsx:536",
       "covered": "yes",
       "by": "do_email_domain_stop_receiving, which warns first"
+    },
+    {
+      "path": "Email → Your website name → Records at <host> → All N found / N of M found, Show / Hide",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-page.tsx:358",
+      "covered": "yes",
+      "by": "get_settings email domains: each record’s verified time, dnsHost"
+    },
+    {
+      "path": "Email → Your website name → Records → add these records text",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-page.tsx:391",
+      "covered": "yes",
+      "by": "get_settings email domains"
+    },
+    {
+      "path": "Email → Your website name → Records → DKIM TXT: host, value, status, copy",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-page.tsx:398",
+      "covered": "yes",
+      "by": "get_settings email domains dkimHost, dkimValue, dkimVerifiedAt"
+    },
+    {
+      "path": "Email → Your website name → Records → Return-Path CNAME: host, value, status, copy",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-page.tsx:406",
+      "covered": "yes",
+      "by": "get_settings email domains returnPath*"
+    },
+    {
+      "path": "Email → Your website name → Records → ownership TXT: host, value, status, copy",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-page.tsx:421",
+      "covered": "yes",
+      "by": "get_settings email domains ownershipHost, ownershipToken"
+    },
+    {
+      "path": "Email → Your website name → Records → MX record: host @, value and priority 10, each with a copy button, and status",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-page.tsx:428",
+      "covered": "yes",
+      "by": "get_settings email inboundMxHost, mxVerifiedAt"
+    },
+    {
+      "path": "Email → Your website name → Records → Check now",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-page.tsx:444",
+      "covered": "yes",
+      "by": "manage_email_settings check_domain"
+    },
+    {
+      "path": "Email → Your website name → what the check found",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-page.tsx:226",
+      "covered": "yes",
+      "by": "get_settings email domains verified times, lastError"
+    },
+    {
+      "path": "Email → Your website name → Remove this website name",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-page.tsx:462",
+      "covered": "yes",
+      "by": "manage_email_settings remove_domain"
+    },
+    {
+      "path": "Email → Moving to a different website name, or adding another? Run the guided setup again",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-page.tsx:1143",
+      "covered": "yes",
+      "by": "do_email_setup_apply with another domain; manage_email_settings add_domain adds one without the questions"
     },
     {
       "path": "Email → Connected mailboxes → each: account, person, provider, sync detail",

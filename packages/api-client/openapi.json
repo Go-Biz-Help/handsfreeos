@@ -166071,6 +166071,12 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "dnsHost": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [

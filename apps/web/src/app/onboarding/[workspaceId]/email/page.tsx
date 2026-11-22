@@ -10,8 +10,10 @@ export const metadata: Metadata = { title: EMAIL_SETUP_WORDS.homeStartTitle };
  * The guided email setup (the owner, 22 Nov 2026): one question at a time on a page of its own, opened from Home's
  * "Set up your business email" and from Settings → Email (`?from=settings`, so Finish later goes back there). The
  * answers are saved as they are given, so this page opens where they left off; nothing changes until Set it up.
- * A business whose website name still has its last step open lands on it (`?at=records` asks for it by name), and
- * `?done=1` is the Done screen. Only someone who can change the business's email comes here; anyone else goes Home.
+ * A business whose website name still has its last step open lands on it (`?at=records` asks for it by name, and
+ * `&d=` says which website name when Settings has more than one), `?again=1` is "Run the guided setup again" (the
+ * questions, whatever is left), and `?done=1` is the Done screen. Only someone who can change the business's email
+ * comes here; anyone else goes Home.
  */
 export default async function EmailSetupPage({
   params,
@@ -50,6 +52,8 @@ export default async function EmailSetupPage({
       got={got}
       draft={{ answers: draft?.answers ?? null, savedAt: draft?.savedAt ?? null }}
       at={query['at'] === 'records' ? 'records' : null}
+      domainId={typeof query['d'] === 'string' ? query['d'] : null}
+      again={query['again'] === '1'}
       done={query['done'] === '1'}
       from={query['from'] === 'settings' ? 'settings' : 'home'}
     />

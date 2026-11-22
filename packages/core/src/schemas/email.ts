@@ -378,6 +378,8 @@ export const EmailDomainOut = z.object({
   ownershipHost: z.string().nullable(),
   ownershipToken: z.string(),
   ownershipProvedAt: isoDateTime.nullable(),
+  /** Where its records are looked after, as a key `dnsHostFor` names ("Records at SiteGround"). None from an older API. */
+  dnsHost: z.string().nullable().optional(),
 });
 export const MailboxOut = z.object({
   id: uuid,

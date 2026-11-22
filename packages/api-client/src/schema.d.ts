@@ -83070,6 +83070,7 @@ export interface operations {
                             dkimHost: string | null;
                             dkimValue: string | null;
                             dkimVerifiedAt: string | null;
+                            dnsHost?: string | null;
                             domain: string;
                             /** Format: uuid */
                             id: string;

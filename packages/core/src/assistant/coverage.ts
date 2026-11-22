@@ -295,6 +295,18 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'rcs_sender.connect': {},
   // ---- Settings → Email ----
   'mailbox.disconnect': {},
+  // The guided email setup (22 Nov 2026): Settings → Email's Set it up, and Home's card. Its first question looks the
+  // website name up, and its last screen carries the answers out.
+  'email_setup.look_up': {
+    about:
+      'domain is the website name the person gave. It only looks up where that name’s mail goes today and where its records are looked after, and adds nothing. A moment later read_email_setup_get’s state.lookup has the answer.',
+  },
+  'email_setup.apply': {
+    about:
+      'Pass email whole: read_email_setup_get’s guided, with what changes. with is domain or free; domain is the website name, or freeLocal the name before @ on the free address; name is the name customers see; addresses are the new ones (local, the name before @; reader, me for only the person asking or team; aiReads, true to let the AI teammate read the person’s own); sender is the local of the address customers hear from, which the team must read; receive is true for mail to the website name to arrive in HandsFreeOS, false to keep it where it goes today. It only adds: an address already set up is changed with manage_email_settings.',
+    warning:
+      'This adds the website name and its addresses, which are made once its records are found; booking emails move to the address customers hear from then. Mail arrives here only after the mail record is changed where the website name is looked after.',
+  },
   // "Set up your business email" (Home's card and the guided setup's stop), a part at a time, from read_email_setup_get.
   'email_setup.save': {
     about:

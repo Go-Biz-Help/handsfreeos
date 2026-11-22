@@ -92,6 +92,8 @@ export function EmailGuidedFlow({
   got,
   draft,
   at,
+  domainId,
+  again,
   done,
   from,
 }: {
@@ -106,6 +108,10 @@ export function EmailGuidedFlow({
   draft: { readonly answers: Record<string, unknown> | null; readonly savedAt: string | null };
   /** `?at=records`: straight to the website name's last step, when one is still open. */
   at: 'records' | null;
+  /** `&d=`: which website name's last step, when Settings → Email asked for one by name. */
+  domainId: string | null;
+  /** `?again=1`: "Run the guided setup again", so the questions open even with a last step still left. */
+  again: boolean;
   /** `?done=1`: back on the page after everything was set up. */
   done: boolean;
   /** Where Finish later goes back to: Settings → Email when they came from there, else Home. */
@@ -124,7 +130,10 @@ export function EmailGuidedFlow({
   const [first] = useState(() => {
     const start = got.guided ?? startingEmailGuidedAnswers(got.state);
     const kept = emailGuidedAnswersFrom(draft.answers, got.state.myUserId);
-    return { start, kept, open: emailGuidedOpenDomain(got.state) };
+    const asked = domainId
+      ? got.state.domains.find((d) => d.id === domainId && emailGuidedLeft(d) !== 'done')
+      : null;
+    return { start, kept, open: asked ?? emailGuidedOpenDomain(got.state) };
   });
   const [answers, setAnswers] = useState<EmailGuidedAnswers>(first.kept ?? first.start);
   const [screen, setScreen] = useState<EmailGuidedScreen>(() => {
@@ -132,7 +141,11 @@ export function EmailGuidedFlow({
     return emailGuidedScreensFor(first.kept ?? first.start).includes(was) ? was : 'which';
   });
   const [view, setView] = useState<'questions' | 'last' | 'done'>(
-    done ? 'done' : first.open && (at === 'records' || !first.kept) ? 'last' : 'questions',
+    done
+      ? 'done'
+      : first.open && !again && (at === 'records' || !first.kept)
+        ? 'last'
+        : 'questions',
   );
   /** The website name the last step and Done are about; null on Done for a free address. */
   const [shownId, setShownId] = useState<string | null>(

@@ -1,19 +1,19 @@
 'use client';
-import { MAX_EMAIL_DOMAINS, relativeHost, RETURN_PATH_DEFAULT, type SettingKey } from '@hfos/core';
-import { CircleAlert, Globe, Plus, RotateCw, X } from 'lucide-react';
+import { dnsHostFor, relativeHost, RETURN_PATH_DEFAULT } from '@hfos/core';
+import { ArrowRight, ChevronDown, CircleAlert, Globe, ListChecks, RotateCw, X } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { PersonDialog } from '@/components/crm/person-dialog';
 import { RecordPicker, type PickedRecord } from '@/components/crm/record-picker';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { CopyField } from '@/components/ui/copy-field';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Field, Hint } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { Field } from '@/components/ui/field';
+import { apiBrowser, unwrap } from '@/lib/api/client';
 import type {
   EmailDomainInfo,
   EmailSenderRule,
@@ -27,6 +27,7 @@ import { publicEnv } from '@/lib/env';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { GoogleLogo, MicrosoftLogo, providerName } from './provider-logos';
+import { SettingAnchor } from './setting-anchor';
 import { run, Section, YourAddresses, type Person } from './email-addresses';
 
 const shortDate = (iso: string) =>
@@ -114,99 +115,71 @@ function RecordBox({
   );
 }
 
-/** Adding a domain: the first one in its own card, or another beside the ones already there. */
-function DomainAddForm({ workspaceId, onChanged }: { workspaceId: string; onChanged: () => void }) {
-  const [input, setInput] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  async function add() {
-    setBusy(true);
-    setError(null);
-    try {
-      unwrap(
-        await apiBrowser().POST('/v1/commands/email_domain.add', {
-          body: { workspaceId, domain: input },
-        }),
-      );
-      toast.success('Domain added. Now add the records it shows.');
-      setInput('');
-      onChanged();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
+/** Where the guided setup opens from Settings → Email, so Finish later comes back here. */
+const guidedHref = (workspaceId: string, more = '') =>
+  `/onboarding/${workspaceId}/email?from=settings${more}`;
+
+/** One row of a website name's card: what it is, how it stands, and what can be done about it. */
+function Row({
+  label,
+  children,
+  action,
+  testId,
+}: {
+  label: string;
+  children: ReactNode;
+  action?: ReactNode;
+  testId?: string;
+}) {
   return (
-    <div className="mt-4">
-      <div className="flex gap-2">
-        <Input
-          aria-label="Your domain"
-          placeholder="yourbusiness.com"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && input.trim()) void add();
-          }}
-          data-testid="domain-input"
-        />
-        <Button loading={busy} disabled={!input.trim()} onClick={() => void add()}>
-          Add domain
-        </Button>
-      </div>
-      {error ? (
-        <p className="mt-1.5 text-xs text-danger-text" role="alert">
-          {error}
-        </p>
-      ) : (
-        <Hint>
-          Next you add three records where your domain is managed, such as GoDaddy, Cloudflare or
-          Namecheap.
-        </Hint>
-      )}
+    <div
+      className="grid items-center gap-x-5 gap-y-2 md:grid-cols-[11rem_minmax(0,1fr)_auto]"
+      data-testid={testId}
+    >
+      <div className="text-[13px] font-medium text-text-2">{label}</div>
+      <div className="min-w-0">{children}</div>
+      {action ? (
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">{action}</div>
+      ) : null}
     </div>
   );
 }
 
-/** Another domain, once the business has one (up to three): folded until somebody asks for it. */
-function AddAnotherDomain({
+/** No website name yet: the guided setup adds one, a question at a time (the owner, 22 Nov 2026). */
+function UseYourOwn({
   workspaceId,
-  onChanged,
+  sharedAddress,
 }: {
   workspaceId: string;
-  onChanged: () => void;
+  sharedAddress: string;
 }) {
-  const [open, setOpen] = useState(false);
-  if (!open)
-    return (
-      <div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setOpen(true)}
-          data-testid="domain-another"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Another domain
-        </Button>
-      </div>
-    );
   return (
     <Section
-      title="Another domain"
-      description="Send, and receive, at more than one domain: each needs its own records."
+      title="Use your own website name"
+      description={`Send from an address like office@yourbusiness.com, and read its mail here. Until it’s set up, email keeps going out from ${sharedAddress}.`}
     >
-      <DomainAddForm
-        workspaceId={workspaceId}
-        onChanged={() => {
-          setOpen(false);
-          onChanged();
-        }}
-      />
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <ButtonLink
+          href={guidedHref(workspaceId)}
+          variant="primary"
+          data-testid="email-guided-open"
+        >
+          Set it up
+          <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+        </ButtonLink>
+        <span className="text-[13px] text-text-3">
+          A few questions, one at a time. Your answers save as you go.
+        </span>
+      </div>
     </Section>
   );
 }
 
+/**
+ * One of the business's website names, after the guided setup: whether its mail comes in here, and its records
+ * (folded away once they're all found). While something is left, it says what and opens the guided setup's last
+ * step, which walks through it.
+ */
 function OwnDomain({
   workspaceId,
   domain,
@@ -215,10 +188,9 @@ function OwnDomain({
   receivingOpen,
   inboundMxHost,
   onChanged,
-  setting,
 }: {
   workspaceId: string;
-  domain: EmailDomainInfo | null;
+  domain: EmailDomainInfo;
   sharedAddress: string;
   /** It has an address already, so it needn't say where to add the first one. */
   hasAddress: boolean;
@@ -226,16 +198,23 @@ function OwnDomain({
   receivingOpen: boolean;
   inboundMxHost: string;
   onChanged: () => void;
-  /** The first domain is the one settings search jumps to. */
-  setting?: SettingKey;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   // "Check now" asks the worker, which answers a moment later; the result toast waits for that answer.
   const waiting = useRef<string | null>(null);
   const [justChecked, setJustChecked] = useState(false);
+  const status = domain.status;
+  const left: 'records' | 'mail' | null =
+    status !== 'verified'
+      ? 'records'
+      : domain.receiving === 'pending' || domain.receiving === 'lapsed'
+        ? 'mail'
+        : null;
+  // The records show while any is still to add, and fold away once they're all found.
+  const [shown, setShown] = useState(left !== null);
 
   useEffect(() => {
-    if (!domain || waiting.current === null) return;
+    if (waiting.current === null) return;
     if (domain.lastCheckedAt && domain.lastCheckedAt !== waiting.current) {
       waiting.current = null;
       setJustChecked(true);
@@ -243,18 +222,17 @@ function OwnDomain({
       else if (domain.lastError) toast(domain.lastError);
       else if (domain.dkimVerifiedAt && domain.returnPathVerifiedAt)
         toast(
-          'Both mail records found. The record that says the domain is yours isn’t showing yet.',
+          'Both mail records found. The record that says the website name is yours isn’t showing yet.',
         );
       else if (domain.dkimVerifiedAt && !domain.returnPathVerifiedAt)
         toast('DKIM found. The Return-Path record isn’t showing yet.');
       else if (!domain.dkimVerifiedAt && domain.returnPathVerifiedAt)
         toast('Return-Path found. The DKIM record isn’t showing yet.');
-      else toast('Neither mail record is showing yet. DNS changes can take a few hours.');
+      else toast('Neither mail record is showing yet. Changes can take a few hours to show.');
     }
   }, [domain]);
 
   async function check() {
-    if (!domain) return;
     setBusy('check');
     waiting.current = domain.lastCheckedAt ?? '';
     const ok = await run(async () =>
@@ -268,7 +246,6 @@ function OwnDomain({
     setBusy(null);
   }
   async function remove() {
-    if (!domain) return;
     setBusy('remove');
     const ok = await run(
       async () =>
@@ -277,151 +254,229 @@ function OwnDomain({
             body: { workspaceId, emailDomainId: domain.id },
           }),
         ),
-      `Domain removed. Email keeps going out from ${sharedAddress}.`,
+      `${domain.domain} removed. Email keeps going out from ${sharedAddress}.`,
     );
     setBusy(null);
     if (ok) onChanged();
   }
-  const status = domain?.status ?? null;
   const description =
     status === 'verified'
       ? hasAddress
-        ? 'Verified. Addresses on this domain can send now.'
-        : 'Verified. Click Add an address under Your addresses to start sending from it.'
-      : status
-        ? `Waiting for the DNS records below. Until then, email goes out from ${sharedAddress}.`
-        : `Send from an address like office@yourbusiness.com. Until it’s verified, email keeps going out from ${sharedAddress}.`;
-  const hasRecords = !!(domain?.dkimHost && domain.dkimValue && domain.returnPathHost);
+        ? 'Its records are found. Addresses on it can send now.'
+        : 'Its records are found. Click Add an address under Your addresses to start sending from it.'
+      : `Waiting for its records. Until they’re found, email goes out from ${sharedAddress}.`;
+  const hasRecords = !!(domain.dkimHost && domain.dkimValue && domain.returnPathHost);
+  const host = dnsHostFor(domain.dnsHost)?.label ?? null;
+  // Every record this website name needs, and whether each is found: the ones that let it send, the one that says
+  // it is this business's, and ours for its mail once that is asked for.
+  const wantsMail = domain.receiving !== 'off';
+  const records = [
+    ...(hasRecords ? [!!domain.dkimVerifiedAt, !!domain.returnPathVerifiedAt] : []),
+    ...(hasRecords && domain.ownershipHost ? [!!domain.ownershipProvedAt] : []),
+    ...(wantsMail ? [!!domain.mxVerifiedAt && domain.receiving === 'on'] : []),
+  ];
+  const found = records.filter(Boolean).length;
 
   return (
     <Section
-      title={domain ? 'Your own domain' : 'Use your own domain'}
-      setting={setting}
+      title="Your website name"
       description={description}
       aside={
         status === 'verified' ? (
           <Badge variant="ok">Verified</Badge>
         ) : status === 'failed' ? (
           <Badge variant="danger">Needs attention</Badge>
-        ) : status ? (
-          <Badge variant="pending">Waiting for DNS</Badge>
-        ) : null
+        ) : (
+          <Badge variant="pending">Waiting for its records</Badge>
+        )
       }
     >
-      {!domain ? (
-        <DomainAddForm workspaceId={workspaceId} onChanged={onChanged} />
-      ) : (
-        <>
-          <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
-            <Globe className="h-3.5 w-3.5" strokeWidth={1.5} />
-            <span className="font-mono text-sm font-medium" data-testid="domain-name">
-              {domain.domain}
-            </span>
-            <span className="text-xs text-text-3">
-              {status === 'verified'
-                ? `Verified ${dayWord(domain.returnPathVerifiedAt ?? domain.dkimVerifiedAt ?? domain.createdAt)}`
-                : justChecked
-                  ? 'Checked just now'
-                  : `Added ${dayWord(domain.createdAt)}${domain.lastCheckedAt ? ` · last checked ${clockOf(domain.lastCheckedAt)}` : ''}`}
-            </span>
-          </div>
-          {status !== 'verified' && domain.lastError ? (
-            <Callout
-              tone={status === 'failed' ? 'danger' : 'warning'}
-              icon={CircleAlert}
-              className="mt-3"
+      <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
+        <Globe className="h-3.5 w-3.5" strokeWidth={1.5} />
+        <span className="font-mono text-sm font-medium" data-testid="domain-name">
+          {domain.domain}
+        </span>
+        <span className="text-xs text-text-3">
+          {status === 'verified'
+            ? `Verified ${dayWord(domain.returnPathVerifiedAt ?? domain.dkimVerifiedAt ?? domain.createdAt)}`
+            : justChecked
+              ? 'Checked just now'
+              : `Added ${dayWord(domain.createdAt)}${domain.lastCheckedAt ? ` · last checked ${clockOf(domain.lastCheckedAt)}` : ''}`}
+        </span>
+      </div>
+      {status !== 'verified' && domain.lastError ? (
+        <Callout
+          tone={status === 'failed' ? 'danger' : 'warning'}
+          icon={CircleAlert}
+          className="mt-3"
+        >
+          {domain.lastError}
+        </Callout>
+      ) : null}
+      {left ? (
+        <Callout
+          tone="info"
+          icon={ListChecks}
+          className="mt-3 items-center"
+          data-testid="domain-left"
+          action={
+            <ButtonLink
+              href={guidedHref(workspaceId, `&at=records&d=${domain.id}`)}
+              size="sm"
+              className="flex-none"
+              data-testid="domain-steps"
             >
-              {domain.lastError}
-            </Callout>
-          ) : null}
-          {status !== 'verified' ? (
-            <p className="mt-2.5 text-[13px] text-text-2">
-              {hasRecords
-                ? `Add ${domain.ownershipHost ? 'these three records' : 'these two records'} at your DNS provider. Changes can take a few hours to show up. We check once a day and email you when it works.`
-                : 'Getting your records ready. They show here in a moment.'}
-            </p>
-          ) : null}
-          {hasRecords ? (
-            <div className="mt-3 flex flex-col gap-2.5">
-              <RecordBox
-                type="TXT"
-                purpose="Proves the mail is yours (DKIM)"
-                host={domain.dkimHost!}
-                value={domain.dkimValue!}
-                verified={!!domain.dkimVerifiedAt}
-                domain={domain.domain}
-              />
-              <RecordBox
-                type="CNAME"
-                purpose="Handles bounces (Return-Path)"
-                host={domain.returnPathHost!}
-                value={domain.returnPathValue ?? RETURN_PATH_DEFAULT}
-                verified={!!domain.returnPathVerifiedAt}
-                domain={domain.domain}
-              />
-              {/* Which business set the name up (M19): the mail records alone say only that somebody did. */}
-              {domain.ownershipHost ? (
-                <RecordBox
-                  type="TXT"
-                  purpose="Says the domain is this business’s"
-                  host={domain.ownershipHost}
-                  value={domain.ownershipToken}
-                  verified={!!domain.ownershipProvedAt}
-                  domain={domain.domain}
-                  testId="dns-TXT-ownership"
-                />
-              ) : null}
-            </div>
-          ) : null}
-          {status === 'verified' && (receivingOpen || domain.receiving !== 'off') ? (
+              Open the steps
+            </ButtonLink>
+          }
+        >
+          {left === 'records'
+            ? `One step left: add your records${host ? ` at ${host}` : ''}. The steps walk you through it.`
+            : `One step left: change the mail record${host ? ` at ${host}` : ''}, so mail to ${domain.domain} lands here. The steps walk you through it.`}
+        </Callout>
+      ) : null}
+      <div className="mt-4 flex flex-col divide-y divide-border rounded-menu border border-border">
+        {receivingOpen || wantsMail ? (
+          <div className="px-3.5 py-3.5">
             <Receiving
               workspaceId={workspaceId}
               domain={domain}
-              inboundMxHost={inboundMxHost}
+              verified={status === 'verified'}
               onChanged={onChanged}
             />
-          ) : null}
-          <div className="mt-3.5 flex gap-2">
-            {status !== 'verified' ? (
-              <Button
-                size="sm"
-                loading={busy === 'check'}
-                onClick={() => void check()}
-                data-testid="domain-check"
-              >
-                <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Check now
-              </Button>
-            ) : null}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-danger-text"
-              loading={busy === 'remove'}
-              onClick={() => void remove()}
-            >
-              Remove domain
-            </Button>
           </div>
-        </>
-      )}
+        ) : null}
+        <div className="px-3.5 py-3.5">
+          <Row
+            label={`Records${host ? ` at ${host}` : ''}`}
+            testId="domain-records"
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-expanded={shown}
+                onClick={() => setShown((now) => !now)}
+                data-testid="domain-records-toggle"
+              >
+                {shown ? 'Hide' : 'Show'}
+                <ChevronDown
+                  className={cn('h-3.5 w-3.5 transition-transform', shown && 'rotate-180')}
+                  strokeWidth={1.5}
+                />
+              </Button>
+            }
+          >
+            {records.length ? (
+              <Badge variant={found === records.length ? 'ok' : 'pending'}>
+                {found === records.length
+                  ? `All ${found} found`
+                  : `${found} of ${records.length} found`}
+              </Badge>
+            ) : (
+              <span className="text-[13px] text-text-2">
+                Getting them ready. They show here in a moment.
+              </span>
+            )}
+          </Row>
+          {shown ? (
+            <div className="mt-3.5">
+              {status !== 'verified' && hasRecords ? (
+                <p className="text-[13px] text-text-2">
+                  {`Add ${domain.ownershipHost ? 'these three records' : 'these two records'}${host ? ` at ${host}` : ' where your website name is looked after'}. Changes can take a few hours to show up. We check on our own and email you when it works.`}
+                </p>
+              ) : null}
+              {hasRecords ? (
+                <div className="mt-3 flex flex-col gap-2.5">
+                  <RecordBox
+                    type="TXT"
+                    purpose="Proves the mail is yours (DKIM)"
+                    host={domain.dkimHost!}
+                    value={domain.dkimValue!}
+                    verified={!!domain.dkimVerifiedAt}
+                    domain={domain.domain}
+                  />
+                  <RecordBox
+                    type="CNAME"
+                    purpose="Handles bounces (Return-Path)"
+                    host={domain.returnPathHost!}
+                    value={domain.returnPathValue ?? RETURN_PATH_DEFAULT}
+                    verified={!!domain.returnPathVerifiedAt}
+                    domain={domain.domain}
+                  />
+                  {/* Which business set the name up (M19): the mail records alone say only that somebody did. */}
+                  {domain.ownershipHost ? (
+                    <RecordBox
+                      type="TXT"
+                      purpose="Says the website name is this business’s"
+                      host={domain.ownershipHost}
+                      value={domain.ownershipToken}
+                      verified={!!domain.ownershipProvedAt}
+                      domain={domain.domain}
+                      testId="dns-TXT-ownership"
+                    />
+                  ) : null}
+                  {/* Ours for its mail, once that is asked for: the old ones are deleted, and this one added. */}
+                  {wantsMail ? (
+                    <RecordBox
+                      type="MX"
+                      purpose="Brings your mail here"
+                      host="@"
+                      value={inboundMxHost}
+                      priority={10}
+                      verified={!!domain.mxVerifiedAt && domain.receiving === 'on'}
+                      domain={domain.domain}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+              {status !== 'verified' ? (
+                <div className="mt-3.5">
+                  <Button
+                    size="sm"
+                    loading={busy === 'check'}
+                    onClick={() => void check()}
+                    data-testid="domain-check"
+                  >
+                    <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    Check now
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-3.5">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-danger-text"
+          loading={busy === 'remove'}
+          onClick={() => void remove()}
+          data-testid="domain-remove"
+        >
+          Remove this website name
+        </Button>
+      </div>
     </Section>
   );
 }
 
 /**
- * Receiving the business's mail at its own domain (M19): once its MX record points here, mail to every address on it
- * arrives in HandsFreeOS — the team's Inbox, or one person's own mail — with no Google or Outlook needed.
+ * "Mail coming in" (M19): once a website name's mail record points here, mail to every address on it arrives in
+ * HandsFreeOS (the team's Inbox, or one person's own mail), with no Google or Outlook needed. The record itself
+ * sits with the others under Records.
  */
 function Receiving({
   workspaceId,
   domain,
-  inboundMxHost,
+  verified,
   onChanged,
 }: {
   workspaceId: string;
   domain: EmailDomainInfo;
-  inboundMxHost: string;
+  /** Its sending records are found: mail can only be brought in after that. */
+  verified: boolean;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState<'start' | 'stop' | null>(null);
@@ -438,8 +493,8 @@ function Receiving({
       receiving === 'lapsed'
         ? 'Checking again. It takes up to 15 minutes.'
         : receiving === 'pending'
-          ? 'Checking now. This shows Receiving once the MX record is found.'
-          : 'Now change the MX record below.',
+          ? 'Checking now. This shows Working once the mail record is found.'
+          : 'Now change the mail record. Open the steps to see how.',
     );
     setBusy(null);
     if (ok) onChanged();
@@ -447,7 +502,7 @@ function Receiving({
   async function stop() {
     if (
       !window.confirm(
-        `Stop receiving mail at ${domain.domain}? Mail that still comes here won’t be filed, so point the MX record back where it was first.`,
+        `Stop receiving mail at ${domain.domain}? Mail that still comes here won’t be filed, so point the mail record back where it was first.`,
       )
     )
       return;
@@ -464,95 +519,93 @@ function Receiving({
     setBusy(null);
     if (ok) onChanged();
   }
-  const mx = (
-    <div className="mt-3">
-      <RecordBox
-        type="MX"
-        purpose="Brings your mail here"
-        host="@"
-        value={inboundMxHost}
-        priority={10}
-        verified={!!domain.mxVerifiedAt && receiving === 'on'}
-        domain={domain.domain}
-      />
-    </div>
+  const stopButton = (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="text-danger-text"
+      loading={busy === 'stop'}
+      onClick={() => void stop()}
+    >
+      Stop receiving here
+    </Button>
   );
+  const checkButton = (label: string) => (
+    <Button size="sm" loading={busy === 'start'} onClick={() => void start()}>
+      <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+      {label}
+    </Button>
+  );
+  // How it stands, in a badge and a line, with what there is to do about it.
+  const stand: { badge: ReactNode; line: string; more: string | null; action: ReactNode } =
+    !verified
+      ? {
+          badge: <Badge variant="gray">Not yet</Badge>,
+          line: 'Your records come first.',
+          more: 'Once they’re found, you can bring your mail here.',
+          action: null,
+        }
+      : receiving === 'on'
+        ? {
+            badge: <Badge variant="ok">Working</Badge>,
+            line: 'Lands in HandsFreeOS',
+            more: `${domain.mxCheckedAt ? `Checked ${ago(domain.mxCheckedAt)}. ` : ''}Mail to an address you haven’t added goes to the team’s Inbox.`,
+            action: stopButton,
+          }
+        : receiving === 'pending'
+          ? {
+              badge: <Badge variant="pending">Waiting</Badge>,
+              line: 'Not here yet',
+              more: `Delete the old mail records for ${domain.domain} and add ours, with priority 10. We check every 15 minutes. Just changed it? Click Check now.`,
+              action: (
+                <>
+                  {checkButton('Check now')}
+                  {stopButton}
+                </>
+              ),
+            }
+          : receiving === 'lapsed'
+            ? {
+                badge: <Badge variant="danger">Not working</Badge>,
+                line: 'The mail record doesn’t point here anymore',
+                more: 'New mail may be going somewhere else. Put our record back, then check again.',
+                action: (
+                  <>
+                    {checkButton('Check again')}
+                    {stopButton}
+                  </>
+                ),
+              }
+            : {
+                badge: <Badge variant="gray">Off</Badge>,
+                line: 'Stays where it goes today',
+                more: `Bring it here and all mail to ${domain.domain} is read in HandsFreeOS, with no Gmail or Outlook needed.`,
+                action: (
+                  <Button size="sm" loading={busy === 'start'} onClick={() => void start()}>
+                    Receive mail here
+                  </Button>
+                ),
+              };
   return (
-    <div className="mt-5 border-t border-border pt-4" data-testid="domain-receiving">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[15px] font-semibold">Receive mail here too</h3>
-        {receiving === 'on' ? (
-          <Badge variant="ok">Receiving</Badge>
-        ) : receiving === 'pending' ? (
-          <Badge variant="pending">Waiting for the MX record</Badge>
-        ) : receiving === 'lapsed' ? (
-          <Badge variant="danger">Not receiving</Badge>
-        ) : null}
-      </div>
-      {receiving === 'off' && domain.receivingError ? (
-        <Callout tone="danger" icon={CircleAlert} className="mt-2" data-testid="receiving-error">
+    <>
+      <Row label="Mail coming in" testId="domain-receiving" action={stand.action}>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {stand.badge}
+          <span className="text-sm">{stand.line}</span>
+        </div>
+        {stand.more ? <p className="mt-1 text-[13px] text-text-2">{stand.more}</p> : null}
+      </Row>
+      {verified && receiving === 'off' && domain.receivingError ? (
+        <Callout tone="danger" icon={CircleAlert} className="mt-3" data-testid="receiving-error">
           {domain.receivingError}
         </Callout>
       ) : null}
-      {receiving === 'off' ? (
-        <>
-          <p className="mt-1.5 text-[13px] text-text-2">
-            {`Get all mail to ${domain.domain} in HandsFreeOS, with no Google or Outlook needed. Each address above is read by the team in the Inbox, or by one person in their own mail.`}
-          </p>
-          <Callout tone="warning" icon={CircleAlert} className="mt-3">
-            {`Once you change this, mail to every address at ${domain.domain} comes to HandsFreeOS instead of where it goes now. Add everyone’s address first.`}
-          </Callout>
-          <div className="mt-3">
-            <Button size="sm" loading={busy === 'start'} onClick={() => void start()}>
-              Receive mail here
-            </Button>
-          </div>
-        </>
-      ) : receiving === 'pending' ? (
-        <>
-          <p className="mt-1.5 text-[13px] text-text-2">
-            {`At your DNS provider, delete the MX records for ${domain.domain} and add this one, with priority 10. We check every 15 minutes, and mail starts arriving once it shows. Just changed it? Click Check now.`}
-          </p>
-          {mx}
-          <div className="mt-3">
-            <Button size="sm" loading={busy === 'start'} onClick={() => void start()}>
-              <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Check now
-            </Button>
-          </div>
-        </>
-      ) : receiving === 'lapsed' ? (
-        <>
-          <Callout tone="danger" icon={CircleAlert} className="mt-2">
-            {`The MX record for ${domain.domain} doesn’t point here anymore, so new mail may be going somewhere else. Put this record back, then check again.`}
-          </Callout>
-          {mx}
-          <div className="mt-3">
-            <Button size="sm" loading={busy === 'start'} onClick={() => void start()}>
-              <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Check again
-            </Button>
-          </div>
-        </>
-      ) : (
-        <p className="mt-1.5 text-[13px] text-text-2">
-          {`Mail to every address at ${domain.domain} comes here. Mail to an address you haven’t added goes to the team’s Inbox.`}
-        </p>
-      )}
-      {receiving !== 'off' ? (
-        <div className="mt-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-danger-text"
-            loading={busy === 'stop'}
-            onClick={() => void stop()}
-          >
-            Stop receiving here
-          </Button>
-        </div>
+      {verified && receiving === 'off' ? (
+        <Callout tone="warning" icon={CircleAlert} className="mt-3">
+          {`Once you change the mail record, mail to every address at ${domain.domain} comes to HandsFreeOS instead of where it goes now. Add everyone’s address first.`}
+        </Callout>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -1038,7 +1091,22 @@ export function EmailPage({
     'email_unmatched',
     'email_sender_rule',
   ]);
-  const shared = status.addresses.find((a) => !a.domain);
+  const sharedAddress =
+    status.addresses.find((a) => !a.domain)?.address ?? `your address @${status.sharedDomain}`;
+  const websiteNames = status.domains.length
+    ? status.domains.map((d) => (
+        <OwnDomain
+          key={d.id}
+          workspaceId={workspaceId}
+          domain={d}
+          sharedAddress={sharedAddress}
+          hasAddress={status.addresses.some((x) => x.emailDomainId === d.id)}
+          receivingOpen={status.receivingOpen}
+          inboundMxHost={status.inboundMxHost}
+          onChanged={refresh}
+        />
+      ))
+    : [<UseYourOwn key="none" workspaceId={workspaceId} sharedAddress={sharedAddress} />];
   return (
     <div className="flex flex-col gap-5" data-testid="email-settings">
       {/* The addresses get the page's whole width: each row holds an address, who reads it and its buttons. */}
@@ -1051,29 +1119,35 @@ export function EmailPage({
         aiTeammate={status.aiTeammate ?? null}
         onChanged={refresh}
       />
+      {/* Every website name the business has (up to three), each the page's whole width like the addresses above
+          it; with none yet, the way to add one. Settings search jumps to the first card, whichever it is. */}
+      {websiteNames.map((card, i) =>
+        i === 0 ? (
+          <SettingAnchor key={card.key} setting="email.own_domain">
+            {card}
+          </SettingAnchor>
+        ) : (
+          card
+        ),
+      )}
+      {status.domains.length ? (
+        <p className="-mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-[13px] text-text-2">
+          <span>Moving to a different website name, or adding another?</span>
+          <Link
+            href={guidedHref(workspaceId, '&again=1')}
+            className="font-medium text-accent-text hover:underline"
+            data-testid="email-guided-again"
+          >
+            Run the guided setup again
+          </Link>
+        </p>
+      ) : null}
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
-        <div className={cn('flex flex-col gap-5')}>
-          {/* Every domain the business has (up to three), and room for another. */}
-          {(status.domains.length ? status.domains : [null]).map((d, i) => (
-            <OwnDomain
-              key={d?.id ?? 'new'}
-              setting={i === 0 ? 'email.own_domain' : undefined}
-              workspaceId={workspaceId}
-              domain={d}
-              sharedAddress={shared?.address ?? `your address @${status.sharedDomain}`}
-              hasAddress={!!d && status.addresses.some((a) => a.emailDomainId === d.id)}
-              receivingOpen={status.receivingOpen}
-              inboundMxHost={status.inboundMxHost}
-              onChanged={refresh}
-            />
-          ))}
-          {status.domains.length > 0 && status.domains.length < MAX_EMAIL_DOMAINS ? (
-            <AddAnotherDomain workspaceId={workspaceId} onChanged={refresh} />
-          ) : null}
-        </div>
         <div className="flex flex-col gap-5">
           <Mailboxes workspaceId={workspaceId} mailboxes={status.mailboxes} onChanged={refresh} />
           <SenderRules workspaceId={workspaceId} items={senderRules} onChanged={refresh} />
+        </div>
+        <div className="flex flex-col gap-5">
           <Blocked workspaceId={workspaceId} items={blocked} onChanged={refresh} />
           <Unmatched workspaceId={workspaceId} items={unmatched} tags={tags} onChanged={refresh} />
         </div>

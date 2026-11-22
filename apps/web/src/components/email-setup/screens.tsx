@@ -2,9 +2,9 @@
 /**
  * The business email step's three screens on the web (messaging/email-setup.ts): the address booking emails go out
  * from, the domain's records with the steps for where it's managed, and the person's own email. Onboarding's setup
- * shows them as its "Your business email" stop, and Home's card as a page of their own (email-setup-flow.tsx). They
- * only show and change the answers; whoever shows them checks and saves. The records screen asks for a check and
- * sends the steps itself, and the last one connects Outlook, since those don't wait for Next.
+ * shows them as its "Your business email" stop. (Home's card and Settings → Email open the guided setup instead,
+ * guided-flow.tsx.) They only show and change the answers; whoever shows them checks and saves. The records screen
+ * asks for a check and sends the steps itself, and the last one connects Outlook, since those don't wait for Next.
  */
 import {
   dnsHostFor,
