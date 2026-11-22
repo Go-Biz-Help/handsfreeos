@@ -485,4 +485,52 @@ describe('the gates', () => {
     const [profile] = await sentTo(query('me_v1', 'my_profile'), member);
     expect(profile!.id).toBe(member.id);
   });
+
+  it('send a person’s own mail to them alone, and none of it once they’ve left (CS2)', async () => {
+    const leaver = await createTestUser('streams-leaver');
+    const join = () =>
+      rows(
+        admin$,
+        sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+            values (${business}, ${leaver.id}, 'member')`,
+      );
+    await join();
+    const [thread] = await rows<{ id: string }>(
+      admin$,
+      sql`insert into app.conversations (workspace_id, channel, counterpart, private_to)
+          values (${business}, 'email', 'friend@example.test', ${leaver.id}) returning id`,
+    );
+    await rows(
+      admin$,
+      sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, subject, body_text)
+          values (${business}, ${thread!.id}, 'email', 'inbound', 'received', 'Just for you', 'Hello')`,
+    );
+    const mine = async () => ({
+      threads: (await sentTo(query('me_v1', 'conversations'), leaver)).length,
+      messages: (await sentTo(query('me_v1', 'messages'), leaver)).length,
+    });
+    const me = queries.filter((x) => !x.cte && x.stream === 'me_v1');
+    try {
+      expect(await mine()).toEqual({ threads: 1, messages: 1 });
+      await rows(
+        admin$,
+        sql`delete from app.workspace_memberships where workspace_id = ${business} and user_id = ${leaver.id}`,
+      );
+      // Gone: their phone is sent none of it, as RLS lets them read none of it, and still nobody else is.
+      expect(await mine()).toEqual({ threads: 0, messages: 0 });
+      for (const q of me)
+        expect(await readableBy(q, leaver), `${q.output}`).toEqual(await sentTo(q, leaver));
+      for (const user of [owner, member, agencyAdmin])
+        expect(
+          (await sentTo(query('business_v1', 'conversations'), user)).map((r) => r.id),
+        ).not.toContain(thread!.id);
+      // Back, with the address still theirs: so is the mail.
+      await join();
+      expect(await mine()).toEqual({ threads: 1, messages: 1 });
+      for (const q of me)
+        expect(await readableBy(q, leaver), `${q.output}`).toEqual(await sentTo(q, leaver));
+    } finally {
+      await rows(admin$, sql`delete from app.conversations where id = ${thread!.id}`);
+    }
+  });
 });
