@@ -23,6 +23,8 @@ import {
   EmailAddressCreateOutput,
   EmailAddressReassignInput,
   EmailAddressReassignOutput,
+  EmailAddressRemoveInput,
+  EmailAddressRemoveOutput,
   EmailAddressUpdateInput,
   EmailAddressUpdateOutput,
   EmailClaimUnmatchedInput,
@@ -120,7 +122,7 @@ async function checkOwner(
     throw HfosError.rule(
       'email_address_owner_default',
       409,
-      `${address} is one person’s own address, so it can’t be the business’s default. Make a team address the default instead.`,
+      `${address} is one person’s own address, so customers can’t hear from it. Pick a team address as the one customers hear from instead.`,
     );
   const [here] = await rows<{ ok: boolean }>(
     ctx.tx,
@@ -172,6 +174,36 @@ async function loadAddress(ctx: CommandContext, emailAddressId: string) {
       'That sending address isn’t there anymore. It may have been removed. Refresh and try again.',
     );
   return a;
+}
+
+/**
+ * The team address that takes over as the default when today's default becomes one person's own: another address of
+ * this business, the team's, and able to send now.
+ */
+async function loadTakeover(
+  ctx: CommandContext,
+  emailAddressId: string,
+  leaving: { id: string; address: string },
+): Promise<{ id: string; address: string }> {
+  const pickAgain = `Pick a team address that can send to take over from ${leaving.address}: Change on ${leaving.address} in Settings → Email lists them.`;
+  if (emailAddressId === leaving.id)
+    throw HfosError.rule(
+      'email_default_takeover',
+      400,
+      `${leaving.address} can’t take over from itself. ${pickAgain}`,
+    );
+  const to = await loadAddress(ctx, emailAddressId);
+  if (to.ownerUserId)
+    throw HfosError.rule(
+      'email_default_takeover',
+      409,
+      `${to.address} is one person’s own address, so customers can’t hear from it. ${pickAgain}`,
+    );
+  if (to.emailDomainId) {
+    const d = await loadDomain(ctx, to.emailDomainId);
+    if (d.status !== 'verified') throw unverified(d.domain);
+  }
+  return { id: to.id, address: to.address };
 }
 
 /** Only the columns people may read: the column grants keep sealed tokens and sign-in secrets from them. */
@@ -820,7 +852,7 @@ export const emailAddressCreate = defineCommand({
 export const emailAddressUpdate = defineCommand({
   name: 'email_address.update',
   description:
-    'Change the name customers see on an address, rename it while it has not sent mail, or make it the default.',
+    'Change the name customers see on an address, rename it while it has not carried mail, make it the default, give a team address to one person, or (its own person only) hand it back to the team.',
   risk: 2,
   input: EmailAddressUpdateInput,
   output: EmailAddressUpdateOutput,
@@ -836,16 +868,40 @@ export const emailAddressUpdate = defineCommand({
       isDefault?: boolean;
       ownerUserId?: string | null;
     } = {};
+    /** Its own person hands it back to the team: a function's work, since the guard lets nobody else. */
+    let handBack = false;
+    /** The team address that becomes the default as this one becomes one person's. */
+    let takesOver: { id: string; address: string } | null = null;
     if (input.ownerUserId !== undefined && input.ownerUserId !== a.ownerUserId) {
-      // Taking an address from its person takes their mail with it: an owner does that, once they have left.
-      if (a.ownerUserId)
-        throw HfosError.rule(
-          'email_address_owner_is_theirs',
-          409,
-          `${a.address} is one person’s own address, and its mail is theirs. Once they’ve left the business, an owner can make it the team’s or give it to someone else.`,
-        );
-      await checkOwner(ctx, input.ownerUserId!, a.address, domain, a.isDefault);
-      patch.ownerUserId = input.ownerUserId;
+      if (a.ownerUserId) {
+        // It is one person's, and so is its mail. They alone hand it back; nobody passes it on for them.
+        if (input.ownerUserId !== null)
+          throw HfosError.rule(
+            'email_address_owner_is_theirs',
+            409,
+            `${a.address} is one person’s own address, so it can’t go straight to someone else. Its person hands it back to the team first: Change on ${a.address} in Settings → Email, then The team.`,
+          );
+        if (a.ownerUserId !== userIdOf(ctx.actor))
+          throw HfosError.rule(
+            'email_address_owner_is_theirs',
+            409,
+            `${a.address} is one person’s own address, and its mail is theirs. Only they can hand it back to the team: Change on ${a.address} in Settings → Email, then The team. Once they’ve left the business, an owner decides.`,
+          );
+        handBack = true;
+      } else {
+        if (a.isDefault) {
+          // A person's own address can't send for the business, so another address takes over in the same go.
+          if (!input.defaultToId)
+            throw HfosError.rule(
+              'email_address_owner_default',
+              409,
+              `Customers hear from ${a.address} today, and one person’s own address can’t send for the business. Pick the address that takes over, then save again.`,
+            );
+          takesOver = await loadTakeover(ctx, input.defaultToId, a);
+        }
+        await checkOwner(ctx, input.ownerUserId!, a.address, domain, false);
+        patch.ownerUserId = input.ownerUserId;
+      }
     }
     if (input.displayName !== undefined && input.displayName !== a.displayName)
       patch.displayName = input.displayName;
@@ -855,42 +911,64 @@ export const emailAddressUpdate = defineCommand({
       patch.localPart = input.localPart;
     }
     // The workspace always has a default; it moves by picking another one.
-    if (input.isDefault === false && a.isDefault)
+    if (input.isDefault === false && a.isDefault && !takesOver)
       throw HfosError.rule(
         'email_default_required',
         409,
-        `${a.address} is your default address, and there always has to be one. Click Make default on another address instead.`,
+        `Customers hear from ${a.address}, and there always has to be one address they hear from. Click Change on another address in Settings → Email and make that the one instead.`,
       );
     if (input.isDefault === true && !a.isDefault) {
       if (domain && domain.status !== 'verified') throw unverified(domain.domain);
-      if (a.ownerUserId || patch.ownerUserId)
+      if ((a.ownerUserId && !handBack) || patch.ownerUserId)
         throw HfosError.rule(
           'email_address_owner_default',
           409,
-          `${a.address} is one person’s own address, so it can’t be the business’s default. Make a team address the default instead.`,
+          `${a.address} is one person’s own address, so customers can’t hear from it. Pick a team address instead.`,
         );
       patch.isDefault = true;
     }
-    const updated = Object.keys(patch);
+    const updated = [...Object.keys(patch), ...(handBack ? ['ownerUserId'] : [])];
     if (updated.length === 0) return { emailAddressId: a.id, address: a.address, updated };
-    const previous = patch.isDefault ? await clearDefault(ctx) : null;
-    let row: { address: string } | undefined;
-    try {
-      [row] = await ctx.tx
-        .update(emailAddresses)
-        .set(patch)
-        .where(eq(emailAddresses.id, a.id))
-        .returning({ address: emailAddresses.address });
-    } catch (e) {
-      if (isUniqueViolation(e, 'email_addresses_address_key'))
-        throw addressTaken(
-          `${patch.localPart ?? a.localPart}@${domain?.domain ?? SHARED_MAIL_DOMAIN}`,
-        );
-      throw e; // an address that has sent mail keeps its name: the guard's rule, via pg-errors
+    if (handBack) {
+      await ctx.tx.execute(sql`select private.hand_back_email_address(${a.id}::uuid)`);
     }
-    if (!row) throw HfosError.forbidden();
+    // The default steps down first: one default a business, and never one person's own.
+    const previous = patch.isDefault || takesOver ? await clearDefault(ctx) : null;
+    if (takesOver) {
+      await ctx.tx
+        .update(emailAddresses)
+        .set({ isDefault: true })
+        .where(eq(emailAddresses.id, takesOver.id));
+      await ctx.emit({
+        type: 'email_address.updated',
+        entityType: 'email_address',
+        entityId: takesOver.id,
+        payload: { fields: ['isDefault'], previousDefaultId: a.id },
+        before: { isDefault: false },
+        after: { address: takesOver.address, isDefault: true, previousDefault: a.address },
+      });
+    }
+    let address = a.address;
+    if (Object.keys(patch).length > 0) {
+      let row: { address: string } | undefined;
+      try {
+        [row] = await ctx.tx
+          .update(emailAddresses)
+          .set(patch)
+          .where(eq(emailAddresses.id, a.id))
+          .returning({ address: emailAddresses.address });
+      } catch (e) {
+        if (isUniqueViolation(e, 'email_addresses_address_key'))
+          throw addressTaken(
+            `${patch.localPart ?? a.localPart}@${domain?.domain ?? SHARED_MAIL_DOMAIN}`,
+          );
+        throw e; // an address that has sent mail keeps its name: the guard's rule, via pg-errors
+      }
+      if (!row) throw HfosError.forbidden();
+      address = row.address;
+    }
     const before: Record<string, unknown> = {};
-    const after: Record<string, unknown> = { address: row.address };
+    const after: Record<string, unknown> = { address };
     if (patch.displayName !== undefined) {
       before.displayName = a.displayName;
       after.displayName = patch.displayName;
@@ -901,19 +979,110 @@ export const emailAddressUpdate = defineCommand({
       after.isDefault = true;
       if (previous) after.previousDefault = previous.address;
     }
+    if (takesOver) {
+      before.isDefault = true;
+      after.isDefault = false;
+      after.defaultNow = takesOver.address;
+    }
     if (patch.ownerUserId !== undefined) {
       before.ownerUserId = null;
       after.ownerUserId = patch.ownerUserId;
+    }
+    if (handBack) {
+      before.ownerUserId = a.ownerUserId;
+      after.ownerUserId = null;
     }
     await ctx.emit({
       type: 'email_address.updated',
       entityType: 'email_address',
       entityId: a.id,
-      payload: { fields: updated, ...(previous ? { previousDefaultId: previous.id } : {}) },
+      payload: {
+        fields: updated,
+        ...(previous && !takesOver ? { previousDefaultId: previous.id } : {}),
+        ...(takesOver ? { defaultToId: takesOver.id } : {}),
+      },
       before,
       after,
     });
-    return { emailAddressId: a.id, address: row.address, updated };
+    return { emailAddressId: a.id, address, updated };
+  },
+});
+
+/**
+ * One address removed (Settings → Email, Change → Remove address). The mail it carried stays where it is: the
+ * team's in the Inbox, a person's own with them. Mail that comes after goes to the business's default address,
+ * as mail to any name nobody has does, so nothing is lost. Never the default, never the last free address (the
+ * backup), and a person's own only by them. The SQL checks all of it again for itself.
+ */
+export const emailAddressRemove = defineCommand({
+  name: 'email_address.remove',
+  description:
+    'Remove one sending address. The mail it already got stays, and mail that comes to it after goes to the team’s Inbox. Never the default address or the free backup address, and one person’s own address only by them.',
+  risk: 3,
+  input: EmailAddressRemoveInput,
+  output: EmailAddressRemoveOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['email_address.removed'],
+  async handler(ctx, input) {
+    const a = await loadAddress(ctx, input.emailAddressId);
+    const workspaceId = ctx.scope.workspaceId!;
+    if (a.isDefault)
+      throw HfosError.rule(
+        'email_default_required',
+        409,
+        `Customers hear from ${a.address}, and there always has to be one address they hear from. Click Change on another address in Settings → Email and make that the one. Then remove ${a.address}.`,
+      );
+    if (!a.emailDomainId) {
+      const [others] = await ctx.tx
+        .select({ n: count() })
+        .from(emailAddresses)
+        .where(
+          and(
+            eq(emailAddresses.workspaceId, workspaceId),
+            isNull(emailAddresses.emailDomainId),
+            ne(emailAddresses.id, a.id),
+          ),
+        );
+      if (!others?.n)
+        throw HfosError.rule(
+          'email_address_backup_stays',
+          409,
+          `${a.address} is your free HandsFreeOS address. It stays as the backup, so your emails still go out if your own website name ever stops working.`,
+        );
+    }
+    if (a.ownerUserId) {
+      const [here] = await rows<{ ok: boolean }>(
+        ctx.tx,
+        sql`select private.works_in(${a.ownerUserId}::uuid, ${workspaceId}::uuid) as ok`,
+      );
+      if (!here?.ok)
+        throw HfosError.rule(
+          'email_address_owner_left',
+          409,
+          `${a.address} belonged to someone who has left, and their mail on it is still sealed. An owner of this business picks what becomes of both, under ${a.address} in Settings → Email.`,
+        );
+      if (a.ownerUserId !== userIdOf(ctx.actor))
+        throw HfosError.rule(
+          'email_address_owner_is_theirs',
+          409,
+          `${a.address} is one person’s own address, so only they can remove it: Change on ${a.address} in Settings → Email, then Remove address.`,
+        );
+    }
+    const [row] = await rows<{ was: string | null; threads: number }>(
+      ctx.tx,
+      sql`select was, threads from private.remove_email_address(${a.id}::uuid)`,
+    );
+    if (!row) throw HfosError.forbidden();
+    await ctx.emit({
+      type: 'email_address.removed',
+      entityType: 'email_address',
+      entityId: a.id,
+      payload: { threads: row.threads, ...(a.ownerUserId ? { private: true } : {}) },
+      before: { address: a.address, ...(a.ownerUserId ? { ownerUserId: a.ownerUserId } : {}) },
+      after: { removed: true, threads: row.threads },
+    });
+    return { emailAddressId: a.id, address: a.address, threads: row.threads };
   },
 });
 

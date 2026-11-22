@@ -4477,6 +4477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/email_address.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove one sending address. The mail it already got stays, and mail that comes to it after goes to the team’s Inbox. Never the default address or the free backup address, and one person’s own address only by them.
+         * @description Risk level 3. Requires channels.manage. Emits email_address.removed.
+         */
+        post: operations["command_email_address_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/email_address.update": {
         parameters: {
             query?: never;
@@ -4487,7 +4507,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change the name customers see on an address, rename it while it has not sent mail, or make it the default.
+         * Change the name customers see on an address, rename it while it has not carried mail, make it the default, give a team address to one person, or (its own person only) hand it back to the team.
          * @description Risk level 2. Requires channels.manage. Emits email_address.updated.
          */
         post: operations["command_email_address_update"];
@@ -37481,6 +37501,40 @@ export interface operations {
             };
         };
     };
+    command_email_address_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    emailAddressId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        address: string;
+                        /** Format: uuid */
+                        emailAddressId: string;
+                        threads: number;
+                    };
+                };
+            };
+        };
+    };
     command_email_address_update: {
         parameters: {
             query?: never;
@@ -37491,6 +37545,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    defaultToId?: string;
                     displayName?: string;
                     /** Format: uuid */
                     emailAddressId: string;
@@ -82429,9 +82485,11 @@ export interface operations {
                             id: string;
                             isDefault: boolean;
                             localPart: string;
+                            mine?: boolean;
                             ownerLeft?: boolean;
                             ownerName?: string | null;
                             ownerUserId?: string | null;
+                            renamable?: boolean;
                             usable: boolean;
                         }[];
                         counts: {

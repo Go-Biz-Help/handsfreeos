@@ -185,6 +185,7 @@ import { textingFeeCommands } from './texting-fee';
 import {
   emailAddressCreate,
   emailAddressReassign,
+  emailAddressRemove,
   emailAddressUpdate,
   emailClaimUnmatched,
   emailDismissUnmatched,
@@ -629,6 +630,7 @@ export {
   assistantConsent,
   emailAddressCreate,
   emailAddressReassign,
+  emailAddressRemove,
   emailAddressUpdate,
   emailClaimUnmatched,
   emailDismissUnmatched,
@@ -916,6 +918,7 @@ export const commands: readonly CommandDef[] = [
   emailDomainRecordInbound,
   emailAddressCreate,
   emailAddressReassign,
+  emailAddressRemove,
   emailAddressUpdate,
   // The business email step: onboarding's "Your business email", and Home's card.
   emailSetupSave,

@@ -251,6 +251,7 @@ describe('registry', () => {
       'email_domain.record_inbound',
       'email_address.create',
       'email_address.reassign',
+      'email_address.remove',
       'email_address.update',
       // The business email step: onboarding's "Your business email", and Home's card.
       'email_setup.save',

@@ -1,10 +1,10 @@
 {
   "area": "settings-channels",
   "title": "Settings: texting, email, website chat, Facebook and Instagram, templates and lead intake",
-  "checkedOn": "2026-11-21",
+  "checkedOn": "2026-11-22",
   "files": {
     "apps/web/src/app/app/oauth/finish/page.tsx": "32b5c89b1bb7",
-    "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "7a7280639dbc",
+    "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "908f13e57cca",
     "apps/web/src/app/app/w/[workspaceId]/settings/facebook-instagram/page.tsx": "d8f1fdb769fc",
     "apps/web/src/app/app/w/[workspaceId]/settings/lead-intake/page.tsx": "9f59345c668b",
     "apps/web/src/app/app/w/[workspaceId]/settings/templates/page.tsx": "b2960fd030b7",
@@ -14,7 +14,8 @@
     "apps/web/src/components/settings/a2p-wizard.tsx": "16a231581336",
     "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
-    "apps/web/src/components/settings/email-page.tsx": "9663aed57df0",
+    "apps/web/src/components/settings/email-addresses.tsx": "7629a5f124b6",
+    "apps/web/src/components/settings/email-page.tsx": "b8b9789a3099",
     "apps/web/src/components/settings/facebook-instagram-page.tsx": "8674fc1c6cbc",
     "apps/web/src/components/settings/inbox-visibility-card.tsx": "e7ce1e333cd7",
     "apps/web/src/components/settings/lead-intake-page.tsx": "f7affad2e1dd",
@@ -1765,394 +1766,457 @@
       "by": "update_texting_settings voicemailGreeting"
     },
     {
-      "path": "Email → Sending address → each: name and address",
+      "path": "Email → Your addresses → each: address, and who reads it (Only you / Only X / The team / free address)",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:190",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:194",
+      "covered": "yes",
+      "by": "get_settings email addresses ownerName, mine, domain"
+    },
+    {
+      "path": "Email → Your addresses → Customers hear from this one / Backup / Waiting for its records badges",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:190",
+      "covered": "yes",
+      "by": "get_settings email addresses isDefault, domain, usable"
+    },
+    {
+      "path": "Email → Your addresses → Copy address",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:201",
       "covered": "yes",
       "by": "get_settings email addresses"
     },
     {
-      "path": "Email → Sending address → Default / Backup badges",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:193",
-      "covered": "yes",
-      "by": "get_settings email addresses isDefault, domain"
-    },
-    {
-      "path": "Email → Sending address → Make default",
+      "path": "Email → Your addresses → Change (opens Change this address)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:198",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:213",
       "covered": "yes",
-      "by": "manage_email_settings change_address isDefault"
+      "by": "manage_email_settings change_address"
     },
     {
-      "path": "Email → Sending address → Copy address",
+      "path": "Email → Your addresses → Add an address (once a domain is verified)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:207",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:167",
       "covered": "yes",
-      "by": "get_settings email addresses"
+      "by": "manage_email_settings add_address"
     },
     {
-      "path": "Email → Sending address → who reads it: Only X / The team",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:225",
-      "covered": "yes",
-      "by": "get_settings email addresses ownerName"
-    },
-    {
-      "path": "Email → Sending address → Who reads it: The team / Only a person, with confirm",
+      "path": "Email → Your addresses → Name customers see: Change, Save, Cancel",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:236",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:271",
+      "covered": "yes",
+      "by": "manage_email_settings change_address displayName, which puts it on every address"
+    },
+    {
+      "path": "Email → Your addresses → Change this address → Address: rename while it has carried no mail",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:616",
+      "covered": "yes",
+      "by": "manage_email_settings change_address localPart; get_settings email addresses renamable"
+    },
+    {
+      "path": "Email → Your addresses → Change this address → Who reads it: Only me / The team / Or only one teammate",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:338",
       "covered": "yes",
       "by": "manage_email_settings change_address ownerUserId"
     },
     {
-      "path": "Email → Sending address → Name customers see, Save",
+      "path": "Email → Your addresses → Change this address → hand your own address back to the team",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:260",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:481",
       "covered": "yes",
-      "by": "manage_email_settings change_address displayName, per address"
+      "by": "manage_email_settings change_address ownerUserId null, its own person only"
     },
     {
-      "path": "Email → Sending address → person left: mail sealed until an owner decides",
+      "path": "Email → Your addresses → Change this address → Customers hear from it today: pick the one that takes over",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:648",
+      "covered": "yes",
+      "by": "manage_email_settings change_address ownerUserId with defaultToId"
+    },
+    {
+      "path": "Email → Your addresses → Change this address → Make this the one customers hear from",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:684",
+      "covered": "yes",
+      "by": "manage_email_settings change_address isDefault"
+    },
+    {
+      "path": "Email → Your addresses → Change this address → When you save: what will change",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:332",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:435",
+      "covered": "yes",
+      "by": "the manage_email_settings card says whose it becomes, who takes over, and what a hand-back keeps"
+    },
+    {
+      "path": "Email → Your addresses → Change this address → someone else’s own address: only they change or remove it",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:614",
+      "covered": "yes",
+      "by": "get_settings email addresses ownerName, mine; the refusal says only its person can"
+    },
+    {
+      "path": "Email → Your addresses → Change this address → why it can’t be removed (customers hear from it / the free backup)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:710",
+      "covered": "yes",
+      "by": "do_email_address_remove refuses with the reason; get_settings email addresses isDefault, domain"
+    },
+    {
+      "path": "Email → Your addresses → Change this address → Remove address → Remove this address?: what stays and where new mail goes",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:567",
+      "covered": "yes",
+      "by": "do_email_address_remove card warning"
+    },
+    {
+      "path": "Email → Your addresses → Change this address → Remove address → Remove address / Keep it",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:586",
+      "covered": "yes",
+      "by": "do_email_address_remove"
+    },
+    {
+      "path": "Email → Your addresses → Add an address → Website name (with more than one), Address, Ideas",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:851",
+      "covered": "yes",
+      "by": "manage_email_settings add_address localPart, emailDomainId"
+    },
+    {
+      "path": "Email → Your addresses → Add an address → Who reads it, picked for you when the name is yours",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:884",
+      "covered": "yes",
+      "by": "manage_email_settings add_address ownerUserId"
+    },
+    {
+      "path": "Email → Your addresses → Add an address → Make this the one customers hear from",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:897",
+      "covered": "yes",
+      "by": "manage_email_settings add_address isDefault"
+    },
+    {
+      "path": "Email → Your addresses → person left: mail sealed until an owner decides",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:982",
       "covered": "yes",
       "by": "get_settings email addresses ownerLeft"
     },
     {
-      "path": "Email → Sending address → person left → Give it to the team",
+      "path": "Email → Your addresses → person left → Give it to the team",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:341",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:991",
       "covered": "yes",
       "by": "do_email_address_reassign to team"
     },
     {
-      "path": "Email → Sending address → person left → Or to one person…, Give it to them",
+      "path": "Email → Your addresses → person left → Or to one person…, Give it to them",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:352",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:1016",
       "covered": "yes",
       "by": "do_email_address_reassign to person"
     },
     {
-      "path": "Email → Sending address → person left → Remove it, with its mail",
+      "path": "Email → Your addresses → person left → Remove it, with its mail",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:377",
+      "file": "apps/web/src/components/settings/email-addresses.tsx:1027",
       "covered": "yes",
       "by": "do_email_address_reassign to remove; deletes the mail for good, against the never-delete rule"
     },
     {
       "path": "Email → Use your own domain → description by status",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:675",
+      "file": "apps/web/src/components/settings/email-page.tsx:286",
       "covered": "yes",
       "by": "get_settings email domains status"
     },
     {
       "path": "Email → Use your own domain → Verified / Needs attention / Waiting for DNS",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:689",
+      "file": "apps/web/src/components/settings/email-page.tsx:300",
       "covered": "yes",
       "by": "get_settings email domains status"
     },
     {
       "path": "Email → Use your own domain → Your domain, Add domain",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:488",
+      "file": "apps/web/src/components/settings/email-page.tsx:141",
       "covered": "yes",
       "by": "manage_email_settings add_domain"
     },
     {
       "path": "Email → Use your own domain → add error or three-records hint",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:502",
+      "file": "apps/web/src/components/settings/email-page.tsx:155",
       "covered": "yes",
       "by": "add_domain returns the refusal"
     },
     {
       "path": "Email → Use your own domain → domain, Verified or Added date, last checked",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:704",
+      "file": "apps/web/src/components/settings/email-page.tsx:315",
       "covered": "yes",
       "by": "get_settings email domains createdAt, lastCheckedAt"
     },
     {
       "path": "Email → Use your own domain → last error callout",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:716",
+      "file": "apps/web/src/components/settings/email-page.tsx:327",
       "covered": "yes",
       "by": "get_settings email domains lastError"
     },
     {
       "path": "Email → Use your own domain → add these records text",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:725",
+      "file": "apps/web/src/components/settings/email-page.tsx:336",
       "covered": "yes",
       "by": "get_settings email domains"
     },
     {
       "path": "Email → Use your own domain → DKIM TXT: host, value, status, copy",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:733",
+      "file": "apps/web/src/components/settings/email-page.tsx:344",
       "covered": "yes",
       "by": "get_settings email domains dkimHost, dkimValue, dkimVerifiedAt"
     },
     {
       "path": "Email → Use your own domain → Return-Path CNAME: host, value, status, copy",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:741",
+      "file": "apps/web/src/components/settings/email-page.tsx:352",
       "covered": "yes",
       "by": "get_settings email domains returnPath*"
     },
     {
       "path": "Email → Use your own domain → ownership TXT: host, value, status, copy",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:750",
+      "file": "apps/web/src/components/settings/email-page.tsx:361",
       "covered": "yes",
       "by": "get_settings email domains ownershipHost, ownershipToken"
     },
     {
       "path": "Email → Use your own domain → Check now",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:844",
+      "file": "apps/web/src/components/settings/email-page.tsx:391",
       "covered": "yes",
       "by": "manage_email_settings check_domain"
     },
     {
       "path": "Email → Use your own domain → what the check found",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:594",
+      "file": "apps/web/src/components/settings/email-page.tsx:240",
       "covered": "yes",
       "by": "get_settings email domains verified times, lastError"
     },
     {
       "path": "Email → Use your own domain → Remove domain",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:854",
+      "file": "apps/web/src/components/settings/email-page.tsx:401",
       "covered": "yes",
       "by": "manage_email_settings remove_domain"
     },
     {
-      "path": "Email → Use your own domain → Add an address on it: name, Add address",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:770",
-      "covered": "yes",
-      "by": "manage_email_settings add_address localPart, emailDomainId"
-    },
-    {
-      "path": "Email → Use your own domain → Who reads the new address",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:795",
-      "covered": "yes",
-      "by": "manage_email_settings add_address ownerUserId"
-    },
-    {
-      "path": "Email → Use your own domain → becomes default / backup hint",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:818",
-      "covered": "yes",
-      "by": "get_settings email addresses after adding"
-    },
-    {
       "path": "Email → Another domain (up to three)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:535",
+      "file": "apps/web/src/components/settings/email-page.tsx:188",
       "covered": "yes",
       "by": "manage_email_settings add_domain"
     },
     {
       "path": "Email → Receive mail here too → Receiving / Waiting for the MX record / Not receiving",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:935",
+      "file": "apps/web/src/components/settings/email-page.tsx:482",
       "covered": "yes",
       "by": "get_settings email domains receiving"
     },
     {
       "path": "Email → Receive mail here too → receiving error",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:944",
+      "file": "apps/web/src/components/settings/email-page.tsx:491",
       "covered": "yes",
       "by": "get_settings email domains receivingError"
     },
     {
       "path": "Email → Receive mail here too → explanation and warning before turning on",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:954",
+      "file": "apps/web/src/components/settings/email-page.tsx:501",
       "covered": "partly",
       "by": "do_email_domain_receive has no warning; settings_help email names it"
     },
     {
       "path": "Email → Receive mail here too → Receive mail here",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:958",
+      "file": "apps/web/src/components/settings/email-page.tsx:505",
       "covered": "yes",
       "by": "do_email_domain_receive"
     },
     {
       "path": "Email → Receive mail here too → MX record: host @, value and priority 10, each with a copy button, and status",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:920",
+      "file": "apps/web/src/components/settings/email-page.tsx:467",
       "covered": "yes",
       "by": "get_settings email inboundMxHost, mxVerifiedAt"
     },
     {
       "path": "Email → Receive mail here too → Check now, while waiting for the MX record",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:970",
+      "file": "apps/web/src/components/settings/email-page.tsx:517",
       "covered": "yes",
       "by": "do_email_domain_receive, which looks again now while the domain waits"
     },
     {
       "path": "Email → Receive mail here too → MX doesn’t point here anymore",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:980",
+      "file": "apps/web/src/components/settings/email-page.tsx:527",
       "covered": "yes",
       "by": "get_settings email domains receiving lapsed"
     },
     {
       "path": "Email → Receive mail here too → Check again",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:986",
+      "file": "apps/web/src/components/settings/email-page.tsx:533",
       "covered": "yes",
       "by": "do_email_domain_receive"
     },
     {
       "path": "Email → Receive mail here too → receiving on text",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:992",
+      "file": "apps/web/src/components/settings/email-page.tsx:539",
       "covered": "yes",
       "by": "get_settings email domains receiving"
     },
     {
       "path": "Email → Receive mail here too → Stop receiving here, with confirm",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1004",
+      "file": "apps/web/src/components/settings/email-page.tsx:551",
       "covered": "yes",
       "by": "do_email_domain_stop_receiving, which warns first"
     },
     {
       "path": "Email → Connected mailboxes → each: account, person, provider, sync detail",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1085",
+      "file": "apps/web/src/components/settings/email-page.tsx:632",
       "covered": "yes",
       "by": "get_settings email mailboxes"
     },
     {
       "path": "Email → Connected mailboxes → Connected / Connecting / Needs reconnecting / Not syncing / Disconnected",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1017",
+      "file": "apps/web/src/components/settings/email-page.tsx:564",
       "covered": "yes",
       "by": "get_settings email mailboxes status"
     },
     {
       "path": "Email → Connected mailboxes → Reconnect",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1102",
+      "file": "apps/web/src/components/settings/email-page.tsx:649",
       "covered": "person",
       "by": "signing in to Microsoft or Google"
     },
     {
       "path": "Email → Connected mailboxes → Disconnect",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1110",
+      "file": "apps/web/src/components/settings/email-page.tsx:657",
       "covered": "yes",
       "by": "do_mailbox_disconnect"
     },
     {
       "path": "Email → Connected mailboxes → Connect Outlook",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1127",
+      "file": "apps/web/src/components/settings/email-page.tsx:674",
       "covered": "person",
       "by": "signing in to Microsoft"
     },
     {
       "path": "Email → Connected mailboxes → Connect Gmail",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1138",
+      "file": "apps/web/src/components/settings/email-page.tsx:685",
       "covered": "person",
       "by": "signing in to Google; Coming soon"
     },
     {
       "path": "Email → Connected mailboxes → Gmail is coming soon note",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1144",
+      "file": "apps/web/src/components/settings/email-page.tsx:691",
       "covered": "yes",
       "by": "settings_help email notHere"
     },
     {
       "path": "Email → Connected mailboxes → how the sign-in went",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1472",
+      "file": "apps/web/src/components/settings/email-page.tsx:1020",
       "covered": "yes",
       "by": "get_settings email mailboxes status"
     },
     {
       "path": "Email → Where senders’ mail goes → each: address, folder, who, when; None yet",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1426",
+      "file": "apps/web/src/components/settings/email-page.tsx:973",
       "covered": "yes",
       "by": "get_settings email senderRules; read_email_sender_rule_list"
     },
     {
       "path": "Email → Where senders’ mail goes → Remove",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1431",
+      "file": "apps/web/src/components/settings/email-page.tsx:978",
       "covered": "yes",
       "by": "do_email_sender_rule_remove"
     },
     {
       "path": "Email → Blocked addresses → each: address, reason, date; Nothing blocked",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1193",
+      "file": "apps/web/src/components/settings/email-page.tsx:740",
       "covered": "yes",
       "by": "get_settings email blockedAddresses; list_blocked_email"
     },
     {
       "path": "Email → Blocked addresses → Unblock",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1198",
+      "file": "apps/web/src/components/settings/email-page.tsx:745",
       "covered": "yes",
       "by": "manage_email_settings unblock"
     },
     {
       "path": "Email → Mail from people not in Contacts → each: sender, subject or snippet, when; All sorted",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1349",
+      "file": "apps/web/src/components/settings/email-page.tsx:896",
       "covered": "yes",
       "by": "list_unmatched_email"
     },
     {
       "path": "Email → Mail from people not in Contacts → Add or link",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1358",
+      "file": "apps/web/src/components/settings/email-page.tsx:905",
       "covered": "yes",
       "by": "sort_unmatched_email file_under_customer"
     },
     {
       "path": "Email → Mail from people not in Contacts → Add or link → Link to a customer, Link",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1270",
+      "file": "apps/web/src/components/settings/email-page.tsx:817",
       "covered": "yes",
       "by": "sort_unmatched_email file_under_customer personId"
     },
     {
       "path": "Email → Mail from people not in Contacts → Add or link → Pick a person, not a company",
       "kind": "see",
-      "file": "apps/web/src/components/settings/email-page.tsx:1279",
+      "file": "apps/web/src/components/settings/email-page.tsx:826",
       "covered": "yes",
       "by": "the tool refuses a company"
     },
     {
       "path": "Email → Mail from people not in Contacts → Add or link → Add as a new person",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1282",
+      "file": "apps/web/src/components/settings/email-page.tsx:829",
       "covered": "yes",
       "by": "add the person, then sort_unmatched_email"
     },
     {
       "path": "Email → Mail from people not in Contacts → Dismiss",
       "kind": "do",
-      "file": "apps/web/src/components/settings/email-page.tsx:1361",
+      "file": "apps/web/src/components/settings/email-page.tsx:908",
       "covered": "yes",
       "by": "sort_unmatched_email dismiss"
     },

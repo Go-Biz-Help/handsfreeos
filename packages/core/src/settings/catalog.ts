@@ -512,8 +512,18 @@ const ROWS = {
   'email.sending_address': {
     page: 'email',
     section: null,
-    label: 'Sending address',
-    words: ['from address', 'display name', 'email address', 'reply-to'],
+    label: 'Your addresses',
+    words: [
+      'sending address',
+      'from address',
+      'display name',
+      'email address',
+      'reply-to',
+      'who reads it',
+      'add an address',
+      'remove an address',
+      'customers hear from',
+    ],
   },
   'email.own_domain': {
     page: 'email',

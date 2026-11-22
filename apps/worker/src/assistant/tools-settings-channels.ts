@@ -23,7 +23,7 @@ import {
   type EmailDnsRecord,
   type EmailDomainRecordsLike,
 } from '@hfos/core';
-import { emailAddressReassign } from '@hfos/core/server';
+import { emailAddressReassign, emailAddressRemove } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { hasPermission, parseBody } from '../http/common';
 import {
@@ -929,6 +929,7 @@ interface EmailStatus {
     ownerUserId?: string | null;
     ownerName?: string | null;
     ownerLeft?: boolean;
+    mine?: boolean;
   }[];
   domains: (EmailDomainRecordsLike & { id: string; status: string })[];
 }
@@ -953,7 +954,7 @@ const personNamed = async (db: Db, ctx: ToolContext, userId: string | undefined)
 };
 /** Said on the card when an address becomes one person's own: what the rest of the team stops getting. */
 const ownWarning = (name: string) =>
-  `Only ${name} sends from it, and mail to it reaches only them: the rest of the team stops seeing it in the Inbox. It stays ${name}’s while they work here.`;
+  `Only ${name} sends from it, and mail to it reaches only them: the rest of the team stops seeing it in the Inbox. Only ${name} can hand it back to the team.`;
 
 /**
  * What a domain's removal takes with it, said on its card: its addresses, and for one that is a person's own, that they
@@ -987,6 +988,10 @@ const manageEmailSettings: SettingsConfirmTool = {
     const address = status?.addresses.find((a) => a.id === args['emailAddressId']);
     const domain = status?.domains.find((d) => d.id === args['emailDomainId']);
     const owner = await personNamed(db, ctx, str(args['ownerUserId']));
+    // Its own person hands an address back to the team: ownerUserId null, as Change → The team does.
+    const handBack = act === 'change_address' && args['ownerUserId'] === null;
+    // The address that takes over as the one customers hear from, when that one becomes a person's own.
+    const takeover = status?.addresses.find((a) => a.id === args['defaultToId']);
     const card = (
       title: string,
       fields: Field[],
@@ -1034,7 +1039,16 @@ const manageEmailSettings: SettingsConfirmTool = {
         const localPart = str(args['localPart']);
         // Only the name changes: it's the business's, not one address's, so the card names no address.
         const onlyName =
-          every && !!str(args['displayName']) && !localPart && !owner && args['isDefault'] !== true;
+          every &&
+          !!str(args['displayName']) &&
+          !localPart &&
+          !owner &&
+          !handBack &&
+          args['isDefault'] !== true;
+        if (args['defaultToId'] !== undefined && !takeover)
+          throw HfosError.notFound(
+            'That isn’t one of this business’s addresses. Its addresses are in get_settings (area email).',
+          );
         return {
           card: card(
             onlyName
@@ -1061,10 +1075,24 @@ const manageEmailSettings: SettingsConfirmTool = {
                     },
                   ]
                 : []),
-              ...(args['isDefault'] === true ? [{ label: 'Default', value: 'Yes' }] : []),
+              ...(args['isDefault'] === true
+                ? [{ label: 'Customers hear from it', value: 'Yes' }]
+                : []),
               ...whose,
+              ...(handBack ? [{ label: 'Who reads it', value: 'The team, in the Inbox' }] : []),
+              ...(owner && address?.isDefault && takeover
+                ? [
+                    {
+                      label: 'Customers hear from',
+                      value: `${address.address} → ${takeover.address}`,
+                    },
+                  ]
+                : []),
             ],
             'Save the change',
+            handBack
+              ? `New mail to ${address?.address ?? 'it'} goes to the team’s Inbox. The mail already on it stays ${address?.ownerName ?? 'its person'}’s alone. Only its own person can hand it back.`
+              : undefined,
           ),
           result: { waiting: true },
         };
@@ -1135,7 +1163,9 @@ const manageEmailSettings: SettingsConfirmTool = {
         const rest = defined({
           localPart: str(args['localPart']),
           isDefault: bool(args['isDefault']),
-          ownerUserId: str(args['ownerUserId']),
+          // null hands it back to the team, which only its own person does.
+          ownerUserId: args['ownerUserId'] === null ? null : str(args['ownerUserId']),
+          defaultToId: str(args['defaultToId']),
         });
         if (Object.keys(rest).length || !name)
           await command(db, ctx, 'email_address.update', {
@@ -1230,9 +1260,56 @@ const reassignCard: ScreenActionCard = {
   },
 };
 
+/**
+ * One address removed, as Remove address in its Change box on Settings → Email does: the card names the address and
+ * says what stays (the mail it already got) and where new mail to it goes. The command keeps the mail, so this one is
+ * offered; removing a left person's address with its mail (above) never is.
+ */
+const removeCard: ScreenActionCard = {
+  async prepare(db, ctx, args, tool) {
+    const status = await emailStatus(db, ctx);
+    const a = status?.addresses.find((x) => x.id === args['emailAddressId']);
+    if (!a)
+      throw HfosError.notFound(
+        'That isn’t one of this business’s addresses. Its addresses are in get_settings (area email).',
+      );
+    return {
+      card: settingsCard(tool.toolCallId, tool.name, {
+        title: `Remove ${a.address}`,
+        fields: [
+          { label: 'Address', value: a.address },
+          {
+            label: 'Who reads it',
+            value: a.ownerUserId ? `Only ${a.ownerName ?? 'one person'}` : 'The team',
+          },
+        ],
+        confirmLabel: 'Remove it',
+        warnings: [
+          {
+            kind: 'caution',
+            text: a.ownerUserId
+              ? `The mail it already got stays ${a.mine ? 'yours' : `${a.ownerName ?? 'its person'}’s`} alone. New mail sent to ${a.address} goes to the team’s Inbox. It can be added back any time.`
+              : `The mail it already got stays in the Inbox. New mail sent to ${a.address} goes to the team’s Inbox. It can be added back any time.`,
+          },
+        ],
+      }),
+      result: { waiting: true },
+    };
+  },
+  async done(_db, ctx, _args, output) {
+    const address = typeof output['address'] === 'string' ? output['address'] : 'The address';
+    const threads = typeof output['threads'] === 'number' ? output['threads'] : 0;
+    return {
+      outcome: `${address} is removed${threads ? `; its ${threads === 1 ? 'conversation stays' : `${threads} conversations stay`}` : ''}`,
+      href: `/app/w/${ctx.workspaceId}/settings/email`,
+    };
+  },
+};
+
 /** The Email screen's commands drawn on cards of their own, by the commands' own names: they stay screen actions. */
 export const emailScreenCards: Readonly<Record<string, ScreenActionCard>> = {
   [emailAddressReassign.name]: reassignCard,
+  [emailAddressRemove.name]: removeCard,
 };
 
 // ---------- the chat box on the website ----------

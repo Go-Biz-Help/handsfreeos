@@ -113,7 +113,7 @@ describe('Settings → Email', () => {
     expect(field(card, 'Address')).toBe(`priya@${domain}`);
     expect(field(card, 'Whose')).toBe('Priya Member’s own');
     expect(card.warnings.map((w) => w.text)).toContain(
-      'Only Priya Member sends from it, and mail to it reaches only them: the rest of the team stops seeing it in the Inbox. It stays Priya Member’s while they work here.',
+      'Only Priya Member sends from it, and mail to it reaches only them: the rest of the team stops seeing it in the Inbox. Only Priya Member can hand it back to the team.',
     );
     expect((await addresses()).some((a) => a.address === `priya@${domain}`)).toBe(false);
 
@@ -140,6 +140,91 @@ describe('Settings → Email', () => {
         emailDomainId: randomUUID(),
       }),
     ).rejects.toThrow('That isn’t one of this business’s domains.');
+  });
+});
+
+/**
+ * Changing addresses after setup (Settings → Email, 2026-11-22), by asking: the address customers hear from becomes
+ * the owner's own with another taking over, its person hands it back, and one address is removed with its mail kept.
+ */
+describe('an address changed after setup', () => {
+  const remove = allScreenActionTools().find((t) => t.name === 'do_email_address_remove')!;
+  const run = () => createToolExecutor(api());
+  const all = async () =>
+    (await addresses()) as unknown as {
+      id: string;
+      address: string;
+      isDefault: boolean;
+      ownerUserId?: string | null;
+    }[];
+  const named = async (local: string) =>
+    (await all()).find((a) => a.address === `${local}@${domain}`)!;
+
+  it('makes the one customers hear from the person’s own, with the address that takes over on the card', async () => {
+    await commit({
+      action: 'add_address',
+      localPart: 'dale',
+      displayName: 'Email HVAC',
+      emailDomainId: domainId,
+      isDefault: true,
+    });
+    await commit({
+      action: 'add_address',
+      localPart: 'office',
+      displayName: 'Email HVAC',
+      emailDomainId: domainId,
+    });
+    const [dale, office] = [await named('dale'), await named('office')];
+    expect(dale.isDefault).toBe(true);
+    const args = {
+      action: 'change_address',
+      emailAddressId: dale.id,
+      ownerUserId: owner.id,
+      defaultToId: office.id,
+    };
+    const { card } = await prepare(args);
+    expect(field(card, 'Whose')).toBe('Dale Owner’s own');
+    expect(field(card, 'Customers hear from')).toBe(`dale@${domain} → office@${domain}`);
+    await commit(args);
+    expect(await named('dale')).toMatchObject({ isDefault: false, ownerUserId: owner.id });
+    expect((await named('office')).isDefault).toBe(true);
+  });
+
+  it('hands the person’s own address back to the team, saying what stays theirs', async () => {
+    const dale = await named('dale');
+    const args = { action: 'change_address', emailAddressId: dale.id, ownerUserId: null };
+    const { card } = await prepare(args);
+    expect(card.title).toBe(`Change dale@${domain}`);
+    expect(field(card, 'Who reads it')).toBe('The team, in the Inbox');
+    expect(card.warnings.map((w) => w.text).join(' ')).toContain(
+      'The mail already on it stays Dale Owner’s alone.',
+    );
+    await commit(args);
+    expect((await named('dale')).ownerUserId ?? null).toBeNull();
+  });
+
+  it('removes one address on a card that says where new mail goes, and never the one customers hear from', async () => {
+    const dale = await named('dale');
+    const { card } = (await run().prepare(
+      remove,
+      { emailAddressId: dale.id },
+      ctx(),
+      randomUUID(),
+    )) as { card: ConfirmCard };
+    expect(AssistantCard.safeParse(card).success).toBe(true);
+    expect(card.title).toBe(`Remove dale@${domain}`);
+    expect(card.warnings[0]!.text).toContain('goes to the team’s Inbox');
+    expect(await named('dale')).toBeTruthy();
+    const done = await run().commit(remove, { emailAddressId: dale.id }, ctx(), {
+      toolCallId: randomUUID(),
+    });
+    expect(done.outcome).toBe(`dale@${domain} is removed`);
+    expect(await named('dale')).toBeUndefined();
+    await expect(
+      run().commit(remove, { emailAddressId: (await named('office')).id }, ctx(), {
+        toolCallId: randomUUID(),
+      }),
+    ).rejects.toMatchObject({ rule: 'email_default_required' });
   });
 });
 

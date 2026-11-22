@@ -1,29 +1,20 @@
 'use client';
-import {
-  firstName,
-  MAX_EMAIL_DOMAINS,
-  relativeHost,
-  RETURN_PATH_DEFAULT,
-  type SettingKey,
-} from '@hfos/core';
-import { AtSign, CircleAlert, Globe, Lock, Plus, RotateCw, Users, X } from 'lucide-react';
+import { MAX_EMAIL_DOMAINS, relativeHost, RETURN_PATH_DEFAULT, type SettingKey } from '@hfos/core';
+import { CircleAlert, Globe, Plus, RotateCw, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { PersonDialog } from '@/components/crm/person-dialog';
 import { RecordPicker, type PickedRecord } from '@/components/crm/record-picker';
-import { ChannelIcon } from '@/components/inbox/bits';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { CopyField, copyText } from '@/components/ui/copy-field';
+import { CopyField } from '@/components/ui/copy-field';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Field, Hint, Label } from '@/components/ui/field';
-import { Input, Select } from '@/components/ui/input';
+import { Field, Hint } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type {
-  EmailAddressInfo,
   EmailDomainInfo,
   EmailSenderRule,
   EmailSetupStatus,
@@ -36,7 +27,7 @@ import { publicEnv } from '@/lib/env';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { GoogleLogo, MicrosoftLogo, providerName } from './provider-logos';
-import { settingAttrs } from './setting-anchor';
+import { run, Section, YourAddresses, type Person } from './email-addresses';
 
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -61,344 +52,6 @@ function ago(iso: string): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
   return shortDate(iso);
-}
-
-function Section({
-  title,
-  description,
-  aside,
-  children,
-  setting,
-}: {
-  title: string;
-  description: ReactNode;
-  aside?: ReactNode;
-  children: ReactNode;
-  /** Its key in settings search. */
-  setting?: SettingKey;
-}) {
-  return (
-    <Card className="p-6" {...settingAttrs(setting)}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-          <p className="mt-1 text-[13px] text-text-2">{description}</p>
-        </div>
-        {aside}
-      </div>
-      {children}
-    </Card>
-  );
-}
-
-async function run<T>(fn: () => Promise<T>, done?: string): Promise<T | null> {
-  try {
-    const out = await fn();
-    if (done) toast.success(done);
-    return out;
-  } catch (e) {
-    toast.error(errorMessage(e));
-    return null;
-  }
-}
-
-// ---------- sending address ----------
-/** Someone who works the inbox, who can be given an address of their own (M19). */
-type Person = { userId: string; name: string };
-
-function SendingAddress({
-  workspaceId,
-  addresses,
-  people,
-  onChanged,
-}: {
-  workspaceId: string;
-  addresses: EmailAddressInfo[];
-  people: Person[];
-  onChanged: () => void;
-}) {
-  const ordered = [...addresses].sort((a, b) => Number(!!b.domain) - Number(!!a.domain));
-  const ownDefault = addresses.some((a) => a.isDefault && a.domain);
-  const current =
-    addresses.find((a) => a.isDefault)?.displayName ?? addresses[0]?.displayName ?? '';
-  const [name, setName] = useState(current);
-  const [saving, setSaving] = useState(false);
-
-  async function makeDefault(a: EmailAddressInfo) {
-    const ok = await run(
-      async () =>
-        unwrap(
-          await apiBrowser().POST('/v1/commands/email_address.update', {
-            body: { workspaceId, emailAddressId: a.id, isDefault: true },
-          }),
-        ),
-      `${a.address} is now the default`,
-    );
-    if (ok) onChanged();
-  }
-  // Customers see one business name: it goes on every address.
-  async function saveName() {
-    setSaving(true);
-    const ok = await run(async () => {
-      for (const a of addresses)
-        unwrap(
-          await apiBrowser().POST('/v1/commands/email_address.update', {
-            body: { workspaceId, emailAddressId: a.id, displayName: name.trim() },
-          }),
-        );
-      return true;
-    }, 'Saved');
-    setSaving(false);
-    if (ok) onChanged();
-  }
-  // Giving an address to one person (M19) can't be taken back while they work here, so it asks first.
-  async function giveTo(a: EmailAddressInfo, userId: string) {
-    const person = people.find((p) => p.userId === userId);
-    if (!person) return;
-    if (
-      !window.confirm(
-        `Give ${a.address} to ${person.name}? From then on only they see the mail that comes to it and send from it, and it stays theirs until they leave this business.`,
-      )
-    )
-      return;
-    const ok = await run(
-      async () =>
-        unwrap(
-          await apiBrowser().POST('/v1/commands/email_address.update', {
-            body: { workspaceId, emailAddressId: a.id, ownerUserId: userId },
-          }),
-        ),
-      `${a.address} is ${firstName(person.name)}’s now`,
-    );
-    if (ok) onChanged();
-  }
-
-  return (
-    <Section
-      title="Sending address"
-      setting="email.sending_address"
-      description="Customers see your business name, and their replies land in the inbox."
-    >
-      <div className="mt-4 flex flex-col gap-2" data-testid="email-addresses">
-        {ordered.map((a) => (
-          <div
-            key={a.id}
-            className="rounded-menu border border-border"
-            data-testid={`email-address-${a.localPart}`}
-          >
-            <div className="flex items-center gap-3 px-3.5 py-3">
-              <ChannelIcon icon={AtSign} />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium">{a.displayName}</div>
-                <div className="truncate font-mono text-[12.5px] text-text-2">{a.address}</div>
-              </div>
-              {a.isDefault ? <Badge variant="owner">Default</Badge> : null}
-              {!a.domain && !a.isDefault && ownDefault ? (
-                <Badge variant="gray">Backup</Badge>
-              ) : null}
-              {!a.isDefault && a.usable && !a.ownerUserId ? (
-                <Button variant="ghost" size="sm" onClick={() => void makeDefault(a)}>
-                  Make default
-                </Button>
-              ) : null}
-              <Button
-                variant="ghost"
-                size="icon"
-                title="Copy address"
-                aria-label={`Copy ${a.address}`}
-                onClick={() => void copyText(a.address, `Copied ${a.address}`)}
-              >
-                <CopyGlyph />
-              </Button>
-            </div>
-            {a.domain ? (
-              a.ownerLeft ? (
-                <LeftBehind
-                  workspaceId={workspaceId}
-                  address={a}
-                  people={people}
-                  onChanged={onChanged}
-                />
-              ) : (
-                <div className="flex items-center gap-2 border-t border-border px-3.5 py-2 text-[13px] text-text-2">
-                  {a.ownerUserId ? (
-                    <>
-                      <Lock className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
-                      <span data-testid="address-reader">{`Only ${a.ownerName ?? 'one person'} reads it`}</span>
-                    </>
-                  ) : a.isDefault || people.length === 0 ? (
-                    <>
-                      <Users className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
-                      <span data-testid="address-reader">The team reads it, in the Inbox</span>
-                    </>
-                  ) : (
-                    <>
-                      <Users className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
-                      <span className="flex-1">Who reads it</span>
-                      <Select
-                        selectSize="sm"
-                        className="w-[180px]"
-                        aria-label={`Who reads ${a.address}`}
-                        value=""
-                        onChange={(e) => void giveTo(a, e.target.value)}
-                        data-testid="address-reader"
-                      >
-                        <option value="">The team</option>
-                        {people.map((p) => (
-                          <option key={p.userId} value={p.userId}>
-                            {`Only ${p.name}`}
-                          </option>
-                        ))}
-                      </Select>
-                    </>
-                  )}
-                </div>
-              )
-            ) : null}
-          </div>
-        ))}
-      </div>
-      <div className="mt-4">
-        <Label htmlFor="email-display-name">Name customers see</Label>
-        <div className="flex gap-2">
-          <Input
-            id="email-display-name"
-            value={name}
-            maxLength={120}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Button
-            variant="secondary"
-            loading={saving}
-            disabled={!name.trim() || name.trim() === current}
-            onClick={() => void saveName()}
-          >
-            Save
-          </Button>
-        </div>
-      </div>
-    </Section>
-  );
-}
-
-/**
- * The address of someone who has left (M19): new mail to it goes to the team's Inbox meanwhile, and the mail they had
- * stays sealed until an owner decides — the team's, another person's, or removed with its mail.
- */
-function LeftBehind({
-  workspaceId,
-  address: a,
-  people,
-  onChanged,
-}: {
-  workspaceId: string;
-  address: EmailAddressInfo;
-  people: Person[];
-  onChanged: () => void;
-}) {
-  const [to, setTo] = useState('');
-  const [busy, setBusy] = useState<'team' | 'person' | 'remove' | null>(null);
-  const others = people.filter((p) => p.userId !== a.ownerUserId);
-  async function reassign(kind: 'team' | 'person' | 'remove') {
-    if (
-      kind === 'remove' &&
-      !window.confirm(`Remove ${a.address} and the mail on it? It can’t be brought back.`)
-    )
-      return;
-    const name = others.find((p) => p.userId === to)?.name ?? '';
-    setBusy(kind);
-    const ok = await run(
-      async () =>
-        unwrap(
-          await apiBrowser().POST('/v1/commands/email_address.reassign', {
-            body: {
-              workspaceId,
-              emailAddressId: a.id,
-              to: kind,
-              ...(kind === 'person' ? { userId: to } : {}),
-            },
-          }),
-        ),
-      kind === 'team'
-        ? `${a.address} and its mail are the team’s now`
-        : kind === 'person'
-          ? `${a.address} and its mail are ${firstName(name)}’s now`
-          : `${a.address} is removed, with its mail`,
-    );
-    setBusy(null);
-    if (ok) onChanged();
-  }
-  return (
-    <div className="border-t border-border px-3.5 py-3" data-testid="address-left">
-      <p className="text-[13px] text-text-2">
-        {`${a.ownerName ?? 'Its person'} no longer works here. New mail to ${a.address} goes to the team’s Inbox, and the mail they had stays sealed until an owner decides what becomes of it.`}
-      </p>
-      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant="secondary"
-          loading={busy === 'team'}
-          onClick={() => void reassign('team')}
-        >
-          Give it to the team
-        </Button>
-        {others.length ? (
-          <>
-            <Select
-              selectSize="sm"
-              className="w-[180px]"
-              aria-label={`Give ${a.address} to`}
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-            >
-              <option value="">Or to one person…</option>
-              {others.map((p) => (
-                <option key={p.userId} value={p.userId}>
-                  {p.name}
-                </option>
-              ))}
-            </Select>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!to}
-              loading={busy === 'person'}
-              onClick={() => void reassign('person')}
-            >
-              Give it to them
-            </Button>
-          </>
-        ) : null}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-danger-text"
-          loading={busy === 'remove'}
-          onClick={() => void reassign('remove')}
-        >
-          Remove it
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function CopyGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden
-      className="h-3.5 w-3.5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-    </svg>
-  );
 }
 
 // ---------- own domain ----------
@@ -558,9 +211,7 @@ function OwnDomain({
   workspaceId,
   domain,
   sharedAddress,
-  displayName,
-  hasDomainDefault,
-  people,
+  hasAddress,
   receivingOpen,
   inboundMxHost,
   onChanged,
@@ -569,10 +220,8 @@ function OwnDomain({
   workspaceId: string;
   domain: EmailDomainInfo | null;
   sharedAddress: string;
-  displayName: string;
-  /** An address on one of the business's domains is the default already, so a new one isn't. */
-  hasDomainDefault: boolean;
-  people: Person[];
+  /** It has an address already, so it needn't say where to add the first one. */
+  hasAddress: boolean;
   /** The business may receive mail at its domains (M19). */
   receivingOpen: boolean;
   inboundMxHost: string;
@@ -580,10 +229,7 @@ function OwnDomain({
   /** The first domain is the one settings search jumps to. */
   setting?: SettingKey;
 }) {
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [local, setLocal] = useState('');
-  const [owner, setOwner] = useState('');
   // "Check now" asks the worker, which answers a moment later; the result toast waits for that answer.
   const waiting = useRef<string | null>(null);
   const [justChecked, setJustChecked] = useState(false);
@@ -636,47 +282,12 @@ function OwnDomain({
     setBusy(null);
     if (ok) onChanged();
   }
-  // The first address on a domain becomes the default; after that, or when it's one person's, it doesn't (M19).
-  const ownerName = people.find((p) => p.userId === owner)?.name ?? null;
-  const makesDefault = !hasDomainDefault && !owner;
-  async function addAddress() {
-    if (!domain) return;
-    setBusy('address');
-    setError(null);
-    try {
-      const made = unwrap(
-        await apiBrowser().POST('/v1/commands/email_address.create', {
-          body: {
-            workspaceId,
-            localPart: local,
-            emailDomainId: domain.id,
-            displayName,
-            isDefault: makesDefault,
-            ...(owner ? { ownerUserId: owner } : {}),
-          },
-        }),
-      );
-      toast.success(
-        makesDefault
-          ? `${made.address} is now the default address`
-          : ownerName
-            ? `${made.address} added. Only ${firstName(ownerName)} sees its mail.`
-            : `${made.address} added`,
-      );
-      setLocal('');
-      setOwner('');
-      onChanged();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(null);
-    }
-  }
-
   const status = domain?.status ?? null;
   const description =
     status === 'verified'
-      ? 'Verified. Addresses on this domain can send now.'
+      ? hasAddress
+        ? 'Verified. Addresses on this domain can send now.'
+        : 'Verified. Click Add an address under Your addresses to start sending from it.'
       : status
         ? `Waiting for the DNS records below. Until then, email goes out from ${sharedAddress}.`
         : `Send from an address like office@yourbusiness.com. Until it’s verified, email keeps going out from ${sharedAddress}.`;
@@ -760,70 +371,6 @@ function OwnDomain({
                   testId="dns-TXT-ownership"
                 />
               ) : null}
-            </div>
-          ) : null}
-          {status === 'verified' ? (
-            <div className="mt-4">
-              <Label
-                htmlFor={`domain-local-${domain.id}`}
-              >{`Add an address on ${domain.domain}`}</Label>
-              <div className="flex gap-2">
-                <div className="flex min-w-0 flex-1 overflow-hidden rounded-control border border-border-strong bg-card focus-within:border-accent focus-within:ring-[3px] focus-within:ring-ring">
-                  <input
-                    id={`domain-local-${domain.id}`}
-                    aria-label="Address name"
-                    value={local}
-                    onChange={(e) =>
-                      setLocal(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ''))
-                    }
-                    placeholder="office"
-                    className="h-[38px] min-w-0 flex-1 bg-transparent px-3 text-[15px] focus:outline-none"
-                  />
-                  <span className="inline-flex h-[38px] items-center border-l border-border bg-card-2 px-3 font-mono text-[12.5px] text-text-2">
-                    @{domain.domain}
-                  </span>
-                </div>
-                <Button
-                  loading={busy === 'address'}
-                  disabled={!local}
-                  onClick={() => void addAddress()}
-                >
-                  Add address
-                </Button>
-              </div>
-              {people.length ? (
-                <div className="mt-2 flex items-center gap-2 text-[13px] text-text-2">
-                  <span className="flex-1">Who reads it</span>
-                  <Select
-                    selectSize="sm"
-                    className="w-[200px]"
-                    aria-label="Who reads the new address"
-                    value={owner}
-                    onChange={(e) => setOwner(e.target.value)}
-                    data-testid="domain-owner"
-                  >
-                    <option value="">The team</option>
-                    {people.map((p) => (
-                      <option key={p.userId} value={p.userId}>
-                        {`Only ${p.name}`}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              ) : null}
-              {error ? (
-                <p className="mt-1.5 text-xs text-danger-text" role="alert">
-                  {error}
-                </p>
-              ) : (
-                <Hint>
-                  {makesDefault
-                    ? `It becomes the default. ${sharedAddress} stays as the backup in case the domain ever stops verifying.`
-                    : ownerName
-                      ? `Only ${ownerName} sees the mail that comes to it and sends from it, until they leave this business.`
-                      : 'The team reads its mail in the Inbox.'}
-                </Hint>
-              )}
             </div>
           ) : null}
           {status === 'verified' && (receivingOpen || domain.receiving !== 'off') ? (
@@ -1440,26 +987,27 @@ function SenderRules({
   );
 }
 
-/** Settings → Email: the sending address, the workspace's own domain, mailboxes, blocked and unmatched mail. */
+/** Settings → Email: the business's addresses, its own domains, mailboxes, blocked and unmatched mail. */
 export function EmailPage({
   workspaceId,
-  workspaceName,
   status,
   blocked,
   unmatched,
   senderRules,
   people,
+  myUserId,
   tags,
   mailboxResult,
 }: {
   workspaceId: string;
-  workspaceName: string;
   status: EmailSetupStatus;
   blocked: EmailSuppression[];
   unmatched: EmailUnmatched[];
   senderRules: EmailSenderRule[];
   /** Everyone who works the inbox, who can be given an address of their own (M19). */
   people: Person[];
+  /** The person looking: an address can be theirs alone, and only they hand their own back to the team. */
+  myUserId: string;
   tags: Tag[];
   /** How the sign-in went, when the browser just came back from Microsoft or Google. */
   mailboxResult: string | null;
@@ -1491,42 +1039,43 @@ export function EmailPage({
     'email_sender_rule',
   ]);
   const shared = status.addresses.find((a) => !a.domain);
-  const displayName =
-    status.addresses.find((a) => a.isDefault)?.displayName ?? shared?.displayName ?? workspaceName;
   return (
-    <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2" data-testid="email-settings">
-      <div className={cn('flex flex-col gap-5')}>
-        <SendingAddress
-          workspaceId={workspaceId}
-          addresses={status.addresses}
-          people={people}
-          onChanged={refresh}
-        />
-        {/* Every domain the business has (up to three), and room for another. */}
-        {(status.domains.length ? status.domains : [null]).map((d, i) => (
-          <OwnDomain
-            key={d?.id ?? 'new'}
-            setting={i === 0 ? 'email.own_domain' : undefined}
-            workspaceId={workspaceId}
-            domain={d}
-            sharedAddress={shared?.address ?? `your address @${status.sharedDomain}`}
-            displayName={displayName}
-            hasDomainDefault={status.addresses.some((a) => a.isDefault && a.domain)}
-            people={people}
-            receivingOpen={status.receivingOpen}
-            inboundMxHost={status.inboundMxHost}
-            onChanged={refresh}
-          />
-        ))}
-        {status.domains.length > 0 && status.domains.length < MAX_EMAIL_DOMAINS ? (
-          <AddAnotherDomain workspaceId={workspaceId} onChanged={refresh} />
-        ) : null}
-      </div>
-      <div className="flex flex-col gap-5">
-        <Mailboxes workspaceId={workspaceId} mailboxes={status.mailboxes} onChanged={refresh} />
-        <SenderRules workspaceId={workspaceId} items={senderRules} onChanged={refresh} />
-        <Blocked workspaceId={workspaceId} items={blocked} onChanged={refresh} />
-        <Unmatched workspaceId={workspaceId} items={unmatched} tags={tags} onChanged={refresh} />
+    <div className="flex flex-col gap-5" data-testid="email-settings">
+      {/* The addresses get the page's whole width: each row holds an address, who reads it and its buttons. */}
+      <YourAddresses
+        workspaceId={workspaceId}
+        addresses={status.addresses}
+        domains={status.domains}
+        people={people}
+        myUserId={myUserId}
+        onChanged={refresh}
+      />
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
+        <div className={cn('flex flex-col gap-5')}>
+          {/* Every domain the business has (up to three), and room for another. */}
+          {(status.domains.length ? status.domains : [null]).map((d, i) => (
+            <OwnDomain
+              key={d?.id ?? 'new'}
+              setting={i === 0 ? 'email.own_domain' : undefined}
+              workspaceId={workspaceId}
+              domain={d}
+              sharedAddress={shared?.address ?? `your address @${status.sharedDomain}`}
+              hasAddress={!!d && status.addresses.some((a) => a.emailDomainId === d.id)}
+              receivingOpen={status.receivingOpen}
+              inboundMxHost={status.inboundMxHost}
+              onChanged={refresh}
+            />
+          ))}
+          {status.domains.length > 0 && status.domains.length < MAX_EMAIL_DOMAINS ? (
+            <AddAnotherDomain workspaceId={workspaceId} onChanged={refresh} />
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-5">
+          <Mailboxes workspaceId={workspaceId} mailboxes={status.mailboxes} onChanged={refresh} />
+          <SenderRules workspaceId={workspaceId} items={senderRules} onChanged={refresh} />
+          <Blocked workspaceId={workspaceId} items={blocked} onChanged={refresh} />
+          <Unmatched workspaceId={workspaceId} items={unmatched} tags={tags} onChanged={refresh} />
+        </div>
       </div>
     </div>
   );

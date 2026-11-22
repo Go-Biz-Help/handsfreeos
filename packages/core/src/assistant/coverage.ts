@@ -308,6 +308,14 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
       why: 'Removing it deletes the address and every conversation on it for good, which stays the person’s (the owner, 2026-10-26): Remove it, under the address on Settings → Email.',
     },
   },
+  // Remove address, in an address's Change box (2026-11-22): the mail it carried stays, so this one is offered; its
+  // own card names the address and says where new mail to it goes.
+  'email_address.remove': {
+    about:
+      'emailAddressId from get_settings (area email). Never the one customers hear from, nor the last free address; a person’s own address only that person removes.',
+    warning:
+      'The mail it already got stays where it is. New mail sent to it goes to the team’s Inbox.',
+  },
   'email_sender_rule.remove': {},
   // ---- Settings → Website chat, Facebook & Instagram ----
   // Hiding every chat while the carriers review a registration whose customers agree on a form (2026-11-12).
@@ -822,7 +830,9 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_email_settings', field: 'displayName' },
     { tool: 'manage_email_settings', field: 'isDefault' },
     { tool: 'manage_email_settings', field: 'ownerUserId' },
+    { tool: 'manage_email_settings', field: 'defaultToId' },
     { tool: 'do_email_address_reassign', field: 'to' },
+    { tool: 'do_email_address_remove', field: 'emailAddressId' },
   ],
   'email.own_domain': [
     { tool: 'manage_email_settings', field: 'action', value: 'add_domain' },

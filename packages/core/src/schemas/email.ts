@@ -197,13 +197,30 @@ export const EmailAddressUpdateInput = z.object({
   displayName: displayName.optional(),
   isDefault: z.boolean().optional(),
   localPart: emailLocalPart.optional(),
-  /** Give a team address to one person (M19). Taking one from its person is email_address.reassign's. */
+  /**
+   * Who reads it (M19). A person's id gives a team address to them. Null hands one back to the team, which only
+   * its own person does while they work here; their old mail stays theirs. Once they have left, an owner decides
+   * (email_address.reassign).
+   */
   ownerUserId: uuid.nullable().optional(),
+  /**
+   * The team address that becomes the default in the same go, when the one being given to a person is the
+   * default today: a person's own address can't send for the business.
+   */
+  defaultToId: uuid.optional(),
 });
 export const EmailAddressUpdateOutput = z.object({
   emailAddressId: uuid,
   address: z.string(),
   updated: z.array(z.string()),
+});
+/** One address removed. The mail it carried stays; what comes after goes to the default address. */
+export const EmailAddressRemoveInput = z.object({ workspaceId: uuid, emailAddressId: uuid });
+export const EmailAddressRemoveOutput = z.object({
+  emailAddressId: uuid,
+  address: z.string(),
+  /** How many threads it carried, which stay where they are. */
+  threads: z.number().int(),
 });
 
 /**
@@ -297,6 +314,10 @@ export const EmailAddressOut = z.object({
   ownerName: z.string().nullable().optional(),
   /** Its person no longer works here: an owner decides what becomes of it (email_address.reassign). */
   ownerLeft: z.boolean().optional(),
+  /** It is the reader's own: only they hand it back to the team or remove it. */
+  mine: z.boolean().optional(),
+  /** It has carried no mail the reader can see, so it can still be renamed. */
+  renamable: z.boolean().optional(),
 });
 export const EmailDomainOut = z.object({
   id: uuid,

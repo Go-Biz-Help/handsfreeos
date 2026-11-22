@@ -320,6 +320,34 @@ still opened a page of his own mail, and Chris wanted one Inbox. He picked desig
 - At phone width on the web the menu sits beside **Unread**, since the search is in the top bar.
 - The Assistant keeps `mailbox` `mine` for "only my own mail"; only the screens lost the page.
 
+**Changing addresses after setup (Chris, 2026-11-22).** Burroughs Digital added `blake@` first, so
+it became the address customers hear from and could never be Blake's own. Chris approved the
+"Guided email setup" canvas ("after setup also need to be able to change the email, add more, change
+who can see it"). Its Settings part is built; the guided questions and the switch that lets the AI
+teammate read someone's own mail come next. What changed from the rules above:
+
+- **Settings → Email opens on Your addresses.** Each row says who reads it and which one customers
+  hear from (the default; the free address is the **Backup** once an own address is). **Change**
+  opens one box: rename it while it has carried no mail, pick who reads it, make it the one
+  customers hear from, or remove it. **Add an address** is a box too, on any verified domain.
+- **The default can become one person's own.** `email_address.update` takes `defaultToId`, the team
+  address that takes over, and does both in one go. Without it the refusal
+  (`email_address_owner_default`) asks for one.
+- **Its own person hands an address back to the team** (`ownerUserId: null`,
+  `private.hand_back_email_address`). The mail they already got stays theirs alone; new mail is the
+  team's. Nobody else can do it for them, and it never goes straight to another person
+  (`email_address_owner_is_theirs`). Once they've left, an owner still decides, as before.
+- **One address can be removed on its own** (`email_address.remove`,
+  `private.remove_email_address`), where before it only went with its whole domain. The mail it
+  carried stays where it is. New mail to it goes to the domain's catch-all, the team's Inbox, since
+  mail is never dropped because nobody has that address. Never the default, never the last free
+  address (the backup), and a person's own only by that person.
+- **The Assistant** does the same on Confirm cards: `manage_email_settings` hands back and names the
+  takeover, and `do_email_address_remove` removes one address, keeping its mail. Removing a left
+  person's address with its mail is still never offered.
+- Changing or removing an address takes `channels.manage`, so someone without it asks an owner or
+  admin to add the address again as the team's.
+
 ### Step 5 — HandsFreeOS's own business (done, 2026-09-30)
 
 Set `is_platform` on the HandsFreeOS business, add `handsfreeos.com`, add `chris@` as Chris's

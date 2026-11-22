@@ -57,7 +57,7 @@ test('email: send from the workspace address, the reply lands in the thread, ans
 
   // Every workspace starts with an address on the shared subdomain. Gmail is coming soon.
   const shared = await sharedAddress(page, workspaceId);
-  await expect(page.getByTestId('email-addresses')).toContainText('Default');
+  await expect(page.getByTestId('email-addresses')).toContainText('Customers hear from this one');
   await expect(page.getByTestId('connect-gmail')).toBeDisabled();
   await expect(page.getByText('Coming soon', { exact: true })).toBeVisible();
   await expect(page.getByTestId('blocked-addresses')).toContainText('Nothing blocked.');
@@ -251,14 +251,59 @@ test('email: an own domain shows its DNS records, verifies, and becomes the send
 
   // The (local) mail service finds both records.
   await page.getByTestId('domain-check').click();
+  // Once its records are found, Your addresses offers Add an address on it.
+  const addresses = page.getByTestId('email-addresses');
+  const office = page.getByTestId('email-address-office');
   await expect(async () => {
-    await expect(page.getByLabel('Address name')).toBeVisible({ timeout: 2000 });
+    await expect(page.getByTestId('address-add')).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 20_000 });
+  await page.getByTestId('address-add').click();
   await page.getByLabel('Address name').fill('office');
+  // The first team address on the business's own name is the one customers hear from.
+  await expect(page.getByTestId('address-add-default')).toBeChecked();
   await page.getByRole('button', { name: 'Add address' }).click();
-  await expect(page.getByText(`office@${domain} is now the default address`)).toBeVisible();
-  await expect(page.getByTestId('email-address-office')).toContainText('Default');
+  await expect(page.getByText(`Customers now hear from office@${domain}`)).toBeVisible();
+  await expect(office).toContainText('Customers hear from this one');
   await expect(page.getByTestId(`email-address-${shared.split('@')[0]}`)).toContainText('Backup');
+
+  // What Burroughs Digital got stuck on (2026-11-22): the address customers hear from should be one person's own.
+  // Change asks which address takes over, and both happen in one go.
+  await page.getByTestId('address-add').click();
+  await page.getByLabel('Address name').fill('billing');
+  await expect(page.getByTestId('address-add-default')).not.toBeChecked();
+  await page.getByRole('button', { name: 'Add address' }).click();
+  await expect(page.getByText(`billing@${domain} added`)).toBeVisible();
+  await page.getByTestId('address-change-office').click();
+  await page.getByTestId('reader-me').click();
+  await expect(page.getByTestId('address-takeover')).toContainText(
+    'Customers hear from office@ today.',
+  );
+  await page.getByTestId('takeover-billing').click();
+  await expect(page.getByTestId('address-summary')).toContainText(
+    'office@ becomes yours alone and booking emails go out from billing@',
+  );
+  await page.getByTestId('address-save').click();
+  await expect(office).toContainText('Only you read it');
+  await expect(page.getByTestId('email-address-billing')).toContainText(
+    'Customers hear from this one',
+  );
+  // Its own person hands it back to the team, and customers hear from it again.
+  await page.getByTestId('address-change-office').click();
+  await page.getByTestId('reader-team').click();
+  await page.getByTestId('address-make-default').check();
+  await page.getByTestId('address-save').click();
+  await expect(office).toContainText('The team reads it');
+  await expect(office).toContainText('Customers hear from this one');
+  // One address is removed on its own; the one customers hear from, and the free backup, can't be.
+  await page.getByTestId('address-change-office').click();
+  await expect(page.getByTestId('address-remove')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByTestId('address-change-billing').click();
+  await page.getByTestId('address-remove').click();
+  await expect(page.getByTestId('address-remove-what')).toContainText('goes to the team’s Inbox');
+  await page.getByTestId('address-remove-confirm').click();
+  await expect(page.getByText(`billing@${domain} is removed`)).toBeVisible();
+  await expect(addresses.getByTestId('email-address-billing')).toHaveCount(0);
 
   // The next email goes out from the new address; replies still come back through the shared subdomain.
   const sarah = uniqueEmail('sarah');

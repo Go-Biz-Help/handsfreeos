@@ -11967,10 +11967,79 @@
         }
       }
     },
+    "/v1/commands/email_address.remove": {
+      "post": {
+        "operationId": "command_email_address_remove",
+        "summary": "Remove one sending address. The mail it already got stays, and mail that comes to it after goes to the team’s Inbox. Never the default address or the free backup address, and one person’s own address only by them.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires channels.manage. Emits email_address.removed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "emailAddressId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "emailAddressId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "emailAddressId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "address": {
+                      "type": "string"
+                    },
+                    "threads": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "emailAddressId",
+                    "address",
+                    "threads"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/email_address.update": {
       "post": {
         "operationId": "command_email_address_update",
-        "summary": "Change the name customers see on an address, rename it while it has not sent mail, or make it the default.",
+        "summary": "Change the name customers see on an address, rename it while it has not carried mail, make it the default, give a team address to one person, or (its own person only) hand it back to the team.",
         "tags": [
           "commands"
         ],
@@ -12017,6 +12086,11 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "defaultToId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 },
                 "required": [
@@ -164795,6 +164869,12 @@
                             ]
                           },
                           "ownerLeft": {
+                            "type": "boolean"
+                          },
+                          "mine": {
+                            "type": "boolean"
+                          },
+                          "renamable": {
                             "type": "boolean"
                           }
                         },

@@ -241,7 +241,22 @@ const RULES: Record<string, { status: number; message: string }> = {
   email_address_owner_is_theirs: {
     status: 409,
     message:
-      'That address is one person’s own, and its mail is theirs. Once they’ve left the business, an owner can make it the team’s or give it to someone else.',
+      'That address is one person’s own, and its mail is theirs. Only they can hand it back to the team or remove it, in Settings → Email. Once they’ve left the business, an owner decides.',
+  },
+  email_address_owner_left: {
+    status: 409,
+    message:
+      'That address belonged to someone who has left, and their mail on it is still sealed. An owner of this business picks what becomes of both, under the address in Settings → Email.',
+  },
+  email_address_backup_stays: {
+    status: 409,
+    message:
+      'That is your free HandsFreeOS address. It stays as the backup, so your emails still go out if your own website name ever stops working.',
+  },
+  email_default_required: {
+    status: 409,
+    message:
+      'Customers hear from that address, and there always has to be one address they hear from. Click Change on another address in Settings → Email and make that the one first.',
   },
   email_address_owner_not_here: {
     status: 400,
