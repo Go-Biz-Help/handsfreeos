@@ -3,13 +3,14 @@
   "title": "Inbox, a conversation, phone calls and video calls",
   "checkedOn": "2026-11-22",
   "files": {
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx": "86ce119809c0",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx": "cac42d727c12",
     "apps/mobile/src/app/app/w/[workspaceId]/call/[callId].tsx": "1113c4963af3",
     "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx": "39dd3beab725",
     "apps/mobile/src/components/inbox/call-sheet.tsx": "80613ce5fecf",
     "apps/mobile/src/components/inbox/composer.tsx": "bac1d11d4cf7",
     "apps/mobile/src/components/inbox/conversation-parts.tsx": "ecc181d39b8f",
     "apps/mobile/src/components/inbox/my-cell-card.tsx": "292ae0ecad2a",
+    "apps/mobile/src/components/inbox/new-message-sheet.tsx": "fab1a243e439",
     "apps/mobile/src/components/inbox/own-mail-draft.tsx": "35d7eda8bc1d",
     "apps/mobile/src/components/inbox/pending-reply.tsx": "aaf7f03fba24",
     "apps/mobile/src/components/inbox/show-picker.tsx": "7884770e88af",
@@ -73,7 +74,7 @@
     "apps/web/src/components/inbox/media-viewer.tsx": "eea9b3e6a2d4",
     "apps/web/src/components/inbox/message-log.tsx": "dc5c93220d39",
     "apps/web/src/components/inbox/message-sheet.tsx": "b8a8610c66f7",
-    "apps/web/src/components/inbox/new-message-dialog.tsx": "78cc4578cab4",
+    "apps/web/src/components/inbox/new-message-dialog.tsx": "5b6682f5b69b",
     "apps/web/src/components/inbox/rich-editor.tsx": "c594a4e0ed14",
     "apps/web/src/components/inbox/rich-message.tsx": "2197f796284c",
     "apps/web/src/components/inbox/show-menu.tsx": "17cfe3903344",
@@ -114,23 +115,37 @@
     {
       "path": "Inbox → New message → To (pick a person)",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/new-message-dialog.tsx:59",
+      "file": "apps/web/src/components/inbox/new-message-dialog.tsx:73",
       "covered": "yes",
       "by": "search_customers, personId"
     },
     {
-      "path": "Inbox → New message → no-person refusal",
+      "path": "Inbox → New message → a company was picked (pick a person)",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/new-message-dialog.tsx:69",
+      "file": "apps/web/src/components/inbox/new-message-dialog.tsx:86",
       "covered": "yes",
       "by": "do_conversation_open refusal"
     },
     {
       "path": "Inbox → New message → Open conversation",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/new-message-dialog.tsx:80",
+      "file": "apps/web/src/components/inbox/new-message-dialog.tsx:127",
       "covered": "yes",
-      "by": "do_conversation_open"
+      "by": "do_conversation_open (personId, channel)"
+    },
+    {
+      "path": "Inbox → New message → How: Text or Email, with the number or address it goes to",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/new-message-dialog.tsx:90",
+      "covered": "yes",
+      "by": "do_conversation_open channel (sms or email); search_customers gives the number and email"
+    },
+    {
+      "path": "Inbox → New message → no mobile number or no email address yet (what to add)",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/new-message-dialog.tsx:113",
+      "covered": "yes",
+      "by": "do_conversation_open refusal (no_phone, no_email)"
     },
     {
       "path": "Inbox → Whose: Mine / Unassigned / All",
@@ -247,9 +262,58 @@
     {
       "path": "Phone Inbox → Search everything row",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx:214",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx:239",
       "covered": "yes",
       "by": "read_search_everything"
+    },
+    {
+      "path": "Phone Inbox → New message button (top bar)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx:123",
+      "covered": "yes",
+      "by": "do_conversation_open, then send_text or send_email"
+    },
+    {
+      "path": "Phone Inbox → New message → search customers by name, number or email, and pick one",
+      "kind": "do",
+      "file": "apps/mobile/src/components/inbox/new-message-sheet.tsx:217",
+      "covered": "yes",
+      "by": "search_customers, personId"
+    },
+    {
+      "path": "Phone Inbox → New message → Add “…” as a new contact under the search (the New contact form; sent at once, then picked)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/inbox/new-message-sheet.tsx:247",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "Phone Inbox → New message → Text or Email, each with where it goes (opens their conversation, started if they have none)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/inbox/new-message-sheet.tsx:163",
+      "covered": "yes",
+      "by": "do_conversation_open channel (sms or email)"
+    },
+    {
+      "path": "Phone Inbox → New message → Choose someone else",
+      "kind": "do",
+      "file": "apps/mobile/src/components/inbox/new-message-sheet.tsx:150",
+      "covered": "yes",
+      "by": "search_customers again"
+    },
+    {
+      "path": "Phone Inbox → New message → no mobile number or no email address yet (what to add)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/inbox/new-message-sheet.tsx:176",
+      "covered": "yes",
+      "by": "do_conversation_open refusal (no_phone, no_email)"
+    },
+    {
+      "path": "Phone Inbox → New message → why it couldn’t start (offline with no conversation on this phone, HandsFreeOS not reached, not on this phone yet)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/inbox/new-message-sheet.tsx:185",
+      "covered": "person",
+      "by": "the phone’s own signal and copy; the Assistant runs on the server"
     },
     {
       "path": "Inbox → row → name and channel",

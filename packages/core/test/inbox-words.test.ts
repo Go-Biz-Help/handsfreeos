@@ -9,7 +9,11 @@ import {
   callCardWords,
   canTextOf,
   closedBanner,
+  COMPOSE_WORDS,
+  composeDefault,
+  composeMissing,
   composerPlaceholder,
+  composeTargets,
   PENDING_REPLY_WORDS,
   portalReplyLine,
   CONVERSATION_DONE,
@@ -799,5 +803,33 @@ describe('a conversation', () => {
     expect(CONVERSATION_DONE.assigned('u-marco', ME, 'Marco Diaz')).toBe('Assigned to Marco');
     expect(CONVERSATION_DONE.assigned(ME, ME)).toBe('Assigned to you');
     expect(CONVERSATION_DONE.assigned(null, ME)).toBe('Unassigned');
+  });
+});
+
+describe('New message', () => {
+  it('goes to their main number or email, as their conversation is kept', () => {
+    expect(composeTargets({ phoneE164: '+17135550142', email: ' Mike@Example.com ' })).toEqual({
+      sms: '+17135550142',
+      email: 'mike@example.com',
+    });
+    expect(composeTargets({ phoneE164: null, email: '' })).toEqual({ sms: null, email: null });
+  });
+
+  it('starts on a text when they have a number, else an email', () => {
+    expect(composeDefault({ phoneE164: '+17135550142', email: 'mike@example.com' })).toBe('sms');
+    expect(composeDefault({ phoneE164: null, email: 'mike@example.com' })).toBe('email');
+    // Nothing to reach them by: the text choice, which says what to add.
+    expect(composeDefault({ phoneE164: null, email: null })).toBe('sms');
+  });
+
+  it('says what’s missing and where to add it, by name', () => {
+    expect(composeMissing('sms', 'Mike Johnson')).toBe(
+      'Mike Johnson has no mobile number yet. Add one to their details to text them.',
+    );
+    expect(composeMissing('email', '')).toBe(
+      'This customer has no email address yet. Add one to their details to email them.',
+    );
+    expect(COMPOSE_WORDS.needsSignal('Mike Johnson')).toContain('Try again when you have signal.');
+    expect(COMPOSE_WORDS.channel).toEqual({ sms: 'Text', email: 'Email' });
   });
 });

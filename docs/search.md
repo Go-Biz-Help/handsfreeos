@@ -459,8 +459,8 @@ always read); ranking and marks still fold.
 
 **Where a result lands on the phone.** A thread at its message (`?message=&at=`: scrolled to and rung once it's in the
 copy), a task through the Tasks screen (`?task=`: opened as tapping it would), a note on its customer (`?activity=`),
-Text on the best match through the customer's screen (`?compose=sms`: their text thread, or "No text thread with
-them yet"), a form and one response's answers on the phone's own form screens, and a business's own kinds of
+Text on the best match through the customer's screen (`?compose=sms`: their text thread, started when they have
+none yet, which needs signal), a form and one response's answers on the phone's own form screens, and a business's own kinds of
 records, files on a record (the route map's `webWhen: ['file']`, so the row carries the arrow out) and business
 settings on the web.
 
