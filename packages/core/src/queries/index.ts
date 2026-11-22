@@ -107,6 +107,7 @@ import { numberPortList } from './port';
 import { guidedSetupGetDraft } from './guided-setup';
 import {
   registrationGetDraft,
+  registrationGetPolicies,
   registrationReviewForStaff,
   registrationReviewGet,
 } from './registration';
@@ -197,6 +198,7 @@ export {
   numberPortList,
   guidedSetupGetDraft,
   registrationGetDraft,
+  registrationGetPolicies,
   registrationReviewGet,
   registrationReviewForStaff,
   brandedDomainGet,
@@ -347,6 +349,7 @@ export const queries: readonly QueryDef[] = [
   numberPortList,
   guidedSetupGetDraft,
   registrationGetDraft,
+  registrationGetPolicies,
   registrationReviewGet,
   registrationReviewForStaff,
   numberImportList,

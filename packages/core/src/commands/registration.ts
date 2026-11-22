@@ -4,6 +4,7 @@ import { rows, sql } from '@hfos/db/client';
 import {
   registrationChecks,
   registrationDrafts,
+  registrationPolicies,
   registrationReviews,
   telephonyRegistrations,
   textingFees,
@@ -49,6 +50,8 @@ import {
   BusinessProfile,
   RegistrationRecordCheckInput,
   RegistrationRecordCheckOutput,
+  RegistrationRecordPolicyInput,
+  RegistrationRecordPolicyOutput,
   RegistrationRequestReviewInput,
   RegistrationRequestReviewOutput,
   RegistrationReviewDecideInput,
@@ -385,6 +388,44 @@ export const registrationRecordCheck = defineCommand({
   },
 });
 
+/**
+ * A business's own privacy policy or terms as the worker just handed it back, whole, with the part about texts in its
+ * place (20261027033900). One is kept for each document: the next one made replaces it. The wizard shows it again when
+ * the business comes back, and "Email your web person" sends it, so nobody reads the page or asks the AI twice.
+ */
+export const registrationRecordPolicy = defineCommand({
+  name: 'registration.record_policy',
+  description:
+    'Worker: keep a business’s own privacy policy or terms as it was just handed back whole with the part about texts added, for the next visit and for the files its web person is sent.',
+  risk: 1,
+  input: RegistrationRecordPolicyInput,
+  output: RegistrationRecordPolicyOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: [],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const madeAt = new Date();
+    const row = {
+      sourceUrl: input.sourceUrl,
+      pasted: input.pasted,
+      blocks: input.blocks as never,
+      changes: input.changes as never,
+      madeBy: userIdOf(ctx.actor),
+      madeAt,
+    };
+    await ctx.tx
+      .insert(registrationPolicies)
+      .values({ workspaceId, kind: input.kind, ...row })
+      .onConflictDoUpdate({
+        target: [registrationPolicies.workspaceId, registrationPolicies.kind],
+        set: row,
+      });
+    return { madeAt: madeAt.toISOString() };
+  },
+});
+
 /** Withdraws the business's waiting review, when it has one: asking again, or sending it all green. */
 async function withdrawWaiting(ctx: CommandContext, workspaceId: string) {
   await ctx.tx
@@ -676,7 +717,7 @@ export const registrationEnsureContactForm = defineCommand({
 export const registrationEmailWebPerson = defineCommand({
   name: 'registration.email_web_person',
   description:
-    'Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and terms’ part about texts, and the website chat’s code. Sent from HandsFreeOS’s support desk in the business’s name, as a ticket: replies land on the ticket and go to the person sending it, who gets a copy.',
+    'Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and the terms (each whole, with the part about texts in it), and the website chat’s code. Sent from HandsFreeOS’s support desk in the business’s name, as a ticket: replies land on the ticket and go to the person sending it, who gets a copy.',
   risk: 2,
   input: RegistrationEmailWebPersonInput,
   output: RegistrationEmailWebPersonOutput,
@@ -708,7 +749,7 @@ export const registrationEmailWebPerson = defineCommand({
       websiteFixFactsFrom(sources, { app: 'https://app.invalid', pages: 'https://app.invalid' }),
       fixes,
     );
-    const files = fixes.map((id) => WEBSITE_FIXES[id].filename);
+    const files = fixes.flatMap((id) => WEBSITE_FIXES[id].filenames);
     await ctx.emit({
       type: 'registration.web_person_emailed',
       entityType: 'workspace',

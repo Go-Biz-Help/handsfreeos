@@ -17,7 +17,7 @@
     "apps/web/src/components/phone-setup/editors.tsx": "ef212390d4d3",
     "apps/web/src/components/phone-setup/number-picker.tsx": "0c548fbb78a8",
     "apps/web/src/components/phone-setup/phone-setup-flow.tsx": "1b96c6135e2a",
-    "apps/web/src/components/settings/a2p-wizard.tsx": "eafa385d2cf5",
+    "apps/web/src/components/settings/a2p-wizard.tsx": "45ac1acabcce",
     "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
     "apps/web/src/components/settings/email-page.tsx": "9663aed57df0",
@@ -36,7 +36,7 @@
     "apps/web/src/components/settings/templates-editor.tsx": "331baf537fed",
     "apps/web/src/components/settings/test-text-dialog.tsx": "7bce9b29ee3c",
     "apps/web/src/components/settings/texting-page.tsx": "82451ea75083",
-    "apps/web/src/components/settings/web-person.tsx": "4dd5b4eb3be7",
+    "apps/web/src/components/settings/web-person.tsx": "3e1b03dad5dc",
     "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d",
     "apps/web/src/components/texting-approval/texting-approval-flow.tsx": "3d171675cb71",
     "apps/web/src/lib/chat/editor-data.ts": "84f9988ce043",
@@ -1026,51 +1026,58 @@
     {
       "path": "Texting → Registration → Policy → contact Email and Phone",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2511",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3173",
       "covered": "yes",
       "by": "fill_in_carrier_registration policyEmail, policyPhone"
     },
     {
       "path": "Texting → Registration → Policy → Privacy: use ours / I already have my own, with link",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2540",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3202",
       "covered": "yes",
       "by": "fill_in_carrier_registration ownPolicyUrl (null for ours)"
     },
     {
       "path": "Texting → Registration → Policy → Terms: use ours / I already have my own, with link",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2615",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3286",
       "covered": "yes",
       "by": "fill_in_carrier_registration ownTermsUrl (null for ours)"
     },
     {
-      "path": "Texting → Registration → Policy → clause to add, preview, link to ours",
+      "path": "Texting → Registration → Policy → ours shown whole with Copy all of it and its link; for their own, Adding it by hand? with the clause to add",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2574",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3261",
       "covered": "no",
       "by": "built in the browser"
     },
     {
-      "path": "Texting → Registration → Policy → Add it to my privacy policy for me",
+      "path": "Texting → Registration → Policy → what the look at their website found: their own privacy policy and terms picked for them, or ours when it has none",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3166",
+      "covered": "partly",
+      "by": "the look through the site has no tool; read_registration_get_draft has the picks it made (ownPolicyUrl, ownTermsUrl), and fill_in_carrier_registration sets them"
+    },
+    {
+      "path": "Texting → Registration → Policy → Your privacy policy (or terms), handed back whole: read by itself for a page found or given before; Add it to my privacy policy for me, Read it again",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2706",
-      "covered": "no",
-      "by": "worker policyUpdate has no tool"
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3490",
+      "covered": "partly",
+      "by": "worker policyUpdate has no tool; read_registration_get_policies reads what it last made"
     },
     {
       "path": "Texting → Registration → Policy → Paste it instead, paste box, Add it to what I pasted",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2793",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3505",
       "covered": "no",
       "by": "worker policyUpdate has no tool"
     },
     {
       "path": "Texting → Registration → Policy → Copy the new section / Copy all of it, what changed",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2836",
-      "covered": "no",
-      "by": "worker policyUpdate has no tool"
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3548",
+      "covered": "partly",
+      "by": "read_registration_get_policies has the whole document and the lines that changed, once one has been made; copying is the person’s"
     },
     {
       "path": "Texting → Registration → Review → blockers / all green / not green",
@@ -2867,49 +2874,49 @@
     {
       "path": "Email your web person → their email, their name",
       "kind": "do",
-      "file": "apps/web/src/components/settings/web-person.tsx:294",
+      "file": "apps/web/src/components/settings/web-person.tsx:299",
       "covered": "yes",
       "by": "do_registration_email_web_person to, name"
     },
     {
       "path": "Email your web person → what they need to do: Add the sign-up form / Update the privacy policy and terms / Add the website chat",
       "kind": "do",
-      "file": "apps/web/src/components/settings/web-person.tsx:329",
+      "file": "apps/web/src/components/settings/web-person.tsx:322",
       "covered": "yes",
       "by": "do_registration_email_web_person fixes"
     },
     {
       "path": "Email your web person → which form: one of ours / a form of their own",
       "kind": "do",
-      "file": "apps/web/src/components/settings/web-person.tsx:342",
+      "file": "apps/web/src/components/settings/web-person.tsx:347",
       "covered": "yes",
       "by": "do_registration_email_web_person formId (list_forms)"
     },
     {
       "path": "Email your web person → a refusal under its change, Allow it on <website>",
       "kind": "do",
-      "file": "apps/web/src/components/settings/web-person.tsx:367",
+      "file": "apps/web/src/components/settings/web-person.tsx:369",
       "covered": "yes",
       "by": "the refusal says to add the website to the form's or chat's sites: do_form_set_delivery / manage_website_chat"
     },
     {
-      "path": "Email your web person → each file, opened before sending",
+      "path": "Email your web person → each file, opened before sending (the privacy policy and the terms each whole, in a file of its own)",
       "kind": "see",
       "file": "apps/web/src/components/settings/web-person.tsx:387",
       "covered": "partly",
-      "by": "the tool's description says what each file holds; the files themselves are written by the worker as it sends"
+      "by": "the tool’s description says what each file holds; the files themselves are written by the worker as it sends; read_registration_get_policies has a business’s own policy as it goes"
     },
     {
       "path": "Email your web person → a note from you",
       "kind": "do",
-      "file": "apps/web/src/components/settings/web-person.tsx:425",
+      "file": "apps/web/src/components/settings/web-person.tsx:435",
       "covered": "yes",
       "by": "do_registration_email_web_person note"
     },
     {
       "path": "Email your web person → Send / Cancel",
       "kind": "do",
-      "file": "apps/web/src/components/settings/web-person.tsx:441",
+      "file": "apps/web/src/components/settings/web-person.tsx:458",
       "covered": "yes",
       "by": "do_registration_email_web_person, on a Confirm card"
     },

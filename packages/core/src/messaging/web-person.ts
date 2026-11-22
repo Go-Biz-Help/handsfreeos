@@ -6,13 +6,21 @@
  */
 import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import type { Tx } from '@hfos/db/client';
-import { bookingSites, chatWidgets, forms, workspaces } from '@hfos/db/schema';
+import {
+  bookingSites,
+  chatWidgets,
+  forms,
+  registrationPolicies,
+  workspaces,
+} from '@hfos/db/schema';
 import { normalizeChatOrigins } from '../chat/origins';
 import { chatSnippet, chatSnippetSrc } from '../chat/snippet';
 import { HfosError } from '../errors';
 import { formEmbedSnippet, publicFormPath } from '../forms/links';
 import { consentPolicyPath, consentTermsPath } from './consent';
 import { legalSourceOf, optInNowOf, type LegalSource, type OptInNow } from './legal-source';
+import { samePolicyPage } from './policy-pages';
+import type { UpdatedPolicy } from './policy-update';
 import {
   fixUnavailable,
   WEBSITE_FIX_IDS,
@@ -30,6 +38,43 @@ export interface WebsiteFixSources {
   /** The form picked, or null for a form of the business's own. */
   readonly form: { readonly id: string; readonly name: string; readonly slug: string } | null;
   readonly chat: { readonly publicKey: string; readonly hidden: boolean } | null;
+  /**
+   * The business's own privacy policy and terms as texting approval last handed them back whole, each with the page
+   * it was made for (`app.registration_policies`). Left out by a caller that has none to give.
+   */
+  readonly kept?: {
+    readonly privacy: KeptPolicy | null;
+    readonly terms: KeptPolicy | null;
+  };
+}
+
+/** A policy handed back whole, and the page it was made for. */
+export interface KeptPolicy extends UpdatedPolicy {
+  readonly sourceUrl: string | null;
+}
+
+/** What texting approval last handed back for this business, by document. Read only when the policy fix is asked for. */
+async function keptPolicies(tx: Tx, workspaceId: string): Promise<WebsiteFixSources['kept']> {
+  const all = await tx
+    .select({
+      kind: registrationPolicies.kind,
+      sourceUrl: registrationPolicies.sourceUrl,
+      blocks: registrationPolicies.blocks,
+      changes: registrationPolicies.changes,
+    })
+    .from(registrationPolicies)
+    .where(eq(registrationPolicies.workspaceId, workspaceId));
+  const of = (kind: 'privacy' | 'terms'): KeptPolicy | null => {
+    const row = all.find((r) => r.kind === kind);
+    return row
+      ? {
+          sourceUrl: row.sourceUrl,
+          blocks: row.blocks as unknown as UpdatedPolicy['blocks'],
+          changes: row.changes as unknown as UpdatedPolicy['changes'],
+        }
+      : null;
+  };
+  return { privacy: of('privacy'), terms: of('terms') };
 }
 
 /** The form as it's picked: by id, or left out for the newest published one (or a form of their own when none is). */
@@ -163,7 +208,8 @@ export async function websiteFixSourcesOf(
     chat = { publicKey: widget.publicKey, hidden: !!widget.pausedAt && widget.hidden };
   }
 
-  return { business, siteSlug, legal, optIn, website, form, chat };
+  const kept = fixes.includes('policy') ? await keptPolicies(tx, workspaceId) : undefined;
+  return { business, siteSlug, legal, optIn, website, form, chat, ...(kept ? { kept } : {}) };
 }
 
 /** An address without the slashes at its end (a loop, not a regex, which slows down on many slashes). */
@@ -171,6 +217,12 @@ function withoutTrailingSlashes(url: string): string {
   let end = url.length;
   while (end > 0 && url[end - 1] === '/') end--;
   return url.slice(0, end);
+}
+
+/** A kept policy, when it was made for the page the registration names; null for any other page, or none. */
+function wholeFor(kept: KeptPolicy | null | undefined, page: string | null): UpdatedPolicy | null {
+  if (!kept || !page || !samePolicyPage(kept.sourceUrl, page)) return null;
+  return kept.blocks.length > 0 ? { blocks: kept.blocks, changes: kept.changes } : null;
 }
 
 /** The files' facts, once the addresses are known: ours (`app`) and the one the business's pages are on (`pages`). */
@@ -202,6 +254,9 @@ export function websiteFixFactsFrom(
     hostedPrivacyUrl: s.siteSlug ? `${app}${consentPolicyPath(s.siteSlug)}` : null,
     hostedTermsUrl: s.siteSlug ? `${app}${consentTermsPath(s.siteSlug)}` : null,
     policyBusiness: { name: s.business, ...s.legal.business },
+    // Only one made for the page the registration names now: a business that moved its policy gets the part to add.
+    ownPrivacyWhole: wholeFor(s.kept?.privacy, s.legal.policyUrl),
+    ownTermsWhole: wholeFor(s.kept?.terms, s.legal.termsUrl),
     chat: s.chat
       ? { snippet: chatSnippet(chatSnippetSrc(pages, s.chat.publicKey)), hidden: s.chat.hidden }
       : null,

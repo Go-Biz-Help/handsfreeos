@@ -4,40 +4,77 @@
  * one short email rather than one long one.
  *
  * Three fixes, as the owner named them: **add the form** (ours, framed on the contact page, or the box and its words
- * on a form of their own), **the privacy policy and terms** (the part about texts, word for word, and where the links
- * go) and **add the chat** (one line in the footer). The checks before a registration goes (`preflight.ts`) say which
- * ones are missing (`fixesMissing`), and the dialog ticks those.
+ * on a form of their own), **the privacy policy and terms** and **add the chat** (one line in the footer). The checks
+ * before a registration goes (`preflight.ts`) say which ones are missing (`fixesMissing`), and the dialog ticks those.
+ *
+ * **The privacy policy and the terms go whole, each in its own file** (the owner, 2026-11-22: "the entire policies
+ * should be included in the files sent to their web person"). A web person handed one paragraph has to work out where
+ * in the page it goes; handed the page, they paste it. The business's own, when texting approval has handed it back
+ * with the part about texts in place (`ownPrivacyWhole`, `ownTermsWhole`); ours, written from its details, when it
+ * has none. Only a business's own that we couldn't read still gets the part alone, to add word for word.
  *
  * Written once, here: the dialog shows each file before it goes, and the worker writes the same files when it sends
  * them. Plain text on purpose: anyone can open it, and code pasted from it is exactly the code. Browser-safe.
  */
 import type { PreflightCheck } from './preflight';
 import { offersConsentWords, smsConsentWords } from './consent';
-import { textingSection, type PolicyBusiness } from './policies';
+import {
+  policyAsText,
+  privacyPolicy,
+  termsOfService,
+  textingSection,
+  type PolicyBusiness,
+} from './policies';
+import { updatedPolicyText, type PolicyKind, type UpdatedPolicy } from './policy-update';
 
 export const WEBSITE_FIX_IDS = ['form', 'policy', 'chat'] as const;
 export type WebsiteFixId = (typeof WEBSITE_FIX_IDS)[number];
 
-/** Each fix's file, and how the dialog names it. */
+/** Each fix's files, and how the dialog names it. */
 export const WEBSITE_FIXES: Readonly<
-  Record<WebsiteFixId, { readonly filename: string; readonly label: string; readonly hint: string }>
+  Record<
+    WebsiteFixId,
+    { readonly filenames: readonly string[]; readonly label: string; readonly hint: string }
+  >
 > = {
   form: {
-    filename: 'add-the-form.txt',
+    filenames: ['add-the-form.txt'],
     label: 'Add the sign-up form',
     hint: 'The form with the box to agree to texts, on the contact page.',
   },
   policy: {
-    filename: 'privacy-policy-and-terms.txt',
+    filenames: ['privacy-policy.txt', 'terms.txt'],
     label: 'Update the privacy policy and terms',
-    hint: 'The part about texts, word for word, and links to both pages.',
+    hint: 'Each one whole, in its own file, ready to paste onto its page.',
   },
   chat: {
-    filename: 'add-the-chat.txt',
+    filenames: ['add-the-chat.txt'],
     label: 'Add the website chat',
     hint: 'One line of code in the footer, so it’s on every page.',
   },
 };
+
+/** The two documents the policy fix sends, each as its own file. */
+const DOCUMENTS: Readonly<
+  Record<
+    PolicyKind,
+    {
+      readonly filename: string;
+      readonly label: string;
+      readonly what: string;
+      readonly title: string;
+    }
+  >
+> = {
+  privacy: {
+    filename: 'privacy-policy.txt',
+    label: 'Update the privacy policy',
+    what: 'privacy policy',
+    title: 'Privacy policy',
+  },
+  terms: { filename: 'terms.txt', label: 'Update the terms', what: 'terms', title: 'Terms' },
+};
+const DOCUMENT_KINDS: readonly PolicyKind[] = ['privacy', 'terms'];
 
 /** The most web-person emails one person sends for one business in a day (`registration.email_web_person`). */
 export const WEB_PERSON_EMAILS_A_DAY = 10;
@@ -143,8 +180,15 @@ export interface WebsiteFixFacts {
   /** The privacy policy and terms we host for the business (`/legal/<site>/…`), when it has a public page here. */
   readonly hostedPrivacyUrl: string | null;
   readonly hostedTermsUrl: string | null;
-  /** What our policy and terms are written from, for the part about texts. */
+  /** What our policy and terms are written from: the whole of each, and the part about texts. */
   readonly policyBusiness: PolicyBusiness;
+  /**
+   * The business's own privacy policy and terms as texting approval last handed them back: whole, with the part about
+   * texts in its place (`registration.record_policy`). Only while the registration still names the page each was made
+   * for; null otherwise, and the file then gives the part to add.
+   */
+  readonly ownPrivacyWhole: UpdatedPolicy | null;
+  readonly ownTermsWhole: UpdatedPolicy | null;
   /** The chat: the one line to paste, and whether it's hidden until texting is approved. */
   readonly chat: { readonly snippet: string; readonly hidden: boolean } | null;
 }
@@ -249,44 +293,84 @@ function formFile(f: WebsiteFixFacts): string {
   ].join('\n');
 }
 
-function policyFile(f: WebsiteFixFacts): string {
-  const privacy = textingSection('privacy', f.policyBusiness);
-  const terms = textingSection('terms', f.policyBusiness);
-  const part = (
-    what: 'privacy policy' | 'terms',
-    own: string | null,
-    hosted: string | null,
-    section: { heading: string; paragraphs: readonly string[] },
-  ): string[] => {
-    const words = [section.heading, '', ...section.paragraphs.flatMap((p) => [p, ''])];
-    const title = what === 'privacy policy' ? 'Privacy policy' : 'Terms';
-    if (own)
-      return [rule(title), `Add this part to the ${what} at ${own}, word for word:`, '', ...words];
-    if (hosted)
-      return [
-        rule(title),
-        `We host ${f.business}’s ${what} here: ${hosted}`,
-        `Put a link to it, called “${title}”, in the footer of every page.`,
-        `If the site has a ${what} page of its own, add the part below to it as well, so the two agree:`,
-        '',
-        ...words,
-      ];
-    return [
-      rule(title),
-      `Add a ${what} page to the site with this part in it, word for word, and link it in the footer of every page:`,
-      '',
-      ...words,
-    ];
-  };
-  return [
-    `Update the privacy policy and terms: ${f.business}`,
+/**
+ * The privacy policy, or the terms, as a file: the whole of it, and what to do with it. The business's own once it has
+ * been handed back with the part about texts in place; ours, written from its details, when it has none of its own;
+ * and the part alone, to add word for word, for a business's own that hasn't been handed back.
+ */
+function documentFile(f: WebsiteFixFacts, kind: PolicyKind): string {
+  const { what, title } = DOCUMENTS[kind];
+  const own = kind === 'privacy' ? f.ownPrivacyUrl : f.ownTermsUrl;
+  const hosted = kind === 'privacy' ? f.hostedPrivacyUrl : f.hostedTermsUrl;
+  const kept = own ? (kind === 'privacy' ? f.ownPrivacyWhole : f.ownTermsWhole) : null;
+  const section = textingSection(kind, f.policyBusiness);
+  const head = [
+    `${title}: ${f.business}`,
     '',
     why(f.business),
-    'The reviewer reads the privacy policy and terms for what they say about texts. Their wording matters, so please don’t change it.',
+    kind === 'privacy'
+      ? `The reviewer reads the privacy policy for what it says about texts: the part called “${section.heading}”, and its last paragraph sentence by sentence. Please don’t change that part’s wording.`
+      : `The reviewer reads the terms for what they say about texts: the part called “${section.heading}”. Please don’t change that part’s wording.`,
     '',
-    ...part('privacy policy', f.ownPrivacyUrl, f.hostedPrivacyUrl, privacy),
-    ...part('terms', f.ownTermsUrl, f.hostedTermsUrl, terms),
-    'The last paragraph of the privacy policy part is the one reviewers look for, sentence by sentence.',
+    rule('What to do'),
+  ];
+  if (own && kept) {
+    const n = kept.changes.length;
+    return [
+      ...head,
+      `Replace everything on the ${what} page at ${own} with the words under “The whole ${what}” below, then publish the page.`,
+      `It’s the ${what} that was on that page when we read it, with one new part: “${section.heading}”.` +
+        (n > 0
+          ? ` ${n === 1 ? 'One of its own lines' : `${n} of its own lines`} changed too, so nothing in it goes against the new part. ${n === 1 ? 'It’s' : 'They’re'} listed at the end.`
+          : ''),
+      'Pasting replaces the page’s links and formatting. If the page has links to keep, add only the new part instead, in the place it has below.',
+      '',
+      rule(`The whole ${what}`),
+      updatedPolicyText(kept),
+      '',
+      ...(n > 0
+        ? [
+            rule('What changed in its own words'),
+            ...kept.changes.flatMap((c) => [
+              `Was: ${c.before}`,
+              c.after ? `Now: ${c.after}` : 'Now: taken out.',
+              `Why: ${c.why}`,
+              '',
+            ]),
+          ]
+        : []),
+      done,
+      '',
+    ].join('\n');
+  }
+  if (own)
+    return [
+      ...head,
+      `Add this part to the ${what} at ${own}, word for word:`,
+      '',
+      section.heading,
+      '',
+      ...section.paragraphs.flatMap((p) => [p, '']),
+      done,
+      '',
+    ].join('\n');
+  const whole = policyAsText(
+    kind === 'privacy' ? privacyPolicy(f.policyBusiness) : termsOfService(f.policyBusiness),
+  );
+  return [
+    ...head,
+    ...(hosted
+      ? [
+          `We host ${f.business}’s ${what} here: ${hosted}`,
+          `Put a link to it, called “${title}”, in the footer of every page. That’s all the site needs.`,
+          `If the site has a ${what} page of its own, replace its words with the whole ${what} below, so the two agree.`,
+        ]
+      : [
+          `Add a ${what} page to the site with all of the words below, and link it in the footer of every page, called “${title}”.`,
+        ]),
+    '',
+    rule(`The whole ${what}`),
+    whole,
     '',
     done,
     '',
@@ -319,18 +403,31 @@ function chatFile(f: WebsiteFixFacts): string {
   ].join('\n');
 }
 
-/** The files for the fixes picked, in the order the dialog lists them. A fix that can't be written is left out. */
+/**
+ * The files for the fixes picked, in the order the dialog lists them. A fix that can't be written is left out. The
+ * policy fix is two files: the privacy policy, then the terms.
+ */
 export function websiteFixFiles(
   f: WebsiteFixFacts,
   picked: readonly WebsiteFixId[],
 ): WebsiteFixFile[] {
-  return WEBSITE_FIX_IDS.filter((id) => picked.includes(id) && !fixUnavailable(id, f)).map(
-    (id) => ({
-      id,
-      filename: WEBSITE_FIXES[id].filename,
-      label: WEBSITE_FIXES[id].label,
-      text: id === 'form' ? formFile(f) : id === 'policy' ? policyFile(f) : chatFile(f),
-    }),
+  return WEBSITE_FIX_IDS.filter((id) => picked.includes(id) && !fixUnavailable(id, f)).flatMap(
+    (id): WebsiteFixFile[] =>
+      id === 'policy'
+        ? DOCUMENT_KINDS.map((kind) => ({
+            id,
+            filename: DOCUMENTS[kind].filename,
+            label: DOCUMENTS[kind].label,
+            text: documentFile(f, kind),
+          }))
+        : [
+            {
+              id,
+              filename: WEBSITE_FIXES[id].filenames[0]!,
+              label: WEBSITE_FIXES[id].label,
+              text: id === 'form' ? formFile(f) : chatFile(f),
+            },
+          ],
   );
 }
 

@@ -85,6 +85,7 @@ export const SCREEN_READS = [
   'portal_access.get',
   'record_hold.list',
   'registration.get_draft',
+  'registration.get_policies',
   'registration.review.get',
   'safety.alert',
   'safety.mine',

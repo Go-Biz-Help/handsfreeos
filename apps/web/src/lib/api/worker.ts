@@ -1,5 +1,6 @@
 'use client';
 import type {
+  PolicyPages,
   PolicyUpdateInput,
   PolicyUpdateOutput,
   PreflightCheck,
@@ -322,6 +323,8 @@ export interface SiteFormsFound {
   /** Pages that showed a robot check instead of themselves. */
   blocked: number;
   forms: SiteFormFound[];
+  /** The site's own privacy policy and terms, by their addresses. Left out by a worker from before it looked. */
+  policyPages?: PolicyPages;
 }
 
 /**
