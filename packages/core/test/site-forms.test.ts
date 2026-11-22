@@ -13,6 +13,8 @@ import {
   formsOn,
   pageKey,
   shortAddress,
+  siteFormsFound,
+  siteFormsSummary,
   type SiteForm,
   type SiteScan,
 } from '../src/messaging/site-forms';
@@ -247,5 +249,58 @@ describe('the forms a reviewer would hold against the registration', () => {
   it('says nothing when the site didn’t open: the website’s own row says so', () => {
     expect(checkSiteForms(scan([], { opened: 0 }), { named: [SITE] })).toEqual([]);
     expect(checkSiteForms(null, { named: [SITE] })).toEqual([]);
+  });
+});
+
+describe('what’s on the site now, before the business picks how customers agree', () => {
+  const FRAME = 'https://app.handsfreeos.com/f/shop-your-solar/get-in-touch';
+  const isOurs = (url: string) => url.startsWith('https://app.handsfreeos.com/f/shop-your-solar/');
+  const all = scan([
+    ...found(`${SITE}/instant-quote`, HIGHLEVEL, 'https://instantquote.shopyoursolar.com/quote'),
+    ...found(`${SITE}/m/create-account`, GODADDY_ACCOUNT),
+    ...found(`${SITE}/`, HFOS_FORM, FRAME),
+    ...found(`${SITE}/contact`, HFOS_FORM, FRAME),
+  ]);
+
+  it('lists each form once, with the page it’s on, and knows the business’s own form', () => {
+    const forms = siteFormsFound(all, isOurs);
+    expect(forms).toHaveLength(3);
+    expect(forms[0]).toMatchObject({
+      page: `${SITE}/instant-quote`,
+      alsoOn: 0,
+      asksPhone: true,
+      asksToText: true,
+      ours: false,
+    });
+    expect(forms[1]).toMatchObject({
+      page: `${SITE}/m/create-account`,
+      framedUrl: null,
+      asksToText: false,
+      ours: false,
+    });
+    // Our form framed on two pages is one row, on the first page it was found on.
+    expect(forms[2]).toMatchObject({ page: `${SITE}/`, alsoOn: 1, framedUrl: FRAME, ours: true });
+  });
+
+  it('says how many pages opened and what the other forms ask, leaving the business’s own form out', () => {
+    const forms = siteFormsFound(all, isOurs);
+    expect(siteFormsSummary({ opened: 14, cut: false, forms }, 'shopyoursolar.com')).toBe(
+      'We opened 14 pages of shopyoursolar.com and found 2 forms that ask for a phone number. 1 of them asks to text too.',
+    );
+    const account = forms.filter((f) => f.page.endsWith('/create-account'));
+    expect(siteFormsSummary({ opened: 1, cut: true, forms: account }, 'shopyoursolar.com')).toBe(
+      'We opened 1 page of shopyoursolar.com and found 1 form that asks for a phone number. It doesn’t ask to text. We stopped there, so there may be more.',
+    );
+    expect(
+      siteFormsSummary({ opened: 3, cut: false, forms: [...account, ...account] }, 'a.com'),
+    ).toContain('Neither one asks to text.');
+  });
+
+  it('says so when only the business’s own form is there, and nothing when no page opened', () => {
+    const mine = siteFormsFound(scan(found(`${SITE}/`, HFOS_FORM, FRAME)), isOurs);
+    expect(siteFormsSummary({ opened: 6, cut: false, forms: mine }, 'shopyoursolar.com')).toBe(
+      'We opened 6 pages of shopyoursolar.com and found no forms that ask for a phone number.',
+    );
+    expect(siteFormsSummary({ opened: 0, cut: false, forms: [] }, 'shopyoursolar.com')).toBeNull();
   });
 });

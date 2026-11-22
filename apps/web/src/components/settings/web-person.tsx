@@ -92,6 +92,7 @@ export function WebPersonButton({
   suggested,
   path = null,
   variant = 'secondary',
+  label = 'Email your web person',
   className,
 }: {
   workspaceId: string;
@@ -103,6 +104,8 @@ export function WebPersonButton({
   suggested?: readonly WebsiteFixId[];
   path?: 'hosted' | 'own_site' | 'in_person' | null;
   variant?: 'primary' | 'secondary' | 'ghost';
+  /** What the button says, where "Email your web person" isn't how the screen around it talks. */
+  label?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -126,7 +129,7 @@ export function WebPersonButton({
         data-testid="web-person-open"
       >
         <Mail className="h-4 w-4" />
-        Email your web person
+        {label}
       </Button>
       {open ? (
         <WebPersonDialog

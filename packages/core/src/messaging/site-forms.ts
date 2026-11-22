@@ -237,6 +237,93 @@ const sentenceList = (items: readonly string[]): string =>
 /** The most rows of separate forms the review lists; the rest are counted on the last one. */
 const MAX_ROWS = 6;
 
+/** One form on the business's site, as texting approval's "What's on your site now" lists it. */
+export interface SiteFormFound {
+  /** The page it's on: the first one it was found on. */
+  readonly page: string;
+  /** How many more pages show the same form (a footer form is on them all). */
+  readonly alsoOn: number;
+  /** The framed form's own address, when the page shows it in a frame. */
+  readonly framedUrl: string | null;
+  readonly asksPhone: boolean;
+  /** It has a box to agree to texts. */
+  readonly asksToText: boolean;
+  /** It's one of the business's own HandsFreeOS forms, which carries our box. */
+  readonly ours: boolean;
+}
+
+/**
+ * The forms a scan found, one row each (the same form on many pages is one row, as `checkSiteForms` counts them), for
+ * the question that asks how customers will agree: the business sees what a reviewer would find before it picks.
+ * `isOurs` says whether a framed form's address is one of the business's own forms here.
+ */
+export function siteFormsFound(
+  scan: SiteScan,
+  isOurs: (framedUrl: string) => boolean,
+): SiteFormFound[] {
+  const groups = new Map<string, SiteForm[]>();
+  for (const form of scan.forms.filter(formCounts)) {
+    const key = form.framedUrl ? `frame:${pageKey(form.framedUrl)}` : `form:${form.key}`;
+    groups.set(key, [...(groups.get(key) ?? []), form]);
+  }
+  return [...groups.values()].map((forms) => {
+    const form = forms[0]!;
+    const pages = [...new Set(forms.map((f) => f.page))];
+    return {
+      page: pages[0]!,
+      alsoOn: pages.length - 1,
+      framedUrl: form.framedUrl ?? null,
+      asksPhone: form.asksPhone,
+      asksToText: form.boxes.length > 0,
+      ours: !!form.framedUrl && isOurs(form.framedUrl),
+    };
+  });
+}
+
+/** The business's other forms a look at its site found: every one but its own HandsFreeOS forms. */
+export const otherSiteForms = (forms: readonly SiteFormFound[]): SiteFormFound[] =>
+  forms.filter((f) => !f.ours);
+
+/**
+ * "What's on your site now", in a sentence or two, from a look at the site (`siteFormsFound`): how many pages opened,
+ * how many forms ask for a phone number, and whether any of them asks to text. `site` is the site as the business
+ * knows it ("lonestarhvac.com"). Null when no page opened: there's nothing to say about a site that wasn't seen.
+ * Said once here, so the web and the phone say the same.
+ */
+export function siteFormsSummary(
+  found: {
+    readonly opened: number;
+    readonly cut: boolean;
+    readonly forms: readonly SiteFormFound[];
+  },
+  site: string,
+): string | null {
+  if (found.opened < 1) return null;
+  const pages = `${found.opened} ${found.opened === 1 ? 'page' : 'pages'}`;
+  const more = found.cut ? ' We stopped there, so there may be more.' : '';
+  const others = otherSiteForms(found.forms);
+  if (!others.length)
+    return `We opened ${pages} of ${site} and found no forms that ask for a phone number.${more}`;
+  const n = others.length;
+  const asking = others.filter((f) => f.asksToText).length;
+  const texts =
+    asking === 0
+      ? n === 1
+        ? 'It doesn’t ask to text.'
+        : n === 2
+          ? 'Neither one asks to text.'
+          : 'None of them asks to text.'
+      : asking === n
+        ? n === 1
+          ? 'It asks to text too.'
+          : 'They ask to text too.'
+        : `${asking} of them ${asking === 1 ? 'asks' : 'ask'} to text too.`;
+  return (
+    `We opened ${pages} of ${site} and found ${n} ${n === 1 ? 'form that asks' : 'forms that ask'} ` +
+    `for a phone number. ${texts}${more}`
+  );
+}
+
 /**
  * What a reviewer would hold against the forms on the site, as review rows: one row per form with something wrong
  * (the same form on many pages is one row), or one green row when nothing is.
