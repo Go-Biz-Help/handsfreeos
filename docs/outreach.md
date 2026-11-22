@@ -430,9 +430,10 @@ became.
   guide made of it goes in every business's warm-up comments on Instagram once staff press Use it. From decision 172
   both are on every network: one Start reads all six, each with its own guide for its warm-up and topic comments.
 - **An introduction in place of the pitch** (decision 168, `script.ts`, `ops/checks.ts`): a playbook can start with
-  an introduction: thanks for connecting, who the person is and what the business offers, and a question about them
-  from their page (decision 173), as a second text right after it when the person sends a few (decision 175). It goes
-  to everyone who connects while every way a playbook there may start with starts a chat.
+  an introduction: thanks for connecting, who the person is, and a question about them from their page (decision
+  173), as a second text right after it when the person sends a few (decision 175). It says nothing of what the
+  business does: that waits until they ask (decision 190). It goes to everyone who connects while every way a playbook
+  there may start with starts a chat.
 - **Ways to start a chat** (decision 183, `script.ts` `OPEN_WAYS`, `today.ts` `openerTask`): each playbook ticks the
   ways it may start a chat (What it says → Ways to start a chat), none to start, and for each person the AI picks the
   one that fits their pages, posts, network and business best: Direct pitch, Introduction, Value first, Trigger event,
@@ -5159,6 +5160,33 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         name and after the business it works for, signed in or not, in the same words as beside the download, so the
         two can be held side by side. A long business name is cut short, never the version.
 
+190.  **The introduction says who you are, not what you do** (Chris, 22 Nov 2026: "for my introduction message I don’t
+      want it to say what I do right away. i want it to say I’m the founder of HandsFreeOS and then ask them the
+      question. Then if they ask about handsfreeos then we say what we do ... ads a but of curiosity and if you say you
+      service them right away it they aren’t going to take it as a genuine conversation and as a sales pitch coming
+      soon"). Changes the starting words of decisions 168, 173 and 181:
+      - **The starting words** (`STARTING_INTRO`): "Hey [first name], thanks for connecting! [something you have in
+        common] I’m [your first name] with [your business name]. [a question about them]". The line "We help [their
+        kind of business] businesses get …" is gone, so a playbook on the starting words says nothing of its offer in
+        its first message. The thanks, what they have in common (decision 181) and the question as its own text
+        (decision 175) are as they were.
+      - **The task holds it too** (`introTask`): the introduction says who the owner is as the playbook's words do,
+        and nothing of what the business does or offers unless the playbook's own words do. Nothing is added to a
+        playbook's own words (decision 164), so one that wrote its offer into its introduction keeps it.
+      - **"The founder of" is the business's own words.** Not everyone who sends an introduction founded the business,
+        and nothing is made up about it (`LOCKED_RULES`), so the starting words say "with". A business that wants
+        more said of the person writes it under What it says → Introduction, as the owner's CRM demos playbook does:
+        "… I’m [your first name], the founder of [your business name]. [a question about them]".
+      - **What the business does comes when they ask** (decision 176, `networkingReplyTask`, unchanged but for naming
+        "what it is" among what they may ask): a sentence or two from the main offer and its lists, then the demo
+        offer, once, while its switch is on.
+      - **The choice's words say so** (`PLAYBOOK_OPENS`, `OPEN_WAYS`, the Assistant's `outreach_save_playbook`): "It
+        doesn’t say what you offer: that waits until they ask."
+      - **Introductions already waiting are written again** (`RULES_VERSION` 7), so they drop the line too. That
+        rewrites every message still waiting for an OK, once.
+      - **How it's built** (no migration, no extension change): `script.ts`, `today.ts`, `sends.ts` and
+        `ops/playbooks.ts` in Social Outreach.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -5210,6 +5238,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **An introduction always asks a question about them, as its own text** (decisions 173 and 175, `introTask`,
   `introTexts`): the question goes as a second text right after it when the person sends a few, and never in a
   first message to someone's Requests. Don't let a playbook's own words drop it.
+- **An introduction never says what the business does** (decision 190, `STARTING_INTRO`, `introTask`): who the person
+  is, then the question. What it does comes only when they ask, in the networking chat's reply. Only a playbook's own
+  words for the part can say more.
 - **What an introduction says you have in common is always true** (decision 181, `FILL_BLANKS`): local only when the
   facts say so, the same work only when the owner's business is in it, a shared background only from About you,
   else both running a business. Never a group, never a guess.
