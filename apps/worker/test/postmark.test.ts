@@ -42,10 +42,17 @@ function mockPostmark(domain: typeof DOMAIN = DOMAIN): string[] {
 afterEach(() => vi.unstubAllGlobals());
 
 const dnsError = (code: string) => Object.assign(new Error(`queryTxt ${code}`), { code });
+type Mx = string | { exchange: string; priority: number };
+function mxOf(answer: Mx[] | Error | undefined) {
+  if (answer instanceof Error) throw answer;
+  return (answer ?? []).map((r) => (typeof r === 'string' ? { exchange: r, priority: 10 } : r));
+}
 const dns = (answers: {
   txt?: string[][] | Error;
   cname?: string[] | Error;
-  mx?: (string | { exchange: string; priority: number })[] | Error;
+  mx?: Mx[] | Error;
+  /** What the domain's own name servers say now; the same as the resolver unless a test says otherwise. */
+  mxNow?: Mx[] | Error;
 }): DnsLookup => ({
   async txt() {
     if (answers.txt instanceof Error) throw answers.txt;
@@ -56,10 +63,10 @@ const dns = (answers: {
     return answers.cname ?? [];
   },
   async mx() {
-    if (answers.mx instanceof Error) throw answers.mx;
-    return (answers.mx ?? []).map((r) =>
-      typeof r === 'string' ? { exchange: r, priority: 10 } : r,
-    );
+    return mxOf(answers.mx);
+  },
+  async mxNow() {
+    return mxOf(answers.mxNow ?? answers.mx);
   },
 });
 const domains = (lookup: DnsLookup) =>
@@ -147,6 +154,27 @@ describe('whether a domain receives here (M19)', () => {
     expect(await domains(dns({ mx: old(10) })).receives('lonestarhvac.com')).toBe(false);
     expect(await domains(dns({ mx: old(1) })).receives('lonestarhvac.com')).toBe(false);
     expect(await domains(dns({ mx: old(0) })).receives('lonestarhvac.com')).toBe(true);
+  });
+
+  // A resolver keeps the old records for as long as they said to (a day, at some DNS hosts). A business that had
+  // just deleted its old host's records, and clicked Check now, was told ours wasn't there.
+  it('goes by the domain’s own name servers, not by records a resolver still remembers', async () => {
+    const remembered = [
+      { exchange: 'mx10.oldhost.example', priority: 10 },
+      { exchange: 'mx20.oldhost.example', priority: 20 },
+      { exchange: 'inbound.postmarkapp.com', priority: 10 },
+    ];
+    expect(
+      await domains(dns({ mx: remembered, mxNow: ['inbound.postmarkapp.com'] })).receives(
+        'lonestarhvac.com',
+      ),
+    ).toBe(true);
+    // And the other way: the MX moved away a minute ago, though a resolver still remembers ours.
+    expect(
+      await domains(
+        dns({ mx: ['inbound.postmarkapp.com'], mxNow: ['aspmx.l.google.com'] }),
+      ).receives('lonestarhvac.com'),
+    ).toBe(false);
   });
 
   it('says no when the MX points elsewhere or there is none', async () => {
