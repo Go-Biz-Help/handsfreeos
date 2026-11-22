@@ -41,6 +41,8 @@ import {
   personCreate,
   phoneUpdateSettings,
   planCreate,
+  platformViewAsEnd,
+  platformViewAsStart,
   productCreate,
   scheduleSet,
   seriesBookForCustomer,
@@ -611,6 +613,38 @@ describe('money, only with an owner’s or admin’s OK', () => {
       'validation',
     );
     await saveTeammate(a, { money: { newBills: false } });
+  });
+
+  it('counts the founder’s OK while they work in the business as its owner, and not after', async () => {
+    const founder = await createTestUser('m18-founder', { fullName: 'Fran Founder' });
+    // There is only ever one, marked at the database's console (support-view-as.test.ts).
+    await rows(admin(), sql`update platform.staff set founder = false where founder`);
+    await rows(
+      admin(),
+      sql`insert into platform.staff (user_id, role, founder) values (${founder.id}, 'agent', true)`,
+    );
+    await saveTeammate(a, { money: { newBills: true } });
+    try {
+      const lee = await aiChat(a, 'Lee');
+      const bill = () =>
+        asAva(
+          a,
+          { conversationId: lee.conversationId, approvedBy: founder.id },
+          invoiceCreateForCustomer,
+          { workspaceId: a.wsId, title: 'Tune-up', lines: [{ productId: tuneUp, quantity: 1 }] },
+        );
+      // Not in the business, they are nobody here.
+      await expectHfos(bill, 'forbidden', 'money_needs_approval');
+      await run(platformViewAsStart, { workspaceId: a.wsId }, founder);
+      const { output } = await bill();
+      expect(output).toMatchObject({ status: 'sent' });
+      // They left: the same OK no longer counts, as for an owner who stopped managing money.
+      await run(platformViewAsEnd, {}, founder);
+      await expectHfos(bill, 'forbidden', 'money_needs_approval');
+    } finally {
+      await saveTeammate(a, { money: { newBills: false } });
+      await rows(admin(), sql`delete from platform.staff where user_id = ${founder.id}`);
+    }
   });
 
   it('bills a T-shirt in the size the customer named, at that size’s price', async () => {

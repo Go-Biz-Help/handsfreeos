@@ -132,8 +132,11 @@ export const CALENDAR_COLORS = [
 ] as const;
 
 export interface PresetContext {
-  /** The person creating the calendar. */
-  readonly me: string;
+  /**
+   * The person creating the calendar, when they are one of the business’s own people. Null for the founder working
+   * in it as its owner: they are never on its team, so the calendar starts with the people picked, or nobody.
+   */
+  readonly me: string | null;
   /** People picked in the preset step (Round Robin and Dispatch use them instead of you; Resource has none). */
   readonly teammates?: readonly string[];
   readonly services?: readonly string[];
@@ -150,20 +153,21 @@ const unique = (ids: readonly string[]) => [...new Set(ids)];
 
 function people(key: PresetKey, ctx: PresetContext): TeamMember[] {
   const picked = unique(ctx.teammates ?? []);
+  const me = ctx.me ? [ctx.me] : [];
   switch (key) {
     case 'scratch':
     case 'resource':
       return [];
     case 'round_robin':
     case 'dispatch':
-      return (picked.length ? picked : [ctx.me]).map((u) => member(u));
+      return (picked.length ? picked : me).map((u) => member(u));
     case 'service':
-      return unique([ctx.me, ...picked]).map((u) => member(u));
+      return unique([...me, ...picked]).map((u) => member(u));
     case 'collective':
       // Needs a teammate; without one, collective_needs_two shows with its fixes.
-      return unique([ctx.me, ...picked.slice(0, 1)]).map((u) => member(u, true));
+      return unique([...me, ...picked.slice(0, 1)]).map((u) => member(u, true));
     default:
-      return [member(ctx.me)];
+      return me.map((u) => member(u));
   }
 }
 

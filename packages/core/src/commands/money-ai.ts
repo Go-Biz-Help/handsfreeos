@@ -76,10 +76,12 @@ async function approvedFor(ctx: CommandContext): Promise<Approved> {
       'money_needs_approval',
     );
   const ws = ctx.scope.workspaceId!;
-  // Whoever approved it still manages money here, as the business has set it (0106).
+  // Whoever approved it still manages money here, as the business has set it (0106). Asked as the database asks
+  // the person themselves: the founder working in the business as its owner (20261013002100) approves as one,
+  // while they are still in it. `user_has_permission`, about somebody else, never counts that.
   const [approver] = await rows<{ ok: boolean }>(
     ctx.tx,
-    sql`select private.user_has_permission(${ai.approvedBy}::uuid, ${ws}::uuid, 'money.manage') as ok`,
+    sql`select private.asker_has_permission(${ai.approvedBy}::uuid, ${ws}::uuid, 'money.manage') as ok`,
   );
   if (!approver?.ok)
     throw HfosError.forbidden(

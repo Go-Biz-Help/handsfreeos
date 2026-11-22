@@ -17,7 +17,7 @@ import type { z } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import { estimates } from '@hfos/db/schema';
 import { ADDON_CATALOG } from '../addons/catalog';
-import { requirePerson, workspaceTimezone } from '../crm/records';
+import { ownPersonOrNull, requirePerson, workspaceTimezone } from '../crm/records';
 import { HfosError } from '../errors';
 import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
@@ -255,7 +255,7 @@ export async function createEstimate(
       publicRef: dsql`private.new_public_ref()`,
       personId: input.personId,
       leadId: input.leadId ?? null,
-      assigneeUserId: input.assigneeUserId ?? by,
+      assigneeUserId: input.assigneeUserId ?? (await ownPersonOrNull(ctx.tx, ws, by)),
       title: input.title ?? null,
       notes: input.notes ?? (settings.notes.estimate || null),
       expiresOn: input.expiresOn ?? null,

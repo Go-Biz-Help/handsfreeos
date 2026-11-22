@@ -54,7 +54,7 @@ export function Sidebar({
       <div className="flex-none pt-2">
         <CallsPill />
         <FootLinks workspaceId={current.id} permissions={current.permissions} />
-        <GetHelp workspaceId={current.id} guide={guideOf(me, current.id)} />
+        <GetHelp workspaceId={current.id} guide={guideOf(me, current)} />
         <UserMenu user={me.user} />
       </div>
     </aside>
