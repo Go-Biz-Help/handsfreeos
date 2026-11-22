@@ -239,11 +239,15 @@ describe('Email your web person', () => {
       files: { filename: string; text: string }[];
     };
     expect(preview.business).toBe(BUSINESS);
+    // The privacy policy and the terms each go whole, in a file of their own (the owner, 2026-11-22).
     expect(preview.files.map((f) => f.filename)).toEqual([
-      'privacy-policy-and-terms.txt',
+      'privacy-policy.txt',
+      'terms.txt',
       'add-the-chat.txt',
     ]);
-    expect(preview.files[1]!.text).toContain(
+    expect(preview.files[0]!.text).toContain('The whole privacy policy');
+    expect(preview.files[1]!.text).toContain('The whole terms');
+    expect(preview.files[2]!.text).toContain(
       `<script async src="http://localhost:3000/embed/v1/${chat.publicKey}.js"></script>`,
     );
 
@@ -280,7 +284,8 @@ describe('Email your web person', () => {
     expect(mail.Text).toMatch(/^Hi Dana,/);
     expect(mail.Text).toContain('A note from Chris Lee:');
     expect(mail.Attachments.map((a) => a.FileName)).toEqual([
-      'privacy-policy-and-terms.txt',
+      'privacy-policy.txt',
+      'terms.txt',
       'add-the-chat.txt',
     ]);
     for (const [i, a] of mail.Attachments.entries()) {
@@ -300,7 +305,7 @@ describe('Email your web person', () => {
     expect(note).toMatchObject({ author: 'staff', internal: true });
     expect(note!.body_text).toContain(`by Chris Lee (${owner.email})`);
     expect(note!.body_text).toContain('--- add-the-chat.txt ---');
-    expect(note!.body_text).toContain(preview.files[1]!.text.trim());
+    expect(note!.body_text).toContain(preview.files[2]!.text.trim());
   });
 
   // 2026-11-16: the founder pressed Send in a client's business and nothing went, because the worker couldn't read

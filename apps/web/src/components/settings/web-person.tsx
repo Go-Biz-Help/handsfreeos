@@ -3,10 +3,10 @@
  * "Email your web person" and "Hide the website chat until texting is approved" (the owner, 2026-11-12).
  *
  * Getting texting approved often means asking whoever looks after a business's website to add the form, update the
- * privacy policy and terms, or add the chat. The button emails them, each change in its own text file (core's
- * website-fixes.ts), from HandsFreeOS's support desk in the business's name, as a ticket (the owner, 2026-11-16): replies
- * land on that ticket and go to whoever sent it, who gets a copy. The worker writes the files the dialog shows, from the
- * same code that writes the ones it sends.
+ * privacy policy and terms, or add the chat. The button emails them, each change in its own text file and the privacy
+ * policy and the terms each whole in theirs (core's website-fixes.ts), from HandsFreeOS's support desk in the
+ * business's name, as a ticket (the owner, 2026-11-16): replies land on that ticket and go to whoever sent it, who gets a
+ * copy. The worker writes the files the dialog shows, from the same code that writes the ones it sends.
  *
  * The switch is for a business whose customers agree on a form: its chat is paused while the carriers look (its code
  * stays on the site and shows nothing) and comes back on by itself once texting is approved.
@@ -177,7 +177,8 @@ function WebPersonDialog({
     rule?: string;
   } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [shown, setShown] = useState<WebsiteFixId | null>(null);
+  /** The file that's open, by its name: a change can come as more than one (the privacy policy, and the terms). */
+  const [shown, setShown] = useState<string | null>(null);
   const [fixing, setFixing] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -280,7 +281,7 @@ function WebPersonDialog({
     }
   }
 
-  const fileOf = (id: WebsiteFixId) => preview?.files.find((f) => f.id === id) ?? null;
+  const filesOf = (id: WebsiteFixId) => preview?.files.filter((f) => f.id === id) ?? [];
   const canAllow =
     !!website &&
     (problem?.rule === 'web_person_form_site' ||
@@ -290,7 +291,7 @@ function WebPersonDialog({
     <Dialog open onOpenChange={(next) => (next ? null : onClose())}>
       <DialogContent
         title="Email your web person"
-        description="Each change goes in its own text file, so the email stays short. It comes from HandsFreeOS in your business’s name, and replies come to you and to HandsFreeOS support."
+        description="Each change goes in its own text file, so the email stays short. The privacy policy and the terms each go whole. It comes from HandsFreeOS in your business’s name, and replies come to you and to HandsFreeOS support."
         className="max-h-[calc(100vh-32px)] w-[min(600px,calc(100vw-32px))] overflow-y-auto"
       >
         <div className="mt-4 space-y-4" data-testid="web-person-dialog">
@@ -322,7 +323,7 @@ function WebPersonDialog({
             <ul className="space-y-2.5">
               {WEBSITE_FIX_IDS.map((id) => {
                 const picked = fixes.includes(id);
-                const file = picked ? fileOf(id) : null;
+                const files = picked ? filesOf(id) : [];
                 const noChat = id === 'chat' && !chat;
                 return (
                   <li
@@ -383,33 +384,38 @@ function WebPersonDialog({
                         ) : null}
                       </div>
                     ) : null}
-                    {file ? (
-                      <div className="ml-[28px] mt-2">
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 text-[12.5px] font-medium text-accent-text hover:underline"
-                          onClick={() => setShown(shown === id ? null : id)}
-                          aria-expanded={shown === id}
-                          data-testid={`web-person-show-${id}`}
-                        >
-                          {shown === id ? (
-                            <ChevronDown className="h-3.5 w-3.5" />
-                          ) : (
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          )}
-                          <FileText className="h-3.5 w-3.5" />
-                          {file.filename}
-                        </button>
-                        {shown === id ? (
-                          <pre
-                            className="mt-1.5 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-menu border border-border bg-card p-3 font-mono text-[12px] leading-relaxed text-text-2"
-                            data-testid={`web-person-file-${id}`}
+                    {files.map((file, i) => {
+                      // The first file keeps the change's own test id; a second one counts on from it.
+                      const tid = i === 0 ? id : `${id}-${i + 1}`;
+                      const open = shown === file.filename;
+                      return (
+                        <div key={file.filename} className="ml-[28px] mt-2">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 text-[12.5px] font-medium text-accent-text hover:underline"
+                            onClick={() => setShown(open ? null : file.filename)}
+                            aria-expanded={open}
+                            data-testid={`web-person-show-${tid}`}
                           >
-                            {file.text}
-                          </pre>
-                        ) : null}
-                      </div>
-                    ) : null}
+                            {open ? (
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            ) : (
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            )}
+                            <FileText className="h-3.5 w-3.5" />
+                            {file.filename}
+                          </button>
+                          {open ? (
+                            <pre
+                              className="mt-1.5 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-menu border border-border bg-card p-3 font-mono text-[12px] leading-relaxed text-text-2"
+                              data-testid={`web-person-file-${tid}`}
+                            >
+                              {file.text}
+                            </pre>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </li>
                 );
               })}

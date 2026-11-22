@@ -4,11 +4,14 @@
  * our contact form, so it knows which of its forms come off or get swapped. The same walk the checks before sending
  * make (`scanSiteForms`), read the same way (`siteFormsFound`), but here nothing is judged: it's a list.
  *
- * POST /v1/telephony/site-forms {workspaceId, website} → {opened, cut, blocked, forms}
+ * The walk also says where the site's own privacy policy and terms are (`policyPagesAmong`, by their addresses), for
+ * the question after it: a business that has them is handed them back whole with the part about texts added.
+ *
+ * POST /v1/telephony/site-forms {workspaceId, website} → {opened, cut, blocked, forms, policyPages}
  * 403 without channels.manage; 429 `rate_limited`. A site that doesn't open comes back as no pages opened.
  */
 import rateLimit from '@fastify/rate-limit';
-import { siteFormsFound } from '@hfos/core';
+import { policyPagesAmong, siteFormsFound } from '@hfos/core';
 import { HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
@@ -94,6 +97,8 @@ export async function registerSiteFormsFoundRoutes(
           cut: scan.cut,
           blocked: scan.blocked.length,
           forms: siteFormsFound(scan, isOurs).slice(0, MOST_FORMS),
+          // The site's own privacy policy and terms, by their addresses, for the question after this one.
+          policyPages: policyPagesAmong(scan.seen ?? []),
         };
       },
     );

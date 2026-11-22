@@ -30,9 +30,12 @@ import {
   money,
   optInDescriptionFor,
   otherSiteForms,
+  policyAsText,
+  policyPagesSummary,
   privacyPolicy,
   industryLabel,
   sameDescription,
+  samePolicyPage,
   SAMPLE_KINDS,
   sampleChoices,
   sampleHasOptOut,
@@ -64,8 +67,10 @@ import {
   type ConfirmationId,
   type OptInPath,
   type PolicyKind,
+  type PolicyPages,
   type PolicyUpdateInput,
   type PolicyUpdateOutput,
+  type UpdatedPolicy,
   type PreflightCheck,
   type SampleKind,
   type SensitiveTopicId,
@@ -162,6 +167,11 @@ export interface WizardForm {
   /** How customers reach the business, as our privacy policy and terms say under "Contact us". */
   policyEmail: string;
   policyPhone: string;
+  /**
+   * The question on the privacy policy and terms has been settled once: the business's website was looked at for
+   * its own (and they were picked when found), or the person picked. After that the answers are left alone.
+   */
+  policyLooked: boolean;
   /** Topics the carriers treat differently: the ids picked, [] for "None of these", null before answering. */
   sensitive: string[] | null;
   /**
@@ -289,6 +299,8 @@ export function wizardFormFrom(
     // Filled in from the contact and the business number when the policy step opens, unless already given.
     policyEmail: b.policyContact?.email ?? '',
     policyPhone: b.policyContact?.phone ? formatPhone(b.policyContact.phone) : '',
+    // A registration that has gone already answered it.
+    policyLooked: !!initial,
     sensitive: Array.isArray(b.sensitiveTopics) ? b.sensitiveTopics : null,
     otherWays: Array.isArray(b.otherWays)
       ? b.otherWays.flatMap((w) => (w.path && w.url ? [{ path: w.path, url: w.url }] : []))
@@ -908,6 +920,33 @@ const BOTH_WAYS_FIXES: readonly WebsiteFixId[] = ['form', 'policy', 'chat'];
 /** A look at the business's site for forms, kept a few minutes so going back and forth doesn't walk the site again. */
 const siteLooks = new Map<string, { found: SiteFormsFound; at: number }>();
 const SITE_LOOK_KEPT_MS = 5 * 60_000;
+/** Looks still on their way, so two questions asking about the same site share one walk of it. */
+const siteLooksComing = new Map<string, Promise<SiteFormsFound>>();
+
+/** The look kept for this site, while it's fresh. */
+function keptSiteLook(workspaceId: string, website: string): SiteFormsFound | null {
+  const kept = siteLooks.get(`${workspaceId} ${website}`);
+  return kept && Date.now() - kept.at < SITE_LOOK_KEPT_MS ? kept.found : null;
+}
+
+/** A look at the site: the one kept, the one on its way, or a new walk (`again` always walks). */
+function siteLook(workspaceId: string, website: string, again = false): Promise<SiteFormsFound> {
+  const key = `${workspaceId} ${website}`;
+  const kept = again ? null : keptSiteLook(workspaceId, website);
+  if (kept) return Promise.resolve(kept);
+  const coming = again ? undefined : siteLooksComing.get(key);
+  if (coming) return coming;
+  const walk = siteFormsOn({ workspaceId, website })
+    .then((found) => {
+      siteLooks.set(key, { found, at: Date.now() });
+      return found;
+    })
+    .finally(() => {
+      if (siteLooksComing.get(key) === walk) siteLooksComing.delete(key);
+    });
+  siteLooksComing.set(key, walk);
+  return walk;
+}
 
 type SiteLook =
   | { readonly state: 'looking' }
@@ -1045,17 +1084,14 @@ function OptInStep({
   const look = useCallback(
     async (again = false) => {
       if (!lookAt) return;
-      const key = `${workspaceId} ${lookAt}`;
-      const kept = siteLooks.get(key);
-      if (!again && kept && Date.now() - kept.at < SITE_LOOK_KEPT_MS) {
-        setSite({ state: 'found', found: kept.found });
+      const kept = again ? null : keptSiteLook(workspaceId, lookAt);
+      if (kept) {
+        setSite({ state: 'found', found: kept });
         return;
       }
       setSite({ state: 'looking' });
       try {
-        const found = await siteFormsOn({ workspaceId, website: lookAt });
-        siteLooks.set(key, { found, at: Date.now() });
-        setSite({ state: 'found', found });
+        setSite({ state: 'found', found: await siteLook(workspaceId, lookAt, again) });
       } catch {
         // The checks before it goes look again; this list is a help, not a gate.
         setSite({ state: 'failed' });
@@ -1959,6 +1995,15 @@ export function A2pWizard({
       return next;
     });
 
+  /** Several answers at once (the policy question picking the pages found on the business's site). */
+  const patch = (changes: Partial<WizardForm>) =>
+    setForm((f) => {
+      const next = { ...f, ...changes };
+      if (f.optInPath && sameDescription(f.optIn, describeFor(businessName, f, surfaces, origin)))
+        next.optIn = describeFor(businessName, next, surfaces, origin);
+      return next;
+    });
+
   // A sentence saved before it had paragraphs is still ours: put the paragraphs in, without counting it as an edit.
   useEffect(() => {
     setForm((f) => {
@@ -2516,7 +2561,9 @@ export function A2pWizard({
           businessName={businessName}
           form={form}
           set={set}
+          patch={patch}
           origin={origin}
+          pagesOrigin={surfaces.snippetOrigin ?? null}
           siteSlug={surfaces.siteSlug}
           phone={number?.display}
           issues={issues}
@@ -2965,12 +3012,24 @@ function SamplePicker({
 
 // ---------- the policy step ----------
 
+/** A policy or terms as it was last handed back whole (`registration.get_policies`), and the page it was made for. */
+interface KeptPolicy extends UpdatedPolicy {
+  readonly sourceUrl: string | null;
+}
+interface KeptPolicies {
+  readonly privacy: KeptPolicy | null;
+  readonly terms: KeptPolicy | null;
+}
+const NONE_KEPT: KeptPolicies = { privacy: null, terms: null };
+
 function PolicyStep({
   workspaceId,
   businessName,
   form,
   set,
+  patch,
   origin,
+  pagesOrigin,
   siteSlug,
   phone,
   issues,
@@ -2979,7 +3038,11 @@ function PolicyStep({
   businessName: string;
   form: WizardForm;
   set: <K extends keyof WizardForm>(key: K, value: WizardForm[K]) => void;
+  /** Several answers at once: a pick, and that the question has been settled. */
+  patch: (changes: Partial<WizardForm>) => void;
   origin: string;
+  /** The address the business's simple page here is on, when it isn't ours: a website there has no policy of its own. */
+  pagesOrigin: string | null;
   siteSlug: string | null;
   /** The business number, which the terms give as the way to get help. Not known yet when it is on its way. */
   phone: string | undefined;
@@ -3013,12 +3076,97 @@ function PolicyStep({
   const termsTexting = terms.sections.find((s) => /text messages/i.test(s.heading));
   const clause = policy.sections.find((s) => /text messages/i.test(s.heading))?.paragraphs.at(-1);
 
+  // ---- what was handed back before ----
+  // Kept by the worker each time it makes one, so coming back shows it without reading the page or asking again.
+  // Undefined while it's being read; an API from before it kept any simply has none.
+  const [kept, setKept] = useState<KeptPolicies | undefined>(undefined);
+  useEffect(() => {
+    let gone = false;
+    const settle = (got: KeptPolicies) => {
+      if (!gone) setKept(got);
+    };
+    apiBrowser()
+      .POST('/v1/queries/registration.get_policies', { body: { workspaceId } })
+      .then(
+        (r) => settle(r.data ? { privacy: r.data.privacy, terms: r.data.terms } : NONE_KEPT),
+        () => settle(NONE_KEPT),
+      );
+    return () => {
+      gone = true;
+    };
+  }, [workspaceId]);
+
+  // ---- their own, when their website has them (the owner's pick 10a, 2026-11-22) ----
+  // The first time this question opens, the look at their site says where its privacy policy and terms are, and those
+  // are picked for them; each is then read and handed back whole by itself, below. After that the answers are theirs:
+  // nothing here changes a pick the person made.
+  const website = withScheme(form.website);
+  const siteOrigin = originOfSite(website);
+  const ownSite = !!siteOrigin && siteOrigin !== origin && siteOrigin !== pagesOrigin;
+  const [looking, setLooking] = useState(false);
+  const [foundOn, setFoundOn] = useState<PolicyPages | null>(null);
+  // The pages read by themselves: the ones already given when this question opened, and the ones the look finds.
+  // An address typed here waits for its button, so half an address is never read.
+  const [auto, setAuto] = useState(() => ({
+    privacy: form.ownPolicyUrl.trim() ? withScheme(form.ownPolicyUrl) : '',
+    terms: form.ownTermsUrl.trim() ? withScheme(form.ownTermsUrl) : '',
+  }));
+  const latest = useRef(form);
+  useEffect(() => {
+    latest.current = form;
+  });
+  useEffect(() => {
+    if (form.policyLooked || !ownSite) return;
+    let gone = false;
+    setLooking(true);
+    siteLook(workspaceId, website)
+      .then((found) => {
+        const now = latest.current;
+        // A site that didn't open says nothing about what's on it: it's asked again next time.
+        if (gone || now.policyLooked || found.opened < 1) return;
+        const pages = found.policyPages ?? { privacy: null, terms: null };
+        const privacy = now.ownPolicyUrl.trim() ? null : pages.privacy;
+        const termsPage = now.ownTermsUrl.trim() ? null : pages.terms;
+        patch({
+          policyLooked: true,
+          ...(privacy ? { ownPolicyUrl: privacy } : {}),
+          ...(termsPage ? { ownTermsUrl: termsPage } : {}),
+        });
+        setAuto((had) => ({ privacy: privacy ?? had.privacy, terms: termsPage ?? had.terms }));
+        // Said only when the look decided something: with both given already, there's nothing to say.
+        if (!now.ownPolicyUrl.trim() || !now.ownTermsUrl.trim())
+          setFoundOn({ privacy, terms: termsPage });
+      })
+      // The question works without the look: ours are picked, and theirs can still be given.
+      .catch(() => undefined)
+      .finally(() => {
+        if (!gone) setLooking(false);
+      });
+    return () => {
+      gone = true;
+    };
+    // Once, when the question opens.
+  }, []);
+
   return (
     <div className="space-y-4">
       <Callout tone="info">
-        Most small business websites have no privacy policy at all, and a campaign with nothing for
-        the reviewer to read is turned down. We write one from what you have already told us.
+        A carrier&rsquo;s reviewer reads your privacy policy and terms for what they say about
+        texts. If your website has them, we hand each one back whole with that part added. If it
+        doesn&rsquo;t, we write them for you.
       </Callout>
+
+      {looking ? (
+        <p className="flex items-center gap-2 text-[13px] text-text-3" data-testid="policy-looking">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Looking on {hostOf(website)} for a privacy policy and terms…
+        </p>
+      ) : null}
+      {foundOn ? (
+        <Callout tone="neutral" data-testid="policy-found">
+          {policyPagesSummary(foundOn, hostOf(website))}
+        </Callout>
+      ) : null}
 
       {/* Only ours print it: with both their own, there's nowhere for it to go. */}
       {!own || !ownTerms ? (
@@ -3054,24 +3202,22 @@ function PolicyStep({
       <div role="radiogroup" aria-label="Privacy policy" className="space-y-2.5">
         <RadioCard
           selected={!own}
-          onSelect={() => set('ownPolicyUrl', '')}
+          onSelect={() => patch({ ownPolicyUrl: '', policyLooked: true })}
           testId="policy-hosted"
-          title={
-            <span className="flex items-center gap-2">
-              Use the one we write for you
-              <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-on-accent">
-                Recommended
-              </span>
-            </span>
-          }
-          description="Built from your business details, kept up to date, and carrying the exact sentence about text messages that reviewers look for."
+          title="Use the one we write for you"
+          description="Written from your business details and kept on a page we host for you, with the exact sentence about text messages that reviewers look for."
         />
         <RadioCard
           selected={own}
-          onSelect={() => set('ownPolicyUrl', form.ownPolicyUrl || withScheme(form.website))}
+          onSelect={() =>
+            patch({
+              ownPolicyUrl: form.ownPolicyUrl || withScheme(form.website),
+              policyLooked: true,
+            })
+          }
           testId="policy-own"
           title="I already have my own"
-          description="Point us at it. It has to mention text messages and say that phone numbers are not shared — otherwise the registration is turned down."
+          description="Give us its page. We read it and hand it back whole, with the part about texts added, ready to paste over the old one."
         />
       </div>
 
@@ -3085,10 +3231,20 @@ function PolicyStep({
               placeholder="https://example.com/privacy"
             />
           </Field>
+          <PolicyUpdater
+            workspaceId={workspaceId}
+            kind="privacy"
+            url={withScheme(form.ownPolicyUrl)}
+            business={updating}
+            kept={kept === undefined ? undefined : kept.privacy}
+            auto={samePolicyPage(auto.privacy, form.ownPolicyUrl)}
+          />
           {clause ? (
             <div className="rounded-menu border border-border bg-card-2 p-4">
               <div className="mb-1.5 flex items-center justify-between">
-                <p className="text-[13.5px] font-semibold">Make sure it says this</p>
+                <p className="text-[13.5px] font-semibold">
+                  Adding it by hand? Make sure it says this
+                </p>
                 <CopyButton text={clause} />
               </div>
               <p className="rounded-menu bg-card p-3 text-[13px] leading-relaxed text-text-2">
@@ -3100,16 +3256,13 @@ function PolicyStep({
               </p>
             </div>
           ) : null}
-          <PolicyUpdater
-            workspaceId={workspaceId}
-            kind="privacy"
-            url={withScheme(form.ownPolicyUrl)}
-            business={updating}
-          />
         </>
       ) : (
-        <div className="rounded-menu border border-border bg-card-2 p-4">
-          <p className="text-[13.5px] font-semibold">{policy.title}</p>
+        <div className="rounded-menu border border-border bg-card-2 p-4" data-testid="policy-ours">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[13.5px] font-semibold">{policy.title}</p>
+            <CopyButton text={policyAsText(policy)} label="Copy all of it" />
+          </div>
           {hostedUrl ? (
             <a
               className="mt-1 block text-[13px] underline"
@@ -3120,6 +3273,10 @@ function PolicyStep({
               {hostedUrl}
             </a>
           ) : null}
+          <p className="mt-1 text-[13px] text-text-3">
+            It&rsquo;s on that page already, so there&rsquo;s nothing to paste. Copy it only if you
+            want it on a page of your own website too.
+          </p>
           <PolicyPreview sections={policy.sections} />
         </div>
       )}
@@ -3129,7 +3286,7 @@ function PolicyStep({
         <div role="radiogroup" aria-label="Terms" className="space-y-2.5">
           <RadioCard
             selected={!ownTerms}
-            onSelect={() => set('ownTermsUrl', '')}
+            onSelect={() => patch({ ownTermsUrl: '', policyLooked: true })}
             testId="terms-hosted"
             title="Use the terms we write for you"
             description="Short terms that cover your texts the way the carriers expect: what you text about, how often, rates, STOP and HELP, and how to reach you."
@@ -3137,11 +3294,14 @@ function PolicyStep({
           <RadioCard
             selected={ownTerms}
             onSelect={() =>
-              set('ownTermsUrl', form.ownTermsUrl || `${withScheme(form.website)}/terms`)
+              patch({
+                ownTermsUrl: form.ownTermsUrl || `${withScheme(form.website)}/terms`,
+                policyLooked: true,
+              })
             }
             testId="terms-own"
             title="I already have my own"
-            description="Point us at them. They should have a section on text messages, and your tick box should link to them."
+            description="Give us their page. We read them and hand them back whole, with the part about texts added, ready to paste over the old ones."
           />
         </div>
         {ownTerms ? (
@@ -3154,8 +3314,18 @@ function PolicyStep({
                 placeholder="https://example.com/terms"
               />
             </Field>
+            <PolicyUpdater
+              workspaceId={workspaceId}
+              kind="terms"
+              url={withScheme(form.ownTermsUrl)}
+              business={{ ...updating, ...(privacyUrl ? { privacyUrl } : {}) }}
+              kept={kept === undefined ? undefined : kept.terms}
+              auto={samePolicyPage(auto.terms, form.ownTermsUrl)}
+            />
             <div className="mt-3 rounded-menu border border-border bg-card-2 p-4">
-              <p className="text-[13.5px] font-semibold">What they have to say about texts</p>
+              <p className="text-[13.5px] font-semibold">
+                Adding it by hand? What they have to say about texts
+              </p>
               <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-[13px] text-text-2">
                 {TERMS_TEXTING_ITEMS.map((item) => (
                   <li key={item.label}>{item.label[0]!.toUpperCase() + item.label.slice(1)}</li>
@@ -3179,16 +3349,16 @@ function PolicyStep({
                 before you send it.
               </p>
             </div>
-            <PolicyUpdater
-              workspaceId={workspaceId}
-              kind="terms"
-              url={withScheme(form.ownTermsUrl)}
-              business={{ ...updating, ...(privacyUrl ? { privacyUrl } : {}) }}
-            />
           </>
         ) : (
-          <div className="mt-3 rounded-menu border border-border bg-card-2 p-4">
-            <p className="text-[13.5px] font-semibold">{terms.title}</p>
+          <div
+            className="mt-3 rounded-menu border border-border bg-card-2 p-4"
+            data-testid="terms-ours"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[13.5px] font-semibold">{terms.title}</p>
+              <CopyButton text={policyAsText(terms)} label="Copy all of it" />
+            </div>
             {hostedTermsUrl ? (
               <a
                 className="mt-1 block text-[13px] underline"
@@ -3213,20 +3383,30 @@ const DOC_NAMES: Readonly<Record<PolicyKind, string>> = {
 };
 
 /**
- * "Add it to my policy for me": the business's own policy or terms, read from its page (or pasted, when the page's
- * words can't be read) and given back whole with the texting section in place, to paste over the old one. Most
- * businesses handed the section alone don't know where in their policy it goes.
+ * The business's own policy or terms, read from its page (or pasted, when the page's words can't be read) and given
+ * back whole with the texting section in place, to paste over the old one. Most businesses handed the section alone
+ * don't know where in their policy it goes.
+ *
+ * **By itself, for a page already known** (`auto`: the owner's pick 10a, 2026-11-22): one the look at their site
+ * found, or one given on an earlier visit. And only once: what it made is kept (`kept`), so coming back shows that
+ * again instead of reading the page and asking the AI a second time. A page it can't read opens the box to paste.
  */
 function PolicyUpdater({
   workspaceId,
   kind,
   url,
   business,
+  kept,
+  auto,
 }: {
   workspaceId: string;
   kind: PolicyKind;
   url: string;
   business: PolicyUpdateInput['business'];
+  /** What was last handed back for this document; undefined while that's still being read. */
+  kept: KeptPolicy | null | undefined;
+  /** This page is read without being asked. */
+  auto: boolean;
 }) {
   const name = DOC_NAMES[kind];
   const [working, setWorking] = useState(false);
@@ -3234,6 +3414,8 @@ function PolicyUpdater({
   const [pasted, setPasted] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const [result, setResult] = useState<PolicyUpdateOutput | null>(null);
+  // Only one made for this page: a business that moved its policy starts again.
+  const keptHere = kept && samePolicyPage(kept.sourceUrl, url) ? kept : null;
 
   // A new address is a different policy: what was made from the old one no longer applies.
   useEffect(() => {
@@ -3248,7 +3430,9 @@ function PolicyUpdater({
       const got = await policyUpdate({
         workspaceId,
         kind,
-        ...(fromPaste ? { text: pasted } : { url }),
+        // The page it's for goes with pasted words too, so what's made is kept under it.
+        ...(url ? { url } : {}),
+        ...(fromPaste ? { text: pasted } : {}),
         business,
       });
       setResult(got);
@@ -3267,9 +3451,19 @@ function PolicyUpdater({
     }
   };
 
-  const added = result ? result.blocks.filter((b) => b.mark === 'added') : [];
-  const doc = result ? { text: updatedPolicyText(result), html: updatedPolicyHtml(result) } : null;
-  const section = result
+  // Read by itself, once for a page, when nothing was kept for it.
+  const ran = useRef<string | null>(null);
+  useEffect(() => {
+    if (!auto || !url || kept === undefined || keptHere || ran.current === url) return;
+    ran.current = url;
+    void run(false);
+    // When the page, or what's known about it, changes: `run` is new on every render.
+  }, [auto, url, kept]);
+
+  const shown: UpdatedPolicy | null = result ?? keptHere;
+  const added = shown ? shown.blocks.filter((b) => b.mark === 'added') : [];
+  const doc = shown ? { text: updatedPolicyText(shown), html: updatedPolicyHtml(shown) } : null;
+  const section = shown
     ? {
         text: updatedPolicyText({ blocks: added, changes: [] }),
         html: updatedPolicyHtml({ blocks: added, changes: [] }),
@@ -3281,7 +3475,7 @@ function PolicyUpdater({
       className="mt-3 rounded-menu border border-border bg-card-2 p-4"
       data-testid={`policy-update-${kind}`}
     >
-      <p className="text-[13.5px] font-semibold">Not sure where it goes?</p>
+      <p className="text-[13.5px] font-semibold">Your {name}, handed back whole</p>
       <p className="mt-0.5 text-[13px] text-text-3">
         We read your {name} and give it back whole, with the section about texts in the right place,
         ready to paste over the old one. Your own words stay as they are.
@@ -3289,7 +3483,7 @@ function PolicyUpdater({
       <div className="mt-3 flex flex-wrap gap-2">
         <Button
           type="button"
-          variant="primary"
+          variant={shown ? 'secondary' : 'primary'}
           size="sm"
           disabled={working || !url}
           onClick={() => void run(false)}
@@ -3300,7 +3494,11 @@ function PolicyUpdater({
           ) : (
             <Sparkles className="h-3.5 w-3.5" />
           )}
-          {working && !pasting ? `Reading your ${name}…` : `Add it to my ${name} for me`}
+          {working && !pasting
+            ? `Reading your ${name}…`
+            : shown
+              ? 'Read it again'
+              : `Add it to my ${name} for me`}
         </Button>
         {!pasting ? (
           <Button type="button" size="sm" variant="ghost" onClick={() => setPasting(true)}>
@@ -3342,7 +3540,7 @@ function PolicyUpdater({
         </div>
       ) : null}
 
-      {result && doc && section ? (
+      {shown && doc && section ? (
         <div className="mt-4 space-y-3" data-testid={`policy-update-${kind}-result`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[13.5px] font-semibold">Your {name}, updated</p>
@@ -3356,14 +3554,14 @@ function PolicyUpdater({
             page&rsquo;s links and formatting; if it has links you want to keep, copy just the new
             section instead and paste it where it&rsquo;s highlighted below.
           </p>
-          {result.changes.length > 0 ? (
+          {shown.changes.length > 0 ? (
             <div className="rounded-menu bg-card p-3">
               <p className="text-[13px] font-semibold">
-                We also changed {result.changes.length === 1 ? 'one' : result.changes.length} of
-                your own lines
+                We also changed {shown.changes.length === 1 ? 'one' : shown.changes.length} of your
+                own lines
               </p>
               <ul className="mt-1.5 space-y-2 text-[13px] leading-relaxed">
-                {result.changes.map((c, i) => (
+                {shown.changes.map((c, i) => (
                   <li key={i}>
                     <p className="text-text-3 line-through">{c.before}</p>
                     {c.after ? <p className="text-text-2">{c.after}</p> : null}
@@ -3374,7 +3572,7 @@ function PolicyUpdater({
             </div>
           ) : null}
           <div className="max-h-96 space-y-1.5 overflow-y-auto rounded-menu bg-card p-3 pr-2 text-[13px] leading-relaxed">
-            {result.blocks.map((b, i) => (
+            {shown.blocks.map((b, i) => (
               <p
                 key={i}
                 className={cn(

@@ -15487,7 +15487,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and terms’ part about texts, and the website chat’s code. Sent from HandsFreeOS’s support desk in the business’s name, as a ticket: replies land on the ticket and go to the person sending it, who gets a copy.
+         * Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and the terms (each whole, with the part about texts in it), and the website chat’s code. Sent from HandsFreeOS’s support desk in the business’s name, as a ticket: replies land on the ticket and go to the person sending it, who gets a copy.
          * @description Risk level 2. Requires channels.manage. Emits registration.web_person_emailed.
          */
         post: operations["command_registration_email_web_person"];
@@ -25871,6 +25871,26 @@ export interface paths {
          * @description Requires channels.manage.
          */
         post: operations["query_registration_get_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/registration.get_policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s own privacy policy and terms as they were last handed back whole with the part about texts added, each with the address it was read from and when; nothing for one that hasn’t been made.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_registration_get_policies"];
         delete?: never;
         options?: never;
         head?: never;
@@ -102935,6 +102955,76 @@ export interface operations {
                             [key: string]: unknown;
                         } | null;
                         savedAt: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_registration_get_policies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        privacy: {
+                            blocks: {
+                                gap: boolean;
+                                /** @enum {string} */
+                                kind: "heading" | "paragraph" | "item";
+                                level?: number;
+                                mark: ("added" | "changed") | null;
+                                text: string;
+                            }[];
+                            changes: {
+                                /** @enum {string} */
+                                action: "remove" | "replace";
+                                after: string | null;
+                                before: string;
+                                why: string;
+                            }[];
+                            /** Format: date-time */
+                            madeAt: string;
+                            pasted: boolean;
+                            sourceUrl: string | null;
+                        } | null;
+                        terms: {
+                            blocks: {
+                                gap: boolean;
+                                /** @enum {string} */
+                                kind: "heading" | "paragraph" | "item";
+                                level?: number;
+                                mark: ("added" | "changed") | null;
+                                text: string;
+                            }[];
+                            changes: {
+                                /** @enum {string} */
+                                action: "remove" | "replace";
+                                after: string | null;
+                                before: string;
+                                why: string;
+                            }[];
+                            /** Format: date-time */
+                            madeAt: string;
+                            pasted: boolean;
+                            sourceUrl: string | null;
+                        } | null;
                     };
                 };
             };

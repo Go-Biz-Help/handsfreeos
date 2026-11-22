@@ -148,7 +148,7 @@ describe('Email your web person', () => {
     );
     expect(out).toEqual({
       sentTo: 'dana@example.com',
-      files: ['add-the-form.txt', 'privacy-policy-and-terms.txt', 'add-the-chat.txt'],
+      files: ['add-the-form.txt', 'privacy-policy.txt', 'terms.txt', 'add-the-chat.txt'],
     });
     const [event] = await emailedEvents(wsId);
     expect(event?.payload).toEqual({

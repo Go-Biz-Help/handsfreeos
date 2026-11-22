@@ -1200,6 +1200,28 @@ export const registrationChecks = app.table('registration_checks', {
   checkedAt: ts('checked_at').notNull().defaultNow(),
 });
 
+/**
+ * A business's own privacy policy or terms as texting approval last handed it back (20261027033900): whole, with the
+ * part about texts in place. One row per business and kind, written by the worker when it makes one
+ * (`registration.record_policy`); the wizard shows it again, and "Email your web person" sends it.
+ */
+export const registrationPolicies = app.table(
+  'registration_policies',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    sourceUrl: text('source_url'),
+    pasted: boolean('pasted').notNull().default(false),
+    blocks: jsonb('blocks').$type<Json[]>().notNull(),
+    changes: jsonb('changes').$type<Json[]>().notNull().default([]),
+    madeBy: userRef('made_by'),
+    madeAt: ts('made_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.kind] })],
+);
+
 /** A business asking HandsFreeOS to check its registration by hand, because not everything was green. */
 export const registrationReviewStatus = app.enum('registration_review_status', [
   'waiting',

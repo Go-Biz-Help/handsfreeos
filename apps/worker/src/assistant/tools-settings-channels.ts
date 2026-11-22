@@ -839,6 +839,9 @@ async function fillInCarrierRegistration(
     // A tick on Before it goes was given on the answers there then, so answers changed here are ticked again there,
     // by the person: the Assistant never carries one over to answers it filled in.
     confirmed: [],
+    // A privacy policy or terms the person told the Assistant about is their pick: the look the screen's question
+    // takes at their website the first time it opens (the owner's pick 10a, 2026-11-22) leaves it alone.
+    ...('ownPolicyUrl' in given || 'ownTermsUrl' in given ? { policyLooked: true } : {}),
   };
   const has = (key: string) => {
     const v = form[key];

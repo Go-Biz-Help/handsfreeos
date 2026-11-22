@@ -68,7 +68,7 @@
     "apps/web/src/components/onboarding/tour.tsx": "ed01fb35dc0e",
     "apps/web/src/components/onboarding/wizard-footer.tsx": "2ac05b5860c6",
     "apps/web/src/components/onboarding/wizard-frame.tsx": "8b19dc4eac8c",
-    "apps/web/src/components/settings/a2p-wizard.tsx": "eafa385d2cf5",
+    "apps/web/src/components/settings/a2p-wizard.tsx": "45ac1acabcce",
     "apps/web/src/components/settings/industry-picker.tsx": "3f2b1832961c",
     "apps/web/src/components/settings/my-cell-section.tsx": "bcce54a8161d",
     "apps/web/src/components/settings/number-import.tsx": "c09a55fe0fe4",
@@ -77,6 +77,7 @@
     "apps/web/src/components/settings/port-step.tsx": "ef0d80282285",
     "apps/web/src/components/settings/release-number-dialog.tsx": "7bb8208fedb8",
     "apps/web/src/components/settings/texting-page.tsx": "3393503d82a9",
+    "apps/web/src/components/settings/web-person.tsx": "3e1b03dad5dc",
     "apps/web/src/components/ui/copy-field.tsx": "e469628cd358"
   },
   "items": [
@@ -2169,23 +2170,30 @@
     {
       "path": "Set up → Number → Registration → Policy: contact, privacy ours/own, terms ours/own",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2511",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3173",
       "covered": "yes",
       "by": "fill_in_carrier_registration policyEmail, policyPhone, ownPolicyUrl, ownTermsUrl"
     },
     {
-      "path": "Set up → Number → Registration → Policy: clause, preview, link to ours",
+      "path": "Set up → Number → Registration → Policy: ours shown whole with Copy all of it and its link; the clause to add by hand",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2574",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3261",
       "covered": "no",
       "by": "built in the browser"
     },
     {
-      "path": "Set up → Number → Registration → Policy: add it for me, paste box, copy the new section",
+      "path": "Set up → Number → Registration → Policy: what the look at their website found, their own picked for them",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3166",
+      "covered": "partly",
+      "by": "the look through the site has no tool; read_registration_get_draft has the picks it made, and fill_in_carrier_registration sets them"
+    },
+    {
+      "path": "Set up → Number → Registration → Policy: their own handed back whole (by itself for a page found or given before), Read it again, paste box, copy the new section or all of it",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2706",
-      "covered": "no",
-      "by": "worker policyUpdate has no tool"
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3394",
+      "covered": "partly",
+      "by": "worker policyUpdate has no tool; read_registration_get_policies reads what it last made"
     },
     {
       "path": "Set up → Number → Registration → Review: blockers, checks list, Check again",

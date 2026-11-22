@@ -30,6 +30,9 @@ import { SafeFetchError } from './safe-fetch';
  */
 export const SITE_SCAN_LIMITS = { pages: 40, frames: 15, sitemaps: 4, concurrency: 3, ms: 20_000 };
 
+/** The most addresses a walk hands back as seen: enough to find a policy page among, on any site. */
+const SEEN_KEPT = 600;
+
 type Fetcher = Pick<HttpDeps, 'fetchUrl'>;
 
 /** Whether a host is the website's own: the same name without www, or a subdomain of it. */
@@ -161,7 +164,7 @@ export async function scanSiteForms(
   pages++;
   await read(queue.shift()!);
   await Promise.all(Array.from({ length: limits.concurrency }, worker));
-  return { opened, cut, forms, blocked, via: [...via] };
+  return { opened, cut, forms, blocked, via: [...via], seen: [...seen].slice(0, SEEN_KEPT) };
 }
 
 /** The pages the site's sitemaps list, on the site, through a sitemap index one level down. */
