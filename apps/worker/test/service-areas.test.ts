@@ -74,6 +74,40 @@ describe('finding where an address is', () => {
     ).toBeNull();
   });
 
+  it('remembers an address found nowhere for a day, but not a refusal', async () => {
+    const asked: string[] = [];
+    let status = 'ZERO_RESULTS';
+    let clock = Date.now();
+    const google = createGoogleGeocoder({
+      apiKey: 'test-key',
+      log: pino({ level: 'silent' }),
+      now: () => clock,
+      fetch: (async (url: string) => {
+        asked.push(new URL(url).searchParams.get('address') ?? '');
+        return new Response(JSON.stringify({ status, results: [] }), { status: 200 });
+      }) as typeof fetch,
+    });
+    const scope = { workspaceId: w.workspaceId, organizationId: w.organizationId };
+    const look = (address: string) =>
+      asWorker(testDbs().worker.db, scope, (tx) => placeOf(tx, google, address));
+    const typo = `${Date.now()} Nowhere Strete, Dallas`;
+    expect(await look(typo)).toBeNull();
+    // The same bad address again, however it's spaced: not paid for again.
+    expect(await look(`  ${typo.toUpperCase()}  `)).toBeNull();
+    expect(asked).toEqual([typo]);
+    // A day later it's asked again.
+    clock += 86_400_000 + 1;
+    expect(await look(typo)).toBeNull();
+    expect(asked).toHaveLength(2);
+
+    // Over the key's quota isn't "nowhere": the next customer's lookup still asks.
+    status = 'OVER_QUERY_LIMIT';
+    const busy = `${Date.now()} Elm St, Dallas`;
+    expect(await look(busy)).toBeNull();
+    expect(await look(busy)).toBeNull();
+    expect(asked.filter((a) => a === busy)).toHaveLength(2);
+  });
+
   it('reads a point and a ZIP from the stand-in’s addresses', async () => {
     const fake = createFakeGeocoder();
     expect(await fake.geocode(IN_AUSTIN)).toEqual({

@@ -1839,6 +1839,30 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `SITE_READER_IPS`                     | No                                                                                                                                           | The texting registration's checks and the Knowledge scan still work, but a site whose security shows servers a robot check can't be told to let HandsFreeOS in: the step offers only **Finish the check on my site** and screenshots.                                                                                                                                                                                             | The worker's fixed outgoing addresses, comma-separated, from `fly ips list --app handsfreeos-worker` after `fly ips allocate-egress`. See "When the website's security stops the checks". Not secret. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `WORKER_ENCRYPTION_KEYS_PREVIOUS`     | Only after a key rotation. Leave it unset on the first setup.                                                                                | Nothing, until a key is rotated.                                                                                                                                                                                                                                                                                                                                                                                                  | Old `WORKER_ENCRYPTION_KEY` values from your password manager, separated by commas. Each must be a valid key, or the worker will not start.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
+#### Daily quotas on the Google Maps server key
+
+Anyone can open a booking page, and some of what it does costs money on `GOOGLE_MAPS_SERVER_KEY`: finding a typed address (Geocoding API), timing drives between visits (Routes API's route matrix) and finding a coffee spot halfway (Places API (New) Text Search). The worker keeps every answer it can and gives signed-out booking pages a daily budget of lookups: 500 for each business and 20,000 for each worker machine (`MAP_LOOKUP_BUDGET` in `apps/worker/src/geo/budget.ts`). Past it the page carries on without new lookups: times without drive times, and no coffee spot (the usual spot or one the customer names). A booking itself still looks the address up and keeps room to drive.
+
+Each machine counts on its own, so set a hard cap on the key in Google Cloud as well. Do it once, when you make the key, and again whenever usage grows:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), pick the project that holds the server key.
+2. Open **APIs & Services** → **Enabled APIs & services** and click **Geocoding API**.
+3. Open its **Quotas** tab (**Quotas & System Limits** in newer consoles). Tick **Requests per day**, click **Edit** (the pencil), type the number below, and click **Submit**. Do the same for **Requests per minute**.
+4. Go back to **Enabled APIs & services** and do the same for **Places API (New)** (its Text Search rows) and **Routes API** (its **Compute Route Matrix elements** and **Compute Routes** rows). Where an API offers only a per-minute row, set that.
+5. Open **Billing** → **Budgets & alerts** → **Create budget**, limit it to this project, and have it email you at 50%, 90% and 100% of a monthly figure you're comfortable with.
+
+Suggested starting numbers, to raise as more businesses take bookings:
+
+| API              | Quota row                                    | Suggested  |
+| ---------------- | -------------------------------------------- | ---------- |
+| Geocoding API    | Requests per day                             | 5,000      |
+| Geocoding API    | Requests per minute                          | 100        |
+| Places API (New) | Text Search requests per day (or per minute) | 1,000 (20) |
+| Routes API       | Compute Route Matrix elements per minute     | 300        |
+| Routes API       | Compute Routes requests per minute           | 60         |
+
+When a quota runs out, Google refuses until it resets. Addresses the worker never looked up before can't be found (a calendar that leaves time to drive says it couldn't find the address), drives fall back to a rough guess, On my way texts a rough arrival time, and Find a spot offers the other spots. Check **Google Maps Platform** → **Metrics** before raising a cap: steady growth is new businesses; a sudden spike may be someone running up the bill.
+
 #### The worker: leave these unset
 
 The defaults are right in production. Setting some of these changes real behavior.

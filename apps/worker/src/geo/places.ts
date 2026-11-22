@@ -9,6 +9,7 @@
 import type { GeoPoint } from '@hfos/core/server';
 import type { Logger } from 'pino';
 import type { WorkerEnv } from '../env';
+import { spendLookup } from './budget';
 
 export interface FoundSpot {
   readonly name: string;
@@ -20,7 +21,10 @@ export interface FoundSpot {
 
 export interface PlaceFinder {
   readonly name: 'google' | 'fake' | 'off';
-  /** The nearest place of a kind to a point ("coffee shop"), or null when there is none or it can't look. */
+  /**
+   * The nearest place of a kind to a point ("coffee shop"), or null when there is none or it can't look. Throws
+   * `LookupsPaused` when a booking page's daily budget is spent (geo/budget.ts).
+   */
   near(point: GeoPoint, what: string): Promise<FoundSpot | null>;
 }
 
@@ -35,6 +39,8 @@ export function createGooglePlaceFinder(opts: {
   return {
     name: 'google',
     async near(point, what) {
+      // Before the try: a spent budget isn't a place not found, so nothing is kept (geo/budget.ts).
+      spendLookup();
       try {
         const res = await get(SEARCH, {
           method: 'POST',
@@ -85,6 +91,7 @@ export function createFakePlaceFinder(): PlaceFinder {
   return {
     name: 'fake',
     async near(point) {
+      spendLookup();
       const lat = Number(point.lat.toFixed(4));
       const lng = Number(point.lng.toFixed(4));
       return { name: 'Halfway Coffee', address: `100 Middle Rd @${lat},${lng}`, lat, lng };
@@ -93,6 +100,37 @@ export function createFakePlaceFinder(): PlaceFinder {
 }
 
 export const offPlaceFinder: PlaceFinder = { name: 'off', near: async () => null };
+
+const DAY = 86_400_000;
+/** Spots kept in memory, by what was asked for and the point rounded to 3 decimals (about 100 m). */
+const SPOTS_KEPT = 5000;
+const spots = new Map<string, { spot: FoundSpot; until: number }>();
+
+/**
+ * The nearest place of a kind to a point, kept for a day: customers near each other, or one asking again, cost one
+ * search. None found isn't kept, as it may have been an outage.
+ */
+export async function spotNear(
+  finder: PlaceFinder,
+  point: GeoPoint,
+  what: string,
+): Promise<FoundSpot | null> {
+  const key = `${what}@${point.lat.toFixed(3)},${point.lng.toFixed(3)}`;
+  const kept = spots.get(key);
+  if (kept && kept.until > Date.now()) return kept.spot;
+  const spot = await finder.near(point, what);
+  if (spot) {
+    spots.delete(key);
+    if (spots.size >= SPOTS_KEPT) spots.delete(spots.keys().next().value!);
+    spots.set(key, { spot, until: Date.now() + DAY });
+  }
+  return spot;
+}
+
+/** Forget the spots kept in memory (tests). */
+export function forgetSpots(): void {
+  spots.clear();
+}
 
 export function createPlaceFinder(env: WorkerEnv, log: Logger): PlaceFinder {
   if (env.geocoder === 'google' && env.googleMapsServerKey)

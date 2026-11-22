@@ -8,8 +8,10 @@
  * for the first visit of a day (their own address in Settings → My calendar, else the business's: the owner's 2a).
  * The engine (`withDrives`) then offers only times that leave room for the drives.
  *
- * Every address is found on the map once and kept (app.geocodes), and drives are kept in memory, so a customer
- * paging through a month costs one road lookup per new place.
+ * Every address is found on the map once and kept (app.geocodes; one found nowhere is remembered for a day), and
+ * drives are kept in memory, so a customer paging through a month costs one road lookup per new place. Past the
+ * booking page's daily budget for map lookups (geo/budget.ts), an address not yet found is left out and a drive not
+ * yet timed is a rough guess.
  */
 import {
   dayStartAddresses,
@@ -19,7 +21,8 @@ import {
   type LoadedCalendar,
 } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
-import type { DriveTimer } from '../geo/driving';
+import { LookupsPaused } from '../geo/budget';
+import { roughMinutes, type DriveTimer } from '../geo/driving';
 import { placeOf, type Geocoder } from '../geo/geocoder';
 
 const DAY = 86_400_000;
@@ -45,7 +48,12 @@ async function minutesTo(
 ): Promise<number[]> {
   const unknown = places.filter((p) => !kept.has(keyOf(from, p)));
   if (unknown.length) {
-    const got = await driving.many(from, unknown);
+    const got = await driving.many(from, unknown).catch((e: unknown) => {
+      if (e instanceof LookupsPaused) return null;
+      throw e;
+    });
+    // The booking page's daily budget is spent: a rough guess for now, not kept, so the road is asked tomorrow.
+    if (!got) return places.map((p) => kept.get(keyOf(from, p)) ?? roughMinutes(from, p));
     unknown.forEach((p, i) => keep(keyOf(from, p), got[i]!));
   }
   return places.map((p) => kept.get(keyOf(from, p))!);

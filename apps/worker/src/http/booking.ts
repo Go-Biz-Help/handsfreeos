@@ -7,11 +7,14 @@
  *
  * Protection: per-address rate limits (@fastify/rate-limit; the server trusts the one proxy hop in front of
  * it), a bot check (Cloudflare Turnstile when configured), a honeypot field, US and Canadian numbers only,
- * the page's idempotency key, and the database's own caps (appointment.book_online, waitlist.join_online).
+ * the page's idempotency key, the database's own caps (appointment.book_online, waitlist.join_online), and
+ * daily budgets for the paid map lookups that open times and coffee spots start (geo/budget.ts).
  */
 import { publicLookOf, type PublicLook } from '../look/public';
 import { drivesFor } from '../booking/drives';
 import { placeOf } from '../geo/geocoder';
+import { createLookupBudgets, MAP_LOOKUP_BUDGET, type LookupBudget } from '../geo/budget';
+import { spotNear } from '../geo/places';
 import { randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
 import {
@@ -153,6 +156,8 @@ export interface BookingHttpOptions {
   readonly limitFactor?: number;
   /** Replaces limits outright (tests). */
   readonly limits?: Partial<BookingLimits>;
+  /** Replaces the daily budgets for paid map lookups (tests). Default: `MAP_LOOKUP_BUDGET`, times `limitFactor`. */
+  readonly lookupBudget?: Partial<LookupBudget>;
 }
 
 export function limitsFor(opts: BookingHttpOptions): BookingLimits {
@@ -164,6 +169,15 @@ export function limitsFor(opts: BookingHttpOptions): BookingLimits {
     manageRead: opts.limits?.manageRead ?? scaled(BOOKING_LIMITS.manageRead),
     manageWrite: opts.limits?.manageWrite ?? scaled(BOOKING_LIMITS.manageWrite),
     pay: opts.limits?.pay ?? opts.limits?.manageWrite ?? scaled(BOOKING_LIMITS.pay),
+  };
+}
+
+/** The daily budgets for paid map lookups (geo/budget.ts), multiplied like the limits. */
+export function lookupBudgetFor(opts: BookingHttpOptions): LookupBudget {
+  const factor = Math.max(1, Math.floor(opts.limitFactor ?? 1));
+  return {
+    perBusiness: opts.lookupBudget?.perBusiness ?? MAP_LOOKUP_BUDGET.perBusiness * factor,
+    perMachine: opts.lookupBudget?.perMachine ?? MAP_LOOKUP_BUDGET.perMachine * factor,
   };
 }
 
@@ -763,6 +777,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
   const opts = deps.booking ?? {};
   const botCheck = opts.botCheck ?? passThroughBotCheck;
   const limits = limitsFor(opts);
+  // Counted on this machine, for the signed-out lookups only: open times and the coffee spot halfway.
+  const lookups = createLookupBudgets(lookupBudgetFor(opts));
   const links = deps.bookingLinks;
   const worker = <T>(scope: TenantScope, fn: (tx: Tx) => Promise<T>) =>
     asWorker(deps.httpDb, scope, fn);
@@ -1342,12 +1358,21 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
         const { from, to } = range(q);
         const { scope, calendar } = await openCalendar(req.params.site, req.params.calendar);
         const { config } = calendar;
-        const place = await placeFor(scope, config, q.address);
-        const drive = drivesAsked(config, q.locationKind);
+        const found = await lookups.within(scope.workspaceId, () =>
+          placeFor(scope, config, q.address),
+        );
+        const place = found === 'paused' ? null : found;
+        // Past the day's budget for map lookups, an address not looked up before gets times as with maps off.
+        const drive = drivesAsked(config, q.locationKind) && found !== 'paused';
         if (drive && q.address?.trim() && !place) throw addressNotFound();
         // One transaction, on the calendar openCalendar already read.
         return worker(scope, async (tx) => {
           const point = place ? { lat: place.lat, lng: place.lng } : null;
+          const drives = drive
+            ? await lookups.within(scope.workspaceId, () =>
+                drivesFor(deps, tx, calendar, point, { from, to }),
+              )
+            : null;
           const out = await openTimes(tx, calendar, {
             from,
             to,
@@ -1356,7 +1381,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             partySize: q.partySize,
             postalCode: q.postalCode ?? place?.postalCode ?? null,
             point,
-            drives: drive ? await drivesFor(deps, tx, calendar, point, { from, to }) : null,
+            drives: drives === 'paused' ? null : drives,
             // Only a calendar that lets customers pick a person honours a pick.
             chosenUserId:
               config.team.assignment === 'customer_choice' ? (q.chosenUserId ?? null) : null,
@@ -1402,18 +1427,28 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             ? q.chosenUserId
             : members[0];
         return worker(scope, async (tx) => {
-          const theirs = await placeOf(tx, deps.geocoder, q.address).catch(() => null);
+          const paid = <T>(fn: () => Promise<T>) => lookups.within(scope.workspaceId, fn);
+          const theirs = await paid(() => placeOf(tx, deps.geocoder, q.address)).catch(() => null);
+          // Past the day's budget for map lookups: no spot, so the page offers the usual one or one they name.
+          if (theirs === 'paused') return { spot: null };
           if (deps.geocoder.name !== 'off' && !theirs) throw addressNotFound();
           const start = host
             ? (await dayStartAddresses(tx, scope.workspaceId, [host])).get(host)
             : await businessStartAddress(tx, scope.workspaceId);
-          const ours = start ? await placeOf(tx, deps.geocoder, start).catch(() => null) : null;
-          if (!theirs || !ours) return { spot: null };
-          const spot = await deps.places.near(
-            { lat: (theirs.lat + ours.lat) / 2, lng: (theirs.lng + ours.lng) / 2 },
-            'coffee shop',
+          const ours = start
+            ? await paid(() => placeOf(tx, deps.geocoder, start)).catch(() => null)
+            : null;
+          if (!theirs || !ours || ours === 'paused') return { spot: null };
+          const spot = await paid(() =>
+            spotNear(
+              deps.places,
+              { lat: (theirs.lat + ours.lat) / 2, lng: (theirs.lng + ours.lng) / 2 },
+              'coffee shop',
+            ),
           );
-          return { spot: spot ? { name: spot.name, address: spot.address } : null };
+          return {
+            spot: spot && spot !== 'paused' ? { name: spot.name, address: spot.address } : null,
+          };
         });
       },
     );
