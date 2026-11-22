@@ -12,6 +12,7 @@ import { NETWORKS, PLATFORM_KEYS, PLATFORMS } from './networks';
 import { OUTREACH_PAGE_ABOUT, OUTREACH_PAGES } from './pages';
 import { LEFT_ALONE, PEOPLE_VIEWS } from './people-views';
 import { NEXT_NETWORKS, SETTINGS_WORDS } from './settings-parts';
+import { SETUP_WORDS } from './setup';
 import { OUTREACH_WORDS } from './words';
 
 const NAME = 'Social Outreach';
@@ -231,7 +232,7 @@ export const OUTREACH_PLACES: readonly AppPlace[] = [
     where: [NAME, P.gear, PARTS.computer],
     onScreen: [
       'The computers signed in, with when each was last seen',
-      'Download the extension, with How to install it folded under it',
+      `${SETUP_WORDS.download}, with the extension’s version and when it was last updated beside it and How to install it folded under it`,
       'Every job the computer can be asked to run now',
     ],
     howTo: ['Get the extension again or a newer one: Social Outreach → Settings → Your computer'],

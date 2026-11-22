@@ -127,13 +127,28 @@ h1 .product {
   font-weight: 500;
 }
 
-.where {
+/* Under the name: the business it works for, then this build's version. A long name is cut short, never the version. */
+.under {
+  display: flex;
+  gap: 5px;
   margin: 0;
-  overflow: hidden;
   color: var(--text-3);
   font-size: 12.5px;
   white-space: nowrap;
+}
+
+.where {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.version {
+  flex: none;
+}
+
+.where:not([hidden]) + .version::before {
+  content: '· ';
 }
 
 .state {

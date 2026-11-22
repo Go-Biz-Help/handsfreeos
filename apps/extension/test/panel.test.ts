@@ -2,11 +2,14 @@
  * The side panel shows progress and activity only (docs/outreach.md, decision 72): what needs the person is one line
  * under Next up, "3 things need you in HandsFreeOS", linking to Needs you there (src/panel/needs.ts); and a step an ask
  * hands them says what to do and to press Carry on in HandsFreeOS → Needs you, with a link, and keeps only Stop
- * (src/panel/status.ts). The background and HandsFreeOS are stood in for.
+ * (src/panel/status.ts). At its top, this build's version (decision 189, src/panel/version.ts). The background and
+ * HandsFreeOS are stood in for.
  */
+import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ASK_TYPING_WORDS } from '@hfos/core/addons/outreach/asks';
+import { EXTENSION_DOWNLOAD_WORDS } from '@hfos/core/extension-download';
 import { freshState } from '../src/auto/plan';
 import { ASK_KEY, askKeyOf, type KeptAsk } from '../src/hfos/asks';
 import {
@@ -390,5 +393,27 @@ describe('the day’s buttons (decision 95)', () => {
     expect(await buttons(inHours, { ...freshState('2026-10-28'), stopped: 'person' })).toEqual([
       'Start my day',
     ]);
+  });
+});
+
+describe('the version at the top', () => {
+  it('says this build’s version in the top bar, in the words beside the download in HandsFreeOS', async () => {
+    // The panel's own page: its script isn't run here, only its top bar read.
+    const { window } = new JSDOM(
+      readFileSync(new URL('../public/panel.html', import.meta.url), 'utf8'),
+    );
+    vi.stubGlobal('chrome', { runtime: { getManifest: () => ({ version: '0.151.0' }) } });
+    const { showVersion } = await import('../src/panel/version');
+    const into = window.document.querySelector<HTMLElement>('header.top #version')!;
+    expect(into.textContent).toBe('');
+    showVersion(into);
+    expect(into.textContent).toBe('Version 0.151.0');
+    expect(EXTENSION_DOWNLOAD_WORDS.about('0.151.0', null, null)).toBe(
+      'Version 0.151.0 · for Chrome on a computer',
+    );
+    // The business it works for stays beside it, hidden until someone's signed in.
+    const where = window.document.querySelector<HTMLElement>('header.top #where')!;
+    expect(where.hidden).toBe(true);
+    expect(where.nextElementSibling).toBe(into);
   });
 });

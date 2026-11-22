@@ -23,6 +23,7 @@
 import { z } from 'zod';
 import { localDateOf } from '../../calendar/engine/zoned';
 import { fmtMonthDay, fmtTime, localDayOf } from '../../calendar/when';
+import { EXTENSION_DOWNLOAD_WORDS } from '../../extension-download';
 import { SENDING_MODE_KEYS, type SendingMode } from './automation';
 import { GROUP_VERDICT_KEYS } from './groups';
 import { PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
@@ -905,15 +906,6 @@ export const SETUP_WORDS = {
       },
     ],
   },
-  /** Beside the download: which version, how big, and where it works. */
-  downloadAbout: (version: string, bytes: number | null) =>
-    [
-      `Version ${version}`,
-      bytes ? `${Math.max(0.1, Math.round(bytes / 104_857.6) / 10)} MB` : null,
-      'for Chrome on a computer',
-    ]
-      .filter(Boolean)
-      .join(' · '),
   /** Chrome's own note about extensions loaded by hand, which it shows now and then. */
   devModeNote:
     'Chrome may ask you to turn off extensions in developer mode now and then. Keep them on, or the extension stops working.',
@@ -1087,7 +1079,8 @@ export const SETUP_WORDS = {
     'Go through the setup again: your computer, your messages, your networks and your goal.',
   againAboutManage:
     'Go through the setup again: your business, your computer, your messages, your networks and your goal.',
-  download: 'Download HandsFreeOS Social',
+  /** The download's button, the same wherever it's offered (decision 189): Today's strip links to it by these words. */
+  download: EXTENSION_DOWNLOAD_WORDS.download,
   /** Where the team gets the extension (`extensionLink`): Settings' For your team and the install step, on the web and the phone. */
   link: {
     title: 'Where your team gets the extension',

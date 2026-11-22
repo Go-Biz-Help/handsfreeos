@@ -967,13 +967,15 @@ test('a first-timer is sent to the setup: the main setup, then each network, eac
   // The extension: HandsFreeOS's own download, five steps with pictures, then it waits until the extension signs in.
   await expect(setup).toHaveAttribute('data-screen', 'extension');
   await expect(rail('rules')).toHaveAttribute('data-state', 'done');
-  const download = page.getByTestId('outreach-setup-download');
+  const download = page.getByTestId('extension-download-button');
+  await expect(download).toHaveText('Download HandsFreeOS Social');
   await expect(download).toHaveAttribute(
     'href',
     /^\/downloads\/hfos-social\.zip\?v=\d+\.\d+\.\d+$/,
   );
-  await expect(page.getByTestId('outreach-download-about')).toContainText(
-    'for Chrome on a computer',
+  // Beside it: its version, when that version was made on this browser's clock, its size and where it works.
+  await expect(page.getByTestId('extension-download-about')).toHaveText(
+    /^Version \d+\.\d+\.\d+ · Updated [A-Z][a-z]{2} \d{1,2}(, \d{4})?, \d{1,2}:\d\d (AM|PM) · [\d.]+ MB · for Chrome on a computer$/,
   );
   await expect(page.getByTestId('outreach-install-steps')).toContainText('Developer mode');
   await expect(page.getByTestId('outreach-install-steps')).toContainText('Load unpacked');

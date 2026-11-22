@@ -32,10 +32,11 @@ import {
   learnedLine,
 } from '@hfos/core/addons/socialcontent/words';
 import { useState } from 'react';
-import { Download, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { ExtensionDownloadButton } from '@/components/extension-download-button';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
-import { Button, buttonClassName } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input, Select } from '@/components/ui/input';
@@ -46,9 +47,6 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { WorkFacts, workWhat } from './activity-card';
 import type { Overview, Work } from './types';
 import { useAct } from './use-act';
-
-/** The build this web app hands out (apps/extension/scripts/download.mjs); the version only makes browsers fetch anew. */
-const EXTENSION_HREF = `/downloads/hfos-social.zip?v=${process.env.HFOS_EXTENSION_VERSION ?? ''}`;
 
 const STATE_BADGE: Record<Work['state'], BadgeVariant> = {
   waiting: 'gray',
@@ -165,35 +163,34 @@ export function SettingsPage({
         <p className="mt-3 text-[14px] font-medium" data-testid="socialcontent-reader">
           {reader}
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {mayManage && !overview.readerIsMe ? (
-            <Button
-              size="sm"
-              loading={busy === 'reader'}
-              onClick={() => void save('reader', { readerUserId: myUserId })}
-              data-testid="socialcontent-read-on-mine"
-            >
-              {W.settings.readOnMine}
-            </Button>
-          ) : null}
-          <a
-            href={EXTENSION_HREF}
-            download="hfos-social.zip"
-            className={buttonClassName({ variant: 'secondary', size: 'sm' })}
-          >
-            <Download className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-            {W.settings.getExtension}
-          </a>
-          {mayManage && settings.readerUserId ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              loading={busy === 'reader-off'}
-              onClick={() => void save('reader-off', { readerUserId: null })}
-            >
-              {W.settings.readerStop}
-            </Button>
-          ) : null}
+        {mayManage && (!overview.readerIsMe || settings.readerUserId) ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {!overview.readerIsMe ? (
+              <Button
+                size="sm"
+                loading={busy === 'reader'}
+                onClick={() => void save('reader', { readerUserId: myUserId })}
+                data-testid="socialcontent-read-on-mine"
+              >
+                {W.settings.readOnMine}
+              </Button>
+            ) : null}
+            {settings.readerUserId ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                loading={busy === 'reader-off'}
+                onClick={() => void save('reader-off', { readerUserId: null })}
+              >
+                {W.settings.readerStop}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+        {/* The extension's download, the same button as Social Outreach's, with its version and when it was last
+            updated (docs/outreach.md, decision 189). */}
+        <div className="mt-4">
+          <ExtensionDownloadButton />
         </div>
         <p className="mt-3 text-[12.5px] text-text-3">{W.settings.extensionHow}</p>
         {!mayManage ? (

@@ -1,7 +1,7 @@
 {
   "area": "outreach",
   "title": "The Social Outreach add-on: every page",
-  "checkedOn": "2026-11-21",
+  "checkedOn": "2026-11-22",
   "files": {
     "apps/mobile/src/addons/outreach/actions.ts": "9d1266692122",
     "apps/mobile/src/addons/outreach/ai-help.tsx": "715ac076ab3b",
@@ -77,7 +77,7 @@
     "apps/web/src/addons/outreach/download-card.tsx": "825bdd9c2a92",
     "apps/web/src/addons/outreach/drafted.tsx": "52c849cb5740",
     "apps/web/src/addons/outreach/events-card.tsx": "64a8476edae2",
-    "apps/web/src/addons/outreach/extension-download.tsx": "891862569d90",
+    "apps/web/src/addons/outreach/extension-download.tsx": "d2b4786caf1e",
     "apps/web/src/addons/outreach/extension-link.tsx": "4c07a42dd2e2",
     "apps/web/src/addons/outreach/file-asks.tsx": "241d2d78e017",
     "apps/web/src/addons/outreach/find-view.tsx": "1e32de9ca2a8",
@@ -152,6 +152,7 @@
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/setup/page.tsx": "3b4de50baa1d",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "4394397ae5a0",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/today/page.tsx": "652469b89773",
+    "apps/web/src/components/extension-download-button.tsx": "f437f7e74ef3",
     "packages/core/src/addons/outreach/manifest.ts": "dd9f74541115"
   },
   "items": [
@@ -667,23 +668,23 @@
       "by": "no tool gives the setup page's link"
     },
     {
-      "path": "Guided setup → The extension → Download it (version, size)",
+      "path": "Guided setup → The extension → Download HandsFreeOS Social (version, when it was last updated, size)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/extension-download.tsx:112",
+      "file": "apps/web/src/components/extension-download-button.tsx:53",
       "covered": "partly",
-      "by": "outreach_setup download: the whole link, the install steps and how to update; not the version or size"
+      "by": "outreach_setup download: the whole link, the install steps and how to update; not the version, when it was last updated or the size"
     },
     {
       "path": "Guided setup, Settings → Your computer → The extension → install steps: unzip, Developer mode (copy chrome://extensions), Load unpacked, Pin",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/extension-download.tsx:131",
+      "file": "apps/web/src/addons/outreach/extension-download.tsx:98",
       "covered": "person",
       "by": "installing on their own computer"
     },
     {
       "path": "Guided setup → The extension → Sign in as your email in the extension",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/extension-download.tsx:153",
+      "file": "apps/web/src/addons/outreach/extension-download.tsx:120",
       "covered": "person",
       "by": "signing in"
     },
@@ -697,7 +698,7 @@
     {
       "path": "Guided setup, Settings → Your computer → The extension → Stuck? questions and answers",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/extension-download.tsx:67",
+      "file": "apps/web/src/addons/outreach/extension-download.tsx:55",
       "covered": "yes",
       "by": "outreach_setup download.stuck, the Stuck? questions with their answers"
     },
@@ -3784,7 +3785,7 @@
     {
       "path": "Settings → Your computer → Download the extension, how to install (folded)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/extension-download.tsx:97",
+      "file": "apps/web/src/addons/outreach/extension-download.tsx:85",
       "covered": "yes",
       "by": "outreach_setup download: the whole link, the install steps and how to update; installing is the person’s"
     },

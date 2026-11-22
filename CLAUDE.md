@@ -133,6 +133,7 @@ pnpm --filter @hfos/core exec vitest run test/addons   # one package's tests, or
 pnpm test:e2e                     # the browser tests (Playwright)
 pnpm openapi                      # after changing a command or query: CI checks packages/api-client is fresh
 node scripts/migrations-check.mjs
+pnpm --filter @hfos/extension run stamp 0.151.1   # the extension's new version, and when it was made (the download button says both)
 pnpm assistant:ledger status         # what the Assistant's checklist hasn't marked off, by area
 ```
 
