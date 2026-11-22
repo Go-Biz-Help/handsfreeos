@@ -15,9 +15,13 @@
  * **It is per business, and in two steps.** `usage_wallets.stage` starts `off` for everyone. `warn` means the
  * business is told about its balance but nothing stops; only `enforce` refuses. Nothing here refuses anything
  * until somebody moves a business along — internal first, then a cohort, then everyone.
+ *
+ * **A business with no plan has no room, at any stage** (the owner's decision of 2026-11-22, `plan-gate.ts`). It is
+ * read in the same query, so every caller that asks the wallet before spending asks that too.
  */
 import { sql, type Tx } from '@hfos/db/client';
 import { HfosError } from '../errors';
+import { PLAN_REFUSALS } from './plan-gate';
 
 /** What is being paid for, which decides how much room is needed and what a refusal says. */
 export type SpendKind = 'text' | 'call' | 'ai' | 'number';
@@ -33,7 +37,7 @@ export const walletSpeaks = (stage: string | null | undefined): boolean =>
   stage === 'warn' || stage === 'enforce';
 
 export interface WalletRoom {
-  /** False only when this business is at `enforce` and the balance has run out. */
+  /** False when this business is at `enforce` and the balance has run out, or it has no plan yet. */
   readonly allowed: boolean;
   readonly balanceCents: number;
   /** How far under zero this business may go before outbound stops. Always 0 at `enforce`. */
@@ -42,6 +46,8 @@ export interface WalletRoom {
   readonly unknown: boolean;
   /** Where this business is. Callers that only want to know whether to *say* something read this. */
   readonly stage: WalletStage;
+  /** It still has to pick a plan (`private.workspace_needs_plan`), so it spends nothing, whatever its balance. */
+  readonly needsPlan: boolean;
 }
 
 const OPEN: WalletRoom = {
@@ -50,6 +56,7 @@ const OPEN: WalletRoom = {
   overdraftCents: 0,
   unknown: true,
   stage: 'off',
+  needsPlan: false,
 };
 
 const isStage = (v: unknown): v is WalletStage =>
@@ -63,6 +70,18 @@ export const WALLET_REFUSALS: Readonly<Record<SpendKind, string>> = {
   number:
     'There isn’t enough on your balance for a phone number’s first month. Top up in Settings → Billing & Usage, then try again.',
 };
+
+/**
+ * What a refused spend is told, and its rule: the plan's words when the business has none yet, otherwise the
+ * balance's. For anyone who reads `walletRoom` and words the refusal themselves.
+ */
+export const walletRefusal = (
+  room: Pick<WalletRoom, 'needsPlan'>,
+  kind: SpendKind,
+): { readonly rule: 'needs_plan' | 'wallet_empty' | 'wallet_short'; readonly message: string } =>
+  room.needsPlan
+    ? { rule: 'needs_plan', message: PLAN_REFUSALS[kind] }
+    : { rule: kind === 'number' ? 'wallet_short' : 'wallet_empty', message: WALLET_REFUSALS[kind] };
 
 /**
  * How much room one kind of spending needs. A text or a minute is pennies and only needs the balance to be
@@ -87,14 +106,30 @@ export async function walletRoom(
   log?: (message: string, error: unknown) => void,
 ): Promise<WalletRoom> {
   try {
+    // One row always: whether it needs a plan, and its wallet beside it when it has one.
     const result = await tx.execute(sql`
-      select balance_cents, overdraft_cents, stage::text as stage
-      from app.usage_wallets where workspace_id = ${workspaceId}`);
+      select private.workspace_needs_plan(${workspaceId}::uuid) as needs_plan,
+             w.balance_cents, w.overdraft_cents, w.stage::text as stage
+      from (select 1) as one
+      left join app.usage_wallets w on w.workspace_id = ${workspaceId}`);
     const row = (result as unknown as { rows?: unknown[] }).rows?.[0] ?? (result as unknown[])[0];
+    const w = (row ?? {}) as {
+      needs_plan?: unknown;
+      balance_cents?: unknown;
+      overdraft_cents?: unknown;
+      stage?: unknown;
+    };
+    const needsPlan = w.needs_plan === true;
     // No wallet at all is a business that has never spent anything. That is fine, not empty.
-    if (!row)
-      return { allowed: true, balanceCents: 0, overdraftCents: 0, unknown: false, stage: 'off' };
-    const w = row as { balance_cents: unknown; overdraft_cents: unknown; stage: unknown };
+    if (w.stage == null)
+      return {
+        allowed: !needsPlan,
+        balanceCents: 0,
+        overdraftCents: 0,
+        unknown: false,
+        stage: 'off',
+        needsPlan,
+      };
     const balanceCents = Number(w.balance_cents ?? 0);
     // An unreadable stage reads as `off`, which is the same way everything else here fails: open.
     const stage = isStage(w.stage) ? w.stage : 'off';
@@ -102,11 +137,13 @@ export async function walletRoom(
     // stage is HandsFreeOS's. A business put on `enforce` stops at zero.
     const overdraftCents = stage === 'enforce' ? 0 : Number(w.overdraft_cents ?? 0);
     return {
-      allowed: stage !== 'enforce' || balanceCents - ROOM_NEEDED[kind] > -overdraftCents,
+      allowed:
+        !needsPlan && (stage !== 'enforce' || balanceCents - ROOM_NEEDED[kind] > -overdraftCents),
       balanceCents,
       overdraftCents,
       unknown: false,
       stage,
+      needsPlan,
     };
   } catch (e) {
     // Loudly, and then let it through. A wallet that cannot be read must never stop a text.
@@ -116,8 +153,8 @@ export async function walletRoom(
 }
 
 /**
- * Refuse a spend when the balance has run out and this business is at `enforce`. Everything else — an
- * unreadable wallet, a business without one, a business still at `off` or `warn` — goes through.
+ * Refuse a spend when the business has no plan yet, or the balance has run out and it is at `enforce`. Everything
+ * else — an unreadable wallet, a business without one, a business still at `off` or `warn` — goes through.
  */
 export async function assertWalletHasRoom(
   tx: Tx,
@@ -127,11 +164,8 @@ export async function assertWalletHasRoom(
 ): Promise<void> {
   const room = await walletRoom(tx, workspaceId, kind, log);
   if (room.allowed) return;
-  throw HfosError.rule(
-    kind === 'number' ? 'wallet_short' : 'wallet_empty',
-    402,
-    WALLET_REFUSALS[kind],
-  );
+  const refused = walletRefusal(room, kind);
+  throw HfosError.rule(refused.rule, 402, refused.message);
 }
 
 /**

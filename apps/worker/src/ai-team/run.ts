@@ -703,7 +703,9 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
   if (!money.allowed)
     return end({
       reason: 'wallet',
-      note: 'The balance ran out, so the AI paused. Top up and it starts answering again.',
+      note: money.needsPlan
+        ? 'This business has no plan yet, so the AI paused. It starts answering once a founding spot is picked.'
+        : 'The balance ran out, so the AI paused. Top up and it starts answering again.',
     });
 
   const state = newRunState();

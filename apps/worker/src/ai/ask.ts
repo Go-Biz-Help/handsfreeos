@@ -14,18 +14,16 @@ import {
 import type { z } from 'zod';
 import type { TenantScope, WorkerServices } from '../services';
 import { asWorker } from '@hfos/db/client';
-import {
-  aiLimitReached,
-  aiWebSearchUsageKey,
-  walletRoom,
-  WALLET_REFUSALS,
-} from '@hfos/core/server';
+import { aiLimitReached, aiWebSearchUsageKey, walletRefusal, walletRoom } from '@hfos/core/server';
 import { chargeUsage } from '../money/wallet';
 import { aiBudget, recordAndChargeAi, type AiUsageRef } from './budget';
 
 export type AiAskErrorCode =
   | 'budget_reached'
-  /** The usage balance has run out. Beside `budget_reached`: same shape, different limit. */
+  /**
+   * The usage balance has run out, or the business has no plan yet (its words say which). Beside `budget_reached`:
+   * same shape, different limit. Every caller treats both as "nothing may be spent now".
+   */
   | 'wallet_empty'
   | 'ai_unavailable'
   | 'provider_error'
@@ -112,7 +110,7 @@ export async function askStructured<S extends z.ZodType>(
   const room = await asWorker(ctx.db, scope, (tx) =>
     walletRoom(tx, scope.workspaceId, 'ai', (m, e) => ctx.log.error({ err: e }, m)),
   );
-  if (!room.allowed) throw new AiAskError('wallet_empty', WALLET_REFUSALS.ai);
+  if (!room.allowed) throw new AiAskError('wallet_empty', walletRefusal(room, 'ai').message);
   const request: AiRequest = {
     system: input.system,
     ...(input.context ? { context: input.context } : {}),
@@ -286,7 +284,7 @@ export async function askSearching(
   const room = await asWorker(ctx.db, scope, (tx) =>
     walletRoom(tx, scope.workspaceId, 'ai', (m, e) => ctx.log.error({ err: e }, m)),
   );
-  if (!room.allowed) throw new AiAskError('wallet_empty', WALLET_REFUSALS.ai);
+  if (!room.allowed) throw new AiAskError('wallet_empty', walletRefusal(room, 'ai').message);
   const messages: AiMessage[] = [{ role: 'user', content: input.prompt }];
   let notes = '';
   const pages: AiWebSource[] = [];

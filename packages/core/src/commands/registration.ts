@@ -42,6 +42,7 @@ import {
   unsettledTextingFee,
 } from '../messaging/store';
 import { money } from '../money/format';
+import { assertPlanAllowsSpending } from '../money/plan-gate';
 import { textingFeeLines, textingFeeTotal } from '../money/texting-fees';
 import {
   BusinessProfile,
@@ -663,6 +664,8 @@ export const registrationEmailWebPerson = defineCommand({
     const workspaceId = ctx.scope.workspaceId!;
     const userId = userIdOf(ctx.actor);
     const fixes = WEBSITE_FIX_IDS.filter((id) => input.fixes.includes(id));
+    // An email to anyone, in the business's name: not before it has a plan (plan-gate.ts).
+    await assertPlanAllowsSpending(ctx.tx, workspaceId, 'email');
     // A few a day each: it goes from HandsFreeOS's own address, to anyone.
     const [sent] = await rows<{ n: number }>(
       ctx.tx,

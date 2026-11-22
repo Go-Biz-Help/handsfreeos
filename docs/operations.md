@@ -10861,6 +10861,19 @@ The owner's call on 2026-10-27, replacing applications:
 
 - **On the phone app,** a business that hasn't paid shows "Finish setting up on the web", with no price and no
   link: the App Store and Google Play don't allow selling outside their own payments in an app.
+- **The server holds the gate too** (the owner's decision of 2026-11-22: "A business with no plan or trial can't
+  text, email, call, buy numbers or use AI, even through the API"). Until it holds a plan, every text, email, call,
+  number and AI run is refused with the rule `needs_plan`, whoever asks: a person, a workflow, the AI teammate or the
+  worker. Texts, calls, numbers and AI ask the wallet gate, which reads it beside the balance
+  (`packages/core/src/money/wallet-gate.ts`); email asks `assertPlanAllowsSpending` in
+  `packages/core/src/money/plan-gate.ts`, and the worker fails a queued email or text with the same words. A trial
+  is a plan, so it passes. HandsFreeOS's own email to the team (sign-in, invitations, billing, alerts) still goes.
+- **Three new businesses a person a day** (the same decision): `organization.create` and `workspace.create` refuse a
+  fourth within 24 hours with `too_many_new_businesses` and when another can be added
+  (`private.check_new_business_room`, `20261027033100`). Staff and the founder aren't counted, and practice
+  businesses don't come that way. An agency setting up more clients than that in a day waits. One person can be
+  allowed more with a row in `private.new_business_allowances` (the tests' people have one); there's no Admin screen
+  for it yet, so that is a migration, not a change by hand.
 - **Somebody who isn't an owner** sees that an owner has to pick the spot.
 - **Picking the other spot before paying** gives the first hold back. If they pay the first page anyway, the
   payment wins and they get that spot.

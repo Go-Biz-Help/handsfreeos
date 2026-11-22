@@ -9,11 +9,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Tx } from '@hfos/db/client';
 import { HfosError } from '../src/errors';
+import { PLAN_REFUSALS } from '../src/money/plan-gate';
 import {
   assertWalletHasRoom,
   mayRingOut,
+  walletRefusal,
   walletRoom,
   WALLET_REFUSALS,
+  type SpendKind,
   type WalletRoom,
   type WalletStage,
 } from '../src/money/wallet-gate';
@@ -21,9 +24,10 @@ import {
 const WORKSPACE = '11111111-1111-4111-8111-111111111111';
 
 interface WalletShape {
-  balance_cents: number;
-  overdraft_cents: number;
-  stage: WalletStage;
+  balance_cents: number | null;
+  overdraft_cents: number | null;
+  stage: WalletStage | null;
+  needs_plan?: boolean;
 }
 
 /** A transaction that answers the gate's one query, in whichever shape the driver hands back. */
@@ -88,7 +92,11 @@ describe('walletRoom before a business has been moved along', () => {
       overdraftCents: 0,
       unknown: false,
       stage: 'off',
+      needsPlan: false,
     });
+    // The query's own answer for one with no wallet: the plan's column, and nothing beside it.
+    const none = { balance_cents: null, overdraft_cents: null, stage: null, needs_plan: false };
+    expect(await walletRoom(txWith(none), WORKSPACE, 'text')).toEqual(room);
   });
 
   it('allows a business deep in the red at `off` — which is every business during a shadow week', async () => {
@@ -190,6 +198,72 @@ describe('assertWalletHasRoom', () => {
   });
 });
 
+/*
+ * A business made while a paid founding spot was on sale spends nothing until it picks a plan (the owner's decision of
+ * 2026-11-22). Unlike the balance this is not about stages: it holds at `off`, `warn` and `agency` too, and for a
+ * business with no wallet row at all.
+ */
+describe('a business with no plan yet', () => {
+  const noPlan = (stage: WalletStage | null, balance: number | null = 50_000): WalletShape => ({
+    balance_cents: balance,
+    overdraft_cents: balance === null ? null : 1000,
+    stage,
+    needs_plan: true,
+  });
+  const KINDS: SpendKind[] = ['text', 'call', 'ai', 'number'];
+
+  it('has no room, whatever its stage and balance', async () => {
+    for (const stage of ['off', 'warn', 'enforce', 'agency', null] as const)
+      for (const kind of KINDS)
+        expect(await walletRoom(txWith(noPlan(stage)), WORKSPACE, kind)).toMatchObject({
+          allowed: false,
+          needsPlan: true,
+        });
+  });
+
+  it('is refused with its own rule and words that say where the plan is picked', async () => {
+    for (const kind of KINDS) {
+      const e = (await assertWalletHasRoom(txWith(noPlan('enforce')), WORKSPACE, kind).catch(
+        (x: unknown) => x,
+      )) as HfosError;
+      expect(e).toBeInstanceOf(HfosError);
+      expect(e.rule).toBe('needs_plan');
+      expect(e.status).toBe(402);
+      expect(e.message).toBe(PLAN_REFUSALS[kind]);
+      expect(e.message).toMatch(/founding spot/);
+      expect(e.message).not.toMatch(/balance|top up/i);
+    }
+  });
+
+  it('a business holding a plan (or never asked) is left to its balance, as before', async () => {
+    expect(
+      (await walletRoom(txWith({ ...enforced(2500), needs_plan: false }), WORKSPACE, 'ai')).allowed,
+    ).toBe(true);
+    const e = (await assertWalletHasRoom(
+      txWith({ ...enforced(-5000), needs_plan: false }),
+      WORKSPACE,
+      'text',
+    ).catch((x: unknown) => x)) as HfosError;
+    expect(e.rule).toBe('wallet_empty');
+  });
+
+  it('gives whoever words it themselves the plan’s words first', () => {
+    expect(walletRefusal({ needsPlan: true }, 'text')).toEqual({
+      rule: 'needs_plan',
+      message: PLAN_REFUSALS.text,
+    });
+    expect(walletRefusal({ needsPlan: false }, 'text')).toEqual({
+      rule: 'wallet_empty',
+      message: WALLET_REFUSALS.text,
+    });
+    expect(walletRefusal({ needsPlan: false }, 'number').rule).toBe('wallet_short');
+  });
+
+  it('still lets an inbound call ring out: it is never hard-blocked', async () => {
+    expect(mayRingOut(await walletRoom(txWith(noPlan('enforce')), WORKSPACE, 'call'))).toBe(true);
+  });
+});
+
 describe('mayRingOut', () => {
   const room = (over: Partial<WalletRoom>): WalletRoom => ({
     allowed: true,
@@ -197,6 +271,7 @@ describe('mayRingOut', () => {
     overdraftCents: 0,
     unknown: false,
     stage: 'enforce',
+    needsPlan: false,
     ...over,
   });
 

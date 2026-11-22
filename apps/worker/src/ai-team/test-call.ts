@@ -23,7 +23,7 @@ import {
   TestCallClientMessage,
   TestConsoleInput,
   walletRoom,
-  WALLET_REFUSALS,
+  walletRefusal,
   type HumanActor,
   type TestCallServerMessage,
   type TestCallTiming,
@@ -404,7 +404,10 @@ export function handleTestCallSocket(socket: WebSocket, deps: HttpDeps): void {
     const room = await asWorker(deps.httpDb, test.scope, (tx) =>
       walletRoom(tx, test.scope.workspaceId, 'ai', (msg, e) => deps.log.error({ err: e }, msg)),
     );
-    if (!room.allowed) throw HfosError.rule('wallet_empty', 402, WALLET_REFUSALS.ai);
+    if (!room.allowed) {
+      const refused = walletRefusal(room, 'ai');
+      throw HfosError.rule(refused.rule, 402, refused.message);
+    }
     if (m.way === 'phone') {
       if (!(await hasPermission(deps, actor.userId, input.workspaceId, 'inbox.use')))
         throw HfosError.rule(

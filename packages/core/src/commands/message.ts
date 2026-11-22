@@ -66,6 +66,7 @@ import {
   scheduledForOf,
   type QuietHoursState,
 } from '../messaging/quiet-hours';
+import { assertPlanAllowsSpending } from '../money/plan-gate';
 import { assertWalletHasRoom } from '../money/wallet-gate';
 import {
   buildRichText,
@@ -705,6 +706,8 @@ function afterOutbound(keep: boolean, created: boolean, now: Date) {
  */
 async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendInput>) {
   const workspaceId = ctx.scope.workspaceId!;
+  // First, before a customer or a conversation is made for the address: a business with no plan sends no email.
+  await assertPlanAllowsSpending(ctx.tx, workspaceId, 'email');
   const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
   // A person's own address (M19) sends for them alone, and only in their own mail.
   const addresses = await workspaceAddresses(ctx.tx, workspaceId);
@@ -1724,6 +1727,7 @@ export const messageRetry = defineCommand({
     const conv = await loadConversation(ctx, m.conversationId);
     let holdUntil: Date | null = null;
     if (m.channel === 'email') {
+      await assertPlanAllowsSpending(ctx.tx, ctx.scope.workspaceId!, 'email');
       const stopped = await activeSuppression(ctx.tx, ctx.scope.workspaceId!, conv.counterpart);
       if (stopped)
         throw HfosError.rule('recipient_suppressed', 409, suppressionMessage(stopped.reason));

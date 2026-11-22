@@ -32,7 +32,7 @@ import {
   type HumanActor,
   type ListenServerMessage,
   loadTeammate,
-  WALLET_REFUSALS,
+  walletRefusal,
   walletRoom,
   SPEECH_CLIP_MAX_BYTES,
   SpeechSayInput,
@@ -122,7 +122,10 @@ async function requireBalance(deps: HttpDeps, scope: TenantScope): Promise<void>
   const room = await asWorker(deps.httpDb, scope, (tx) =>
     walletRoom(tx, scope.workspaceId, 'ai', (m, e) => deps.log.error({ err: e }, m)),
   );
-  if (!room.allowed) throw HfosError.rule('wallet_empty', 402, WALLET_REFUSALS.ai);
+  if (!room.allowed) {
+    const refused = walletRefusal(room, 'ai');
+    throw HfosError.rule(refused.rule, 402, refused.message);
+  }
 }
 
 /** The AI teammate's saved phone voice, or the default when it has none. */

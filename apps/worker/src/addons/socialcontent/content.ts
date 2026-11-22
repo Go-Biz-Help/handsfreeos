@@ -110,7 +110,7 @@ import {
   LOOK_DEFAULT_COLOR,
   lookOf,
   storedFilePath,
-  WALLET_REFUSALS,
+  walletRefusal,
   walletRoom,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -1463,7 +1463,7 @@ async function openAiPicture(
   const room = await asWorker(ctx.db, ctx.scope, (tx) =>
     walletRoom(tx, ctx.scope.workspaceId, 'ai', (m, e) => ctx.log.error({ err: e }, m)),
   );
-  if (!room.allowed) throw new PictureError(WALLET_REFUSALS.ai, false);
+  if (!room.allowed) throw new PictureError(walletRefusal(room, 'ai').message, false);
   const made = await maker.make(prompt, { square: shape === '1:1' });
   if (made.model !== maker.model)
     ctx.log.warn(

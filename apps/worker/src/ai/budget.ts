@@ -4,8 +4,8 @@ import {
   aiUsageKey,
   assistantUsageKey,
   DEFAULT_AI_DAILY_LIMIT_CENTS,
+  walletRefusal,
   walletRoom,
-  WALLET_REFUSALS,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import type { Logger } from 'pino';
@@ -187,7 +187,10 @@ async function aiToday(db: Db, scope: TenantScope, teammateId: string | null): P
   };
 }
 
-/** Why there's no room for another AI call, and the words that say so. */
+/**
+ * Why there's no room for another AI call, and the words that say so. `wallet_empty` is the wallet saying no: its
+ * balance ran out, or the business has no plan yet, and the words say which.
+ */
 export interface AiNoRoom {
   readonly code: 'budget_reached' | 'wallet_empty';
   readonly message: string;
@@ -225,7 +228,9 @@ export const aiBudget = {
     const room = await asWorker(db, scope, (tx) =>
       walletRoom(tx, scope.workspaceId, 'ai', (m, e) => log?.error({ err: e }, m)),
     );
-    return room.allowed ? null : { code: 'wallet_empty', message: WALLET_REFUSALS.ai };
+    return room.allowed
+      ? null
+      : { code: 'wallet_empty', message: walletRefusal(room, 'ai').message };
   },
 
   /** Whether the teammate may make another model call: the business is under its limit, and it under its share. */

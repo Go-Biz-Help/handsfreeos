@@ -727,6 +727,8 @@ const WORDED_IN_DATABASE: Record<string, number> = {
   bin_document_out: 409,
   bin_restore_parent: 409,
   person_in_bin: 409,
+  // A fourth new business in a day, with when another can be added (20261027033100).
+  too_many_new_businesses: 429,
 };
 
 /** True when a statement hit a unique index (the named one, if given), so a handler can raise its own rule. */

@@ -17,6 +17,7 @@ export * from './messaging/registration-fingerprint';
 // Reads a wallet in the caller's transaction, so it needs a database client and cannot live in the
 // browser-safe `./money` barrel beside the rest of the money code.
 export * from './money/wallet-gate';
+export * from './money/plan-gate';
 export * from './calendar/load';
 export * from './calendar/day-start';
 export * from './calendar/deposit-load';

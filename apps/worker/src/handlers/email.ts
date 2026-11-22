@@ -16,6 +16,8 @@ import {
   emailSuppressionRecord,
   executeCommand,
   messageUpdateStatus,
+  PLAN_REFUSALS,
+  planNeeded,
   scheduleJob,
   type RequestMeta,
 } from '@hfos/core/server';
@@ -86,6 +88,12 @@ export async function sendQueuedEmail(ctx: HandlerContext, queued: Message): Pro
       systemActor(scope),
       metaOf(ctx),
     );
+  // A business with no plan sends no email, whoever queued it and from whichever address (plan-gate.ts):
+  // message.send refuses first, and this stops one queued before its plan ended.
+  if (await planNeeded(ctx.tx, scope.workspaceId)) {
+    await update({ status: 'failed', errorCode: 'needs_plan', errorMessage: PLAN_REFUSALS.email });
+    return;
+  }
   // A sealed part (a lockbox code) goes in only now, for the provider; the stored body keeps its marker.
   try {
     const filled = await withSealedParts(

@@ -23,7 +23,7 @@ import {
   scheduleJob,
   socialPreview,
   unsettledTextingFee,
-  WALLET_REFUSALS,
+  walletRefusal,
   walletRoom,
   type RegistrationFamily,
 } from '@hfos/core/server';
@@ -542,11 +542,13 @@ export const onMessageQueued: EventHandler = async (ctx) => {
   // The second wallet gate (M16 step 9). The first is on message.send, but a text can sit queued for minutes —
   // scheduled, held, retried — and the balance can run out in between. Failing here means the message lands
   // `failed` with a code the inbox explains, rather than disappearing into a carrier call nobody paid for.
+  // A business whose plan ended meanwhile stops here too (`needs_plan`).
   const room = await walletRoom(ctx.tx, scope.workspaceId, 'text', (msg, e) =>
     ctx.log.error({ err: e }, msg),
   );
   if (!room.allowed) {
-    await fail('wallet_empty', WALLET_REFUSALS.text);
+    const refused = walletRefusal(room, 'text');
+    await fail(refused.rule, refused.message);
     return;
   }
   /*

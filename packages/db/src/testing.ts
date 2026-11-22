@@ -97,10 +97,21 @@ export interface TestUser {
 
 export const uniq = (): string => randomUUID().slice(0, 8);
 
-/** Creates a confirmed user through GoTrue (so the app.users mirror trigger really runs). */
+/** New businesses a test's person may add in a day (20261027033100): plenty, so suites aren't about the limit. */
+const TEST_NEW_BUSINESSES_A_DAY = 1000;
+
+/**
+ * Creates a confirmed user through GoTrue (so the app.users mirror trigger really runs). They may add far more than
+ * the 3 new businesses a day everyone else may, unless `newBusinessesADay: null` leaves them with the real limit.
+ */
 export async function createTestUser(
   label: string,
-  opts: { email?: string; password?: string; fullName?: string } = {},
+  opts: {
+    email?: string;
+    password?: string;
+    fullName?: string;
+    newBusinessesADay?: number | null;
+  } = {},
 ): Promise<TestUser> {
   const env = testEnv();
   const adminAuth = createClient(env.supabaseUrl, env.secretKey, {
@@ -122,6 +133,13 @@ export async function createTestUser(
     sql`select id from app.users where id = ${id}`,
   );
   if (mirrored.length !== 1) throw new Error(`app.users mirror row missing for ${email}`);
+  const perDay =
+    opts.newBusinessesADay === undefined ? TEST_NEW_BUSINESSES_A_DAY : opts.newBusinessesADay;
+  if (perDay !== null)
+    await testDbs().admin.db.execute(
+      sql`insert into private.new_business_allowances (user_id, per_day, why)
+          values (${id}, ${perDay}, 'A test’s person')`,
+    );
   return { id, email, password, fullName, claims: { sub: id, email } };
 }
 
