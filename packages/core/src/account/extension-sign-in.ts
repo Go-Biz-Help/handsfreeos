@@ -11,7 +11,7 @@ export * from './extension-sign-in-words';
 
 export const ExtensionSignInStartInput = z.object({
   email,
-  /** Which browser is asking ("Chrome"). */
+  /** Which browser is asking ("Chrome"). Only a few names are ever shown (extensionBrowserName); others say "your browser". */
   browser: z.string().trim().min(1).max(40).default('Chrome'),
 });
 export type ExtensionSignInStartInput = z.infer<typeof ExtensionSignInStartInput>;
@@ -50,7 +50,11 @@ export const ExtensionSignInPendingOutput = z.object({
     z.object({
       id: uuid,
       browser: z.string(),
-      choices: z.array(z.number().int()).length(3),
+      /**
+       * Always empty: the person types the number the extension shows. Kept so a phone on an older build, which drew
+       * these as buttons, shows none to pick from.
+       */
+      choices: z.array(z.number().int()).max(3),
       expiresAt: z.iso.datetime(),
     }),
   ),
@@ -61,7 +65,7 @@ export type ExtensionSignInPending = z.infer<
 
 export const ExtensionSignInAnswerInput = z.object({
   requestId: uuid,
-  /** The number picked; null for "That wasn't me". */
+  /** The number typed; null for "That wasn't me". */
   pick: z.number().int().min(10).max(99).nullable(),
 });
 export const ExtensionSignInAnswerOutput = z.object({

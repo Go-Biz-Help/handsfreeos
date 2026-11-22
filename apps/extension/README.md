@@ -590,8 +590,15 @@ From top to bottom:
 
 **Signing in with a prompt** (20261027002910). The person types their email and presses **Send me a prompt**; the
 panel shows a 2-digit number. Their phone gets a push (`extension_sign_in`), and any HandsFreeOS tab open in front of
-them asks "Signing in to the extension on Chrome? Pick the number you see." with three numbers. The right one signs
-the extension in within a couple of seconds; a wrong one, or **That wasn’t me**, stops it for good.
+them asks "Signing in to the extension on Chrome? Type the number the extension shows." The right number signs the
+extension in within a couple of seconds; a wrong one, or **That wasn’t me**, stops it for good.
+
+- **Typed, never picked from a list** (security audit, 21 Nov 2026). Anyone who knows an email can send that person a
+  prompt, so a list of three let a stranger in one tap in three. The prompt never shows words the caller sent: the
+  browser is one of a few names (`extensionBrowserName`), anything else "your browser". After a refused prompt (a
+  wrong number, or That wasn’t me) the email gets no new one for half an hour, and five an hour at most, counted in
+  the database (`private.extension_sign_in_wait`, 20261027032500). Phones on an older build get no numbers to pick
+  from until they update.
 
 - **The background holds the secret** (`src/hfos/prompt.ts`). Starting (`POST /public/extension-sign-in/start` on the
   worker) answers a request id, the number, a random secret and when it ends; the secret stays in the extension's
@@ -604,7 +611,7 @@ the extension in within a couple of seconds; a wrong one, or **That wasn’t me*
 - **Two minutes, once.** A request ends after 2 minutes, is answered once, and is handed over once. A new prompt for
   the same email cancels the one before.
 - **Nobody learns who has an account.** Starting answers the same for any email; one with no account simply never
-  gets answered. Starts are limited per address and per email.
+  gets answered. Starts are limited per address and per email, and the half-hour wait answers the same either way.
 - **Nobody signed in anywhere?** Nothing pops up, the prompt runs out, and **Use an emailed code instead** still works.
 
 **The first time** (decision 45 in docs/outreach.md): setting up Social Outreach happens in HandsFreeOS, not here.

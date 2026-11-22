@@ -150777,7 +150777,7 @@
     "/v1/queries/extension_sign_in.pending": {
       "post": {
         "operationId": "query_extension_sign_in_pending",
-        "summary": "Your sign-ins to the browser extension waiting for you to pick the number it shows, newest first.",
+        "summary": "Your sign-ins to the browser extension waiting for you to type the number it shows, newest first.",
         "tags": [
           "queries"
         ],
@@ -150815,7 +150815,6 @@
                             "type": "string"
                           },
                           "choices": {
-                            "minItems": 3,
                             "maxItems": 3,
                             "type": "array",
                             "items": {
