@@ -358,7 +358,7 @@ export const BusinessProfile = z
     termsPageUrl: z.url().max(300).nullable().optional(),
     /** The page carrying the tick box: the business's own for `own_site`, our form for `hosted`. */
     optInUrl: z
-      .url({ error: 'Enter the full address of the page with your tick box.' })
+      .url({ error: 'Enter the full address of the page your contact form is on.' })
       .max(300)
       .nullable()
       .optional(),
@@ -394,7 +394,8 @@ export const BusinessProfile = z
   })
   .refine((b) => b.optInPath !== 'own_site' || !!b.optInUrl, {
     path: ['optInUrl'],
-    error: 'Enter the address of the page with your tick box, like https://yoursite.com/contact.',
+    error:
+      'Enter the address of the page your contact form is on, like https://yoursite.com/contact.',
   })
   .refine((b) => b.optInPath !== 'in_person' || !!b.optInProofUrl, {
     path: ['optInProofUrl'],
@@ -555,6 +556,27 @@ export const RegistrationEmailWebPersonOutput = z.object({
   sentTo: z.string(),
   /** The files it carries, by name. */
   files: z.array(z.string()),
+});
+
+/**
+ * The contact form texting approval hands a business (the owner, 2026-11-22): made when the business is, and again
+ * when approval starts if it isn't there. It carries our box to agree to texts, so it's ready to go on their website.
+ */
+export const RegistrationEnsureContactFormInput = z.object({
+  workspaceId: uuid,
+  /** The business's website, so the form may show on it. Left out, the one in Settings → Workspace is used. */
+  website: z.string().trim().max(300).optional(),
+});
+export const RegistrationEnsureContactFormOutput = z.object({
+  formId: uuid,
+  name: z.string(),
+  /** Its public link is `/f/<siteSlug>/<slug>`. */
+  slug: z.string(),
+  siteSlug: z.string(),
+  /** The sites it may be framed on. */
+  embedOrigins: z.array(z.string()),
+  /** It was made just now; false when the business already had one. */
+  created: z.boolean(),
 });
 
 /** Worker: send what HandsFreeOS approved, exactly as the business left it. */

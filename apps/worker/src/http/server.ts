@@ -83,6 +83,7 @@ import { registerFoundingRoutes } from './founding';
 import { registerAffiliateRoutes } from './affiliates';
 import { registerLegalRoutes } from './legal';
 import { registerPolicyUpdateRoutes } from './policy-update';
+import { registerSiteFormsFoundRoutes } from './site-forms-found';
 import { registerFunnelRoutes } from '../funnels/draft';
 import { SafeFetchError } from './safe-fetch';
 import { registerSiteCheckRoutes, storedSitePages, withSitePages } from './site-check';
@@ -521,6 +522,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerLegalRoutes(app, deps);
   // A business's own policy or terms, given back with the texting section in place (20261027006500).
   await registerPolicyUpdateRoutes(app, deps);
+  await registerSiteFormsFoundRoutes(app, deps);
   // "Email your web person": the files as they'd go, before they're sent (2026-11-12).
   registerWebPersonRoutes(app, deps);
   // The registration's checks reading pages in the business's own browser, or from its screenshots (2026-11-20).

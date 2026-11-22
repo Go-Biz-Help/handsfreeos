@@ -533,7 +533,7 @@ describe('other ways customers agree', () => {
   it('checks each one like the main one, numbered in the order given', () => {
     const ok = checkOtherWay(page({ html: box }), { path: 'own_site' }, 0, ['Lone Star HVAC']);
     expect(ok).toMatchObject({ id: 'other_way_0', ok: true });
-    expect(ok.label).toMatch(/own website form/);
+    expect(ok.label).toMatch(/on your contact form/);
     const down = checkOtherWay(page({ status: 404, html: '' }), { path: 'in_person' }, 1);
     expect(down).toMatchObject({ id: 'other_way_1', ok: false, severity: 'blocker' });
   });

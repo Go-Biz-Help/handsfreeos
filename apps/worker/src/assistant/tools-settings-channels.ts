@@ -742,8 +742,8 @@ const USE_WORDS: Record<string, string> = {
   marketing: 'Marketing',
 };
 const OPT_IN_WORDS: Record<string, string> = {
-  hosted: 'The sign-up page HandsFreeOS hosts',
-  own_site: 'A box on their own website',
+  hosted: 'The website chat',
+  own_site: 'The contact form on their website',
   in_person: 'In person or on the phone',
 };
 
@@ -770,15 +770,15 @@ const REGISTRATION_ANSWERS: Readonly<Record<string, string>> = {
   samples: 'Example texts',
   optInPath: 'How customers agree',
   optIn: 'What we will tell the carriers',
-  optInUrl: 'The page with the box',
+  optInUrl: 'The page with the form',
   optInProofUrl: 'Proof of how they agree',
   ownPolicyUrl: 'Privacy policy',
   ownTermsUrl: 'Terms',
   policyEmail: 'Email on the policy',
   policyPhone: 'Phone on the policy',
 };
-/** The steps the screen opens at (its STEPS): How customers agree to get texts, and Before it goes. */
-const STEP_HOW_THEY_AGREE = { at: 5, title: 'How customers agree to get texts' } as const;
+/** The steps the screen opens at (its STEPS): How will customers agree to get texts?, and Before it goes. */
+const STEP_HOW_THEY_AGREE = { at: 5, title: 'How will customers agree to get texts?' } as const;
 const STEP_BEFORE_IT_GOES = { at: 7, title: 'Before it goes' } as const;
 
 /** One answer as the person reads it back. */
@@ -864,8 +864,8 @@ async function fillInCarrierRegistration(
   ].filter((key) => !has(key));
   // "None of these" is an answer ([]); never answered is not.
   if (!Array.isArray(form['sensitive'])) needed.push('sensitive');
-  // How customers agree writes what the carriers are told from the way picked, and for the sign-up page HandsFreeOS
-  // hosts sets up the chat that collects it, so it opens there until that's written; then at Before it goes.
+  // How customers agree writes what the carriers are told from the way picked, and for the website chat sets up the
+  // chat that collects it, so it opens there until that's written; then at Before it goes.
   const step = form['optInPath'] && has('optIn') ? STEP_BEFORE_IT_GOES : STEP_HOW_THEY_AGREE;
   await command(db, ctx, 'registration.save_draft', { answers: { form, at: step.at } });
   const back = `/app/w/${ctx.workspaceId}/settings/texting`;
@@ -885,7 +885,7 @@ async function fillInCarrierRegistration(
       ...(needed.includes('optIn')
         ? {
             whatWeWillTellTheCarriers:
-              'How customers agree writes it from the way picked when the person opens it there (Use our wording), and for the sign-up page HandsFreeOS hosts its button also sets up the chat that collects it. Or fill it in from what the person says (optIn).',
+              'How customers agree writes it from the way picked when the person opens it there (Use our wording), and for the website chat it also sets up the chat that collects it. Or fill it in from what the person says (optIn).',
           }
         : {}),
       sent: false,

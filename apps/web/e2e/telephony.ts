@@ -261,10 +261,16 @@ export async function setUpTexting(
   await expect(page.locator('#a2p-sample-1')).not.toHaveValue('');
   await next.click();
 
-  // 6. How customers agree. In person, so the test does not stand up a chat widget and a public form. In person
-  //    needs something a reviewer can open to see it: a page on the fixture site stands in for the photo.
-  await page.getByTestId('optin-in_person').click();
-  await page.getByTestId('a2p-optin-proof').fill(`${KNOWLEDGE_SITE}/contact`);
+  // 6. How customers agree: on the contact form every business is given, which is there (or made) when this question
+  //    opens. A page of the stand-in site shows it in a frame, the way a business's contact page does once the form's
+  //    code is pasted there, and the review really opens that page and looks inside the frame for the box.
+  await page.getByTestId('optin-own_site').click();
+  const formLink = page.getByTestId('optin-form-link');
+  await expect(formLink).toBeVisible({ timeout: 60_000 });
+  const formUrl = (await formLink.getAttribute('href'))!;
+  await page
+    .getByTestId('a2p-optin-url')
+    .fill(`${KNOWLEDGE_SITE}/with-form?src=${encodeURIComponent(`${formUrl}?embed=1`)}`);
   await next.click();
 
   // 7. The privacy policy and terms. The fixture site has a policy written properly, so this takes the "I
@@ -276,8 +282,8 @@ export async function setUpTexting(
   await page.getByLabel('Where your terms are').fill(`${KNOWLEDGE_SITE}/privacy`);
   await next.click();
 
-  // The review opens the website, the policy, the terms and (for in-person consent) the proof before it will
-  // let the registration go. Nothing is submitted until all four have been looked at.
+  // The review opens the website, the policy, the terms and the page with the contact form before it will let the
+  // registration go. Nothing is submitted until all four have been looked at.
   await expect(page.getByText('Your privacy policy covers texting')).toBeVisible({
     timeout: 30_000,
   });

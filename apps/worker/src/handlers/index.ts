@@ -181,6 +181,7 @@ import { onCompletedThankYou } from '../automations/thank-you';
 import { supportHandlers } from './support';
 import { ideaHandlers } from './ideas';
 import { affiliateHandlers } from './affiliates';
+import { onBusinessNeedsContactForm } from './contact-form';
 import { roadmapHandlers } from '../addons/roadmap';
 import { onFileFingerprint } from './file-fingerprint';
 import { documentHandlers } from '../documents/jobs';
@@ -379,8 +380,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       // Paid add-ons (20261027028500): the first charge when a trial is used up, the owners and admins told of a
       // refused charge or an add-on turned off, and a new card trying again what's past due (founding/addon-billing.ts).
       ...addonBillingHandlers,
-      // A business made in onboarding is a sign-up, told to Opinly when it has a key (opinly.ts).
-      'workspace.created': onBusinessCreated,
+      // A business made in onboarding is a sign-up, told to Opinly when it has a key (opinly.ts). Every new business
+      // gets its contact form too, the one texting approval puts on its website (handlers/contact-form.ts).
+      'workspace.created': [onBusinessCreated, onBusinessNeedsContactForm],
       // The usage wallet ran low (M16): if it has a card and automatic top-up on, the charge is queued as a job
       // for the same reason a refund is. `wallet.empty` brings no second attempt — by then the top-up has
       // already been tried — but it does bring the email, because a push can be switched off and at zero we do

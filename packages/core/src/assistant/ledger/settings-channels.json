@@ -17,7 +17,7 @@
     "apps/web/src/components/phone-setup/editors.tsx": "ef212390d4d3",
     "apps/web/src/components/phone-setup/number-picker.tsx": "0c548fbb78a8",
     "apps/web/src/components/phone-setup/phone-setup-flow.tsx": "1b96c6135e2a",
-    "apps/web/src/components/settings/a2p-wizard.tsx": "c63ce6558d95",
+    "apps/web/src/components/settings/a2p-wizard.tsx": "eafa385d2cf5",
     "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
     "apps/web/src/components/settings/email-page.tsx": "9663aed57df0",
@@ -36,7 +36,7 @@
     "apps/web/src/components/settings/templates-editor.tsx": "331baf537fed",
     "apps/web/src/components/settings/test-text-dialog.tsx": "7bce9b29ee3c",
     "apps/web/src/components/settings/texting-page.tsx": "82451ea75083",
-    "apps/web/src/components/settings/web-person.tsx": "f1689ff9d654",
+    "apps/web/src/components/settings/web-person.tsx": "4dd5b4eb3be7",
     "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d",
     "apps/web/src/components/texting-approval/texting-approval-flow.tsx": "3d171675cb71",
     "apps/web/src/lib/chat/editor-data.ts": "84f9988ce043",
@@ -912,72 +912,114 @@
       "by": "the Assistant writes two that fit what the business said, each naming it and one saying how to stop; the page’s own list isn’t in a tool"
     },
     {
-      "path": "Texting → Registration → Opt-in → Let us collect it / my own website / in person or on the phone",
+      "path": "Texting → Registration → Opt-in → What’s on your site now: each form that asks for a phone number, with its page",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1132",
+      "covered": "no",
+      "by": "the worker’s look through the site (site-forms) has no tool"
+    },
+    {
+      "path": "Texting → Registration → Opt-in → Use the chat / Use the contact form we made for you",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:913",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1200",
       "covered": "yes",
       "by": "fill_in_carrier_registration optInPath"
     },
     {
+      "path": "Texting → Registration → Opt-in → Something else? Use both",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1246",
+      "covered": "partly",
+      "by": "fill_in_carrier_registration picks one way; the chat and the form together is picked on this step"
+    },
+    {
       "path": "Texting → Registration → Opt-in → chat sign-up page link",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:966",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1355",
       "covered": "partly",
       "by": "get_settings website_chat gives the key, not the link"
     },
     {
-      "path": "Texting → Registration → Opt-in → Set this up for me",
+      "path": "Texting → Registration → Opt-in → Use the chat makes the chat; Set this up for me changes one that doesn’t ask",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1028",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1334",
       "covered": "yes",
       "by": "manage_website_chat create/change askForSmsConsent"
     },
     {
-      "path": "Texting → Registration → Opt-in → copy the chat snippet",
+      "path": "Texting → Registration → Opt-in → chat steps: copy the code, take the forms off, press the chat button once",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:986",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1282",
       "covered": "yes",
       "by": "get_settings website_chat snippet"
     },
     {
-      "path": "Texting → Registration → Opt-in → The page with your tick box",
+      "path": "Texting → Registration → Opt-in → contact form: made for the business, Try again",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1060",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1383",
       "covered": "yes",
-      "by": "fill_in_carrier_registration optInUrl"
+      "by": "do_registration_ensure_contact_form"
     },
     {
-      "path": "Texting → Registration → Opt-in → tick-box wording and policy paragraph to copy",
+      "path": "Texting → Registration → Opt-in → contact form: the box’s words",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1078",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1431",
       "covered": "no",
       "by": "written in the browser"
     },
     {
-      "path": "Texting → Registration → Opt-in → A link to what customers see or hear",
+      "path": "Texting → Registration → Opt-in → contact form: See it, Change the questions",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1446",
+      "covered": "yes",
+      "by": "do_registration_ensure_contact_form gives the form and its link; get_form reads it"
+    },
+    {
+      "path": "Texting → Registration → Opt-in → contact form: copy the code",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1133",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1488",
+      "covered": "yes",
+      "by": "get_form embed code"
+    },
+    {
+      "path": "Texting → Registration → Opt-in → contact form: The page with the form",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1514",
+      "covered": "yes",
+      "by": "fill_in_carrier_registration optInUrl"
+    },
+    {
+      "path": "Texting → Registration → Opt-in → contact form: Check my site",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1543",
+      "covered": "no",
+      "by": "the worker’s look through the site (site-forms) has no tool"
+    },
+    {
+      "path": "Texting → Registration → Opt-in → A link to what customers see or hear (only for an answer saved as in person)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1587",
       "covered": "yes",
       "by": "fill_in_carrier_registration optInProofUrl"
     },
     {
-      "path": "Texting → Registration → Opt-in → other ways: kind, link, Remove, Add another way",
+      "path": "Texting → Registration → Opt-in → other ways (only for an answer saved with them): link, Remove",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1230",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1711",
       "covered": "partly",
-      "by": "fill_in_carrier_registration says other ways are added on How customers agree; it doesn’t take them"
+      "by": "no longer offered; fill_in_carrier_registration doesn’t take them, so a saved one is changed or taken out on this step"
     },
     {
       "path": "Texting → Registration → Opt-in → What we will tell the carriers",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1167",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1629",
       "covered": "yes",
       "by": "fill_in_carrier_registration optIn"
     },
     {
       "path": "Texting → Registration → Opt-in → Use our wording",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1185",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1645",
       "covered": "no",
       "by": "the wording is written in the browser"
     },
@@ -2774,23 +2816,23 @@
       "by": "secrets never go through a chat"
     },
     {
-      "path": "Texting → Registration → Opt-in → Let us collect it → Email your web person",
+      "path": "Texting → Registration → Opt-in → Use the chat → Send this to my web person",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1039",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1370",
       "covered": "yes",
       "by": "do_registration_email_web_person"
     },
     {
-      "path": "Texting → Registration → Opt-in → my own website → Email your web person",
+      "path": "Texting → Registration → Opt-in → contact form → Send this to my web person",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1107",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1536",
       "covered": "yes",
       "by": "do_registration_email_web_person"
     },
     {
-      "path": "Texting → Registration → Opt-in → my own website / in person → Hide the website chat until texting is approved",
+      "path": "Texting → Registration → Opt-in → contact form / in person → Hide the website chat until texting is approved",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1118",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1566",
       "covered": "yes",
       "by": "do_chat_widget_hide_until_texting"
     },

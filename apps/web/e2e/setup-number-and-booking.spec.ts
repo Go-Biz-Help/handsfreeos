@@ -5,7 +5,7 @@ import { BUSINESS_ADDRESS, createBusiness, signUpAndConfirm } from './helpers';
 /**
  * Setup's number and calendar steps the way a new owner with an EIN meets them, and what used to trip them up
  * (onboarding question 55): the website and the address from setup's first screen are already in website chat and
- * in the carriers' form; "Set this up for me" gives the website chat with the agreement box (its code to paste in
+ * in the carriers' form; picking the chat gives the website chat with the agreement box (its code to paste in
  * the footer, and a page showing what it asks) and the privacy policy and terms we host their addresses at once, so
  * the review lets the registration go without a reload once the chat has opened on the website; paying the
  * carriers' fees on Stripe's page comes back to the setup, not Settings; and the booking page the chat's box named,
@@ -81,10 +81,9 @@ test('setup: a local number on what we host, its fees paid, and the booking page
   await page.getByTestId('a2p-suggestion-1').click();
   await next.click();
 
-  // How customers agree: ours. The chat for their website, with its code to paste in the footer and the page showing
+  // How customers agree: the chat, made the moment it's picked. Its code to paste in the footer and the page showing
   // what it asks for the reviewer; its box names the business's first public page.
   await page.getByTestId('optin-hosted').click();
-  await page.getByRole('button', { name: 'Set this up for me' }).click();
   await expect(page.getByTestId('optin-chat-code')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('chat-snippet')).toContainText('/embed/v1/wk_');
   await expect(page.getByTestId('chat-install')).toContainText('Not seen yet');
