@@ -802,7 +802,10 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
         throw HfosError.notFound(
           'That sending address isn’t there anymore. It may have been removed. Pick another address.',
         );
-      if (!wanted.usable)
+      // A person who picked it is told. Anything set to send from it (the AI teammate's "Emails from", a workflow's
+      // step) carries on from the default or the shared address, as the owners are told when a domain stops
+      // verifying: it would otherwise stop answering customers until someone fixed the DNS.
+      if (!wanted.usable && ctx.actor.type === 'human')
         throw HfosError.rule(
           'email_domain_unverified',
           409,
