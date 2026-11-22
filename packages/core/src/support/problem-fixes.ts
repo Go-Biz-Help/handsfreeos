@@ -201,14 +201,6 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     said: 'A newer Page’s link has its profile number, which Business Suite won’t open: the Page’s own number (delegate_page) is tried first now, then the others.',
   },
   {
-    area: 'instagram',
-    job: 'warm_up',
-    note: 'Couldn’t like (their name)’s post on this visit',
-    fixedIn: '0.140.2',
-    pr: 626,
-    said: 'A reel opens in the reels player, with the next reel under it, no article and a Comment named by its count, so no author was found and no like on a reel ever went: the reel it opened on is found by its own Like and its account’s links (0.136.1, #607). Then a post or reel on their grid made with other accounts reads “(someone) and 2 others” over it, so its author was someone else: one they made with its author is liked now.',
-  },
-  {
     area: 'facebook',
     job: 'warm_up',
     note: 'Couldn’t like (their name)’s post',
@@ -263,14 +255,6 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     fixedIn: '0.140.8',
     pr: 638,
     said: 'Threads’ reply box ignores the “select all, delete” the extension used to take its word out again. It now waits for the box to see the selection and types nothing over it, which Threads’ editor takes.',
-  },
-  {
-    area: 'facebook',
-    job: 'comment',
-    note: 'couldn’t find the box to comment in',
-    fixedIn: '0.141.1',
-    pr: 643,
-    said: 'The post’s bar had Like and Share but no Comment, and no box: its author limited who can comment. The step now passes such a post over (“it doesn’t let you comment on it”) with nothing reported.',
   },
   {
     area: 'threads',
@@ -376,6 +360,22 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     before: '2026-11-20T18:30:00Z',
     pr: 689,
     said: 'Now and then Claude, and the backup AI behind it, were both overloaded or out of reach for a draft (5 on the evening of 19 Nov among about 380 answers), and the draft failed at once. A busy AI is asked once more after 3 seconds now, as an empty answer already was.',
+  },
+  {
+    area: 'instagram',
+    job: 'warm_up',
+    note: 'Couldn’t like (their name)’s post on this visit',
+    fixedIn: '0.150.3',
+    pr: 703,
+    said: 'A reel opens in the reels player, with the next reel under it, no article and a Comment named by its count, so no author was found and no like on a reel ever went: the reel it opened on is found by its own Like and its account’s links (0.136.1, #607). Then a post or reel on their grid made with other accounts reads “(someone) and 2 others” over it, so its author was someone else: one they made with its author is liked now (0.140.2, #626). Then, on a reel whose account is Verified, the tick’s own title (“Verified”) read as words between the account and “and”: an icon’s title is passed over now.',
+  },
+  {
+    area: 'facebook',
+    job: 'comment',
+    note: 'couldn’t find the box to comment in',
+    fixedIn: '0.150.3',
+    pr: 703,
+    said: 'The post’s bar had Like and Share but no Comment, and no box: its author limited who can comment. The step passes such a post over (“it doesn’t let you comment on it”) with nothing reported (0.141.1, #643). Then a post’s own page showed only Facebook’s “This content isn’t available right now”, as its writer deleted or hid it after it was found: such a post is passed over too now, before the AI is asked for a comment.',
   },
 ];
 

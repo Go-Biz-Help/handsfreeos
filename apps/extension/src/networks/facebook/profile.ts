@@ -328,11 +328,12 @@ function pagesIn(
 }
 
 /**
- * Whether the page is Facebook's own for a profile that can't be seen: "This content isn't available right now" as a
- * heading in the main column, a line on why, Go to Feed and Go back (the problem report of 13 Nov 2026). Only with no
- * name found, as a post on a profile can carry those words for a shared post that's gone.
+ * Whether the page is Facebook's own for a profile or a post that can't be seen: "This content isn't available right
+ * now" as a heading in the main column, a line on why, Go to Feed and Go back (the problem reports of 13 Nov 2026, a
+ * profile, and 21 Nov 2026, a post). Only with no name or no post found, as a post can carry those words for a shared
+ * post that's gone.
  */
-const unavailableIn = (root: Element): boolean =>
+export const unavailableIn = (root: Element): boolean =>
   [...root.querySelectorAll('h1, h2')].some((h) => saysNotThere(clean(h.textContent), 'facebook'));
 
 export function readProfile(

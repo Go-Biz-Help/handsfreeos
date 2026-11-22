@@ -226,6 +226,11 @@ export interface ReadResult {
   readonly posts?: readonly Post[];
   readonly chats?: readonly ChatSummary[];
   readonly notices?: readonly Notice[];
+  /**
+   * On a post's own page, Facebook shows "This content isn't available right now" where the post was, and no post:
+   * whoever wrote it deleted it, or hid it from you (./profile.ts).
+   */
+  readonly unavailable?: true;
   /** The events an event search lists (decision 188). */
   readonly events?: readonly EventCard[];
   /** An event's own page (decision 188). */
