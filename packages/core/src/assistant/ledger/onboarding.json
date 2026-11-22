@@ -66,7 +66,7 @@
     "apps/web/src/components/onboarding/tour.tsx": "ed01fb35dc0e",
     "apps/web/src/components/onboarding/wizard-footer.tsx": "2ac05b5860c6",
     "apps/web/src/components/onboarding/wizard-frame.tsx": "8b19dc4eac8c",
-    "apps/web/src/components/settings/a2p-wizard.tsx": "bf187e51ead5",
+    "apps/web/src/components/settings/a2p-wizard.tsx": "c63ce6558d95",
     "apps/web/src/components/settings/industry-picker.tsx": "3f2b1832961c",
     "apps/web/src/components/settings/my-cell-section.tsx": "bcce54a8161d",
     "apps/web/src/components/settings/number-import.tsx": "c09a55fe0fe4",
@@ -1922,217 +1922,217 @@
     {
       "path": "Set up → Number → Registration → saving / saved / couldn’t save",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1613",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2295",
       "covered": "yes",
       "by": "fill_in_carrier_registration result; read_registration_get_draft"
     },
     {
       "path": "Set up → Number → Registration → review banner: waiting, approved, sent back with note",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2498",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2933",
       "covered": "yes",
       "by": "read_registration_review_get"
     },
     {
       "path": "Set up → Number → Registration → Business: IRS name, kind of business, EIN",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1626",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1787",
       "covered": "yes",
       "by": "fill_in_carrier_registration legalName, businessType, ein"
     },
     {
       "path": "Set up → Number → Registration → DBA callout, sole proprietor note, registered elsewhere hint",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1630",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:540",
       "covered": "yes",
       "by": "fill_in_carrier_registration description and ein"
     },
     {
       "path": "Set up → Number → Registration → Where: website, street, city, state, ZIP",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1685",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1844",
       "covered": "yes",
       "by": "fill_in_carrier_registration website, line1, city, state, postalCode"
     },
     {
       "path": "Set up → Number → Registration → must match the IRS address",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1697",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1860",
       "covered": "yes",
       "by": "fill_in_carrier_registration line1: the address the IRS has for the EIN"
     },
     {
       "path": "Set up → Number → Registration → Contact: first, last, email, phone",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1710",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1866",
       "covered": "yes",
       "by": "fill_in_carrier_registration contactFirst, contactLast, contactEmail, contactPhone"
     },
     {
       "path": "Set up → Number → Registration → About: what you text about, roughly how many",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1720",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1883",
       "covered": "yes",
       "by": "fill_in_carrier_registration useCase, volume"
     },
     {
       "path": "Set up → Number → Registration → About: topics carriers treat differently",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1773",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1914",
       "covered": "yes",
       "by": "fill_in_carrier_registration sensitive ([] for none of these)"
     },
     {
       "path": "Set up → Number → Registration → Samples: Example 1..n",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1797",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1960",
       "covered": "yes",
       "by": "fill_in_carrier_registration samples"
     },
     {
-      "path": "Set up → Number → Registration → Samples: suggested examples",
+      "path": "Set up → Number → Registration → Samples: Pick from these: each example by what it’s for, Use this",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1810",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2388",
       "covered": "partly",
-      "by": "the Assistant writes its own"
+      "by": "the Assistant writes two that fit what the business said, each naming it and one saying how to stop; the page’s own list isn’t in a tool"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: let us collect it / own website / in person",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:667",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:913",
       "covered": "yes",
       "by": "fill_in_carrier_registration optInPath"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: chat sign-up page link",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:940",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:966",
       "covered": "partly",
       "by": "get_settings website_chat gives the key, not the link"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: Set this up for me",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:961",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1028",
       "covered": "yes",
       "by": "manage_website_chat askForSmsConsent"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: copy the chat snippet",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:970",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:986",
       "covered": "yes",
       "by": "get_settings website_chat snippet"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: tick-box page, proof link, other ways",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:979",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1060",
       "covered": "partly",
       "by": "fill_in_carrier_registration optInUrl, optInProofUrl; other ways are added on How customers agree"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: tick-box wording and policy paragraph to copy",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1000",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1078",
       "covered": "no",
       "by": "written in the browser"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: What we will tell the carriers",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1064",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1167",
       "covered": "yes",
       "by": "fill_in_carrier_registration optIn"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: Use our wording",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1084",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1185",
       "covered": "no",
       "by": "the wording is written in the browser"
     },
     {
       "path": "Set up → Number → Registration → Policy: contact, privacy ours/own, terms ours/own",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2030",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2511",
       "covered": "yes",
       "by": "fill_in_carrier_registration policyEmail, policyPhone, ownPolicyUrl, ownTermsUrl"
     },
     {
       "path": "Set up → Number → Registration → Policy: clause, preview, link to ours",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2450",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2574",
       "covered": "no",
       "by": "built in the browser"
     },
     {
       "path": "Set up → Number → Registration → Policy: add it for me, paste box, copy the new section",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2330",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2706",
       "covered": "no",
       "by": "worker policyUpdate has no tool"
     },
     {
       "path": "Set up → Number → Registration → Review: blockers, checks list, Check again",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2560",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3077",
       "covered": "no",
       "by": "worker registrationPreflight has no tool"
     },
     {
       "path": "Set up → Number → Registration → Review: confirmation boxes, details are accurate",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2650",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3171",
       "covered": "partly",
       "by": "fill_in_carrier_registration opens Before it goes; the ticks are the person’s there (registration.submit not yet)"
     },
     {
       "path": "Set up → Number → Registration → Review: summary rows with Change",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2735",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:3218",
       "covered": "yes",
       "by": "read_registration_get_draft"
     },
     {
       "path": "Set up → Number → Registration → fees: lines, now total, monthly",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1970",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2060",
       "covered": "yes",
       "by": "get_settings texting textingFees; read_usage_prices"
     },
     {
       "path": "Set up → Number → Registration → Ask HandsFreeOS to check it",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1960",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2121",
       "covered": "yes",
       "by": "do_registration_request_review"
     },
     {
       "path": "Set up → Number → Registration → Continue (saves)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2003",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2168",
       "covered": "yes",
       "by": "fill_in_carrier_registration"
     },
     {
       "path": "Set up → Number → Registration → Send to the carriers",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1994",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2154",
       "covered": "partly",
       "by": "fill_in_carrier_registration fills it in and opens Before it goes, which checks and sends (registration.submit not yet)"
     },
     {
       "path": "Set up → Number → Registration → Pay $X and send",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1993",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2160",
       "covered": "person",
       "by": "paying on Stripe’s page"
     },
     {
       "path": "Set up → Number → Registration → Fix the above to carry on",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2010",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2177",
       "covered": "no",
       "by": "from the worker preflight"
     },
@@ -3164,6 +3164,27 @@
       "file": "apps/mobile/src/onboarding/use-getting-started.ts:95",
       "covered": "yes",
       "by": "read_onboarding_status (the card itself is in the Home ledger)"
+    },
+    {
+      "path": "Set up → Number → Registration → Samples: Pick from these: All, Appointments, Replies, Payments, Offers",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2376",
+      "covered": "yes",
+      "by": "only narrows the page’s own list; fill_in_carrier_registration samples takes any two"
+    },
+    {
+      "path": "Set up → Number → Registration → Samples: Pick from these: Show general ones / Show the ones for my kind",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2400",
+      "covered": "yes",
+      "by": "only changes the page’s own list; fill_in_carrier_registration samples takes any two"
+    },
+    {
+      "path": "Set up → Number → Registration → Samples: Says <business>, Says how to stop, N of 320",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:2315",
+      "covered": "yes",
+      "by": "fill_in_carrier_registration refuses an example that doesn’t name the business, and a set with no way to stop, in the same words"
     }
   ],
   "gaps": [

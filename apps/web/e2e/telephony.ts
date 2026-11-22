@@ -218,8 +218,10 @@ export async function setUpTexting(
 ): Promise<string> {
   const e164 = await getNumber(page, workspaceId, opts);
   await page.getByTestId('phone-setup-approval').click();
+  // Texting approval is its own guided page: what's coming and what to have handy, then the questions.
+  await page.getByTestId('texting-approval-start').click({ timeout: 90_000 });
   await expect(page.getByTestId('business-step')).toBeVisible({ timeout: 90_000 });
-  // The registration is a wizard now: one question at a time, and a step with a blocker on it will not
+  // The registration is a wizard: one question at a time, and a step with a blocker on it will not
   // advance. So this walks it the way a business does, and a check that starts failing here is the wizard
   // refusing details a carrier would have refused later.
   const next = page.getByTestId('a2p-next');
@@ -286,8 +288,9 @@ export async function setUpTexting(
   await expect(page.getByTestId('registration-all-green')).toBeVisible({ timeout: 30_000 });
   await page.getByTestId('business-agree').check();
   await page.getByTestId('submit-registration').click();
-  // The details go to the (fake) carriers. On a cold server that can take a while, and they may approve before the
-  // review step has shown, so either will do; then the page turns into the configured settings.
+  // The details go to the (fake) carriers and the guided page hands over to Settings. On a cold server that can take
+  // a while, and they may approve before the review step has shown, so either will do; then the page turns into the
+  // configured settings.
   await expect(
     page.getByTestId('review-step').or(page.getByTestId('texting-approved')).first(),
   ).toBeVisible({ timeout: 60_000 });

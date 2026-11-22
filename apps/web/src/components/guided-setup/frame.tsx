@@ -163,6 +163,8 @@ export interface GuidedStep {
   readonly label: string;
   readonly value: string | null;
   readonly state: 'done' | 'now' | 'todo';
+  /** The part of the setup it belongs to ("Your business"), for a long setup: named above its first question. */
+  readonly group?: string;
 }
 
 export function GuidedCard({
@@ -239,7 +241,16 @@ function StepList({ title, steps }: { title: string; steps: readonly GuidedStep[
         {title}
       </div>
       <ol className="flex flex-col gap-1">
-        {steps.map((s, i) => (
+        {steps.flatMap((s, i) => [
+          s.group && s.group !== steps[i - 1]?.group ? (
+            <li
+              key={`group-${s.group}`}
+              className={cn('px-2.5 pb-0.5 text-xs font-semibold text-text-3', i > 0 && 'pt-2')}
+              data-testid="guided-step-group"
+            >
+              {s.group}
+            </li>
+          ) : null,
           <li
             key={s.key}
             className={cn(
@@ -276,8 +287,8 @@ function StepList({ title, steps }: { title: string; steps: readonly GuidedStep[
                 <span className="break-words text-[13px] text-text-2">{s.value}</span>
               ) : null}
             </span>
-          </li>
-        ))}
+          </li>,
+        ])}
       </ol>
     </>
   );

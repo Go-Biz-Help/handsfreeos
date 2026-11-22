@@ -22,6 +22,7 @@
  * can be decided from the form alone, and it is browser-safe so the wizard can run it on every keystroke.
  */
 import { normalizePhone } from '../crm/phone';
+import { findIndustry, type IndustryGroupName } from '../industries';
 import { STOP_KEYWORDS } from './sms';
 import type { OptInPath } from './consent';
 import {
@@ -255,27 +256,281 @@ export function checkSample(sample: string, business: string): A2pIssue[] {
   return issues;
 }
 
+/** The kinds of example text, as the picker sorts them. Offers only show for a business that sends them. */
+export const SAMPLE_KINDS = [
+  { id: 'appointments', label: 'Appointments' },
+  { id: 'replies', label: 'Replies' },
+  { id: 'payments', label: 'Payments' },
+  { id: 'offers', label: 'Offers' },
+] as const;
+export type SampleKind = (typeof SAMPLE_KINDS)[number]['id'];
+
+/** One example text to start from: what it is ("Reminder"), its kind, and the words. */
+export interface SampleChoice {
+  readonly id: string;
+  readonly kind: SampleKind;
+  readonly label: string;
+  readonly text: string;
+}
+
 /**
- * Example texts a business can start from, already carrying the things a reviewer checks for: the
- * business's name, a real reason to be texting, and STOP on the last one.
- *
- * Offered rather than imposed. A business that writes its own texts writes better ones, and a campaign
- * whose samples all read as though the same tool wrote them is its own kind of flag.
+ * The words that change with the kind of business, so a salon is offered a salon's texts and a plumber a
+ * plumber's (the owner, 22 Nov 2026: the three written for a repair business "didn't always fit or maybe only
+ * one did"). One set for each group of kinds in `industries.ts`; a kind the list doesn't have gets the general set.
  */
-export function sampleSuggestions(business: string, useCase: string): string[] {
+interface SampleWords {
+  /** What is booked: "appointment", "visit", "class". */
+  readonly booked: string;
+  /** The reminder's middle: "you’re booked with [Name]", "we’re coming out". */
+  readonly reminder: string;
+  /** The fourth appointment text, which is the one that differs most: its name, and its words after the business. */
+  readonly day: { readonly label: string; readonly text: (who: string) => string };
+  /** How a place comes free: "[Time] on [Date] just opened up". */
+  readonly opening: string;
+  /** What the receipt thanks them for: "coming in today", "having us out today". */
+  readonly thanks: string;
+  /** What is owed for: "[Service]", "your order". */
+  readonly owedFor: string;
+  /** What an offer takes money off: "a tune-up", "your next visit". */
+  readonly offerOn: string;
+  /** What "it’s been a while since your last …" names. */
+  readonly last: string;
+}
+
+const behind = {
+  label: 'Running late',
+  text: (who: string) =>
+    `${who}: we’re running about [Minutes] minutes behind today, [First Name]. Sorry for the wait, and see you soon.`,
+};
+const onTheWay = (person: string) => ({
+  label: 'On the way',
+  text: (who: string) =>
+    `${who}: ${person} is on the way and should be with you in about [Minutes] minutes.`,
+});
+const ready = (what: string) => ({
+  label: 'Ready',
+  text: (who: string) =>
+    `${who}: good news, [First Name]. ${what} is ready. We’re open until [Time] today.`,
+});
+
+const GENERAL: SampleWords = {
+  booked: 'appointment',
+  reminder: 'your appointment is',
+  day: behind,
+  opening: '[Time] on [Date] just opened up',
+  thanks: 'your business today',
+  owedFor: '[Service]',
+  offerOn: 'your next visit',
+  last: 'visit',
+};
+
+const SAMPLE_WORDS: Readonly<Record<IndustryGroupName, SampleWords>> = {
+  'Home services & trades': {
+    booked: 'appointment',
+    reminder: 'we’re coming out',
+    day: onTheWay('[Technician]'),
+    opening: 'we can come out on [Date] at [Time]',
+    thanks: 'having us out today',
+    owedFor: '[Job]',
+    offerOn: 'a tune-up',
+    last: 'service',
+  },
+  'Real estate & property': {
+    ...GENERAL,
+    booked: 'showing',
+    reminder: 'your showing is',
+    day: onTheWay('[Name]'),
+    thanks: 'meeting with us today',
+    offerOn: 'a home valuation',
+    last: 'chat with us',
+  },
+  'Health & care': { ...GENERAL, thanks: 'coming in today' },
+  'Beauty & fitness': {
+    ...GENERAL,
+    reminder: 'you’re booked with [Name]',
+    thanks: 'coming in today',
+  },
+  Pets: {
+    ...GENERAL,
+    reminder: '[Pet Name] is booked in',
+    day: ready('[Pet Name]'),
+    thanks: 'bringing [Pet Name] in today',
+  },
+  'Auto & vehicles': {
+    ...GENERAL,
+    reminder: 'your [Vehicle] is booked in',
+    day: ready('Your [Vehicle]'),
+    thanks: 'bringing your [Vehicle] in',
+    offerOn: 'your next service',
+    last: 'service',
+  },
+  'Finance, legal & insurance': {
+    ...GENERAL,
+    booked: 'meeting',
+    reminder: 'your meeting with [Name] is',
+    thanks: 'meeting with us today',
+    offerOn: 'your next review',
+    last: 'review',
+  },
+  'Education & childcare': {
+    ...GENERAL,
+    booked: 'class',
+    reminder: 'your class is',
+    thanks: 'joining us today',
+    offerOn: 'your next class',
+    last: 'class',
+  },
+  'Events, food & hospitality': {
+    ...GENERAL,
+    booked: 'booking',
+    reminder: 'your booking is',
+    thanks: 'joining us today',
+    owedFor: 'your booking',
+    offerOn: 'your next booking',
+    last: 'booking',
+  },
+  'Rentals & equipment': {
+    ...GENERAL,
+    booked: 'booking',
+    reminder: 'your pickup is',
+    day: ready('Your [Item]'),
+    thanks: 'renting with us',
+    owedFor: 'your rental',
+    offerOn: 'your next rental',
+    last: 'rental',
+  },
+  'Professional services': {
+    ...GENERAL,
+    booked: 'meeting',
+    reminder: 'your meeting with [Name] is',
+    thanks: 'meeting with us today',
+    owedFor: '[Project]',
+    offerOn: 'your next project',
+    last: 'project',
+  },
+  Retail: {
+    ...GENERAL,
+    booked: 'pickup',
+    reminder: 'your pickup is',
+    day: ready('Your order'),
+    thanks: 'your order',
+    owedFor: 'your order',
+    offerOn: 'your next order',
+    last: 'order',
+  },
+  Community: {
+    ...GENERAL,
+    booked: 'booking',
+    reminder: 'we’ll see you',
+    thanks: 'joining us today',
+    offerOn: 'your next booking',
+    last: 'visit',
+  },
+  'Something else': GENERAL,
+};
+
+/** Does this kind of business get example texts worded for it, rather than the general ones? */
+export function samplesFitIndustry(industry: string | null | undefined): boolean {
+  const group = findIndustry(industry)?.group;
+  return !!group && group !== 'Something else';
+}
+
+/**
+ * Example texts a business can start from, already carrying the things a reviewer checks for: the business's
+ * name, a real reason to be texting, the parts that change in brackets, and STOP on some.
+ *
+ * Eight for a business that only texts about a customer's own work, sorted by kind, and two offers more for one
+ * that sends them. `industry` words them for the business's kind ("[Technician] is on the way" for a trade, "you’re
+ * booked with [Name]" for a salon); without one, or for a kind we have no words for, they're general.
+ *
+ * Offered rather than imposed. A business that writes its own texts writes better ones, and a campaign whose
+ * samples all read as though the same tool wrote them is its own kind of flag.
+ */
+export function sampleChoices(
+  business: string,
+  useCase: string,
+  industry?: string | null,
+): SampleChoice[] {
   const who = business.trim() || 'Lone Star HVAC';
-  const care = [
-    `${who}: hi [First Name], your appointment is confirmed for [Date] at [Time]. Reply STOP to stop texts.`,
-    `Hi [First Name], it's ${who}. Your estimate is ready — reply here and we'll send it over.`,
-    `${who}: [Technician] is on the way and should be with you in about [Minutes] minutes.`,
+  const w = SAMPLE_WORDS[findIndustry(industry)?.group ?? 'Something else'];
+  const care: SampleChoice[] = [
+    {
+      id: 'confirmed',
+      kind: 'appointments',
+      label: 'Confirmed',
+      text: `${who}: hi [First Name], your ${w.booked} is confirmed for [Date] at [Time]. Reply STOP to stop texts.`,
+    },
+    {
+      id: 'reminder',
+      kind: 'appointments',
+      label: 'Reminder',
+      text: `Hi [First Name], it’s ${who}. A reminder that ${w.reminder} tomorrow at [Time]. Reply here if you need to change it.`,
+    },
+    {
+      id: 'moved',
+      kind: 'appointments',
+      label: 'Moved',
+      text: `Hi [First Name], it’s ${who}. We had to move your [Date] ${w.booked}. Does [Time] on [New Date] work instead?`,
+    },
+    { id: 'day', kind: 'appointments', label: w.day.label, text: w.day.text(who) },
+    {
+      id: 'opening',
+      kind: 'appointments',
+      label: 'A spot opened up',
+      text: `Hi [First Name], it’s ${who}. You asked for something sooner, and ${w.opening}. Want it?`,
+    },
+    {
+      id: 'reply',
+      kind: 'replies',
+      label: 'Reply',
+      text: `Hi [First Name], it’s ${who}. We got your message and will get back to you today.`,
+    },
+    {
+      id: 'receipt',
+      kind: 'payments',
+      label: 'Receipt',
+      text: `${who}: thanks for ${w.thanks}, [First Name]. Your receipt is here: [Link]. Reply STOP to stop texts.`,
+    },
+    {
+      id: 'owed',
+      kind: 'payments',
+      label: 'What’s owed',
+      text: `${who}: hi [First Name], your total for ${w.owedFor} comes to $[Amount]. You can pay here: [Link].`,
+    },
   ];
-  const marketing = [
-    `${who}: spring special — $[Amount] off a tune-up booked this month. Reply here to book. Reply STOP to stop texts.`,
-    `Hi [First Name], it's ${who}. It's been six months since your last service — would you like us to book the next one?`,
+  const offers: SampleChoice[] = [
+    {
+      id: 'special',
+      kind: 'offers',
+      label: 'This month’s special',
+      text: `${who}: this month’s special, [First Name]: $[Amount] off ${w.offerOn} before [Date]. Reply here to claim it. Reply STOP to stop texts.`,
+    },
+    {
+      id: 'due',
+      kind: 'offers',
+      label: 'Time for the next one',
+      text: `Hi [First Name], it’s ${who}. It’s been a while since your last ${w.last}. Want us to book the next one? Reply STOP to stop texts.`,
+    },
   ];
-  if (useCase === 'marketing') return marketing;
-  if (useCase === 'mixed') return [care[0]!, marketing[0]!, care[2]!];
+  if (useCase === 'marketing') return [...offers, ...care];
+  if (useCase === 'mixed') return [...care, ...offers];
   return care;
+}
+
+/**
+ * The same, as words alone, in the order a business most often wants them: for a mixed campaign one about a
+ * customer's own work and then an offer, because its two examples have to show both.
+ */
+export function sampleSuggestions(
+  business: string,
+  useCase: string,
+  industry?: string | null,
+): string[] {
+  const all = sampleChoices(business, useCase, industry);
+  if (useCase !== 'mixed') return all.map((c) => c.text);
+  const offer = all.find((c) => c.kind === 'offers')!;
+  const rest = all.filter((c) => c !== offer);
+  return [rest[0]!.text, offer.text, ...rest.slice(1).map((c) => c.text)];
 }
 
 /**
