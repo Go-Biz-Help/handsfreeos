@@ -856,7 +856,7 @@ function DoneScreen({
           </ul>
           <div className="mt-1 flex flex-wrap gap-2">
             <ButtonLink
-              href={`${settings}#approval`}
+              href={`/onboarding/${workspaceId}/texting`}
               variant="primary"
               size="lg"
               data-testid="phone-setup-approval"

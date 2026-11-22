@@ -17,13 +17,17 @@ import {
   issuesFor,
   readsPromotional,
   sampleHasOptOut,
+  SAMPLE_KINDS,
+  sampleChoices,
   sampleNamesBusiness,
+  samplesFitIndustry,
   sampleSuggestions,
   senderForCarriers,
   sensitiveFlags,
   type A2pDraft,
 } from '../src/messaging/a2p';
 import { optInDescriptionFor, liveSurfaces } from '../src/messaging/consent';
+import { INDUSTRIES } from '../src/industries';
 
 const BUSINESS = 'Lone Star HVAC';
 
@@ -213,6 +217,52 @@ describe('the suggested examples pass our own checks', () => {
       expect(samples.some(sampleHasOptOut)).toBe(true);
     });
   }
+
+  it('offers eight to pick from, sorted by kind, and two offers more for a business that sends them', () => {
+    const care = sampleChoices(BUSINESS, 'customer_care');
+    expect(care).toHaveLength(8);
+    expect(new Set(care.map((c) => c.id)).size).toBe(8);
+    expect(care.filter((c) => c.kind === 'appointments')).toHaveLength(5);
+    expect(care.filter((c) => c.kind === 'replies')).toHaveLength(1);
+    expect(care.filter((c) => c.kind === 'payments')).toHaveLength(2);
+    expect(care.some((c) => c.kind === 'offers')).toBe(false);
+    expect(sampleChoices(BUSINESS, 'mixed').filter((c) => c.kind === 'offers')).toHaveLength(2);
+    expect(sampleChoices(BUSINESS, 'marketing')[0]!.kind).toBe('offers');
+    for (const kind of new Set(sampleChoices(BUSINESS, 'mixed').map((c) => c.kind)))
+      expect(SAMPLE_KINDS.map((k) => k.id)).toContain(kind);
+  });
+
+  it('words them for the kind of business, and every kind’s pass the checks a carrier makes', () => {
+    const text = (industry: string, id: string) =>
+      sampleChoices('Bella’s Salon', 'customer_care', industry).find((c) => c.id === id)!.text;
+    expect(text('hvac', 'day')).toContain('[Technician] is on the way');
+    expect(text('hvac', 'reminder')).toContain('we’re coming out tomorrow');
+    expect(samplesFitIndustry('hvac')).toBe(true);
+    expect(samplesFitIndustry('other')).toBe(false);
+    expect(samplesFitIndustry(null)).toBe(false);
+    // A kind the list doesn't have gets the general ones.
+    expect(text('no_such_kind', 'reminder')).toBe(text('other', 'reminder'));
+
+    for (const industry of INDUSTRIES) {
+      const care = sampleChoices('Bella’s Salon', 'customer_care', industry.id);
+      for (const c of care) {
+        expect(checkSample(c.text, 'Bella’s Salon'), `${industry.id} ${c.id}`).toHaveLength(0);
+        // Nothing about a customer's own work may read as an offer: the carriers turn the mismatch down.
+        expect(readsPromotional(c.text), `${industry.id} ${c.id}`).toBe(false);
+      }
+      expect(
+        issuesFor(
+          checkDraft({ ...good, messageSamples: [care[0]!.text, care[5]!.text] }, 'Bella’s Salon'),
+          'useCase',
+        ),
+      ).toEqual([]);
+      const offers = sampleChoices('Bella’s Salon', 'mixed', industry.id).filter(
+        (c) => c.kind === 'offers',
+      );
+      for (const c of offers) expect(checkSample(c.text, 'Bella’s Salon')).toHaveLength(0);
+      expect(readsPromotional(offers[0]!.text), industry.id).toBe(true);
+    }
+  });
 });
 
 describe('what the carrier is told is checked for what Twilio reads it for (30896, 30924)', () => {

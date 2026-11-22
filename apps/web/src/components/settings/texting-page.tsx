@@ -110,11 +110,14 @@ export function TextingPage({
   surfaces,
   registrationDraft = null,
   guidedDraft = null,
+  industry = null,
   bring = null,
   setup,
 }: {
   workspaceId: string;
   businessName: string;
+  /** The kind of business, which texting approval's example texts are worded for. */
+  industry?: string | null;
   /** The website the business already gave (Settings → Workspace), which a first registration starts from. */
   businessWebsite?: string | null;
   /** The address setup asked for, which a first registration starts from too. */
@@ -211,6 +214,8 @@ export function TextingPage({
   // "Phone account and transfers": the business's phone account, and moving a number here.
   const [more, setMore] = useState(false);
   const guided = `/onboarding/${workspaceId}/phone`;
+  // Texting approval's own guided page. Sign-up's number step keeps the questions on its own screen.
+  const approvalPage = setup ? null : `/onboarding/${workspaceId}/texting`;
   const submission = latestSubmission(status.registrations);
   const porting: Porting = {
     fromMigration: portsFromMigration,
@@ -358,12 +363,19 @@ export function TextingPage({
 
   // What the carriers need, are looking at, or turned down.
   const approval = (number: PhoneNumberInfo) =>
-    step === 'submit_registration' || fixing ? (
+    step === 'submit_registration' && approvalPage ? (
+      <ApprovalStart
+        href={approvalPage}
+        started={!!registrationDraft}
+        canManage={status.canManage}
+      />
+    ) : step === 'submit_registration' || fixing ? (
       <A2pWizard
         workspaceId={workspaceId}
         businessName={businessName}
         businessWebsite={businessWebsite}
         businessAddress={businessAddress}
+        industry={industry}
         number={number}
         me={me}
         initial={fixing ? submission : null}
@@ -382,7 +394,7 @@ export function TextingPage({
         status={status}
         businessName={businessName}
         surfaces={surfaces}
-        onFix={() => setFixing(true)}
+        onFix={() => (approvalPage ? router.push(`${approvalPage}?fix=1`) : setFixing(true))}
         onViewSent={() => setShowSent(true)}
       />
     ) : (
@@ -502,6 +514,8 @@ export function TextingPage({
       surfaces={surfaces}
       draft={registrationDraft}
       submission={submission}
+      industry={industry}
+      approvalPage={approvalPage}
       arriving={ahead.arriving}
       onViewSent={() => setShowSent(true)}
       goPay={goPay}
@@ -697,6 +711,43 @@ function latestSubmission(regs: RegistrationInfo[]): Record<string, unknown> | n
     .filter((r) => r.submission && Object.keys(r.submission).length > 0)
     .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
   return withData[0]?.submission ?? null;
+}
+
+/**
+ * Settings' way in to texting approval: what it is in two lines, and Start, which opens its guided page
+ * (`/onboarding/<business>/texting`). With answers already saved, it says so and carries on from them.
+ */
+function ApprovalStart({
+  href,
+  started,
+  canManage,
+}: {
+  href: string;
+  started: boolean;
+  canManage: boolean;
+}) {
+  return (
+    <div data-testid="approval-start">
+      <h2 className="text-lg font-semibold tracking-tight">Get approved to text</h2>
+      <p className="mt-1 max-w-[62ch] text-[13.5px] leading-normal text-text-2">
+        The phone carriers check every business before it can text. You answer 8 questions, we check
+        your website the way their reviewer does, and then the carriers take 1 to 3 weeks. Calls
+        work the whole time.
+      </p>
+      {canManage ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <ButtonLink href={href} variant="primary" data-testid="approval-start-go">
+            {started ? 'Carry on where you left off' : 'Start'}
+          </ButtonLink>
+          {started ? (
+            <span className="text-[13px] text-text-3">Your answers so far are saved.</span>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-text-3">Owners and admins can send it.</p>
+      )}
+    </div>
+  );
 }
 
 function Steps({ current, turnedDown }: { current: number; turnedDown: boolean }) {
@@ -1500,6 +1551,8 @@ function RegisterAhead({
   surfaces,
   draft,
   submission,
+  industry,
+  approvalPage,
   arriving,
   onViewSent,
   goPay,
@@ -1510,6 +1563,9 @@ function RegisterAhead({
   businessName: string;
   businessWebsite: string | null;
   businessAddress: BusinessAddress | null;
+  industry: string | null;
+  /** Texting approval's guided page, where the questions are asked; null in sign-up, which asks them here. */
+  approvalPage: string | null;
   status: Status;
   me: { fullName: string; email: string };
   surfaces: HostedSurfaces;
@@ -1524,6 +1580,7 @@ function RegisterAhead({
   /** Sent, with the fees to pay when there are any. */
   onSent: (fee: { id: string } | null) => void;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [fixing, setFixing] = useState(false);
   const step = status.localRegistrationStep;
@@ -1540,6 +1597,7 @@ function RegisterAhead({
         businessName={businessName}
         businessWebsite={businessWebsite}
         businessAddress={businessAddress}
+        industry={industry}
         number={arriving ? { numberType: 'local', display: arriving } : null}
         me={me}
         initial={fixing ? submission : null}
@@ -1571,7 +1629,7 @@ function RegisterAhead({
         status={status}
         businessName={businessName}
         surfaces={surfaces}
-        onFix={() => setFixing(true)}
+        onFix={() => (approvalPage ? router.push(`${approvalPage}?fix=1`) : setFixing(true))}
         onViewSent={onViewSent}
         ahead
       />
@@ -1601,7 +1659,10 @@ function RegisterAhead({
         )}
         {status.canManage ? (
           <div className="mt-4">
-            <Button onClick={() => setOpen(true)} data-testid="register-ahead-start">
+            <Button
+              onClick={() => (approvalPage ? router.push(approvalPage) : setOpen(true))}
+              data-testid="register-ahead-start"
+            >
               {draft ? 'Pick up the registration' : 'Start the registration'}
             </Button>
           </div>
