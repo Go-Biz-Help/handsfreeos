@@ -71,6 +71,11 @@ const PAGES: readonly (readonly [fixture: string, url: string])[] = [
     'linkedin-reactions-2026-10.html',
     'https://www.linkedin.com/feed/update/urn:li:activity:7380000000000000777/',
   ],
+  // The same post with its comments beside its box, not in it (the owner's outlines of 31 Oct and 4 Nov 2026).
+  [
+    'linkedin-post-2026-11.html',
+    'https://www.linkedin.com/feed/update/urn:li:activity:7380000000000000777/',
+  ],
 ];
 
 describe('LinkedIn pages with more boxes than their outline shows', () => {

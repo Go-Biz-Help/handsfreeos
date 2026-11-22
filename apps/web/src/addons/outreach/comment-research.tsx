@@ -4,7 +4,8 @@
  * only (`platform.ai.manage`): no business sees it. One Start begins a research on every network (the browser of
  * whoever starts it reads about 2,000 real comments a network over 3 days); each network's row shows it reading, Stop
  * has what it has summed up, and its findings and guide are read there, then put in every business's comments on that
- * network or taken out again. The words and the counts' lines are core's.
+ * network or taken out again. A second button does the same, on its own, for its short note on how people write
+ * there, in every business's messages and replies (decision 191). The words and the counts' lines are core's.
  */
 import {
   brochureLines,
@@ -16,6 +17,7 @@ import {
   type CommentResearchNetwork,
   type CommentResearchOutput,
   type ResearchPlatform,
+  type ResearchUse,
 } from '@hfos/core/addons/outreach/comment-research';
 import { useCallback, useEffect, useState } from 'react';
 import { useStaffCan } from '@/components/shell/workspace-shell';
@@ -83,12 +85,12 @@ function ResearchCard({ workspaceId }: { workspaceId: string }) {
         ),
       ),
     );
-  const use = (id: string, on: boolean) =>
+  const use = (id: string, on: boolean, where: ResearchUse) =>
     act('use', async () =>
       setGot(
         unwrap(
           await apiBrowser().POST('/v1/commands/outreach.comment_research.use', {
-            body: { workspaceId, id, use: on },
+            body: { workspaceId, id, use: on, where },
           }),
         ),
       ),
@@ -127,7 +129,7 @@ function ResearchCard({ workspaceId }: { workspaceId: string }) {
             busy={busy !== null}
             onStart={() => void start(n.platform)}
             onStop={(id) => void stop(id)}
-            onUse={(id, on) => void use(id, on)}
+            onUse={(id, on, where) => void use(id, on, where)}
           />
         ))}
       </div>
@@ -135,7 +137,7 @@ function ResearchCard({ workspaceId }: { workspaceId: string }) {
   );
 }
 
-/** One network's research: where it stands, what it found, its guide, and its own buttons. */
+/** One network's research: where it stands, what it found, its guide and its note, and its own buttons. */
 function NetworkRow({
   network,
   busy,
@@ -147,11 +149,12 @@ function NetworkRow({
   busy: boolean;
   onStart: () => void;
   onStop: (id: string) => void;
-  onUse: (id: string, on: boolean) => void;
+  onUse: (id: string, on: boolean, where: ResearchUse) => void;
 }) {
   const name = researchNetworkName(network.platform);
   const run = network.research;
   const inUse = network.inUse;
+  const inMessages = network.inMessages;
   const findings = run?.findings ?? null;
   const testId = `outreach-comment-research-${network.platform}`;
   return (
@@ -164,6 +167,15 @@ function NetworkRow({
         >
           {inUse.thisOne ? W.inUse(name) : W.inUseOther(name)}{' '}
           {W.inUseFrom(inUse.comments, relativeTime(inUse.usedAt))}
+        </p>
+      ) : null}
+      {inMessages ? (
+        <p
+          className="rounded-menu bg-accent-soft px-3.5 py-2.5 text-[13px] text-accent-text"
+          data-testid={`${testId}-in-messages`}
+        >
+          {inMessages.thisOne ? W.inMessages(name) : W.inMessagesOther(name)}{' '}
+          {W.inUseFrom(inMessages.comments, relativeTime(inMessages.usedAt))}
         </p>
       ) : null}
       {!run ? <p className="text-[13px] text-text-2">{W.notStarted}</p> : null}
@@ -226,6 +238,18 @@ function NetworkRow({
                 </pre>
               </div>
             ) : null}
+            {run.note ? (
+              <div>
+                <h5 className="text-[13.5px] font-semibold">{W.noteTitle}</h5>
+                <p className="mt-0.5 text-[12.5px] text-text-3">{W.noteAbout}</p>
+                <pre
+                  className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-[10px] border border-border bg-card-2 px-3.5 py-2.5 text-[12.5px] text-text-2"
+                  data-testid={`${testId}-note`}
+                >
+                  {run.note}
+                </pre>
+              </div>
+            ) : null}
           </div>
         </details>
       ) : null}
@@ -245,7 +269,7 @@ function NetworkRow({
           <Button
             size="sm"
             disabled={busy}
-            onClick={() => onUse(run.id, true)}
+            onClick={() => onUse(run.id, true, 'comments')}
             data-testid={`${testId}-use`}
           >
             {W.use}
@@ -256,10 +280,31 @@ function NetworkRow({
             size="sm"
             variant="secondary"
             disabled={busy}
-            onClick={() => onUse(run.id, false)}
+            onClick={() => onUse(run.id, false, 'comments')}
             data-testid={`${testId}-unuse`}
           >
             {W.unuse}
+          </Button>
+        ) : null}
+        {run?.state === 'done' && run.note && !inMessages?.thisOne ? (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => onUse(run.id, true, 'messages')}
+            data-testid={`${testId}-use-in-messages`}
+          >
+            {W.useInMessages}
+          </Button>
+        ) : null}
+        {run && inMessages ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => onUse(run.id, false, 'messages')}
+            data-testid={`${testId}-unuse-in-messages`}
+          >
+            {W.unuseInMessages}
           </Button>
         ) : null}
         {run?.state === 'done' || run?.state === 'stopped' ? (
