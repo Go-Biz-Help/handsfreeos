@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { EmailSetupFlow } from '@/components/email-setup/email-setup-flow';
 import { SetupPage } from '@/components/onboarding-setup/frame';
 import { ButtonLink } from '@/components/ui/button';
-import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
+import { apiServer, getSetupWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: EMAIL_SETUP_WORDS.homeStartTitle };
 
@@ -23,9 +23,10 @@ export default async function EmailSetupPage({
   const { workspaceId } = await params;
   const home = `/app/w/${workspaceId}`;
   const { api, email } = await apiServer();
-  const me = await getMe();
-  const ws = me.workspaces.find((w) => w.id === workspaceId);
-  if (!ws) notFound();
+  // The person's own business, or one the founder is working in as its owner.
+  const mine = await getSetupWorkspace(workspaceId);
+  if (!mine) notFound();
+  const { ws } = mine;
   if (!can(ws.permissions, 'channels.manage')) redirect(home);
   const got = EmailSetupGetOutput.parse(
     unwrapPage(await api.POST('/v1/queries/email_setup.get', { body: { workspaceId } })),

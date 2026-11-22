@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { SetupPage } from '@/components/onboarding-setup/frame';
 import { OnboardingQuickSetup } from '@/components/onboarding-setup/quick-setup';
-import { apiServer, getMe } from '@/lib/api/server';
+import { apiServer, getSetupWorkspace } from '@/lib/api/server';
 import { foundingPlanHref } from '@/lib/founding-plan';
 import { loadOnboardingSetup } from '@/lib/onboarding-setup/load';
 
@@ -27,10 +27,12 @@ export default async function OnboardingSetupPage({
   const { workspaceId } = await params;
   const home = `/app/w/${workspaceId}`;
   const { api, email } = await apiServer();
-  const me = await getMe();
-  const ws = me.workspaces.find((w) => w.id === workspaceId);
-  if (!ws) notFound();
-  if (ws.needsPlan) redirect(foundingPlanHref(workspaceId));
+  // The person's own business, or one the founder is working in as its owner.
+  const mine = await getSetupWorkspace(workspaceId);
+  if (!mine) notFound();
+  const { ws } = mine;
+  // Its own people only, as in the app: the founder sees the business as it is.
+  if (ws.needsPlan && !mine.founder) redirect(foundingPlanHref(workspaceId));
   if (!can(ws.permissions, 'workspace.update')) redirect(home);
   const query = await searchParams;
   const one = (key: string) => (typeof query[key] === 'string' ? query[key] : null);

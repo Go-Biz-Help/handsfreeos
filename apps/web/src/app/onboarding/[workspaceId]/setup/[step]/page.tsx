@@ -18,7 +18,7 @@ import { loadAiSetup } from '@/lib/ai-setup/load';
 import { teammateGetOf } from '@/lib/ai-team/types';
 import { loadMigrations, setupMoveOf } from '@/lib/agency/migrations';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
+import { apiServer, getSetupWorkspace, unwrapPage } from '@/lib/api/server';
 import type { OnboardingStatus } from '@/lib/api/types';
 import { foundingPlanHref } from '@/lib/founding-plan';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
@@ -65,11 +65,12 @@ export default async function SetupStepPage({
   if (!isWizardStep(step)) notFound();
   const home = `/app/w/${workspaceId}`;
   const { api } = await apiServer();
-  const me = await getMe();
-  const ws = me.workspaces.find((w) => w.id === workspaceId);
-  if (!ws || !can(ws.permissions, 'workspace.update')) redirect(home);
-  // A spot first, then the setup (20261027012700).
-  if (ws.needsPlan) redirect(foundingPlanHref(workspaceId));
+  // The person's own business, or one the founder is working in as its owner.
+  const mine = await getSetupWorkspace(workspaceId);
+  if (!mine || !can(mine.ws.permissions, 'workspace.update')) redirect(home);
+  const { ws } = mine;
+  // A spot first, then the setup (20261027012700). Its own people only, as in the app: the founder sees it as it is.
+  if (ws.needsPlan && !mine.founder) redirect(foundingPlanHref(workspaceId));
   const status = unwrapPage(
     await api.POST('/v1/queries/onboarding.status', { body: { workspaceId } }),
   );
