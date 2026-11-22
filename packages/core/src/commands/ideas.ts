@@ -133,12 +133,15 @@ async function assertAreaOpen(ctx: CommandContext, areaId: string): Promise<void
     ]);
 }
 
-/** The business a person shares or votes from: one they really work in, or none at all. */
+/**
+ * The business a person shares or votes from: one they really work in, or none at all. The founder working in a
+ * business as its owner (20261013002100) shares from it too; support's read-only look never does.
+ */
 async function assertWorksIn(ctx: CommandContext, workspaceId: string | undefined): Promise<void> {
   if (!workspaceId) return;
   const [row] = await rows<{ role: string | null }>(
     ctx.tx,
-    sql`select private.effective_workspace_role(${workspaceId})::text as role`,
+    sql`select private.my_workspace_role(${workspaceId})::text as role`,
   );
   if (!row?.role)
     throw HfosError.notFound(

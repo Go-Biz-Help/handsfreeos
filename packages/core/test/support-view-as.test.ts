@@ -14,6 +14,15 @@ import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { HumanActor, RequestMeta } from '../src/kernel/types';
 import {
+  calendarCreate,
+  estimateCreate,
+  estimateMarkAccepted,
+  estimateSend,
+  ideaShare,
+  ideaVote,
+  invoiceCreate,
+  invoiceRecordCashPayment,
+  invoiceSend,
   me,
   membershipInvite,
   organizationCreate,
@@ -22,7 +31,11 @@ import {
   platformViewAsCurrent,
   platformViewAsEnd,
   platformViewAsStart,
+  productCreate,
+  supportRequestCreate,
   supportTicketList,
+  videoCallEnd,
+  videoCallStart,
   workspaceGet,
   workspaceMembers,
 } from '../src/server';
@@ -132,6 +145,29 @@ describe('while a session is open', () => {
     expect(people.items.some((p) => p.lastName === 'BySupport')).toBe(false);
   });
 
+  it('and they can’t ask for help or share an idea as if they worked there', async () => {
+    await expect(
+      executeCommand(
+        api(),
+        supportRequestCreate,
+        { workspaceId, subject: 'From a look', body: 'Only looking.' },
+        human(staff),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ code: 'forbidden', rule: 'view_as_read_only' });
+    // Ideas are shared on the person's own account, so the kernel's read-only rule isn't what stops this one:
+    // the business they name has to be one they work in, and a look isn't that.
+    await expect(
+      executeCommand(
+        api(),
+        ideaShare,
+        { workspaceId, title: 'Shared from a look', body: 'Only looking.' },
+        human(staff),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ code: 'not_found' });
+  });
+
   it('the business finds it in its own audit log', async () => {
     // The worker writes that entry when it handles the event; here the event itself is the proof that it
     // carries what the business needs to read — who looked, and why.
@@ -160,6 +196,14 @@ describe('once it ends', () => {
 describe('the founder', () => {
   let founder: TestUser;
   let otherWorkspaceId: string;
+  let hostedCallId: string;
+  /** Whether a row may name this person as having done something in the business (20261027033300). */
+  const mayBeNamed = async (who: TestUser, ws: string) =>
+    (
+      await admin().execute<{ ok: boolean }>(
+        sql`select private.workspace_has_actor(${ws}::uuid, ${who.id}::uuid) as ok`,
+      )
+    )[0]?.ok;
 
   beforeAll(async () => {
     founder = await createTestUser('view-as-founder');
@@ -226,6 +270,136 @@ describe('the founder', () => {
     expect(output.role).toBe('owner');
   });
 
+  it('asks for help from inside it, in their own name (20261027033300)', async () => {
+    const { output } = await executeCommand(
+      api(),
+      supportRequestCreate,
+      { workspaceId, subject: 'Get a number comes back to Home', body: 'Seen while helping them.' },
+      human(founder),
+      meta(),
+    );
+    expect(output.number).toBeGreaterThan(0);
+    const [ticket] = await admin().execute<{ requester_user_id: string; workspace_id: string }>(
+      sql`select requester_user_id, workspace_id from platform.tickets where id = ${output.ticketId}`,
+    );
+    expect(ticket).toEqual({ requester_user_id: founder.id, workspace_id: workspaceId });
+  });
+
+  it('shares an idea from it, and votes from it', async () => {
+    const mine = await executeCommand(
+      api(),
+      ideaShare,
+      { workspaceId, title: 'Heard while in their business', body: 'They asked for it.' },
+      human(founder),
+      meta(),
+    );
+    expect(mine.output.number).toBeGreaterThan(0);
+    const theirs = await executeCommand(
+      api(),
+      ideaShare,
+      { workspaceId, title: 'The owner’s own idea', body: 'Ours.' },
+      human(owner),
+      meta(),
+    );
+    const vote = await executeCommand(
+      api(),
+      ideaVote,
+      { ideaId: theirs.output.ideaId, workspaceId },
+      human(founder),
+      meta(),
+    );
+    expect(vote.output.voted).toBe(true);
+    const [from] = await admin().execute<{ workspace_id: string }>(
+      sql`select workspace_id from platform.idea_votes
+          where idea_id = ${theirs.output.ideaId} and user_id = ${founder.id}`,
+    );
+    expect(from?.workspace_id).toBe(workspaceId);
+  });
+
+  it('sells and bills there under their own name, with nothing left for them to look after', async () => {
+    const run = async <O>(cmd: unknown, input: Record<string, unknown>) =>
+      (await executeCommand(api(), cmd as never, input as never, human(founder), meta()))
+        .output as O;
+    const { personId } = await run<{ personId: string }>(personCreate, {
+      workspaceId,
+      firstName: 'Billed',
+      lastName: 'ByTheFounder',
+      email: `billed-${randomUUID().slice(0, 8)}@hfos.test`,
+    });
+    await run(productCreate, { workspaceId, name: 'Filter', unitPriceCents: 4_500 });
+    const job = {
+      workspaceId,
+      personId,
+      title: 'AC replacement',
+      lines: [{ name: 'Job', quantity: 1, unitPriceCents: 100_000, taxable: false }],
+    };
+    const { invoiceId } = await run<{ invoiceId: string }>(invoiceCreate, job);
+    await run(invoiceSend, { workspaceId, invoiceId });
+    await run(invoiceRecordCashPayment, { workspaceId, invoiceId, amountCents: 5_000 });
+    const { estimateId } = await run<{ estimateId: string }>(estimateCreate, job);
+    await run(estimateSend, { workspaceId, estimateId, channels: ['email'] });
+    await run(estimateMarkAccepted, { workspaceId, estimateId, name: 'Said yes on the phone' });
+
+    const [made] = await admin().execute(
+      sql`select i.created_by as invoice_by, i.assignee_user_id as invoice_assignee,
+                 (select p.recorded_by from app.payments p where p.invoice_id = i.id) as paid_by,
+                 e.created_by as estimate_by, e.accepted_by, e.assignee_user_id as estimate_assignee,
+                 (select pr.created_by from app.products pr
+                   where pr.workspace_id = i.workspace_id and pr.name = 'Filter') as product_by
+          from app.invoices i, app.estimates e where i.id = ${invoiceId} and e.id = ${estimateId}`,
+    );
+    // Theirs by name, as any owner's are; nobody's to look after, since they are not on the team.
+    expect(made).toEqual({
+      invoice_by: founder.id,
+      invoice_assignee: null,
+      paid_by: founder.id,
+      estimate_by: founder.id,
+      accepted_by: founder.id,
+      estimate_assignee: null,
+      product_by: founder.id,
+    });
+
+    const call = await run<{ callId: string }>(videoCallStart, {
+      workspaceId,
+      personId,
+      origin: 'https://book.example.com',
+    });
+    hostedCallId = call.callId;
+    const [hosted] = await admin().execute(
+      sql`select host_user_id from app.video_calls where id = ${hostedCallId}`,
+    );
+    expect(hosted).toEqual({ host_user_id: founder.id });
+  });
+
+  it('makes a calendar that is the business’s, not their own: nobody on it, nobody’s to look after', async () => {
+    const { output } = await executeCommand(
+      api(),
+      calendarCreate,
+      { workspaceId, name: 'Set up for them', preset: 'personal' },
+      human(founder),
+      meta(),
+    );
+    const [cal] = await admin().execute(
+      sql`select c.owner_user_id, c.config -> 'team' -> 'members' as members,
+                 (select count(*)::int from app.calendar_members m where m.calendar_id = c.id) as on_it
+          from app.calendars c where c.id = ${output.calendarId}`,
+    );
+    expect(cal).toEqual({ owner_user_id: null, members: [], on_it: 0 });
+    // The owner making one is on it and looks after it, as before.
+    const theirs = await executeCommand(
+      api(),
+      calendarCreate,
+      { workspaceId, name: 'The owner’s own', preset: 'personal' },
+      human(owner),
+      meta(),
+    );
+    const [own] = await admin().execute(
+      sql`select c.owner_user_id, c.config -> 'team' -> 'members' -> 0 ->> 'userId' as first
+          from app.calendars c where c.id = ${theirs.output.calendarId}`,
+    );
+    expect(own).toEqual({ owner_user_id: owner.id, first: owner.id });
+  });
+
   it('is not on its team, and holds nothing in it', async () => {
     const team = await executeQuery(api(), workspaceMembers, { workspaceId }, human(owner), meta());
     expect(team.members.map((m) => m.userId)).not.toContain(founder.id);
@@ -270,6 +444,15 @@ describe('the founder', () => {
         meta(),
       ),
     ).rejects.toMatchObject({ code: 'not_found' });
+    await expect(
+      executeCommand(
+        api(),
+        ideaShare,
+        { workspaceId: otherWorkspaceId, title: 'From one not opened', body: 'No.' },
+        human(founder),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ code: 'not_found' });
   });
 
   it('and once they leave, the business is gone for them again', async () => {
@@ -278,6 +461,41 @@ describe('the founder', () => {
     await expect(
       executeQuery(api(), workspaceGet, { workspaceId }, human(founder), meta()),
     ).rejects.toMatchObject({ code: 'not_found' });
+    await expect(
+      executeCommand(
+        api(),
+        supportRequestCreate,
+        { workspaceId, subject: 'After leaving', body: 'No longer in it.' },
+        human(founder),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ code: 'not_found' });
+    await expect(
+      executeCommand(
+        api(),
+        ideaShare,
+        { workspaceId, title: 'After leaving', body: 'No longer in it.' },
+        human(founder),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('and what they did there still saves, under their name', async () => {
+    // A video call's guard runs again on every save: the business ends the call its host has left.
+    const ended = await executeCommand(
+      api(),
+      videoCallEnd,
+      { workspaceId, callId: hostedCallId },
+      human(owner),
+      meta(),
+    );
+    expect(ended.output.changed).toBe(true);
+    expect(await mayBeNamed(founder, workspaceId)).toBe(true);
+    // Never in a business they did not work in, and never someone who only looked.
+    expect(await mayBeNamed(founder, otherWorkspaceId)).toBe(false);
+    expect(await mayBeNamed(staff, workspaceId)).toBe(false);
+    expect(await mayBeNamed(owner, workspaceId)).toBe(true);
   });
 
   it('while support still needs a reason', async () => {

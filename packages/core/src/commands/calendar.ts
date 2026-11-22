@@ -54,6 +54,7 @@ import { CALENDAR_PRESETS, configFromPreset } from '../calendar/presets';
 import { hasBlockingIssues, validateCalendar, type CalendarIssue } from '../calendar/rules';
 import { resolveTerms } from '../calendar/terms';
 import { normalizeChatOrigins } from '../chat/origins';
+import { ownPersonOrNull } from '../crm/records';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -562,8 +563,11 @@ export const calendarCreate = defineCommand({
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const zone = input.timezone ?? (await workspaceZone(ctx.tx, ws));
+    // Its maker is on it and looks after it, when they work here. The founder working in the business as its owner
+    // doesn’t: the calendar starts with the people picked, and the business’s owners and admins stand in for it.
+    const mine = await ownPersonOrNull(ctx.tx, ws, me);
     const config = configFromPreset(input.preset, {
-      me,
+      me: mine,
       teammates: input.teammates,
       services: input.services,
       resources: input.resources,
@@ -599,7 +603,7 @@ export const calendarCreate = defineCommand({
         configVersion: config.version,
         revision: 1,
         labels: [...labels.tags],
-        ownerUserId: me,
+        ownerUserId: mine,
         timezone: input.timezone ?? null,
         createdBy: me,
       })

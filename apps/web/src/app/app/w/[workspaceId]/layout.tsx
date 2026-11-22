@@ -178,7 +178,7 @@ export default async function WorkspaceLayout({
                       />
                     ) : null}
                     {/* The tour of the menu: after the setup wizard, and from the card or Get help. */}
-                    <Tour workspaceId={workspaceId} taken={guideOf(me, workspaceId).tourTaken} />
+                    <Tour workspaceId={workspaceId} taken={guideOf(me, current).tourTaken} />
                   </SearchProvider>
                 </AssistantProvider>
               </CallProvider>

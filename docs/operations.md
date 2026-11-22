@@ -11695,6 +11695,20 @@ page, or on a ticket, they see **Open as owner** instead, and one click takes th
   who, which business, and when.
 - **They never join the business.** They aren't on its team page or in its member count, get none of its
   notifications, and can't be assigned work there. Nothing about them is stored in the business.
+- **Their name is on what they did, and nothing is left with them.** The database's guards let a row say the
+  founder made it (an invoice, a product, a payment, a video call they hosted): the "who did it" columns ask
+  `private.workspace_has_actor`, which counts anyone who has worked in the business as its owner, and keeps
+  counting them after they leave so the row still saves (20261027033300). The "whose is it" columns still ask
+  `private.workspace_has_user`, the business's own people only. So what the founder makes is left with nobody:
+  an invoice or estimate has no one assigned, and a new calendar has no owner and nobody on it until they pick
+  the business's people (`ownPersonOrNull` in `packages/core/src/crm/records.ts`).
+
+**When something fails only for the founder,** it is nearly always code asking "is this person one of the
+business's people" where it means "may the person asking do this". On a page, look for `me.workspaces.find`
+and use `getWorkspaceShell` (or `getSetupWorkspace` outside `/app/w`). In a rule, ask `my_workspace_role` or
+`has_permission`, never `effective_workspace_role`; about a named person from the worker, ask
+`asker_has_permission`. "Something you picked belongs to another business" on a plain save means a guard is
+asking `workspace_has_user` about a "who did it" column.
 
 Everyone else who answers support still looks read-only, with a reason and a time limit.
 

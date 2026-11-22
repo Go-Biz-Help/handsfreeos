@@ -12,7 +12,7 @@ import { PasswordSection } from '@/components/settings/password-section';
 import { ProfileForm } from '@/components/settings/profile-form';
 import { settingAttrs } from '@/components/settings/setting-anchor';
 import { Card } from '@/components/ui/card';
-import { apiServer, getMe, getPlatformMe, unwrap } from '@/lib/api/server';
+import { apiServer, getMe, getPlatformMe, getWorkspaceShell, unwrap } from '@/lib/api/server';
 import { parseTheme } from '@/lib/theme';
 
 export const metadata: Metadata = { title: 'Account settings' };
@@ -39,7 +39,9 @@ export default async function SettingsPage({
     // Whether they answer HandsFreeOS support: only then is New support tickets a row of theirs.
     getPlatformMe(),
   ]);
-  const current = me.workspaces.find((w) => w.id === workspaceId);
+  // The business as the shell draws it, not from the person's own list: the founder working in one as its owner
+  // (20261013002100) isn't in that list.
+  const { current } = await getWorkspaceShell(workspaceId);
   // All on unless turned off. The daily agency digest is for organization owners and admins only.
   const notifications = (
     me.user.settings as {
@@ -116,7 +118,7 @@ export default async function SettingsPage({
           <Card className="p-6" id="my-cell">
             <MyCellSection
               workspaceId={workspaceId}
-              businessName={current?.name ?? 'This business'}
+              businessName={current.name}
               businessNumber={number}
               initial={cell.phone}
             />

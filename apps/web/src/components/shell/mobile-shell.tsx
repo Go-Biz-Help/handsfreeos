@@ -244,7 +244,7 @@ export function MobileShell({
             />
             <GetHelp
               workspaceId={current.id}
-              guide={guideOf(me, current.id)}
+              guide={guideOf(me, current)}
               onNavigate={() => setDrawer(false)}
             />
             <UserMenu user={me.user} />

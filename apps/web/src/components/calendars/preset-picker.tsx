@@ -136,6 +136,7 @@ export function PresetPicker({
   workspaceId,
   myUserId,
   myName,
+  onTeam = true,
   people,
   services,
   resources,
@@ -143,6 +144,8 @@ export function PresetPicker({
   workspaceId: string;
   myUserId: string;
   myName: string;
+  /** False for the founder working in the business as its owner: the calendar isn’t theirs, and they aren’t on it. */
+  onTeam?: boolean;
   people: { id: string; fullName: string }[];
   services: ServiceItem[];
   resources: ResourceItem[];
@@ -154,7 +157,10 @@ export function PresetPicker({
   const first = myName.trim().split(/\s+/)[0] || myName;
   const others = people.filter((p) => p.id !== myUserId);
   const [pick, setPick] = useState<PresetKey>('personal');
-  const [name, setName] = useState(PRESET_COPY.personal.name(first));
+  // "Dale’s calendar" is named for whoever it books; someone setting it up for the business names it themselves.
+  const nameFor = (key: PresetKey) =>
+    key === 'personal' && !onTeam ? 'Personal calendar' : PRESET_COPY[key].name(first);
+  const [name, setName] = useState(nameFor('personal'));
   const [edited, setEdited] = useState(false);
   const [team, setTeam] = useState<string[]>(people.map((p) => p.id));
   const [partner, setPartner] = useState(others[0]?.id ?? '');
@@ -191,18 +197,18 @@ export function PresetPicker({
     () =>
       inferLabels(
         configFromPreset(pick, {
-          me: myUserId,
+          me: onTeam ? myUserId : null,
           teammates,
           services: chosenServices,
           resources: chosenResources,
         }),
       ).tags,
-    [pick, myUserId, teammates.join(), chosenServices.join(), chosenResources.join()],
+    [pick, myUserId, onTeam, teammates.join(), chosenServices.join(), chosenResources.join()],
   );
 
   function choose(key: PresetKey) {
     setPick(key);
-    if (!edited) setName(PRESET_COPY[key].name(first));
+    if (!edited) setName(nameFor(key));
   }
 
   /** The new resource's id, made once: trying again after a failed create reuses it. */

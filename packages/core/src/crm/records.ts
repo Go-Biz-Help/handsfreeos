@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm';
 import { companies, people, tags, recordTags, users, workspaces } from '@hfos/db/schema';
-import type { Tx } from '@hfos/db/client';
+import { rows, sql, type Tx } from '@hfos/db/client';
 import { HfosError } from '../errors';
 import { formatPhone } from './phone';
 
@@ -84,6 +84,24 @@ export async function userRef(
     .from(users)
     .where(eq(users.id, userId));
   return u ? { id: u.id, fullName: u.fullName || u.email } : null;
+}
+
+/**
+ * The person, when they are one of this business’s own people; null when they aren’t. The founder working in a
+ * business as its owner (20261013002100) is never on its team, so what they make there isn’t theirs to look after:
+ * a new calendar, invoice or estimate is left with nobody rather than with someone who will leave.
+ */
+export async function ownPersonOrNull(
+  tx: Tx,
+  workspaceId: string,
+  userId: string | null,
+): Promise<string | null> {
+  if (!userId) return null;
+  const [r] = await rows<{ ok: boolean }>(
+    tx,
+    sql`select private.workspace_has_user(${workspaceId}::uuid, ${userId}::uuid) as ok`,
+  );
+  return r?.ok ? userId : null;
 }
 
 export async function requirePerson(tx: Tx, workspaceId: string, personId: string) {

@@ -20,7 +20,7 @@ import type { z } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import { invoices, payments, paymentConnections } from '@hfos/db/schema';
 import { localInstant } from '../calendar/engine/zoned';
-import { requirePerson, workspaceTimezone } from '../crm/records';
+import { ownPersonOrNull, requirePerson, workspaceTimezone } from '../crm/records';
 import { HfosError } from '../errors';
 import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
@@ -243,7 +243,7 @@ export async function createInvoice(
       publicRef: dsql`private.new_public_ref()`,
       personId: input.personId,
       leadId: input.leadId ?? null,
-      assigneeUserId: input.assigneeUserId ?? by,
+      assigneeUserId: input.assigneeUserId ?? (await ownPersonOrNull(ctx.tx, ws, by)),
       title: input.title ?? null,
       notes: input.notes ?? (settings.notes.invoice || null),
       estimateId: input.estimateId ?? null,
