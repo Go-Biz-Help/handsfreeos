@@ -21,12 +21,15 @@ import {
   money as exactMoney,
   numberingAtCounter,
   PRODUCT_KIND_WORDS,
+  choiceBumpWords,
   reminderSchedule,
   type AutomationDef,
   type AttentionSettings,
   type MoneySettings,
   type ProductKind,
+  type ProductOptionRow,
   type TeammateConfig,
+  PAYMENT_PROVIDER_NAMES,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
@@ -124,6 +127,8 @@ function nextMoneySettings(now: MoneySettings, args: Args): MoneySettings {
       amountCents: depositDollars === undefined ? now.deposit.amountCents : cents(depositDollars),
     },
     bankTransfer: bool(args['offerBankTransfer']) ?? now.bankTransfer,
+    venmo: bool(args['offerVenmo']) ?? now.venmo,
+    payLater: bool(args['offerPayLater']) ?? now.payLater,
     reminders: {
       ...now.reminders,
       beforeDueDays: dayListOf(args['remindBeforeDueDays']) ?? now.reminders.beforeDueDays,
@@ -214,6 +219,12 @@ function moneyChanges(now: MoneySettings, next: MoneySettings): Field[] {
       value: next.bankTransfer
         ? 'Offered, and shown first'
         : 'Not offered: customers see card only',
+    });
+  // One row for PayPal's two extra buttons keeps every change on a card of ten.
+  if (next.venmo !== now.venmo || next.payLater !== now.payLater)
+    fields.push({
+      label: 'Beside the PayPal button',
+      value: `Venmo ${next.venmo ? 'shown' : 'not shown'} · Pay Later ${next.payLater ? 'shown' : 'not shown'}`,
     });
   if (reminderWords(next) !== reminderWords(now))
     fields.push({ label: 'Invoice reminders', value: reminderWords(next) });
@@ -345,6 +356,7 @@ interface Product {
   unitLabel: string;
   taxable: boolean;
   serviceId: string | null;
+  options: ProductOptionRow[];
   archivedAt: string | null;
 }
 
@@ -366,6 +378,23 @@ function productInput(args: Args): Record<string, unknown> {
     ...(str(args['unitLabel']) ? { unitLabel: str(args['unitLabel']) } : {}),
     ...(bool(args['taxable']) === undefined ? {} : { taxable: args['taxable'] }),
     ...(args['serviceId'] === undefined ? {} : { serviceId: args['serviceId'] }),
+    // Without ids: the command keeps each option's and choice's id by its name.
+    ...(Array.isArray(args['options'])
+      ? {
+          options: (
+            args['options'] as {
+              name: string;
+              choices: { label: string; priceChangeDollars?: number }[];
+            }[]
+          ).map((o) => ({
+            name: o.name,
+            choices: o.choices.map((c) => ({
+              label: c.label,
+              priceCents: cents(c.priceChangeDollars ?? 0),
+            })),
+          })),
+        }
+      : {}),
   };
 }
 
@@ -435,6 +464,22 @@ async function productRows(
     });
   if (shows('serviceId'))
     rows.push({ label: 'Customers can book it', value: service ?? (only ? 'Not bookable' : '') });
+  if (shows('options') && (only || p.options.length))
+    rows.push({
+      label: 'Sizes, colors and choices',
+      value: p.options.length
+        ? p.options
+            .map(
+              (o) =>
+                `${o.name}: ${o.choices
+                  .map((c) =>
+                    c.priceCents ? `${c.label} (${choiceBumpWords(c.priceCents)})` : c.label,
+                  )
+                  .join(', ')}`,
+            )
+            .join('; ')
+        : 'None',
+    });
   return rows;
 }
 
@@ -581,7 +626,7 @@ interface Connection {
   liveSubscriptions: number;
 }
 
-const PROVIDER_NAMES: Record<string, string> = { stripe: 'Stripe', square: 'Square' };
+const PROVIDER_NAMES: Readonly<Record<string, string>> = PAYMENT_PROVIDER_NAMES;
 const providerOf = (c: Connection) => PROVIDER_NAMES[c.provider] ?? c.provider;
 /** "Stripe · Main shop", the way the account's own row on Settings → Payments names it. */
 const accountName = (c: Connection) =>

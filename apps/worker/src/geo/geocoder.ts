@@ -4,7 +4,7 @@
  * Each address is looked up once and kept (app.geocodes, by a hash of the address), so a customer asked about
  * twice costs one lookup.
  */
-import { createHash } from 'node:crypto';
+import { geocodeKey } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import type { WorkerEnv } from '../env';
@@ -95,8 +95,8 @@ export function createGeocoder(env: WorkerEnv, log: Logger): Geocoder {
   return offGeocoder;
 }
 
-const hashOf = (address: string) =>
-  createHash('sha256').update(address.trim().replace(/\s+/g, ' ').toLowerCase()).digest('hex');
+// The same key core reads a booked visit's point back by (calendar/geocodes.ts).
+const hashOf = geocodeKey;
 
 /** Where an address is: kept from an earlier lookup, or looked up now and kept. */
 export async function placeOf(tx: Tx, geocoder: Geocoder, address: string): Promise<Place | null> {

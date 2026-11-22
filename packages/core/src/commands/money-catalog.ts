@@ -22,8 +22,13 @@ import {
   hasBlockingMoneyIssues,
   numberPreview,
   numberingChangeProblem,
+  optionsProblem,
   parseMoneySettings,
+  productOptionsOf,
+  withOptionIds,
   type MoneySettings,
+  type OptionsDraft,
+  type ProductOptionRow,
 } from '../money/index';
 import {
   MoneySaveSettingsInput,
@@ -86,8 +91,27 @@ const productOut = (p: typeof products.$inferSelect): typeof ProductOut._output 
   unitLabel: p.unitLabel,
   taxable: p.taxable,
   serviceId: p.serviceId,
+  options: productOptionsOf(p).map((o) => ({
+    id: o.id,
+    name: o.name,
+    choices: o.choices.map((c) => ({ id: c.id, label: c.label, priceCents: c.priceCents })),
+  })),
   archivedAt: iso(p.archivedAt),
 });
+
+/**
+ * Options as they'll be kept, checked against the price they go with: no two options or choices alike, and nothing
+ * that would cost less than nothing. A choice without an id gets one; one with an id keeps it.
+ */
+function checkedOptions(
+  unitPriceCents: number,
+  options: OptionsDraft,
+  had: readonly ProductOptionRow[] = [],
+): ReturnType<typeof withOptionIds> {
+  const problem = optionsProblem(unitPriceCents, options);
+  if (problem) throw HfosError.validation([problem], problem.message);
+  return withOptionIds(options, had);
+}
 
 /** A product may point at a bookable service, so "AC tune-up" is one price in two places: one product each. */
 async function assertServiceFree(
@@ -150,6 +174,7 @@ export const productCreate = defineCommand({
         // A new item follows the business's "new items are taxable" setting unless it says otherwise.
         taxable: input.taxable ?? settings.tax.newProductsTaxable,
         serviceId: input.serviceId ?? null,
+        options: checkedOptions(input.unitPriceCents, input.options ?? []),
         createdBy: me,
       })
       .returning();
@@ -158,7 +183,11 @@ export const productCreate = defineCommand({
       type: 'product.created',
       entityType: 'product',
       entityId: row.id,
-      payload: { kind: row.kind, unitPriceCents: Number(row.unitPriceCents) },
+      payload: {
+        kind: row.kind,
+        unitPriceCents: Number(row.unitPriceCents),
+        options: productOptionsOf(row).length,
+      },
       after: { name: row.name, price: Number(row.unitPriceCents), kind: row.kind },
     });
     return { productId: row.id, archived: false, product: productOut(row), updated: [] };
@@ -189,6 +218,14 @@ export const productUpdate = defineCommand({
       'taxable',
       'serviceId',
     ]);
+    // New options, or a new price, are checked together: Youth S at $2 off can't outlive a $1 price.
+    if (input.options !== undefined || input.unitPriceCents !== undefined)
+      set.options = checkedOptions(
+        input.unitPriceCents ?? Number(before.unitPriceCents),
+        input.options ?? productOptionsOf(before),
+        productOptionsOf(before),
+      );
+    if (input.options === undefined) delete set.options;
     if (!Object.keys(set).length)
       return {
         productId: before.id,

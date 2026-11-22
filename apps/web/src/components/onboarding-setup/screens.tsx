@@ -57,6 +57,7 @@ import {
   connectPaymentAccount,
   PAYMENT_RESULT,
   PROVIDER_NAME,
+  type ConnectableProvider,
 } from '@/components/settings/payment-connection-card';
 import { TextingPage } from '@/components/settings/texting-page';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +67,7 @@ import { Field, FieldError, Hint, Label } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { errorMessage } from '@/lib/api/client';
+import { publicEnv } from '@/lib/env';
 import { onboardingSetupHref, type OnboardingSetupData } from '@/lib/onboarding-setup/data';
 import { keepSetupReturn } from '@/lib/setup-return';
 import { PagePreview } from './page-preview';
@@ -655,7 +657,7 @@ export function PaidScreen({
     router.replace(back, { scroll: false });
   }, [result, router, back]);
 
-  const connect = (provider: 'stripe' | 'square') => {
+  const connect = (provider: ConnectableProvider) => {
     setBusy(true);
     keepSetupReturn(data.workspaceId, 'payments', back);
     connectPaymentAccount(data.workspaceId, provider).catch((e: unknown) => {
@@ -666,13 +668,16 @@ export function PaidScreen({
 
   const p = state.payments;
   const provider = p.provider ? (PROVIDER_NAME[p.provider] ?? p.provider) : null;
-  const picked = answers.payWith === 'later' ? null : answers.payWith;
+  // PayPal is offered once Connect PayPal is open, as on Settings → Payments.
+  const offered = PAY_WITH.filter((pay) => pay !== 'paypal' || publicEnv.payPalEnabled);
+  const picked =
+    answers.payWith === 'later' || !offered.includes(answers.payWith) ? null : answers.payWith;
   return (
     <>
       <div>
         <Label id="setup-pay-with">{W.payWith}</Label>
         <Group label={W.payWith}>
-          {PAY_WITH.map((pay) => (
+          {offered.map((pay) => (
             <Option
               key={pay}
               on={answers.payWith === pay}

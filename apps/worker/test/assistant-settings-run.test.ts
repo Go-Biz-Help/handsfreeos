@@ -168,7 +168,7 @@ describe('reading a setting back, and what only a person can do', () => {
     const events = await ask('How do I connect Stripe?');
     expect(textOf(events)).toContain('yours to do');
     const card = cardOf(events, 'list');
-    expect(card.title).toBe('Connect Stripe or Square');
+    expect(card.title).toBe('Connect Stripe, Square or PayPal');
     expect(card.aside).toBe('Settings → Payments');
     expect(card.items[0]!.href).toBe(`/app/w/${workspaceId}/settings/payments`);
     expect(card.items.map((i) => i.title).join(' ')).toContain('Sign in');

@@ -585,6 +585,26 @@ describe('an estimate, written by asking', () => {
       expect(result['writtenAt']).toEqual(expect.any(String));
       expect(result).not.toHaveProperty('paidAt');
     });
+
+    it('bills the rest after that deposit, and nothing on it twice', async () => {
+      const { estimate: e } = await estimate(estimateId);
+      await expect(
+        prepare('manage_estimate', { estimateId, action: 'make_invoice', bill: 'deposit_only' }),
+      ).rejects.toThrow(/deposit is already on a draft invoice/);
+      const rest = e.totals.totalCents - e.depositCents;
+      const p = await prepare('manage_estimate', { estimateId, action: 'make_invoice' });
+      expect(field(p.card, 'It bills')).toBe(
+        `The rest · ${money(rest)}, after the ${money(e.depositCents)} deposit on a draft invoice`,
+      );
+      const done = await p.confirm();
+      expect((await invoice(idOf(done.href))).invoice).toMatchObject({
+        purpose: 'balance',
+        totals: expect.objectContaining({ totalCents: rest }),
+      });
+      await expect(
+        prepare('manage_estimate', { estimateId, action: 'make_invoice' }),
+      ).rejects.toThrow(/already invoiced on a draft invoice, so it isn’t billed twice/);
+    });
   });
 
   it('voids one that went out, saying it can’t be undone', async () => {
@@ -1141,5 +1161,33 @@ describe('automatic top-up of the balance', () => {
     const p = await prepare('update_auto_topup', { on: true }, owner, bare);
     expect(p.card.confirmLabel).toBe('');
     expect(p.card.warnings).toMatchObject([{ kind: 'blocked' }]);
+  });
+});
+
+describe('a catalogue item with sizes, on a line written by asking', () => {
+  it('names and prices the line with the size asked for, and asks which size when none is given', async () => {
+    const shirtId = (
+      (await run(productCreate, {
+        workspaceId,
+        name: `T-shirt ${suffix}`,
+        unitPriceCents: 1_200,
+        taxable: false,
+        options: [
+          {
+            name: 'Size',
+            choices: [{ label: 'Adult M' }, { label: 'Adult 2XL', priceCents: 200 }],
+          },
+        ],
+      })) as { productId: string }
+    ).productId;
+    const p = await prepare('write_estimate', {
+      personId: maria.id,
+      title: 'Team shirts',
+      lines: [{ productId: shirtId, quantity: 2, choices: ['Adult 2XL'] }],
+    });
+    expect(field(p.card, `T-shirt ${suffix} (Adult 2XL)`)).toBe('2 each × $14 · no tax');
+    await expect(
+      prepare('write_estimate', { personId: maria.id, lines: [{ productId: shirtId }] }),
+    ).rejects.toThrow(`T-shirt ${suffix} comes in more than one Size. Say which in choices`);
   });
 });

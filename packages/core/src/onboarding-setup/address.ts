@@ -4,6 +4,8 @@
  * the business number search. US addresses only, like the carriers' registration. Browser-safe.
  */
 import { z } from 'zod';
+import { zoneOffsetMinutes } from '../calendar/engine/zoned';
+import { canonicalTimeZone } from '../intl/time-zones';
 
 /** The time zones a US business picks from, as the screens name them. */
 export const US_TIME_ZONES = [
@@ -20,6 +22,34 @@ export type UsTimeZone = (typeof US_TIME_ZONES)[number]['id'];
 /** "Central", for "on Central time"; a zone the list doesn't have is named as it is. */
 export const usTimeZoneLabel = (id: string): string =>
   US_TIME_ZONES.find((z) => z.id === id)?.label ?? id;
+
+/**
+ * The US zone that keeps the same clock all year as the zone a browser or phone is on: "America/Detroit" is Eastern,
+ * and so is Toronto. Null when the device gave none, or is on a clock no US business keeps ("Asia/Manila").
+ */
+export function usTimeZoneLike(
+  deviceTimeZone: unknown,
+  now: number = Date.now(),
+): UsTimeZone | null {
+  const zone = canonicalTimeZone(deviceTimeZone);
+  if (!zone) return null;
+  const year = new Date(now).getUTCFullYear();
+  const winter = Date.UTC(year, 0, 15, 12);
+  const summer = Date.UTC(year, 6, 15, 12);
+  try {
+    const offsets = [zoneOffsetMinutes(winter, zone), zoneOffsetMinutes(summer, zone)];
+    return (
+      US_TIME_ZONES.find(
+        (z) =>
+          z.id === zone ||
+          (zoneOffsetMinutes(winter, z.id) === offsets[0] &&
+            zoneOffsetMinutes(summer, z.id) === offsets[1]),
+      )?.id ?? null
+    );
+  } catch {
+    return null;
+  }
+}
 
 const ET = 'America/New_York';
 const CT = 'America/Chicago';

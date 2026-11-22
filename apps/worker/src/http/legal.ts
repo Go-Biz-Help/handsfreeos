@@ -27,6 +27,23 @@ const SLUG_RE = /^[A-Za-z0-9-]{1,80}$/;
 
 type RouteRow = { workspace_id: string; organization_id: string; site_name: string | null };
 
+/**
+ * The business's own policy address, when it is a plain web address (http or https, no name or password in it), or
+ * null. It is whatever the business typed in its registration, so the web page links to it rather than sending the
+ * browser there on its own (apps/web/src/app/legal/[site]/[kind]/page.tsx).
+ */
+function ownPolicyAddress(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password)
+      return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export async function registerLegalRoutes(app: FastifyInstance, deps: HttpDeps): Promise<void> {
   await app.register(async (pub) => {
     await pub.register(rateLimit, { global: false });
@@ -56,12 +73,10 @@ export async function registerLegalRoutes(app: FastifyInstance, deps: HttpDeps):
             // A business using its own policy still links here, so this is where the two are reconciled:
             // the agreement box has one address, and it lands on whichever document is really theirs. Each
             // page goes to its own kind: their privacy policy never stands in for terms, or the other way.
-            const own = kind === 'privacy' ? source.policyUrl : source.termsUrl;
-            if (own) return { redirectTo: own };
-            const business: PolicyBusiness = {
-              name: route.site_name ?? workspace?.name ?? 'This business',
-              ...source.business,
-            };
+            const name = route.site_name ?? workspace?.name ?? 'This business';
+            const own = ownPolicyAddress(kind === 'privacy' ? source.policyUrl : source.termsUrl);
+            if (own) return { redirectTo: own, business: name };
+            const business: PolicyBusiness = { name, ...source.business };
             return {
               policy: kind === 'privacy' ? privacyPolicy(business) : termsOfService(business),
             };

@@ -1,5 +1,5 @@
 'use client';
-import { render, smsSegments, templateVars, type TemplateVariable } from '@hfos/core';
+import { render, sentSmsSegments, templateVars, type TemplateVariable } from '@hfos/core';
 import { AlertTriangle, Braces, Eye, Search } from 'lucide-react';
 import { useId, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -175,7 +175,7 @@ export function VariableField({
     },
   };
 
-  const seg = preview === 'sms' ? smsSegments(rendered.text) : null;
+  const seg = preview === 'sms' ? sentSmsSegments(rendered.text) : null;
   const segLabel = seg
     ? (() => {
         const single = seg.encoding === 'gsm7' ? 160 : 70;
@@ -379,6 +379,7 @@ export function PreviewLabel() {
         <div className="mb-2">
           <CustomerPicker
             workspaceId={workspaceId}
+            addNew={false}
             value={null}
             onChange={(c) => {
               if (c) void pick(c.id);

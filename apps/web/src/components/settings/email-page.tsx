@@ -409,6 +409,7 @@ function RecordBox({
   value,
   verified,
   domain,
+  priority,
   testId,
 }: {
   type: 'TXT' | 'CNAME' | 'MX';
@@ -417,6 +418,8 @@ function RecordBox({
   value: string;
   verified: boolean;
   domain: string;
+  /** An MX record's priority, its own field at most DNS providers. */
+  priority?: number;
   /** Beside `dns-${type}`, for a second record of the same type. */
   testId?: string;
 }) {
@@ -443,6 +446,16 @@ function RecordBox({
         <CopyField value={relativeHost(host, domain)} label="Copy host" copied="Copied the host" />
         <span className="text-xs text-text-3">Value</span>
         <CopyField value={value} label="Copy value" copied="Copied the value" />
+        {priority != null ? (
+          <>
+            <span className="text-xs text-text-3">Priority</span>
+            <CopyField
+              value={String(priority)}
+              label="Copy priority"
+              copied="Copied the priority"
+            />
+          </>
+        ) : null}
       </div>
     </div>
   );
@@ -877,7 +890,9 @@ function Receiving({
         ),
       receiving === 'lapsed'
         ? 'Checking again. It takes up to 15 minutes.'
-        : 'Now change the MX record below.',
+        : receiving === 'pending'
+          ? 'Checking now. This shows Receiving once the MX record is found.'
+          : 'Now change the MX record below.',
     );
     setBusy(null);
     if (ok) onChanged();
@@ -906,9 +921,10 @@ function Receiving({
     <div className="mt-3">
       <RecordBox
         type="MX"
-        purpose="Brings your mail here (priority 10)"
+        purpose="Brings your mail here"
         host="@"
         value={inboundMxHost}
+        priority={10}
         verified={!!domain.mxVerifiedAt && receiving === 'on'}
         domain={domain.domain}
       />
@@ -948,9 +964,15 @@ function Receiving({
       ) : receiving === 'pending' ? (
         <>
           <p className="mt-1.5 text-[13px] text-text-2">
-            {`At your DNS provider, replace the MX records for ${domain.domain} with this one. We check every 15 minutes, and mail starts arriving once it shows.`}
+            {`At your DNS provider, delete the MX records for ${domain.domain} and add this one, with priority 10. We check every 15 minutes, and mail starts arriving once it shows. Just changed it? Click Check now.`}
           </p>
           {mx}
+          <div className="mt-3">
+            <Button size="sm" loading={busy === 'start'} onClick={() => void start()}>
+              <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Check now
+            </Button>
+          </div>
         </>
       ) : receiving === 'lapsed' ? (
         <>
@@ -1248,6 +1270,7 @@ function ClaimDialog({
           <RecordPicker
             workspaceId={workspaceId}
             id="claim-person"
+            addNew={false}
             value={picked}
             onChange={setPicked}
             autoFocus

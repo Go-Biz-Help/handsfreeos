@@ -10,43 +10,20 @@
  * Browser-safe: the builder's test console shows the same verdicts the worker acts on.
  */
 import { normalizePhone } from '../crm/phone';
-import { smsKeyword } from '../messaging/sms';
+import { plainSmsText, smsKeyword } from '../messaging/sms';
 import type { DisclosureMode, TeammateChannel } from './config';
 
 // ---- Plain text ----
 
 /** A character class from code points, so no invisible characters sit in the source. */
 const charClass = (...codes: number[]) => new RegExp(`[${String.fromCodePoint(...codes)}]`, 'g');
-/** ‘ ’ ‚ ‛ ′ */
-const SINGLE_QUOTES = charClass(0x2018, 0x2019, 0x201a, 0x201b, 0x2032);
-/** “ ” „ ‟ ″ */
-const DOUBLE_QUOTES = charClass(0x201c, 0x201d, 0x201e, 0x201f, 0x2033);
-/** Figure dash, en dash, em dash, horizontal bar, minus sign. */
-const DASHES = charClass(0x2012, 0x2013, 0x2014, 0x2015, 0x2212);
-const ELLIPSIS = charClass(0x2026);
-/** No-break, en, em, figure, thin, hair and narrow no-break spaces. */
-const ODD_SPACES = charClass(0x00a0, 0x2002, 0x2003, 0x2007, 0x2009, 0x200a, 0x202f);
 /** Zero-width space, non-joiner and joiner, word joiner, byte-order mark. */
 const INVISIBLE = charClass(0x200b, 0x200c, 0x200d, 0x2060, 0xfeff);
 /** Look-alike dots: ideographic full stop, halfwidth full stop, one-dot leader, hyphenation point. */
 const ODD_DOTS = charClass(0x3002, 0xff61, 0x2024, 0x2027);
 
-/**
- * The plain form of a text: curly quotes, long dashes, ellipses and odd spaces become plain ones and
- * invisible characters go, so it stays in the cheaper GSM-7 encoding. The worker sends this form, and the
- * length check counts it.
- */
-export function plainSmsText(text: string): string {
-  return text
-    .replace(SINGLE_QUOTES, "'")
-    .replace(DOUBLE_QUOTES, '"')
-    .replace(DASHES, '-')
-    .replace(ELLIPSIS, '...')
-    .replace(ODD_SPACES, ' ')
-    .replace(INVISIBLE, '')
-    .replace(/[ \t]+\n/g, '\n')
-    .trim();
-}
+// The plain form of a text lives with the other texting rules, where segments are counted on it.
+export { plainSmsText };
 
 /** Lower case, plain punctuation, one space between words: what the detectors read. */
 function norm(text: string): string {

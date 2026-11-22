@@ -21,6 +21,7 @@ import {
   profileWithBusinessHours,
 } from '../knowledge/profile';
 import { currentNumber, latestByKind, loadRegistrations, readiness } from '../messaging/store';
+import { isConnectableProvider } from '../schemas/money';
 import { openHoursOf } from '../schemas/workspace';
 import { businessOnboardingOf, personalOnboardingOf, type BusinessOnboarding } from './settings';
 import {
@@ -163,8 +164,7 @@ async function businessFacts(
       broken:
         active.length === 0 &&
         payments.some((p) => p.status === 'reauth_required' || p.status === 'error'),
-      provider:
-        shown?.provider === 'stripe' || shown?.provider === 'square' ? shown.provider : null,
+      provider: shown && isConnectableProvider(shown.provider) ? shown.provider : null,
     },
     customers: {
       count: s?.customers ?? 0,

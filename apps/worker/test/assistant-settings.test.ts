@@ -139,7 +139,7 @@ describe('the settings map', () => {
     const text = settingsMapText();
     for (const area of SETTINGS_AREAS) expect(text).toContain(settingsArea(area).label);
     // The things people are told to do elsewhere are in the fixed prompt, so it never invents steps.
-    expect(text).toContain('connect Stripe or Square');
+    expect(text).toContain('connect Stripe, Square or PayPal');
     expect(text).toContain('put the chat box on your website');
   });
 
@@ -300,7 +300,7 @@ describe('settings_help', () => {
   it('gives the steps for what only the person can do, as a card that links to the screen', async () => {
     const { result, card } = await readTool('settings_help', 'payments', owner);
     const theirs = result['theyDoThemselves'] as { what: string; steps: string[] }[];
-    expect(theirs[0]!.what).toBe('connect Stripe or Square');
+    expect(theirs[0]!.what).toBe('connect Stripe, Square or PayPal');
     expect(theirs[0]!.steps.length).toBeGreaterThan(1);
     // An account that needs reconnecting is the person's own sign-in too, with Reconnect's steps.
     const reconnect = theirs.find((t) => t.what === 'reconnect a payout account that needs it')!;
@@ -1860,6 +1860,23 @@ describe('Settings → Payments: every row', () => {
     await expect(money({ depositDollars: 0 })).rejects.toThrow('A deposit of $0 asks for nothing.');
   });
 
+  it('switches PayPal’s Venmo and Pay Later buttons on one row of the card', async () => {
+    const off = await money({ offerVenmo: false });
+    expect(off.card.fields.map((f) => f.label)).toEqual(['Beside the PayPal button']);
+    expect(fieldOf(off.card, 'Beside the PayPal button')).toBe('Venmo not shown · Pay Later shown');
+    await off.done();
+    const { settings } = await q<{ settings: { venmo: boolean; payLater: boolean } }>(
+      'money.settings',
+    );
+    expect(settings).toMatchObject({ venmo: false, payLater: true });
+    await expect(money({ offerVenmo: false })).rejects.toThrow('Nothing would change.');
+    const back = await money({ offerVenmo: true, offerPayLater: false });
+    expect(fieldOf(back.card, 'Beside the PayPal button')).toBe(
+      'Venmo shown · Pay Later not shown',
+    );
+    await back.done();
+  });
+
   it('says when a change sets two settings fighting, with the fixes in words', async () => {
     const { card } = await money({ estimateGoodForDays: 10, nudgeEstimateAfterDays: 12 });
     expect(fieldOf(card, 'Nudge an unanswered estimate')).toBe('After 12 days, once');
@@ -2083,6 +2100,57 @@ describe('Settings → Products', () => {
     expect(back.card.title).toBe(`Put ${name} back`);
     expect((await back.done()).outcome).toBe(`${name} is back in the picker.`);
     expect((await catalogue()).find((p) => p.id === item.id)!.archivedAt).toBeNull();
+  });
+
+  it('gives an item sizes with their price changes, and keeps each size when it’s sent back by name', async () => {
+    const name = `Tee ${suffix}`;
+    const add = await product({
+      action: 'create',
+      name,
+      priceDollars: 12,
+      options: [
+        {
+          name: 'Size',
+          choices: [{ label: 'Adult M' }, { label: 'Adult 2XL', priceChangeDollars: 2 }],
+        },
+      ],
+    });
+    expect(fieldOf(add.card, 'Sizes, colors and choices')).toBe('Size: Adult M, Adult 2XL (+$2)');
+    await add.done();
+    const item = (await catalogue()).find((p) => p.name === name)! as ProductRow & {
+      options: { id: string; choices: { id: string; label: string; priceCents: number }[] }[];
+    };
+    const twoXl = item.options[0]!.choices[1]!;
+    expect(twoXl).toMatchObject({ label: 'Adult 2XL', priceCents: 200 });
+
+    const change = await product({
+      action: 'change',
+      productId: item.id,
+      options: [
+        {
+          name: 'Size',
+          choices: [
+            { label: 'Adult M' },
+            { label: 'Adult 2XL', priceChangeDollars: 3 },
+            { label: 'Adult 3XL', priceChangeDollars: 4 },
+          ],
+        },
+      ],
+    });
+    expect(change.card.fields.map((f) => f.label)).toEqual(['Item', 'Sizes, colors and choices']);
+    await change.done();
+    const after = (await catalogue()).find((p) => p.id === item.id)! as typeof item;
+    // The same size keeps its id, so a form's row made from it still finds it.
+    expect(after.options[0]!.choices[1]).toEqual({ ...twoXl, priceCents: 300 });
+
+    // A size that would cost less than nothing is refused before a card.
+    await expect(
+      product({
+        action: 'change',
+        productId: item.id,
+        options: [{ name: 'Size', choices: [{ label: 'Tiny', priceChangeDollars: -20 }] }],
+      }),
+    ).rejects.toThrow('Tiny would cost less than nothing');
   });
 
   it('says which item it can’t find instead of failing, and asks for a name first', async () => {

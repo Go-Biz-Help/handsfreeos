@@ -12,13 +12,18 @@
  *   (a magic link's hashed token that is never emailed), made here with the worker's admin key and handed over once.
  *   The extension redeems it with Supabase Auth (`verifyOtp`). Nothing about the token is stored.
  *
- * Answering is the person's, signed in, through the API (`extension_sign_in.answer`). Every answer here is no-store.
+ * Answering is the person's, signed in, through the API (`extension_sign_in.answer`): they type the number the
+ * extension shows. Anybody can start a prompt for any email, so a prompt never shows the caller's own words (the
+ * browser is one of a few names), and an email waits half an hour after a refused prompt and gets five an hour at most
+ * (`private.extension_sign_in_wait`, kept in the database so every machine counts alike). Every answer here is
+ * no-store.
  */
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
 import {
   ExtensionSignInCollectInput,
   ExtensionSignInStartInput,
+  extensionBrowserName,
   extensionSignInNumbers,
   extensionSignInPushWords,
   HfosError,
@@ -52,7 +57,7 @@ const tooMany = () =>
   HfosError.rule(
     'rate_limited',
     429,
-    'That’s a lot of sign-in prompts. Wait a few minutes, then try again, or use an emailed code instead.',
+    'Sign-in prompts for this email are paused for a while. Use an emailed code instead, or try again in half an hour.',
   );
 
 export async function registerExtensionSignInRoutes(
@@ -85,9 +90,16 @@ export async function registerExtensionSignInRoutes(
           { key: `email:${emailKey}`, rule: scaled(EXTENSION_SIGN_IN_LIMITS.startPerEmail) },
         ]);
         if (!taken.ok) throw tooMany();
+        const browser = extensionBrowserName(input.browser);
         const secret = randomBytes(32).toString('base64url');
         const { number, choices } = extensionSignInNumbers((below) => randomInt(below));
         const row = await asWorker(deps.httpDb, {}, async (tx) => {
+          // The same answer whether or not the email has an account: its requests are kept either way.
+          const [wait] = await rows<{ seconds: number }>(
+            tx,
+            sql`select private.extension_sign_in_wait(${input.email}) as seconds`,
+          );
+          if ((wait?.seconds ?? 0) > 0) throw tooMany();
           const [made] = await rows<{
             id: string;
             user_id: string | null;
@@ -99,14 +111,14 @@ export async function registerExtensionSignInRoutes(
                   array[${sql.join(
                     choices.map((c) => sql`${c}::smallint`),
                     sql`, `,
-                  )}]::smallint[], ${input.browser}, ${ipHmacOf(ipKey, req.ip)})`,
+                  )}]::smallint[], ${browser}, ${ipHmacOf(ipKey, req.ip)})`,
           );
           if (!made) throw new Error('the sign-in request was not made');
           if (made.user_id) {
             // In a savepoint of its own: a push that can't be queued never costs the request (the web still asks).
             try {
               await tx.transaction(async (sp) => {
-                const words = extensionSignInPushWords(input.browser);
+                const words = extensionSignInPushWords(browser);
                 await queuePersonalPush(sp, {
                   key: `extension_sign_in:${made.id}`,
                   category: 'extension_sign_in',

@@ -71,6 +71,7 @@ export function LinkPersonDialog({
         <RecordPicker
           id="link-person"
           workspaceId={workspaceId}
+          addNew={false}
           value={picked}
           onChange={(r) => {
             setPicked(r);

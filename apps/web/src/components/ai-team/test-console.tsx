@@ -845,6 +845,7 @@ export function TestConsole({
                 <CustomerPicker
                   id="test-as"
                   workspaceId={workspaceId}
+                  addNew={false}
                   value={person}
                   onChange={change(setPerson)}
                 />

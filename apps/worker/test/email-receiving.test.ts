@@ -254,6 +254,51 @@ describe('mail to a receiving domain', () => {
     expect((await filed(p.MessageID))?.emailAddressId).toBe(addressId);
   });
 
+  it('takes a website form’s visitor from Reply-To, From the site or from the business’s own address', async () => {
+    const domain = `forms-${token()}.example.com`;
+    await domainWith(domain, 'on', 'office');
+    const dana = `dana-${token()}@example.net`;
+    const lee = `lee-${token()}@example.net`;
+    // Contact Form 7's way: From the site, the visitor in Reply-To. WPForms' way: From the business's own address.
+    const fromSite = inbound(`office@${domain}`, {
+      From: `wordpress@${domain}`,
+      FromName: 'Receiving HVAC',
+      FromFull: { Email: `wordpress@${domain}`, Name: 'Receiving HVAC', MailboxHash: '' },
+      ReplyTo: `Dana Rivera <${dana.toUpperCase()}>`,
+    });
+    const fromOffice = inbound(`office@${domain}`, {
+      From: `office@${domain}`,
+      FromName: 'Receiving HVAC',
+      FromFull: { Email: `office@${domain}`, Name: 'Receiving HVAC', MailboxHash: '' },
+      ReplyTo: lee,
+    });
+    for (const p of [fromSite, fromOffice]) expect((await post(p)).statusCode).toBe(200);
+    await drain();
+    const withWhom = async (providerMessageId: string) =>
+      (
+        await rows<{ counterpart: string; from_address: string }>(
+          admin(),
+          sql`select c.counterpart, m.from_address from app.messages m
+                join app.conversations c on c.id = m.conversation_id
+              where m.provider_message_id = ${providerMessageId}`,
+        )
+      )[0];
+    // Each visitor has a thread of their own, and the answer goes to them; the message still says who sent it.
+    expect(await withWhom(fromSite.MessageID)).toEqual({
+      counterpart: dana,
+      from_address: `wordpress@${domain}`,
+    });
+    expect(await withWhom(fromOffice.MessageID)).toEqual({
+      counterpart: lee,
+      from_address: `office@${domain}`,
+    });
+    const [person] = await rows<{ first_name: string; last_name: string }>(
+      admin(),
+      sql`select first_name, last_name from app.people where workspace_id = ${workspaceId} and email = ${dana}`,
+    );
+    expect(person).toEqual({ first_name: 'Dana', last_name: 'Rivera' });
+  });
+
   it('is dropped while the domain doesn’t receive', async () => {
     const domain = `off-${token()}.example.com`;
     await domainWith(domain, 'off');
@@ -441,6 +486,78 @@ describe('a receiving domain’s own Postmark server (M19 step 6)', () => {
     );
     await drain();
     expect(await serverOf(domainId)).toEqual({ server: null, receiving: 'off', error: null });
+  });
+
+  // Postmark takes a domain only once its MX already points there (its code 610): Burroughs Digital's first try.
+  it('waits for the MX record before Postmark takes the domain, then makes its server as the MX shows', async () => {
+    // The local Postmark refuses a latemx-… domain until the MX check has looked once.
+    const domain = `latemx-${token()}.example.com`;
+    const { domainId } = await domainWith(domain, 'off');
+    await receive(domainId);
+    await drain();
+    expect(await serverOf(domainId)).toEqual({
+      server: `local-inbound-${domain}`,
+      receiving: 'on',
+      error: null,
+    });
+  });
+
+  it('stays waiting, with no refusal, while the MX points elsewhere; Check now looks again at once', async () => {
+    const domain = `nomx-${token()}.example.com`;
+    const { domainId } = await domainWith(domain, 'off');
+    // A refusal from an earlier try no longer applies once the domain waits for its MX.
+    await rows(
+      admin(),
+      sql`update app.email_domains set receiving_error = 'Postmark wouldn’t set it up.' where id = ${domainId}`,
+    );
+    await receive(domainId);
+    await drain();
+    expect(await serverOf(domainId)).toEqual({ server: null, receiving: 'pending', error: null });
+    const checked = async () =>
+      (
+        await rows<{ at: string | null }>(
+          admin(),
+          sql`select mx_checked_at::text as at from app.email_domains where id = ${domainId}`,
+        )
+      )[0]!.at;
+    const before = await checked();
+    expect(before).not.toBeNull();
+    // Check now: the business changed its MX a moment ago and doesn't wait for the next 15-minute look.
+    expect((await receive(domainId)).output).toMatchObject({
+      receiving: 'pending',
+      changed: false,
+    });
+    await drain();
+    expect(await checked()).not.toBe(before);
+    expect(await serverOf(domainId)).toEqual({ server: null, receiving: 'pending', error: null });
+  });
+
+  it('asks Postmark again in 5 minutes when our DNS sees the MX before Postmark’s does', async () => {
+    // The local Postmark refuses a slowmx-… domain until the MX check has looked twice.
+    const domain = `slowmx-${token()}.example.com`;
+    const { domainId } = await domainWith(domain, 'off');
+    await rows(
+      admin(),
+      sql`update app.email_domains set receiving = 'pending' where id = ${domainId}`,
+    );
+    const job = {
+      ...s,
+      job: { payload: { emailDomainId: domainId } } as unknown as JobRow,
+      scope: { workspaceId, organizationId },
+      attempt: 1,
+      now: Date.now(),
+    };
+    const first = await checkEmailReceivingJob(job);
+    const wait = (first?.rescheduleAt.getTime() ?? 0) - Date.now();
+    expect(wait).toBeGreaterThan(4 * 60_000);
+    expect(wait).toBeLessThanOrEqual(5 * 60_000);
+    expect(await serverOf(domainId)).toEqual({ server: null, receiving: 'pending', error: null });
+    expect(await checkEmailReceivingJob(job)).toBeUndefined();
+    expect(await serverOf(domainId)).toEqual({
+      server: `local-inbound-${domain}`,
+      receiving: 'on',
+      error: null,
+    });
   });
 
   it('says why when Postmark won’t receive the domain, and receiving goes back off', async () => {

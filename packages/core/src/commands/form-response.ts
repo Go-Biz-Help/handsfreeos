@@ -63,10 +63,10 @@ import {
   writeFormAnswers,
 } from '../forms/submit';
 import { insertWithId } from '../crm/client-ids';
-import { safeFileName } from '../crm/records';
+import { isStandInName, safeFileName } from '../crm/records';
 import { otherPhonesOf } from '../crm/contact-points';
 import { normalizePhone } from '../crm/phone';
-import { findOrCreateCustomer, intakeSourceOf, takeIntakeSlot } from '../crm/intake';
+import { findOrCreateCustomer, intakeSourceOf, liveStage, takeIntakeSlot } from '../crm/intake';
 import { recordSmsConsent } from '../crm/signup';
 import { loadCalendar, workspaceZone, type LoadedCalendar } from '../calendar/load';
 import { defineCommand } from '../kernel/define';
@@ -551,8 +551,14 @@ async function settleCustomer(
       ...otherPhonesOf(existing?.otherPhones).map((p) => p.phone),
     ];
     const blank = (value: unknown) => value === null || value === undefined || value === '';
+    // Saved under their number or email before they said their name: the name on the form replaces that stand-in.
+    const standIn = !!existing && isStandInName(existing);
     const fill: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(person.fields)) {
+      if (standIn && (key === 'firstName' || key === 'lastName') && !blank(value)) {
+        fill[key] = value;
+        continue;
+      }
       const e164 = asNumber(value);
       if (key === 'phoneAlt') {
         // Another number joins the others (0103) when it reads as one and isn't on file already: a form
@@ -618,6 +624,17 @@ async function settleCustomer(
     wanted && typeof wanted.pipelineId === 'string' && typeof wanted.stageId === 'string'
       ? { pipelineId: wanted.pipelineId, stageId: wanted.stageId }
       : null;
+  // Where the lead goes: the form's stage, then Lead intake's, then lead.create's first open stage, skipping any
+  // that was deleted or whose pipeline was archived since. Refused, the whole submission was lost.
+  const target =
+    (await liveStage(ctx.tx, ws, named)) ??
+    (await liveStage(
+      ctx.tx,
+      ws,
+      intake.pipelineId && intake.stageId
+        ? { pipelineId: intake.pipelineId, stageId: intake.stageId }
+        : null,
+    ));
   const byIntake = form.mode === 'form' && intake.createLead;
   // A lead this sheet already opened (on the page that saved their details) stays the one lead.
   if (leadId === null && intake.active && (named || byIntake)) {
@@ -638,12 +655,9 @@ async function settleCustomer(
       LeadCreateInput.parse({
         workspaceId: ws,
         personId,
-        // Neither the form nor Lead intake names one: lead.create puts it in the first open stage of
-        // the business's first pipeline, which is where a lead starts everywhere else too.
-        ...(named ??
-          (intake.pipelineId && intake.stageId
-            ? { pipelineId: intake.pipelineId, stageId: intake.stageId }
-            : {})),
+        // Neither the form nor Lead intake names one still there: lead.create puts it in the first open stage
+        // of the business's first pipeline, which is where a lead starts everywhere else too.
+        ...(target ?? {}),
         title: title.slice(0, 160),
         valueCents,
         source,

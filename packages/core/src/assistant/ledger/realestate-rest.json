@@ -1,7 +1,7 @@
 {
   "area": "realestate-rest",
   "title": "The Real Estate Agent add-on: the deals list, coordinate, duties, vendors and Deal settings",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-20",
   "files": {
     "apps/mobile/src/addons/realestate/coordinate.tsx": "5c8cabbfafe6",
     "apps/mobile/src/addons/realestate/deal-bits.tsx": "a021262ad124",
@@ -41,7 +41,7 @@
     "apps/web/src/app/app/w/[workspaceId]/a/realestate/settings/page.tsx": "d711bc309a26",
     "apps/web/src/app/app/w/[workspaceId]/a/realestate/vendors/page.tsx": "2717306a4433",
     "apps/web/src/components/addons/connections.tsx": "9d4b4706c549",
-    "apps/web/src/components/crm/record-picker.tsx": "415ed8b189ad",
+    "apps/web/src/components/crm/record-picker.tsx": "0fad37decba8",
     "apps/web/src/components/settings/support-access-card.tsx": "136227a6f294",
     "packages/core/src/addons/realestate/manifest.ts": "ac6b56db1cf6"
   },

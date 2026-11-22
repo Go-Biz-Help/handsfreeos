@@ -4,7 +4,7 @@
  * each sent once (even after a lost record), a cancel that stops them, a reschedule that re-arms them, quiet
  * hours shifting a text or sending email instead (or skipping it), and email for a number that said STOP.
  */
-import { formatPhone } from '@hfos/core/server';
+import { calendarGet, calendarSave, formatPhone, type CalendarConfig } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -28,7 +28,9 @@ import {
   makeCalendar,
   makeWorld,
   post,
+  query,
   readyTexting,
+  run,
   runDue,
   setQuietHours,
   stateOf,
@@ -179,6 +181,46 @@ describe('appointment reminders', () => {
     expect(again.statusCode, again.body).toBe(200);
     await drain(w);
     expect(await runAt(k.two)).toBe(sooner - 2 * HOUR);
+  });
+
+  it('gives customers already booked a reminder the calendar starts sending later', async () => {
+    const own = await makeCalendar(w, `Duct cleaning ${Math.random().toString(36).slice(2, 7)}`, {
+      locations: { options: [{ kind: 'customer_address' }] },
+    });
+    const start = at(9, '10:00');
+    const c = { ...customer('Ruth'), smsConsent: true, ...AT_HOME };
+    const booked = await bookOnline(w, own.slug, start, c);
+    await drain(w);
+    const { id: attendeeId } = await attendeeByToken(booked.manageToken);
+    const hourBefore = reminderJobKey(attendeeId, 'before_60');
+    expect(await jobRow(hourBefore)).toBeFalsy();
+
+    // The owner changes "2 hours before" to "1 hour before" in the calendar's Notifications.
+    const { calendar } = await query(w, calendarGet, {
+      workspaceId: w.workspaceId,
+      calendarId: own.id,
+    });
+    const config = calendar.config as CalendarConfig;
+    await run(w, calendarSave, {
+      workspaceId: w.workspaceId,
+      calendarId: own.id,
+      baseRevision: calendar.revision,
+      draft: {
+        ...config,
+        notifications: {
+          ...config.notifications,
+          reminders: [
+            { kind: 'day_before', at: '16:00' },
+            { kind: 'before', minutes: 60 },
+          ],
+        },
+      },
+    });
+    await drain(w);
+    expect(await runAt(hourBefore)).toBe(start - HOUR);
+    expect((await stateOf(attendeeId)).reminders['before_60']).toMatchObject({
+      status: 'scheduled',
+    });
   });
 
   it('moves a text past quiet hours when there is time, else emails it at its time, else skips it', async () => {

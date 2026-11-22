@@ -41,6 +41,45 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 /** Mail older than this (a mailbox's first sync) is filed quietly: no unread count, no reminder. */
 const FRESH_MS = 24 * 60 * 60 * 1000;
 
+interface EmailParty {
+  readonly address: string;
+  readonly name?: string | null;
+}
+
+/** Who sends a website form's mail, when it isn't the business's own address: the site, or a no-reply robot. */
+const FORM_SENDERS =
+  /^(wordpress|wp|www|web|website|webmaster|site|forms?|contact[-_.]?forms?|no[-_.]?reply|do[-_.]?not[-_.]?reply|donotreply)(\+.*)?$/i;
+const domainOf = (address: string) => address.slice(address.lastIndexOf('@') + 1);
+/** "crm.wix.com" and "wix.com" are one company; near enough for telling a company's own help desk from a visitor. */
+const baseOf = (address: string) => domainOf(address).split('.').slice(-2).join('.');
+
+/**
+ * Who wrote an inbound email. Website forms send what a visitor typed From the site itself (wordpress@ the
+ * business's domain, the business's own office@, or a builder's no-reply@) and put the visitor in Reply-To. The
+ * visitor is who wrote, the customer, and who the answer goes to; taken From the robot, every visitor shared one
+ * thread and every reply went to the robot. Anyone else's Reply-To is left alone: a customer writes as
+ * themselves, a list or a company's own help desk is not a visitor, and automatic mail stays automatic.
+ */
+async function senderOf(
+  tx: Tx,
+  workspaceId: string,
+  input: { from: EmailParty; replyTo?: EmailParty | null; automatic: boolean },
+  ours: ReadonlySet<string>,
+  ownDomains: ReadonlySet<string>,
+): Promise<EmailParty> {
+  const { from, replyTo } = input;
+  if (!replyTo || input.automatic || replyTo.address === from.address || ours.has(replyTo.address))
+    return from;
+  if (ours.has(from.address)) return replyTo;
+  const robot =
+    ownDomains.has(domainOf(from.address)) ||
+    (FORM_SENDERS.test(from.address.split('@')[0] ?? '') &&
+      baseOf(replyTo.address) !== baseOf(from.address));
+  if (!robot) return from;
+  // Someone on file writes as themselves, whatever their Reply-To says.
+  return (await matchPersonByEmail(tx, workspaceId, from.address)) ? from : replyTo;
+}
+
 /** An address that bounced for good or marked us as spam: mail from it opens nothing. */
 async function suppressed(tx: Tx, workspaceId: string, address: string): Promise<boolean> {
   const [row] = await tx
@@ -186,14 +225,13 @@ export const emailReceive = defineCommand({
         unmatchedId: null,
       };
 
-    const ours = new Set(
-      (
-        await ctx.tx
-          .select({ address: emailAddresses.address })
-          .from(emailAddresses)
-          .where(eq(emailAddresses.workspaceId, workspaceId))
-      ).map((a) => a.address),
-    );
+    const addresses = await ctx.tx
+      .select({ address: emailAddresses.address, domainId: emailAddresses.emailDomainId })
+      .from(emailAddresses)
+      .where(eq(emailAddresses.workspaceId, workspaceId));
+    const ours = new Set(addresses.map((a) => a.address));
+    // The business's own domains: not the shared one every business has an address on.
+    const ownDomains = new Set(addresses.filter((a) => a.domainId).map((a) => domainOf(a.address)));
     const [mailbox] = input.mailboxConnectionId
       ? await ctx.tx
           .select({
@@ -210,11 +248,14 @@ export const emailReceive = defineCommand({
       : [];
     if (mailbox?.accountEmail) ours.add(mailbox.accountEmail);
     const inbound = input.direction === 'inbound';
+    const sender = inbound
+      ? await senderOf(ctx.tx, workspaceId, input, ours, ownDomains)
+      : input.from;
     // Our own mail coming back around is not a customer writing.
-    if (inbound && ours.has(input.from.address)) return { outcome: 'skipped' as const, ...none };
+    if (inbound && ours.has(sender.address)) return { outcome: 'skipped' as const, ...none };
 
     // Who the conversation is with: the sender, or, for mail the mailbox sent, the first customer on it.
-    let counterpart: string | null = inbound ? input.from.address : null;
+    let counterpart: string | null = inbound ? sender.address : null;
     let personId: string | null = input.personId ?? null;
     if (!inbound) {
       for (const r of [...input.to, ...input.cc].slice(0, 20)) {
@@ -328,7 +369,7 @@ export const emailReceive = defineCommand({
       folder =
         (input.spamScore ?? 0) >= SPAM_SCORE
           ? 'spam'
-          : input.automatic || looksAutomatedEmail(input.from, input.subject)
+          : input.automatic || looksAutomatedEmail(sender, input.subject)
             ? 'other'
             : 'inbox';
     } else if (!conv && screened) {
@@ -346,7 +387,7 @@ export const emailReceive = defineCommand({
       else if (
         known ||
         input.automatic ||
-        looksAutomatedEmail(input.from, input.subject) ||
+        looksAutomatedEmail(sender, input.subject) ||
         // Indeed's own mail, and its word that somebody applied: the applicant is filed under Lead intake's
         // "Indeed" row (indeed_applicant.receive), never as somebody who emailed in.
         isIndeedMachine(counterpart) ||
@@ -360,7 +401,7 @@ export const emailReceive = defineCommand({
           {
             kind: 'email',
             email: counterpart,
-            name: input.from.name ?? null,
+            name: sender.name ?? null,
             how: 'emailed in',
             at,
           },
@@ -391,6 +432,10 @@ export const emailReceive = defineCommand({
     const autoLink = !conv.personId && !!matched;
     const person = conv.personId ?? matched;
     const fresh = Date.now() - at.getTime() < FRESH_MS;
+    // Old mail that a mailbox's first sync (or a reconnect) brings in is history, not a customer writing now: like
+    // mail the mailbox sent, it is imported, so the AI teammate doesn't answer it and no workflow, funnel or add-on
+    // hears of it. Postmark's mail is never this, whatever date the sender's computer stamped on it.
+    const imported = !inbound || (!fresh && !!input.mailboxConnectionId);
     const newest = !conv.lastMessageAt || at.getTime() >= conv.lastMessageAt.getTime();
     const preview = emailPreview(input.subject, input.bodyText, input.media.length);
     const messageId = randomUUID();
@@ -412,7 +457,7 @@ export const emailReceive = defineCommand({
           : { with: counterpart, channel: 'email', ...(quiet ? { folder } : {}) },
       });
     const eventId = await ctx.emit({
-      type: quiet ? 'email.filed' : inbound ? 'message.received' : 'message.imported',
+      type: quiet ? 'email.filed' : imported ? 'message.imported' : 'message.received',
       entityType: 'message',
       entityId: messageId,
       payload: {
@@ -422,9 +467,12 @@ export const emailReceive = defineCommand({
         mediaCount: input.media.length,
         ...(quiet
           ? { folder, direction: input.direction, ...(sealed ? { private: true } : {}) }
-          : inbound
-            ? { reopened: fresh && conv.status !== 'open' }
-            : { mailboxConnectionId: input.mailboxConnectionId ?? null }),
+          : imported
+            ? {
+                mailboxConnectionId: input.mailboxConnectionId ?? null,
+                ...(inbound ? { direction: input.direction } : {}),
+              }
+            : { reopened: fresh && conv.status !== 'open' }),
       },
       after: sealed
         ? { mediaCount: input.media.length }

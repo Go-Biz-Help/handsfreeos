@@ -1,7 +1,7 @@
 {
   "area": "documents",
   "title": "Documents to sign and their templates",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-20",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/documents.tsx": "a753a5248fa6",
     "apps/mobile/src/app/app/w/[workspaceId]/documents/[documentId]/index.tsx": "358731e8544c",
@@ -13,7 +13,7 @@
     "apps/mobile/src/documents/editor.tsx": "086c39869286",
     "apps/mobile/src/documents/pages.tsx": "38ac54017de1",
     "apps/mobile/src/documents/screens.tsx": "8ffb2bcd816e",
-    "apps/mobile/src/documents/send.tsx": "d055d08b5a3e",
+    "apps/mobile/src/documents/send.tsx": "bd026e77b5f7",
     "apps/mobile/src/documents/templates.tsx": "f90dd322dcd3",
     "apps/web/src/app/app/w/[workspaceId]/documents/[documentId]/page.tsx": "fc900cb8d456",
     "apps/web/src/app/app/w/[workspaceId]/documents/page.tsx": "d285d601a218",
@@ -725,6 +725,13 @@
       "by": "search_customers; do_document_send about.personId"
     },
     {
+      "path": "Send → Who it’s for, a customer signer, a customer copy → Add “…” as a new contact (web: person dialog; phone: New contact form, sent straight away)",
+      "kind": "do",
+      "file": "apps/mobile/src/documents/send.tsx:364",
+      "covered": "yes",
+      "by": "create_customer, then do_document_send personId"
+    },
+    {
       "path": "Send → Who it’s for set from a company, lead or record (its page, or Send it again)",
       "kind": "do",
       "file": "apps/web/src/app/app/w/[workspaceId]/documents/send/page.tsx:41",
@@ -839,7 +846,7 @@
     {
       "path": "Send (phone) → Change the words opens the pages full screen; Done",
       "kind": "do",
-      "file": "apps/mobile/src/documents/send.tsx:617",
+      "file": "apps/mobile/src/documents/send.tsx:654",
       "covered": "yes",
       "by": "do_document_send edits"
     },

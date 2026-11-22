@@ -76,7 +76,82 @@ declare global {
   interface Window {
     Stripe?: StripeFactory;
     Square?: SquareGlobal;
+    paypal?: PayPalNamespace;
   }
+}
+
+// ---------- PayPal ----------
+
+/** What PayPal's buttons hand back once the buyer approved the order in PayPal's window. */
+export interface PayPalApproval {
+  readonly orderID: string;
+}
+
+export interface PayPalButtonsOptions {
+  readonly style?: Readonly<Record<string, string | number | boolean>>;
+  createOrder(): Promise<string>;
+  onApprove(data: PayPalApproval): Promise<void>;
+  onCancel?(): void;
+  onError?(err: unknown): void;
+}
+
+export interface PayPalButtonsInstance {
+  render(container: HTMLElement): Promise<void>;
+  close?(): Promise<void>;
+  isEligible?(): boolean;
+}
+
+export interface PayPalNamespace {
+  Buttons(options: PayPalButtonsOptions): PayPalButtonsInstance;
+}
+
+/** What the worker hands the page for PayPal's buttons. Public, all of it. */
+export interface PayPalScript {
+  readonly clientId: string;
+  readonly merchantId: string;
+  readonly partnerAttributionId: string | null;
+  readonly intent: 'capture' | 'authorize';
+  readonly venmo: boolean;
+  readonly payLater: boolean;
+}
+
+/** What the worker sends for PayPal's buttons on a customer's page. */
+export interface PayPalButtonsConfig extends PayPalScript {
+  readonly environment: 'live' | 'test';
+  /** The stand-in serves its own page: a plain button goes there. */
+  readonly standIn: boolean;
+}
+
+/**
+ * PayPal's script for the business's own PayPal account: our client id (a sandbox one serves the sandbox), the
+ * business's merchant id so the money lands with them, and our partner code. Venmo and Pay Later are asked for
+ * or turned away as the business set them in Settings → Payments.
+ */
+export function payPalScriptUrl(s: PayPalScript): string {
+  const q = new URLSearchParams({
+    'client-id': s.clientId,
+    'merchant-id': s.merchantId,
+    currency: 'USD',
+    intent: s.intent,
+    components: 'buttons',
+  });
+  const enable = [s.venmo ? 'venmo' : null, s.payLater ? 'paylater' : null].filter(Boolean);
+  const disable = [s.venmo ? null : 'venmo', s.payLater ? null : 'paylater'].filter(Boolean);
+  if (enable.length) q.set('enable-funding', enable.join(','));
+  if (disable.length) q.set('disable-funding', disable.join(','));
+  return `https://www.paypal.com/sdk/js?${q.toString()}`;
+}
+
+/** PayPal's buttons. One page shows one PayPal account, so the script loads once with its settings. */
+export async function loadPayPal(s: PayPalScript): Promise<PayPalNamespace> {
+  const src = payPalScriptUrl(s);
+  if (!window.paypal)
+    await loadScript(
+      src,
+      s.partnerAttributionId ? { partnerAttributionId: s.partnerAttributionId } : {},
+    );
+  if (!window.paypal) throw new Error('PayPal loaded without paypal');
+  return window.paypal;
 }
 
 // ---------- loading ----------
@@ -90,13 +165,19 @@ const SQUARE_SCRIPT = {
 
 const loading = new Map<string, Promise<void>>();
 
-function loadScript(src: string): Promise<void> {
+function loadScript(
+  src: string,
+  data: { readonly partnerAttributionId?: string } = {},
+): Promise<void> {
   const known = loading.get(src);
   if (known) return known;
   const next = new Promise<void>((resolve, reject) => {
     const script = document.createElement('script');
     script.src = src;
     script.async = true;
+    // PayPal reads who the partner is from its script tag.
+    if (data.partnerAttributionId)
+      script.setAttribute('data-partner-attribution-id', data.partnerAttributionId);
     script.onload = () => resolve();
     script.onerror = () => {
       // A failed load can be tried again on the next press.

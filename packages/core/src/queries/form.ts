@@ -17,6 +17,7 @@ import { allQuestions, type FormDefinition, type FormMode } from '../forms/defin
 import { formIssues, loadForm, loadFormCatalogs, parseStoredForm } from '../forms/load';
 import type { AnswerFile } from '../forms/questions';
 import { isAnswerFiles } from '../forms/uploads';
+import { productOptionsOf } from '../money/options';
 import { jsonEqual } from '../workflows/json';
 import {
   FormCatalogsInput,
@@ -233,6 +234,7 @@ export const formCatalogs = defineQuery({
         kind: products.kind,
         unitPriceCents: products.unitPriceCents,
         unitLabel: products.unitLabel,
+        options: products.options,
       })
       .from(products)
       .where(and(eq(products.workspaceId, input.workspaceId), dsql`${products.archivedAt} is null`))
@@ -264,6 +266,11 @@ export const formCatalogs = defineQuery({
         kind: p.kind,
         priceCents: Number(p.unitPriceCents),
         unitLabel: p.unitLabel,
+        options: productOptionsOf(p).map((o) => ({
+          id: o.id,
+          name: o.name,
+          choices: o.choices.map((c) => ({ id: c.id, label: c.label, priceCents: c.priceCents })),
+        })),
       })),
     };
   },

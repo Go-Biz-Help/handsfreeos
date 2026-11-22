@@ -1,6 +1,14 @@
 'use client';
-import { money } from '@hfos/core';
-import { Plus, Search, X } from 'lucide-react';
+import {
+  choiceBumpWords,
+  money,
+  nameWithChoices,
+  pickedChoices,
+  priceWithChoices,
+  productHasOptions,
+  type OptionPicks,
+} from '@hfos/core';
+import { ChevronLeft, Plus, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,14 +36,18 @@ export function blankLine(name: string): PickedProduct {
   };
 }
 
-const pick = (p: ProductRow): PickedProduct => ({
-  productId: p.id,
-  name: p.name,
-  description: p.description,
-  unitPriceCents: p.unitPriceCents,
-  unitLabel: p.unitLabel,
-  taxable: p.taxable,
-});
+/** A product as a line, with the choices picked for it: "T-shirt (Adult 2XL)" at its price with the bump. */
+const pick = (p: ProductRow, picks: OptionPicks = {}): PickedProduct => {
+  const { choices } = pickedChoices(p, picks);
+  return {
+    productId: p.id,
+    name: nameWithChoices(p.name, choices),
+    description: p.description,
+    unitPriceCents: priceWithChoices(p.unitPriceCents, choices),
+    unitLabel: p.unitLabel,
+    taxable: p.taxable,
+  };
+};
 
 /**
  * The catalogue, picked from. A floating card under the button on a desk, a bottom sheet on a phone — the same
@@ -56,10 +68,17 @@ export function ProductPicker({
   className?: string;
 }) {
   const [q, setQ] = useState('');
+  /** A product with sizes or colors, while one of each is being picked for it. */
+  const [choosing, setChoosing] = useState<ProductRow | null>(null);
+  const [picks, setPicks] = useState<OptionPicks>({});
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) setQ('');
+    if (!open) {
+      setQ('');
+      setChoosing(null);
+      setPicks({});
+    }
   }, [open]);
 
   useEffect(() => {
@@ -110,74 +129,185 @@ export function ProductPicker({
             <X className="h-4 w-4" strokeWidth={1.5} />
           </Button>
         </div>
-        <div className="relative mb-1.5 px-0.5">
-          <Search
-            className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-text-3"
-            strokeWidth={1.5}
-          />
-          <Input
-            inputSize="sm"
-            className="pl-9"
-            autoFocus
-            placeholder="Search the catalogue"
-            value={q}
-            autoComplete="off"
-            onChange={(e) => setQ(e.target.value)}
-            data-testid="product-picker-search"
-          />
-        </div>
-        <ul className="min-h-0 flex-1 overflow-y-auto" role="listbox">
-          {matches.length === 0 ? (
-            <li className="px-2.5 py-3 text-[13px] text-text-3">
-              {products.length
-                ? 'Nothing in the catalogue matches.'
-                : 'The catalogue is empty. Add a line by hand, or add products in Settings → Products.'}
-            </li>
-          ) : null}
-          {matches.map((p) => (
-            <li key={p.id}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={false}
-                onClick={() => {
-                  onPick(pick(p));
-                  onClose();
-                }}
-                data-testid={`product-option-${p.name}`}
-                className="flex w-full items-center gap-2.5 rounded-[6px] px-2 py-2 text-left hover:bg-card-2 max-md:min-h-11"
-              >
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-[13.5px] font-semibold">{p.name}</span>
-                  <span className="truncate text-xs text-text-3">
-                    {[p.sku, p.taxable ? 'taxable' : 'no tax'].filter(Boolean).join(' · ')}
-                  </span>
-                </span>
-                <span className="flex flex-none flex-col items-end">
-                  <span className="text-[13px] font-semibold tabular-nums">
-                    {money(p.unitPriceCents)}
-                  </span>
-                  <span className="text-xs text-text-3">{p.unitLabel}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-1 border-t border-border pt-1">
-          <button
-            type="button"
-            onClick={() => {
-              onPick(blankLine(q));
+        {choosing ? (
+          <ChoicePicker
+            product={choosing}
+            picks={picks}
+            onPicks={setPicks}
+            onBack={() => {
+              setChoosing(null);
+              setPicks({});
+            }}
+            onAdd={() => {
+              onPick(pick(choosing, picks));
               onClose();
             }}
-            data-testid="product-picker-freehand"
-            className="flex w-full items-center gap-2 rounded-[6px] px-2 py-2 text-left text-[13px] font-medium text-accent-text hover:bg-card-2 max-md:min-h-11"
-          >
-            <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
-            {q.trim() ? `A one-off line “${q.trim()}”` : 'A line of your own'}
-          </button>
-        </div>
+          />
+        ) : (
+          <>
+            <div className="relative mb-1.5 px-0.5">
+              <Search
+                className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-text-3"
+                strokeWidth={1.5}
+              />
+              <Input
+                inputSize="sm"
+                className="pl-9"
+                autoFocus
+                placeholder="Search the catalogue"
+                value={q}
+                autoComplete="off"
+                onChange={(e) => setQ(e.target.value)}
+                data-testid="product-picker-search"
+              />
+            </div>
+            <ul className="min-h-0 flex-1 overflow-y-auto" role="listbox">
+              {matches.length === 0 ? (
+                <li className="px-2.5 py-3 text-[13px] text-text-3">
+                  {products.length
+                    ? 'Nothing in the catalogue matches.'
+                    : 'The catalogue is empty. Add a line by hand, or add products in Settings → Products.'}
+                </li>
+              ) : null}
+              {matches.map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={false}
+                    onClick={() => {
+                      if (productHasOptions(p)) {
+                        setChoosing(p);
+                        setPicks({});
+                        return;
+                      }
+                      onPick(pick(p));
+                      onClose();
+                    }}
+                    data-testid={`product-option-${p.name}`}
+                    className="flex w-full items-center gap-2.5 rounded-[6px] px-2 py-2 text-left hover:bg-card-2 max-md:min-h-11"
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-[13.5px] font-semibold">{p.name}</span>
+                      <span className="truncate text-xs text-text-3">
+                        {[
+                          p.sku,
+                          p.options.length
+                            ? `pick ${p.options.map((o) => o.name).join(', ')}`
+                            : null,
+                          p.taxable ? 'taxable' : 'no tax',
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    </span>
+                    <span className="flex flex-none flex-col items-end">
+                      <span className="text-[13px] font-semibold tabular-nums">
+                        {money(p.unitPriceCents)}
+                      </span>
+                      <span className="text-xs text-text-3">{p.unitLabel}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-1 border-t border-border pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  onPick(blankLine(q));
+                  onClose();
+                }}
+                data-testid="product-picker-freehand"
+                className="flex w-full items-center gap-2 rounded-[6px] px-2 py-2 text-left text-[13px] font-medium text-accent-text hover:bg-card-2 max-md:min-h-11"
+              >
+                <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
+                {q.trim() ? `A one-off line “${q.trim()}”` : 'A line of your own'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </>
+  );
+}
+
+/**
+ * One choice of each of a product's options (Size, Color), before it goes on as a line. Nothing is picked for them:
+ * a T-shirt added in the wrong size is worse than a tap.
+ */
+function ChoicePicker({
+  product,
+  picks,
+  onPicks,
+  onBack,
+  onAdd,
+}: {
+  product: ProductRow;
+  picks: OptionPicks;
+  onPicks: (picks: OptionPicks) => void;
+  onBack: () => void;
+  onAdd: () => void;
+}) {
+  const { choices, missing } = pickedChoices(product, picks);
+  const price = priceWithChoices(product.unitPriceCents, choices);
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="product-choices">
+      <div className="flex items-center gap-1.5 px-0.5 pb-2">
+        <Button variant="ghost" size="icon" aria-label="Back to the catalogue" onClick={onBack}>
+          <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
+        </Button>
+        <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{product.name}</span>
+        <span className="text-[13px] font-semibold tabular-nums">{money(price)}</span>
+      </div>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-1.5 pb-2">
+        {product.options.map((o) => (
+          <div key={o.id} role="radiogroup" aria-label={o.name}>
+            <span className="mb-1.5 block text-[12.5px] font-medium text-text-2">{o.name}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {o.choices.map((c) => {
+                const on = picks[o.id] === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => onPicks({ ...picks, [o.id]: c.id })}
+                    data-testid={`product-choice-${c.label}`}
+                    className={cn(
+                      'rounded-full border px-2.5 py-1 text-[13px] transition-colors max-md:min-h-9',
+                      on
+                        ? 'border-accent bg-accent-soft font-medium text-accent-text'
+                        : 'border-border hover:bg-card-2',
+                    )}
+                  >
+                    {c.label}
+                    {c.priceCents ? (
+                      <span className="ml-1 text-xs text-text-3">
+                        {choiceBumpWords(c.priceCents)}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-border px-1 pt-2">
+        <Button
+          size="sm"
+          className="w-full"
+          disabled={missing.length > 0}
+          onClick={onAdd}
+          data-testid="product-choices-add"
+        >
+          {missing.length
+            ? `Pick a ${missing[0]!.name.toLowerCase()}`
+            : `Add ${nameWithChoices(product.name, choices)}`}
+        </Button>
+      </div>
+    </div>
   );
 }

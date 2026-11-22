@@ -759,14 +759,15 @@ describe('a warm-up on Instagram', () => {
           <div role="button"><svg role="img" aria-label="Comment"></svg></div></div></section>
       </div></div></div></main>`;
     // The reels player, as the other report outlined it: the reel's account over its video, Verified, "and" and its
-    // button naming how many others.
+    // button naming how many others. Verified has its own title inside it, as Instagram draws every icon (the reports
+    // of 15 and 20 Nov 2026: the tick's title was read as words between the account and "and", so no like went).
     const reelTogether = `${MENU}<main role="main"><div><div>
       <div><img aria-hidden="true" alt=""><div><video></video><div role="group" aria-label="Video player">
         <div role="presentation"><div role="button"><div><div><div>
           <a role="link" aria-label="sam.lee reels" href="/sam.lee/reels/"><div>
             <span role="link"><img alt="sam.lee's profile picture"></span><span role="link"><img alt="Profile picture"></span></div></a>
           <div><span dir="auto"><a role="link" aria-label="sam.lee reels" href="/sam.lee/reels/">sam.lee</a>
-            <svg role="img" aria-label="Verified"></svg><span>and</span><div role="button">2 others</div></span></div></div>
+            <svg role="img" aria-label="Verified"><title>Verified</title><path d="M1"></path></svg><span>and</span><div role="button">2 others</div></span></div></div>
           <div role="button">Follow</div></div></div></div></div></div></div>
       <div><div><div role="button" id="like"><svg role="img" aria-label="Like"></svg></div>
           <div role="button"><span dir="auto"><span>74</span></span></div></div>

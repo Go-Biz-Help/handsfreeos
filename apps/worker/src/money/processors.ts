@@ -28,6 +28,7 @@ import { errorMessage } from '../outbox';
 import { accountFor, paymentConnectionUsable } from '../payments/index';
 import {
   isPaymentProvider,
+  PAYMENT_NAME,
   type PaymentEvent,
   type PaymentMethodKind,
   type PaymentProviderName,
@@ -135,7 +136,9 @@ const onPaymentEvent: DeliveryProcessor = async (ctx) => {
   if (!r) return 'ignored';
   const facts = paymentFactsOf(r.provider, r.event);
   if (!facts.status || facts.status === 'requires_payment') return 'ignored';
-  const ours = await ourPayment(ctx, r, facts.providerPaymentId);
+  let ours = await ourPayment(ctx, r, facts.providerPaymentId);
+  // PayPal's capture can be heard about before our own call kept its id: the row still holds the order's.
+  for (const id of facts.relatedIds) ours ??= await ourPayment(ctx, r, id);
   // A replay, or an event confirming what the call that made the payment already told us: taken, and dropped.
   if (ours && ours.status === facts.status) return 'ignored';
   const invoiceId = ours?.invoice_id ?? facts.invoiceId;
@@ -262,7 +265,7 @@ const isoOrNull = (v: string | null): string | null =>
 const onDisputeEvent: DeliveryProcessor = async (ctx) => {
   const r = routed(ctx);
   if (!r) return 'ignored';
-  const facts = disputeFactsOf(r.event);
+  const facts = disputeFactsOf(r.event, r.provider);
   if (!facts.providerDisputeId || !facts.providerPaymentId) return 'ignored';
   const { output } = await executeCommand(
     ctx.db,
@@ -437,7 +440,7 @@ const onAccountUpdated: DeliveryProcessor = async (ctx) => {
 };
 
 /**
- * The seller ended it at the provider: Stripe's deauthorize, Square's revoke. The connection is disconnected
+ * The seller ended it at the provider: Stripe's deauthorize, Square's revoke, PayPal's consent taken back. The connection is disconnected
  * here too and the owners hear once — and every old payment through that account can be refunded again the
  * moment the same account is reconnected, because credentials resolve by account id and not by this row.
  */
@@ -459,7 +462,7 @@ const onConnectionRevoked: DeliveryProcessor = async (ctx) => {
         workspaceId: r.scope.workspaceId,
         connectionId,
         reason: r.provider === 'stripe' ? ('deauthorized' as const) : ('revoked' as const),
-        message: `${r.provider === 'stripe' ? 'Stripe' : 'Square'} says this account no longer allows HandsFreeOS to take payments.`,
+        message: `${PAYMENT_NAME[r.provider]} says this account no longer allows HandsFreeOS to take payments.`,
       },
       systemActor(r.scope),
       workerMeta(),
@@ -471,7 +474,7 @@ const onConnectionRevoked: DeliveryProcessor = async (ctx) => {
 
 /**
  * `provider:kind` → what to do. The kinds are our own (money/webhook-events.ts), so this table reads in one
- * vocabulary rather than in Stripe's and Square's.
+ * vocabulary rather than in Stripe's, Square's and PayPal's.
  */
 function processorsFor(provider: PaymentProviderName): ProcessorMap {
   return {
@@ -491,4 +494,5 @@ function processorsFor(provider: PaymentProviderName): ProcessorMap {
 export const paymentProcessors: ProcessorMap = {
   ...processorsFor('stripe'),
   ...processorsFor('square'),
+  ...processorsFor('paypal'),
 };

@@ -162,7 +162,7 @@ export async function moneyWorld(label: string): Promise<MoneyWorld> {
  */
 export async function connect(
   w: World,
-  provider: 'stripe' | 'square',
+  provider: 'stripe' | 'square' | 'paypal',
   accountId: string,
 ): Promise<ConnectedAccount> {
   const started = await run(w, paymentConnectionConnect, {

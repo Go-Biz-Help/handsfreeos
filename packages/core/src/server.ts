@@ -18,6 +18,7 @@ export * from './messaging/registration-fingerprint';
 // browser-safe `./money` barrel beside the rest of the money code.
 export * from './money/wallet-gate';
 export * from './calendar/load';
+export * from './calendar/geocodes';
 export * from './calendar/day-start';
 export * from './calendar/deposit-load';
 export * from './calendar/booking';

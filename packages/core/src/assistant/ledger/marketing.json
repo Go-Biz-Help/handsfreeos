@@ -1,7 +1,7 @@
 {
   "area": "marketing",
   "title": "Campaigns, Reviews, Forms, surveys, quizzes and website chats",
-  "checkedOn": "2026-11-20",
+  "checkedOn": "2026-11-21",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/forms.tsx": "ec0ccb8ac910",
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx": "ee23933f5989",
@@ -51,7 +51,7 @@
     "apps/web/src/components/forms/preview.tsx": "1cf76a16916f",
     "apps/web/src/components/forms/public-form.tsx": "e542de786abd",
     "apps/web/src/components/forms/quantities-field.tsx": "526b0d724c85",
-    "apps/web/src/components/forms/quantities-settings.tsx": "d787fa98812f",
+    "apps/web/src/components/forms/quantities-settings.tsx": "4e5c202c8395",
     "apps/web/src/components/forms/question-field.tsx": "2e6905b08154",
     "apps/web/src/components/forms/question-list.tsx": "0574a7ce3a88",
     "apps/web/src/components/forms/question-settings.tsx": "fcce8ce168dc",
@@ -1318,63 +1318,63 @@
     {
       "path": "Forms → a form → a How many of each question → The rows: a row’s words",
       "kind": "do",
-      "file": "apps/web/src/components/forms/quantities-settings.tsx:107",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:145",
       "covered": "yes",
       "by": "build_form update_question config.choices [{id, label}]"
     },
     {
       "path": "Forms → a form → a How many of each question → The rows: a row’s price, or No price",
       "kind": "do",
-      "file": "apps/web/src/components/forms/quantities-settings.tsx:113",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:151",
       "covered": "yes",
       "by": "build_form update_question config.choices [{id, price}]"
     },
     {
       "path": "Forms → a form → a How many of each question → The rows: Remove row (one always stays)",
       "kind": "do",
-      "file": "apps/web/src/components/forms/quantities-settings.tsx:121",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:159",
       "covered": "yes",
       "by": "build_form update_question config.choices"
     },
     {
-      "path": "Forms → a form → a How many of each question → The rows: From your price list, which now says $N: Use that price",
+      "path": "Forms → a form → a How many of each question → The rows: From your price list, which now says $N: Use that price; That choice is no longer on it",
       "kind": "do",
-      "file": "apps/web/src/components/forms/quantities-settings.tsx:142",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:182",
       "covered": "partly",
       "by": "build_form update_question config.choices price, with the price from manage_product; it doesn’t see that the two drifted apart"
     },
     {
       "path": "Forms → a form → a How many of each question → The rows: Add a row",
       "kind": "do",
-      "file": "apps/web/src/components/forms/quantities-settings.tsx:176",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:216",
       "covered": "yes",
       "by": "build_form add_question quantities with its rows in json choices"
     },
     {
-      "path": "Forms → a form → a How many of each question → The rows: Add from your products… / Add all N",
+      "path": "Forms → a form → a How many of each question → The rows: Add from your products… (a product, or a row per size of one with sizes) / Add all N",
       "kind": "do",
-      "file": "apps/web/src/components/forms/quantities-settings.tsx:183",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:223",
       "covered": "partly",
-      "by": "build_form add_question quantities with the products’ names and prices; the rows aren’t linked to the products (productId)"
+      "by": "build_form add_question quantities with the products’ names and prices, a size’s from get_settings products options; the rows aren’t linked to the products (productId, optionChoiceId)"
     },
     {
       "path": "Forms → a form → a How many of each question → What it counts",
       "kind": "do",
-      "file": "apps/web/src/components/forms/quantities-settings.tsx:236",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:276",
       "covered": "yes",
       "by": "build_form update_question config.unit"
     },
     {
       "path": "Forms → a form → a How many of each question → Least in all, Most in all",
       "kind": "do",
-      "file": "apps/web/src/components/forms/quantities-settings.tsx:246",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:286",
       "covered": "yes",
       "by": "build_form update_question config.minTotal, config.maxTotal"
     },
     {
       "path": "Forms → a form → a How many of each question → Show prices",
       "kind": "do",
-      "file": "apps/web/src/components/forms/quantities-settings.tsx:274",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:314",
       "covered": "yes",
       "by": "build_form update_question config.showPrices"
     },

@@ -1,7 +1,7 @@
 {
   "area": "staff",
   "title": "HandsFreeOS staff only: the Admin area and the affiliate page (tools here must be offered to staff only)",
-  "checkedOn": "2026-11-17",
+  "checkedOn": "2026-11-21",
   "files": {
     "apps/mobile/src/app/app/admin/_layout.tsx": "970799f7fc45",
     "apps/mobile/src/app/app/admin/add-ons.tsx": "a6c29ff249f8",
@@ -108,7 +108,7 @@
     "apps/web/src/components/affiliate/affiliate-payouts.tsx": "2d591c4d73b2",
     "apps/web/src/components/affiliate/affiliate-self.tsx": "adf5b53b5809",
     "apps/web/src/components/demo/demo-director.tsx": "43dfbd307ac7",
-    "apps/web/src/components/founding/checkout-status.tsx": "4a625aae0ff9",
+    "apps/web/src/components/founding/checkout-status.tsx": "4b7a8ee5c68e",
     "apps/web/src/components/founding/claim-seat.tsx": "958bdcc5d9bb",
     "apps/web/src/components/founding/pick-plan.tsx": "2473ab3f4140",
     "apps/web/src/components/practice/practice-banner.tsx": "46e0036e247e",
@@ -1834,37 +1834,37 @@
       "by": "sign-in is the person's"
     },
     {
-      "path": "Founding checkout → paid, Carry on setting up / Open your workspace",
+      "path": "Founding checkout → paid or free trial on, Carry on setting up / Open your workspace",
       "kind": "see",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:117",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:121",
       "covered": "never",
       "by": "founding.checkout_status is NOT_FOR_THE_ASSISTANT"
     },
     {
       "path": "Founding checkout → stranded, finishing, expired, failed, Pick your spot",
       "kind": "see",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:157",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:165",
       "covered": "never",
       "by": "paying is the person's"
     },
     {
       "path": "Founding checkout → slow, preparing, confirming",
       "kind": "see",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:196",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:205",
       "covered": "never",
       "by": "founding.checkout_status is NOT_FOR_THE_ASSISTANT"
     },
     {
       "path": "Founding checkout → cancelled → Go back to paying / Pick a different spot",
       "kind": "do",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:218",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:227",
       "covered": "never",
       "by": "paying is the person's"
     },
     {
       "path": "Founding checkout → leaving → Go now",
       "kind": "do",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:247",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:256",
       "covered": "never",
       "by": "paying is the person's"
     },

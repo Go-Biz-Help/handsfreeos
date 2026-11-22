@@ -30,6 +30,7 @@ import { formatBytes } from '../crm/format';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
+import { emailSubjectOf } from '../inbox/composer';
 import { FRESH_MINUTES } from '../mobile';
 import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -75,7 +76,14 @@ import {
   RCS_LIMITS,
   replyChoices,
 } from '../messaging/rcs';
-import { confirmWord, messagePreview, smsKeyword, smsSegments, yesWord } from '../messaging/sms';
+import {
+  confirmWord,
+  messagePreview,
+  smsKeyword,
+  sentSmsSegments,
+  smsSegments,
+  yesWord,
+} from '../messaging/sms';
 import {
   isSocialChannel,
   SOCIAL_CHANNEL_NAMES,
@@ -801,7 +809,10 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
         throw HfosError.notFound(
           'That sending address isn’t there anymore. It may have been removed. Pick another address.',
         );
-      if (!wanted.usable)
+      // A person who picked it is told. Anything set to send from it (the AI teammate's "Emails from", a workflow's
+      // step) carries on from the default or the shared address, as the owners are told when a domain stops
+      // verifying: it would otherwise stop answering customers until someone fixed the DNS.
+      if (!wanted.usable && ctx.actor.type === 'human')
         throw HfosError.rule(
           'email_domain_unverified',
           409,
@@ -836,12 +847,20 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
   }
 
   const thread = await threadHeaders(ctx.tx, conv.id);
-  const subject = input.subject?.trim() || replySubject(thread.subject);
-  if (!subject)
-    throw HfosError.validation(
-      [{ path: 'subject', message: 'Add a subject.' }],
-      'This email has no subject. Add one, then send it.',
-    );
+  // With no subject written and none on the thread (a customer who wrote without one), it goes out under the
+  // business's name, as the web's and the phone's composers already send it. Refused instead, the AI teammate
+  // couldn't answer a customer who left the subject blank: its reply never names one.
+  const subject =
+    input.subject?.trim() ||
+    replySubject(thread.subject) ||
+    emailSubjectOf('', {
+      businessName: (
+        await rows<{ name: string }>(
+          ctx.tx,
+          sql`select name from app.workspaces where id = ${workspaceId}`,
+        )
+      )[0]?.name,
+    });
   const media = await emailAttachments(ctx, input.attachmentFileIds);
   const messageId = randomUUID();
   const now = new Date();
@@ -1477,7 +1496,7 @@ export const messageSend = defineCommand({
     const rich = input.rich ? await richFor(ctx, messageId, input.body, input.rich, media) : null;
     const now = new Date();
     // A rich text is counted by its plain face: that is what a phone without RCS is sent, segment by segment.
-    const segments = smsSegments(rich ? rich.smsText : input.body).segments;
+    const segments = sentSmsSegments(rich ? rich.smsText : input.body).segments;
     const preview = messagePreview(input.body, media.length);
     const to = formatPhone(conv.counterpart);
     if (created)
@@ -1603,7 +1622,9 @@ export const messageSend = defineCommand({
         lastPreview: preview,
         lastDirection: 'outbound',
         ...afterOutbound(input.keepConversationStatus, created, now),
-        phoneNumberId: conv.phoneNumberId ?? number.id,
+        // The number it goes from: the thread's own while that can send, and the one that replaced it once it
+        // was released, so the thread moves to the new number now rather than when the worker sends.
+        phoneNumberId: number.id,
         ...(claim && ai ? { handledBy: 'ai' as const, aiTeammateId: ai.teammateId } : {}),
       })
       .where(eq(conversations.id, conv.id));

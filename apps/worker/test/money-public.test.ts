@@ -29,6 +29,7 @@ import {
 import {
   FAKE_BANK,
   FAKE_CARDS,
+  FAKE_PAYPAL_CLIENT_ID,
   FAKE_SQUARE_APPLICATION_ID,
   FAKE_STRIPE_PUBLISHABLE_KEY,
 } from '../src/payments/fake';
@@ -36,6 +37,7 @@ import {
   admin,
   BUSINESS_ADDRESS,
   CALENDAR_ADDRESS,
+  connect,
   drain,
   errorOf,
   get,
@@ -122,6 +124,14 @@ interface InvoiceView {
       publishableKey: string;
       accountId: string;
       locationId: string | null;
+    } | null;
+    payPal: {
+      clientId: string;
+      merchantId: string;
+      intent: string;
+      venmo: boolean;
+      payLater: boolean;
+      standIn: boolean;
     } | null;
   };
 }
@@ -494,6 +504,159 @@ describe('the invoice a customer pays', () => {
     expect(view.payments[0]).toMatchObject({
       cardBrand: 'Visa',
       cardLast4: FAKE_CARDS.succeeds.slice(-4),
+    });
+  });
+
+  describe('through PayPal', () => {
+    let paypal: { connectionId: string; accountId: string };
+
+    beforeAll(async () => {
+      paypal = await connect(w, 'paypal', `PAYPAL${randomBytes(4).toString('hex').toUpperCase()}`);
+    });
+
+    /** PayPal's journey: the order is made, the buyer approves it in PayPal's window, then we capture it. */
+    async function payWithPayPal(doc: SentDocument, opts: { webhookFirst?: boolean } = {}) {
+      const { clientId, answer } = await startPayment(doc);
+      expect(answer.payment).toMatchObject({
+        flow: 'client_confirm',
+        publishableKey: FAKE_PAYPAL_CLIENT_ID,
+        accountId: paypal.accountId,
+        // The buttons approve the order by its id; there is no secret to hand the browser.
+        clientSecret: null,
+      });
+      expect(answer.payment.providerPaymentId).toMatch(/^ORDER_/);
+      await payOnStandInPage(w, answer.payment.hostedUrl!, FAKE_CARDS.succeeds, 'card');
+      // PayPal's capture event can be heard before our own call kept the capture's id.
+      if (opts.webhookFirst) await drain(w);
+      const done = await post(w, `/public/invoice/${doc.token}/pay`, {
+        clientId,
+        providerPaymentId: answer.payment.providerPaymentId,
+      });
+      expect(done.statusCode, done.body).toBe(200);
+      return { order: answer.payment.providerPaymentId!, settled: done.json() as PayAnswer };
+    }
+
+    it('takes the payment, and the order’s id becomes the capture’s', async () => {
+      const inv = await sentInvoice(w, { connectionId: paypal.connectionId });
+      const { order, settled } = await payWithPayPal(inv);
+      expect(settled.stage).toBe('recorded');
+      expect(settled.payment.status).toBe('succeeded');
+      expect(settled.invoice.state).toBe('paid');
+      // The stand-in's PAYMENT.CAPTURE.COMPLETED lands afterwards and changes nothing.
+      await drain(w);
+      const payments = await paymentRows(inv.id);
+      expect(payments).toHaveLength(1);
+      expect(payments[0]).toMatchObject({ status: 'succeeded', provider_status: 'COMPLETED' });
+      expect(payments[0]!.provider_payment_id).toMatch(/^CAPTURE_/);
+      expect(payments[0]!.provider_payment_id).not.toBe(order);
+      expect(w.s.payments.fake.webhooks().some((p) => p.type === 'PAYMENT.CAPTURE.COMPLETED')).toBe(
+        true,
+      );
+    });
+
+    it('still records one payment when PayPal’s event beats our own answer', async () => {
+      const inv = await sentInvoice(w, { connectionId: paypal.connectionId });
+      const { settled } = await payWithPayPal(inv, { webhookFirst: true });
+      // The event already recorded it against the order's row, so our answer is the same payment again.
+      expect(settled.payment.status).toBe('succeeded');
+      await drain(w);
+      const payments = await paymentRows(inv.id);
+      expect(payments).toHaveLength(1);
+      expect(payments[0]!.provider_payment_id).toMatch(/^CAPTURE_/);
+      expect((await invoiceRow(inv.id)).status).toBe('paid');
+    });
+
+    it('puts PayPal’s buttons beside Stripe’s box, and pressing one pays into PayPal', async () => {
+      const inv = await sentInvoice(w);
+      const view = (await get(w, `/public/invoice/${inv.token}`)).json() as InvoiceView;
+      expect(view.pay.session!.provider).toBe('stripe');
+      expect(view.pay.payPal).toMatchObject({
+        clientId: FAKE_PAYPAL_CLIENT_ID,
+        merchantId: paypal.accountId,
+        intent: 'capture',
+        venmo: true,
+        payLater: true,
+        standIn: true,
+      });
+
+      const { clientId, answer } = await startPayment(inv, { method: 'paypal' });
+      expect(answer.payment).toMatchObject({ provider: 'paypal', method: 'paypal' });
+      expect(answer.payment.providerPaymentId).toMatch(/^ORDER_/);
+      await payOnStandInPage(w, answer.payment.hostedUrl!, FAKE_CARDS.succeeds, 'card');
+      // The second press names only the order: the row it was started on says it was PayPal's.
+      const done = await post(w, `/public/invoice/${inv.token}/pay`, {
+        clientId,
+        providerPaymentId: answer.payment.providerPaymentId,
+      });
+      expect(done.statusCode, done.body).toBe(200);
+      expect((done.json() as PayAnswer).payment.status).toBe('succeeded');
+      const [row] = await rows<{ provider: string; connection_id: string }>(
+        admin(),
+        sql`select provider::text as provider, connection_id from app.payments
+            where invoice_id = ${inv.id}`,
+      );
+      expect(row).toEqual({ provider: 'paypal', connection_id: paypal.connectionId });
+    });
+
+    it('leaves PayPal’s buttons off when its account is kept to some people, or Venmo is switched off', async () => {
+      const inv = await sentInvoice(w);
+      await rows(
+        admin(),
+        sql`update app.payment_connections set used_by = 'chosen', user_ids = array[${w.owner.id}::uuid]
+            where id = ${paypal.connectionId}`,
+      );
+      try {
+        const view = (await get(w, `/public/invoice/${inv.token}`)).json() as InvoiceView;
+        expect(view.pay.payPal).toBeNull();
+        const refused = await post(w, `/public/invoice/${inv.token}/pay`, {
+          clientId: randomUUID(),
+          method: 'paypal',
+        });
+        expect(refused.statusCode).toBe(409);
+      } finally {
+        await rows(
+          admin(),
+          sql`update app.payment_connections set used_by = 'everyone', user_ids = '{}'
+              where id = ${paypal.connectionId}`,
+        );
+      }
+      await patchMoneySettings(w, { venmo: false });
+      try {
+        const view = (await get(w, `/public/invoice/${inv.token}`)).json() as InvoiceView;
+        expect(view.pay.payPal).toMatchObject({ venmo: false, payLater: true });
+      } finally {
+        await patchMoneySettings(w, { venmo: true });
+      }
+    });
+
+    it('refunds the capture, and PayPal’s refund event settles it', async () => {
+      const inv = await sentInvoice(w, { connectionId: paypal.connectionId });
+      await payWithPayPal(inv);
+      await drain(w);
+      const [payment] = await paymentRows(inv.id);
+      await run(w, paymentRefund, {
+        workspaceId: w.workspaceId,
+        paymentId: payment!.id,
+        reason: 'Job called off',
+      });
+      await drain(w);
+      const ran = await post(w, '/test/money/run-due', { workspaceId: w.workspaceId });
+      expect(ran.statusCode, ran.body).toBe(200);
+      await drain(w);
+      expect(w.s.payments.fake.refunds().at(-1)).toMatchObject({
+        paymentId: expect.stringMatching(/^ORDER_/),
+        status: 'succeeded',
+      });
+      expect(w.s.payments.fake.webhooks().some((p) => p.type === 'PAYMENT.CAPTURE.REFUNDED')).toBe(
+        true,
+      );
+      expect(await invoiceRow(inv.id)).toMatchObject({
+        amount_refunded_cents: inv.totalCents,
+        balance_cents: 0,
+      });
+      const view = (await get(w, `/public/invoice/${inv.token}`)).json() as InvoiceView;
+      expect(view.refunds).toHaveLength(1);
+      expect(view.refunds[0]!.status).toBe('succeeded');
     });
   });
 

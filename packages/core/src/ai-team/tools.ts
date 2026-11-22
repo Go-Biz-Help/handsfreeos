@@ -65,6 +65,13 @@ const language = z
 const catalogueItem = z.strictObject({
   productId: uuid.describe('A product id from the price list in the context'),
   quantity: z.number().gt(0).max(10_000),
+  choices: z
+    .array(z.string().trim().min(1).max(60))
+    .max(3)
+    .optional()
+    .describe(
+      'For a product the price list says to pick from (a Size, a Color): one choice of each, by name, like ["Adult 2XL", "Black"]',
+    ),
 });
 const zip = z
   .string()

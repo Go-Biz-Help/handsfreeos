@@ -94,6 +94,7 @@ import { oneOnOne } from '../booking/visit';
 import type { MailDnsLookup } from '../email/dns';
 import { publicOrigin } from '../hosting/origin';
 import { accountFor } from '../payments/index';
+import { accountOfStarted, payPalButtonsOf } from '../payments/payable';
 import { declineWording, type PaymentMethodKind, type PaymentResult } from '../payments/provider';
 import { systemActor, type TenantScope } from '../services';
 import { callBoxFor, offersBoxFor, parseBody, type HttpDeps } from './common';
@@ -674,8 +675,9 @@ const customerFields = {
 const DepositPayBody = z.object({
   /** One per press, kept across the trip to the provider: a retry is answered, never charged again. */
   clientId: z.string().trim().min(8).max(64),
-  method: z.enum(['card', 'ach']).default('card'),
-  /** Stripe, after the browser confirmed: the intent to read back. */
+  /** `paypal`: PayPal's button was pressed, so PayPal's account holds the deposit. */
+  method: z.enum(['card', 'ach', 'paypal']).default('card'),
+  /** Stripe, after the browser confirmed: the intent to read back. PayPal: the order the buyer approved. */
   providerPaymentId: z.string().trim().max(200).optional(),
   /** Square: the one-time token the browser made from the card. */
   sourceToken: z.string().trim().max(2048).optional(),
@@ -837,6 +839,16 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
     return drivesFor(deps, tx, calendar, p ? { lat: p.lat, lng: p.lng } : null, span, {
       excludeAppointmentIds: [appointmentId],
     });
+  }
+
+  /**
+   * Where a booked visit's address is, on a calendar that serves a distance or a drawn area. The visit keeps its
+   * address and ZIP but not the point, and without it nobody covers the visit: no time to move it to.
+   */
+  async function bookedPoint(tx: Tx, calendar: LoadedCalendar, location: StoredLocation) {
+    if (calendar.config.territory.routing !== 'zip' || !location.address?.trim()) return null;
+    const p = await placeOf(tx, deps.geocoder, location.address).catch(() => null);
+    return p ? { lat: p.lat, lng: p.lng } : null;
   }
 
   function addressNotFound(): HfosError {
@@ -1076,6 +1088,14 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           methods: account?.methods ?? [],
           /** Public keys only: never a secret key, and never Square's access token. */
           session: account?.session ?? null,
+          /**
+           * PayPal's buttons beside the card box (or alone, when PayPal is the calendar's account). They hold
+           * the deposit like a card, so Venmo and Pay Later, which can't be held, are left off.
+           */
+          payPal:
+            state === 'held' && plan
+              ? payPalButtonsOf(deps.payments, plan.payPal, plan.settings, true)
+              : null,
         },
         holdToken: manageToken(links, {
           publicRef: b.a.publicRef,
@@ -1119,6 +1139,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           partySize: b.a.seats,
           locationKind: (location.kind ?? null) as LocationKind | null,
           postalCode: location.postalCode ?? null,
+          point: await bookedPoint(tx, calendar, location),
           drives: await bookedDrives(tx, calendar, location, { from, to }, b.p.id),
         },
         { service },
@@ -1593,7 +1614,23 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             serviceId: b.p.serviceId,
             calendarName: calendar.name,
           });
-          const account = plan?.account ?? null;
+          // PayPal's button was pressed: its account holds the deposit, whichever account the calendar names.
+          let account = body.method === 'paypal' ? (plan?.payPal ?? null) : (plan?.account ?? null);
+          // Second phase: read back through the account the payment was started in, whatever the page sent.
+          if (plan && body.providerPaymentId) {
+            const [started] = await rows<{ connection_id: string | null }>(
+              tx,
+              sql`select connection_id from app.payments
+                  where invoice_id = ${invoice.id} and provider_payment_id = ${body.providerPaymentId}
+                  limit 1`,
+            );
+            if (started)
+              account =
+                accountOfStarted(
+                  { main: plan.account, payPal: plan.payPal },
+                  started.connection_id,
+                ) ?? account;
+          }
           if (!account) throw cannotTakePayment();
           const method: PaymentMethodKind = account.methods.includes(body.method)
             ? body.method
@@ -1646,8 +1683,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
               idempotencyKey: ctx.idempotencyKey,
               description: ctx.description,
               customerRef: null,
-              // A card is held, not charged, until the time is confirmed.
-              hold: ctx.method === 'card',
+              // A card (or PayPal) is held, not charged, until the time is confirmed.
+              hold: ctx.method === 'card' || ctx.method === 'paypal',
               metadata: { attendeeId: m.attendeeId, workspaceId: scope.workspaceId },
               returnUrl,
             });
@@ -1708,7 +1745,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
          */
         if (start.gone) {
           let held: PaymentResult | null = null;
-          if (body.providerPaymentId) {
+          // PayPal's buttons only approve an order: nothing is held until we ask, so a lost time asks nothing.
+          if (body.providerPaymentId && ctx.account.session.provider !== 'paypal') {
             try {
               held = await provider.confirmFromClient(account, body.providerPaymentId);
             } catch {
@@ -1859,6 +1897,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
                   partySize: b.a.seats,
                   locationKind: (location.kind ?? null) as LocationKind | null,
                   postalCode: location.postalCode ?? null,
+                  point: await bookedPoint(tx, calendar, location),
                   excludeAppointmentIds: [b.p.id],
                   drives: await bookedDrives(tx, calendar, location, { from, to }, b.p.id),
                 }
@@ -1892,20 +1931,26 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
         const m = await managed(req.params.token);
         const body = parseBody(RescheduleBody, req.body);
         const start = Date.parse(body.startsAt);
-        // Decision 179: the drives to and from the visit's address, for a calendar that leaves time to drive.
-        const drives = body.sessionId
-          ? null
+        // Decision 179: the drives to and from the visit's address, for a calendar that leaves time to drive; and
+        // where that address is, for a calendar that serves a distance or a drawn area.
+        const { drives, point } = body.sessionId
+          ? { drives: null, point: null }
           : await worker(m.scope, async (tx) => {
               const b = await loadBooked(tx, m.attendeeId);
-              if (!b || b.p.kind !== 'booking' || b.p.capacity !== 1) return null;
+              if (!b || b.p.kind !== 'booking' || b.p.capacity !== 1)
+                return { drives: null, point: null };
               const calendar = await loadCalendar(tx, m.scope.workspaceId, b.p.calendarId);
-              return bookedDrives(
-                tx,
-                calendar,
-                (b.p.location ?? {}) as StoredLocation,
-                { from: start, to: start + 1 },
-                b.p.id,
-              );
+              const location = (b.p.location ?? {}) as StoredLocation;
+              return {
+                drives: await bookedDrives(
+                  tx,
+                  calendar,
+                  location,
+                  { from: start, to: start + 1 },
+                  b.p.id,
+                ),
+                point: await bookedPoint(tx, calendar, location),
+              };
             });
         const { output } = await executeCommand(
           deps.httpDb,
@@ -1917,6 +1962,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             startsAt: body.startsAt,
             sessionId: body.sessionId ?? null,
             drives,
+            point,
           },
           systemActor(m.scope),
           meta(),

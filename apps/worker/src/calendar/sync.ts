@@ -48,8 +48,10 @@ type Appointment = typeof appointments.$inferSelect;
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
-/** Busy times are read this far ahead (the booking window's default horizon). */
+/** Busy times are read at least this far ahead: the booking window's default, and what the Calendar shows as Busy. */
 export const HORIZON_MS = 60 * DAY;
+/** The longest "Books up to" a calendar can be set to. */
+const MAX_DAYS_AHEAD = 365;
 const REFRESH_AHEAD_MS = 5 * 60_000;
 /** Failed refreshes in a row before the connection shows "Not syncing" (it keeps trying). */
 const FAILURES_BEFORE_ERROR = 5;
@@ -234,6 +236,28 @@ async function reconcile(
   for (const d of due) await queueCalendarSync(tx, scope, d.id);
 }
 
+/**
+ * How far ahead to read a person's busy times: to the end of the last day a customer can book on any calendar they
+ * work, never less than the usual 60 days. A calendar that books 90 days ahead used to be open over that person's own
+ * Google or Outlook events from day 61 on, and so was most of the last day of a 60-day one. The two days more cover
+ * that last day in the calendar's own time zone and a visit that runs past its end.
+ */
+async function horizonMs(s: WorkerServices, scope: TenantScope, userId: string): Promise<number> {
+  const [r] = await asWorker(s.db, scope, (tx) =>
+    rows<{ days: number | string | null }>(
+      tx,
+      sql`select max(coalesce(nullif(c.config->'window'->>'maxDaysAhead', '')::numeric, 60)) as days
+          from app.calendars c
+          where c.workspace_id = ${scope.workspaceId}::uuid and c.status <> 'archived'
+            and (exists (select 1 from app.calendar_members m
+                         where m.calendar_id = c.id and m.user_id = ${userId}::uuid)
+              or c.config->'team'->'members' @> ${JSON.stringify([{ userId }])}::jsonb)`,
+    ),
+  );
+  const days = Math.min(MAX_DAYS_AHEAD, Math.max(60, Math.ceil(Number(r?.days ?? 0)) || 0));
+  return Math.max(HORIZON_MS, (days + 2) * DAY);
+}
+
 export const calendarRefresh: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const connectionId = String(ctx.job.payload['connectionId'] ?? '');
@@ -254,7 +278,7 @@ export const calendarRefresh: JobHandler = async (ctx) => {
     );
     // From the top of the hour, so an unchanged calendar reads back the same blocks all hour.
     const from = new Date(Math.floor(Date.now() / HOUR) * HOUR);
-    const to = new Date(from.getTime() + HORIZON_MS);
+    const to = new Date(from.getTime() + (await horizonMs(ctx, scope, c.userId)));
     const busy = await call((t) => provider.busy(t, from, to, w?.timezone ?? 'America/Chicago'));
     const theirs = intervals.clip(
       busy.map((b) => ({ start: b.start.getTime(), end: b.end.getTime() })),
@@ -391,6 +415,14 @@ function wantsMeet(location: unknown): boolean {
 
 /** How long to wait before asking Google again for a Meet link it hasn't finished making. */
 const MEET_PENDING_MS = 30_000;
+/**
+ * How long after the appointment last changed Google gets to finish a Meet link. It used to be asked every 30
+ * seconds for ever, long after the visit: an account with Meet turned off never gets one.
+ */
+const MEET_GIVE_UP_MS = 10 * 60_000;
+/** What the appointment says when its Meet link never came. */
+export const MEET_LINK_PROBLEM =
+  'Google didn’t make a Meet link for this appointment. Check that Google Meet is turned on for the host’s Google account, or edit the appointment and paste a link in.';
 
 /** What the person's calendar shows: the appointment, who it's with, where, and a link back. */
 function eventFor(
@@ -576,6 +608,7 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
   // The Meet link is made once, in the first Google calendar written, starting with the host's.
   let meet = wantsMeet(a.location) && a.status === 'scheduled' && a.binItemId === null;
   let meetPending = false;
+  let meetFailed = false;
   const refreshes = new Set<string>();
   const transient: string[] = [];
   const ordered = [...people].sort((x, y) => (x === seen.hostId ? -1 : y === seen.hostId ? 1 : 0));
@@ -607,17 +640,19 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
         if (!conn || !provider || !usable(conn)) continue;
         const call = session(ctx, scope, conn, provider);
         const addMeet = meet && conn.provider === 'google';
-        const { providerEventId, meetingUrl } = await call((t) =>
+        const made = await call((t) =>
           provider.upsertEvent(
             t,
             { ...event, addMeet },
             here ? (row?.providerEventId ?? null) : null,
           ),
         );
+        const { providerEventId, meetingUrl } = made;
         if (addMeet) {
           if (meetingUrl) {
             meet = false;
             meetPending = false;
+            meetFailed = false;
             await executeCommand(
               ctx.db,
               appointmentSetMeetingLink,
@@ -626,13 +661,15 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
                 appointmentId: a.id,
                 video: 'google_meet',
                 meetingUrl,
+                meetingError: null,
               },
               systemActor(scope),
               workerMeta(),
             );
             // Everyone else's event shows the same link.
             event = { ...event, location: meetingUrl };
-          } else meetPending = true;
+          } else if (made.meetFailed) meetFailed = true;
+          else meetPending = true;
         }
         await record(ctx, scope, a.id, userId, conn.id, {
           providerEventId,
@@ -677,8 +714,29 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
     });
   if (transient.length > 0)
     throw new Error(`A calendar didn’t take the change: ${transient.join('; ')}`);
-  // Google is still making the Meet link: ask again shortly, with the same request, to pick it up.
-  if (meetPending) return { rescheduleAt: new Date(Date.now() + MEET_PENDING_MS) };
+  if (meetPending || meetFailed) {
+    // Once the appointment says why it has no link, a later change to it asks Google once more and no oftener.
+    const told =
+      (a.location as { meetingError?: unknown } | null)?.meetingError === MEET_LINK_PROBLEM;
+    const waited = Date.now() - a.updatedAt.getTime() > MEET_GIVE_UP_MS;
+    // Google is still making the Meet link: ask again shortly, with the same request, to pick it up.
+    if (meetPending && !told && !waited)
+      return { rescheduleAt: new Date(Date.now() + MEET_PENDING_MS) };
+    // It isn't coming: the appointment says so, where the phone and the Assistant show it.
+    if (!told)
+      await executeCommand(
+        ctx.db,
+        appointmentSetMeetingLink,
+        {
+          workspaceId: scope.workspaceId,
+          appointmentId: a.id,
+          video: 'google_meet',
+          meetingError: MEET_LINK_PROBLEM,
+        },
+        systemActor(scope),
+        workerMeta(),
+      );
+  }
   // Changed while we were writing: go round again with what it is now.
   if (await changedSince(ctx, scope, a.id, seen.fingerprint)) return { rescheduleAt: new Date() };
 };

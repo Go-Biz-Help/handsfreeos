@@ -14,6 +14,8 @@ import {
   needsAddress,
   chatAddedCustomer,
   chatVerified,
+  defaultLocationKind,
+  goesOut,
   LeadQualification,
   parseStoredForm,
   quantitiesWords,
@@ -21,11 +23,13 @@ import {
   loadCalendar,
   localDateOf,
   openHoursOf,
+  productOptionsOf,
   uuidArray,
   JOB_STATUS_WORDS,
   quoteData,
   type JobStatus,
   type KnowledgeMatch,
+  type ProductOptionRow,
   type TeammateChannel,
   type TeammateConfig,
   type TeammateRow,
@@ -250,6 +254,12 @@ export interface RunCalendar {
   readonly deposit: { readonly amountCents: number; readonly mode: 'deposit' | 'full' } | null;
   /** The page a customer books it on, when the booking site is on. */
   readonly bookingPath: string | null;
+  /**
+   * It leaves time to drive between visits (docs/outreach.md, decision 179). The drive is timed by road from the
+   * customer's address on the booking page, so like a calendar that takes a deposit it is **not the teammate's to
+   * book**: a time it offered would be a guess, back to back with a visit across town.
+   */
+  readonly drives: boolean;
   /** It offers times by the customer's ZIP code, so find_times needs theirs (M18). */
   readonly byZip: boolean;
   /** M18: some of its service areas go by distance or a drawn shape, so find_times needs their address. */
@@ -286,6 +296,8 @@ export interface RunProduct {
   readonly name: string;
   readonly priceCents: number;
   readonly unitLabel: string;
+  /** Its sizes, colors and other choices: a bill for it names one of each (core's money/options.ts). */
+  readonly options: readonly ProductOptionRow[];
 }
 
 export interface RunAppointment {
@@ -452,6 +464,11 @@ export interface LoadInput {
   /** The app's address (booking pages). */
   readonly webUrl: string;
   readonly now: number;
+  /**
+   * False where addresses can't be found on a map (no geocoder): then no page times a drive either, and a calendar
+   * that leaves time to drive is booked like any other. Left out, it counts as on.
+   */
+  readonly mapsOn?: boolean;
 }
 
 /** The teammate's Instructions list, oldest first. */
@@ -493,7 +510,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
   const lead = customer && !strangerInChat ? await openLeadOf(tx, ws, customer.id) : null;
   const stages = lead ? await stagesOf(tx, lead.pipelineId) : [];
   const calendars = input.config.book.enabled
-    ? await calendarsOf(tx, ws, input.config.book.calendarIds)
+    ? await calendarsOf(tx, ws, input.config.book.calendarIds, input.mapsOn !== false)
     : [];
   const appointments =
     customer && !unverifiedChat ? await upcomingAppointments(tx, ws, customer.id, timeZone) : [];
@@ -718,6 +735,7 @@ async function calendarsOf(
   tx: Tx,
   workspaceId: string,
   ids: readonly string[],
+  mapsOn: boolean,
 ): Promise<RunCalendar[]> {
   const out: RunCalendar[] = [];
   const [row] = await rows<{ site: string | null }>(
@@ -751,6 +769,7 @@ async function calendarsOf(
       services,
       deposit: most ? { amountCents: most.amountCents, mode: most.mode } : null,
       bookingPath: site ? `/book/${site}/${cal.slug}` : null,
+      drives: mapsOn && cal.config.buffers.driveBetween && goesOut(defaultLocationKind(cal.config)),
       byZip: cal.config.territory.routing === 'zip',
       byAddress:
         cal.config.territory.routing === 'zip' &&
@@ -814,9 +833,15 @@ async function liveOffers(tx: Tx, workspaceId: string, timeZone: string): Promis
 
 /** What's on the price list, by name. */
 async function catalogueOf(tx: Tx, workspaceId: string): Promise<RunProduct[]> {
-  const list = await rows<{ id: string; name: string; price_cents: string; unit_label: string }>(
+  const list = await rows<{
+    id: string;
+    name: string;
+    price_cents: string;
+    unit_label: string;
+    options: unknown;
+  }>(
     tx,
-    sql`select id, name, unit_price_cents::text as price_cents, unit_label
+    sql`select id, name, unit_price_cents::text as price_cents, unit_label, options
         from app.products where workspace_id = ${workspaceId} and archived_at is null
         order by lower(name) limit ${CATALOGUE_MAX}`,
   );
@@ -825,6 +850,7 @@ async function catalogueOf(tx: Tx, workspaceId: string): Promise<RunProduct[]> {
     name: p.name,
     priceCents: Number(p.price_cents),
     unitLabel: p.unit_label,
+    options: productOptionsOf(p),
   }));
 }
 

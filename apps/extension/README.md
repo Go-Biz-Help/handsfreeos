@@ -590,8 +590,15 @@ From top to bottom:
 
 **Signing in with a prompt** (20261027002910). The person types their email and presses **Send me a prompt**; the
 panel shows a 2-digit number. Their phone gets a push (`extension_sign_in`), and any HandsFreeOS tab open in front of
-them asks "Signing in to the extension on Chrome? Pick the number you see." with three numbers. The right one signs
-the extension in within a couple of seconds; a wrong one, or **That wasn’t me**, stops it for good.
+them asks "Signing in to the extension on Chrome? Type the number the extension shows." The right number signs the
+extension in within a couple of seconds; a wrong one, or **That wasn’t me**, stops it for good.
+
+- **Typed, never picked from a list** (security audit, 21 Nov 2026). Anyone who knows an email can send that person a
+  prompt, so a list of three let a stranger in one tap in three. The prompt never shows words the caller sent: the
+  browser is one of a few names (`extensionBrowserName`), anything else "your browser". After a refused prompt (a
+  wrong number, or That wasn’t me) the email gets no new one for half an hour, and five an hour at most, counted in
+  the database (`private.extension_sign_in_wait`, 20261027032500). Phones on an older build get no numbers to pick
+  from until they update.
 
 - **The background holds the secret** (`src/hfos/prompt.ts`). Starting (`POST /public/extension-sign-in/start` on the
   worker) answers a request id, the number, a random secret and when it ends; the secret stays in the extension's
@@ -604,7 +611,7 @@ the extension in within a couple of seconds; a wrong one, or **That wasn’t me*
 - **Two minutes, once.** A request ends after 2 minutes, is answered once, and is handed over once. A new prompt for
   the same email cancels the one before.
 - **Nobody learns who has an account.** Starting answers the same for any email; one with no account simply never
-  gets answered. Starts are limited per address and per email.
+  gets answered. Starts are limited per address and per email, and the half-hour wait answers the same either way.
 - **Nobody signed in anywhere?** Nothing pops up, the prompt runs out, and **Use an emailed code instead** still works.
 
 **The first time** (decision 45 in docs/outreach.md): setting up Social Outreach happens in HandsFreeOS, not here.
@@ -1274,6 +1281,40 @@ was reported. From 0.126.2:
   Before, it was read and never kept, as Instagram shows no times on its messages.
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
+
+### A Facebook post that isn't there any more (0.150.3)
+
+A comment on a good post in their groups (decision 20) went to the problem reports as "couldn’t find the box to
+comment in" when the post's own page showed only Facebook's **This content isn't available right now**, with Go to
+Feed, Go back and Help Center (the owner's problem report of 21 Nov 2026): whoever wrote the post deleted it, or hid
+it, after it was found, and the AI had already been asked for a comment. From 0.150.3 the reader says so on a post's
+page that shows that heading and no post (`unavailable` in `src/networks/facebook/page.ts`), and the comment is passed
+over before anything is drafted, with nothing reported or handed over, as a profile that isn't available is (0.139.3).
+
+### An Instagram reel made with others, its account Verified (0.150.3)
+
+A visit's like on a reel someone made with other accounts never went when the reel's account was Verified (the owner's
+problem reports of 15 and 20 Nov 2026, "Couldn’t like (their name)’s post on this visit"). The reels player writes
+"<account> ✓ and 2 others" over the reel, and Instagram draws the tick with its own title inside it
+(`<title>Verified</title>`), so the tick read as words between the account and "and", and the reel was taken for
+someone else's. From 0.150.3 an icon's title is passed over (`wordsOf` in `src/networks/instagram/read.ts`), and the
+reel off their grid is liked, as one with no tick already was (0.140.2).
+
+The same morning's other reports aren't changed: two Facebook warm-ups found nothing right to like (a profile whose
+only posts were a cover photo and a profile picture with no Like, and one with a cover photo and a fundraiser the AI
+passed over), an Instagram Likes box listed nobody, a Facebook friend request met a box of Facebook's the outline
+can't say, and two drafts met a busy AI.
+
+### Instagram's Turn on Notifications closed before a post (0.150.2)
+
+The owner's Content Creator post on Instagram of 21 Nov 2026 didn't go up: "Instagram didn't show the box to write a
+post". Its problem report showed Instagram's **Turn on Notifications** over the page, with **Turn On** and **Not Now**,
+and the page under it hidden from screen readers, so Create, under it, was never pressed.
+
+From 0.150.2, before it looks for Create, a dialog Instagram shows over the page with a **Not Now** is closed with it
+(`igCloseAsks` in `src/research/post-here.ts`, step `ask:not_now`), up to three in a row, so **Save your login info**
+and the like are closed the same way. Never **Turn On**, never anything but Not Now, and never a dialog holding a file
+field or words, so a post someone started is left as it is.
 
 ### Events near you on Facebook, once a week (0.150.0)
 

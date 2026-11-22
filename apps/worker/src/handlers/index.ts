@@ -34,6 +34,7 @@ import { onPackPushed, onTemplatePushed } from '../workflows/templates';
 import {
   onAddedConfirm,
   onArmReminders,
+  onCalendarReminders,
   onBookedConfirm,
   onBookedTeamEmail,
   onCancelledNotice,
@@ -367,12 +368,14 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       // A yearly seat renewed, or the card refused it (20261027009500): the owners and admins are emailed.
       'founding.renewed': onFoundingBilled,
       'founding.renewal_failed': onFoundingBilled,
+      // Each daily try that fails is emailed too, as the business is told it will be; the last one says so.
+      'founding.renewal_retry_failed': onFoundingBilled,
       // Billing for a plan (20261027023600): Try my cards now and a later payment day are charged by jobs, a removed
       // card is forgotten at Stripe, and the owners and admins hear what staff said about more time.
       'billing.pay_now_requested': onPayNowRequested,
       'billing.pay_day_change_requested': onPayDayChangeRequested,
       'billing.card_removed': onPlanCardRemoved,
-      'billing.more_time_answered': onMoreTimeAnswered,
+      'platform.plan_more_time_answered': onMoreTimeAnswered,
       // Paid add-ons (20261027028500): the first charge when a trial is used up, the owners and admins told of a
       // refused charge or an add-on turned off, and a new card trying again what's past due (founding/addon-billing.ts).
       ...addonBillingHandlers,
@@ -438,6 +441,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
         // Booked through a partner's link: the customer becomes that partner's client (partners/handlers.ts).
         onPartnerBooking,
       ],
+      // A calendar's reminders changed: the ones already booked get them too.
+      'calendar.updated': onCalendarReminders,
       'appointment.updated': onAppointmentChanged,
       'appointment.rescheduled': [
         onAppointmentChanged,

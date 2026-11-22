@@ -3,11 +3,41 @@
  * key, a 400 is a question the supplier can't answer, and anything else that isn't a success is the supplier's
  * trouble, tried again later. Nothing here logs a key or a token.
  */
+import { createSafeFetch, type SafeFetch } from '../../../http/safe-fetch';
 import { ConnectionRefused } from '../../connections';
 import { FeedUnreachable, FeedUnsupported, type FeedFetch } from './types';
 
 /** How long one call to a supplier may take. */
 export const FEED_CALL_MS = 20_000;
+/** A page of listings with their photos runs to a few megabytes; past this it counts as one we couldn't read. */
+const FEED_MAX_BYTES = 16 * 1024 * 1024;
+/** Answers that carry no body, which a Response can't be made with. */
+const NO_BODY = new Set([101, 204, 205, 304]);
+
+/**
+ * The fetch for an address a business typed in (a direct RESO feed and its token address): through the worker's safe
+ * fetcher, so it only ever reaches public https addresses, each redirect checked again, never our own network or a
+ * cloud's metadata address. Plain `fetch` would follow a pasted address anywhere the worker can reach.
+ */
+export function safeFeedFetch(safe: SafeFetch = createSafeFetch()): FeedFetch {
+  return async (url, init) => {
+    const method = (init.method ?? 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'POST')
+      throw new TypeError(`A listing feed is never asked with ${method}.`);
+    const res = await safe(url, {
+      method,
+      headers: { ...((init.headers as Record<string, string> | undefined) ?? {}) },
+      ...(typeof init.body === 'string' ? { body: init.body } : {}),
+      timeoutMs: FEED_CALL_MS,
+      maxBytes: FEED_MAX_BYTES,
+    });
+    if (res.truncated) throw new Error('the listing feed’s answer was too big to read');
+    return new Response(NO_BODY.has(res.status) ? null : new Uint8Array(res.bytes), {
+      status: res.status,
+      headers: res.headers,
+    });
+  };
+}
 
 export async function feedJson(
   fetchImpl: FeedFetch,

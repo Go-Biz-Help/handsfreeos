@@ -338,6 +338,7 @@ function keptOf(item: TodayListItem): ProfileRef | null {
 
 /** What the runner says of a profile Facebook won't show. */
 const PROFILE_UNAVAILABLE = 'Facebook says their profile isn’t available right now';
+const POST_UNAVAILABLE = 'Facebook says it isn’t available any more';
 
 /**
  * Opens someone's profile and checks it's them: the page and its profile, and the profile to note the step against
@@ -683,6 +684,11 @@ async function comment(item: TodayListItem, businessId: string): Promise<Outcome
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
+  // Facebook shows "This content isn't available right now" where the post was: whoever wrote it deleted it, or hid
+  // it, after it was found. Nothing's left to comment on and nothing went wrong, so nothing is drafted or reported
+  // (the problem report of 21 Nov 2026, which said it couldn't find the box to comment in).
+  if (page.unavailable)
+    return { done: false, line: `${item.name}’s post: ${POST_UNAVAILABLE}`, skip: true };
   await pause(LOOK_MS);
   const look = await lookAtPost(commenting, { profile: author, postUrl: item.postUrl });
   const drafted = await answer({

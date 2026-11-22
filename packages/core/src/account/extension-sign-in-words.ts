@@ -4,8 +4,13 @@
  * screen and the worker all read these.
  *
  * 1. The extension sends the email (`POST /public/extension-sign-in/start` on the worker) and shows the number.
- * 2. The person's phones get a push (`extension_sign_in`) and any open HandsFreeOS tab asks, offering three numbers.
- * 3. The right number approves it (`extension_sign_in.answer`); a wrong one, or "That wasn't me", refuses it.
+ * 2. The person's phones get a push (`extension_sign_in`) and any open HandsFreeOS tab asks for the number.
+ * 3. Typing the right number approves it (`extension_sign_in.answer`); a wrong one, or "That wasn't me", refuses it,
+ *    and prompts for that email then wait a while (`private.extension_sign_in_wait`).
+ *
+ * The person types the number; it is never offered in a list. Whoever starts a prompt only needs an email, so a list
+ * of three let a stranger in one tap in three, and the prompt itself never shows anything the stranger wrote: the
+ * browser is one of a fixed few names.
  * 4. The extension asks every couple of seconds with its secret (`…/collect`) and, once approved, gets a one-time
  *    sign-in token that it redeems with Supabase Auth.
  *
@@ -20,8 +25,9 @@ export const EXTENSION_SIGN_IN_POLL_MS = 2_000;
 export const EXTENSION_SIGN_IN_WATCH_MS = 4_000;
 
 /**
- * The number the extension shows (10–99) and the three a prompt offers: it and two others, in a random order. `rand`
- * answers a whole number from 0 up to (not including) its argument; the worker passes crypto's.
+ * The number the extension shows (10–99), and two others beside it in a random order, which the request's row keeps
+ * (it always has); prompts no longer show them. `rand` answers a whole number from 0 up to (not including) its
+ * argument; the worker passes crypto's.
  */
 export function extensionSignInNumbers(rand: (below: number) => number): {
   readonly number: number;
@@ -39,16 +45,31 @@ export function extensionSignInNumbers(rand: (below: number) => number): {
   return { number, choices: choices as [number, number, number] };
 }
 
+/** The browsers a prompt can name. Anything else is "your browser": the prompt never shows a stranger's words. */
+const BROWSER_NAMES = [
+  'Chrome',
+  'Edge',
+  'Brave',
+  'Opera',
+  'Firefox',
+  'Safari',
+  'Arc',
+  'Vivaldi',
+] as const;
+
 /** The browser the request names, as people call it ("Chrome"); anything unknown is just "your browser". */
 export function extensionBrowserName(browser: string | null | undefined): string {
-  const b = (browser ?? '').trim();
-  return b ? b.slice(0, 40) : 'your browser';
+  const b = (browser ?? '').trim().toLowerCase();
+  return BROWSER_NAMES.find((name) => name.toLowerCase() === b) ?? 'your browser';
 }
 
 /** The prompt's words, on the web and the phone alike. */
 export const EXTENSION_SIGN_IN_WORDS = {
   question: (browser: string) => `Signing in to the extension on ${extensionBrowserName(browser)}?`,
-  pick: 'Pick the number you see.',
+  pick: 'Type the number the extension shows.',
+  /** The box the number goes in, and the button under it. */
+  numberLabel: 'Number from the extension',
+  approve: 'Sign in',
   notMe: 'That wasn’t me',
   approved: 'Done. The extension is signing in now.',
   refused: 'That number didn’t match, so the sign-in was stopped. Nobody got in.',
@@ -60,14 +81,14 @@ export const EXTENSION_SIGN_IN_WORDS = {
 export function extensionSignInPushWords(browser: string): { title: string; body: string } {
   return {
     title: EXTENSION_SIGN_IN_WORDS.question(browser),
-    body: 'Open to pick the number the extension shows. It ends in 2 minutes.',
+    body: 'Open to type the number the extension shows. It ends in 2 minutes.',
   };
 }
 
 /** What the extension says while it waits, and when it can't go on. */
 export const EXTENSION_SIGN_IN_STATUS_WORDS = {
-  waiting: 'Pick this number on your phone or in HandsFreeOS.',
+  waiting: 'Type this number on your phone or in HandsFreeOS.',
   refused:
-    'The number picked didn’t match, so this sign-in was stopped. Send another prompt, or use an emailed code.',
+    'The number typed didn’t match, so this sign-in was stopped. Use an emailed code, or send another prompt in a while.',
   expired: 'This prompt ran out. Send another, or use an emailed code.',
 } as const;

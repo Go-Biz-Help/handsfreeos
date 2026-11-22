@@ -169,6 +169,37 @@ describe('the extension’s sign-in prompt', () => {
     ).rejects.toMatchObject({ rule: 'sign_in_request_gone' });
   });
 
+  it('pauses prompts for an email once one was refused', async () => {
+    // Dale refused the one before (a wrong number): the next waits half an hour, whoever asks and from wherever.
+    const paused = await post(
+      '/public/extension-sign-in/start',
+      { email: dale.email, browser: 'Chrome' },
+      '198.51.100.200',
+    );
+    expect(paused.statusCode).toBe(429);
+    expect(json<{ error: { rule: string } }>(paused).error.rule).toBe('rate_limited');
+  });
+
+  it('never shows the caller’s own words in the prompt', async () => {
+    const res = await post('/public/extension-sign-in/start', {
+      email: marco.email,
+      browser: 'Chrome: tap 42',
+    });
+    expect(res.statusCode).toBe(200);
+    const { requestId } = json<Started>(res);
+    const [kept] = await rows<{ browser: string }>(
+      admin(),
+      sql`select browser from app.extension_sign_ins where id = ${requestId}`,
+    );
+    expect(kept?.browser).toBe('your browser');
+    await sendPushes();
+    const sent = s.push.fake.sent.filter(
+      (m) => (m.message.data as { refs?: { signInId?: string } }).refs?.signInId === requestId,
+    );
+    expect(sent).toHaveLength(1);
+    expect(JSON.stringify(sent[0]!.message)).not.toContain('tap 42');
+  });
+
   it('limits prompts for one email from anywhere', async () => {
     const email = `limited-${randomUUID()}@hfos.test`;
     const codes: number[] = [];

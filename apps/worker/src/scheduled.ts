@@ -71,6 +71,7 @@ import {
   domainRecordInput,
   ownershipFound,
   lapsedMessage,
+  openInboundServer,
   receivingCheckKey,
   sharedAddress,
 } from './handlers/email';
@@ -451,9 +452,16 @@ export const checkEmailDomains: JobHandler = async (ctx) => {
 const RECEIVING_WAIT_MS = 15 * 60_000;
 
 /**
+ * How soon to ask Postmark again when our DNS already shows a domain's MX and Postmark's doesn't yet. Sooner than
+ * the usual wait: mail may already be arriving there, and Postmark files it only once the domain's server has it.
+ */
+const POSTMARK_CATCH_UP_MS = 5 * 60_000;
+
+/**
  * One receiving domain's MX, looked at again (M19). A pending domain turns on once its MX names Postmark, and one
- * that is on turns lapsed once its MX stops. A domain still waiting is looked at again in 15 minutes; the others
- * wait for the daily check.
+ * that is on turns lapsed once its MX stops. Postmark takes a domain only once its MX points there, so a domain
+ * still without its server gets one as the MX shows. A domain still waiting is looked at again in 15 minutes; the
+ * others wait for the daily check.
  */
 export const checkEmailReceivingJob: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
@@ -464,21 +472,29 @@ export const checkEmailReceivingJob: JobHandler = async (ctx) => {
     async (tx) =>
       (
         await tx
-          .select({ domain: emailDomains.domain, receiving: emailDomains.receiving })
+          .select({
+            id: emailDomains.id,
+            domain: emailDomains.domain,
+            receiving: emailDomains.receiving,
+            inboundServerId: emailDomains.inboundServerId,
+            receivingError: emailDomains.receivingError,
+          })
           .from(emailDomains)
           .where(eq(emailDomains.id, emailDomainId))
       )[0],
   );
   // Removed, or turned off, while this waited.
   if (!d || d.receiving === 'off') return;
+  const mxFound = await ctx.email.domains.receives(d.domain);
+  if (mxFound && !d.inboundServerId && d.domain !== HANDSFREEOS_DOMAIN) {
+    const opened = await openInboundServer(ctx, scope, d, workerMeta());
+    if (opened === 'refused') return;
+    if (opened === 'waiting') return { rescheduleAt: new Date(Date.now() + POSTMARK_CATCH_UP_MS) };
+  }
   const { output } = await executeCommand(
     ctx.db,
     emailDomainRecordReceiving,
-    {
-      workspaceId: scope.workspaceId,
-      emailDomainId,
-      mxFound: await ctx.email.domains.receives(d.domain),
-    },
+    { workspaceId: scope.workspaceId, emailDomainId, mxFound },
     systemActor(scope),
     workerMeta(),
   );

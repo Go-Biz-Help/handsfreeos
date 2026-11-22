@@ -107,13 +107,15 @@ describe('starting a sign-in prompt', () => {
 });
 
 describe('extension_sign_in.pending and .answer', () => {
-  it('shows only the person’s own, with three numbers and never which is right', async () => {
+  it('shows only the person’s own, and never the numbers: they type the one the extension shows', async () => {
     const r = await start(dale.email);
     const mine = await pending(dale);
     expect(mine).toEqual([
-      { id: r.id, browser: 'Chrome', choices: [17, 42, 88], expiresAt: expect.any(String) },
+      { id: r.id, browser: 'Chrome', choices: [], expiresAt: expect.any(String) },
     ]);
-    expect(JSON.stringify(mine)).not.toContain('number');
+    // No field carries the number: only these four. (Not a search of the JSON for the number: the random id and the
+    // time can hold those digits too.)
+    expect(Object.keys(mine[0]!).sort()).toEqual(['browser', 'choices', 'expiresAt', 'id']);
     expect(await pending(marco)).toEqual([]);
   });
 
@@ -199,5 +201,39 @@ describe('the table', () => {
         ),
       ),
     );
+  });
+});
+
+describe('how long an email waits for its next prompt (private.extension_sign_in_wait)', () => {
+  const wait = async (email: string) =>
+    (
+      await asService({})((tx) =>
+        rows<{ seconds: number }>(
+          tx,
+          sql`select private.extension_sign_in_wait(${email}) as seconds`,
+        ),
+      )
+    )[0]!.seconds;
+
+  it('not at all at first, and the same for an email with no account', async () => {
+    expect(await wait(`fresh-${randomUUID()}@hfos.test`)).toBe(0);
+  });
+
+  it('half an hour after a prompt is refused, whatever the case of the email', async () => {
+    const someone = await createTestUser('signin-refuser', { fullName: 'Ray Refuser' });
+    const r = await start(someone.email);
+    expect(await wait(someone.email)).toBe(0);
+    await answer(someone, r.id, null);
+    const left = await wait(someone.email.toUpperCase());
+    expect(left).toBeGreaterThan(29 * 60);
+    expect(left).toBeLessThanOrEqual(30 * 60);
+  });
+
+  it('after five prompts in an hour, answered or not', async () => {
+    const email = `busy-${randomUUID()}@hfos.test`;
+    for (let i = 0; i < 4; i += 1) await start(email);
+    expect(await wait(email)).toBe(0);
+    await start(email);
+    expect(await wait(email)).toBeGreaterThan(59 * 60);
   });
 });

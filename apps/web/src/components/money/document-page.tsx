@@ -3,6 +3,7 @@ import {
   acceptedWording,
   dayLabel,
   declinedWording,
+  estimateBilling,
   expiryPhrase,
   invoiceStanding,
   invoiceVoidBlock,
@@ -163,7 +164,10 @@ export function EstimateDocument({
   const open = est.status === 'sent';
   // With options, the invoice is for the one they picked, so it waits for their yes.
   const picking = est.options.length > 0 && est.status !== 'accepted';
-  const answerable = canBill && !picking && (est.status === 'sent' || est.status === 'accepted');
+  // What's already billed from it: once the job is invoiced it isn't offered again, and after a deposit it's the rest.
+  const billed = estimateBilling(est.totals.totalCents, data.invoices);
+  const answerable =
+    canBill && !picking && !billed.job && (est.status === 'sent' || est.status === 'accepted');
   // The option on screen: the one the estimate's own figures are, until someone looks at another.
   const [looking, setLooking] = useState<number | null>(null);
   const shown =
@@ -398,6 +402,7 @@ export function EstimateDocument({
         workspaceId={workspaceId}
         estimateId={est.id}
         depositCents={est.depositCents}
+        billed={billed}
         connections={connections}
       />
       <MarkAcceptedDialog

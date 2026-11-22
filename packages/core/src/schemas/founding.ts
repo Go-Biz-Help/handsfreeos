@@ -257,6 +257,11 @@ export const FoundingCheckoutStatusOutput = z.strictObject({
    * back to pick a plan. False on a claim link's seat and on a renewal.
    */
   selfServe: z.boolean(),
+  /**
+   * This page started a free trial that is on and still running (20261027027000): the day it ends and the card is
+   * first charged `amountCents`. Nothing was charged on the page, so it must never read as paid. Null otherwise.
+   */
+  trialEndsAt: z.iso.datetime().nullable(),
 });
 
 /** The worker made Stripe's page. */

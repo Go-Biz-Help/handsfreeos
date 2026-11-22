@@ -28,6 +28,7 @@ import {
   documentVoid,
   executeCommand,
   fileConfirm,
+  formatClock,
   personCreate,
   portalAccessGive,
   portalCheckCode,
@@ -51,10 +52,13 @@ import {
   admin,
   drain,
   emailsTo,
+  hh,
+  hourNow,
   makeWorld,
   nextPhone,
   readyTexting,
   run,
+  setQuietHours,
   textsTo,
   waitForMail,
   type World,
@@ -465,6 +469,62 @@ describe('signing, start to finish', () => {
     const download = await get(`/public/sign/${token}/download`);
     expect(download.statusCode).toBe(302);
     expect(download.headers.location).toMatch(/^http/);
+  });
+
+  it('emails the code in quiet hours, and tells a phone alone when a text can go', async () => {
+    const nina = await customer('Nina');
+    const omarPhone = nextPhone();
+    const omar = (await run(w, personCreate, {
+      workspaceId: w.workspaceId,
+      firstName: 'Omar',
+      lastName: 'Renter',
+      phone: omarPhone,
+    })) as { personId: string };
+    await send(nina.id, { askCode: true });
+    await send(omar.personId, { askCode: true });
+    await drain(w);
+    const linkOf = (phone: string) =>
+      tokenIn(
+        textsTo(w, phone)
+          .map((t) => t.body)
+          .join('\n'),
+      );
+    const [ninaToken, omarToken] = [linkOf(nina.phone), linkOf(omarPhone)];
+    const codeTexts = (phone: string) =>
+      textsTo(w, phone).filter((t) => t.body.includes('is your code'));
+
+    const end = hh(hourNow() + 2);
+    await setQuietHours(w, { start: hh(hourNow() - 1), end });
+    try {
+      // With an email on file, the code goes there: the page says so before they ask.
+      const page = (await get(`/public/sign/${ninaToken}`)).json() as {
+        signer: { codeTo: string };
+      };
+      expect(page.signer.codeTo).toBe(`n•••@${nina.email.split('@')[1]}`);
+      const sent = await post(`/public/sign/${ninaToken}/code`);
+      expect(sent.statusCode, sent.body).toBe(200);
+      await drain(w);
+      expect(codeTexts(nina.phone)).toEqual([]);
+      expect(await emailsTo(w, nina.email)).toContain('Your code to open Lease');
+
+      // A phone alone can't be texted till morning, and is told when, however often they ask.
+      for (let asks = 0; asks < 2; asks++) {
+        const refused = await post(`/public/sign/${omarToken}/code`);
+        expect(refused.statusCode, refused.body).toBe(409);
+        const error = (refused.json() as { error: { rule: string; message: string } }).error;
+        expect(error.rule).toBe('document_code_quiet_hours');
+        expect(error.message).toContain(formatClock(end));
+      }
+      await drain(w);
+      expect(codeTexts(omarPhone)).toEqual([]);
+    } finally {
+      await setQuietHours(w, null);
+    }
+    // Once quiet hours are over the text goes: being refused started no wait.
+    const later = await post(`/public/sign/${omarToken}/code`);
+    expect(later.statusCode, later.body).toBe(200);
+    await drain(w);
+    expect(codeTexts(omarPhone)).toHaveLength(1);
   });
 
   it('gives the team a signer’s link to copy, the same one that was sent', async () => {

@@ -1,7 +1,7 @@
 {
   "area": "onboarding",
   "title": "Onboarding and getting set up",
-  "checkedOn": "2026-11-14",
+  "checkedOn": "2026-11-21",
   "files": {
     "apps/mobile/src/app/app/index.tsx": "73fbf8b3712b",
     "apps/mobile/src/app/app/w/[workspaceId]/email-setup.tsx": "281bc322da7c",
@@ -10,8 +10,8 @@
     "apps/mobile/src/components/ai-setup/try-ava.tsx": "98bce89daa16",
     "apps/mobile/src/components/email-setup/email-setup-flow.tsx": "5e68d3bf29df",
     "apps/mobile/src/components/email-setup/screens.tsx": "d611416b7a54",
-    "apps/mobile/src/components/onboarding-setup/business.tsx": "11430d47d94b",
-    "apps/mobile/src/components/onboarding-setup/create-business.tsx": "8aa7ebdb352b",
+    "apps/mobile/src/components/onboarding-setup/business.tsx": "c8d4223a317b",
+    "apps/mobile/src/components/onboarding-setup/create-business.tsx": "6cbd61109a08",
     "apps/mobile/src/components/onboarding-setup/frame.tsx": "9c4dd3dcf6cb",
     "apps/mobile/src/components/onboarding-setup/look.tsx": "94e41896520a",
     "apps/mobile/src/components/onboarding-setup/number.tsx": "928071d1d003",
@@ -23,7 +23,7 @@
     "apps/mobile/src/onboarding-setup/use-onboarding-setup.ts": "9f7b55950621",
     "apps/mobile/src/onboarding-setup/words.ts": "2f69e31d6d18",
     "apps/mobile/src/onboarding/use-getting-started.ts": "e53c6c94e50d",
-    "apps/web/src/app/founding/checkout/[id]/page.tsx": "97ce650e2e79",
+    "apps/web/src/app/founding/checkout/[id]/page.tsx": "d69df8611fd2",
     "apps/web/src/app/onboarding/[workspaceId]/email/page.tsx": "5f93ae3bf250",
     "apps/web/src/app/onboarding/[workspaceId]/layout.tsx": "c2c282561bb5",
     "apps/web/src/app/onboarding/[workspaceId]/page.tsx": "edcad14ee841",
@@ -43,7 +43,7 @@
     "apps/web/src/components/calendars/weekly-hours.tsx": "86cab98e3be1",
     "apps/web/src/components/email-setup/email-setup-flow.tsx": "f915f0e5b2f0",
     "apps/web/src/components/email-setup/screens.tsx": "7c9827e63072",
-    "apps/web/src/components/founding/checkout-status.tsx": "4a625aae0ff9",
+    "apps/web/src/components/founding/checkout-status.tsx": "4b7a8ee5c68e",
     "apps/web/src/components/founding/pick-plan.tsx": "2473ab3f4140",
     "apps/web/src/components/home/phone-app-dialog.tsx": "7082b1060829",
     "apps/web/src/components/import/import-progress.tsx": "7e4630e2d20c",
@@ -51,8 +51,8 @@
     "apps/web/src/components/knowledge/website-scan.tsx": "779002bbbe34",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
-    "apps/web/src/components/onboarding-setup/business.tsx": "9ffea6ffe1bf",
-    "apps/web/src/components/onboarding-setup/create-business.tsx": "ccd97c9a8c0d",
+    "apps/web/src/components/onboarding-setup/business.tsx": "8e8fe5fa6004",
+    "apps/web/src/components/onboarding-setup/create-business.tsx": "60995975b824",
     "apps/web/src/components/onboarding-setup/frame.tsx": "5e67d37631eb",
     "apps/web/src/components/onboarding-setup/page-preview.tsx": "a756c826230f",
     "apps/web/src/components/onboarding-setup/quick-setup.tsx": "0a9346bd8104",
@@ -60,7 +60,7 @@
     "apps/web/src/components/onboarding/calendar-setup.tsx": "c5dd55fe4559",
     "apps/web/src/components/onboarding/customers-setup.tsx": "996195460003",
     "apps/web/src/components/onboarding/number-setup.tsx": "c998228fa8f8",
-    "apps/web/src/components/onboarding/payments-setup.tsx": "87806ff17fd7",
+    "apps/web/src/components/onboarding/payments-setup.tsx": "521f1acbcd62",
     "apps/web/src/components/onboarding/step-live.tsx": "7da173b70178",
     "apps/web/src/components/onboarding/tour.tsx": "ed01fb35dc0e",
     "apps/web/src/components/onboarding/wizard-footer.tsx": "2ac05b5860c6",
@@ -253,51 +253,51 @@
       "by": "signing out is the person’s"
     },
     {
-      "path": "Founding checkout → paid note",
+      "path": "Founding checkout → paid note / free trial is on",
       "kind": "see",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:119",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:123",
       "covered": "yes",
       "by": "get_settings usage → founding (founding.mine)"
     },
     {
       "path": "Founding checkout → Carry on setting up / Open your workspace",
       "kind": "do",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:133",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:141",
       "covered": "yes",
       "by": "the places map: Set up your business, from Home (onb-7)"
     },
     {
       "path": "Founding checkout → stranded, finishing",
       "kind": "see",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:159",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:168",
       "covered": "never",
       "by": "founding.checkout_status is NOT_FOR_THE_ASSISTANT"
     },
     {
       "path": "Founding checkout → expired / failed → Pick your spot",
       "kind": "do",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:174",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:183",
       "covered": "person",
       "by": "paying is the person’s"
     },
     {
       "path": "Founding checkout → slow, preparing, confirming",
       "kind": "see",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:198",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:207",
       "covered": "never",
       "by": "founding.checkout_status is NOT_FOR_THE_ASSISTANT"
     },
     {
       "path": "Founding checkout → cancelled → Go back to paying / Pick a different spot",
       "kind": "do",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:221",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:230",
       "covered": "person",
       "by": "paying is the person’s"
     },
     {
       "path": "Founding checkout → leaving for Stripe → Go now",
       "kind": "do",
-      "file": "apps/web/src/components/founding/checkout-status.tsx:249",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:258",
       "covered": "person",
       "by": "paying on Stripe’s page"
     },
@@ -561,16 +561,16 @@
       "by": "do_onboarding_setup_save business.address.state"
     },
     {
-      "path": "Set up → Your business → time zone from the address, Change",
+      "path": "Set up → Your business → time zone (from the address once one is typed, else the device's or the business's own), Change",
       "kind": "see",
-      "file": "apps/web/src/components/onboarding-setup/business.tsx:280",
+      "file": "apps/web/src/components/onboarding-setup/business.tsx:284",
       "covered": "yes",
       "by": "get_settings business timezone"
     },
     {
       "path": "Set up → Your business → time zone select (phone: sheet)",
       "kind": "do",
-      "file": "apps/web/src/components/onboarding-setup/business.tsx:298",
+      "file": "apps/web/src/components/onboarding-setup/business.tsx:302",
       "covered": "yes",
       "by": "do_onboarding_setup_save business.timezone; update_business time_zone"
     },
@@ -2094,7 +2094,7 @@
       "by": "comes back from the person’s own sign-in"
     },
     {
-      "path": "Set up → Get paid → Stripe / Square / later, with badge",
+      "path": "Set up → Get paid → Stripe / Square / PayPal (once Connect PayPal is open) / later, with badge",
       "kind": "do",
       "file": "apps/web/src/components/onboarding-setup/screens.tsx:670",
       "covered": "yes",
@@ -2119,7 +2119,7 @@
       "kind": "do",
       "file": "apps/web/src/components/onboarding-setup/screens.tsx:723",
       "covered": "person",
-      "by": "signing in to Stripe or Square (payment_connection.connect NEVER)"
+      "by": "signing in to Stripe, Square or PayPal (payment_connection.connect NEVER)"
     },
     {
       "path": "Set up → Get paid → agency’s client: they connect it",
@@ -2591,7 +2591,7 @@
       "by": "read_onboarding_status answers"
     },
     {
-      "path": "Setup wizard → Payments → Stripe / Square with badge",
+      "path": "Setup wizard → Payments → Stripe / Square / PayPal (once Connect PayPal is open) with badge",
       "kind": "do",
       "file": "apps/web/src/components/onboarding/payments-setup.tsx:82",
       "covered": "person",
@@ -2602,7 +2602,7 @@
       "kind": "do",
       "file": "apps/web/src/components/onboarding/payments-setup.tsx:102",
       "covered": "person",
-      "by": "signing in to Stripe or Square"
+      "by": "signing in to Stripe, Square or PayPal"
     },
     {
       "path": "Setup wizard → Customers → what you said line",

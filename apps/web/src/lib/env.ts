@@ -21,6 +21,11 @@ export const publicEnv = {
   passkeysEnabled: process.env.NEXT_PUBLIC_PASSKEYS_ENABLED !== 'false',
   /** Connect Gmail opens up after Google's security review; until then it says Coming soon. */
   gmailEnabled: process.env.NEXT_PUBLIC_GMAIL_ENABLED === 'true',
+  /**
+   * Connect PayPal opens up once PayPal approves HandsFreeOS as a partner and the worker has PayPal's live
+   * settings; until then it says Coming soon (docs/operations.md, "Money: PayPal").
+   */
+  payPalEnabled: process.env.NEXT_PUBLIC_PAYPAL_ENABLED === 'true',
   /** The "I run an agency" switch on Set up your business. Off until agencies can sign themselves up. */
   agencySignupEnabled: process.env.NEXT_PUBLIC_AGENCY_SIGNUP_ENABLED === 'true',
   /**
