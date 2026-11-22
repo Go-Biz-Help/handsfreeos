@@ -126,6 +126,7 @@ import {
 } from './site-check';
 import {
   registrationEmailWebPerson,
+  registrationEnsureContactForm,
   registrationRecordCheck,
   registrationRequestReview,
   registrationReviewApprove,
@@ -615,6 +616,7 @@ export {
   phoneSetupSave,
   guidedSetupSaveDraft,
   guidedSetupClearDraft,
+  registrationEnsureContactForm,
   registrationSubmit,
   registrationSaveDraft,
   registrationUpdateStatus,
@@ -891,6 +893,7 @@ export const commands: readonly CommandDef[] = [
   registrationReviewSendBack,
   registrationSendReviewed,
   registrationEmailWebPerson,
+  registrationEnsureContactForm,
   conversationOpen,
   conversationMarkRead,
   conversationMarkUnread,

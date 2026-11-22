@@ -319,7 +319,7 @@ describe('what the carrier is told is checked for what Twilio reads it for (3089
       'where to see it (https://drive.test/script)',
     ]);
     const blank = checkDraft({ ...good, otherWays: [{ path: 'own_site', url: '' }] }, BUSINESS);
-    expect(issuesFor(blank, 'otherWays')[0]!.message).toMatch(/page with your tick box/);
+    expect(issuesFor(blank, 'otherWays')[0]!.message).toMatch(/page your contact form is on/);
     const same = checkDraft(
       { ...good, otherWays: [{ path: 'hosted', url: 'https://x.test' }] },
       BUSINESS,

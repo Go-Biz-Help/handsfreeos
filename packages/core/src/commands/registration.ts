@@ -11,6 +11,7 @@ import {
 } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { HfosError } from '../errors';
+import { ensureContactForm } from '../forms/contact-form';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
@@ -63,6 +64,8 @@ import {
   RegistrationUpdateStatusOutput,
   RegistrationEmailWebPersonInput,
   RegistrationEmailWebPersonOutput,
+  RegistrationEnsureContactFormInput,
+  RegistrationEnsureContactFormOutput,
 } from '../schemas/telephony';
 import { replyOnTicket } from './support';
 
@@ -642,6 +645,26 @@ export const registrationSaveDraft = defineCommand({
       });
     return { savedAt: now.toISOString() };
   },
+});
+
+/**
+ * The contact form texting approval rests on (forms/contact-form.ts): the one the business has, or a new "Get in
+ * touch" form, published, with our box to agree to texts and the business's website among the sites it may show on.
+ * The worker runs it as the system when a business is made, and texting approval runs it again when it starts, for a
+ * business made before this or one that closed its form.
+ */
+export const registrationEnsureContactForm = defineCommand({
+  name: 'registration.ensure_contact_form',
+  description:
+    'Make sure the business has a published contact form customers can agree to texts on, for its texting approval: the one it already has, or a new “Get in touch” form with the box to agree to texts. Its website is added to the sites the form may show on. Safe to run again.',
+  risk: 1,
+  input: RegistrationEnsureContactFormInput,
+  output: RegistrationEnsureContactFormOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  actors: ['human', 'system'],
+  emits: ['form.created', 'form.published', 'form.delivery_changed'],
+  handler: (ctx, input) => ensureContactForm(ctx, input.website),
 });
 
 /**

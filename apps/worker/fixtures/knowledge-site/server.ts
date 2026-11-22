@@ -98,6 +98,16 @@ export async function startFixtureSite(
         `<!doctype html><html lang="en"><head><title>${name}</title></head><body><main><h1>${name}</h1><p>${`${name} fixes heating and cooling across the city, fast and friendly, with upfront prices and same-day visits. `.repeat(3)}</p></main></body></html>`,
       );
     }
+    // A contact page that shows a form in a frame (/with-form?src=<the form's address>), the way a business's own
+    // page does once it has pasted a HandsFreeOS form's code: a texting registration's review opens the page, finds no
+    // box of its own, and looks inside the frame. Nothing links to it.
+    if (path === '/with-form') {
+      const src = (url.searchParams.get('src') ?? '').replace(/[<>&"]/g, '').slice(0, 500);
+      return html(
+        res,
+        `<!doctype html><html lang="en"><head><title>Contact us</title></head><body><main><h1>Contact us</h1><p>Tell us what you need and we will come back to you today.</p><iframe src="${src}" title="Contact form" width="100%" height="720" style="border:0" loading="lazy"></iframe></main></body></html>`,
+      );
+    }
     const town = TOWNS.find((t) => townPath(t) === path);
     if (town) return html(res, read('area.html').replaceAll('{{town}}', town));
     const file = path === '/' ? 'index.html' : `${path.slice(1)}.html`;

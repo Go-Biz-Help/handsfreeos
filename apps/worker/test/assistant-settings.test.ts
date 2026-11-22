@@ -1658,7 +1658,7 @@ describe('the carrier registration', () => {
       EIN: '12-3456789',
     });
     // No way customers agree yet, so the screen opens on that step.
-    expect(first.result.opensAt).toBe('How customers agree to get texts');
+    expect(first.result.opensAt).toBe('How will customers agree to get texts?');
     expect(first.result.stillToAnswer).toEqual(
       expect.arrayContaining([
         'Website',
@@ -1690,9 +1690,9 @@ describe('the carrier registration', () => {
       sensitive: [],
       ownPolicyUrl: null,
     });
-    expect(second.result.opensAt).toBe('How customers agree to get texts');
+    expect(second.result.opensAt).toBe('How will customers agree to get texts?');
     expect(second.result.saved).toMatchObject({
-      'How customers agree': 'The sign-up page HandsFreeOS hosts',
+      'How customers agree': 'The website chat',
       'Topics the carriers treat differently': 'None of these',
       'Privacy policy': 'The one HandsFreeOS hosts',
     });

@@ -758,8 +758,9 @@ export function checkDraft(draft: A2pDraft, business: string): A2pIssue[] {
       issues.push({
         field: 'optInUrl',
         severity: 'blocker',
-        message: 'Enter the address of the page with your tick box, like yoursite.com/contact.',
-        why: 'The reviewer opens this exact page looking for the box. Your home page only counts if the box is on it.',
+        message:
+          'Enter the address of the page your contact form is on, like yoursite.com/contact.',
+        why: 'The reviewer opens this exact page looking for the box. Your home page only counts if the form is on it.',
       });
     else if (!looksLikeWebAddress(page))
       issues.push({
@@ -864,11 +865,9 @@ function otherWayIssues(draft: A2pDraft): A2pIssue[] {
   for (const way of draft.otherWays ?? []) {
     const url = way.url.trim();
     const what =
-      way.path === 'own_site'
-        ? 'the page with your tick box'
-        : way.path === 'in_person'
-          ? 'a link to what customers see or hear'
-          : 'your website chat’s sign-up page';
+      way.path === 'in_person'
+        ? 'a link to what customers see or hear'
+        : 'your website chat’s sign-up page';
     if (way.path === draft.optInPath)
       issues.push({
         field: 'otherWays',
@@ -880,7 +879,10 @@ function otherWayIssues(draft: A2pDraft): A2pIssue[] {
       issues.push({
         field: 'otherWays',
         severity: 'blocker',
-        message: `Add ${what} for each other way customers agree, or take that way out.`,
+        message:
+          way.path === 'own_site'
+            ? 'Enter the address of the page your contact form is on, like yoursite.com/contact. Or use the chat on its own.'
+            : `Add ${what} for each other way customers agree, or take that way out.`,
         why: 'Twilio asks for every way customers agree, each with somewhere the reviewer can see it.',
       });
     else if (!looksLikeWebAddress(url))

@@ -968,7 +968,7 @@ export const assistantTools = [
   define({
     name: 'fill_in_carrier_registration',
     description:
-      'Fill in the carrier registration that turns texting on, in the same saved answers its steps in Settings → Texting & calls pick up: give only what the person told you, and the rest stays as they left it (their saved answers are read_registration_get_draft, under form). Ask in plain words, a question or two at a time, and read back what you saved. Nothing goes to the carriers from here: its last step, Before it goes, checks the website, privacy policy, terms and sign-up page, takes the ticks only the person gives, and sends once it’s all green. When something won’t go green, do_registration_request_review asks HandsFreeOS to check it by hand. Other ways customers agree are added on its How customers agree step. When customers know the business by another name (a DBA), the carriers are told “<legal name> (doing business as <name>)”: use the legal name’s EIN and the address on its IRS letter, show both names on the website (at the bottom of every page: “<name> is owned and run by <legal name>.”), and sign the samples with the name customers see. Already registered in another business here? Use the same legal name, EIN and address.',
+      'Fill in the carrier registration that turns texting on, in the same saved answers its steps in Settings → Texting & calls pick up: give only what the person told you, and the rest stays as they left it (their saved answers are read_registration_get_draft, under form). Ask in plain words, a question or two at a time, and read back what you saved. Nothing goes to the carriers from here: its last step, Before it goes, checks the website, privacy policy, terms and sign-up page, takes the ticks only the person gives, and sends once it’s all green. When something won’t go green, do_registration_request_review asks HandsFreeOS to check it by hand. Using the chat and the contact form together is picked on its How customers agree step (Use both). When customers know the business by another name (a DBA), the carriers are told “<legal name> (doing business as <name>)”: use the legal name’s EIN and the address on its IRS letter, show both names on the website (at the bottom of every page: “<name> is owned and run by <legal name>.”), and sign the samples with the name customers see. Already registered in another business here? Use the same legal name, EIN and address.',
     input: z.object({
       legalName: text(120)
         .optional()
@@ -1016,23 +1016,27 @@ export const assistantTools = [
         .optional()
         .describe('Two texts the business would really send customers, with its name in them'),
       optInPath: z
-        .enum(['hosted', 'own_site', 'in_person'])
+        .enum(['hosted', 'own_site'])
         .optional()
         .describe(
-          'How customers agree: hosted (the sign-up page HandsFreeOS hosts), own_site (a box on a page of their own website, optInUrl) or in_person (in person or on the phone, with optInProofUrl)',
+          'How customers agree, one of the two the screen offers: hosted (the website chat, one line of code in their site’s footer) or own_site (the contact form HandsFreeOS made for them, put on a page of their website: optInUrl; do_registration_ensure_contact_form gives the form). Agreeing in person or on the phone is no longer offered',
         ),
       optIn: text(1000)
         .optional()
         .describe(
           'What we will tell the carriers about how customers agree, in the business’s words. Left out, How customers agree writes it from the way picked when the person opens it there',
         ),
-      optInUrl: z.url().max(500).optional().describe('own_site: the page with the box on it'),
+      optInUrl: z
+        .url()
+        .max(500)
+        .optional()
+        .describe('own_site: the page of their website the contact form is on'),
       optInProofUrl: z
         .url()
         .max(500)
         .optional()
         .describe(
-          'in_person: a link anyone can open to a photo of the sign-up sheet or the words said',
+          'Only when their saved answers already say customers agree in person or on the phone: a link anyone can open to a photo of the sign-up sheet or the words said',
         ),
       ownPolicyUrl: z
         .url()

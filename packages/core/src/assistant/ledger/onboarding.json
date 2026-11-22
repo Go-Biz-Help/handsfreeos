@@ -11,7 +11,7 @@
     "apps/mobile/src/components/email-setup/guided-flow.tsx": "86b4db79d021",
     "apps/mobile/src/components/email-setup/guided-last.tsx": "5cb3684d3242",
     "apps/mobile/src/components/email-setup/screens.tsx": "d611416b7a54",
-    "apps/mobile/src/components/guided-setup/frame.tsx": "c43a93cbfd06",
+    "apps/mobile/src/components/guided-setup/frame.tsx": "aa14663539d7",
     "apps/mobile/src/components/onboarding-setup/business.tsx": "c8d4223a317b",
     "apps/mobile/src/components/onboarding-setup/create-business.tsx": "6cbd61109a08",
     "apps/mobile/src/components/onboarding-setup/frame.tsx": "9c4dd3dcf6cb",
@@ -68,7 +68,7 @@
     "apps/web/src/components/onboarding/tour.tsx": "ed01fb35dc0e",
     "apps/web/src/components/onboarding/wizard-footer.tsx": "2ac05b5860c6",
     "apps/web/src/components/onboarding/wizard-frame.tsx": "8b19dc4eac8c",
-    "apps/web/src/components/settings/a2p-wizard.tsx": "c63ce6558d95",
+    "apps/web/src/components/settings/a2p-wizard.tsx": "eafa385d2cf5",
     "apps/web/src/components/settings/industry-picker.tsx": "3f2b1832961c",
     "apps/web/src/components/settings/my-cell-section.tsx": "bcce54a8161d",
     "apps/web/src/components/settings/number-import.tsx": "c09a55fe0fe4",
@@ -2083,58 +2083,86 @@
       "by": "the Assistant writes two that fit what the business said, each naming it and one saying how to stop; the page’s own list isn’t in a tool"
     },
     {
-      "path": "Set up → Number → Registration → Opt-in: let us collect it / own website / in person",
+      "path": "Set up → Number → Registration → Opt-in: What’s on your site now: each form that asks for a phone number, with its page",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1132",
+      "covered": "no",
+      "by": "the worker’s look through the site (site-forms) has no tool"
+    },
+    {
+      "path": "Set up → Number → Registration → Opt-in: Use the chat / Use the contact form we made for you",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:913",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1200",
       "covered": "yes",
       "by": "fill_in_carrier_registration optInPath"
     },
     {
+      "path": "Set up → Number → Registration → Opt-in: Something else? Use both",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1246",
+      "covered": "partly",
+      "by": "fill_in_carrier_registration picks one way; the chat and the form together is picked on this step"
+    },
+    {
       "path": "Set up → Number → Registration → Opt-in: chat sign-up page link",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:966",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1355",
       "covered": "partly",
       "by": "get_settings website_chat gives the key, not the link"
     },
     {
-      "path": "Set up → Number → Registration → Opt-in: Set this up for me",
+      "path": "Set up → Number → Registration → Opt-in: Use the chat makes the chat; Set this up for me changes one that doesn’t ask",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1028",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1334",
       "covered": "yes",
       "by": "manage_website_chat askForSmsConsent"
     },
     {
-      "path": "Set up → Number → Registration → Opt-in: copy the chat snippet",
+      "path": "Set up → Number → Registration → Opt-in: chat steps: copy the code, take the forms off, press the chat button once",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:986",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1282",
       "covered": "yes",
       "by": "get_settings website_chat snippet"
     },
     {
-      "path": "Set up → Number → Registration → Opt-in: tick-box page, proof link, other ways",
+      "path": "Set up → Number → Registration → Opt-in: contact form: made for the business, See it, Change the questions, copy the code",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1060",
-      "covered": "partly",
-      "by": "fill_in_carrier_registration optInUrl, optInProofUrl; other ways are added on How customers agree"
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1383",
+      "covered": "yes",
+      "by": "do_registration_ensure_contact_form; get_form has its code"
     },
     {
-      "path": "Set up → Number → Registration → Opt-in: tick-box wording and policy paragraph to copy",
+      "path": "Set up → Number → Registration → Opt-in: contact form: The page with the form, Check my site, Send this to my web person",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1514",
+      "covered": "partly",
+      "by": "fill_in_carrier_registration optInUrl; do_registration_email_web_person; the look through the site has no tool"
+    },
+    {
+      "path": "Set up → Number → Registration → Opt-in: proof link and other ways (only for an answer saved with them)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1587",
+      "covered": "partly",
+      "by": "fill_in_carrier_registration optInProofUrl; other ways are no longer offered"
+    },
+    {
+      "path": "Set up → Number → Registration → Opt-in: contact form: the box’s words",
       "kind": "see",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1078",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1431",
       "covered": "no",
       "by": "written in the browser"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: What we will tell the carriers",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1167",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1629",
       "covered": "yes",
       "by": "fill_in_carrier_registration optIn"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: Use our wording",
       "kind": "do",
-      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1185",
+      "file": "apps/web/src/components/settings/a2p-wizard.tsx:1645",
       "covered": "no",
       "by": "the wording is written in the browser"
     },

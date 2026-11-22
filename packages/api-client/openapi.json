@@ -9798,6 +9798,86 @@
         }
       }
     },
+    "/v1/commands/registration.ensure_contact_form": {
+      "post": {
+        "operationId": "command_registration_ensure_contact_form",
+        "summary": "Make sure the business has a published contact form customers can agree to texts on, for its texting approval: the one it already has, or a new “Get in touch” form with the box to agree to texts. Its website is added to the sites the form may show on. Safe to run again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires channels.manage. Emits form.created, form.published, form.delivery_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "website": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "formId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "siteSlug": {
+                      "type": "string"
+                    },
+                    "embedOrigins": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "created": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "formId",
+                    "name",
+                    "slug",
+                    "siteSlug",
+                    "embedOrigins",
+                    "created"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/conversation.open": {
       "post": {
         "operationId": "command_conversation_open",

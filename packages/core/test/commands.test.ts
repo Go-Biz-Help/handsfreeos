@@ -207,6 +207,8 @@ describe('registry', () => {
       'registration.send_reviewed',
       // 2026-11-12: email the business's web person the website changes.
       'registration.email_web_person',
+      // 2026-11-22: the contact form every business has, for its texting approval.
+      'registration.ensure_contact_form',
       'conversation.open',
       'conversation.mark_read',
       'conversation.mark_unread',

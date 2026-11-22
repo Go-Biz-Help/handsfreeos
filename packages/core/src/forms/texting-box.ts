@@ -26,6 +26,24 @@ export function showsOurTextingBox(definition: Pick<FormDefinition, 'mode' | 'se
   return definition.mode !== 'poll' && definition.settings.identity !== 'anonymous';
 }
 
+/**
+ * Whether a form is one customers can agree to texts on, so texting approval can rest on it: it asks who they are
+ * (so our box shows) and for a phone number (so there's a number to text), and the box is there when the page opens.
+ * A form that goes a page at a time shows it on a later page, where a carrier's reviewer (and our check of the page)
+ * never gets.
+ */
+export function worksAsContactForm(
+  definition: Pick<FormDefinition, 'mode' | 'settings' | 'pages'>,
+): boolean {
+  const pageAtATime = definition.settings.onePageAtATime && definition.pages.length > 1;
+  return (
+    definition.mode === 'form' &&
+    showsOurTextingBox(definition) &&
+    !pageAtATime &&
+    allQuestions(definition).some((q) => q.type === 'phone')
+  );
+}
+
 /** Whether a question reads like a box asking for permission to text: a yes or no that talks about texts and agreeing. */
 export function looksLikeTextingBox(question: Pick<Question, 'type' | 'title' | 'help'>): boolean {
   if (question.type !== 'yes_no') return false;

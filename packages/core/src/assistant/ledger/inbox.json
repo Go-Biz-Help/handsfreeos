@@ -5,11 +5,12 @@
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx": "86ce119809c0",
     "apps/mobile/src/app/app/w/[workspaceId]/call/[callId].tsx": "1113c4963af3",
-    "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx": "b4b33eb7564f",
+    "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx": "39dd3beab725",
     "apps/mobile/src/components/inbox/call-sheet.tsx": "80613ce5fecf",
     "apps/mobile/src/components/inbox/composer.tsx": "bac1d11d4cf7",
     "apps/mobile/src/components/inbox/conversation-parts.tsx": "ecc181d39b8f",
     "apps/mobile/src/components/inbox/my-cell-card.tsx": "292ae0ecad2a",
+    "apps/mobile/src/components/inbox/own-mail-draft.tsx": "35d7eda8bc1d",
     "apps/mobile/src/components/inbox/pending-reply.tsx": "aaf7f03fba24",
     "apps/mobile/src/components/inbox/show-picker.tsx": "7884770e88af",
     "apps/mobile/src/components/ui/filter-chip.tsx": "d67381860b2a",
@@ -26,6 +27,7 @@
     "apps/mobile/src/inbox/use-conversation.ts": "c67133e71c09",
     "apps/mobile/src/inbox/use-email.ts": "e6a732688797",
     "apps/mobile/src/inbox/use-inbox.ts": "468cc806ce2d",
+    "apps/mobile/src/inbox/use-own-mail-draft.ts": "bc06fa6c1ab1",
     "apps/mobile/src/inbox/use-sender.ts": "201fd753bcd9",
     "apps/mobile/src/video-call/phone-call.tsx": "50f4c5dc00ff",
     "apps/web/src/app/app/w/[workspaceId]/call/[callId]/page.tsx": "8897698aa30f",
@@ -59,9 +61,9 @@
     "apps/web/src/components/inbox/contact-fields.tsx": "7d30c27cd9bb",
     "apps/web/src/components/inbox/context-panel.tsx": "eb2bcff29f71",
     "apps/web/src/components/inbox/conversation-row.tsx": "7a0eec380561",
-    "apps/web/src/components/inbox/conversation-view.tsx": "ed7f5aad827d",
+    "apps/web/src/components/inbox/conversation-view.tsx": "e89eae63a2bc",
     "apps/web/src/components/inbox/conversations-card.tsx": "f83a51270af2",
-    "apps/web/src/components/inbox/draft-card.tsx": "b4bbd5418cba",
+    "apps/web/src/components/inbox/draft-card.tsx": "7ec45d4ba7f9",
     "apps/web/src/components/inbox/hooks.ts": "f08d1f604e13",
     "apps/web/src/components/inbox/inbox-shell.tsx": "19357ba4810d",
     "apps/web/src/components/inbox/lane-switcher.tsx": "22d907e03a2f",
@@ -1099,28 +1101,56 @@
     {
       "path": "Thread → your own mail → Ava’s draft: the words, Only you see this, Nothing is sent until you send it",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:594",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:595",
       "covered": "yes",
       "by": "get_conversation draftAnswer"
     },
     {
       "path": "Thread → your own mail → Ava’s draft → Use this draft (puts the words in the message box)",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:645",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:646",
       "covered": "yes",
       "by": "get_conversation draftAnswer, then send_email with the conversationId"
     },
     {
       "path": "Thread → your own mail → Ava’s draft → No thanks",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/draft-card.tsx:641",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:642",
       "covered": "yes",
       "by": "do_conversation_ai_draft_dismiss"
     },
     {
       "path": "Thread → your own mail → Ava’s draft is in your message box",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/conversation-view.tsx:624",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:626",
+      "covered": "person",
+      "by": "the message box on this screen; the Assistant sends with send_email"
+    },
+    {
+      "path": "Phone → thread → your own mail → Ava’s draft: the words, Only you see this, Nothing is sent until you send it",
+      "kind": "see",
+      "file": "apps/mobile/src/components/inbox/own-mail-draft.tsx:17",
+      "covered": "yes",
+      "by": "get_conversation draftAnswer"
+    },
+    {
+      "path": "Phone → thread → your own mail → Ava’s draft → Use this draft (puts the words in the message box)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/inbox/own-mail-draft.tsx:73",
+      "covered": "yes",
+      "by": "get_conversation draftAnswer, then send_email with the conversationId"
+    },
+    {
+      "path": "Phone → thread → your own mail → Ava’s draft → No thanks",
+      "kind": "do",
+      "file": "apps/mobile/src/components/inbox/own-mail-draft.tsx:63",
+      "covered": "yes",
+      "by": "do_conversation_ai_draft_dismiss"
+    },
+    {
+      "path": "Phone → thread → your own mail → Ava’s draft is in your message box",
+      "kind": "see",
+      "file": "apps/mobile/src/components/inbox/own-mail-draft.tsx:83",
       "covered": "person",
       "by": "the message box on this screen; the Assistant sends with send_email"
     },

@@ -279,6 +279,12 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
     warning:
       'This emails the person named, from HandsFreeOS support in the business’s name, with each change in its own text file. You get a copy, and replies go to you and to a HandsFreeOS support ticket.',
   },
+  // The contact form texting approval puts on the business's website (2026-11-22): made with the business, and again
+  // here when it isn't there.
+  'registration.ensure_contact_form': {
+    about:
+      'Run it when the business picks its contact form as how customers agree to texts, or asks for a contact form with the box to agree to texts. It gives back the form to put on their website: its link is /f/<siteSlug>/<slug>, and get_form has its code. website is the business’s website, so the form may show on it; left out, the one in Settings → Workspace is used.',
+  },
   'number_import.start': {},
   'number_import.check_now': {},
   'number_import.cancel': {},

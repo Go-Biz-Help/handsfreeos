@@ -1,5 +1,10 @@
 'use client';
-import type { PolicyUpdateInput, PolicyUpdateOutput, PreflightCheck } from '@hfos/core';
+import type {
+  PolicyUpdateInput,
+  PolicyUpdateOutput,
+  PreflightCheck,
+  SiteFormFound,
+} from '@hfos/core';
 import { publicEnv } from '../env';
 import { browserAccessToken } from '../supabase/token';
 import { ApiError } from './errors';
@@ -306,6 +311,29 @@ export function policyUpdate(
   input: PolicyUpdateInput & { workspaceId: string },
 ): Promise<PolicyUpdateOutput> {
   return workerPost('/v1/telephony/policy-update', input);
+}
+
+/** What the worker found walking a business's website for forms, as a carrier's reviewer would. */
+export interface SiteFormsFound {
+  /** Pages of the site that opened. None means the site didn't open, or showed a robot check. */
+  opened: number;
+  /** It stopped at its page or time limit, so some of the site wasn't looked at. */
+  cut: boolean;
+  /** Pages that showed a robot check instead of themselves. */
+  blocked: number;
+  forms: SiteFormFound[];
+}
+
+/**
+ * The forms on a business's website that ask for a phone number or to send texts, for texting approval's "What's on
+ * your site now" (owners and admins; the worker checks). It takes up to twenty seconds: the worker opens the site
+ * page by page.
+ */
+export function siteFormsOn(input: {
+  workspaceId: string;
+  website: string;
+}): Promise<SiteFormsFound> {
+  return workerPost('/v1/telephony/site-forms', input);
 }
 
 /** Who hosts a number today, by the carrier lookup (owners and admins; the worker checks). */

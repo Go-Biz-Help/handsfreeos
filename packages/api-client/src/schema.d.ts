@@ -15497,6 +15497,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/registration.ensure_contact_form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make sure the business has a published contact form customers can agree to texts on, for its texting approval: the one it already has, or a new “Get in touch” form with the box to agree to texts. Its website is added to the sites the form may show on. Safe to run again.
+         * @description Risk level 1. Requires channels.manage. Emits form.created, form.published, form.delivery_changed.
+         */
+        post: operations["command_registration_ensure_contact_form"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/registration.request_review": {
         parameters: {
             query?: never;
@@ -65090,6 +65110,42 @@ export interface operations {
                     "application/json": {
                         files: string[];
                         sentTo: string;
+                    };
+                };
+            };
+        };
+    };
+    command_registration_ensure_contact_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    website?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        created: boolean;
+                        embedOrigins: string[];
+                        /** Format: uuid */
+                        formId: string;
+                        name: string;
+                        siteSlug: string;
+                        slug: string;
                     };
                 };
             };
