@@ -23,9 +23,12 @@ import {
   dnsHostFor,
   EMAIL_PLAN_ADDRESSES_MAX,
   EMAIL_SETUP_WITH,
+  EMAIL_SETUP_WORDS,
   emailDomainPlanHasWork,
   emailOldMailRecords,
   emailSetupDomainOf,
+  emailSetupHomeOf,
+  emailSetupSendingFound,
   emailSetupSuggestedDomain,
   freeAddressLooksRandom,
   freeLocalPartFor,
@@ -669,6 +672,77 @@ export function emailGuidedLastStep(
   };
 }
 
+/**
+ * Home's card, in its own words: "Set up your business email" while the business still sends from the address it
+ * was made with; "Finish your email records" while a website name's records are on their way (whichever addresses
+ * wait on them); "Bring your mail in" once it sends and its mail record still has to change. `last` opens the last
+ * step rather than the questions. Only for someone who can change the business's email.
+ */
+export interface EmailGuidedHome {
+  readonly kind: 'start' | 'records' | 'mail';
+  readonly title: string;
+  readonly body: string;
+  /** The button's words. */
+  readonly open: string;
+  readonly last: boolean;
+}
+
+export function emailGuidedHomeOf(state: EmailSetupState): EmailGuidedHome | null {
+  if (!state.canManage) return null;
+  const S = EMAIL_SETUP_WORDS;
+  const open = emailGuidedOpenDomain(state);
+  if (!open) {
+    const start = emailSetupHomeOf(state);
+    return start?.kind === 'start'
+      ? {
+          kind: 'start',
+          title: S.homeStartTitle,
+          body: S.homeStartBody(start.address),
+          open: S.homeStart,
+          last: false,
+        }
+      : null;
+  }
+  const step = emailGuidedLastStep(open, state);
+  if (step.left === 'records') {
+    const { found, of } = emailSetupSendingFound(open);
+    const host = step.host?.label ?? null;
+    const waiting = [
+      ...(open.plan.own ? [open.plan.own.localPart] : []),
+      ...(open.plan.addresses ?? []).map((a) => a.localPart),
+    ].map((local) => `${local}@`);
+    return {
+      kind: 'records',
+      title: S.homeRecordsTitle,
+      body: open.plan.team
+        ? S.homeRecordsBody(
+            found,
+            of || 3,
+            host,
+            state.sender?.address ?? state.free?.address ?? '',
+            `${open.plan.team.localPart}@${open.domain}`,
+          )
+        : W.homeRecordsWaiting(
+            found,
+            of || 3,
+            host,
+            waiting.length ? emailGuidedList(waiting) : null,
+          ),
+      open: S.homeRecords,
+      last: true,
+    };
+  }
+  return {
+    kind: 'mail',
+    title: W.homeMailTitle,
+    body: step.old.length
+      ? W.homeMailOld(open.domain, step.where, step.old.length, !!step.ours?.found)
+      : W.homeMailOurs(open.domain),
+    open: S.homeRecords,
+    last: true,
+  };
+}
+
 /** The AI teammate's name, while it's working: the lines that say it reads the team's mail name it only then. */
 const aiNameOf = (state: Pick<EmailSetupState, 'aiTeammate'>): string | null =>
   state.aiTeammate?.on ? state.aiTeammate.name : null;
@@ -1003,9 +1077,9 @@ export const EMAIL_GUIDED_WORDS = {
   checkNow: 'Check now',
   stand: 'Where things stand',
   standAddresses: 'Your addresses',
-  standSaved: (names: string) => `${names} ${names.includes(' and ') ? 'are' : 'is'} saved`,
+  standSaved: (names: string) => `${names} ${names.includes(' and ') ? 'are' : 'is'} saved.`,
   standWaiting: (names: string) =>
-    `${names} ${names.includes(' and ') ? 'are' : 'is'} made as soon as the records are found`,
+    `${names} ${names.includes(' and ') ? 'are' : 'is'} made as soon as the records are found.`,
   standSending: 'Sending',
   standSendingWorks: (local: string) => `Works. Customers hear from ${local}@.`,
   standSendingFree: (free: string) => `From ${free} until the records are found.`,
@@ -1018,6 +1092,18 @@ export const EMAIL_GUIDED_WORDS = {
   standMailAfter: 'Starts once the records above are found.',
   standMailKept: (where: string | null) =>
     where ? `Stays at ${where}, as you picked.` : 'Stays where it is, as you picked.',
+  // Home's card
+  homeRecordsWaiting: (found: number, of: number, host: string | null, names: string | null) =>
+    `${found} of ${of} found${host ? ` at ${host}` : ''}. ${
+      names
+        ? `${names} ${names.includes(' and ') ? 'are' : 'is'} made as soon as the rest are in.`
+        : 'We check for the rest on our own.'
+    }`,
+  homeMailTitle: 'Bring your mail in',
+  homeMailOld: (domain: string, where: string | null, n: number, oursFound: boolean) =>
+    `Mail to ${domain} still goes to ${where ?? 'your old mailbox'}. ${oursFound ? 'Delete' : 'Add our mail record and delete'} the ${n === 1 ? 'old one' : `${n} old ones`}, and it lands in HandsFreeOS.`,
+  homeMailOurs: (domain: string) =>
+    `Mail to ${domain} isn’t coming to HandsFreeOS yet. One mail record to add, and it lands here.`,
   nothingLost: 'Nothing is lost while you wait',
   nothingLostBody: (where: string | null) =>
     where

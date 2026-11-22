@@ -2,7 +2,7 @@ import {
   addDays,
   can,
   EmailSetupGetOutput,
-  emailSetupHomeOf,
+  emailGuidedHomeOf,
   industryLabel,
   localInstant,
   onboardingSetupHomeOf,
@@ -81,8 +81,8 @@ export default async function WorkspaceHomePage({
     // Getting started: the person's guide, new business or not (Chris, 2026-09-29). A nicety too.
     loadOnboarding(api, workspaceId),
     // "Set up your business email" (the owner's 7a), for someone who can change it, outside the guided setup (which
-    // asks it as its own stop): a business still sending from the address it was made with, or a domain's records on
-    // their way. A nicety too.
+    // asks it as its own stop): a business still sending from the address it was made with, a website name's records
+    // on their way, or its mail still to bring in. A nicety too.
     workspace.then((w) => {
       const s = onboardingSetupHomeOf(
         onboardingSetupOf(w.workspace.settings as Record<string, unknown>),
@@ -91,7 +91,7 @@ export default async function WorkspaceHomePage({
       return can(w.workspace.permissions, 'channels.manage') && (s.finished || !s.started)
         ? api
             .POST('/v1/queries/email_setup.get', { body: { workspaceId } })
-            .then((r) => emailSetupHomeOf(EmailSetupGetOutput.parse(unwrap(r)).state))
+            .then((r) => emailGuidedHomeOf(EmailSetupGetOutput.parse(unwrap(r)).state))
             .catch(() => null)
         : null;
     }),

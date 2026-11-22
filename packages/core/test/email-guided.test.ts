@@ -10,6 +10,7 @@ import {
   emailGuidedDone,
   emailGuidedFirstProblemScreen,
   emailGuidedFound,
+  emailGuidedHomeOf,
   emailGuidedIdeas,
   emailGuidedLastStep,
   emailGuidedLeft,
@@ -489,7 +490,7 @@ describe('the last step and Done', () => {
       {
         key: 'addresses',
         label: W.standAddresses,
-        value: 'office@ and blake@ are made as soon as the records are found',
+        value: 'office@ and blake@ are made as soon as the records are found.',
         done: false,
       },
       {
@@ -519,7 +520,7 @@ describe('the last step and Done', () => {
     });
     expect(step.old.map((r) => r.priority)).toEqual([10, 20, 30]);
     expect(step.stand.map((l) => [l.key, l.value, l.done])).toEqual([
-      ['addresses', 'office@ and blake@ are saved', true],
+      ['addresses', 'office@ and blake@ are saved.', true],
       ['sending', 'Works. Customers hear from office@.', true],
       ['mail', 'Still goes to SiteGround. 3 old records to delete.', false],
     ]);
@@ -588,5 +589,53 @@ describe('the last step and Done', () => {
     expect(emailGuidedReviewLine({ reader: 'me', aiReads: true }, state())).toBe(
       W.reviewOnlyYou('Ava', true),
     );
+  });
+
+  it('words Home’s card for whatever is left, and opens it on the last step', () => {
+    const mine = (over: Partial<EmailSetupState> = {}) => state({ canManage: true, ...over });
+    const free = {
+      address: 'burroughs-digital-a2ceda@mail.handsfreeos.com',
+      localPart: 'burroughs-digital-a2ceda',
+      domain: null,
+      displayName: 'Burroughs Digital',
+    };
+    // Still on the address it was made with: the questions, from the start.
+    expect(emailGuidedHomeOf(mine({ sender: free }))).toMatchObject({
+      kind: 'start',
+      title: 'Set up your business email',
+      last: false,
+    });
+    // Records on their way, with an address customers will hear from: it says the switch.
+    const waiting = domain({
+      status: 'pending',
+      records: [dkim(true), returnPath(false)],
+      plan: { team: { localPart: 'office', displayName: 'Burroughs Digital' }, receive: true },
+    });
+    const records = emailGuidedHomeOf(mine({ sender: free, domains: [waiting] }));
+    expect(records).toMatchObject({ kind: 'records', last: true, open: 'Open the steps' });
+    expect(records?.body).toContain('1 of 2 found at SiteGround');
+    expect(records?.body).toContain('office@burroughs.digital');
+    // Only a person's own address waits: nothing switches, so it names what gets made.
+    const own = emailGuidedHomeOf(
+      mine({
+        sender: free,
+        domains: [{ ...waiting, plan: { addresses: [{ localPart: 'blake', userId: ME }] } }],
+      }),
+    );
+    expect(own).toMatchObject({ kind: 'records', last: true });
+    expect(own?.body).toContain('blake@ is made as soon as the rest are in.');
+    expect(own?.body).not.toContain('switch');
+    // It sends, and its mail still goes to the old place: what to add and delete.
+    const mail = emailGuidedHomeOf(
+      mine({ sender, addresses: [office], domains: [domain({ receiving: 'pending' })] }),
+    );
+    expect(mail).toMatchObject({ kind: 'mail', title: 'Bring your mail in', last: true });
+    expect(mail?.body).toContain('still goes to SiteGround');
+    expect(mail?.body).toContain('Add our mail record and delete the 3 old ones');
+    // Nothing left, or someone who can't change the email: no card.
+    expect(emailGuidedHomeOf(mine({ sender, domains: [domain()] }))).toBeNull();
+    expect(
+      emailGuidedHomeOf(mine({ canManage: false, sender: free, domains: [waiting] })),
+    ).toBeNull();
   });
 });
