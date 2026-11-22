@@ -7,18 +7,23 @@ import { describe, expect, it } from 'vitest';
 import {
   EmailGuidedAnswers,
   emailGuidedAnswersFrom,
+  emailGuidedDone,
   emailGuidedFirstProblemScreen,
   emailGuidedFound,
   emailGuidedIdeas,
+  emailGuidedLastStep,
   emailGuidedLeft,
+  emailGuidedLookupName,
   emailGuidedMailLabel,
   emailGuidedOldRecords,
+  emailGuidedOpenDomain,
   emailGuidedOurRecordFound,
   emailGuidedPlan,
   emailGuidedProblems,
   emailGuidedQuestionOf,
   emailGuidedReaderPick,
   emailGuidedReceive,
+  emailGuidedReviewLine,
   emailGuidedRows,
   emailGuidedScreensFor,
   emailGuidedSender,
@@ -390,5 +395,198 @@ describe('“Your email so far”', () => {
       which: ['A free HandsFreeOS address'],
       addresses: null,
     });
+  });
+});
+
+describe('the last step and Done', () => {
+  const dkim = (found: boolean) => ({
+    type: 'TXT' as const,
+    purpose: 'Signs your email',
+    host: 'pm._domainkey',
+    fullHost: 'pm._domainkey.burroughs.digital',
+    value: 'k=rsa; p=abc',
+    found,
+  });
+  const returnPath = (found: boolean) => ({
+    type: 'CNAME' as const,
+    purpose: 'Handles bounces',
+    host: 'pm-bounces',
+    fullHost: 'pm-bounces.burroughs.digital',
+    value: 'pm.mtasv.net',
+    found,
+  });
+  const office = {
+    id: '00000000-0000-4000-8000-000000000011',
+    address: 'office@burroughs.digital',
+    localPart: 'office',
+    domain: 'burroughs.digital',
+    reader: 'team' as const,
+    aiReads: false,
+    isDefault: true,
+  };
+  const blake = {
+    id: '00000000-0000-4000-8000-000000000012',
+    address: 'blake@burroughs.digital',
+    localPart: 'blake',
+    domain: 'burroughs.digital',
+    reader: 'me' as const,
+    aiReads: false,
+    isDefault: false,
+  };
+  const sender = {
+    address: 'office@burroughs.digital',
+    localPart: 'office',
+    domain: 'burroughs.digital',
+    displayName: 'Burroughs Digital',
+  };
+
+  it('looks a website name up only once it reads as one a business could own', () => {
+    expect(emailGuidedLookupName(answers({ domain: 'https://www.Burroughs.Digital/hi' }))).toBe(
+      'burroughs.digital',
+    );
+    expect(emailGuidedLookupName(answers({ domain: 'burroughs' }))).toBeNull();
+    expect(emailGuidedLookupName(answers({ domain: 'gmail.com' }))).toBeNull();
+    expect(emailGuidedLookupName(answers({ with: 'free' }))).toBeNull();
+  });
+
+  it('opens on the website name with something left: records first, then mail', () => {
+    const waiting = domain({
+      id: '00000000-0000-4000-8000-000000000021',
+      domain: 'new.example',
+      status: 'pending',
+      plan: { team: { localPart: 'hello', displayName: 'New' } },
+    });
+    const mail = domain({ receiving: 'pending' });
+    expect(emailGuidedOpenDomain(state({ domains: [domain()] }))).toBeNull();
+    expect(emailGuidedOpenDomain(state({ domains: [mail] }))?.domain).toBe('burroughs.digital');
+    expect(emailGuidedOpenDomain(state({ domains: [mail, waiting] }))?.domain).toBe('new.example');
+    // Records on their way with nothing planned is Settings → Email's to show, not a last step.
+    expect(emailGuidedOpenDomain(state({ domains: [domain({ status: 'pending' })] }))).toBeNull();
+  });
+
+  it('lists the sending records, ours and the old ones while the records are on their way', () => {
+    const d = domain({
+      status: 'pending',
+      records: [dkim(true), returnPath(false)],
+      plan: {
+        team: { localPart: 'office', displayName: 'Burroughs Digital' },
+        addresses: [{ localPart: 'blake', userId: ME }],
+        receive: true,
+      },
+    });
+    const step = emailGuidedLastStep(d, state({ domains: [d] }));
+    expect(step).toMatchObject({
+      left: 'records',
+      where: 'SiteGround',
+      wantsMail: true,
+      ours: { host: 'inbound.postmarkapp.com', priority: 10, found: false },
+      notDone: W.notDoneRecords(1, 2),
+    });
+    expect(step.host?.label).toBe('SiteGround');
+    expect(step.sending.map((r) => r.type)).toEqual(['TXT', 'CNAME']);
+    expect(step.old).toHaveLength(3);
+    expect(step.stand).toEqual([
+      {
+        key: 'addresses',
+        label: W.standAddresses,
+        value: 'office@ and blake@ are made as soon as the records are found',
+        done: false,
+      },
+      {
+        key: 'sending',
+        label: W.standSending,
+        value: W.standSendingFree('burroughs-digital-a2ceda@mail.handsfreeos.com'),
+        done: false,
+      },
+      { key: 'mail', label: W.standMail, value: W.standMailAfter, done: false },
+    ]);
+  });
+
+  it('says which old mail records are still there once sending works', () => {
+    const d = domain({
+      receiving: 'pending',
+      records: [dkim(true), returnPath(true)],
+      mxRecords: [{ host: 'inbound.postmarkapp.com', priority: 10 }, ...siteground.mxRecords],
+    });
+    const step = emailGuidedLastStep(
+      d,
+      state({ domains: [d], addresses: [office, blake], sender }),
+    );
+    expect(step).toMatchObject({
+      left: 'mail',
+      ours: { found: true },
+      notDone: W.notDoneOld(3, 'SiteGround'),
+    });
+    expect(step.old.map((r) => r.priority)).toEqual([10, 20, 30]);
+    expect(step.stand.map((l) => [l.key, l.value, l.done])).toEqual([
+      ['addresses', 'office@ and blake@ are saved', true],
+      ['sending', 'Works. Customers hear from office@.', true],
+      ['mail', 'Still goes to SiteGround. 3 old records to delete.', false],
+    ]);
+    // Ours not there yet, and nothing old to delete: it's ours that is missing.
+    const none = domain({ receiving: 'pending', mailHost: 'none', mxRecords: [] });
+    expect(emailGuidedLastStep(none, state({ domains: [none] }))).toMatchObject({
+      where: null,
+      old: [],
+      notDone: W.notDoneOurs,
+    });
+  });
+
+  it('has nothing left when the mail stays where it is, or already lands here', () => {
+    const kept = domain({ records: [dkim(true)] });
+    expect(emailGuidedLastStep(kept, state({ domains: [kept] }))).toMatchObject({
+      left: 'done',
+      wantsMail: false,
+      ours: null,
+      old: [],
+      notDone: null,
+    });
+    const here = domain({ receiving: 'on', mailHost: 'handsfreeos', mxRecords: [] });
+    const step = emailGuidedLastStep(here, state({ domains: [here] }));
+    expect(step.stand.at(-1)).toEqual({
+      key: 'mail',
+      label: W.standMail,
+      value: W.standMailHere,
+      done: true,
+    });
+  });
+
+  it('says on Done what is ready and who reads each address', () => {
+    const here = domain({ receiving: 'on', mailHost: 'handsfreeos' });
+    const s = state({ domains: [here], addresses: [office, blake], sender });
+    expect(emailGuidedDone(s, here)).toEqual({
+      line: 'We found the change at SiteGround. Mail to burroughs.digital now lands in HandsFreeOS.',
+      rows: [
+        {
+          address: 'office@burroughs.digital',
+          isDefault: true,
+          reader: 'team',
+          line: 'The team reads it in the Inbox, and Ava does too.',
+        },
+        {
+          address: 'blake@burroughs.digital',
+          isDefault: false,
+          reader: 'me',
+          line: W.doneOnlyYou('Ava', false),
+        },
+      ],
+    });
+    // Sending only: it says who customers hear from. A teammate that is off isn't said to read anything.
+    const off = state({
+      domains: [domain()],
+      addresses: [office],
+      sender,
+      aiTeammate: { name: 'Ava', on: false },
+    });
+    expect(emailGuidedDone(off, domain())).toMatchObject({
+      line: 'Customers hear from office@burroughs.digital from now on.',
+      rows: [{ line: 'The team reads it in the Inbox.' }],
+    });
+    expect(emailGuidedReviewLine({ reader: 'team', aiReads: false }, off)).toBe(
+      'The team reads it.',
+    );
+    expect(emailGuidedReviewLine({ reader: 'me', aiReads: true }, state())).toBe(
+      W.reviewOnlyYou('Ava', true),
+    );
   });
 });

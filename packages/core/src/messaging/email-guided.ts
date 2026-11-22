@@ -23,6 +23,7 @@ import {
   dnsHostFor,
   EMAIL_PLAN_ADDRESSES_MAX,
   EMAIL_SETUP_WITH,
+  emailDomainPlanHasWork,
   emailOldMailRecords,
   emailSetupDomainOf,
   emailSetupSuggestedDomain,
@@ -30,9 +31,11 @@ import {
   freeLocalPartFor,
   MAIL_HOST_LABELS,
   personLocalPartFor,
+  type DnsHost,
   type EmailDomainPlan,
   type EmailSetupDomain,
   type EmailSetupProblem,
+  type EmailSetupRecord,
   type EmailSetupState,
   type MailHost,
 } from './email-setup';
@@ -122,6 +125,15 @@ const lower = (v: string) => v.trim().toLowerCase();
  */
 export const emailGuidedDomain = (typed: string): string =>
   normalizeEmailDomain(typed).replace(/^www\./, '');
+
+/** The website name worth looking up: what's typed, once it reads as a name a business could own. Null until then. */
+export function emailGuidedLookupName(
+  answers: Pick<EmailGuidedAnswers, 'with' | 'domain'>,
+): string | null {
+  if (answers.with !== 'domain') return null;
+  const r = emailDomainName.safeParse(emailGuidedDomain(answers.domain));
+  return r.success && !isConsumerMailDomain(r.data) && !isHandsFreeOsDomain(r.data) ? r.data : null;
+}
 
 /** The screens these answers go through: all six on the business's own website name, two with a free address. */
 export const emailGuidedScreensFor = (
@@ -530,6 +542,186 @@ export const emailGuidedOurRecordFound = (
   d.receiving === 'on' ||
   (d.mxRecords ?? []).some((r) => r.host === state.inboundMxHost.toLowerCase());
 
+/**
+ * The website name whose last step is still open: one whose records are on their way with addresses waiting on
+ * them, else one that sends already and whose mail hasn't started coming here. Null when nothing is left anywhere.
+ */
+export const emailGuidedOpenDomain = (
+  state: Pick<EmailSetupState, 'domains'>,
+): EmailSetupDomain | null =>
+  state.domains.find((d) => d.status !== 'verified' && emailDomainPlanHasWork(d.plan)) ??
+  state.domains.find((d) => emailGuidedLeft(d) === 'mail') ??
+  null;
+
+/** One line of "Where things stand". */
+export interface EmailGuidedStand {
+  readonly key: 'addresses' | 'sending' | 'mail';
+  readonly label: string;
+  readonly value: string;
+  /** Nothing more to do for it. */
+  readonly done: boolean;
+}
+
+/** The website name's last step: what to add, what to delete, and where things stand. */
+export interface EmailGuidedLastStep {
+  readonly left: EmailGuidedLeft;
+  readonly domain: string;
+  /** Where its records are looked after, when it's a place we know. */
+  readonly host: DnsHost | null;
+  /** Where its mail goes today, by name; null when nowhere, here, or nobody could tell. */
+  readonly where: string | null;
+  /** Its mail is meant to come here: asked for already, or planned for once its records are found. */
+  readonly wantsMail: boolean;
+  /** The records that let HandsFreeOS send as the name. */
+  readonly sending: readonly EmailSetupRecord[];
+  /** Our mail record, when its mail is meant to come here. */
+  readonly ours: {
+    readonly host: string;
+    readonly priority: number;
+    readonly found: boolean;
+  } | null;
+  /** The old mail records still to delete; empty when its mail stays where it is. */
+  readonly old: readonly EmailMxRecord[];
+  /** What's still missing, after "Not done yet."; null when nothing is. */
+  readonly notDone: string | null;
+  readonly stand: readonly EmailGuidedStand[];
+}
+
+export function emailGuidedLastStep(
+  d: EmailSetupDomain,
+  state: Pick<EmailSetupState, 'inboundMxHost' | 'addresses' | 'sender' | 'free'>,
+): EmailGuidedLastStep {
+  const left = emailGuidedLeft(d);
+  const where = emailGuidedMailLabel(d);
+  const wantsMail = d.receiving !== 'off' || d.plan.receive === true;
+  const sending = d.records.filter((r) => r.type !== 'MX');
+  const found = sending.filter((r) => r.found).length;
+  const ours = wantsMail
+    ? {
+        host: state.inboundMxHost.toLowerCase(),
+        priority: 10,
+        found: emailGuidedOurRecordFound(d, state),
+      }
+    : null;
+  const old = wantsMail && d.receiving !== 'on' ? emailGuidedOldRecords(d, state) : [];
+
+  const here = state.addresses.filter((a) => a.domain === d.domain).map((a) => `${a.localPart}@`);
+  const planned = [
+    ...(d.plan.team ? [d.plan.team.localPart] : []),
+    ...(d.plan.addresses ?? []).map((a) => a.localPart),
+  ]
+    .map((local) => `${local}@`)
+    .filter((name) => !here.includes(name));
+  const verified = d.status === 'verified';
+  const from = state.sender?.address ?? state.free?.address ?? '';
+  const stand: EmailGuidedStand[] = [];
+  if (verified ? here.length : planned.length)
+    stand.push({
+      key: 'addresses',
+      label: W.standAddresses,
+      value: verified
+        ? W.standSaved(emailGuidedList(here))
+        : W.standWaiting(emailGuidedList(planned)),
+      done: verified,
+    });
+  stand.push({
+    key: 'sending',
+    label: W.standSending,
+    value: !verified
+      ? W.standSendingFree(from)
+      : state.sender?.domain === d.domain
+        ? W.standSendingWorks(state.sender.localPart)
+        : W.standSendingOn,
+    done: verified,
+  });
+  stand.push({
+    key: 'mail',
+    label: W.standMail,
+    value: !wantsMail
+      ? W.standMailKept(where)
+      : d.receiving === 'on'
+        ? W.standMailHere
+        : left === 'records'
+          ? W.standMailAfter
+          : old.length
+            ? W.standMailOld(where, old.length)
+            : W.standMailOurs,
+    done: !wantsMail || d.receiving === 'on',
+  });
+  return {
+    left,
+    domain: d.domain,
+    host: dnsHostFor(d.dnsHost),
+    where,
+    wantsMail,
+    sending,
+    ours,
+    old,
+    notDone:
+      left === 'records'
+        ? W.notDoneRecords(found, sending.length)
+        : left === 'mail'
+          ? old.length
+            ? W.notDoneOld(old.length, where)
+            : W.notDoneOurs
+          : null,
+    stand,
+  };
+}
+
+/** The AI teammate's name, while it's working: the lines that say it reads the team's mail name it only then. */
+const aiNameOf = (state: Pick<EmailSetupState, 'aiTeammate'>): string | null =>
+  state.aiTeammate?.on ? state.aiTeammate.name : null;
+
+/** The Done screen: what is ready, and each address at the website name (or the free one) with who reads it. */
+export interface EmailGuidedDone {
+  readonly line: string;
+  readonly rows: readonly {
+    readonly address: string;
+    readonly isDefault: boolean;
+    readonly reader: 'me' | 'team' | 'other';
+    readonly line: string;
+  }[];
+}
+
+export function emailGuidedDone(
+  state: Pick<EmailSetupState, 'addresses' | 'sender' | 'free' | 'aiTeammate'>,
+  d: Pick<EmailSetupDomain, 'domain' | 'receiving' | 'dnsHost'> | null,
+): EmailGuidedDone {
+  const name = aiNameOf(state);
+  const shown = d
+    ? state.addresses.filter((a) => a.domain === d.domain)
+    : state.addresses.filter((a) => a.isDefault);
+  return {
+    line:
+      d?.receiving === 'on'
+        ? W.doneMail(d.domain, emailGuidedDnsLabel(d))
+        : W.doneSending(state.sender?.address ?? state.free?.address ?? ''),
+    rows: shown.map((a) => ({
+      address: a.address,
+      isDefault: a.isDefault,
+      reader: a.reader,
+      line:
+        a.reader === 'me'
+          ? W.doneOnlyYou(name, a.aiReads)
+          : a.reader === 'team'
+            ? W.doneTeam(name)
+            : W.reviewTheirs,
+    })),
+  };
+}
+
+/** Under an address on Check it over: who reads it, and whether the AI teammate does. */
+export const emailGuidedReviewLine = (
+  r: Pick<EmailGuidedRow, 'reader' | 'aiReads'>,
+  state: Pick<EmailSetupState, 'aiTeammate'>,
+): string =>
+  r.reader === 'me'
+    ? W.reviewOnlyYou(aiNameOf(state), r.aiReads)
+    : r.reader === 'team'
+      ? W.reviewTeam(aiNameOf(state))
+      : W.reviewTheirs;
+
 // ---------- "Your email so far" ----------
 
 /** "blake@ and office@", "blake@, office@ and info@". */
@@ -696,6 +888,8 @@ export const EMAIL_GUIDED_WORDS = {
     `We couldn’t tell where mail to ${domain} goes today. Pick what you want, and the last step shows what to change.`,
   hereAlready: (domain: string) =>
     `Mail to ${domain} already comes to HandsFreeOS. Nothing to pick.`,
+  pointsHere: (domain: string) =>
+    `Mail to ${domain} already points at HandsFreeOS. Pick In HandsFreeOS to read it here.`,
   inHfos: 'In HandsFreeOS',
   inHfosHint: (domain: string) =>
     `All mail to ${domain} comes here. You don’t need Gmail or Outlook.`,
@@ -815,6 +1009,8 @@ export const EMAIL_GUIDED_WORDS = {
   standSending: 'Sending',
   standSendingWorks: (local: string) => `Works. Customers hear from ${local}@.`,
   standSendingFree: (free: string) => `From ${free} until the records are found.`,
+  standSendingOn: 'Works.',
+  standMailHere: 'Lands in HandsFreeOS.',
   standMail: 'Mail coming in',
   standMailOld: (where: string | null, n: number) =>
     `Still goes to ${where ?? 'your old mailbox'}. ${n} old ${n === 1 ? 'record' : 'records'} to delete.`,
