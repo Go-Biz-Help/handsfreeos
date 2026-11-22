@@ -10,8 +10,8 @@ export const EmailSetupGetOutput = z.object({
   state: EmailSetupStateOut,
   /** Where the step starts: how the business's email is set up now, else our picks. */
   answers: EmailSetupAnswers,
-  /** Where the guided setup starts, the same way. */
-  guided: EmailGuidedAnswers,
+  /** Where the guided setup starts, the same way. None from an older API: `startingEmailGuidedAnswers` makes it. */
+  guided: EmailGuidedAnswers.optional(),
 });
 
 /** The guided setup's "Set it up": every answer at once, checked again here. */

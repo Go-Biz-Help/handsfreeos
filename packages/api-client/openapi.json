@@ -165979,6 +165979,7 @@
                                 }
                               },
                               "mxRecords": {
+                                "default": null,
                                 "anyOf": [
                                   {
                                     "type": "array",
@@ -166062,6 +166063,7 @@
                           ]
                         },
                         "myUserId": {
+                          "default": null,
                           "anyOf": [
                             {
                               "type": "string",
@@ -166074,6 +166076,7 @@
                           ]
                         },
                         "addresses": {
+                          "default": [],
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -166123,6 +166126,7 @@
                           }
                         },
                         "aiTeammate": {
+                          "default": null,
                           "anyOf": [
                             {
                               "type": "object",
@@ -166146,6 +166150,7 @@
                           ]
                         },
                         "lookup": {
+                          "default": null,
                           "anyOf": [
                             {
                               "type": "object",
@@ -166484,8 +166489,7 @@
                   },
                   "required": [
                     "state",
-                    "answers",
-                    "guided"
+                    "answers"
                   ],
                   "additionalProperties": false
                 }
@@ -216970,6 +216974,7 @@
                                     }
                                   },
                                   "mxRecords": {
+                                    "default": null,
                                     "anyOf": [
                                       {
                                         "type": "array",
@@ -217053,6 +217058,7 @@
                               ]
                             },
                             "myUserId": {
+                              "default": null,
                               "anyOf": [
                                 {
                                   "type": "string",
@@ -217065,6 +217071,7 @@
                               ]
                             },
                             "addresses": {
+                              "default": [],
                               "type": "array",
                               "items": {
                                 "type": "object",
@@ -217114,6 +217121,7 @@
                               }
                             },
                             "aiTeammate": {
+                              "default": null,
                               "anyOf": [
                                 {
                                   "type": "object",
@@ -217137,6 +217145,7 @@
                               ]
                             },
                             "lookup": {
+                              "default": null,
                               "anyOf": [
                                 {
                                   "type": "object",

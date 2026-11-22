@@ -244,8 +244,8 @@ describe('“Set it up”', () => {
     expect(await stored()).toEqual([]);
     // Coming back, the questions start from the plan.
     const got = await ask(emailSetupGet, { workspaceId: wsId }, blake);
-    expect(got.guided).toMatchObject({ with: 'domain', domain: DOMAIN, sender: 'office' });
-    expect(got.guided.addresses.map((a) => a.local)).toEqual(['office', 'blake', 'info']);
+    expect(got.guided!).toMatchObject({ with: 'domain', domain: DOMAIN, sender: 'office' });
+    expect(got.guided!.addresses.map((a) => a.local)).toEqual(['office', 'blake', 'info']);
   });
 
   it('never lets someone else plan “Let Ava read this mail” for an address that isn’t theirs', async () => {

@@ -82519,7 +82519,7 @@ export interface operations {
                             /** @default null */
                             with: ("domain" | "free") | null;
                         };
-                        guided: {
+                        guided?: {
                             /** @default [] */
                             addresses: {
                                 /** @default false */
@@ -82555,6 +82555,7 @@ export interface operations {
                             with: ("domain" | "free") | null;
                         };
                         state: {
+                            /** @default [] */
                             addresses: {
                                 address: string;
                                 aiReads: boolean;
@@ -82566,6 +82567,7 @@ export interface operations {
                                 /** @enum {string} */
                                 reader: "me" | "team" | "other";
                             }[];
+                            /** @default null */
                             aiTeammate: {
                                 name: string;
                                 on: boolean;
@@ -82580,6 +82582,7 @@ export interface operations {
                                 lastCheckedAt: string | null;
                                 lastError: string | null;
                                 mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                /** @default null */
                                 mxRecords: {
                                     host: string;
                                     priority: number;
@@ -82626,6 +82629,7 @@ export interface operations {
                                 localPart: string;
                             } | null;
                             inboundMxHost: string;
+                            /** @default null */
                             lookup: {
                                 dnsHost: string | null;
                                 domain: string;
@@ -82650,6 +82654,7 @@ export interface operations {
                             } | null;
                             myEmail: string | null;
                             myFirstName: string | null;
+                            /** @default null */
                             myUserId: string | null;
                             sender: {
                                 address: string;
@@ -89014,6 +89019,7 @@ export interface operations {
                                 running: ("import" | "migration") | null;
                             };
                             email: {
+                                /** @default [] */
                                 addresses: {
                                     address: string;
                                     aiReads: boolean;
@@ -89025,6 +89031,7 @@ export interface operations {
                                     /** @enum {string} */
                                     reader: "me" | "team" | "other";
                                 }[];
+                                /** @default null */
                                 aiTeammate: {
                                     name: string;
                                     on: boolean;
@@ -89039,6 +89046,7 @@ export interface operations {
                                     lastCheckedAt: string | null;
                                     lastError: string | null;
                                     mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                    /** @default null */
                                     mxRecords: {
                                         host: string;
                                         priority: number;
@@ -89085,6 +89093,7 @@ export interface operations {
                                     localPart: string;
                                 } | null;
                                 inboundMxHost: string;
+                                /** @default null */
                                 lookup: {
                                     dnsHost: string | null;
                                     domain: string;
@@ -89109,6 +89118,7 @@ export interface operations {
                                 } | null;
                                 myEmail: string | null;
                                 myFirstName: string | null;
+                                /** @default null */
                                 myUserId: string | null;
                                 sender: {
                                     address: string;

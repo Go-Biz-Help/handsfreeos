@@ -396,8 +396,11 @@ export const EmailSetupDomainOut = z.object({
   plan: EmailDomainPlan,
   /** The records to add, in order; empty while they're being made. */
   records: z.array(EmailSetupRecordOut),
-  /** Its mail records as the worker last saw them, lowest priority first; null until it has looked. */
-  mxRecords: z.array(EmailMxRecord).nullable(),
+  /**
+   * Its mail records as the worker last saw them, lowest priority first; null until it has looked. Defaults, for an
+   * older API.
+   */
+  mxRecords: z.array(EmailMxRecord).nullable().default(null),
   lastCheckedAt: iso.nullable(),
   lastError: z.string().nullable(),
 });
@@ -465,14 +468,15 @@ export const EmailSetupStateOut = z.object({
   domains: z.array(EmailSetupDomainOut),
   /** This person's own address ("Only you"), when they have one. */
   mine: z.object({ address: z.string() }).nullable(),
+  // The guided setup's four. Each defaults, for an older API (the web can be live a few minutes before it).
   /** This person, so answers saved for later know whose "Only me" they were. */
-  myUserId: z.uuid().nullable(),
+  myUserId: z.uuid().nullable().default(null),
   /** Every address the business has, the one customers hear from first. */
-  addresses: z.array(EmailSetupAddressOut),
+  addresses: z.array(EmailSetupAddressOut).default([]),
   /** The AI teammate, by the name the business gave it, and whether it's working. Null when there is none. */
-  aiTeammate: z.object({ name: z.string(), on: z.boolean() }).nullable(),
+  aiTeammate: z.object({ name: z.string(), on: z.boolean() }).nullable().default(null),
   /** The website name this business last looked up in the guided setup, before adding it. */
-  lookup: EmailDomainLookupOut.nullable(),
+  lookup: EmailDomainLookupOut.nullable().default(null),
   /** Gmail and Outlook mailboxes connected here, and whether each is this person's. */
   mailboxes: z.array(
     z.object({
