@@ -477,7 +477,7 @@ describe('when its person leaves', () => {
 });
 
 /**
- * "Let Ava read this mail" (20261027033700): the switch on a person's own address is theirs alone to turn on, a
+ * "Let Ava read this mail" (20261027033750): the switch on a person's own address is theirs alone to turn on, a
  * new address never arrives with it on, and the draft the AI teammate leaves is as private as the thread it is on.
  */
 describe('the AI teammate reads own mail only when its person says so', () => {

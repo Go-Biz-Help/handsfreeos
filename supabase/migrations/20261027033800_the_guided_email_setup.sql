@@ -10,7 +10,7 @@
 --      the last step can list the old ones to delete and say which are still there.
 --   3. A plan can carry more addresses than the one customers hear from (plan.addresses), each the team's or
 --      one person's own, and a person's own may come with "Let Ava read this mail" already on. That yes is one
---      person's (20261027033700), so only they write it into a plan: nobody plans it for someone else.
+--      person's (20261027033750), so only they write it into a plan: nobody plans it for someone else.
 -- =============================================================================
 
 -- ---------- 1. a name looked up before it is added ----------
