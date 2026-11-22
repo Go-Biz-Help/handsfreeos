@@ -25,6 +25,7 @@ import {
   staffIdsOf,
 } from '../calendar/appointments';
 import { lockBooking } from '../calendar/booking';
+import { depositNotPaid } from '../calendar/deposit';
 import { loadCalendar } from '../calendar/load';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
@@ -75,6 +76,7 @@ async function depositInvoice(ctx: CommandContext, attendeeId: string) {
       id: invoices.id,
       status: invoices.status,
       number: invoices.number,
+      totalCents: invoices.totalCents,
       amountPaidCents: invoices.amountPaidCents,
     })
     .from(invoices)
@@ -140,6 +142,16 @@ export const bookingConfirmDeposit = defineCommand({
         number: invoice.number,
       };
     }
+    // The card is held before the time is confirmed: a payment on this deposit that the provider said is held,
+    // taken or on its way, for the whole amount. Whoever asks, an unpaid hold stays a hold and runs out.
+    const [paid] = await rows<{ n: number; cents: number }>(
+      ctx.tx,
+      sql`select count(*)::int as n, coalesce(sum(amount_cents), 0)::float8 as cents
+          from app.payments
+          where workspace_id = ${ws} and invoice_id = ${invoice.id}
+            and status in ('processing', 'succeeded')`,
+    );
+    if (!paid?.n || Number(paid.cents) < Number(invoice.totalCents)) throw depositNotPaid();
 
     // Issued here and not when the hold was taken: a draft is what says "still being paid for", and a number
     // belongs to a document that is really out. No channels: they are on the page, paying, right now.

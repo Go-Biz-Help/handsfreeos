@@ -26,6 +26,7 @@ import {
   dayStartAddresses,
   defaultLocationKind,
   DEPOSIT_HOLD_MINUTES,
+  depositNotPaid,
   goesOut,
   effectiveVideo,
   executeCommand,
@@ -78,9 +79,13 @@ import { refuseUndeliverableEmail } from '../booking/email-check';
 import {
   cannotTakePayment,
   confirmAndCapture,
+  depositMismatch,
   depositPlan,
+  depositShortfall,
   holdLost,
   invoiceForHold,
+  letGoOfMismatch,
+  paymentNotStarted,
   raiseDepositInvoice,
   recordDepositPayment,
   refused,
@@ -1605,21 +1610,26 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           });
           // PayPal's button was pressed: its account holds the deposit, whichever account the calendar names.
           let account = body.method === 'paypal' ? (plan?.payPal ?? null) : (plan?.account ?? null);
-          // Second phase: read back through the account the payment was started in, whatever the page sent.
-          if (plan && body.providerPaymentId) {
-            const [started] = await rows<{ connection_id: string | null }>(
+          // Second phase: the payment must be one phase one started for **this** deposit. Holding the link
+          // proves nothing about an id typed into the body, so its own row is what proves it.
+          let started: { connection_id: string | null; idempotency_key: string | null } | undefined;
+          if (body.providerPaymentId)
+            [started] = await rows<{
+              connection_id: string | null;
+              idempotency_key: string | null;
+            }>(
               tx,
-              sql`select connection_id from app.payments
+              sql`select connection_id, idempotency_key from app.payments
                   where invoice_id = ${invoice.id} and provider_payment_id = ${body.providerPaymentId}
                   limit 1`,
             );
-            if (started)
-              account =
-                accountOfStarted(
-                  { main: plan.account, payPal: plan.payPal },
-                  started.connection_id,
-                ) ?? account;
-          }
+          // Read back through the account the payment was started in, whatever the page sent.
+          if (plan && started)
+            account =
+              accountOfStarted(
+                { main: plan.account, payPal: plan.payPal },
+                started.connection_id,
+              ) ?? account;
           if (!account) throw cannotTakePayment();
           const method: PaymentMethodKind = account.methods.includes(body.method)
             ? body.method
@@ -1634,12 +1644,15 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             // domain when one is serving (M17), so a customer is not bounced between two names in the middle
             // of putting a card down.
             origin: await publicOrigin(tx, scope.workspaceId, links.webUrl),
+            started: started ?? null,
           };
         });
 
         // Already paid for: the answer is the booking it already made. Nothing is taken a second time.
         if (start.invoice.status !== 'draft' || start.invoice.paidCents > 0)
           return { stage: 'recorded' as const, hold: await holdView(scope, m.attendeeId) };
+        // A payment id this deposit never started (made up, or another booking's) is never read back.
+        if (body.providerPaymentId && !start.started) throw paymentNotStarted();
 
         const ctx: DepositPayContext = {
           invoiceId: start.invoice.id,
@@ -1647,8 +1660,10 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           account: start.account,
           amountCents: start.invoice.amountCents,
           method: start.method,
-          // Written on the payment row before the provider is called: one press, one payment.
-          idempotencyKey: `hold:${m.attendeeId}:${body.clientId}`.slice(0, 64),
+          // Written on the payment row before the provider is called: one press, one payment. Phase two lands
+          // on the row phase one wrote, whatever key the page came back with.
+          idempotencyKey:
+            start.started?.idempotency_key ?? `hold:${m.attendeeId}:${body.clientId}`.slice(0, 64),
           description: `Deposit · ${start.what}`,
         };
         const provider = deps.payments.providers[ctx.account.session.provider]!;
@@ -1742,6 +1757,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
               // Nothing to read back is nothing to let go of.
             }
           }
+          // An intent nobody confirmed holds nothing: there is only the draft to tidy away, never a refund.
+          if (held?.status === 'requires_payment') held = null;
           return lost(await undoOnLostSlot(deps, scope, ctx, held));
         }
 
@@ -1790,6 +1807,14 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             },
             hold: await holdView(scope, m.attendeeId),
           };
+        }
+        // Only the deposit in hand confirms the time. An intent nobody confirmed or an order nobody approved
+        // moved nothing, so nothing is written: the time stays held until it runs out, and they can pay again.
+        const short = depositShortfall(ctx, body.providerPaymentId ?? null, result);
+        if (short === 'unpaid') throw depositNotPaid();
+        if (short === 'mismatch') {
+          await letGoOfMismatch(deps, scope, ctx, result);
+          throw depositMismatch();
         }
         await recordDepositPayment(deps, scope, ctx, {
           status: result.capturable ? 'processing' : result.status,

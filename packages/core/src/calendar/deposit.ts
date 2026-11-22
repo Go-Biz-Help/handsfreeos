@@ -8,11 +8,23 @@
  * for in Settings → Payments, so changing it there changes it everywhere.
  */
 import type { CalendarConfig } from './config';
+import { HfosError } from '../errors';
 import { depositCentsOf, type DepositTerms } from '../money/totals';
 
 /** How long a time is held while a customer pays for it (the plan's figure). */
 export const DEPOSIT_HOLD_MINUTES = 15;
 export const DEPOSIT_HOLD_MS = DEPOSIT_HOLD_MINUTES * 60_000;
+
+/**
+ * The deposit isn't in hand (an intent nobody confirmed, an order nobody approved, a card check left half-done),
+ * so the time isn't confirmed. Nothing was taken, and the hold stands until it runs out.
+ */
+export const depositNotPaid = (): HfosError =>
+  HfosError.rule(
+    'deposit_not_paid',
+    409,
+    `Your deposit hasn’t gone through, so this time isn’t booked yet. Nothing was charged. Pay again, or pick another way to pay: we hold the time for ${DEPOSIT_HOLD_MINUTES} minutes while you do.`,
+  );
 
 export interface BookingCharge {
   /** 'deposit': part now and the rest on the invoice for the job. 'full': the whole price now. */
