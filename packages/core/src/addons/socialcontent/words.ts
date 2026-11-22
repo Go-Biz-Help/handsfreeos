@@ -5,6 +5,7 @@
  */
 import { addDays, localDateOf, zonedParts } from '../../calendar/engine/zoned';
 import { fmtDateLong, fmtDateShort, fmtTime } from '../../calendar/when';
+import { EXTENSION_DOWNLOAD_WORDS } from '../../extension-download';
 import type { PostedTo, PostPlace } from './calendar';
 import { hasNumbers, OWN, type DoneWell, type OwnNumbers, type OwnNumbersRead } from './own';
 import { DONE_WELL, STANDOUT } from './standouts';
@@ -499,7 +500,8 @@ export const SOCIALCONTENT_WORDS = {
     managersOnly: 'Only an owner or admin of this business changes these.',
     extensionHow:
       'Install the extension (0.128.2 or later) in Chrome on that computer, sign in to it with your HandsFreeOS account, and stay signed in there to each network it studies (Instagram, Facebook, LinkedIn). It reads while Chrome is open, in a window of its own.',
-    getExtension: 'Get the extension',
+    /** The download's button, the same as Social Outreach's (docs/outreach.md, decision 189). */
+    getExtension: EXTENSION_DOWNLOAD_WORDS.download,
     watchSaved: (on: boolean) =>
       on ? 'Watching is on: new standout videos are watched as they’re found.' : 'Watching is off.',
     schedule:
@@ -583,7 +585,7 @@ export const SOCIALCONTENT_WORDS = {
     readerQuiet: (name: string, ago: string) =>
       `${name}’s computer last checked in ${ago}. Open Chrome there with the HandsFreeOS Social extension, and it picks up where it left off.`,
     readerNever: (name: string) =>
-      `${name}’s computer hasn’t checked in yet. Open Chrome there with the HandsFreeOS Social extension (Get the extension is in Settings here), signed in to HandsFreeOS.`,
+      `${name}’s computer hasn’t checked in yet. Open Chrome there with the HandsFreeOS Social extension (${EXTENSION_DOWNLOAD_WORDS.download} is in Settings here), signed in to HandsFreeOS.`,
     now: 'Now',
     waiting: (n: number) => `${count(n, 'more thing')} waiting`,
     lately: 'Lately',
@@ -1105,8 +1107,7 @@ export const SOCIALCONTENT_WORDS = {
     pickCreator: 'Pick a creator',
     morePosts: 'Show more posts',
     openProfile: 'Open their page',
-    extensionOnComputer:
-      'Get the extension on that computer: open this add-on’s Settings in HandsFreeOS on the web there, and press Get the extension.',
+    extensionOnComputer: `Get the extension on that computer: open this add-on’s Settings in HandsFreeOS on the web there, and press ${EXTENSION_DOWNLOAD_WORDS.download}.`,
     watchAsk: 'Turn on watching videos?',
     watchYes: 'Turn it on',
     watchKeep: 'Keep it off',

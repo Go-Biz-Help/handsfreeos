@@ -119,7 +119,9 @@ offered to nobody; staff give it to a business from Admin → Businesses.
   of up to 10 posts on each side of it, on views and on likes plus comments. 2 times or more on either is a standout,
   and it says which (decisions 6 and 7). The Standouts page lists them, newest first.
 - **The reading computer.** One person's computer reads for the whole business, in Chrome with the HandsFreeOS Social
-  extension (decisions 1 and 12). An owner or admin picks it in Settings. What it's asked to do is a queue
+  extension (decisions 1 and 12). An owner or admin picks it in Settings, which has **Download HandsFreeOS Social**:
+  the same button as Social Outreach's, with the extension's version and when it was last updated (docs/outreach.md,
+  decision 189). What it's asked to do is a queue
   (`addon_socialcontent.work`): find creators for a niche on a network, read a profile, read posts. Only that
   computer takes work, one at a time: reading a creator someone ticked or added first, then searches for new
   creators, then the weekly and monthly reads, each oldest first, as a search takes a good part of the day's room on

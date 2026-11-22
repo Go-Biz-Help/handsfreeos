@@ -1,13 +1,14 @@
 /**
  * The side panel, bare (docs/outreach.md, decisions 43, 59 and 72): progress and activity only. The business it works
- * for and how it's doing in the top bar; signing in, with the first run's steps (./account.ts); Next up, what it's
- * doing or does next with today's steps against the limits, Start my day, Stop for today and what the person asked of
- * it from HandsFreeOS (./status.ts); under it, how many things need them in HandsFreeOS, with a link (./needs.ts); the
- * networks, when one needs Chrome's leave or warned them (./networks.ts); Done today; and at the foot the settings in
- * a line, who's signed in and a link to HandsFreeOS, where everything else is, Needs you too. "Copy page outline" and
- * "Save page outline" give the shape of the page beside the panel, on a network the extension works on, with names
- * and words hidden, to send to whoever is tuning the readers when the extension gets a page wrong. Opening it, or
- * coming back to it, makes this the person's computer that works (src/hfos/live.ts).
+ * for, this build's version (decision 189, ./version.ts) and how it's doing in the top bar; signing in, with the first
+ * run's steps (./account.ts); Next up, what it's doing or does next with today's steps against the limits, Start my
+ * day, Stop for today and what the person asked of it from HandsFreeOS (./status.ts); under it, how many things need
+ * them in HandsFreeOS, with a link (./needs.ts); the networks, when one needs Chrome's leave or warned them
+ * (./networks.ts); Done today; and at the foot the settings in a line, who's signed in and a link to HandsFreeOS, where
+ * everything else is, Needs you too. "Copy page outline" and "Save page outline" give the shape of the page beside the
+ * panel, on a network the extension works on, with names and words hidden, to send to whoever is tuning the readers
+ * when the extension gets a page wrong. Opening it, or coming back to it, makes this the person's computer that works
+ * (src/hfos/live.ts).
  */
 import { outreachPath } from '@hfos/core/addons/outreach/setup';
 import type { Account } from '../hfos/messages';
@@ -20,6 +21,7 @@ import { h } from './dom';
 import { needsFor, refreshNeeds, startNeeds } from './needs';
 import { startNetworks } from './networks';
 import { refreshStatus, startStatus } from './status';
+import { showVersion } from './version';
 
 const accountBox = document.querySelector<HTMLElement>('#account')!;
 const nowBox = document.querySelector<HTMLElement>('#now')!;
@@ -27,6 +29,7 @@ const networksBox = document.querySelector<HTMLElement>('#networks')!;
 const needsBox = document.querySelector<HTMLElement>('#needs')!;
 const doneBox = document.querySelector<HTMLElement>('#done')!;
 const whereBox = document.querySelector<HTMLElement>('#where')!;
+const versionBox = document.querySelector<HTMLElement>('#version')!;
 const stateChip = document.querySelector<HTMLElement>('#state')!;
 const settingsLine = document.querySelector<HTMLElement>('#settings-line')!;
 const whoBox = document.querySelector<HTMLElement>('#who')!;
@@ -129,6 +132,7 @@ function here(): void {
 document.addEventListener('visibilitychange', here);
 
 function start(): void {
+  showVersion(versionBox);
   void askHfos({ type: 'hfos-here' });
   void startAccount(
     accountBox,

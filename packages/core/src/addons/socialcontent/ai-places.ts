@@ -136,7 +136,7 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
     where: [NAME, P.gear],
     onScreen: [
       `${G.networks}: Instagram, Facebook and LinkedIn; TikTok and YouTube say ${G.coming}`,
-      `${G.reader}: whose computer reads, ${G.readOnMine} and ${G.getExtension}`,
+      `${G.reader}: whose computer reads, ${G.readOnMine}, and ${G.getExtension} with the extension’s version and when it was last updated`,
       `${V.title}: ${V.on} (off until turned on, with the notice that it uses a lot more AI) and ${V.tryIt} (up to 5 of the newest standout videos, once)`,
       `${G.posting}: posts a week and the time for Instagram, Facebook and LinkedIn, ${G.facebookPage} and ${G.facebookWhere} (profile, Page or both)`,
       `${G.doing}: what’s waiting, and what was asked lately with how it went, each waiting one with ${G.stop}`,

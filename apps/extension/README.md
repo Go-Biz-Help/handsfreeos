@@ -550,8 +550,9 @@ Press the extension's button on any page and Chrome's side panel opens beside it
 It shows progress and activity, and leaves the rest to HandsFreeOS, in HandsFreeOS's look (decisions 59 and 72).
 From top to bottom:
 
-- **The top bar**: the business it works for, and how it's doing (working, waiting for the next step, stopped,
-  standing by) as a coloured chip, the same words and colours as HandsFreeOS's.
+- **The top bar**: the business it works for, this build's version ("Version 0.151.0", from 0.151.0; decision 189,
+  `src/panel/version.ts`) in the same words as beside the download in HandsFreeOS, and how it's doing (working, waiting
+  for the next step, stopped, standing by) as a coloured chip, the same words and colours as HandsFreeOS's.
 - **Signing in** (`src/panel/account.ts`): **Send me a prompt** first (below, "Signing in with a prompt"), with
   **Use an emailed code instead** one click away; or, the way the phone app does, an emailed 6-digit code or a
   password, for an account that already exists (new accounts start on the web), under the first run's three steps (sign in here, open
@@ -2899,8 +2900,12 @@ Set up again, or the Carry on line on any tab, opens it), which has the download
 words (decision 71). HandsFreeOS hands out the build itself, made with every deploy: the web app's `build` (and
 `dev`) first runs `scripts/download.mjs`, which builds the extension for the HandsFreeOS the web app talks to (its
 `NEXT_PUBLIC_` settings, so Vercel's for a deploy and the local stack's on your computer) and zips it with
-`manifest.json` at the top to `apps/web/public/downloads/hfos-social.zip`. Nothing to release or commit: bump the
-version in `package.json` and the next deploy hands it out (`test/download.test.ts` covers it). The web app lists the
+`manifest.json` at the top to `apps/web/public/downloads/hfos-social.zip`. Nothing to release or commit: set the
+version with `pnpm --filter @hfos/extension run stamp 0.151.1` and the next deploy hands it out
+(`test/download.test.ts` covers it). The script changes `package.json`'s version and writes `release.json`, when that
+version was made, which the download's button says beside the version as "Updated Nov 22, 1:00 AM" on each person's
+own clock (decision 189); a version changed by hand fails the test until `pnpm --filter @hfos/extension run stamp`
+is run. The web app lists the
 extension among its dev dependencies for that alone: Vercel skips a deploy that touches nothing the web app depends
 on, so without it a change to the extension only would never be handed out. The zip keeps its name
 from version to version: Chrome knows an extension loaded by hand by its folder, so people unzip a newer one over the same folder
@@ -3263,6 +3268,7 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
 | `src/tab.ts`, `src/away.ts`                 | The tab a job works in, in view or in a window of its own, and whether you're away, for a read that needs the screen (decision 120)                                                                                                                                                                                                                                                                                               |
 | `src/research/`                             | AI Social Media Content Creator's reading (0.127.0): the runner (`run.ts`), its tab and hands there (`tab.ts`, `page.ts`), its calls (`hfos.ts`), pace, warnings, the AI helper and reports (`read.ts`), Instagram's answers and reads (`instagram.ts`, `instagram-read.ts`), Facebook's and LinkedIn's pages (`page-read.ts`) and watching a video (`watch.ts`)                                                                  |
 | `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks                                                                                                                                                                                                                                                                            |
+| `scripts/stamp.mjs`, `release.json`         | When this version was made, for the download's "Updated" in HandsFreeOS: run it with every change of the version (decision 189)                                                                                                                                                                                                                                                                                                   |
 | `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json` and LinkedIn's site as optional                                                                                                                                                                                                                                                                                                             |
 | `test/`                                     | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves, the jobs and the asks                                                                                                                                                                                                                                                                                                            |
 

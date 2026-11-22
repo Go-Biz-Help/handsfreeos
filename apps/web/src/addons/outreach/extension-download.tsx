@@ -1,30 +1,18 @@
 'use client';
 /**
- * Getting the browser extension (docs/outreach.md, decisions 45, 71 and 83): HandsFreeOS hands out its own build, zipped
- * into `public/downloads` as this web app builds (apps/extension/scripts/download.mjs; its version and size come
- * through next.config.ts), unless the business gave its own link (`extensionLink`, Settings → General). Five steps,
- * each with a picture beside it: download and unzip, Developer mode, Load unpacked, pin it, then sign in. The setup's
- * install step shows them all with Stuck? under them; the Settings tab folds them away.
+ * Getting the browser extension (docs/outreach.md, decisions 45, 71, 83 and 189): HandsFreeOS hands out its own build,
+ * unless the business gave its own link (`extensionLink`, Settings → General). The button, with its version and when
+ * it was last updated, is the one every download of the extension shows
+ * (@/components/extension-download-button). Five steps, each with a picture beside it: download and unzip, Developer
+ * mode, Load unpacked, pin it, then sign in. The setup's install step shows them all with Stuck? under them; the
+ * Settings tab folds them away.
  */
 import { CHROME_EXTENSIONS_URL, SETUP_WORDS as W } from '@hfos/core/addons/outreach/setup';
-import { ChevronDown, Download, LifeBuoy } from 'lucide-react';
+import { ChevronDown, LifeBuoy } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { ExtensionDownloadButton } from '@/components/extension-download-button';
 import { CopyField } from '@/components/ui/copy-field';
 import { INSTALL_PICTURES } from './install-pictures';
-
-/** The build this web app hands out. Read whole: Next.js puts the values in as it builds. */
-const VERSION = process.env.HFOS_EXTENSION_VERSION ?? '';
-const BYTES = Number(process.env.HFOS_EXTENSION_BYTES) || null;
-/**
- * The name stays the same from version to version, so a newer zip unzips over the same folder; the version on the end
- * only makes browsers fetch the newer one.
- */
-const OURS = `/downloads/hfos-social.zip?v=${VERSION}`;
-
-/** Where the extension downloads from: the business's own link, else HandsFreeOS's build. */
-export function extensionHref(link: string | null): string {
-  return link ?? OURS;
-}
 
 /** A step of its own: its number, its words and what to do, and its picture beside them. */
 export function PictureStep({
@@ -106,28 +94,7 @@ export function ExtensionDownload({
   /** The steps folded under "How to install it" (the Settings tab). */
   folded?: boolean;
 }) {
-  const ours = link === null;
-  const download = (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <a
-        href={extensionHref(link)}
-        // Ours downloads as hfos-social.zip; a team's own link opens wherever it lives.
-        {...(ours
-          ? { download: 'hfos-social.zip' }
-          : { target: '_blank', rel: 'noopener noreferrer' })}
-        className="inline-flex h-9 items-center gap-2 rounded-control bg-accent px-3.5 text-sm font-medium text-white hover:bg-accent-hover"
-        data-testid="outreach-setup-download"
-      >
-        <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-        {W.download}
-      </a>
-      {ours ? (
-        <span className="text-[12.5px] text-text-3" data-testid="outreach-download-about">
-          {W.downloadAbout(VERSION, BYTES)}
-        </span>
-      ) : null}
-    </div>
-  );
+  const download = <ExtensionDownloadButton link={link} />;
   const steps = (
     <ol className="flex flex-col" data-testid="outreach-install-steps">
       {W.install.map((s, i) => (

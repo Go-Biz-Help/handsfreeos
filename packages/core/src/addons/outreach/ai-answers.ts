@@ -6,6 +6,7 @@
  * Browser-safe and pure.
  */
 import { CLIENT_CAUSE_WORDS, CLIENT_TAG, type ClientCause } from '../../crm/record-words';
+import { EXTENSION_DOWNLOAD_PATH } from '../../extension-download';
 import { chatUrlOn, networkOfUrl, tidyWordsOn } from './network-words';
 import { PLATFORM_KEYS, type Platform } from './networks';
 import { OUTREACH_PAGE_PATHS, OUTREACH_PAGES } from './pages';
@@ -64,12 +65,6 @@ export function listsLast(output: unknown): unknown {
 /** Today's list as the model reads it: its chats' links whole, and the facts ahead of the people. */
 export const todayAnswer = (output: unknown, input: unknown): unknown =>
   listsLast(chatLinksAnswer(output, input));
-
-/**
- * Where HandsFreeOS's own build of the extension downloads from, on the web app's address (decision 71): the worker
- * writes it out whole. The same name every version, so a newer zip unzips over the same folder.
- */
-export const EXTENSION_DOWNLOAD_PATH = '/downloads/hfos-social.zip';
 
 /**
  * The setup as the model reads it: with where to get the extension, as Download it gives it (the business's own link,

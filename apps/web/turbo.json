@@ -6,6 +6,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/extension/package.json",
+        "$TURBO_ROOT$/apps/extension/release.json",
         "$TURBO_ROOT$/apps/extension/public/**",
         "$TURBO_ROOT$/apps/extension/scripts/**",
         "$TURBO_ROOT$/apps/extension/src/**"

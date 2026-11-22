@@ -6,12 +6,12 @@
  * part left out stays left out, never a default.
  */
 import { describe, expect, it } from 'vitest';
+import { EXTENSION_DOWNLOAD_PATH } from '../../src/extension-download';
 import {
   cancelAllOutcome,
   chatLinksAnswer,
   clientOutcome,
   contactOutcome,
-  EXTENSION_DOWNLOAD_PATH,
   listsLast,
   retryOutcome,
   SAME_NAME_FIRST,

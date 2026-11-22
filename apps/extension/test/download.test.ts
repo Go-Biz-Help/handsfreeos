@@ -1,10 +1,11 @@
 /**
  * The download the web app hands out (docs/outreach.md, decision 71; scripts/download.mjs): run from a web app's
  * folder, it builds the extension for the HandsFreeOS that web app's settings name and zips it into its
- * public/downloads, with manifest.json at the top as Load unpacked needs; without the sign-in settings it stops.
+ * public/downloads, with manifest.json at the top as Load unpacked needs; without the sign-in settings it stops. And
+ * when this version was made (release.json, decision 189; scripts/stamp.mjs), which the download's button says.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,6 +62,60 @@ const SETTINGS = [
   'NEXT_PUBLIC_SUPABASE_URL=https://abc.supabase.example.test',
   'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_from_the_web_app',
 ].join('\n');
+
+describe('when this version was made', () => {
+  it('is kept for this version, as a moment the download’s button can say', () => {
+    const release = JSON.parse(
+      readFileSync(new URL('../release.json', import.meta.url), 'utf8'),
+    ) as { version: string; updatedAt: string };
+    // After changing the version in package.json: `pnpm --filter @hfos/extension run stamp`.
+    expect(release.version, 'release.json is another version’s: run the stamp script').toBe(
+      version,
+    );
+    expect(release.updatedAt).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
+    expect(Number.isNaN(Date.parse(release.updatedAt))).toBe(false);
+  });
+
+  it('is stamped by the script, which sets the version too when it’s given one', () => {
+    const root = mkdtempSync(join(tmpdir(), 'hfos-stamp-'));
+    try {
+      mkdirSync(join(root, 'scripts'));
+      copyFileSync(
+        fileURLToPath(new URL('../scripts/stamp.mjs', import.meta.url)),
+        join(root, 'scripts/stamp.mjs'),
+      );
+      writeFileSync(
+        join(root, 'package.json'),
+        '{\n  "name": "x",\n  "version": "0.1.0",\n  "scripts": {}\n}\n',
+      );
+      const stamp = (...args: string[]) =>
+        spawnSync(process.execPath, [join(root, 'scripts/stamp.mjs'), ...args], {
+          encoding: 'utf8',
+        });
+      const read = (name: string) =>
+        JSON.parse(readFileSync(join(root, name), 'utf8')) as Record<string, string>;
+
+      const before = Date.now();
+      expect(stamp().status).toBe(0);
+      expect(read('release.json')['version']).toBe('0.1.0');
+      const at = Date.parse(read('release.json')['updatedAt']!);
+      // To the second, so it may be up to a second before the moment it ran.
+      expect(at).toBeGreaterThan(before - 1_000);
+      expect(at).toBeLessThanOrEqual(Date.now());
+
+      expect(stamp('0.2.0').status).toBe(0);
+      expect(read('package.json')).toEqual({ name: 'x', version: '0.2.0', scripts: {} });
+      expect(read('release.json')['version']).toBe('0.2.0');
+
+      const wrong = stamp('newest');
+      expect(wrong.status).toBe(1);
+      expect(wrong.stderr).toContain('isn’t a version');
+      expect(read('package.json')['version']).toBe('0.2.0');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe('the download the web app hands out', { timeout: 60_000 }, () => {
   it('is this version, for the HandsFreeOS the web app talks to, with manifest.json at the top', () => {

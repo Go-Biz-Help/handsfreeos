@@ -654,7 +654,8 @@ became.
   `finishedAt` is empty, whether or not the web's line was hidden). On a phone or a browser other than Chrome, the
   steps done on a computer say so, with the page's link to copy. The extension downloads from HandsFreeOS itself
   (decision 71): the setup's install step and Settings → Your computer have **Download HandsFreeOS Social** with its
-  version and size. A business that keeps its own copy pastes its link under **Where your team gets the extension**
+  version, when it was last updated and its size, the same button AI Social Media Content Creator's Settings has, and
+  the extension says its version at the top of its panel (decision 189). A business that keeps its own copy pastes its link under **Where your team gets the extension**
   (Settings → General, For your team, on the web; and on the phone), and everyone's download is that one instead.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, a niche inside the business's main offer with its biggest problem and its
@@ -5136,6 +5137,27 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the next 45 days, the soonest first (one whose day wasn't read stays 10 days), each with when and where as its
         page said, who hosts it, how many people there the AI is checking or found a fit, **Open** (the event's own
         page) and **Not going** (`outreach.event.skip`, risk 0). Going is the person's to do.
+189.  **One download button, with the version and when it was last updated; the version at the top of the extension**
+      (Chris, 22 Nov 2026: "make the download buttons looks the same and also add the version number and the date and
+      time it was last updated", "also add the version number at the top of the extension screen"). Builds on
+      decision 71:
+      - **One button.** Social Outreach's setup and Settings → Your computer, and AI Social Media Content Creator's
+        Settings (which had a small grey **Get the extension**), show the same **Download HandsFreeOS Social**
+        (`apps/web/src/components/extension-download-button.tsx`). Its words belong to neither add-on
+        (`packages/core/src/extension-download.ts`), and each add-on's own words name the button by them.
+      - **Beside it:** "Version 0.151.0 · Updated Nov 22, 1:00 AM · 0.5 MB · for Chrome on a computer". The time is
+        on the reader's own clock, so it's written once the page is in their browser, and it has the year in another
+        one. A business's own link (**Where your team gets the extension**) still says none of it: the copy isn't
+        ours.
+      - **When it was last updated is when that version was made,** kept in `apps/extension/release.json` and written
+        by `pnpm --filter @hfos/extension run stamp` (with a version, it sets `package.json`'s too). It isn't the
+        deploy's time: every deploy zips the same extension again, so that would say "updated" when nothing was; and
+        it isn't read from git, since Vercel's copy of the repo is too shallow to say when a file last changed.
+        `next.config.ts` hands it to the button only when it's this version's, and `test/download.test.ts` fails
+        until it is.
+      - **The extension's panel** (0.151.0, `src/panel/version.ts`) says "Version 0.151.0" in its top bar, under its
+        name and after the business it works for, signed in or not, in the same words as beside the download, so the
+        two can be held side by side. A long business name is cut short, never the version.
 
 ## Rules worth knowing before changing anything
 
@@ -5275,7 +5297,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `scripts/download.mjs`, which builds it for the HandsFreeOS the web app's own settings name (`NEXT_PUBLIC_API_URL`,
   `NEXT_PUBLIC_WORKER_URL`, `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, read as Next.js
   reads them) and zips it to `apps/web/public/downloads/hfos-social.zip`, which git ignores. `next.config.ts` gives
-  the button its version and size. `apps/web/turbo.json` counts the extension's files in the web build, so a change to
+  the button its version, when that version was made and its size. **Every change of the extension's version is
+  stamped** (decision 189): `pnpm --filter @hfos/extension run stamp 0.151.1` sets the version and writes
+  `apps/extension/release.json`, which the button's "Updated" reads; the extension's tests fail until it's done. The
+  download is one button for every add-on that offers it (`apps/web/src/components/extension-download-button.tsx`):
+  never draw another. `apps/web/turbo.json` counts the extension's files in the web build, so a change to
   them makes a new zip, and keeps the zip with a cached build. Never commit a zip or release one by hand. The zip's
   name never changes, since Chrome knows an extension loaded by hand by its folder and a newer one unzipped over the
   same folder keeps the person signed in; the link ends `?v=` and the version so browsers fetch the newer one.
