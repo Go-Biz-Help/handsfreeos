@@ -115,8 +115,10 @@ import {
   phoneNumberSetLabel,
   phoneNumberSetMembers,
   phoneNumberSetRouting,
+  phoneSetupSave,
   phoneUpdateSettings,
 } from './phone';
+import { guidedSetupClearDraft, guidedSetupSaveDraft } from './guided-setup';
 import {
   registrationSaveSiteScreenshot,
   registrationSiteCheckSavePages,
@@ -601,6 +603,9 @@ export {
   phoneNumberSetMembers,
   phoneNumberSetRouting,
   phoneUpdateSettings,
+  phoneSetupSave,
+  guidedSetupSaveDraft,
+  guidedSetupClearDraft,
   registrationSubmit,
   registrationSaveDraft,
   registrationUpdateStatus,
@@ -854,6 +859,9 @@ export const commands: readonly CommandDef[] = [
   phoneNumberSetLabel,
   phoneNumberSetMembers,
   phoneUpdateSettings,
+  phoneSetupSave,
+  guidedSetupSaveDraft,
+  guidedSetupClearDraft,
   phoneNumberActivate,
   phoneNumberFail,
   phoneNumberMarkReleased,

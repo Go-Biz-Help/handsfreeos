@@ -4482,7 +4482,7 @@ HandsFreeOS lets teammates call and text any valid number, including internation
 
 You should see only the countries you chose ticked when you reopen the page. A blocked call fails with Twilio error 13227 (a call the worker dials) or 21215 (a call made through the API). Errors 13225, 21216 and 32203 come from Twilio's own block list, which only Twilio Support can clear.
 
-There is nothing to do in client subaccounts now. Each new one starts with **INHERIT FROM MASTER** on. Never turn it off. After the first client buys a number, open that client's subaccount (see "Number" below), go to **Voice** → **Settings** → **Geo permissions**, and check that **INHERIT FROM MASTER** is still on.
+There is nothing to do in client subaccounts now. Each new one starts with **INHERIT FROM MASTER** on. Never turn it off. After the first client buys a number, open that client's subaccount (see "Number: the guided setup" below), go to **Voice** → **Settings** → **Geo permissions**, and check that **INHERIT FROM MASTER** is still on.
 
 #### Geo permissions for texts
 
@@ -4645,22 +4645,32 @@ Until the SID is set, steer every client to a toll-free number.
 
 ### What a client fills in
 
-Clients do this themselves. Only a workspace owner or admin sees **Settings** → **Texting & calls** (`/app/w/<workspace id>/settings/texting`). Until the carriers approve texting, the page has three steps: **Number**, **Business details** and **Carrier review**. After approval it shows the number's settings instead (see "After approval" below).
+Clients do this themselves. Only a workspace owner or admin sees **Settings** → **Texting & calls** (`/app/w/<workspace id>/settings/texting`). With no number yet, the page has one card, **Get your business number**, whose **Start** opens the guided setup. Once the business has its number, the page shows the number's card (see "The number's card" below), and under it, until the carriers approve texting, the approval steps: **Number**, **Business details** and **Carrier review**.
 
-#### Number
+#### Number: the guided setup
 
-1. Under **Get a business number**, pick **Toll-free** (marked **Faster approval**) or **Local**.
-2. For toll-free, choose **Starts with** (**Any**, 833, 844 or 855). For local, type the **Area code**.
-3. Click **Show numbers**. Up to 10 US numbers appear, all able to text, send pictures and take calls.
-4. Pick one.
-5. Click the button that reads **Buy** followed by the number you picked.
+The owner asked (2026-11-22) for every setting to be set up the way email is: one question at a time, saved as it's answered, and changeable afterwards. The phone number is the first. **Start** on **Texting & calls** opens `/onboarding/<workspace id>/phone`, a page of its own with the questions on the left and the answers so far on the right:
 
-You should see "{number} bought. Calls ring now.", then "Setting up {number}. This takes a few seconds." The first message appears as soon as HandsFreeOS accepts the order, before anything is bought. The number is really bought when the page moves on to **Business details for the carriers**. Twilio charges the master account from that moment. Calls work from then on. Texting waits for the carriers. If Twilio refuses the number, the page shows "We couldn’t buy {number}: {reason} Pick another number." It shows the same message after about a minute if Twilio keeps failing, with a reason such as "The phone carrier refused HandsFreeOS’s account."
+1. **Do you already have a business number?** A new one, one to keep (moved from their phone company), or one in Twilio or HighLevel. The last two hand over to the move-a-number screens on **Texting & calls** (`?bring=carrier` or `?bring=choose`), described in "Bringing a number from another carrier".
+2. **Do you want to text customers from it?** **No, calls only** skips questions 3 and 7, and nothing asks the business to register with the carriers until it turns texting on.
+3. **Do you have an EIN?** With one, the number is local. Without one it is toll-free, because the carriers only approve a local number for a business with an EIN.
+4. **Pick your number.** Local numbers near the business's address show first. The search under them takes **City**, **State**, **How far out**, **Area code** and **Digits you’d like in it** (for toll-free: **Starts with** and the digits). Picking a number buys nothing.
+5. **When a customer calls, what should ring?** HandsFreeOS always does. Up to 3 cell or desk phones can ring too, and the business picks what those phones show: the customer's number or the business number.
+6. **What if nobody picks up?** How long to ring (15, 20 or 25 seconds), then the AI teammate answers, a voicemail, or nothing.
+7. **When is it too late to text?** 8 PM to 8 AM, hours of their own, or never.
+
+Then **Does this look right?** lists every answer with **Change**, and **Get my number** buys the number and saves the rest in one go (`phone_setup.save`). The page says "Getting {number}" for a few seconds, then shows the number with **Calls ring now**. Twilio charges the master account from that moment. A business that wants to text sees **Start texting approval** there, which opens the approval steps on **Texting & calls**.
+
+- **Saved as they go.** Every answer is saved a moment after it's given ("Saved" at the top of the page), with the question they were on. **Finish later** goes back to **Texting & calls**, whose button then reads **Carry on where you left off**. Someone back after more than 10 minutes is greeted with when they left and **Start over**. The answers live in `app.guided_setup_drafts`, one row per business and setup (`guided_setup.save_draft`, `guided_setup.get_draft`, `guided_setup.clear_draft`), readable and writable by whoever may change that setting (`private.guided_setup_permission`). Buying the number clears them. The email setup and the settings that follow keep their answers in the same table under their own name.
+- **A number taken while they were away.** Coming back, the page asks the carrier whether the number they picked is still free. If it isn't, they see "{number} was taken while you were away", pick another, and **Next** takes them back to the question they were on with every other answer kept. The same check runs just before buying. If the purchase itself fails, they are back on the number question with "We couldn’t get {number}" and the reason, and nothing was bought. It shows the same after about a minute if Twilio keeps failing, with a reason such as "The phone carrier refused HandsFreeOS’s account."
+- **The AI teammate answers.** With a teammate, this turns on its own **Phone** setting, at the time picked (when nobody picks up, when the business is closed, or every call). A business with no teammate yet can still pick it: callers get the voicemail for now, the choice is kept in the business's texting settings (`teammateAnswers`), and the teammate starts answering the moment it's set up.
+- **Calls only.** A business that said no to texting has `texting: 'not_now'` in its texting settings. Its number counts as done on **Getting started**, the page shows no approval steps, and the card's **Approval** row reads "Texting is off. Calls only." with **Turn on texting**.
+- **Sign-up still uses the older number screen** (pick **Toll-free** or **Local**, search, then **Buy** and the number), until sign-up itself is redone. **Add a number** on the card uses it too.
 
 - A workspace can have only one live number ("This workspace already has a business number.").
 - **Any** may offer toll-free prefixes other than 833, 844 and 855, such as 800 or 888.
 - Only numbers bought here work. A number bought by hand in the Twilio console is unknown to HandsFreeOS (see "Twilio webhooks are rejected" in "Going live, and when something goes wrong").
-- Sole proprietors, and businesses without an EIN, must use toll-free. On a local number their registration fails with "Sole proprietors text from a toll-free number. Release this number and pick a toll-free one." But the **Release this number** menu only appears once texting is approved, so a client in this state can't release the number from the page, and can't buy a toll-free one while the local number is live. Until a developer adds a release option to that screen, tell sole proprietors and businesses without an EIN to pick **Toll-free** before they buy.
+- Sole proprietors, and businesses without an EIN, must use toll-free. The guided setup's EIN question sees to it. On a local number their registration fails with "Sole proprietors text from a toll-free number. Release this number and pick a toll-free one." **Give up {number}**, under the number's card, releases it at any time, and the page then offers **Get your business number** again.
 
 #### Registering before the number is here
 
@@ -4833,7 +4843,7 @@ When the carriers answer, the workspace's owners and admins get an email:
 Some messages come from HandsFreeOS itself, not the carriers. They show the same "turned down" screen, but only on the page. No email goes out for them:
 
 - "Local numbers cannot be registered yet: …" (see Twilio Step 4).
-- "Sole proprietors text from a toll-free number. …" (see "Number").
+- "Sole proprietors text from a toll-free number. …" (see "Number: the guided setup").
 - "Local numbers need at least two example texts. Add another example and submit again."
 - "The carriers need more business details: …" (Twilio's policy check found missing or wrong details before anything was sent).
 
@@ -4856,9 +4866,14 @@ When a local business profile, trust product or brand is turned down:
 
 To look at a client's registration yourself, switch into the client's subaccount in the Twilio console. New console: **Products & Services** → **Trust Hub** → **Registrations** → **Toll-free** or **A2P 10DLC**. Legacy console: **Phone Numbers** → **Manage** → **Active Numbers** for toll-free, or **Messaging** → **Regulatory Compliance** → **A2P 10DLC**.
 
-#### After approval
+#### The number's card
 
-Once every registration is approved, **Texting & calls** shows the number's card with **Calls ready** and **Texting approved**, the **Text me a test** button, the number's menu (with **Copy number** and **Release this number**), and the **When a customer calls** and **Voicemail** settings. None of these call settings are on the page before approval.
+From the moment the business has its number, **Texting & calls** shows one card, **Your business number**, that says in plain words what the number does. Every row has **Change**, which opens that one question from the guided setup and saves that part alone (`phone_setup.save` with the number's id).
+
+- **Calls:** **What rings**, **If nobody picks up** and **Call recording**. These work, and can be changed, before texting is approved.
+- **Texting:** **Approval** (not started, with the carriers, turned down or approved, with **See what we sent**), **Quiet hours for texts**, **When a customer waits** (the email to the team) and **STOP, START and HELP**. A calls-only business sees only **Approval**, with **Turn on texting**.
+- **At the top:** **Calls working**, where texting stands, **Text me a test** once texting is approved, and **Add a number**.
+- **Under it:** **Run the guided setup again** (the same questions with today's answers filled in), **Phone account and transfers** (Phone & texting on or off, its Twilio Account SID, numbers already in the account, and **Move a number here**) and **Give up {number}**.
 
 ### Webhooks: where Twilio calls the worker
 
@@ -4908,7 +4923,7 @@ Changing `WORKER_PUBLIC_URL` breaks every client's calls and texts at once. The 
 
 - **Nothing to set up per client.** When a business buys its number, the worker also creates what browser calls need in that business's subaccount: an API key (its secret is sealed with the worker's encryption key) and a TwiML app that places the calls teammates make from the browser. Both are named `HandsFreeOS calls <tag>`. If someone deletes the API key in the Twilio console, the worker makes a new one the next time a browser asks for a calling token, so teammates only need to reload the page. Nothing makes the TwiML app again, so never delete it.
 - **Ringing.** An incoming call rings, at the same time, the browsers of up to 10 teammates (those who have turned on calls) and up to 3 forwarding phones. The first to answer takes it. Only members whose role can use the inbox are rung. With more than 10 teammates who can use the inbox, the same 10 always ring. They are picked by an internal id, not by who has calls on, so the others never ring. One teammate's open browsers all ring together. **Ring for** is 20 seconds by default, and 15 or 25 can be chosen.
-- **Before approval.** Forwarding phones, **Ring for** and the **Voicemail** settings only appear on **Texting & calls** after the carriers approve texting. Until then every number uses the defaults: calls ring teammates' browsers for 20 seconds, with no forwarding phones, then go to voicemail with the default greeting ("You’ve reached {business}. Leave your name, number and what you need, and we’ll call you back today.").
+- **The defaults.** A number nobody has set up rings teammates' browsers for 20 seconds, with no forwarding phones, then goes to voicemail with the default greeting ("You’ve reached {business}. Leave your name, number and what you need, and we’ll call you back today."). The guided setup asks about all three before the number is bought, and the number's card changes them at any time, approved to text or not.
 - **Forwarding phones.** A forwarding phone that answers hears "Call for {business} from {caller}. Press 1 to take it." and has 6 seconds to press a key, so a cell's own voicemail can't take the call.
 - **Voicemail.** If nobody answers, the caller hears the greeting and can leave a message of up to two minutes. With **Voicemail** off, callers hear "Sorry, nobody can take your call right now. Please try again later." A number that isn't active answers "Sorry, this number is not in service."
 - **Transcripts** use Twilio's built-in voicemail transcription (English, messages up to two minutes). Twilio has marked that feature as deprecated. The assistant in Milestone 4 replaces it.
@@ -4918,7 +4933,7 @@ Changing `WORKER_PUBLIC_URL` breaks every client's calls and texts at once. The 
 - **Who can be called that way.** Only numbers the business already has: a customer's, or one that texted or called the business. One call through a cell at a time per person (pressing **Call** twice for the same customer is the same call). A call that waited more than 2 minutes for the worker (it was down) isn't placed.
 - **Cancel.** Until the customer picks up, **Cancel** on the call sheet ends the call at once (`call.cancel_connect`), so the person can call again straight away, and the worker hangs up Twilio's call (`Status=completed`). A call cancelled before the customer's phone rang leaves no trace in their conversation. One cancelled while it rang shows there as a call they didn't answer. Once the customer answers, the person hangs up on their own phone.
 - **Confirming a cell.** Before the first such call, the person confirms their cell, in the app or on the web under **Settings** → **Account** → **My cell phone**. HandsFreeOS calls it from the business number, so the business needs an active number, and says "This is HandsFreeOS confirming this is your phone. Press 1." Pressing 1 confirms it: "Thanks. Your phone is confirmed. Goodbye." Each person has one confirmed cell, and setting a different number clears the old one. They can ask for 3 verification calls an hour and 6 a day. Past that the app says, for example, "You’ve asked for 3 verification calls in the last hour. Try again in 40 minutes."
-- **The business number on forwarded calls.** Each number's routing says what forwarding phones see: the customer's number (the default, as before) or the business number. With the business number, the phone shows the business as the caller, and the whisper still names the customer: "Call for {business} from Mike Johnson. Press 1 to take it." It helps where a phone screens or silences callers it doesn't know (iPhone's **Screen Unknown Callers**, spam-blocking apps): the forwarding phone saves the business number as a contact. An owner or admin picks it in **Settings** → **Texting & calls** → **What forwarded phones show** (`phone_number.set_caller_id`). Saving the rest of the routing keeps the choice.
+- **The business number on forwarded calls.** Each number's routing says what forwarding phones see: the customer's number (the default, as before) or the business number. With the business number, the phone shows the business as the caller, and the whisper still names the customer: "Call for {business} from Mike Johnson. Press 1 to take it." It helps where a phone screens or silences callers it doesn't know (iPhone's **Screen Unknown Callers**, spam-blocking apps): the forwarding phone saves the business number as a contact. An owner or admin picks it in **Settings** → **Texting & calls**, with **Change** on **What rings** (`phone_setup.save`; `phone_number.set_caller_id` changes it alone). Saving the rest of the routing keeps the choice.
 - **Words of a whole call.** A call through a cell is transcribed from its recording by Twilio's Conversational Intelligence, not by the voicemail transcription above. The first time, the worker makes a Conversational Intelligence service named `hfos-call-transcripts` in the client subaccount (English, with Twilio's data logging off). It asks for the words once the recording is stored, reads them back a few minutes later as "Dale: … / Mike: …", and then deletes Twilio's copies of the recording and the words. If Twilio refuses, for example because Conversational Intelligence isn't turned on for the account, the call keeps its recording with no words, and the worker logs `the provider would not transcribe a call recording (is Conversational Intelligence turned on?)`. If Twilio is down, it keeps trying for 6 hours. Check this with the first real call through a cell. If the words never arrive and that line is in the log, open **Conversational Intelligence** in the Twilio console for the master account and follow its prompts to turn it on.
 - **Every answered call is recorded and transcribed.** Calls answered in a browser or on a forwarding phone, calls placed from a browser, and calls through a cell are all recorded from the moment both sides are connected, one side per channel, and turned into words the same way ("Dale: … / Mike: …"). On a call the customer placed, Twilio puts the customer on the first channel; the worker names the speakers accordingly. There is no switch to stop recording.
 - **Recording and consent.** Each number has **Call recording** in **Settings** → **Texting & calls**, on by default: callers hear "This call may be recorded." before it rings, and customers the team calls hear it when they pick up (`phone_number.set_recording_notice`). Some states require everyone on a call to agree to a recording, so the page warns before the notice is turned off. Check with a lawyer before clients turn it off.
@@ -5005,18 +5020,18 @@ Add yourself as a customer:
 
 Buy the number and send your details:
 
-4. In your workspace, go to **Settings** → **Texting & calls**.
-5. Pick **Toll-free**. Choose **Local** only if `TWILIO_PRIMARY_PROFILE_SID` is set on the worker; until then HandsFreeOS turns local registrations down.
-6. Leave **Starts with** on **Any** and click **Show numbers**. You should see a list of numbers. That means the master SID and token are right. If you see "The phone service is not reachable right now. Try again in a minute.", see "Number search says the phone service is not reachable" in "Going live, and when something goes wrong".
-7. Pick a number.
-8. Click **Buy** followed by the number. You should see "{number} bought. Calls ring now." and then, within a few seconds, **Business details for the carriers**. If the page shows "We couldn’t buy {number}: …" with a reason about the phone carrier after about a minute, see "Buying a number keeps failing" in "Going live, and when something goes wrong".
+4. In your workspace, go to **Settings** → **Texting & calls** and click **Start**.
+5. Answer **No, I need a new one**, then **Yes, text customers**, then **No** to the EIN question, which gives a toll-free number. Answer **Yes** only if `TWILIO_PRIMARY_PROFILE_SID` is set on the worker; until then HandsFreeOS turns local registrations down.
+6. On **Pick your number** you should see a list of numbers. That means the master SID and token are right. If you see "The phone service is not reachable right now. Try again in a minute.", see "Number search says the phone service is not reachable" in "Going live, and when something goes wrong".
+7. Pick a number, and click **Next** through what rings, what happens when nobody picks up (pick **Take a voicemail**) and quiet hours.
+8. On **Does this look right?**, click **Get my number**. You should see "Getting {number}" and then, within a few seconds, the number with **Calls ring now**. Click **Start texting approval**. If the page goes back to the number question with "We couldn’t get {number}" and a reason about the phone carrier after about a minute, see "Buying a number keeps failing" in "Going live, and when something goes wrong".
 9. Fill in **Business details for the carriers** for your own business (see "Business details" above). Put your own mobile and email in **Contact phone and email**.
 10. Tick **These details are accurate, and we only text customers who agreed to it.**
 11. Click **Submit for approval**. You should see "Sent to the carriers".
 
 Check the number in Twilio:
 
-12. In the Twilio console, open the list of subaccounts (see "Number" above).
+12. In the Twilio console, open the list of subaccounts (see "Number: the guided setup" above).
 13. Click `HandsFreeOS <your workspace name> <tag>`. The tag is the first 8 characters after `/app/w/` in your HandsFreeOS address bar.
 14. Search the console for `Active numbers`.
 15. Click the new number. You should see its incoming-call webhook set to `https://hooks.handsfreeos.com/webhooks/twilio/voice/inbound`.
@@ -5038,25 +5053,25 @@ Calls:
 
 Voicemail:
 
-25. From the second phone, call the business number and let it ring out. After about 20 seconds (the **Ring for** setting), you should hear the default greeting.
+25. From the second phone, call the business number and let it ring out. After about 20 seconds (**Ring for**, under **If nobody picks up**), you should hear the default greeting.
 26. Leave a message longer than 2 seconds, then press `#` or hang up. After a minute or two you should see the voicemail in the inbox, in the conversation with the second phone's number, with its transcript once Twilio sends it.
 
 #### Round 2: once texting is approved
 
-Start when you get the "Texting is on for {business}" email and **Texting & calls** shows **Calls ready** and **Texting approved**. That email also proves the worker's platform mail (`SMTP_URL`) works.
+Start when you get the "Texting is on for {business}" email and **Texting & calls** shows **Calls working** and **Texting approved**. That email also proves the worker's platform mail (`SMTP_URL`) works.
 
 Forwarding phone:
 
-1. Under **When a customer calls**, click **Add a phone**.
-2. Enter a name for the phone.
-3. Enter your cell number.
-4. Click **Add**.
-5. Check that **Ring this phone** is on.
+1. On the number's card, click **Change** beside **What rings**.
+2. Tick **A cell phone or desk phone too**.
+3. Enter a name for the phone under **Whose phone**.
+4. Enter your cell number under **Its number**.
+5. Click **Save changes**. The row should read "HandsFreeOS and" the name you gave.
 6. From the second phone, call the business number. You should see every open browser ring and your cell ring. When you answer the cell, you should hear "Press 1 to take it" before the call connects.
 7. Press 1. You should hear the second phone.
 8. Hang up.
 9. Call again from the second phone and let your cell's own voicemail pick up. You should see the call keep ringing the browsers, then go to the business's voicemail, not the cell's. Twilio's documentation does not say whether the other phones stop ringing at that moment, so this needs checking. Note what happens.
-10. When you are done, turn off **Ring this phone** for the cell, or remove it from **When a customer calls**.
+10. When you are done, click **Change** beside **What rings** again and switch the cell off, or remove it.
 
 Texts:
 
@@ -5081,12 +5096,11 @@ Throughout both rounds, you should see no `rejected an unsigned or mis-signed we
 
 If you do not keep the number:
 
-1. On the **Business number** card, click the icon button that shows **More** when you point at it.
-2. Choose **Release this number**.
-3. In **Type <number> to confirm**, type the number exactly as shown.
-4. Click **Release number**.
+1. Under the number's card, click **Give up** followed by the number.
+2. In **Type <number> to confirm**, type the number exactly as shown.
+3. Click **Release number**.
 
-   You should see "{number} is being released", and then the page offers **Get a business number** again. Released numbers cannot be recovered.
+   You should see "{number} is being released", and then the page offers **Get your business number** again. Released numbers cannot be recovered.
 
 ### Bringing a number from another carrier
 
@@ -5205,7 +5219,7 @@ Twilio makes RCS senders only in its own console (it has no API for it), and a b
 
 Then make the sender, once, in that business's own subaccount:
 
-1. Open the business's subaccount in the Twilio console (see "Number" above for where the list of subaccounts is).
+1. Open the business's subaccount in the Twilio console (see "Number: the guided setup" above for where the list of subaccounts is).
 2. Under **Messaging** → **Senders**, create an RCS sender for the business with the details from the ticket. If they sent no logo, ask on the ticket for a 224 × 224 logo and a 1440 × 448 banner; a reply there emails them. If the menu has moved, search the console for `RCS`. Send it for carrier review.
 3. In HandsFreeOS, view the business and open **Settings** → **Texting & calls**. The **RCS messaging** card says "Paid… We’re making your RCS sender" and lists the senders it finds in the subaccount. Pick the sender, or type its id (like `lonestar_hvac_agent`), and click **Connect RCS sender**. The business can do this too. A business with more than one number can also pick where new RCS conversations start.
 4. Answer the ticket to say it's with the carriers.
@@ -5240,7 +5254,7 @@ The card then shows **In review** while the carriers look at the sender. That ca
 
 ### Where to look in the Twilio console
 
-Each client business's texts, calls and errors are logged in its own subaccount, not in the master account. Open the subaccount first (see "Number" above); the pages you open next show that subaccount's data.
+Each client business's texts, calls and errors are logged in its own subaccount, not in the master account. Open the subaccount first (see "Number: the guided setup" above); the pages you open next show that subaccount's data.
 
 - **Errors.** Open the **Debugger**: in the new console **Develop** → **Troubleshoot** → **Debugger**, in the old one **Monitor** → **Logs** → **Errors** → **Error logs**. Click a row's timestamp to see what Twilio sent to `hooks.handsfreeos.com` and what came back. Error 11200 (HTTP retrieval failure) means the worker answered with an error or could not be reached.
 - **One text.** Open **Monitor** → **Logs** → **Messaging** (Twilio's Programmable Messaging Logs page, `https://console.twilio.com/us1/monitor/logs/sms`), find it by the phone number, and click its date. The Request Inspector at the bottom lists every status report Twilio sent to the worker. Look up an error code in Twilio's error dictionary (`https://www.twilio.com/docs/api/errors`).
@@ -5257,8 +5271,8 @@ Startup errors are listed under "The worker refuses to start" in "Going live, an
 | `The API process must never hold privileged keys. Remove: <names>`                                                                                                                                                     | API logs                              | A Twilio or other provider value was set on `handsfreeos-api`. See "The API refuses to start" in "Going live, and when something goes wrong".                                                                                                                                                                                                                          |
 | "The phone service is not reachable right now. Try again in a minute."                                                                                                                                                 | Number search or browser calls        | The web app can't reach the worker. See "Number search says the phone service is not reachable" in "Going live, and when something goes wrong".                                                                                                                                                                                                                        |
 | "The phone carrier did not answer. Try again in a minute."                                                                                                                                                             | Number search                         | Twilio refused or failed the request, most often because of a wrong master SID or token. Check the worker logs.                                                                                                                                                                                                                                                        |
-| "We couldn’t buy {number}: The phone carrier refused HandsFreeOS’s account." (or "did not answer", or "is too busy right now")                                                                                         | **Texting & calls**                   | The purchase gave up after 5 tries over about a minute. See "Buying a number keeps failing" in "Going live, and when something goes wrong".                                                                                                                                                                                                                            |
-| "We couldn’t buy {number}: …"                                                                                                                                                                                          | **Texting & calls**                   | Twilio refused that number. Pick another number.                                                                                                                                                                                                                                                                                                                       |
+| "We couldn’t get {number}" with "The phone carrier refused HandsFreeOS’s account." (or "did not answer", or "is too busy right now"); "We couldn’t buy {number}: …" in sign-up                                         | **Texting & calls**                   | The purchase gave up after 5 tries over about a minute. See "Buying a number keeps failing" in "Going live, and when something goes wrong".                                                                                                                                                                                                                            |
+| "We couldn’t get {number}" with any other reason                                                                                                                                                                       | **Texting & calls**                   | Twilio refused that number. Pick another number.                                                                                                                                                                                                                                                                                                                       |
 | `rejected an unsigned or mis-signed webhook`                                                                                                                                                                           | Worker logs                           | A Twilio request didn't match `WORKER_PUBLIC_URL` or the expected token. See "Twilio webhooks are rejected" in "Going live, and when something goes wrong".                                                                                                                                                                                                            |
 | "Local numbers cannot be registered yet: …"                                                                                                                                                                            | The client's **Texting & calls** page | Set `TWILIO_PRIMARY_PROFILE_SID` (Twilio Step 4), then the client clicks **Fix and send again**.                                                                                                                                                                                                                                                                       |
 | "What happens next" and **Send again** under "The carriers turned down the texting registration."                                                                                                                      | The client's **Texting & calls** page | The carriers turned down a local number's business profile, trust product or brand. Correct it in Twilio, then have the client click **Send again**. See "Carrier review and how long it takes".                                                                                                                                                                       |
@@ -13204,9 +13218,9 @@ Every new run gives a new address, so repeat steps 2 to 5 and update each provid
 
    You should see the new workspace open. Test with this new workspace, not Lone Star or any workspace set up before the switch: those hold the fake carrier's made-up ids, which start with `ACfake` or `PNfake`, and Twilio does not know them.
 
-8. In the new workspace, open **Settings** → **Texting & calls**, click **Show numbers**, pick a toll-free number, and click **Buy <number>**. The button shows the number you picked.
+8. In the new workspace, open **Settings** → **Texting & calls**, click **Start**, and answer the questions: a new number, texting, no EIN (which gives a toll-free number), then pick a number and click **Next** to the end. On **Does this look right?**, click **Get my number**.
 
-   This spends real money. The worker creates a real subaccount named `HandsFreeOS <workspace name> <first 8 characters of the workspace id>` in the master account and buys the number inside it. You should see that subaccount in the Twilio Console, and the page moves on to its **Business details** step.
+   This spends real money. The worker creates a real subaccount named `HandsFreeOS <workspace name> <first 8 characters of the workspace id>` in the master account and buys the number inside it. You should see that subaccount in the Twilio Console, and the page shows the number with **Calls ring now**. Click **Start texting approval** to open its **Business details** step.
 
 9. On **Business details for the carriers**, fill in every field. Tick **These details are accurate, and we only text customers who agreed to it.** and click **Submit for approval**.
 
@@ -14289,7 +14303,7 @@ Delivery and bounce events rejected with a 403 are not sent again, so those emai
 | "The carriers turned down your texting registration. Fix it and send it again in Settings → Texting & calls."            | The carriers turned the registration down.                                       | Read "Their reason" and use **Fix and send again** (see below).                                                                                  |
 | "Texting turns on when the carriers approve your registration. Settings → Texting & calls shows where it is."            | The registration is still under review.                                          | Wait. Calls already work. **Settings** → **Texting & calls** shows the review. The worker checks every 15 minutes and emails when texting is on. |
 | "This customer texted STOP. They can text START to get texts again."                                                     | The customer opted out, by texting STOP or because Twilio reported error 21610.  | Only the customer can undo it, by texting `START`.                                                                                               |
-| "It’s <time> where the business is. Quiet hours end at <time>."                                                          | Quiet hours, on by default from 8:00 PM to 8:00 AM in the workspace's time zone. | Click **Send now** to send anyway, or change the hours in **Settings** → **Texting & calls** → **Texting rules** → **Quiet hours**.              |
+| "It’s <time> where the business is. Quiet hours end at <time>."                                                          | Quiet hours, on by default from 8:00 PM to 8:00 AM in the workspace's time zone. | Click **Send now** to send anyway, or change the hours in **Settings** → **Texting & calls**, with **Change** on **Quiet hours for texts**.      |
 | "<Name> has no mobile number. Add one on their page to text them."                                                       | The customer has no phone number.                                                | Add one on the customer's page.                                                                                                                  |
 | "<Name> is archived. Restore them on their page, then text them."                                                        | The customer is archived.                                                        | Restore them first.                                                                                                                              |
 
@@ -14312,7 +14326,7 @@ For a real carrier rejection, correct the details (often the opt-in wording on t
 
 **Symptom and fix.**
 
-- **A call goes straight to voicemail.** Nobody has turned calls on. Each teammate clicks **Turn on calls in this browser** in the sidebar, in each browser. Only members whose role can use the inbox are rung, plus up to 3 phones under **When a customer calls**.
+- **A call goes straight to voicemail.** Nobody has turned calls on. Each teammate clicks **Turn on calls in this browser** in the sidebar, in each browser. Only members whose role can use the inbox are rung, plus up to 3 phones under **What rings**.
 - **The sidebar says "Microphone blocked. Allow it in the address bar."** Allow the microphone for `app.handsfreeos.com` in the browser's address bar, then reload.
 - **Callers hear "Sorry, this number is not in service."** The number is not active yet, or is being released.
 - **Callers hear "Sorry, nobody can take your call right now. Please try again later."** Voicemail is off. Turn it on in the **Voicemail** card.

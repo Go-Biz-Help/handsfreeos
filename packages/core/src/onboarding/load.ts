@@ -20,7 +20,13 @@ import {
   profileCompleteness,
   profileWithBusinessHours,
 } from '../knowledge/profile';
-import { currentNumber, latestByKind, loadRegistrations, readiness } from '../messaging/store';
+import {
+  currentNumber,
+  latestByKind,
+  loadRegistrations,
+  readiness,
+  workspaceMessaging,
+} from '../messaging/store';
 import { isConnectableProvider } from '../schemas/money';
 import { openHoursOf } from '../schemas/workspace';
 import { businessOnboardingOf, personalOnboardingOf, type BusinessOnboarding } from './settings';
@@ -52,7 +58,12 @@ async function numberFacts(
 ): Promise<NonNullable<OnboardingFacts['business']>['number']> {
   const number = await currentNumber(tx, workspaceId);
   const regs = await loadRegistrations(tx, workspaceId);
-  const { nextStep } = readiness(number, regs);
+  const ready = readiness(number, regs);
+  // Calls only (the phone setup's "Not now" to texting): with the number working, there is nothing left to send.
+  const callsOnly =
+    ready.nextStep === 'submit_registration' &&
+    (await workspaceMessaging(tx, workspaceId)).settings.texting === 'not_now';
+  const nextStep = callsOnly ? 'ready' : ready.nextStep;
   const latest = [...latestByKind(regs).values()];
   const submitted = latest
     .map((r) => r.submittedAt)

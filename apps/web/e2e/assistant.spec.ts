@@ -32,10 +32,7 @@ test('assistant: ask, act at once, confirm before contacting or changing, audit 
   const owner = await signUpAndConfirm(page, 'assistant-owner');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
   await consentToAssistant(owner.email);
-  await setUpTexting(page, workspaceId);
-  // Tests text at any hour.
-  await page.getByTestId('quiet-hours-switch').click();
-  await expect(page.getByText('Quiet hours off')).toBeVisible();
+  await setUpTexting(page, workspaceId, { anyHour: true });
   // The deal is moved by hand below, so the text sent to Mike mustn't move it first.
   await page.goto(`/app/w/${workspaceId}/settings/automations`);
   await page.getByTestId('automation-switch-pipeline_moves').click();

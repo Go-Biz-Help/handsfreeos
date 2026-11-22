@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { createBusiness, signUpAndConfirm } from './helpers';
-import { hh, hourIn, setUpTexting, textFromCustomer } from './telephony';
+import { hh, hourIn, setQuietHours, setUpTexting, textFromCustomer } from './telephony';
 
 const MARIA = '+12815550133';
 
@@ -19,10 +19,7 @@ test('a text in quiet hours waits for them to end, says when it goes, and Cancel
 
   // Quiet hours around now, in the business's time zone.
   const now = hourIn();
-  await page.getByLabel('Quiet hours start').selectOption(hh(now - 1));
-  await expect(page.getByText('Quiet hours saved').first()).toBeVisible();
-  await page.getByLabel('Quiet hours end').selectOption(hh(now + 2));
-  await expect(page.getByText('Quiet hours saved').first()).toBeVisible();
+  await setQuietHours(page, hh(now - 1), hh(now + 2));
 
   await page.goto(`/app/w/${workspaceId}/customers`);
   await page.getByTestId('customers-add').click();

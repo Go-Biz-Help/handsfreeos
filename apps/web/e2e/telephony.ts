@@ -137,29 +137,87 @@ export async function tapFromCustomer(opts: {
   return sid;
 }
 
-/**
- * Settings → Texting & calls with the fake carrier: buys the first toll-free number offered, sends the
- * business details, and waits for the (fake) carriers to approve. Returns the number in E.164.
- */
 /** The stand-in website playwright.config.ts serves, which the worker may open (FETCH_TEST_ORIGINS). */
 const KNOWLEDGE_SITE = 'http://127.0.0.1:4190';
 
-export async function setUpTexting(page: Page, workspaceId: string): Promise<string> {
-  await page.goto(`/app/w/${workspaceId}/settings/texting`);
-  await expect(page.getByTestId('number-step')).toBeVisible();
-  const picked = page.getByTestId('number-results').getByRole('radio', { checked: true });
-  // On a cold dev server the page can show before its script runs, and a click then submits the search the
-  // browser's own way (a reload) instead: search again until numbers show.
+/** The guided setup's Next: on to the screen named, or Check it over. */
+export async function nextTo(page: Page, screen: string): Promise<void> {
+  const card = page.getByTestId('phone-setup');
+  // On a cold dev server the page can show before its script runs, and a click then does nothing: press again
+  // until the screen changes.
   await expect(async () => {
-    await page.getByTestId('show-numbers').click();
-    await expect(picked).toBeVisible({ timeout: 10_000 });
+    if ((await card.getAttribute('data-screen')) !== screen)
+      await page.getByTestId('phone-setup-next').click();
+    await expect(card).toHaveAttribute('data-screen', screen, { timeout: 5_000 });
   }).toPass({ timeout: 90_000 });
-  const display = (await picked.locator('.font-mono').textContent())!.trim();
-  await page.getByTestId('buy-number').click();
-  // The purchase is taken at once, then the worker sets the number up with the (fake) carrier while the page
-  // checks back every few seconds. On a busy runner the worker is still working through what earlier tests left
-  // it, so that part gets room; a purchase that wasn't taken at all fails the first check, not the second.
-  await expect(page.getByTestId('texting-setup')).not.toHaveAttribute('data-step', 'buy_number');
+}
+
+/**
+ * The guided phone number setup with the fake carrier, one question at a time: a new number, texting wanted (or
+ * `texting: false` for calls only), toll-free unless `ein`, the first number offered, only HandsFreeOS ringing,
+ * voicemail when nobody picks up, and texts held at night unless `anyHour`. Ends on "It's yours". Returns the number
+ * in E.164.
+ */
+export async function getNumber(
+  page: Page,
+  workspaceId: string,
+  opts: { anyHour?: boolean; texting?: boolean; ein?: boolean } = {},
+): Promise<string> {
+  const texting = opts.texting ?? true;
+  await page.goto(`/onboarding/${workspaceId}/phone`);
+  const card = page.getByTestId('phone-setup');
+  await expect(card).toHaveAttribute('data-screen', 'have', { timeout: 60_000 });
+  // 1. A new number is already picked.
+  await nextTo(page, 'texting');
+  // 2. Do you want to text?
+  if (!texting) await page.getByTestId('texting-no').click();
+  if (texting) {
+    await nextTo(page, 'ein');
+    // 3. An EIN gets a local number; without one it is toll-free, which the carriers approve in days.
+    await page.getByTestId(opts.ein ? 'ein-yes' : 'ein-no').click();
+  }
+  await nextTo(page, 'number');
+  // 4. The first number offered. A local search with no address to look near waits for an area code.
+  const first = page.getByTestId('number-results').getByRole('radio').first();
+  await expect(async () => {
+    if (!(await first.isVisible())) await page.getByTestId('show-numbers').click();
+    await expect(first).toBeVisible({ timeout: 10_000 });
+  }).toPass({ timeout: 90_000 });
+  await first.click();
+  await expect(first).toHaveAttribute('aria-checked', 'true');
+  const display = (await first.locator('.font-mono').textContent())!.trim();
+  // 5. What rings: HandsFreeOS alone.
+  await nextTo(page, 'ring');
+  // 6. Nobody picks up: the voicemail, so no test's AI teammate starts answering calls it wasn't asked to.
+  await nextTo(page, 'missed');
+  await page.getByTestId('missed-voicemail').click();
+  // 7. Quiet hours, for a business that texts.
+  if (texting) {
+    await nextTo(page, 'quiet');
+    if (opts.anyHour) await page.getByTestId('quiet-never').click();
+  }
+  await nextTo(page, 'review');
+  await expect(page.getByTestId('review-number')).toContainText(display);
+  await page.getByTestId('phone-setup-next').click();
+  // The purchase is taken at once, then the worker sets the number up with the (fake) carrier while the page checks
+  // back every few seconds. On a busy runner the worker is still working through what earlier tests left it.
+  await expect(page.getByTestId('phone-setup-done')).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByTestId('phone-setup-done-number')).toHaveText(display);
+  return `+1${display.replace(/[^0-9]/g, '')}`;
+}
+
+/**
+ * The guided phone number setup, then texting approval from its last screen: sends the business details and waits
+ * for the (fake) carriers to approve. Ends on Settings → Texting & calls. `anyHour` picks "It's never too late", for
+ * a test that texts whatever the time is. Returns the number in E.164.
+ */
+export async function setUpTexting(
+  page: Page,
+  workspaceId: string,
+  opts: { anyHour?: boolean } = {},
+): Promise<string> {
+  const e164 = await getNumber(page, workspaceId, opts);
+  await page.getByTestId('phone-setup-approval').click();
   await expect(page.getByTestId('business-step')).toBeVisible({ timeout: 90_000 });
   // The registration is a wizard now: one question at a time, and a step with a blocker on it will not
   // advance. So this walks it the way a business does, and a check that starts failing here is the wizard
@@ -231,10 +289,10 @@ export async function setUpTexting(page: Page, workspaceId: string): Promise<str
   // The details go to the (fake) carriers. On a cold server that can take a while, and they may approve before the
   // review step has shown, so either will do; then the page turns into the configured settings.
   await expect(
-    page.getByTestId('review-step').or(page.getByTestId('texting-configured')).first(),
+    page.getByTestId('review-step').or(page.getByTestId('texting-approved')).first(),
   ).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByTestId('texting-configured')).toBeVisible({ timeout: 60_000 });
-  return `+1${display.replace(/[^0-9]/g, '')}`;
+  await expect(page.getByTestId('texting-approved')).toBeVisible({ timeout: 60_000 });
+  return e164;
 }
 
 /** The hour now in the business's time zone (workspaces default to Chicago). */
@@ -246,3 +304,16 @@ export function hourIn(timeZone = 'America/Chicago'): number {
   );
 }
 export const hh = (h: number): string => `${String(((h % 24) + 24) % 24).padStart(2, '0')}:00`;
+
+/**
+ * Quiet hours of the business's own, picked the way a person does in Settings → Texting & calls: Change on the Quiet
+ * hours row, Hours I pick, when texts stop and when they start again, Save. The window shuts once it's kept.
+ */
+export async function setQuietHours(page: Page, stop: string, start: string): Promise<void> {
+  await page.getByTestId('change-quiet').click();
+  await page.getByTestId('quiet-custom').click();
+  await page.getByTestId('quiet-start').selectOption(stop);
+  await page.getByTestId('quiet-end').selectOption(start);
+  await page.getByTestId('change-save').click();
+  await expect(page.getByTestId('change-dialog')).toHaveCount(0, { timeout: 30_000 });
+}

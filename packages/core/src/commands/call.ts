@@ -124,7 +124,7 @@ const noNumber = (status: string | null) =>
     'no_number',
     409,
     status === null
-      ? 'This business doesn’t have a phone number yet. Get one under Get a business number in Settings → Texting & calls, then call.'
+      ? 'This business doesn’t have a phone number yet. Get one under Get your business number in Settings → Texting & calls, then call.'
       : status === 'porting'
         ? 'The business number is still moving over from your old carrier, so it can’t call yet. Settings → Texting & calls shows how that’s going.'
         : status === 'provisioning'

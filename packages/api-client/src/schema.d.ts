@@ -5717,6 +5717,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/guided_setup.clear_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forget a guided setup’s saved answers: it is finished, or the person chose Start over. Nothing already set up changes.
+         * @description Risk level 1. Emits .
+         */
+        post: operations["command_guided_setup_clear_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/guided_setup.save_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep a guided setup’s answers while they are being given (the phone number’s, the email’s), so a refresh or coming back later picks up where it was left. Nothing is bought or changed until the setup’s last screen.
+         * @description Risk level 1. Emits .
+         */
+        post: operations["command_guided_setup_save_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/idea_area.save": {
         parameters: {
             query?: never;
@@ -11177,6 +11217,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/phone_setup.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Carry out the guided phone number setup’s answers together, or change one part of them later: buy the number picked (buy; it is billed every month) or name one the business has (phoneNumberId), then what rings with HandsFreeOS and what those phones show (ring), how long they ring and what a caller gets after that (missed: the AI teammate, the voicemail or nothing), whether the business texts customers (texting) and quiet hours for texts. Parts left out stay as they are.
+         * @description Risk level 3. Requires channels.manage. Emits phone_number.purchase_requested, phone_number.routing_updated, phone.settings_updated, ai_teammate.config_saved.
+         */
+        post: operations["command_phone_setup_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/phone.update_settings": {
         parameters: {
             query?: never;
@@ -11187,7 +11247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Quiet hours for texts and the reminder email when a customer waits for a reply.
+         * Quiet hours for texts, the reminder email when a customer waits for a reply, and whether the business texts customers at all (texting: on, or not_now for calls only, which stops asking it to get approved by the carriers).
          * @description Risk level 2. Requires channels.manage. Emits phone.settings_updated.
          */
         post: operations["command_phone_update_settings"];
@@ -21671,6 +21731,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_funnel_suggestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/guided_setup.get_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A guided setup’s answers as they were left (setup: phone or email), and when they were last saved. Null when nothing is saved: the setup isn’t started, or it was finished.
+         * @description Any signed-in user.
+         */
+        post: operations["query_guided_setup_get_draft"];
         delete?: never;
         options?: never;
         head?: never;
@@ -40273,6 +40353,72 @@ export interface operations {
             };
         };
     };
+    command_guided_setup_clear_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    setup: "phone" | "email";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cleared: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_guided_setup_save_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        [key: string]: unknown;
+                    };
+                    /** @enum {string} */
+                    setup: "phone" | "email";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        savedAt: string;
+                    };
+                };
+            };
+        };
+    };
     command_idea_area_save: {
         parameters: {
             query?: never;
@@ -55732,6 +55878,82 @@ export interface operations {
             };
         };
     };
+    command_phone_setup_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    buy?: {
+                        e164: string;
+                        /** @enum {string} */
+                        numberType: "local" | "toll_free";
+                    };
+                    missed?: {
+                        ringSeconds: number;
+                        /** @enum {string} */
+                        teammateMode?: "no_answer" | "after_hours" | "always";
+                        /** @enum {string} */
+                        then: "teammate" | "voicemail" | "nothing";
+                        voicemailGreeting?: string | null;
+                    };
+                    /** Format: uuid */
+                    phoneNumberId?: string;
+                    quietHours?: {
+                        enabled: boolean;
+                        end: string;
+                        start: string;
+                    };
+                    ring?: {
+                        /** @enum {string} */
+                        forwardedCallerId: "customer" | "business";
+                        forwarding: {
+                            e164: string;
+                            /** @default true */
+                            enabled?: boolean;
+                            label: string;
+                        }[];
+                    };
+                    /** @enum {string} */
+                    texting?: "on" | "not_now";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bought: boolean;
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                        settings: {
+                            quietHours: {
+                                enabled: boolean;
+                                end: string;
+                                start: string;
+                            };
+                            teammateAnswers: ("no_answer" | "after_hours" | "always") | null;
+                            /** @enum {string} */
+                            texting: "on" | "not_now";
+                            unansweredReminderMinutes: number;
+                        };
+                        /** @enum {string} */
+                        teammate: "on" | "waiting" | "off" | "unchanged";
+                    };
+                };
+            };
+        };
+    };
     command_phone_update_settings: {
         parameters: {
             query?: never;
@@ -55747,6 +55969,8 @@ export interface operations {
                         end: string;
                         start: string;
                     };
+                    /** @enum {string} */
+                    texting?: "on" | "not_now";
                     unansweredReminderMinutes?: number;
                     /** Format: uuid */
                     workspaceId: string;
@@ -55767,6 +55991,9 @@ export interface operations {
                                 end: string;
                                 start: string;
                             };
+                            teammateAnswers: ("no_answer" | "after_hours" | "always") | null;
+                            /** @enum {string} */
+                            texting: "on" | "not_now";
                             unansweredReminderMinutes: number;
                         };
                     };
@@ -84157,6 +84384,40 @@ export interface operations {
             };
         };
     };
+    query_guided_setup_get_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    setup: "phone" | "email";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answers: {
+                            [key: string]: unknown;
+                        } | null;
+                        savedAt: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_idea_areas: {
         parameters: {
             query?: never;
@@ -96185,8 +96446,21 @@ export interface operations {
                                 end: string;
                                 start: string;
                             };
+                            teammateAnswers: ("no_answer" | "after_hours" | "always") | null;
+                            /** @enum {string} */
+                            texting: "on" | "not_now";
                             unansweredReminderMinutes: number;
                         };
+                        teammate: {
+                            /** @enum {string} */
+                            answer: "no_answer" | "after_hours" | "always";
+                            answersCalls: boolean;
+                            canManage: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            on: boolean;
+                        } | null;
                         textingFees: {
                             card: boolean;
                             due: {

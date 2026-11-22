@@ -267,16 +267,23 @@ async function assertCanText(
   if (!number || number.status !== 'active')
     throw HfosError.rule('no_number', 409, noNumberMessage(number?.status ?? null));
   const ready = readiness(number, await loadRegistrations(ctx.tx, workspaceId));
-  if (!ready.messagingReady)
+  if (!ready.messagingReady) {
+    // Calls only (the phone setup's "No" to texting): the registration isn't unfinished, it was never wanted.
+    const callsOnly =
+      ready.nextStep === 'submit_registration' &&
+      (await workspaceMessaging(ctx.tx, workspaceId)).settings.texting === 'not_now';
     throw HfosError.rule(
       'messaging_not_ready',
       409,
-      ready.nextStep === 'submit_registration'
-        ? 'Texting needs your business registered with the carriers first. Finish the registration in Settings → Texting & calls.'
-        : ready.nextStep === 'rejected'
-          ? 'The carriers turned down your texting registration. Fix it and send it again in Settings → Texting & calls.'
-          : 'Texting turns on when the carriers approve your registration. Settings → Texting & calls shows where it is.',
+      callsOnly
+        ? 'Texting is off for this business, so its number takes calls only. Press Turn on texting in Settings → Texting & calls, then get approved by the carriers.'
+        : ready.nextStep === 'submit_registration'
+          ? 'Texting needs your business registered with the carriers first. Finish the registration in Settings → Texting & calls.'
+          : ready.nextStep === 'rejected'
+            ? 'The carriers turned down your texting registration. Fix it and send it again in Settings → Texting & calls.'
+            : 'Texting turns on when the carriers approve your registration. Settings → Texting & calls shows where it is.',
     );
+  }
   /**
    * After the number and carrier checks, before opt-out. Order matters both ways: a business with no number
    * should be told that rather than about money, and STOP must always win — a customer who opted out is never

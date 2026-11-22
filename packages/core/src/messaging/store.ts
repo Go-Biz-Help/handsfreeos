@@ -18,8 +18,8 @@ import { HfosError } from '../errors';
 import type { CommandContext } from '../kernel/types';
 import { numberTypeOf } from './number-import';
 import {
-  DEFAULT_TELEPHONY_SETTINGS,
-  TelephonySettings,
+  storedTelephonySettings,
+  type TelephonySettings,
   type PhoneNextStep,
   type RegistrationFamily,
 } from '../schemas/telephony';
@@ -308,18 +308,12 @@ export async function workspaceMessaging(tx: Tx, workspaceId: string): Promise<W
       'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
     );
   const raw = (ws.settings ?? {}) as Record<string, unknown>;
-  const parsed = TelephonySettings.partial().safeParse(raw['telephony'] ?? {});
-  const stored = parsed.success ? parsed.data : {};
   return {
     name: ws.name,
     timezone: ws.timezone,
     organizationId: ws.organizationId,
     rawSettings: raw,
-    settings: {
-      quietHours: stored.quietHours ?? DEFAULT_TELEPHONY_SETTINGS.quietHours,
-      unansweredReminderMinutes:
-        stored.unansweredReminderMinutes ?? DEFAULT_TELEPHONY_SETTINGS.unansweredReminderMinutes,
-    },
+    settings: storedTelephonySettings(raw['telephony']),
   };
 }
 

@@ -16,10 +16,7 @@ test('asking for a video: the link goes by text, and the video comes back into t
   test.setTimeout(240_000);
   await signUpAndConfirm(page, 'video-owner');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
-  const business = await setUpTexting(page, workspaceId);
-  // Tests text at any hour.
-  await page.getByTestId('quiet-hours-switch').click();
-  await expect(page.getByText('Quiet hours off')).toBeVisible();
+  const business = await setUpTexting(page, workspaceId, { anyHour: true });
 
   await textFromCustomer({
     from: ROSA,

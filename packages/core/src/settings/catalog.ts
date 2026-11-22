@@ -46,7 +46,7 @@ export interface SettingEntry {
   readonly page: SettingsPageKey | null;
   /** The add-on it belongs to. */
   readonly addon: string | null;
-  /** The card or group it sits in, as the page heads it: "Texting rules". */
+  /** The card or group it sits in, as the page heads it: "Texting". */
   readonly section: string | null;
   readonly label: string;
   /** Other words people use for it. */
@@ -429,13 +429,32 @@ const ROWS = {
     page: 'texting',
     section: null,
     label: 'Business number',
-    words: ['phone number', 'text me a test', 'release number', 'port a number', 'toll-free'],
+    words: [
+      'phone number',
+      'text me a test',
+      'release number',
+      'give up number',
+      'port a number',
+      'toll-free',
+      'guided setup',
+    ],
   },
+  // The rows of the number's card, under its two headings: Calls and Texting.
   'texting.registration': {
     page: 'texting',
-    section: null,
-    label: 'Carrier registration',
-    words: ['a2p', '10dlc', 'brand', 'texting campaign', 'toll-free verification'],
+    section: 'Texting',
+    label: 'Approval',
+    words: [
+      'carrier registration',
+      'texting approval',
+      'get approved to text',
+      'turn on texting',
+      'a2p',
+      '10dlc',
+      'brand',
+      'texting campaign',
+      'toll-free verification',
+    ],
   },
   'texting.rcs': {
     page: 'texting',
@@ -458,54 +477,74 @@ const ROWS = {
   },
   'texting.quiet_hours': {
     page: 'texting',
-    section: 'Texting rules',
+    section: 'Texting',
     label: 'Quiet hours',
-    words: ['do not disturb', 'night', 'no texts at night', 'send times'],
+    words: ['quiet hours for texts', 'do not disturb', 'night', 'no texts at night', 'send times'],
     anchor: 'quiet-hours',
     value: quietHoursValue,
   },
   'texting.remind_waiting': {
     page: 'texting',
-    section: 'Texting rules',
-    label: 'Remind the team when a customer waits',
-    words: ['unanswered reminder', 'reply reminder', 'waiting customer email'],
+    section: 'Texting',
+    label: 'When a customer waits',
+    words: [
+      'remind the team',
+      'email the team',
+      'unanswered reminder',
+      'reply reminder',
+      'waiting customer email',
+    ],
     value: reminderValue,
   },
   'texting.stop_help': {
     page: 'texting',
-    section: 'Texting rules',
+    section: 'Texting',
     label: 'STOP, START and HELP',
     words: ['opt out', 'unsubscribe', 'opted out'],
   },
   'texting.calls': {
     page: 'texting',
-    section: null,
-    label: 'When a customer calls',
-    words: ['call forwarding', 'forward calls', 'ring my phone', 'team browsers'],
+    section: 'Calls',
+    label: 'What rings',
+    words: [
+      'when a customer calls',
+      'call forwarding',
+      'forward calls',
+      'ring my phone',
+      'cell phone',
+      'desk phone',
+      'team browsers',
+    ],
   },
   'texting.ring_for': {
     page: 'texting',
-    section: 'When a customer calls',
+    section: 'If nobody picks up',
     label: 'Ring for',
     words: ['ring time', 'how long it rings', 'seconds'],
   },
   'texting.caller_id': {
     page: 'texting',
-    section: null,
-    label: 'What forwarded phones show',
-    words: ['caller id', 'business number on my phone'],
+    section: 'What rings',
+    label: 'What that phone shows',
+    words: ['caller id', 'business number on my phone', 'forwarded phones'],
   },
   'texting.recording': {
     page: 'texting',
-    section: null,
+    section: 'Calls',
     label: 'Call recording',
     words: ['record calls', 'this call may be recorded', 'transcripts'],
   },
   'texting.voicemail': {
     page: 'texting',
-    section: null,
-    label: 'Voicemail',
-    words: ['voicemail greeting', 'leave a message', 'missed calls'],
+    section: 'Calls',
+    label: 'If nobody picks up',
+    words: [
+      'voicemail',
+      'voicemail greeting',
+      'leave a message',
+      'missed calls',
+      'ai teammate answers calls',
+    ],
   },
 
   // ---- Email ----

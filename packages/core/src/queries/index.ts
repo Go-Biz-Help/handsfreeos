@@ -104,6 +104,7 @@ import { intakeList } from './intake';
 import { phoneSetupStatus } from './phone';
 import { brandedDomainGet } from './branded-domain';
 import { numberPortList } from './port';
+import { guidedSetupGetDraft } from './guided-setup';
 import {
   registrationGetDraft,
   registrationReviewForStaff,
@@ -194,6 +195,7 @@ export {
   intakeList,
   phoneSetupStatus,
   numberPortList,
+  guidedSetupGetDraft,
   registrationGetDraft,
   registrationReviewGet,
   registrationReviewForStaff,
@@ -343,6 +345,7 @@ export const queries: readonly QueryDef[] = [
   intakeList,
   phoneSetupStatus,
   numberPortList,
+  guidedSetupGetDraft,
   registrationGetDraft,
   registrationReviewGet,
   registrationReviewForStaff,

@@ -1,10 +1,9 @@
 'use client';
 import {
-  formatClock,
-  formatPhone,
+  guidedSetupSavedWhen,
   money,
-  normalizePhone,
   ownSiteBoxText,
+  PHONE_SETUP_WORDS,
   sendsOffers,
   type BusinessAddress,
 } from '@hfos/core';
@@ -13,27 +12,14 @@ import {
   CircleAlert,
   Clock,
   Copy,
-  Globe,
-  Info,
   MessageCircle,
   MoreHorizontal,
   Phone,
-  Plus,
   Search,
-  Send,
   Trash2,
-  Volume2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { InboxVisibilityCard } from '@/components/settings/inbox-visibility-card';
@@ -48,10 +34,11 @@ import {
   type TwilioConnections,
 } from '@/components/settings/number-import';
 import { PhoneAccountCard } from '@/components/settings/phone-account-card';
+import { PhoneCard } from '@/components/settings/phone-card';
 import { PortStep, type MigratedNumber, type PortInfo } from '@/components/settings/port-step';
 import { ChannelIcon, Pill } from '@/components/inbox/bits';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -60,13 +47,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Field, FieldError, Label } from '@/components/ui/field';
+import { FieldError, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
+import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type {
   PhoneNumberInfo,
   PhoneSetupStatus,
@@ -81,11 +66,9 @@ import { keepSetupReturn, setupReturnFor } from '@/lib/setup-return';
 import { cn } from '@/lib/utils';
 import { RcsCard, type RcsPrefill } from './rcs-card';
 import { ReleaseNumberDialog } from './release-number-dialog';
-import { SetRow } from './set-row';
-import { TestTextDialog } from './test-text-dialog';
-import { settingAttrs } from './setting-anchor';
 
 type Status = PhoneSetupStatus;
+const START = PHONE_SETUP_WORDS.startCard;
 export type NumberType = 'local' | 'toll_free';
 
 const BUSINESS_TYPES = [
@@ -117,7 +100,6 @@ export function TextingPage({
   businessAddress = null,
   status,
   me,
-  team,
   people,
   ports,
   portsFromMigration,
@@ -127,6 +109,8 @@ export function TextingPage({
   inboxPerPerson,
   surfaces,
   registrationDraft = null,
+  guidedDraft = null,
+  bring = null,
   setup,
 }: {
   workspaceId: string;
@@ -137,9 +121,7 @@ export function TextingPage({
   businessAddress?: BusinessAddress | null;
   status: Status;
   me: { fullName: string; email: string };
-  /** First names of the people whose browsers ring for calls. */
-  team: string[];
-  /** The same people with their ids, for choosing who a number rings (M17). */
+  /** Everyone who works the inbox, for choosing who a number rings (M17). */
   people: Ringable[];
   /** Numbers being brought from another carrier, newest first (M17). */
   ports: readonly PortInfo[];
@@ -164,6 +146,13 @@ export function TextingPage({
   surfaces: HostedSurfaces;
   /** The registration's answers as they were left (`registration.get_draft`), for the wizard to pick up. */
   registrationDraft?: Record<string, unknown> | null;
+  /** When the guided phone setup's answers were last saved, if it was started and left (`guided_setup.get_draft`). */
+  guidedDraft?: { readonly savedAt: string } | null;
+  /**
+   * `?bring=`: the guided phone setup's first question said the number they have is staying with them, so the page
+   * opens on moving it here: `carrier` on the port from a phone company, `choose` on where the number is today.
+   */
+  bring?: 'carrier' | 'choose' | null;
   /**
    * Shown inside setup (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, and the onboarding quick setup): the kind
    * of number its EIN question picked, and none of the account's own settings, which aren't a first-day question.
@@ -216,6 +205,12 @@ export function TextingPage({
   // A business that already has a number and wants another. There is no `nextStep` for this — the wizard is
   // about getting a first number working — so it is local state that drops back into the same buy screen.
   const [adding, setAdding] = useState(false);
+  // Moving a number here rather than buying one: from the guided setup's first question (`?bring=`), or from
+  // "Phone account and transfers".
+  const [bringing, setBringing] = useState<'carrier' | 'choose' | null>(setup ? null : bring);
+  // "Phone account and transfers": the business's phone account, and moving a number here.
+  const [more, setMore] = useState(false);
+  const guided = `/onboarding/${workspaceId}/phone`;
   const submission = latestSubmission(status.registrations);
   const porting: Porting = {
     fromMigration: portsFromMigration,
@@ -224,17 +219,47 @@ export function TextingPage({
     importsFromMigration,
     twilio,
   };
+  // A number is on its way here, or a migration found one to bring: the screens for moving it are what to show.
+  const moving =
+    ports.some((p) => p.status !== 'cancelled' && p.status !== 'complete') ||
+    portsFromMigration.length > 0 ||
+    imports.some((i) => i.status === 'waiting');
   // Every number on its way here from Twilio or HighLevel, above whatever else the page shows: the request to
   // copy lives on it, and a business checking back comes here for exactly that.
   const importsCard = (
     <ImportsCard workspaceId={workspaceId} businessName={businessName} imports={imports} />
   );
-  // Phone & texting on or off, and the business's Twilio Account SID: first on the page, because moving a
-  // number here starts with giving that SID to HighLevel or Twilio.
-  const accountCard = setup ? null : <PhoneAccountCard workspaceId={workspaceId} />;
+  // Phone & texting on or off, and the business's Twilio Account SID. Behind "Phone account and transfers" (the
+  // owner's pick 4a) until a number is being moved here, which starts with giving that SID to HighLevel or Twilio.
+  const accountCard =
+    !setup && (more || adding || !!bringing || moving) ? (
+      <PhoneAccountCard workspaceId={workspaceId} />
+    ) : null;
   const sentSheet = (
     <SubmissionSheet open={showSent} onOpenChange={setShowSent} submission={submission} />
   );
+  // Under the phone account, behind the same link: a number the business already has, moved here.
+  const moveCard = status.canManage ? (
+    <Card className="max-w-[820px] p-5 md:p-6">
+      <h2 className="text-lg font-semibold tracking-tight">Move a number here</h2>
+      <p className="mt-1 text-[13px] text-text-2">
+        Bring a number you already have from your phone company, Twilio or HighLevel. Customers keep
+        using the number they know.
+      </p>
+      <Button
+        variant="secondary"
+        className="mt-3.5"
+        onClick={() => {
+          setBringing('choose');
+          // Beside a number the business has, it is one more number; with none, it is the way to the first.
+          if (status.numbers.length > 0) setAdding(true);
+        }}
+        data-testid="phone-more-bring"
+      >
+        Move a number
+      </Button>
+    </Card>
+  ) : null;
 
   /**
    * The list of numbers, shown only once there is a reason for it: a second number, or a first that is
@@ -272,14 +297,23 @@ export function TextingPage({
         >
           <button
             type="button"
-            onClick={() => setAdding(false)}
+            onClick={() => {
+              setAdding(false);
+              setBringing(null);
+            }}
             className="text-[13px] text-text-3 hover:text-text"
             data-testid="numbers-add-cancel"
           >
             ← Back to your numbers
           </button>
           <div className="mt-3">
-            <NumberStep workspaceId={workspaceId} failed={null} ports={ports} porting={porting} />
+            <NumberStep
+              workspaceId={workspaceId}
+              failed={null}
+              ports={ports}
+              porting={porting}
+              bring={bringing}
+            />
           </div>
         </Card>
       </div>
@@ -314,30 +348,135 @@ export function TextingPage({
     </Callout>
   ) : null;
 
-  if (status.nextStep === 'ready' && status.number)
+  const step = status.nextStep;
+  // In setup: the number is still being worked on there, one step at a time, until the carriers approve it.
+  const working =
+    status.number?.status === 'active' && (!setup || step === 'ready') ? status.number : null;
+  // Calls only: the business said it doesn't text (the guided setup's second question), so nothing asks it to
+  // register until it turns texting on.
+  const wantsTexting = status.settings.texting !== 'not_now' || step !== 'submit_registration';
+
+  // What the carriers need, are looking at, or turned down.
+  const approval = (number: PhoneNumberInfo) =>
+    step === 'submit_registration' || fixing ? (
+      <A2pWizard
+        workspaceId={workspaceId}
+        businessName={businessName}
+        businessWebsite={businessWebsite}
+        businessAddress={businessAddress}
+        number={number}
+        me={me}
+        initial={fixing ? submission : null}
+        draft={registrationDraft}
+        surfaces={surfaces}
+        onBack={fixing ? () => setFixing(false) : undefined}
+        feesPaidFor={status.textingFees?.paidFor ?? null}
+        onSubmitted={(fee) => {
+          setFixing(false);
+          sent(fee);
+        }}
+      />
+    ) : step === 'rejected' ? (
+      <Rejected
+        workspaceId={workspaceId}
+        status={status}
+        businessName={businessName}
+        surfaces={surfaces}
+        onFix={() => setFixing(true)}
+        onViewSent={() => setShowSent(true)}
+      />
+    ) : (
+      <Review
+        workspaceId={workspaceId}
+        status={status}
+        businessName={businessName}
+        surfaces={surfaces}
+        onViewSent={() => setShowSent(true)}
+      />
+    );
+  const current =
+    step === 'buy_number' || step === 'provisioning' || step === 'releasing' || step === 'porting'
+      ? 0
+      : step === 'submit_registration' || fixing
+        ? 1
+        : 2;
+  const feeDue = (hidden: boolean) =>
+    status.textingFees?.due && !fixing && !hidden ? (
+      <TextingFeeDue
+        workspaceId={workspaceId}
+        fee={status.textingFees.due}
+        goPay={goPay}
+        setupReturn={setupReturn}
+        ours={status.textingFees.paidFor.ours}
+      />
+    ) : null;
+
+  // The business has its number: one card that says what it does, and under it whatever texting still needs.
+  if (working)
     return (
       <div className="flex flex-col gap-5">
-        {accountCard}
         {importsCard}
         {migratedCallout}
-        {numbersCard}
-        {visibilityCard}
-        <Configured
+        <PhoneCard
           workspaceId={workspaceId}
           businessName={businessName}
           status={status}
-          number={status.number}
-          team={team}
-          onViewSent={() => setShowSent(true)}
+          number={working}
           contactPhone={String(
             (submission?.['contact'] as { phone?: string } | undefined)?.phone ?? '',
           )}
+          onViewSent={() => setShowSent(true)}
+          onAdd={numbersCard ? null : () => setAdding(true)}
+          onMore={setup ? null : () => setMore((open) => !open)}
+          setup={!!setup}
+          feeDue={
+            status.textingFees?.month ? (
+              <TextingFeeDue
+                workspaceId={workspaceId}
+                fee={status.textingFees.month}
+                goPay={false}
+                ours={status.textingFees.paidFor.ours}
+              />
+            ) : null
+          }
         />
+        {step !== 'ready' && wantsTexting ? (
+          <Card
+            id="approval"
+            className="max-w-[820px] scroll-mt-20 p-5 md:p-7"
+            data-testid="texting-setup"
+            data-step={step}
+          >
+            <Steps current={current} turnedDown={step === 'rejected' && !fixing} />
+            {feeDue(false)}
+            {approval(working)}
+          </Card>
+        ) : null}
+        {step === 'ready' ? (
+          <div className="max-w-[820px]">
+            <RcsCard
+              workspaceId={workspaceId}
+              businessName={businessName}
+              sender={status.rcsSender}
+              request={status.rcsRequest}
+              prefill={rcsPrefillOf(submission, working)}
+              numbers={status.numbers}
+              canManage={status.canManage}
+            />
+          </div>
+        ) : null}
+        {numbersCard}
+        {visibilityCard}
+        {more ? (
+          <div className="flex flex-col gap-5" data-testid="phone-more">
+            {accountCard}
+            {moveCard}
+          </div>
+        ) : null}
         {sentSheet}
       </div>
     );
 
-  const step = status.nextStep;
   /*
    * A local number's texting registration doesn't need the number here, so a business without a working one
    * (it is moving its own here, or hasn't got one yet) can send it now and text the day the number lands.
@@ -352,12 +491,89 @@ export function TextingPage({
     (status.canManage || status.localRegistrationStep !== 'submit_registration')
       ? { arriving: arriving ? arriving.display : null }
       : null;
-  const current =
-    step === 'buy_number' || step === 'provisioning' || step === 'releasing' || step === 'porting'
-      ? 0
-      : step === 'submit_registration' || fixing
-        ? 1
-        : 2;
+  const registerAhead = ahead ? (
+    <RegisterAhead
+      workspaceId={workspaceId}
+      businessName={businessName}
+      businessWebsite={businessWebsite}
+      businessAddress={businessAddress}
+      status={status}
+      me={me}
+      surfaces={surfaces}
+      draft={registrationDraft}
+      submission={submission}
+      arriving={ahead.arriving}
+      onViewSent={() => setShowSent(true)}
+      goPay={goPay}
+      setupReturn={setupReturn}
+      onSent={sent}
+    />
+  ) : null;
+
+  // No number yet, and none on its way: the guided setup gets it, one question at a time (the owner, 22 Nov 2026).
+  // Sign-up's own number step keeps its screen until sign-up itself is redone.
+  if (!setup && step === 'buy_number' && !bringing && !moving) {
+    const failed = status.number?.status === 'failed' ? status.number : null;
+    // A registration already sent ahead of the number is news; one not started is behind the link with the rest.
+    const sentAhead = status.localRegistrationStep !== 'submit_registration';
+    return (
+      <div className="flex flex-col gap-5">
+        {importsCard}
+        <Card className="max-w-[820px] p-5 md:p-7" data-testid="phone-start">
+          <div className="flex items-start gap-3.5">
+            <ChannelIcon icon={Phone} size={44} />
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold tracking-tight">{START.title}</h2>
+              <p className="mt-1 max-w-[560px] text-[13.5px] text-text-2">{START.hint}</p>
+            </div>
+          </div>
+          {failed ? (
+            <Callout tone="danger" icon={CircleAlert} className="mt-4">
+              We couldn’t get {failed.display}
+              {failed.lastError ? `: ${failed.lastError}` : '.'} Nothing was bought. Pick another
+              number.
+            </Callout>
+          ) : null}
+          {status.canManage ? (
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <ButtonLink href={guided} variant="primary" size="lg" data-testid="phone-start-go">
+                {guidedDraft ? START.carryOn : START.start}
+              </ButtonLink>
+              {guidedDraft ? (
+                <span className="text-[13px] text-text-2" data-testid="phone-start-saved">
+                  {START.saved(guidedSetupSavedWhen(guidedDraft.savedAt, new Date()))}
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-4 text-[13px] text-text-3">
+              Ask an owner or admin of this business to get the number.
+            </p>
+          )}
+          <div className="mt-5 border-t border-border pt-4 text-[13px]">
+            <button
+              type="button"
+              onClick={() => setMore((open) => !open)}
+              className="text-accent-text hover:underline"
+              data-testid="phone-more-link"
+            >
+              {PHONE_SETUP_WORDS.card.account}
+            </button>
+          </div>
+        </Card>
+        {sentAhead ? registerAhead : null}
+        {more ? (
+          <div className="flex flex-col gap-5" data-testid="phone-more">
+            {accountCard}
+            {moveCard}
+            {sentAhead ? null : registerAhead}
+          </div>
+        ) : null}
+        {sentSheet}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5">
       {accountCard}
@@ -378,15 +594,7 @@ export function TextingPage({
           </div>
         ) : null}
         <Steps current={current} turnedDown={step === 'rejected' && !fixing} />
-        {status.textingFees?.due && !fixing && !ahead ? (
-          <TextingFeeDue
-            workspaceId={workspaceId}
-            fee={status.textingFees.due}
-            goPay={goPay}
-            setupReturn={setupReturn}
-            ours={status.textingFees.paidFor.ours}
-          />
-        ) : null}
+        {feeDue(!!ahead)}
         {step === 'buy_number' ? (
           <NumberStep
             workspaceId={workspaceId}
@@ -395,6 +603,9 @@ export function TextingPage({
             porting={porting}
             numberType={setup?.numberType}
             near={near}
+            bring={bringing}
+            // Outside sign-up a new number is the guided setup's to get.
+            onNew={setup ? undefined : () => router.push(guided)}
           />
         ) : step === 'porting' ? (
           // Weeks with a carrier, not seconds with us, so it is its own screen rather than the spinner that
@@ -414,62 +625,12 @@ export function TextingPage({
               ? `Setting up ${status.number?.display ?? 'your number'}. This takes a few seconds.`
               : `Releasing ${status.number?.display ?? 'the number'}.`}
           </div>
-        ) : step === 'submit_registration' || fixing ? (
-          <A2pWizard
-            workspaceId={workspaceId}
-            businessName={businessName}
-            businessWebsite={businessWebsite}
-            businessAddress={businessAddress}
-            number={status.number!}
-            me={me}
-            initial={fixing ? submission : null}
-            draft={registrationDraft}
-            surfaces={surfaces}
-            onBack={fixing ? () => setFixing(false) : undefined}
-            feesPaidFor={status.textingFees?.paidFor ?? null}
-            onSubmitted={(fee) => {
-              setFixing(false);
-              sent(fee);
-            }}
-          />
-        ) : step === 'rejected' ? (
-          <Rejected
-            workspaceId={workspaceId}
-            status={status}
-            businessName={businessName}
-            surfaces={surfaces}
-            onFix={() => setFixing(true)}
-            onViewSent={() => setShowSent(true)}
-          />
         ) : (
-          <Review
-            workspaceId={workspaceId}
-            status={status}
-            businessName={businessName}
-            surfaces={surfaces}
-            onViewSent={() => setShowSent(true)}
-          />
+          approval(status.number!)
         )}
         {sentSheet}
       </Card>
-      {ahead ? (
-        <RegisterAhead
-          workspaceId={workspaceId}
-          businessName={businessName}
-          businessWebsite={businessWebsite}
-          businessAddress={businessAddress}
-          status={status}
-          me={me}
-          surfaces={surfaces}
-          draft={registrationDraft}
-          submission={submission}
-          arriving={ahead.arriving}
-          onViewSent={() => setShowSent(true)}
-          goPay={goPay}
-          setupReturn={setupReturn}
-          onSent={sent}
-        />
-      ) : null}
+      {registerAhead}
     </div>
   );
 }
@@ -586,11 +747,17 @@ function NumberStep({
   porting,
   numberType = 'toll_free',
   near = null,
+  bring = null,
+  onNew,
 }: {
   workspaceId: string;
   failed: PhoneNumberInfo | null;
   ports: readonly PortInfo[];
   porting: Porting;
+  /** Open on moving a number here: `carrier` on the port screen, `choose` on where the number is today. */
+  bring?: 'carrier' | 'choose' | null;
+  /** Where "A new number instead" goes, when buying one isn't this screen's job (the guided setup's). */
+  onNew?: () => void;
   /** The kind to search first. Toll-free unless the setup wizard's EIN question said local. */
   numberType?: NumberType;
   /** In setup: the business's city, where local numbers are looked for first, straight away. */
@@ -606,7 +773,8 @@ function NumberStep({
    * choice again.
    */
   const [source, setSource] = useState<'new' | 'bring'>(
-    ports.some((p) => p.status !== 'cancelled' && p.status !== 'complete') ||
+    bring ||
+      ports.some((p) => p.status !== 'cancelled' && p.status !== 'complete') ||
       porting.fromMigration.length > 0 ||
       porting.imports.some((i) => i.status === 'waiting')
       ? 'bring'
@@ -731,9 +899,12 @@ function NumberStep({
         twilio={porting.twilio}
         carrierPort={carrierPort}
         initial={
-          ports.some((p) => p.status !== 'cancelled' && p.status !== 'complete') ? 'carrier' : null
+          bring === 'carrier' ||
+          ports.some((p) => p.status !== 'cancelled' && p.status !== 'complete')
+            ? 'carrier'
+            : null
         }
-        onBack={() => setSource('new')}
+        onBack={onNew ?? (() => setSource('new'))}
       />
     );
 
@@ -1697,18 +1868,6 @@ function SubmissionSheet({
 }
 
 /** Every hour, so a business with early or late shifts can set its own window. */
-const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`);
-const START_TIMES = HOURS;
-const END_TIMES = HOURS;
-const REMINDERS = [
-  [10, '10 minutes'],
-  [5, '5 minutes'],
-  [15, '15 minutes'],
-  [30, '30 minutes'],
-  [60, '1 hour'],
-  [0, 'Never'],
-] as const;
-
 /** A number can be given back from the moment it is bought — never only once the carrier has approved it. */
 function releasable(status: PhoneNumberInfo['status']): boolean {
   return status === 'active' || status === 'provisioning';
@@ -1772,891 +1931,5 @@ function NumberActions({
         onReleased={() => router.refresh()}
       />
     </>
-  );
-}
-
-function Configured({
-  workspaceId,
-  businessName,
-  status,
-  number: n,
-  team,
-  onViewSent,
-  contactPhone,
-}: {
-  workspaceId: string;
-  businessName: string;
-  status: Status;
-  number: PhoneNumberInfo;
-  team: string[];
-  onViewSent: () => void;
-  contactPhone: string;
-}) {
-  const router = useRouter();
-  const calls = useRouting(workspaceId, n);
-  const [test, setTest] = useState(false);
-  const [quiet, setQuiet] = useState(status.settings.quietHours);
-  const [reminder, setReminder] = useState(status.settings.unansweredReminderMinutes);
-  const city = status.timezone.split('/').pop()?.replace(/_/g, ' ') ?? status.timezone;
-  const local = n.numberType === 'local';
-  const regs = status.registrations;
-  const approved = (kind: RegistrationInfo['kind']) => latestOf(regs, kind)?.approvedAt;
-  const useCase = String(latestSubmission(regs)?.['useCase'] ?? '');
-
-  async function save(
-    change: { quietHours?: typeof quiet; unansweredReminderMinutes?: number },
-    success: string,
-  ) {
-    try {
-      unwrap(
-        await apiBrowser().POST('/v1/commands/phone.update_settings', {
-          body: { workspaceId, ...change },
-        }),
-      );
-      toast.success(success);
-      router.refresh();
-    } catch (e) {
-      toast.error(errorMessage(e));
-      setQuiet(status.settings.quietHours);
-      setReminder(status.settings.unansweredReminderMinutes);
-    }
-  }
-  const setQuietHours = (next: typeof quiet, success: string) => {
-    setQuiet(next);
-    void save({ quietHours: next }, success);
-  };
-
-  const regRows: [string, string | null | undefined][] = local
-    ? [
-        ['Business profile', approved('a2p_customer_profile')],
-        ['Messaging profile', approved('a2p_trust_product')],
-        ['Brand', approved('a2p_brand')],
-        [`Texting campaign · ${label(USE_CASES, useCase).toLowerCase()}`, approved('a2p_campaign')],
-      ]
-    : [['Toll-free verification', approved('toll_free_verification')]];
-
-  return (
-    <div
-      className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2"
-      data-testid="texting-configured"
-    >
-      <div className="flex flex-col gap-5">
-        <Card className="p-6" {...settingAttrs('texting.number')}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight">Business number</h2>
-              <p className="mt-1 text-[13px] text-text-2">
-                Customers text and call {businessName} here.
-              </p>
-            </div>
-            <NumberActions workspaceId={workspaceId} number={n} />
-          </div>
-          <div className="mt-4 flex items-center gap-3.5">
-            <ChannelIcon icon={Phone} size={44} />
-            <div>
-              <div
-                className="font-mono text-xl font-medium tracking-[-0.01em]"
-                data-testid="business-number"
-              >
-                {n.display}
-              </div>
-              <div className="text-xs text-text-3">
-                {local ? 'Local' : 'Toll-free'}
-                {n.purchasedAt ? ` · bought ${formatDate(n.purchasedAt)}` : ''}
-              </div>
-            </div>
-          </div>
-          <div className="mt-3.5 flex flex-wrap gap-1.5">
-            <Badge variant="ok">
-              <Phone className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Calls ready
-            </Badge>
-            <Badge variant="ok">
-              <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Texting approved
-            </Badge>
-            <Badge variant="gray">Photos and picture texts</Badge>
-            {status.rcsSender?.sending ? (
-              <Badge variant="accent" data-testid="rcs-on-badge">
-                RCS
-              </Badge>
-            ) : null}
-          </div>
-          <div className="mt-[18px] flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setTest(true)}
-              data-testid="text-me-a-test"
-            >
-              <Send className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Text me a test
-            </Button>
-          </div>
-        </Card>
-
-        <Card className="p-6" {...settingAttrs('texting.registration')}>
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold tracking-tight">Carrier registration</h2>
-            <Badge variant="ok">Approved</Badge>
-          </div>
-          <p className="mt-1 text-[13px] text-text-2">
-            Carriers only deliver business texts from registered senders.
-            {status.textingFees?.monthlyCents
-              ? ` Your texting campaign is ${money(status.textingFees.monthlyCents)} a month, the carriers’ fee passed on at cost and charged to the card you paid with.`
-              : ''}
-          </p>
-          {status.textingFees?.month ? (
-            <TextingFeeDue
-              workspaceId={workspaceId}
-              fee={status.textingFees.month}
-              goPay={false}
-              ours={status.textingFees.paidFor.ours}
-            />
-          ) : null}
-          <div className="mt-3.5">
-            {regRows.map(([title, date], i) => (
-              <SetRow
-                key={title}
-                first={i === 0}
-                center
-                title={
-                  <span className="flex items-center gap-2.5 font-normal">
-                    <ChannelIcon icon={Check} tone="success" size={24} />
-                    {title}
-                  </span>
-                }
-              >
-                <span className="text-xs text-text-3">
-                  {date ? `Approved ${formatDate(date)}` : 'Approved'}
-                </span>
-              </SetRow>
-            ))}
-          </div>
-          <Button variant="ghost" size="sm" className="-ml-2.5 mt-1.5" onClick={onViewSent}>
-            View what we sent
-          </Button>
-        </Card>
-
-        <RcsCard
-          workspaceId={workspaceId}
-          businessName={businessName}
-          sender={status.rcsSender}
-          request={status.rcsRequest}
-          prefill={rcsPrefillOf(latestSubmission(regs), n)}
-          numbers={status.numbers}
-          canManage={status.canManage}
-        />
-
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold tracking-tight">Texting rules</h2>
-          <div className="mt-2">
-            {/* Its id stays quiet-hours: Automations' "Edit quiet hours" links here. */}
-            <SetRow
-              first
-              setting="texting.quiet_hours"
-              title="Quiet hours"
-              description="Automatic texts wait until morning. People on the team get a “send anyway?” check first."
-              body={
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Select
-                    selectSize="sm"
-                    className="w-[110px]"
-                    aria-label="Quiet hours start"
-                    disabled={!quiet.enabled}
-                    value={quiet.start}
-                    onChange={(e) =>
-                      setQuietHours({ ...quiet, start: e.target.value }, 'Quiet hours saved')
-                    }
-                  >
-                    {START_TIMES.map((t) => (
-                      <option key={t} value={t}>
-                        {formatClock(t)}
-                      </option>
-                    ))}
-                  </Select>
-                  <span className="text-[13px] text-text-3">to</span>
-                  <Select
-                    selectSize="sm"
-                    className="w-[110px]"
-                    aria-label="Quiet hours end"
-                    disabled={!quiet.enabled}
-                    value={quiet.end}
-                    onChange={(e) =>
-                      setQuietHours({ ...quiet, end: e.target.value }, 'Quiet hours saved')
-                    }
-                  >
-                    {END_TIMES.map((t) => (
-                      <option key={t} value={t}>
-                        {formatClock(t)}
-                      </option>
-                    ))}
-                  </Select>
-                  <span className="text-xs text-text-3">{city} time</span>
-                </div>
-              }
-            >
-              <Switch
-                checked={quiet.enabled}
-                label="Quiet hours"
-                testId="quiet-hours-switch"
-                onChange={(on) =>
-                  setQuietHours(
-                    { ...quiet, enabled: on },
-                    on ? 'Quiet hours on' : 'Quiet hours off',
-                  )
-                }
-              />
-            </SetRow>
-            <SetRow
-              setting="texting.remind_waiting"
-              title="Remind the team when a customer waits"
-              description="One email to whoever the conversation is assigned to, or to every owner and admin when nobody is."
-            >
-              <Select
-                selectSize="sm"
-                className="w-[130px]"
-                aria-label="Remind after"
-                value={String(reminder)}
-                onChange={(e) => {
-                  const minutes = Number(e.target.value);
-                  setReminder(minutes);
-                  void save(
-                    { unansweredReminderMinutes: minutes },
-                    minutes === 0
-                      ? 'Reminders off'
-                      : `Reminders after ${label(
-                          REMINDERS.map(([m, l]) => [String(m), l] as const),
-                          String(minutes),
-                        )}`,
-                  );
-                }}
-              >
-                {REMINDERS.map(([m, l]) => (
-                  <option key={m} value={m}>
-                    {l}
-                  </option>
-                ))}
-              </Select>
-            </SetRow>
-            <SetRow
-              center
-              setting="texting.stop_help"
-              title="STOP, START and HELP"
-              description="Handled automatically. Opted-out customers can’t be texted until they text START."
-            >
-              <Badge variant="gray">Always on</Badge>
-            </SetRow>
-          </div>
-        </Card>
-      </div>
-
-      <div className="flex flex-col gap-5">
-        <CallsCard routing={calls.routing} save={calls.save} update={calls.update} team={team} />
-        <CallerIdCard
-          workspaceId={workspaceId}
-          phoneNumberId={n.id}
-          display={n.display}
-          initial={n.routing.forwardedCallerId}
-        />
-        <RecordingCard
-          workspaceId={workspaceId}
-          phoneNumberId={n.id}
-          initial={n.routing.announceRecording}
-        />
-        <VoicemailCard
-          routing={calls.routing}
-          save={calls.save}
-          update={calls.update}
-          businessName={businessName}
-        />
-      </div>
-
-      <TestTextDialog
-        workspaceId={workspaceId}
-        businessName={businessName}
-        defaultPhone={contactPhone}
-        open={test}
-        onOpenChange={setTest}
-      />
-    </div>
-  );
-}
-
-type Routing = PhoneNumberInfo['routing'];
-type RoutingChange = (routing: Routing) => Routing;
-type RoutingSave = (change: RoutingChange, opts?: { optimistic?: boolean }) => Promise<void>;
-type RoutingUpdate = (change: RoutingChange, success: string) => void;
-type Issue = { path?: string; message?: string };
-
-/** The design's choices, the default first (the core allows 10 to 25). */
-const RING_SECONDS: readonly number[] = [20, 15, 25];
-const MAX_PHONES = 3;
-/** The core schema's limit for the voicemail greeting. */
-const GREETING_MAX = 500;
-
-const defaultGreeting = (businessName: string) =>
-  `You’ve reached ${businessName}. Leave your name, number and what you need, and we’ll call you back today.`;
-
-/** "Dale", "Dale and Priya", "Dale, Priya and Marco". */
-function listNames(names: string[]): string {
-  if (names.length <= 1) return names.join('');
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-}
-
-/** The command's field problems when it refused the input, else null. */
-function validationIssues(err: unknown): Issue[] | null {
-  return err instanceof ApiError && err.code === 'validation' && Array.isArray(err.details)
-    ? (err.details as Issue[])
-    : null;
-}
-
-/**
- * Who rings and for how long, as the page shows it: what the server last accepted plus the flips still on
- * their way. Saves go one at a time, and each applies its change to what the server last accepted, so quick
- * flips never overwrite each other. Every save sends the whole routing, as the command expects.
- */
-function useRouting(workspaceId: string, number: PhoneNumberInfo) {
-  const router = useRouter();
-  const [routing, setRouting] = useState<Routing>(number.routing);
-  const saved = useRef<Routing>(number.routing);
-  const pending = useRef<RoutingChange[]>([]);
-  const queue = useRef<Promise<unknown>>(Promise.resolve());
-  const show = () => setRouting(pending.current.reduce((r, change) => change(r), saved.current));
-
-  /** Resolves once saved and rejects with the command's error. Optimistic changes show before it answers. */
-  const save: RoutingSave = (change, { optimistic = true } = {}) => {
-    if (optimistic) {
-      pending.current = [...pending.current, change];
-      show();
-    }
-    const job = queue.current.then(async () => {
-      const next = change(saved.current);
-      // What forwarded phones show and the recording notice are their own choices (CallerIdCard,
-      // RecordingCard): left out, the number keeps them.
-      const { forwardedCallerId: _own, announceRecording: _notice, ...routing } = next;
-      try {
-        unwrap(
-          await apiBrowser().POST('/v1/commands/phone_number.set_routing', {
-            body: { workspaceId, phoneNumberId: number.id, routing },
-          }),
-        );
-        saved.current = next;
-        router.refresh();
-      } finally {
-        pending.current = pending.current.filter((c) => c !== change);
-        show();
-      }
-    });
-    queue.current = job.catch(() => undefined);
-    return job;
-  };
-
-  /** Saves at once, then a short confirmation (or the error). */
-  const update: RoutingUpdate = (change, success) => {
-    void save(change).then(
-      () => {
-        toast.success(success);
-      },
-      (e: unknown) => {
-        toast.error(errorMessage(e));
-      },
-    );
-  };
-
-  return { routing, save, update };
-}
-
-function CallsCard({
-  routing,
-  save,
-  update,
-  team,
-}: {
-  routing: Routing;
-  save: RoutingSave;
-  update: RoutingUpdate;
-  team: string[];
-}) {
-  const uid = useId();
-  const addPhoneId = `${uid}-add-phone`;
-  const errorId = `${uid}-add-error`;
-  const [adding, setAdding] = useState(false);
-  const [label, setLabel] = useState('');
-  const [phone, setPhone] = useState('');
-  const [errors, setErrors] = useState<{ label?: string; phone?: string; form?: string }>({});
-  const [busy, setBusy] = useState(false);
-  const refocus = useRef(false);
-  const phones = routing.forwarding;
-  const ringOptions = RING_SECONDS.includes(routing.ringSeconds)
-    ? RING_SECONDS
-    : [...RING_SECONDS, routing.ringSeconds];
-
-  // Once the add form closes, the keyboard goes back to "Add a phone" instead of the top of the page.
-  useEffect(() => {
-    if (adding || !refocus.current) return;
-    refocus.current = false;
-    document.getElementById(addPhoneId)?.focus();
-  }, [adding, addPhoneId]);
-
-  function close() {
-    refocus.current = true;
-    setAdding(false);
-    setLabel('');
-    setPhone('');
-    setErrors({});
-  }
-
-  async function add(e: FormEvent) {
-    e.preventDefault();
-    const name = label.trim();
-    const typed = phone.trim();
-    if (!name || !typed) {
-      setErrors({
-        label: name ? undefined : 'Name this phone.',
-        phone: typed ? undefined : 'Enter a phone number.',
-      });
-      return;
-    }
-    setErrors({});
-    setBusy(true);
-    // The core schema normalizes the same way; a number it can't read goes as typed so it says why.
-    const e164 = normalizePhone(typed) ?? typed;
-    let index = -1;
-    try {
-      await save(
-        (r) => {
-          index = r.forwarding.length;
-          return { ...r, forwarding: [...r.forwarding, { e164, label: name, enabled: true }] };
-        },
-        { optimistic: false },
-      );
-      toast.success(`${name} rings on the next call`);
-      close();
-    } catch (err) {
-      const issues = validationIssues(err);
-      if (!issues) {
-        toast.error(errorMessage(err));
-        return;
-      }
-      const next: typeof errors = {};
-      for (const issue of issues) {
-        const key =
-          issue.path === `routing.forwarding.${index}.e164`
-            ? 'phone'
-            : issue.path === `routing.forwarding.${index}.label`
-              ? 'label'
-              : 'form';
-        next[key] ??= issue.message ?? 'Check this.';
-      }
-      setErrors(next);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Card className="p-6" {...settingAttrs('texting.calls')}>
-      <h2 className="text-lg font-semibold tracking-tight">When a customer calls</h2>
-      <p className="mt-1 text-[13px] text-text-2">
-        Everything below rings at the same time. The first to answer takes the call.
-      </p>
-      <div className="mt-3.5 flex items-center gap-3 pb-3 pt-1">
-        <ChannelIcon icon={Globe} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-medium">Team browsers</div>
-          <div className="text-xs text-text-3">
-            {team.length > 0
-              ? `Anyone with HandsFreeOS open: ${listNames(team)}`
-              : 'Anyone with HandsFreeOS open'}
-          </div>
-        </div>
-        <Badge variant="gray">Always</Badge>
-      </div>
-      {phones.map((p) => {
-        const nameId = `${uid}-phone-${p.e164}`;
-        return (
-          <div
-            key={p.e164}
-            role="group"
-            aria-labelledby={nameId}
-            className="flex items-center gap-3 border-t border-border py-3"
-          >
-            <ChannelIcon icon={Phone} />
-            <div className="min-w-0 flex-1">
-              <div id={nameId} className="truncate text-[13px] font-medium">
-                {p.label}
-              </div>
-              <div className="font-mono text-xs text-text-3">{formatPhone(p.e164)}</div>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              title="Remove"
-              aria-label={`Remove ${p.label}`}
-              onClick={() =>
-                update(
-                  (r) => ({ ...r, forwarding: r.forwarding.filter((f) => f.e164 !== p.e164) }),
-                  `${p.label} removed`,
-                )
-              }
-            >
-              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </Button>
-            <Switch
-              checked={p.enabled}
-              label="Ring this phone"
-              onChange={(on) =>
-                update(
-                  (r) => ({
-                    ...r,
-                    forwarding: r.forwarding.map((f) =>
-                      f.e164 === p.e164 ? { ...f, enabled: on } : f,
-                    ),
-                  }),
-                  on ? `${p.label} rings now` : `${p.label} won’t ring`,
-                )
-              }
-            />
-          </div>
-        );
-      })}
-      {adding ? (
-        <form
-          noValidate
-          onSubmit={(e) => void add(e)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') close();
-          }}
-          className="border-t border-border py-3"
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              inputSize="sm"
-              autoFocus
-              aria-label="Phone name"
-              placeholder="Name, like Priya’s cell"
-              maxLength={40}
-              className="min-w-[140px] flex-1"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              invalid={!!errors.label}
-              aria-describedby={errors.label ? errorId : undefined}
-            />
-            <Input
-              inputSize="sm"
-              aria-label="Phone number"
-              placeholder="(713) 555-0123"
-              inputMode="tel"
-              maxLength={40}
-              className="w-[150px] flex-none font-mono text-[13px]"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              invalid={!!errors.phone}
-              aria-describedby={errors.phone ? errorId : undefined}
-            />
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" loading={busy}>
-                Add
-              </Button>
-              <Button variant="ghost" size="sm" onClick={close}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-          <FieldError id={errorId}>{errors.label ?? errors.phone ?? errors.form}</FieldError>
-        </form>
-      ) : null}
-      <div className="mt-2.5 flex items-center justify-between gap-3">
-        <Button
-          id={addPhoneId}
-          variant="ghost"
-          size="sm"
-          className="-ml-2.5"
-          disabled={phones.length >= MAX_PHONES || adding}
-          onClick={() => setAdding(true)}
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Add a phone
-        </Button>
-        <span className="text-xs text-text-3">{`${phones.length} of ${MAX_PHONES} phones`}</span>
-      </div>
-      <SetRow center setting="texting.ring_for" title="Ring for" className="mt-2">
-        <Select
-          selectSize="sm"
-          className="w-[130px]"
-          aria-label="Ring for"
-          value={String(routing.ringSeconds)}
-          onChange={(e) => {
-            const seconds = Number(e.target.value);
-            update((r) => ({ ...r, ringSeconds: seconds }), `Rings for ${seconds} seconds`);
-          }}
-        >
-          {ringOptions.map((s) => (
-            <option key={s} value={s}>
-              {`${s} seconds`}
-            </option>
-          ))}
-        </Select>
-      </SetRow>
-      <Callout tone="info" icon={Info} className="mt-1.5">
-        <span className="text-[13px]">
-          Forwarded phones hear “Press 1 to take this call,” so a cell’s own voicemail can never
-          grab the call first.
-        </span>
-      </Callout>
-    </Card>
-  );
-}
-
-/**
- * What a forwarded phone shows when a customer calls the business number (M10): the customer's number, or the
- * business's. iOS 26's call screening sends callers a phone doesn't know to voicemail, so a person who turned it on
- * saves the business number as a contact and picks the business number here; the whisper still names the caller.
- */
-function CallerIdCard({
-  workspaceId,
-  phoneNumberId,
-  display,
-  initial,
-}: {
-  workspaceId: string;
-  phoneNumberId: string;
-  display: string;
-  initial: 'customer' | 'business';
-}) {
-  const router = useRouter();
-  const [choice, setChoice] = useState(initial);
-  const [busy, setBusy] = useState(false);
-
-  async function choose(next: 'customer' | 'business') {
-    if (next === choice || busy) return;
-    const was = choice;
-    setChoice(next);
-    setBusy(true);
-    try {
-      unwrap(
-        await apiBrowser().POST('/v1/commands/phone_number.set_caller_id', {
-          body: { workspaceId, phoneNumberId, forwardedCallerId: next },
-        }),
-      );
-      toast.success(
-        next === 'business'
-          ? `Forwarded phones show ${display}`
-          : 'Forwarded phones show the customer’s number',
-      );
-      router.refresh();
-    } catch (e) {
-      setChoice(was);
-      toast.error(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Card className="p-6" data-testid="caller-id" {...settingAttrs('texting.caller_id')}>
-      <h2 className="text-lg font-semibold tracking-tight">What forwarded phones show</h2>
-      <p className="mt-1 text-[13px] text-text-2">
-        When a customer calls and a phone above rings, its screen shows one of these. Either way,
-        the phone hears who is calling before pressing 1.
-      </p>
-      <div
-        role="radiogroup"
-        aria-label="What forwarded phones show"
-        className="mt-3.5 flex flex-col gap-2.5"
-      >
-        <RadioCard
-          selected={choice === 'customer'}
-          onSelect={() => void choose('customer')}
-          title="The customer’s number"
-          description="You see who is calling before you pick up."
-          testId="caller-id-customer"
-        />
-        <RadioCard
-          selected={choice === 'business'}
-          onSelect={() => void choose('business')}
-          title={`The business number, ${display}`}
-          description="Every call rings through on a phone that screens or silences unknown callers, once the business number is saved as a contact on it."
-          testId="caller-id-business"
-        />
-      </div>
-      <Callout tone="neutral" icon={Info} className="mt-3">
-        <span className="text-[13px]">
-          iPhones that screen unknown callers send calls from numbers they don’t know to voicemail,
-          including forwarded customers. Save {display} as a contact on each forwarded phone and
-          pick the business number here.
-        </span>
-      </Callout>
-    </Card>
-  );
-}
-
-/**
- * Every answered call is recorded and transcribed. The business chooses whether customers hear so: some states
- * need everyone on a call to agree to a recording.
- */
-function RecordingCard({
-  workspaceId,
-  phoneNumberId,
-  initial,
-}: {
-  workspaceId: string;
-  phoneNumberId: string;
-  initial: boolean;
-}) {
-  const router = useRouter();
-  const [on, setOn] = useState(initial);
-  const [busy, setBusy] = useState(false);
-
-  async function choose(next: boolean) {
-    if (next === on || busy) return;
-    setOn(next);
-    setBusy(true);
-    try {
-      unwrap(
-        await apiBrowser().POST('/v1/commands/phone_number.set_recording_notice', {
-          body: { workspaceId, phoneNumberId, announceRecording: next },
-        }),
-      );
-      toast.success(next ? 'Customers hear that calls are recorded' : 'Recording notice off');
-      router.refresh();
-    } catch (e) {
-      setOn(!next);
-      toast.error(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Card className="p-6" data-testid="call-recording" {...settingAttrs('texting.recording')}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Call recording</h2>
-          <p className="mt-1 text-[13px] text-text-2">
-            Every answered call is recorded and turned into words, so you can read it back in the
-            inbox. With the notice on, callers hear “This call may be recorded.” before it rings,
-            and customers you call hear it when they pick up.
-          </p>
-        </div>
-        <Switch
-          checked={on}
-          label="Tell customers calls are recorded"
-          onChange={(next) => void choose(next)}
-        />
-      </div>
-      {on ? null : (
-        <Callout tone="warning" icon={Info} className="mt-3">
-          <span className="text-[13px]">
-            Some states, including California, Florida and Washington, need everyone on a call to
-            agree to a recording. Check with a lawyer before turning the notice off.
-          </span>
-        </Callout>
-      )}
-    </Card>
-  );
-}
-
-function VoicemailCard({
-  routing,
-  save,
-  update,
-  businessName,
-}: {
-  routing: Routing;
-  save: RoutingSave;
-  update: RoutingUpdate;
-  businessName: string;
-}) {
-  const [greeting, setGreeting] = useState(
-    () => routing.voicemailGreeting || defaultGreeting(businessName),
-  );
-  const [error, setError] = useState<string>();
-  const [saving, setSaving] = useState(false);
-
-  // A greeting still reading aloud stops when the page goes.
-  useEffect(
-    () => () => {
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    },
-    [],
-  );
-
-  function play() {
-    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
-      toast.error('Your browser can’t play the greeting');
-      return;
-    }
-    const speech = new SpeechSynthesisUtterance(greeting.trim() || defaultGreeting(businessName));
-    speech.lang = 'en-US';
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(speech);
-  }
-
-  async function saveGreeting() {
-    setSaving(true);
-    setError(undefined);
-    const text = greeting.trim();
-    try {
-      await save((r) => ({ ...r, voicemailGreeting: text || null }), { optimistic: false });
-      toast.success('Greeting saved');
-    } catch (err) {
-      const issue = validationIssues(err)?.find((i) => i.path === 'routing.voicemailGreeting');
-      if (issue?.message) setError(issue.message);
-      else toast.error(errorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Card className="p-6" {...settingAttrs('texting.voicemail')}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Voicemail</h2>
-          <p className="mt-1 text-[13px] text-text-2">
-            When nobody answers, callers can leave a message.
-          </p>
-        </div>
-        <Switch
-          checked={routing.voicemailEnabled}
-          label="Voicemail"
-          onChange={(on) =>
-            update((r) => ({ ...r, voicemailEnabled: on }), on ? 'Voicemail on' : 'Voicemail off')
-          }
-        />
-      </div>
-      {routing.voicemailEnabled ? (
-        <>
-          <Field
-            label="Greeting"
-            htmlFor="voicemail-greeting"
-            className="mb-3.5 mt-4"
-            error={error}
-            hint="Read aloud by a natural-sounding voice. Messages and their transcripts land in the inbox."
-          >
-            <Textarea
-              id="voicemail-greeting"
-              className="min-h-[76px]"
-              maxLength={GREETING_MAX}
-              value={greeting}
-              onChange={(e) => setGreeting(e.target.value)}
-              invalid={!!error}
-              aria-describedby={error ? 'voicemail-greeting-error' : undefined}
-            />
-          </Field>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={play}>
-              <Volume2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Play greeting
-            </Button>
-            <Button size="sm" loading={saving} onClick={() => void saveGreeting()}>
-              Save
-            </Button>
-          </div>
-        </>
-      ) : null}
-    </Card>
   );
 }
