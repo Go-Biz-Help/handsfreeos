@@ -212,3 +212,17 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
     staleView,
   };
 });
+
+/**
+ * The business a setup page outside `/app/w` is for (the guided setup, the setup wizard's steps, the email setup):
+ * the person's own, or one the founder is working in as its owner (20261013002100). That one is never in their own
+ * list of businesses (`me.workspaces`), so a page that looked there sent them back to Home. Null for a support
+ * person's read-only look, which can set nothing up; the 404 page when the business isn't theirs to see at all.
+ */
+export async function getSetupWorkspace(
+  workspaceId: string,
+): Promise<{ readonly ws: WorkspaceSummary; readonly founder: boolean } | null> {
+  const { current, viewingAs } = await getWorkspaceShell(workspaceId);
+  if (!viewingAs) return { ws: current, founder: false };
+  return viewingAs.acting ? { ws: current, founder: true } : null;
+}
