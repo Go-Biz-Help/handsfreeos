@@ -235,6 +235,18 @@ describe('Google Calendar', () => {
     });
   });
 
+  it('a Meet link Google couldn’t make says so, so nobody keeps asking', async () => {
+    const { p } = google([
+      () =>
+        json({ id: 'x', conferenceData: { createRequest: { status: { statusCode: 'failure' } } } }),
+    ]);
+    expect(await p.upsertEvent('a', { ...event, addMeet: true }, 'x')).toEqual({
+      providerEventId: 'x',
+      meetingUrl: null,
+      meetFailed: true,
+    });
+  });
+
   it('an event already gone counts as deleted; anything else is an error', async () => {
     const gone = google([() => json({ error: { code: 410 } }, 410)]);
     await expect(gone.p.deleteEvent('a', 'abc')).resolves.toBeUndefined();

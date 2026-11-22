@@ -46,7 +46,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FakeCalendarEvent } from '../src/calendar/fake';
 import type { TokenSet } from '../src/calendar/provider';
-import { queueCalendarSync } from '../src/calendar/sync';
+import { MEET_LINK_PROBLEM, queueCalendarSync } from '../src/calendar/sync';
 import { FAKE_ZOOM_WEBHOOK_SECRET } from '../src/meetings/fake';
 import { zoomSignature } from '../src/meetings/routes';
 import { queueSettingsCheck } from '../src/meetings/settings';
@@ -632,6 +632,76 @@ describe('appointments in people’s calendars', () => {
       location: 'https://zoom.us/j/123',
       meetingUrl: null,
     });
+  });
+
+  it('says so on the appointment when Google makes no Meet link, and stops asking', async () => {
+    const video = {
+      kind: 'virtual',
+      address: null,
+      meetingUrl: null,
+      postalCode: null,
+      video: 'google_meet',
+    };
+    const place = async (id: string) =>
+      (
+        await worker((tx) =>
+          rows<{ location: Record<string, unknown> }>(
+            tx,
+            sql`select location from app.appointments where id = ${id}`,
+          ),
+        )
+      )[0]!.location;
+    const job = async (id: string) =>
+      (
+        await rows<{ status: string; due: boolean }>(
+          admin(),
+          sql`select status::text as status, run_at <= now() as due from app.scheduled_jobs
+              where dedupe_key = ${`appointment.calendar_sync:${id}`} order by created_at desc limit 1`,
+        )
+      )[0];
+    const fake = s.calendars.fake!;
+    try {
+      // Refused outright, as for an account with Meet turned off: said at once, with nothing left to run.
+      fake.noMeet(google, 'failed');
+      const refused = await book('No Meet here', at(12, 9), at(12, 10), [owner.id], video);
+      await sync(refused);
+      expect(await place(refused)).toMatchObject({
+        meetingUrl: null,
+        meetingError: MEET_LINK_PROBLEM,
+      });
+      expect((await job(refused))?.status).toBe('done');
+
+      // Still being made: asked again in half a minute.
+      fake.noMeet(google, 'pending');
+      const slow = await book('Slow Meet', at(12, 11), at(12, 12), [owner.id], video);
+      await sync(slow);
+      expect((await place(slow))['meetingError'] ?? null).toBeNull();
+      expect(await job(slow)).toMatchObject({ status: 'pending', due: false });
+      // But not for ever: ten minutes after the appointment last changed, it says it has no link, and stops.
+      await admin().transaction(async (tx) => {
+        await tx.execute(sql`set local session_replication_role = replica`);
+        await tx.execute(
+          sql`update app.appointments set updated_at = now() - interval '11 minutes' where id = ${slow}`,
+        );
+      });
+      await sync(slow);
+      expect(await place(slow)).toMatchObject({
+        meetingUrl: null,
+        meetingError: MEET_LINK_PROBLEM,
+      });
+      expect((await job(slow))?.status).toBe('done');
+
+      // Meet is on again and the appointment moves: the link comes, and the appointment stops saying it has none.
+      fake.noMeet(google, null);
+      await move(slow, at(12, 13), at(12, 14));
+      await sync(slow);
+      expect(await place(slow)).toMatchObject({
+        meetingUrl: `https://meet.google.com/fake-${slow.slice(0, 8)}`,
+        meetingError: null,
+      });
+    } finally {
+      fake.noMeet(google, null);
+    }
   });
 
   it('Outlook finds its event again by our property, and a reassigned visit changes calendars', async () => {

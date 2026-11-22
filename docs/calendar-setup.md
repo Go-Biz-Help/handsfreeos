@@ -284,6 +284,12 @@ portal and everyone else's calendar event show it. It should need no new scope (
 on the appointment) has Google Calendar connected and the calendar adds appointments to people's calendars; a link
 someone typed in is never replaced. Locally the stand-in makes `https://meet.google.com/fake-…` links.
 
+A link Google is still making is asked for again every 30 seconds, for 10 minutes after the appointment last
+changed. If Google says it couldn't make one (an account with Meet turned off), or the 10 minutes pass, the worker
+stops asking and the appointment says so (`meetingError` on its place, which the phone and the Assistant show):
+"Google didn’t make a Meet link for this appointment…". A later change to the appointment asks once more, and a link
+that comes then clears it.
+
 ### Meet transcripts
 
 Meet sends no webhook, so HandsFreeOS asks for transcripts. A person turns it on with **Allow Meet transcripts** on

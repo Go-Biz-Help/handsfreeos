@@ -415,6 +415,14 @@ function wantsMeet(location: unknown): boolean {
 
 /** How long to wait before asking Google again for a Meet link it hasn't finished making. */
 const MEET_PENDING_MS = 30_000;
+/**
+ * How long after the appointment last changed Google gets to finish a Meet link. It used to be asked every 30
+ * seconds for ever, long after the visit: an account with Meet turned off never gets one.
+ */
+const MEET_GIVE_UP_MS = 10 * 60_000;
+/** What the appointment says when its Meet link never came. */
+export const MEET_LINK_PROBLEM =
+  'Google didn’t make a Meet link for this appointment. Check that Google Meet is turned on for the host’s Google account, or edit the appointment and paste a link in.';
 
 /** What the person's calendar shows: the appointment, who it's with, where, and a link back. */
 function eventFor(
@@ -600,6 +608,7 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
   // The Meet link is made once, in the first Google calendar written, starting with the host's.
   let meet = wantsMeet(a.location) && a.status === 'scheduled' && a.binItemId === null;
   let meetPending = false;
+  let meetFailed = false;
   const refreshes = new Set<string>();
   const transient: string[] = [];
   const ordered = [...people].sort((x, y) => (x === seen.hostId ? -1 : y === seen.hostId ? 1 : 0));
@@ -631,17 +640,19 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
         if (!conn || !provider || !usable(conn)) continue;
         const call = session(ctx, scope, conn, provider);
         const addMeet = meet && conn.provider === 'google';
-        const { providerEventId, meetingUrl } = await call((t) =>
+        const made = await call((t) =>
           provider.upsertEvent(
             t,
             { ...event, addMeet },
             here ? (row?.providerEventId ?? null) : null,
           ),
         );
+        const { providerEventId, meetingUrl } = made;
         if (addMeet) {
           if (meetingUrl) {
             meet = false;
             meetPending = false;
+            meetFailed = false;
             await executeCommand(
               ctx.db,
               appointmentSetMeetingLink,
@@ -650,13 +661,15 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
                 appointmentId: a.id,
                 video: 'google_meet',
                 meetingUrl,
+                meetingError: null,
               },
               systemActor(scope),
               workerMeta(),
             );
             // Everyone else's event shows the same link.
             event = { ...event, location: meetingUrl };
-          } else meetPending = true;
+          } else if (made.meetFailed) meetFailed = true;
+          else meetPending = true;
         }
         await record(ctx, scope, a.id, userId, conn.id, {
           providerEventId,
@@ -701,8 +714,29 @@ export const appointmentCalendarSync: JobHandler = async (ctx) => {
     });
   if (transient.length > 0)
     throw new Error(`A calendar didn’t take the change: ${transient.join('; ')}`);
-  // Google is still making the Meet link: ask again shortly, with the same request, to pick it up.
-  if (meetPending) return { rescheduleAt: new Date(Date.now() + MEET_PENDING_MS) };
+  if (meetPending || meetFailed) {
+    // Once the appointment says why it has no link, a later change to it asks Google once more and no oftener.
+    const told =
+      (a.location as { meetingError?: unknown } | null)?.meetingError === MEET_LINK_PROBLEM;
+    const waited = Date.now() - a.updatedAt.getTime() > MEET_GIVE_UP_MS;
+    // Google is still making the Meet link: ask again shortly, with the same request, to pick it up.
+    if (meetPending && !told && !waited)
+      return { rescheduleAt: new Date(Date.now() + MEET_PENDING_MS) };
+    // It isn't coming: the appointment says so, where the phone and the Assistant show it.
+    if (!told)
+      await executeCommand(
+        ctx.db,
+        appointmentSetMeetingLink,
+        {
+          workspaceId: scope.workspaceId,
+          appointmentId: a.id,
+          video: 'google_meet',
+          meetingError: MEET_LINK_PROBLEM,
+        },
+        systemActor(scope),
+        workerMeta(),
+      );
+  }
   // Changed while we were writing: go round again with what it is now.
   if (await changedSince(ctx, scope, a.id, seen.fingerprint)) return { rescheduleAt: new Date() };
 };
