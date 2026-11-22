@@ -388,8 +388,13 @@ the person sends.
   (`do_email_address_set_ai_reads`), reads the draft back to its person in `get_conversation`
   (`draftAnswer`), and puts it away (`do_conversation_ai_draft_dismiss`). It runs as the person, so
   nobody else is read a draft.
-- **The phone** has the switch in its guided setup ("Who reads each one?"). It doesn't show the
-  draft in a thread yet; that comes in one batched sync change.
+- **The phone** has the switch in its guided setup ("Who reads each one?"), and shows the draft in
+  a thread on the same card (`apps/mobile/src/components/inbox/own-mail-draft.tsx`). The draft isn't
+  in the phone's copy: it is asked of `conversation.get` while there's signal
+  (`src/inbox/use-own-mail-draft.ts`), when the thread opens, when new mail shows (again after 8
+  and 30 seconds, since the teammate writes a little after the mail lands) and when the app comes
+  back to the front. So it needed no sync change. The card's words are core's
+  (`OWN_MAIL_DRAFT_WORDS`).
 
 **The guided questions: what the server does (Chris, 2026-11-22).** The same canvas, one question at
 a time: which email, the addresses, who reads each one, the one customers hear from, where mail
@@ -471,8 +476,10 @@ the phone's come next.
 - **`email_setup.save` has no screen now.** The older three-part flow from Home's card is gone, on
   the web and the phone. The command stays for phones that haven't updated, and the Assistant sets
   email up with `do_email_setup_apply` instead of `do_email_setup_save`.
-- **Not built yet:** the "Let Ava read this mail" draft card in a phone thread, which needs
-  `conversations.ai_draft` on the phone in one batched sync change.
+- **"Saved" only once it is.** In both frames the tick dims the moment an answer changes and comes
+  back once that answer is kept, and what was just answered is sent at once when the page or screen
+  is left: a reload, a closed tab, Back, the app put away. Before, a reload inside the 700 ms wait
+  came back a question behind.
 
 ### Step 5 — HandsFreeOS's own business (done, 2026-09-30)
 
