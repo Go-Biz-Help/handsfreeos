@@ -7,11 +7,12 @@
  * - **Only the business's own tags**, by name, and only the ones the pass may use. It never makes a tag up.
  * - **A tag a person put on stays on.** The AI takes off only tags HandsFreeOS itself put on (the AI, a workflow,
  *   the AI teammate): someone on the team decided the rest.
- * - **A detail it writes is one it read.** A new email, number, name or address must be in what the customer or
- *   the team actually wrote or said: texts, emails, call transcripts, form answers, notes. Never an unverified
- *   website chat, where anybody can say they're anybody, and never a guess.
- * - **Nothing on file is lost.** A main email or number it replaces moves to the other emails or numbers,
- *   labelled "Previous", and every change keeps its before and after in the audit log.
+ * - **A detail it writes or takes off is one it read.** A new email, number, name or address must be in what the
+ *   customer or the team actually wrote or said: texts, emails whose sender is verified, call transcripts, form
+ *   answers, notes. So must one it takes off (AI3). Never an unverified website chat or email, where anybody can say
+ *   they're anybody, and never a guess.
+ * - **Nothing on file is lost.** A main email or number is never taken off or overwritten: one it replaces moves to
+ *   the other emails or numbers, labelled "Previous", and every change keeps its before and after in the audit log.
  *
  * Browser-safe and pure: the worker, the tests and the screens read the same rules.
  */
@@ -166,8 +167,9 @@ export interface ContactAiPlanOptions {
   /** Whether it may change details at all ("Keep contact details up to date", or the pass's choice). */
   readonly details: boolean;
   /**
-   * Everything the customer and the team are known to have written or said: never an unverified website chat, a
-   * public form or the notes on file. A detail it sets must be found here; with nothing here, it changes no details.
+   * Everything the customer and the team are known to have written or said: never an unverified website chat or
+   * email, a public form or the notes on file. A detail it sets or takes off must be found here; with nothing here,
+   * it changes no details.
    */
   readonly trustedText: string;
 }
@@ -349,10 +351,19 @@ export function planContactChanges(
         continue;
       }
     }
+    const unread = 'it isn’t in anything the customer or the team wrote or said';
     if (d.action === 'set' && !foundInWords(d.field, raw, options.trustedText)) {
-      skipped.push({ what, why: 'it isn’t in anything the customer or the team wrote or said' });
+      skipped.push({ what, why: unread });
       continue;
     }
+    // A detail it takes off must be in what they wrote or said too (AI3): somebody in an unverified chat asking for a
+    // customer's details to go proves nothing. True, and noted, when it isn't.
+    const unbacked = (onFile: string): boolean => {
+      if (foundInWords(d.field, onFile, options.trustedText)) return false;
+      skipped.push({ what, why: unread });
+      return true;
+    };
+    const keepsMain = 'it never takes off a main email or number, only replaces it with a new one';
     const step = (from: string | null, to: string | null) => {
       details.push({ field: d.field, action: d.action, from, to, reason: d.reason });
       touched.add(d.field);
@@ -372,11 +383,9 @@ export function planContactChanges(
         break;
       }
       case 'email': {
+        // Never emptied: a new one replaces it, and it moves to Previous.
         if (d.action === 'remove') {
-          if (!email) break;
-          step(email, null);
-          patch.email = null;
-          email = null;
+          if (email) skipped.push({ what, why: keepsMain });
           break;
         }
         const next = raw.toLowerCase();
@@ -395,10 +404,7 @@ export function planContactChanges(
       }
       case 'phone': {
         if (d.action === 'remove') {
-          if (!phone) break;
-          step(phone, null);
-          patch.phone = null;
-          phone = null;
+          if (phone) skipped.push({ what, why: keepsMain });
           break;
         }
         const next = normalizePhone(raw);
@@ -423,7 +429,7 @@ export function planContactChanges(
         }
         const has = otherEmails.some((e) => e.email === value);
         if (d.action === 'remove') {
-          if (!has) break;
+          if (!has || unbacked(value)) break;
           otherEmails = otherEmails.filter((e) => e.email !== value);
           emailsChanged = true;
           step(value, null);
@@ -443,7 +449,7 @@ export function planContactChanges(
         }
         const has = otherPhones.some((p) => p.phone === value);
         if (d.action === 'remove') {
-          if (!has) break;
+          if (!has || unbacked(value)) break;
           otherPhones = otherPhones.filter((p) => p.phone !== value);
           phonesChanged = true;
           step(value, null);
@@ -459,7 +465,7 @@ export function planContactChanges(
         const part = ADDRESS_PART[d.field]!;
         const now = current.address[part];
         if (d.action === 'remove') {
-          if (!now) break;
+          if (!now || unbacked(now)) break;
           patch.address = { ...patch.address, [part]: null };
           step(now, null);
           break;

@@ -1,7 +1,8 @@
 /**
  * Viewing the app as a teammate (20261018000100): who may view as whom, that a request in a view reads exactly as
- * the teammate (their role, their permissions, their narrowed inbox) and changes nothing, that a person's own mail
- * stays theirs, and that a view stops holding the moment the viewer may no longer view as them.
+ * the teammate (their role, their permissions, their narrowed inbox) and changes nothing, that a person's own mail,
+ * safety contacts and check-in stay theirs, and that a view stops holding the moment the viewer may no longer view as
+ * them.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
@@ -29,6 +30,7 @@ import {
   personList,
   platformViewAsEnd,
   platformViewAsStart,
+  safetyMine,
   teammateViewCurrent,
   teammateViewEnd,
   teammateViewLens,
@@ -415,6 +417,33 @@ describe('someone’s own mail', () => {
     } finally {
       await run(teammateViewEnd, { viewId: view.id }, owner);
       await run(inboxSetVisibility, { workspaceId: wsId, perPerson: false }, owner);
+    }
+  });
+});
+
+describe('someone’s safety contacts and check-in', () => {
+  it('are theirs, and not anyone’s viewing as them', async () => {
+    await rows(
+      admin$(),
+      sql`insert into app.safety_contacts (workspace_id, user_id, name, phone_e164)
+          values (${wsId}, ${chris.id}, 'Sam', '+15125550177')`,
+    );
+    await rows(
+      admin$(),
+      sql`insert into app.safety_checkins (id, workspace_id, user_id, place, started_at, planned_end_at)
+          values (${randomUUID()}, ${wsId}, ${chris.id}, '41 Elm Street', now(), now() + interval '1 hour')`,
+    );
+    const own = await ask(safetyMine, { workspaceId: wsId }, chris);
+    expect(own.contacts.map((c) => c.name)).toEqual(['Sam']);
+    expect(own.open?.place).toBe('41 Elm Street');
+    const { view } = await run(teammateViewStart, { workspaceId: wsId, userId: chris.id }, owner);
+    try {
+      expect(await ask(safetyMine, { workspaceId: wsId }, owner, view.id)).toEqual({
+        contacts: [],
+        open: null,
+      });
+    } finally {
+      await run(teammateViewEnd, { viewId: view.id }, owner);
     }
   });
 });

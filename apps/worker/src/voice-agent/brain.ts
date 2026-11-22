@@ -133,7 +133,11 @@ export interface PreparedCall {
   /** Someone on the team looks after this customer: it answers questions and connects the rest. */
   readonly personHasIt: boolean;
   readonly account: ProviderAccount;
-  readonly rc: RunContext;
+  /**
+   * What it knows. Read at pickup, and once more if a caller the phone company couldn't vouch for reads back the
+   * code texted to the number on file (AI1): from then on the customer's records are open to it.
+   */
+  rc: RunContext;
   readonly ai: AiEmployeeActor;
   readonly meta: RequestMeta;
   /** What stays true across the call's turns: the times it offered, what it found. */
@@ -214,6 +218,8 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
       from: placed ? ticket.line : ticket.from,
       to: placed ? ticket.from : ticket.line,
       status: 'ringing',
+      // AI1: what the phone company said of the caller's number; the record keeps it whichever webhook came first.
+      ...(placed ? {} : { callerAttestation: ticket.attestation ?? null }),
     },
     systemActor(scope),
     meta,
@@ -331,6 +337,7 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
         teammate,
         config,
         conversationId: conv.id,
+        callId,
         batch: [],
         webUrl: deps.webUrl,
         now: Date.now(),
@@ -388,10 +395,41 @@ function toolsFor(call: PreparedCall): TeammateTool[] {
   const all = teammateTools(call.config, {
     phone: true,
     outbound: call.outbound?.purpose ?? null,
+    // AI1: a caller nobody vouched for gets what an unverified website chat gets, and the code to prove who they are.
+    unverifiedChat: call.rc.unverifiedChat,
+    strangerInChat: call.rc.strangerInChat,
   });
   return call.personHasIt
     ? all.filter((t) => PERSON_HAS_IT_TOOLS.has(t.name as TeammateToolName))
     : all;
+}
+
+/** Said on the turn a caller reads back the right code (AI1). */
+const CALLER_VERIFIED_LINES = [
+  'They just read back the right code, so this call is theirs now: their bookings, bills and quotes are open to you. Answer what they asked before the code.',
+];
+
+/**
+ * The caller read back the code texted to the number on file (AI1): the rest of the call is theirs, like a call the
+ * phone company vouched for. It reads their record, visits and the conversation so far again; the tools and the
+ * lasting context follow from that on the next model call.
+ */
+async function openToCaller(deps: BrainDeps, call: PreparedCall): Promise<void> {
+  const rc = await asWorker(deps.db, call.scope, (tx) =>
+    loadRunContext(tx, {
+      scope: call.scope,
+      teammate: call.teammate,
+      config: call.config,
+      conversationId: call.conversationId,
+      callId: call.callId,
+      batch: [],
+      webUrl: deps.webUrl,
+      now: Date.now(),
+      mapsOn: deps.geocoder.name !== 'off',
+    }),
+  );
+  call.rc = { ...rc, discloseNow: false, firstAiMessage: false };
+  briefs.delete(call);
 }
 
 const transfer = (
@@ -475,6 +513,8 @@ export async function thinkTurn(
     readonly speak?: (sentence: string, ending: boolean) => void;
     /** The turn's stopwatch: when the AI was asked, when it answered, when its first sentence was ready. */
     readonly clock?: TurnClock;
+    /** The turn again, once the caller read back the right code in it (AI1). */
+    readonly verified?: boolean;
   },
 ): Promise<TurnOutcome> {
   const { scope, state } = call;
@@ -530,8 +570,8 @@ export async function thinkTurn(
     moneyLinks: deps.moneyLinks,
     chatCodes: chatCodeSender(deps),
     geocoder: deps.geocoder,
-    // Each turn is its own request, so its calls get their own ids.
-    callPrefix: `t${input.turn}:`,
+    // Each turn is its own request, so its calls get their own ids (and its second pass after a code, its own).
+    callPrefix: `t${input.turn}${input.verified ? 'v' : ''}:`,
     phone: true,
     outboundCall: call.outbound
       ? {
@@ -558,7 +598,10 @@ export async function thinkTurn(
     system: TEAMMATE_SYSTEM,
     // What stays the same all call, ready from the greeting's warm-up; then only this turn's time and knowledge.
     lasting: brief.lasting,
-    context: callTurnContext(rc, brief.faqIds),
+    context: [
+      callTurnContext(rc, brief.faqIds),
+      ...(input.verified ? CALLER_VERIFIED_LINES : []),
+    ].join('\n'),
     maxTokens: PHONE_MAX_TOKENS,
     execute,
     onTurnUsage,
@@ -629,6 +672,13 @@ export async function thinkTurn(
   });
   const stop = failed(loop);
   if (stop) return stop;
+  // AI1: they read back the code texted to the number on file. The turn starts over as theirs, with their records
+  // and the tools to change them, and answers what they asked before the code.
+  if (state.verified && !input.verified) {
+    state.verified = false;
+    await openToCaller(deps, call);
+    return thinkTurn(deps, call, { ...input, verified: true });
+  }
   const ended = endOf(state);
   if (ended?.kind === 'hand_off')
     return transfer(language, ended.reason, `On a call: ${ended.note}`);

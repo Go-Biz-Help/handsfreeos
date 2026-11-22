@@ -408,11 +408,23 @@ describe('teammateTools', () => {
     expect(onCall).not.toContain('no_reply');
   });
 
-  it('on a phone call: no photos and no chat codes (M18 step 5)', () => {
+  it('on a phone call: no photos, and a code only for a caller nobody vouched for (M18 step 5, AI1)', () => {
     const all = applyTeammatePatch(responder, { photos: { enabled: true } });
     const onCall = teammateTools(all, { phone: true }).map((t) => t.name);
     expect(names(all)).toContain('note_photos');
     for (const hidden of ['note_photos', 'send_verification_code', 'check_verification_code'])
       expect(onCall).not.toContain(hidden);
+    // The phone company couldn't confirm the caller's number: the customer's records wait for a code.
+    const unproven = teammateTools(all, {
+      phone: true,
+      unverifiedChat: true,
+      strangerInChat: true,
+    });
+    const offered = unproven.map((t) => t.name);
+    expect(offered).toEqual(
+      expect.arrayContaining(['send_verification_code', 'check_verification_code', 'end_call']),
+    );
+    for (const hidden of [...UNVERIFIED_CHAT_HIDDEN, ...STRANGER_IN_CHAT_HIDDEN, 'no_reply'])
+      expect(offered).not.toContain(hidden);
   });
 });

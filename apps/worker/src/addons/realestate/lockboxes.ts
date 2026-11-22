@@ -93,16 +93,18 @@ export async function lockboxEmail(ctx: AddonEventContext): Promise<void> {
       from_address: string | null;
       subject: string | null;
       body_text: string | null;
+      sender_verified: boolean | null;
       tz: string;
     }>(
       tx,
-      sql`select m.from_address, m.subject, m.body_text, w.timezone as tz
+      sql`select m.from_address, m.subject, m.body_text, m.sender_verified, w.timezone as tz
           from app.messages m join app.workspaces w on w.id = m.workspace_id
           where m.id = ${messageId} and m.workspace_id = ${ctx.scope.workspaceId}
             and m.direction = 'inbound'`,
     ),
   );
-  if (!m) return;
+  // Only when the maker's domain vouched for it: anyone can write SentriLock's address in From (FDE1).
+  if (!m || m.sender_verified === false) return;
   const read = readLockboxEmail(m.from_address, m.subject, m.body_text);
   if (!read) return;
   // The business can turn reading them off (Deal settings → Connections).

@@ -476,6 +476,12 @@ export const EmailReceiveInput = z.object({
   automatic: z.boolean().default(false),
   /** What the mail service's spam filter scored it (Postmark's X-Spam-Score); a stranger's at SPAM_SCORE is spam. */
   spamScore: z.number().min(-1000).max(1000).nullable().optional(),
+  /**
+   * Whether the From domain vouched for it (FDE1: DMARC, or DKIM or SPF for that domain, from the mail service's
+   * checks). False: anyone could have written that From, so it's spam-checked like a stranger's and the AI treats it
+   * like an unverified website chat. Left out (a connected mailbox's mail): nobody checked, and it's filed as before.
+   */
+  senderVerified: z.boolean().nullable().optional(),
   /** Tests and demos shorten the reply reminder. */
   reminderAfterMs: z.number().int().min(1000).max(86_400_000).optional(),
 });

@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import {
   callAttachRecording,
+  callerAttestationOf,
   callRecord,
   callUpdateStatus,
   executeCommand,
@@ -102,7 +103,10 @@ async function forget(
   }
 }
 
-/** A customer called: the call record and its conversation (the ringing itself was answered in TwiML). */
+/**
+ * A customer called: the call record and its conversation (the ringing itself was answered in TwiML), with what the
+ * phone company said of their number (AI1), so a voicemail left from a faked caller ID never counts as theirs.
+ */
 export const onInboundCall: DeliveryProcessor = async (ctx) => {
   const scope = tenant(ctx);
   const p = paramsOf(ctx);
@@ -118,6 +122,7 @@ export const onInboundCall: DeliveryProcessor = async (ctx) => {
       to: p.To,
       status: 'ringing',
       startedAt: ctx.delivery.receivedAt.toISOString(),
+      callerAttestation: callerAttestationOf(p.StirVerstat),
     },
     systemActor(scope),
     workerMeta(),

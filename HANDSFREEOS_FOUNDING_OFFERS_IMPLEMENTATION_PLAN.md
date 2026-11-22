@@ -99,8 +99,14 @@ Migration `20261027012700`.
   in stay on `/admin/founding`, and the worker's signed-out apply route still answers, though nothing sends to it.
 - **A second business** made in the same account is not asked to pay yet; the pricing page says each business needs
   a spot of its own.
-- **The apps hold the gate, not the API.** An unpaid business's commands aren't refused; the web and phone apps just
-  don't open it.
+- ~~**The apps hold the gate, not the API.** An unpaid business's commands aren't refused; the web and phone apps just
+  don't open it.~~ **Reversed by the owner on 2026-11-22:** "A business with no plan or trial can't text, email,
+  call, buy numbers or use AI, even through the API. Max 3 new businesses per person a day." The web and phone still
+  send an unpaid business to the plan page; on top of that the server refuses its texts, emails, calls, numbers and
+  AI with the rule `needs_plan` (`packages/core/src/money/plan-gate.ts`, read by the wallet gate), and
+  `organization.create` and `workspace.create` refuse a person's fourth new business in 24 hours
+  (`too_many_new_businesses`, `20261027033100`). Staff aren't counted, and one person can be allowed more
+  (`private.new_business_allowances`).
 
 ### 1.4 Billing: cards, retries, the failed-payment page and more time (decided 2026-11-08)
 

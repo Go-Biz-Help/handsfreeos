@@ -8,6 +8,7 @@
 import { milesBetween, type GeoPoint } from '@hfos/core/server';
 import type { Logger } from 'pino';
 import type { WorkerEnv } from '../env';
+import { spendLookup } from './budget';
 
 export interface DriveTimer {
   readonly name: 'google' | 'rough';
@@ -15,7 +16,8 @@ export interface DriveTimer {
   minutes(from: GeoPoint, to: GeoPoint): Promise<number | null>;
   /**
    * Minutes of driving from one place to each of many (decision 179, drive times between visits), in their order,
-   * without traffic: the visits are days away. A place Google has no road to gets the rough guess.
+   * without traffic: the visits are days away. A place Google has no road to gets the rough guess. Throws
+   * `LookupsPaused` when a booking page's daily budget is spent (geo/budget.ts).
    */
   many(from: GeoPoint, to: readonly GeoPoint[]): Promise<number[]>;
 }
@@ -81,6 +83,8 @@ export function createGoogleDriveTimer(opts: {
       const out: number[] = [];
       for (let i = 0; i < to.length; i += MATRIX_CHUNK) {
         const chunk = to.slice(i, i + MATRIX_CHUNK);
+        // Before the try: a spent budget throws, so the caller doesn't keep a rough guess (geo/budget.ts).
+        spendLookup();
         try {
           const got = await matrix(from, chunk);
           chunk.forEach((p, j) => out.push(got[j] ?? roughMinutes(from, p)));

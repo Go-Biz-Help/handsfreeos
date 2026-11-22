@@ -14,12 +14,7 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { plans, products } from '@hfos/db/schema';
-import {
-  chatIdentityUnverified,
-  chatVerified,
-  notHandledByAi,
-  outsideItsConversation,
-} from '../ai-team/reach';
+import { notHandledByAi, outsideItsConversation, refuseUnverifiedSender } from '../ai-team/reach';
 import type { TeammateConfig } from '../ai-team/config';
 import { loadTeammate, teammateConfigOf } from '../ai-team/load';
 import { HfosError } from '../errors';
@@ -94,7 +89,7 @@ async function approvedFor(ctx: CommandContext): Promise<Approved> {
   if (!ai.conversationId) throw outsideItsConversation();
   const conv = await loadConversation(ctx, ai.conversationId);
   if (conv.handledBy !== 'ai' || conv.aiTeammateId !== ai.teammateId) throw notHandledByAi();
-  if (!(await chatVerified(ctx.tx, conv))) throw chatIdentityUnverified();
+  await refuseUnverifiedSender(ctx.tx, ai, conv);
   if (!conv.personId) throw outsideItsConversation();
   const row = await loadTeammate(ctx.tx, ws, { teammateId: ai.teammateId });
   if (!row) throw outsideItsConversation();

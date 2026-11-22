@@ -15,6 +15,8 @@ export const organizationCreate = defineCommand({
   scope: () => ({ kind: 'none' }),
   emits: ['organization.created', 'workspace.created', 'platform.affiliate_business_credited'],
   async handler(ctx, input) {
+    // At most three new businesses a person a day (20261027033100): a fourth is refused with when to try again.
+    await ctx.tx.execute(sql`select private.check_new_business_room()`);
     const orgName = input.organizationName ?? input.businessName;
     const suffix = randomUUID().slice(0, 6);
     const orgSlug = `${slugify(orgName)}-${suffix}`;

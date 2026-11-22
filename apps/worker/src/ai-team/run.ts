@@ -596,6 +596,7 @@ function toolsFor(run: StartedRun, rc: RunContext): TeammateTool[] {
   const all = teammateTools(rc.config, {
     unverifiedChat: rc.unverifiedChat,
     strangerInChat: rc.strangerInChat,
+    unverifiedEmail: !!rc.unverifiedEmail,
     texting: rc.conversation.channel === 'sms',
     funnel: !!rc.funnel?.replyMoves.length,
     suggestFunnels: !rc.funnel && !!rc.suggestible?.length,
@@ -704,7 +705,9 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
   if (!money.allowed)
     return end({
       reason: 'wallet',
-      note: 'The balance ran out, so the AI paused. Top up and it starts answering again.',
+      note: money.needsPlan
+        ? 'This business has no plan yet, so the AI paused. It starts answering once a founding spot is picked.'
+        : 'The balance ran out, so the AI paused. Top up and it starts answering again.',
     });
 
   const state = newRunState();

@@ -72,6 +72,14 @@ const providerRefused = (): HfosError =>
     'The payment couldn’t go through just now. Try again in a minute.',
   );
 
+/** Phase two named a payment this deposit never started: made up, or another booking's. Nothing is read back. */
+export const paymentNotStarted = (): HfosError =>
+  HfosError.rule(
+    'payment_not_started',
+    409,
+    'We couldn’t find that payment for this booking. Start the payment again from this page.',
+  );
+
 /** The time went while they were paying. Nothing was taken; the page offers other times. */
 export const holdLost = (): HfosError =>
   HfosError.rule(
@@ -492,6 +500,78 @@ export async function undoOnLostSlot(
     }),
   );
   return { voided: false, refunded: true };
+}
+
+/**
+ * Whether the provider's answer is the deposit in hand: a card held, or money taken or on its way, for the whole
+ * amount, on the payment this deposit started. `unpaid` is an intent nobody confirmed, an order nobody approved
+ * or a card check left half-done, so nothing has moved. `mismatch` is money on another payment, or too little of
+ * it. Either way the time is not confirmed.
+ */
+export function depositShortfall(
+  ctx: DepositPayContext,
+  startedId: string | null,
+  result: PaymentResult,
+): 'unpaid' | 'mismatch' | null {
+  if (result.status !== 'processing' && result.status !== 'succeeded') return 'unpaid';
+  // PayPal answers with the hold or capture it made from the order, which has an id of its own.
+  const same =
+    !startedId ||
+    ctx.account.session.provider === 'paypal' ||
+    result.providerPaymentId === startedId;
+  return same && result.amountCents >= ctx.amountCents ? null : 'mismatch';
+}
+
+/** Money that doesn't match this booking's deposit confirms nothing; the customer starts the payment again. */
+export const depositMismatch = (): HfosError =>
+  HfosError.rule(
+    'deposit_not_paid',
+    409,
+    'That payment doesn’t match this booking’s deposit, so this time isn’t booked yet. Start the payment again from this page.',
+  );
+
+/**
+ * A payment that can't stand for this deposit. A held card is let go, so it isn't held for a booking that isn't
+ * happening. Money already taken is left to the ledger, which the provider's own word fills in, and flagged:
+ * only a person can tell what it was for.
+ */
+export async function letGoOfMismatch(
+  deps: HttpDeps,
+  scope: TenantScope,
+  ctx: DepositPayContext,
+  result: PaymentResult,
+): Promise<void> {
+  const where = {
+    workspaceId: scope.workspaceId,
+    invoiceId: ctx.invoiceId,
+    amountCents: result.amountCents,
+    wantedCents: ctx.amountCents,
+  };
+  if (!result.capturable) {
+    deps.log.error(where, 'a deposit was taken that doesn’t match its booking');
+    return;
+  }
+  const provider = deps.payments.providers[ctx.account.session.provider]!;
+  try {
+    const let_go = await provider.voidAuthorization(
+      accountFor(deps.sealer, ctx.account.connection),
+      {
+        providerPaymentId: result.providerPaymentId,
+        idempotencyKey: `void:${ctx.idempotencyKey}`.slice(0, 64),
+      },
+    );
+    await recordDepositPayment(deps, scope, ctx, {
+      status: 'failed',
+      providerPaymentId: result.providerPaymentId,
+      providerStatus: let_go.providerStatus,
+      failureCode: 'amount_mismatch',
+    });
+  } catch (e) {
+    deps.log.error(
+      { ...where, err: String(e) },
+      'a held card that doesn’t match its deposit could not be let go',
+    );
+  }
 }
 
 /** Confirms the held time and, only once that has stood, captures the card. */

@@ -8,6 +8,7 @@ import { geocodeKey } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import type { WorkerEnv } from '../env';
+import { spendLookup } from './budget';
 
 export interface Place {
   readonly lat: number;
@@ -18,7 +19,10 @@ export interface Place {
 
 export interface Geocoder {
   readonly name: 'google' | 'fake' | 'off';
-  /** Null when there is no such place (or it can't look anything up). Throws on an outage, so a job retries. */
+  /**
+   * Null when there is no such place (or it can't look anything up). Throws on an outage, so a job retries, and
+   * `LookupsPaused` when a booking page's daily budget is spent (geo/budget.ts).
+   */
   geocode(address: string): Promise<Place | null>;
 }
 
@@ -36,20 +40,60 @@ interface GoogleAnswer {
   }[];
 }
 
+/** How long an address found nowhere is remembered, and how many are, on each machine. */
+const MISS_KEPT_MS = 86_400_000;
+const MISSES_KEPT = 10_000;
+
+/**
+ * Addresses a map found nowhere lately, so the same bad address (a customer's typo, or a visit's) isn't paid for
+ * again and again. Only a sure "nowhere" is remembered, never a refusal or an outage. Kept in memory for a day.
+ */
+function rememberedMisses(now: () => number) {
+  const until = new Map<string, number>();
+  const keyOf = (address: string) => address.trim().replace(/\s+/g, ' ').toLowerCase();
+  return {
+    has(address: string): boolean {
+      const key = keyOf(address);
+      const t = until.get(key);
+      if (t === undefined) return false;
+      if (t > now()) return true;
+      until.delete(key);
+      return false;
+    },
+    add(address: string): void {
+      const key = keyOf(address);
+      until.delete(key);
+      if (until.size >= MISSES_KEPT) until.delete(until.keys().next().value!);
+      until.set(key, now() + MISS_KEPT_MS);
+    },
+  };
+}
+
+/**
+ * Google's Geocoding API. An address it finds nothing for is remembered for a day, and a lookup a booking page's
+ * daily budget doesn't allow is never asked (geo/budget.ts).
+ */
 export function createGoogleGeocoder(opts: {
   apiKey: string;
   log: Logger;
   fetch?: typeof fetch;
+  now?: () => number;
 }): Geocoder {
   const get = opts.fetch ?? fetch;
+  const misses = rememberedMisses(opts.now ?? Date.now);
   return {
     name: 'google',
     async geocode(address) {
+      if (misses.has(address)) return null;
+      spendLookup();
       const url = `${GOOGLE}?${new URLSearchParams({ address, region: 'us', key: opts.apiKey })}`;
       const res = await get(url, { signal: AbortSignal.timeout(8000) });
       if (!res.ok) throw new Error(`Geocoding answered ${res.status}`);
       const body = (await res.json()) as GoogleAnswer;
-      if (body.status === 'ZERO_RESULTS') return null;
+      if (body.status === 'ZERO_RESULTS') {
+        misses.add(address);
+        return null;
+      }
       if (body.status !== 'OK') {
         // A key without the Geocoding API, or over its quota: say so, and treat the address as not found.
         opts.log.warn({ status: body.status, err: body.error_message }, 'geocoding refused');
@@ -58,7 +102,10 @@ export function createGoogleGeocoder(opts: {
       }
       const top = body.results?.[0];
       const at = top?.geometry?.location;
-      if (!at) return null;
+      if (!at) {
+        misses.add(address);
+        return null;
+      }
       const zip = top.address_components?.find((c) => c.types.includes('postal_code'))?.short_name;
       return { lat: at.lat, lng: at.lng, postalCode: zip && /^\d{5}$/.test(zip) ? zip : null };
     },
@@ -67,16 +114,23 @@ export function createGoogleGeocoder(opts: {
 
 /**
  * The stand-in. An address that ends with "@lat,lng" is there; one with "nowhere" in it isn't anywhere; any
- * other lands in downtown Dallas. A 5-digit number in it is its ZIP.
+ * other lands in downtown Dallas. A 5-digit number in it is its ZIP. Like Google's, it remembers an address that
+ * isn't anywhere and counts against a booking page's budget, so both can be tested without a key.
  */
 export function createFakeGeocoder(): Geocoder & { readonly asked: string[] } {
   const asked: string[] = [];
+  const misses = rememberedMisses(Date.now);
   return {
     name: 'fake',
     asked,
     async geocode(address) {
+      if (misses.has(address)) return null;
+      spendLookup();
       asked.push(address);
-      if (/nowhere/i.test(address)) return null;
+      if (/nowhere/i.test(address)) {
+        misses.add(address);
+        return null;
+      }
       const at = /@\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/.exec(address);
       const zip = /\b(\d{5})\b/.exec(address.replace(/@.*$/, ''))?.[1] ?? null;
       return at

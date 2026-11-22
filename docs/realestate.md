@@ -200,7 +200,8 @@ The owner's decisions (Chris, 2026-09-30) are settled; ask before going against 
   (else their address, else the team inbox). Every draft's words are checked for fair-housing risk by a fixed list
   and by the AI; it goes only once each flag is fixed or kept with a reason, and every check is kept.
 - **Support can't see private deals** unless the deal's agent or an admin lets them in, for 24 hours or less,
-  covering every deal the person letting them in can see. The founder sees all.
+  covering every deal the person letting them in can see, viewing the app as someone included. The founder sees
+  all.
 - **Commission's final amount** is set by owners and admins.
 
 Round two (Chris, 2026-09-30):
@@ -298,16 +299,18 @@ Round five (Chris, 2026-10-02):
 - **Showings: our own page and ShowingTime's emails.** A buyer's agent picks one of the seller's open times on the
   listing's page; the seller says yes, no or another time in their portal (or the listing confirms on its own), and
   the agent can answer for them. The access instructions go to that agent alone, an hour before by default, and a
-  feedback link an hour after. ShowingTime's emails are read into the same showings and feedback, each marked to be
-  checked. Feedback reaches the seller only when the agent shares it; the AI groups buyers' words into themes with
-  their own quotes only, and the counts join the price review.
+  feedback link an hour after. ShowingTime's emails (from its own domain, when that domain vouched for the email)
+  are read into the same showings and feedback, each marked to be checked. Feedback reaches the seller only when the
+  agent shares it; the AI groups buyers' words into themes with their own quotes only, and the counts join the price
+  review.
 - **Lockboxes: read their emails, guard codes** (round seven, Chris 2026-10-05). A listing's lockboxes have a kind,
   where they are, a serial and a code. The code is sealed by the worker before the command sees it (core's sealed
   values), kept in `code_enc`, which no person's role can read, and goes only into the access email to the confirmed
   agent, as a sealed part the worker puts in as it sends: the stored email, the Inbox, phones and exports keep
   "[Lockbox code, kept locked]". Show code is the worker's, for someone on the listing, and goes in the deal's
   history. SentriLock's and Supra's "opened" emails (`lockbox-emails.ts`, by their labels or their one-line sentence;
-  check one real email from each before relying on them) are read into the listing by serial, then address, behind
+  check one real email from each before relying on them; only from the maker's own domain, when that domain vouched
+  for the email, never by its subject alone) are read into the listing by serial, then address, behind
   Deal settings → Connections; one that fits a booked showing joins it, and one that doesn't alerts the listing's
   agents. Notices the Inbox files under Other are read too, ShowingTime's included.
 - **The AI teammate: answer from their deal, ask before acting** (round seven, Chris 2026-10-05). Once an owner turns

@@ -253,6 +253,13 @@ export const emailReceive = defineCommand({
       : input.from;
     // Our own mail coming back around is not a customer writing.
     if (inbound && ours.has(sender.address)) return { outcome: 'skipped' as const, ...none };
+    // FDE1: the sender check vouches for From's domain only. A visitor taken from Reply-To is whoever filled in the
+    // form, and anyone can type a customer's address there, so it proves nothing about them.
+    const senderVerified = !inbound
+      ? null
+      : sender.address === input.from.address
+        ? (input.senderVerified ?? null)
+        : false;
 
     // Who the conversation is with: the sender, or, for mail the mailbox sent, the first customer on it.
     let counterpart: string | null = inbound ? sender.address : null;
@@ -380,6 +387,9 @@ export const emailReceive = defineCommand({
       // Mail a person claimed for a customer is theirs, whatever a rule says.
       const rule = input.personId ? null : await senderRule(ctx.tx, workspaceId, counterpart);
       if (rule) folder = rule;
+      // Anyone can write a customer's address in From (FDE1): mail its domain didn't vouch for gets the spam check a
+      // stranger's mail does before it can be theirs.
+      else if (senderVerified === false && (input.spamScore ?? 0) >= SPAM_SCORE) folder = 'spam';
       else if (matched || (await hasInboxThread(ctx.tx, workspaceId, counterpart))) {
         if (input.automatic) return { outcome: 'skipped' as const, ...none };
         folder = 'inbox';
@@ -534,6 +544,7 @@ export const emailReceive = defineCommand({
       occurredAt: at,
       sentAt: inbound ? null : at,
       activityId,
+      senderVerified,
     });
     // New mail counts as unread and brings a closed thread back, in any folder; only the Inbox waits on a reply.
     const wake = inbound && fresh;

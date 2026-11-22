@@ -12,7 +12,7 @@ import type { FastifyInstance } from 'fastify';
 import WebSocket from 'ws';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { parseTeammateConfig } from '@hfos/core/server';
-import { scriptedAi } from '../src/ai/scripted';
+import { say, scriptedAi, toolCall } from '../src/ai/scripted';
 import { createSealer } from '../src/crypto';
 import { buildHttpServer } from '../src/http/server';
 import { FAKE_AUTH_TOKEN, fakeSid, type FakeTelephony } from '../src/telephony/fake';
@@ -28,12 +28,14 @@ import { TEST_PUBLIC_URL } from './helpers';
 import {
   admin,
   appointmentsOf,
+  briefOf,
   newCustomer,
   nextPhone,
   saveTeammate,
   setStatus,
   teammateRequests,
   teammateWorld,
+  textIn,
   useModel,
   type TeammateWorld,
 } from './ai-team-world';
@@ -81,6 +83,29 @@ beforeAll(async () => {
             step: () => ({
               calls: [{ name: 'end_call', arguments: { message: 'Thanks for calling. Bye now!' } }],
             }),
+          },
+          {
+            // A caller asking after their visits: one the phone company didn't vouch for gets a code first (AI1).
+            when: /\bmy visits\b/i,
+            step: (t) => {
+              if (t.tools.has('send_verification_code'))
+                return t.results['send_verification_code']
+                  ? say('I texted a code to the number on file. Read it out to me.')
+                  : toolCall('send_verification_code');
+              if (!t.results['my_appointments']) return toolCall('my_appointments');
+              return say('You have nothing booked yet.');
+            },
+          },
+          {
+            when: /\bcode is \d{6}\b/i,
+            step: (t) => {
+              if (t.tools.has('check_verification_code'))
+                return t.results['check_verification_code']
+                  ? say('That code didn’t match. Check it and read it again.')
+                  : toolCall('check_verification_code', { code: /\d{6}/.exec(t.words)![0] });
+              if (!t.results['my_appointments']) return toolCall('my_appointments');
+              return say('Thanks, that’s you. You have nothing booked yet.');
+            },
           },
           {
             when: /\bopen on saturdays?\b/i,
@@ -244,9 +269,17 @@ async function dial(callSid: string, ticket: string, opts: { readonly play?: boo
   };
 }
 
-/** An inbound call to the business number; the TwiML Twilio got back. */
-async function callIn(from = nextPhone(), callSid = fakeSid('CA')) {
-  const res = await post(`${V}/inbound`, { CallSid: callSid, From: from, To: w.number! });
+/**
+ * An inbound call to the business number; the TwiML Twilio got back. `stir` is the phone company's word on the
+ * caller's number (StirVerstat), when Twilio passes one on.
+ */
+async function callIn(from = nextPhone(), callSid = fakeSid('CA'), stir?: string) {
+  const res = await post(`${V}/inbound`, {
+    CallSid: callSid,
+    From: from,
+    To: w.number!,
+    ...(stir ? { StirVerstat: stir } : {}),
+  });
   expect(res.statusCode).toBe(200);
   return { xml: res.body, callSid, from };
 }
@@ -765,6 +798,120 @@ describe('what it reads when it picks up', () => {
     expect(teammateRequests(w).at(-1)!.lasting).not.toContain('Some open times');
     call.hangUp();
     await waitForRun(callSid, 'done');
+  });
+});
+
+describe('a caller the phone company didn’t vouch for (AI1)', () => {
+  const toolsOf = (r: AiRequest) => (r.tools ?? []).map((t) => t.name);
+  /** The call's first turn, after "Are you open on Saturday?": the request the model got, and the call's row. */
+  async function firstTurn(from: string, stir?: string) {
+    const { xml, callSid } = await callIn(from, fakeSid('CA'), stir);
+    const since = teammateRequests(w).length;
+    const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+    await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+    const before = call.said.length;
+    call.speak('Are you open on Saturday?');
+    await waitFor('the answer', () => call.said.slice(before).join(' ').includes('open at nine'));
+    const asked = teammateRequests(w).slice(since).at(-1)!;
+    call.hangUp();
+    await waitForRun(callSid, 'done');
+    const [row] = await rows<{ caller_attestation: string | null }>(
+      admin(),
+      sql`select caller_attestation from app.calls where provider_sid = ${callSid}`,
+    );
+    return { asked, attestation: row!.caller_attestation };
+  }
+
+  it('answers without the customer’s records or history, and a call the phone company vouched for as before', async () => {
+    const nia = await newCustomer(w, 'Nia');
+    await textIn(w, nia.phone, 'Our gate code is 4321');
+    // No word from the phone company, or only that the number is probably theirs (B): neither proves it's Nia.
+    for (const stir of [undefined, 'TN-Validation-Passed-B']) {
+      const { asked, attestation } = await firstTurn(nia.phone, stir);
+      expect(attestation).toBe(stir ?? null);
+      const tools = toolsOf(asked);
+      for (const hidden of [
+        'my_appointments',
+        'my_bills',
+        'my_quotes',
+        'job_status',
+        'read_call_transcript',
+        'reschedule',
+        'cancel',
+        'update_customer',
+        'add_note',
+        'create_task',
+      ])
+        expect(tools).not.toContain(hidden);
+      expect(tools).toEqual(
+        expect.arrayContaining(['send_verification_code', 'check_verification_code', 'book']),
+      );
+      const everything = JSON.stringify(asked);
+      expect(everything).not.toContain('gate code is 4321');
+      expect(everything).not.toContain('Nia Customer');
+      expect(briefOf(asked)).toContain('The phone company couldn’t confirm the number');
+    }
+    // A: the phone company vouches the number is the caller's, so the call is Nia's from the start.
+    const { asked, attestation } = await firstTurn(nia.phone, 'TN-Validation-Passed-A');
+    expect(attestation).toBe('TN-Validation-Passed-A');
+    const tools = toolsOf(asked);
+    expect(tools).toEqual(expect.arrayContaining(['my_appointments', 'reschedule', 'cancel']));
+    expect(tools).not.toContain('send_verification_code');
+    expect(JSON.stringify(asked)).toContain('gate code is 4321');
+    expect(briefOf(asked)).toContain('Nia Customer');
+  });
+
+  it('texts a code to the number on file, and the right one read back opens their records for the rest of the call', async () => {
+    const ola = await newCustomer(w, 'Ola');
+    const { xml, callSid } = await callIn(ola.phone);
+    const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+    await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+    const heard = (before: number, words: string) =>
+      waitFor(words, () => call.said.slice(before).join(' ').includes(words));
+    const texted = () => telephony().sent.filter((m) => m.to === ola.phone);
+
+    let before = call.said.length;
+    call.speak('When are my visits?');
+    await heard(before, 'I texted a code to the number on file.');
+    expect(texted()).toHaveLength(1);
+    expect(texted()[0]!.body).toContain('your call with us');
+    const code = /\b(\d{6})\b/.exec(texted()[0]!.body)![1]!;
+    const [sent] = await rows<{ result: unknown }>(
+      admin(),
+      sql`select t.result from app.ai_teammate_tool_calls t join app.ai_teammate_runs r on r.id = t.run_id
+          join app.calls c on c.id = r.call_id
+          where c.provider_sid = ${callSid} and t.tool = 'send_verification_code'`,
+    );
+    expect(JSON.stringify(sent)).not.toContain(code);
+
+    // A wrong code opens nothing.
+    const wrong = code === '000000' ? '111111' : '000000';
+    before = call.said.length;
+    call.speak(`My code is ${wrong}`);
+    await heard(before, 'That code didn’t match.');
+    expect(toolsOf(teammateRequests(w).at(-1)!)).not.toContain('my_appointments');
+
+    // The right one: the call is Ola's from here on.
+    before = call.said.length;
+    call.speak(`OK, my code is ${code}`);
+    await heard(before, 'Thanks, that’s you.');
+    const opened = teammateRequests(w).at(-1)!;
+    expect(toolsOf(opened)).toContain('my_appointments');
+    expect(toolsOf(opened)).not.toContain('check_verification_code');
+    expect(briefOf(opened)).toContain('Ola Customer');
+    expect(briefOf(opened)).toContain('They just read back the right code');
+    before = call.said.length;
+    call.speak('And when are my visits again?');
+    await heard(before, 'You have nothing booked yet.');
+    expect(toolsOf(teammateRequests(w).at(-1)!)).toContain('reschedule');
+    expect(texted()).toHaveLength(1);
+    call.hangUp();
+    await waitForRun(callSid, 'done');
+    const [row] = await rows<{ caller_verified_at: string | null }>(
+      admin(),
+      sql`select caller_verified_at from app.calls where provider_sid = ${callSid}`,
+    );
+    expect(row!.caller_verified_at).not.toBeNull();
   });
 });
 

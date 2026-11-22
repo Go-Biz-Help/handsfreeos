@@ -2,11 +2,12 @@
  * Server-side: keeps the AI teammate to the customer it's talking to. The worker fills in every person, lead
  * and conversation id from the run (no tool takes one), and these checks make sure nothing else gets through.
  */
-import { and, eq, gt, gte, isNull, ne, or } from 'drizzle-orm';
-import type { Tx } from '@hfos/db/client';
+import { and, eq, gt, gte, isNull, ne, or, sql } from 'drizzle-orm';
+import { rows, type Tx } from '@hfos/db/client';
 import {
   aiTeammateRuns,
   bookingSites,
+  calls,
   chatVisitors,
   conversations,
   leads,
@@ -14,10 +15,11 @@ import {
 } from '@hfos/db/schema';
 import { calendarCharge } from '../calendar/deposit-load';
 import { CHAT_PERSON_SOURCE } from '../chat/limits';
-import { loadCalendar } from '../calendar/load';
+import { loadCalendar, uuidArray } from '../calendar/load';
 import { HfosError } from '../errors';
 import { aiEmployeeOf } from '../kernel/actor';
 import type { AiEmployeeActor, CommandContext, QueryContext } from '../kernel/types';
+import { callerProven, type CallerFacts } from '../messaging/caller';
 import { loadConversation } from '../messaging/store';
 import { money } from '../money/format';
 import type { TeammateConfig } from './config';
@@ -50,6 +52,141 @@ export const chatIdentityUnverified = (): HfosError =>
     'chat_identity_unverified',
   );
 
+/**
+ * An email whose sender's domain didn't vouch for it (FDE1: `messages.sender_verified` false). Anyone can write a
+ * customer's address in From, so while it answers one the AI teammate changes nothing of theirs, as in a website chat
+ * whose visitor hasn't proved who they are. New bookings are fine: their confirmation goes to the contact on file.
+ */
+export const emailSenderUnverified = (): HfosError =>
+  HfosError.forbidden(
+    'This email’s sender couldn’t be verified, so the AI teammate can’t change the customer’s details, bookings or deals because of it. Someone on the team can.',
+    'email_sender_unverified',
+  );
+
+/** The messages the AI teammate's run answers (its batch); none for a run that answers nothing. */
+async function answeredBy(tx: Tx, ai: AiEmployeeActor): Promise<string[]> {
+  if (!ai.runId) return [];
+  const [r] = await tx
+    .select({ ids: aiTeammateRuns.messageIds })
+    .from(aiTeammateRuns)
+    .where(and(eq(aiTeammateRuns.id, ai.runId), eq(aiTeammateRuns.teammateId, ai.teammateId)));
+  return r?.ids ?? [];
+}
+
+/** When the first of these messages that is an email its sender's domain didn't vouch for was filed; null for none. */
+async function firstUnverifiedEmail(tx: Tx, messageIds: readonly string[]): Promise<Date | null> {
+  if (!messageIds.length) return null;
+  const [r] = await rows<{ first: Date | string | null }>(
+    tx,
+    sql`select min(created_at) as first from app.messages
+        where id = any(${uuidArray(messageIds)}) and channel = 'email' and sender_verified is false`,
+  );
+  return r?.first ? new Date(r.first) : null;
+}
+
+/** Whether any of these messages (a run's batch) is an email whose sender's domain didn't vouch for it. */
+export async function answersUnverifiedEmail(
+  tx: Tx,
+  messageIds: readonly string[],
+): Promise<boolean> {
+  return (await firstUnverifiedEmail(tx, messageIds)) !== null;
+}
+
+/**
+ * Whether lead intake made this customer out of the unverified email being answered: they were added as it was
+ * filed, so nothing of theirs was anybody else's before it, like a customer a website chat added itself. A customer
+ * who was here before is someone else's until they write from a sender that's verified.
+ */
+export async function unverifiedEmailAddedCustomer(
+  tx: Tx,
+  messageIds: readonly string[],
+  personId: string,
+): Promise<boolean> {
+  const first = await firstUnverifiedEmail(tx, messageIds);
+  if (!first) return false;
+  const [p] = await tx
+    .select({ id: people.id })
+    .from(people)
+    .where(and(eq(people.id, personId), gte(people.createdAt, first)));
+  return !!p;
+}
+
+/**
+ * A call whose caller isn't proven to be the one whose number it is (AI1: messaging/caller.ts). Anyone can fake a
+ * caller ID, so until the caller reads back a code sent to the contact on file the AI teammate changes nothing of
+ * the customer's, as in a website chat whose visitor hasn't proved who they are. New bookings are fine: their
+ * confirmation goes to the contact on file.
+ */
+export const callerUnverified = (): HfosError =>
+  HfosError.forbidden(
+    'The phone company couldn’t confirm this caller’s number, so the AI teammate can’t change the customer’s details, bookings or deals on this call until they read back a code texted to the number on file. Someone on the team can.',
+    'caller_unverified',
+  );
+
+/** A live call an AI teammate's run is on, as `callerProven` and `unprovenCallAddedCustomer` read it. */
+export type RunCall = CallerFacts & { readonly id: string; readonly startedAt: Date };
+
+/** The call the AI teammate's run answers or placed; null for a run on a written conversation. */
+export async function callOfRun(tx: Tx, ai: AiEmployeeActor): Promise<RunCall | null> {
+  if (!ai.runId) return null;
+  const [c] = await tx
+    .select({
+      id: calls.id,
+      direction: calls.direction,
+      callerAttestation: calls.callerAttestation,
+      callerVerifiedAt: calls.callerVerifiedAt,
+      startedAt: calls.startedAt,
+    })
+    .from(aiTeammateRuns)
+    .innerJoin(calls, eq(calls.id, aiTeammateRuns.callId))
+    .where(
+      and(
+        eq(aiTeammateRuns.id, ai.runId),
+        eq(aiTeammateRuns.teammateId, ai.teammateId),
+        eq(calls.workspaceId, ai.workspaceId),
+      ),
+    );
+  return c ?? null;
+}
+
+/** The run's call when its caller isn't proven; null when it's proven, or the run isn't on a call. */
+async function unprovenCallOf(tx: Tx, ai: AiEmployeeActor): Promise<RunCall | null> {
+  const c = await callOfRun(tx, ai);
+  return c && !callerProven(c) ? c : null;
+}
+
+/**
+ * Whether this customer was added once the unproven call began (lead intake, or the teammate booking a new caller):
+ * nothing of theirs was anybody else's before it, like a customer a website chat added itself. Someone who was here
+ * before the call is someone else's until the caller proves who they are.
+ */
+export async function unprovenCallAddedCustomer(
+  tx: Tx,
+  call: Pick<RunCall, 'startedAt'>,
+  personId: string,
+): Promise<boolean> {
+  const [p] = await tx
+    .select({ id: people.id })
+    .from(people)
+    .where(and(eq(people.id, personId), gte(people.createdAt, call.startedAt)));
+  return !!p;
+}
+
+/**
+ * For the AI teammate: refuses when the customer it answers hasn't proved who they are, whether by an email whose
+ * sender's domain didn't vouch for it, on a call whose number nobody vouched for (AI1), or in a website chat without
+ * a code (M18).
+ */
+export async function refuseUnverifiedSender(
+  tx: Tx,
+  ai: AiEmployeeActor,
+  conv: { readonly id: string; readonly channel: string; readonly personId: string | null },
+): Promise<void> {
+  if (await answersUnverifiedEmail(tx, await answeredBy(tx, ai))) throw emailSenderUnverified();
+  if (await unprovenCallOf(tx, ai)) throw callerUnverified();
+  if (!(await chatVerified(tx, conv))) throw chatIdentityUnverified();
+}
+
 /** How long a chat visitor who typed back their code counts as the customer (M18). */
 export const CHAT_VERIFIED_HOURS = 12;
 
@@ -79,11 +216,15 @@ export async function chatVerified(
 
 /**
  * For the AI teammate only (anyone else passes): refuses when the conversation it's answering is a chat whose
- * visitor hasn't proved they're the customer (M18: a verified chat passes).
+ * visitor hasn't proved they're the customer (M18: a verified chat passes), it's answering an email whose sender's
+ * domain didn't vouch for it, or it's on a call whose caller isn't proven (AI1).
  */
 export async function refuseInChat(ctx: CommandContext): Promise<void> {
   const ai = aiEmployeeOf(ctx.actor);
   if (!ai?.conversationId) return;
+  if (await answersUnverifiedEmail(ctx.tx, await answeredBy(ctx.tx, ai)))
+    throw emailSenderUnverified();
+  if (await unprovenCallOf(ctx.tx, ai)) throw callerUnverified();
   const [c] = await ctx.tx
     .select({
       id: conversations.id,
@@ -108,6 +249,20 @@ export async function refuseCustomersLeadInChat(
 ): Promise<void> {
   const ai = aiEmployeeOf(ctx.actor);
   if (!ai?.conversationId) return;
+  // The same for an email whose sender's domain didn't vouch for it: only a customer that email itself added.
+  const answered = await answeredBy(ctx.tx, ai);
+  if (await answersUnverifiedEmail(ctx.tx, answered)) {
+    if (!lead.personId || !(await unverifiedEmailAddedCustomer(ctx.tx, answered, lead.personId)))
+      throw emailSenderUnverified();
+    return;
+  }
+  // And on a call whose caller isn't proven (AI1): only a customer added since the call began.
+  const call = await unprovenCallOf(ctx.tx, ai);
+  if (call) {
+    if (!lead.personId || !(await unprovenCallAddedCustomer(ctx.tx, call, lead.personId)))
+      throw callerUnverified();
+    return;
+  }
   const [c] = await ctx.tx
     .select({
       id: conversations.id,

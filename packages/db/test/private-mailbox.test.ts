@@ -81,21 +81,24 @@ beforeAll(async () => {
 });
 afterAll(closeAll);
 
-/** Mail to Chris's address, filed by the worker: his own thread, one message, one attachment. */
-async function chrisMail(): Promise<{ conversation: string; message: string; file: string }> {
+/** Mail to someone's own address, filed by the worker: their own thread, one message, one attachment. */
+async function ownMail(
+  address: string,
+  to: TestUser,
+): Promise<{ conversation: string; message: string; file: string }> {
   const counterpart = `friend-${token()}@example.com`;
   const file = `${ws}/email/${token()}/0-letter.pdf`;
   return worker()(async (tx) => {
     const [c] = await rows<{ id: string }>(
       tx,
       sql`insert into app.conversations (workspace_id, channel, counterpart, email_address_id, private_to)
-          values (${ws}, 'email', ${counterpart}, ${chrisAddress}, ${chris.id}) returning id`,
+          values (${ws}, 'email', ${counterpart}, ${address}, ${to.id}) returning id`,
     );
     const [m] = await rows<{ id: string }>(
       tx,
       sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, email_address_id,
             subject, body_text, media)
-          values (${ws}, ${c!.id}, 'email', 'inbound', 'received', ${chrisAddress}, 'Just for Chris', 'Hello Chris',
+          values (${ws}, ${c!.id}, 'email', 'inbound', 'received', ${address}, 'Just for you', 'Hello',
             ${JSON.stringify([
               {
                 bucket: 'telephony',
@@ -110,6 +113,19 @@ async function chrisMail(): Promise<{ conversation: string; message: string; fil
     return { conversation: c!.id, message: m!.id, file };
   });
 }
+/** Mail to Chris's address: his own thread. */
+const chrisMail = () => ownMail(chrisAddress, chris);
+
+/** Who the phone's me_v1 stream sends a thread and its message to: their stored viewer lists. */
+const listed = async (mail: { conversation: string; message: string }) => {
+  const [l] = await rows<{ thread: string[]; message: string[] }>(
+    dbs.admin.db,
+    sql`select c.member_viewer_ids as thread, m.member_viewer_ids as message
+        from app.conversations c join app.messages m on m.conversation_id = c.id
+        where c.id = ${mail.conversation} and m.id = ${mail.message}`,
+  );
+  return l!;
+};
 
 const sees = (u: TestUser, mail: { conversation: string; message: string; file: string }) =>
   as(u)(async (tx) => ({
@@ -308,6 +324,11 @@ describe('when its person leaves', () => {
     expect((await route())[0]!.email_address_id).toBe(teamAddress);
     // Nobody reads it meanwhile, not even an owner.
     expect(await sees(owner, mail)).toEqual({ thread: 0, message: 0, file: false });
+    // And no phone is sent it: me_v1 reads the lists alone, past RLS, so Chris is off them (CS2).
+    expect(await listed(mail)).toEqual({ thread: [], message: [] });
+    expect(
+      await rows(dbs.admin.db, sql`select * from private.sync_inbox_mismatches(${ws})`),
+    ).toEqual([]);
     expect((await expectPgError(() => reassign(admin, null, false))).detail).toBe(
       'email_address_reassign_owner',
     );
@@ -315,6 +336,57 @@ describe('when its person leaves', () => {
     const [given] = await reassign(owner, member.id, false);
     expect(given).toMatchObject({ was: chris.id, threads: expect.any(Number) });
     expect(await sees(member, mail)).toEqual({ thread: 1, message: 1, file: true });
+    expect(await sees(owner, mail)).toEqual({ thread: 0, message: 0, file: false });
+    expect(await listed(mail)).toEqual({ thread: [member.id], message: [member.id] });
+  });
+
+  it('their mail stops reaching their phone, and comes back to them if they do', async () => {
+    const dana = await createTestUser('own-mail-dana');
+    await dbs.admin.db
+      .insert(workspaceMemberships)
+      .values({ workspaceId: ws, userId: dana.id, role: 'member' });
+    const [d] = await rows<{ id: string }>(
+      dbs.admin.db,
+      sql`select id from app.email_domains where domain = ${domain}`,
+    );
+    const [a] = await as(owner)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.email_addresses (workspace_id, email_domain_id, local_part, address, display_name,
+              created_by, owner_user_id)
+            values (${ws}, ${d!.id}, ${`dana${token()}`}, '', 'Own Mail', ${owner.id}, ${dana.id}) returning id`,
+      ),
+    );
+    const mail = await ownMail(a!.id, dana);
+    expect(await listed(mail)).toEqual({ thread: [dana.id], message: [dana.id] });
+
+    await dbs.admin.db.execute(
+      sql`delete from app.workspace_memberships where workspace_id = ${ws} and user_id = ${dana.id}`,
+    );
+    expect(await listed(mail)).toEqual({ thread: [], message: [] });
+    for (const u of [dana, owner])
+      expect(await sees(u, mail)).toEqual({ thread: 0, message: 0, file: false });
+    // Mail on the thread meanwhile is listed for nobody too.
+    const [late] = await worker()((tx) =>
+      rows<{ member_viewer_ids: string[] }>(
+        tx,
+        sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, email_address_id,
+              subject, body_text)
+            values (${ws}, ${mail.conversation}, 'email', 'inbound', 'received', ${a!.id}, 'Re', 'Still there?')
+            returning member_viewer_ids`,
+      ),
+    );
+    expect(late!.member_viewer_ids).toEqual([]);
+    expect(
+      await rows(dbs.admin.db, sql`select * from private.sync_inbox_mismatches(${ws})`),
+    ).toEqual([]);
+
+    // Back before an owner gave the address away: it is still theirs, and so is its mail.
+    await dbs.admin.db
+      .insert(workspaceMemberships)
+      .values({ workspaceId: ws, userId: dana.id, role: 'member' });
+    expect(await listed(mail)).toEqual({ thread: [dana.id], message: [dana.id] });
+    expect(await sees(dana, mail)).toEqual({ thread: 1, message: 1, file: true });
     expect(await sees(owner, mail)).toEqual({ thread: 0, message: 0, file: false });
   });
 });

@@ -17,6 +17,8 @@ export const workspaceCreate = defineCommand({
   scope: (i) => ({ kind: 'organization', organizationId: i.organizationId }),
   emits: ['workspace.created', 'membership.created'],
   async handler(ctx, input) {
+    // At most three new businesses a person a day, counted with the ones organization.create made (20261027033100).
+    await ctx.tx.execute(sql`select private.check_new_business_room()`);
     const slug = `${slugify(input.name)}-${randomUUID().slice(0, 6)}`;
     const [ws] = await ctx.tx
       .insert(workspaces)

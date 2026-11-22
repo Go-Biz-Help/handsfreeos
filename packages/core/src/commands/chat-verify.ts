@@ -75,6 +75,34 @@ function aiOf(ctx: CommandContext): AiEmployeeActor {
   return ai;
 }
 
+/**
+ * Where a code for this customer goes: the number on file, unless it said STOP or the worker can't text right now;
+ * then the address on file. Never anything the person asking typed or said. A caller's code goes the same way
+ * (call-verify.ts).
+ */
+export async function codeDestination(
+  ctx: CommandContext,
+  personId: string,
+  canText: boolean,
+): Promise<{ readonly channel: 'sms' | 'email'; readonly to: string }> {
+  const ws = ctx.scope.workspaceId!;
+  const person = await requirePerson(ctx.tx, ws, personId);
+  const phone =
+    canText &&
+    person.phoneE164 &&
+    person.smsConsent !== 'opted_out' &&
+    !(await isOptedOut(ctx.tx, ws, person.phoneE164))
+      ? person.phoneE164
+      : null;
+  if (phone) return { channel: 'sms', to: phone };
+  if (person.email) return { channel: 'email', to: person.email };
+  throw HfosError.rule(
+    'no_contact',
+    409,
+    'There’s no phone or email on file to send a code to. Hand off, or ask them to use the link in a message we sent.',
+  );
+}
+
 export const chatSendCodeForCustomer = defineCommand({
   name: 'chat.send_code_for_customer',
   description:
@@ -101,23 +129,7 @@ export const chatSendCodeForCustomer = defineCommand({
         429,
         'That’s three codes this hour. Ask them to try again later, or hand off.',
       );
-    const person = await requirePerson(ctx.tx, ws, personId);
-    // The number on file first, unless it said STOP; then the address on file. Never what the visitor typed.
-    const phone =
-      input.canText &&
-      person.phoneE164 &&
-      person.smsConsent !== 'opted_out' &&
-      !(await isOptedOut(ctx.tx, ws, person.phoneE164))
-        ? person.phoneE164
-        : null;
-    const channel = phone ? ('sms' as const) : person.email ? ('email' as const) : null;
-    const to = phone ?? person.email;
-    if (!channel || !to)
-      throw HfosError.rule(
-        'no_contact',
-        409,
-        'There’s no phone or email on file to send a code to. Hand off, or ask them to use the link in a message we sent.',
-      );
+    const { channel, to } = await codeDestination(ctx, personId, input.canText);
     const code = newCode();
     const [row] = await ctx.tx
       .insert(chatVerificationCodes)

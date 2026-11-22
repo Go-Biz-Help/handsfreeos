@@ -32,6 +32,8 @@ import {
   formResponseSubmit,
   AI_TEAMMATE_SOURCE,
   appointmentAddForCustomer,
+  callCheckCodeForCustomer,
+  callSendCodeForCustomer,
   chatCheckCodeForCustomer,
   chatSendCodeForCustomer,
   leadCreate,
@@ -463,6 +465,11 @@ async function runAddonCall(
 
 const CHAT_REFUSAL =
   'In website chat you can’t see or change existing bookings or records. Tell them the link in their confirmation changes a booking, or hand off.';
+/** On a call whose caller isn't proven (AI1). */
+const CALLER_REFUSAL =
+  'The phone company couldn’t confirm this caller’s number, so you can’t see or change their bookings or records yet. Offer to text a code to the number on file (send_verification_code), or hand off.';
+/** Why it can't touch the customer's records here: a chat's words, or an unproven call's. */
+const notYetTheirs = (rc: RunContext) => (rc.unverifiedCall ? CALLER_REFUSAL : CHAT_REFUSAL);
 
 /** A command's refusal, for the model; the ones that mean the conversation isn't the teammate's end the run. */
 function refusalOf(e: HfosError): Outcome {
@@ -476,6 +483,8 @@ function refusalOf(e: HfosError): Outcome {
       return { ...base, effect: { abort: 'opted_out' }, stop: true };
     case 'chat_identity_unverified':
       return { ...base, content: { error: CHAT_REFUSAL } };
+    case 'caller_unverified':
+      return { ...base, content: { error: CALLER_REFUSAL } };
     default:
       return base;
   }
@@ -1491,7 +1500,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   },
 
   async update_customer(d, tx, args) {
-    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: CHAT_REFUSAL });
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: notYetTheirs(d.rc) });
     const r = await executeCommandIn(
       tx,
       personUpdate,
@@ -1515,7 +1524,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   async add_note(d, tx, args) {
     if (!d.rc.customer && !d.rc.lead) return refused({ error: NO_CUSTOMER });
     // A visitor who typed an existing customer's number writes nothing onto that customer's record.
-    if (d.rc.strangerInChat) return refused({ error: CHAT_REFUSAL });
+    if (d.rc.strangerInChat) return refused({ error: notYetTheirs(d.rc) });
     await executeCommandIn(
       tx,
       activityLog,
@@ -1537,7 +1546,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     if (!d.state.photos)
       return refused({ error: 'There are no photos in this reply to note. Use add_note instead.' });
     if (!d.rc.customer && !d.rc.lead) return refused({ error: NO_CUSTOMER });
-    if (d.rc.strangerInChat) return refused({ error: CHAT_REFUSAL });
+    if (d.rc.strangerInChat) return refused({ error: notYetTheirs(d.rc) });
     const fit = {
       yes: 'Looks like work we do',
       no: 'Doesn’t look like work we do',
@@ -1658,7 +1667,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
 
   async create_task(d, tx, args) {
     if (!d.rc.customer) return refused({ error: NO_CUSTOMER });
-    if (d.rc.strangerInChat) return refused({ error: CHAT_REFUSAL });
+    if (d.rc.strangerInChat) return refused({ error: notYetTheirs(d.rc) });
     const dueAt = str(args['dueAt']);
     await executeCommandIn(
       tx,
@@ -1679,49 +1688,52 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return { status: 'done', command: 'task.create', content: { created: true } };
   },
 
-  // ---- A website chat visitor proving who they are (M18) ----
+  // ---- A website chat visitor, or a caller nobody vouched for (AI1), proving who they are (M18) ----
 
   async send_verification_code(d, tx) {
-    if (!d.rc.unverifiedChat || !d.rc.customer)
-      return refused({ error: 'There’s nobody on file for this chat to send a code to.' });
+    const onCall = !!d.rc.unverifiedCall;
+    if (!d.rc.unverifiedChat || d.rc.unverifiedEmail || !d.rc.customer)
+      return refused({
+        error: `There’s nobody on file for this ${onCall ? 'caller’s number' : 'chat'} to send a code to.`,
+      });
     const canText = await d.chatCodes.canText(tx, d.scope.workspaceId);
-    const r = await executeCommandIn(
-      tx,
-      chatSendCodeForCustomer,
-      { workspaceId: d.scope.workspaceId, canText },
-      d.ai,
-      d.meta,
-    );
+    const input = { workspaceId: d.scope.workspaceId, canText };
+    const r = onCall
+      ? await executeCommandIn(tx, callSendCodeForCustomer, input, d.ai, d.meta)
+      : await executeCommandIn(tx, chatSendCodeForCustomer, input, d.ai, d.meta);
     const { channel, to, code, sentTo } = r.output;
     await d.chatCodes.send(tx, d.scope.workspaceId, {
       channel,
       to,
       code,
       business: d.rc.workspace.name,
+      onCall,
     });
     // Never the code itself: it goes to the customer's phone or email, not into the conversation.
     return {
       status: 'done',
-      command: 'chat.send_code_for_customer',
+      command: onCall ? 'call.send_code_for_customer' : 'chat.send_code_for_customer',
       content: {
         sent: true,
         by: channel === 'sms' ? 'text' : 'email',
         to: sentTo,
-        note: 'Ask them to type the six-digit code here. It lasts 10 minutes.',
+        note: onCall
+          ? 'Ask them to read the six-digit code out to you. It lasts 10 minutes.'
+          : 'Ask them to type the six-digit code here. It lasts 10 minutes.',
       },
     };
   },
 
   async check_verification_code(d, tx, args) {
-    if (!d.rc.unverifiedChat || !d.rc.customer)
-      return refused({ error: 'There’s nobody on file for this chat to check a code for.' });
-    const r = await executeCommandIn(
-      tx,
-      chatCheckCodeForCustomer,
-      { workspaceId: d.scope.workspaceId, code: String(args['code']) },
-      d.ai,
-      d.meta,
-    );
+    const onCall = !!d.rc.unverifiedCall;
+    if (!d.rc.unverifiedChat || d.rc.unverifiedEmail || !d.rc.customer)
+      return refused({
+        error: `There’s nobody on file for this ${onCall ? 'caller’s number' : 'chat'} to check a code for.`,
+      });
+    const input = { workspaceId: d.scope.workspaceId, code: String(args['code']) };
+    const r = onCall
+      ? await executeCommandIn(tx, callCheckCodeForCustomer, input, d.ai, d.meta)
+      : await executeCommandIn(tx, chatCheckCodeForCustomer, input, d.ai, d.meta);
     if (!r.output.verified)
       return refused({
         error:
@@ -1729,10 +1741,10 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
             ? `That isn’t the code. ${r.output.triesLeft} tries left: ask them to check it.`
             : 'That isn’t the code, and it’s used up. Send a new one if they want.',
       });
-    // Stops the loop: the run starts over with their bookings, bills and quotes open to you.
+    // Stops the loop: the run (or the call's turn) starts over with their bookings, bills and quotes open to you.
     return {
       status: 'done',
-      command: 'chat.check_code_for_customer',
+      command: onCall ? 'call.check_code_for_customer' : 'chat.check_code_for_customer',
       content: { verified: true },
       effect: { verified: true },
       stop: true,

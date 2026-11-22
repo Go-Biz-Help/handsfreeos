@@ -14,6 +14,7 @@ import {
   needsAddress,
   chatAddedCustomer,
   chatVerified,
+  unverifiedEmailAddedCustomer,
   defaultLocationKind,
   goesOut,
   LeadQualification,
@@ -25,6 +26,8 @@ import {
   openHoursOf,
   productOptionsOf,
   uuidArray,
+  callerProven,
+  unprovenCallAddedCustomer,
   JOB_STATUS_WORDS,
   quoteData,
   type JobStatus,
@@ -42,7 +45,7 @@ import {
   type RunFunnel,
   type SuggestibleFunnel,
 } from './funnel-context';
-import { conversations, type ButtonReply, type RichText } from '@hfos/db/schema';
+import { calls, conversations, type ButtonReply, type RichText } from '@hfos/db/schema';
 import { atLabel } from '../assistant/calendar-format';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
 import { loadGrounding, type Grounding } from '../knowledge/grounding';
@@ -73,6 +76,11 @@ export interface BatchMessage {
   readonly at: number;
   /** The pictures it came with (M18), as stored; the run decides which it can show the model. */
   readonly photos: readonly PhotoRef[];
+  /**
+   * An email whose sender's domain didn't vouch for it (FDE1: `messages.sender_verified` false): anyone could have
+   * written the customer's address in its From.
+   */
+  readonly senderUnverified?: boolean;
 }
 
 /** A picture a customer sent, where it is kept. */
@@ -112,6 +120,8 @@ type MessageRow = {
   /** RCS (0103): the buttons, card or carousel a text offered, and the button a reply came from. */
   rich?: RichText | null;
   button_reply?: ButtonReply | null;
+  /** Email: whether the From domain vouched for it (null when nobody checked). */
+  sender_verified?: boolean | null;
 };
 
 /**
@@ -168,6 +178,7 @@ const batchOf = (r: MessageRow): BatchMessage => ({
   subject: r.subject,
   at: ms(r.occurred_at),
   photos: photosIn(r.media),
+  ...(r.sender_verified === false ? { senderUnverified: true } : {}),
 });
 
 /**
@@ -182,7 +193,7 @@ export async function unansweredMessages(
   const list = await rows<MessageRow>(
     tx,
     sql`select m.id, m.channel::text as channel, m.body_text, m.subject, m.media, m.occurred_at,
-          m.button_reply
+          m.button_reply, m.sender_verified
         from app.messages m
         where m.conversation_id = ${conversationId} and m.direction = 'inbound'
           and m.occurred_at > greatest(
@@ -207,7 +218,7 @@ export async function messagesById(
   const list = await rows<MessageRow>(
     tx,
     sql`select m.id, m.channel::text as channel, m.body_text, m.subject, m.media, m.occurred_at,
-          m.button_reply
+          m.button_reply, m.sender_verified
         from app.messages m
         where m.conversation_id = ${conversationId} and m.id = any(${uuidArray(ids)})
         order by m.occurred_at, m.created_at`,
@@ -327,6 +338,11 @@ export interface HistoryCall {
   readonly words: 'here' | 'coming' | 'never';
   /** The line carries the start of a long transcript; `read_call_transcript` has all of it. */
   readonly more: boolean;
+  /**
+   * An inbound call whose caller isn't proven (AI1: core's callerProven): anyone can fake a caller ID, so it may
+   * not have been the customer. A call from before attestations were kept is one too.
+   */
+  readonly unproven?: boolean;
 }
 
 export interface HistoryLine {
@@ -388,8 +404,19 @@ export interface RunContext {
     readonly counterpart: string | null;
     readonly personId: string | null;
   };
-  /** A website chat whose visitor hasn't proved, with a code, that they're the customer it matched. */
+  /**
+   * A website chat whose visitor hasn't proved, with a code, that they're the customer it matched; or an email whose
+   * sender's domain didn't vouch for it (`unverifiedEmail`), which the teammate treats the same way (FDE1).
+   */
   readonly unverifiedChat: boolean;
+  /** What it answers includes an email whose sender's domain didn't vouch for it: anyone could have written its From. */
+  readonly unverifiedEmail?: boolean;
+  /**
+   * A live call whose caller isn't proven (AI1): the phone company didn't vouch for the number, the business didn't
+   * place it, and they haven't read back a code sent to the contact on file. Answered like an unverified chat
+   * (`unverifiedChat` is set too), with no history: the thread on file is the number's owner's, not the caller's.
+   */
+  readonly unverifiedCall?: boolean;
   /**
    * An unverified chat matched a customer already on file (not one the chat added): nothing of theirs is the
    * visitor's to write to, so no lead is loaded and notes and tasks are refused.
@@ -464,6 +491,8 @@ export interface LoadInput {
   /** The app's address (booking pages). */
   readonly webUrl: string;
   readonly now: number;
+  /** A live phone call it's answering or placed (its record): whether the caller is proven decides what it reads. */
+  readonly callId?: string | null;
   /**
    * False where addresses can't be found on a map (no geocoder): then no page times a drive either, and a calendar
    * that leaves time to drive is booked like any other. Left out, it counts as on.
@@ -498,15 +527,37 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
   const timeZone = w.timezone || 'UTC';
   const channel = (conv?.channel ?? target!.channel) as TeammateChannel;
   const personId = conv ? conv.personId : target!.personId;
+  // FDE1: anyone can write a customer's address in an email's From, so one whose sender's domain didn't vouch for it
+  // is answered like a chat whose visitor hasn't proved who they are.
+  const unverifiedEmail = channel === 'email' && input.batch.some((b) => b.senderUnverified);
+  // AI1: anyone can fake a caller ID, so a call whose caller isn't proven (core's callerProven) is answered like a
+  // chat whose visitor hasn't proved who they are, until they read back a code sent to the contact on file.
+  const call = input.callId ? await callerOf(tx, input.callId) : null;
+  const unverifiedCall = !!call && !callerProven(call);
   // M18: a chat whose visitor typed back the code sent to the customer on file counts as theirs, like a text.
-  const unverifiedChat = channel === 'chat' && !(conv && (await chatVerified(tx, conv)));
+  const unverifiedChat =
+    unverifiedEmail ||
+    unverifiedCall ||
+    (channel === 'chat' && !(conv && (await chatVerified(tx, conv))));
   const grounding = await loadGrounding(tx, ws);
   const instructions = await instructionsOf(tx, input.teammate.id);
   const customer = personId ? await customerOf(tx, personId) : null;
   // An unverified chat works only on a customer the chat itself added: someone already on file, and their lead
-  // (whenever it was opened), are theirs to read and change once the visitor proves who they are.
+  // (whenever it was opened), are theirs to read and change once the visitor proves who they are. An unverified
+  // email likewise, unless lead intake made the customer out of it, and an unproven call unless they were added
+  // since it began.
   const strangerInChat =
-    unverifiedChat && !!customer && !(conv && (await chatAddedCustomer(tx, conv, customer.id)));
+    unverifiedChat &&
+    !!customer &&
+    !(unverifiedEmail
+      ? await unverifiedEmailAddedCustomer(
+          tx,
+          input.batch.map((b) => b.id),
+          customer.id,
+        )
+      : call
+        ? await unprovenCallAddedCustomer(tx, call, customer.id)
+        : conv && (await chatAddedCustomer(tx, conv, customer.id)));
   const lead = customer && !strangerInChat ? await openLeadOf(tx, ws, customer.id) : null;
   const stages = lead ? await stagesOf(tx, lead.pipelineId) : [];
   const calendars = input.config.book.enabled
@@ -523,13 +574,15 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     (money.newBills || money.quotes === 'build') && !unverifiedChat
       ? await catalogueOf(tx, ws)
       : [];
-  const history = conv
-    ? await historyOf(
-        tx,
-        conv.id,
-        input.batch.map((b) => b.id),
-      )
-    : [];
+  // An unproven caller hears nothing of the thread on file: it's the number's owner's, texts and calls alike (AI1).
+  const history =
+    conv && !unverifiedCall
+      ? await historyOf(
+          tx,
+          conv.id,
+          input.batch.map((b) => b.id),
+        )
+      : [];
   // Nothing new to answer (a first message, a nudge): what the lead is about finds the knowledge instead.
   const words = anyOfWords(
     input.batch.length
@@ -548,7 +601,8 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     : [{ n: 0 }];
   const firstAiMessage = (sent?.n ?? 0) === 0;
   const referral = conv && customer && !unverifiedChat ? await referralOf(tx, conv.id) : null;
-  const visitor = unverifiedChat && conv ? await visitorOf(tx, conv.counterpart) : null;
+  const visitor =
+    unverifiedChat && !unverifiedEmail && conv ? await visitorOf(tx, conv.counterpart) : null;
   const counterpart =
     conv?.counterpart ?? (channel === 'sms' ? customer?.phone : customer?.email) ?? null;
   const contacts = unverifiedChat
@@ -577,6 +631,8 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
       personId,
     },
     unverifiedChat,
+    unverifiedEmail,
+    unverifiedCall,
     strangerInChat,
     conversationLanguage: conv?.language ?? null,
     visitorName: visitor?.name ?? null,
@@ -602,6 +658,20 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     suggestible: customer && !unverifiedChat ? await suggestibleFunnels(tx, ws, customer.id) : [],
     allowed: await allowedFor(tx, ws, grounding.business.website, input.webUrl, contacts),
   };
+}
+
+/** What a call's record says about its caller, for `callerProven` (AI1); null when it isn't visible here. */
+async function callerOf(tx: Tx, callId: string) {
+  const [c] = await tx
+    .select({
+      direction: calls.direction,
+      callerAttestation: calls.callerAttestation,
+      callerVerifiedAt: calls.callerVerifiedAt,
+      startedAt: calls.startedAt,
+    })
+    .from(calls)
+    .where(eq(calls.id, callId));
+  return c ?? null;
 }
 
 async function customerOf(tx: Tx, personId: string): Promise<RunCustomer | null> {
@@ -992,7 +1062,7 @@ async function messageHistory(
     tx,
     sql`select m.id, m.channel::text as channel, m.direction::text as direction, m.body_text, m.subject,
           m.media, m.occurred_at, m.sent_by, m.sent_by_teammate_id is not null as ai, u.full_name,
-          m.rich, m.button_reply
+          m.rich, m.button_reply, m.sender_verified
         from app.messages m left join app.users u on u.id = m.sent_by
         where m.conversation_id = ${conversationId}
           and m.occurred_at > now() - make_interval(days => ${HISTORY_DAYS})
@@ -1004,7 +1074,11 @@ async function messageHistory(
     at: ms(r.occurred_at),
     who: r.direction === 'inbound' ? 'customer' : r.ai ? 'ai' : r.sent_by ? 'person' : 'automatic',
     name: r.full_name,
-    text: textOf(r) || '(no text)',
+    // FDE1: an email its sender's domain didn't vouch for may not be them, whatever it asks for.
+    text:
+      (r.direction === 'inbound' && r.sender_verified === false
+        ? '(sent from their address, but the sender couldn’t be verified: it may not be them) '
+        : '') + (textOf(r) || '(no text)'),
   }));
 }
 
@@ -1026,12 +1100,14 @@ async function callHistory(tx: Tx, conversationId: string): Promise<HistoryLine[
     transcript_status: string | null;
     placed_by: string | null;
     full_name: string | null;
+    caller_attestation: string | null;
+    caller_verified_at: Date | string | null;
   }>(
     tx,
     sql`select k.id, k.direction::text as direction, k.started_at,
           k.answered_at is not null as answered, k.is_voicemail, k.duration_seconds,
           k.recording_seconds, k.recording_object_path is not null as recorded, k.transcript,
-          k.transcript_status, k.placed_by, u.full_name
+          k.transcript_status, k.placed_by, u.full_name, k.caller_attestation, k.caller_verified_at
         from app.calls k
         left join app.users u on u.id = coalesce(k.placed_by, k.answered_by_user_id)
         where k.conversation_id = ${conversationId} and k.ended_at is not null
@@ -1060,6 +1136,13 @@ async function callHistory(tx: Tx, conversationId: string): Promise<HistoryLine[
           kind === 'voicemail' ? r.recording_seconds : r.answered ? r.duration_seconds : null,
         words,
         more: said.length > CALL_WORDS_MAX,
+        ...(callerProven({
+          direction: r.direction === 'outbound' ? 'outbound' : 'inbound',
+          callerAttestation: r.caller_attestation,
+          callerVerifiedAt: r.caller_verified_at,
+        })
+          ? {}
+          : { unproven: true }),
       },
     };
   });

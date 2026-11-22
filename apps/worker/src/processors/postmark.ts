@@ -17,6 +17,7 @@ import {
   spamScoreOf,
   type MailHeader,
 } from '../email/render';
+import { checkSender } from '../email/sender-check';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 
 const EMAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
@@ -97,6 +98,8 @@ export const onInboundEmail: DeliveryProcessor = async (ctx) => {
   const headers = p.Headers ?? [];
   const from = (p.FromFull?.Email ?? p.From ?? '').trim().toLowerCase();
   if (!EMAIL.test(from)) return 'ignored';
+  // Whether From's domain vouched for it (FDE1): anyone can write a customer's address there.
+  const senderVerified = checkSender(headers, from).verified;
   const media = p.Attachments ?? [];
   const cids = new Map<string, number>();
   media.forEach((m, i) => {
@@ -133,6 +136,7 @@ export const onInboundEmail: DeliveryProcessor = async (ctx) => {
       occurredAt: sentAt(p.Date),
       automatic: isAutomatic(headers),
       spamScore: spamScoreOf(headers),
+      senderVerified,
       ...(ctx.reminderOverrideMs ? { reminderAfterMs: ctx.reminderOverrideMs } : {}),
     },
     systemActor(scope),
@@ -146,6 +150,7 @@ export const onInboundEmail: DeliveryProcessor = async (ctx) => {
     key: messageIds(headerOf(headers, 'Message-ID'))[0] ?? `postmark:${p.MessageID}`,
     ...(sentAt(p.Date) ? { occurredAt: sentAt(p.Date)! } : {}),
     ours: [...parties(p.ToFull), ...parties(p.CcFull)].map((x) => x.address),
+    senderVerified,
   });
 };
 

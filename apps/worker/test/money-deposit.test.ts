@@ -9,9 +9,17 @@
  * Stripe's Payment Element or Square's Web Payments SDK would.
  */
 import { randomUUID } from 'node:crypto';
-import { paymentConnectionDisconnect, serviceCreate, serviceUpdate } from '@hfos/core/server';
+import {
+  bookingConfirmDeposit,
+  executeCommand,
+  paymentConnectionDisconnect,
+  serviceCreate,
+  serviceUpdate,
+} from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
+import { testDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { systemActor } from '../src/services';
 import {
   admin,
   at,
@@ -50,7 +58,11 @@ type HoldView = {
   expiresAt: string | null;
   booked: { manageToken: string; contact: { email: string | null } } | null;
 };
-type Prepared = { stage: 'prepared'; payment: { hostedUrl: string | null }; hold: HoldView };
+type Prepared = {
+  stage: 'prepared';
+  payment: { hostedUrl: string | null; providerPaymentId: string | null };
+  hold: HoldView;
+};
 type Recorded = {
   stage: 'recorded';
   state?: 'gone';
@@ -219,6 +231,37 @@ async function attendeeOf(token: string) {
         where a.public_ref = ${token.slice(0, 8)}`,
   );
   return row;
+}
+
+/** Still a hold, not a booking: the time is taken, the deposit is an unnumbered draft, and nobody was told. */
+async function expectStillHeld(token: string) {
+  const view = await get(w, `/public/hold/${token}`);
+  expect(view.statusCode, view.body).toBe(200);
+  expect((view.json() as HoldView).state).toBe('held');
+  expect((view.json() as HoldView).booked).toBeNull();
+  expect(await invoiceOf(token)).toMatchObject({ status: 'draft', number: null });
+  expect(await attendeeOf(token)).toMatchObject({
+    status: 'booked',
+    appointment_status: 'scheduled',
+  });
+  const [announced] = await rows<{ n: number }>(
+    admin(),
+    sql`select count(*)::int as n from app.events e
+        join app.appointment_attendees a on a.appointment_id = e.entity_id
+        where a.public_ref = ${token.slice(0, 8)} and e.event_type = 'appointment.booked'`,
+  );
+  expect(announced?.n).toBe(0);
+}
+
+/** Phase one only: the session the browser would take to the provider, which nobody then pays. */
+async function startOnly(token: string, method: 'card' | 'paypal' = 'card') {
+  const clientId = randomUUID();
+  const res = await post(w, `/public/hold/${token}/pay`, { clientId, method });
+  expect(res.statusCode, res.body).toBe(200);
+  const prepared = res.json() as Prepared;
+  expect(prepared.stage).toBe('prepared');
+  expect(prepared.payment.providerPaymentId).toBeTruthy();
+  return { clientId, prepared, id: prepared.payment.providerPaymentId! };
 }
 
 beforeAll(async () => {
@@ -414,6 +457,82 @@ describe('a deposit at booking', () => {
     await drain(w);
   });
 
+  it('never confirms the time on an intent nobody confirmed, and the hold still runs out', async () => {
+    const cal = await depositCalendar(w, 'Unpaid intent');
+    const when = at(16, '09:00');
+    const held = await hold(w, cal.slug, when);
+    const { clientId, id } = await startOnly(held.holdToken);
+    expect(id).toMatch(/^pi_/);
+
+    // Straight back with the intent, no card ever entered: Stripe says it still needs paying.
+    const res = await post(w, `/public/hold/${held.holdToken}/pay`, {
+      clientId,
+      method: 'card',
+      providerPaymentId: id,
+    });
+    expect(res.statusCode, res.body).toBe(409);
+    expect(errorOf(res).rule).toBe('deposit_not_paid');
+    expect(errorOf(res).message).toContain('isn’t booked');
+    await expectStillHeld(held.holdToken);
+    const invoice = await invoiceOf(held.holdToken);
+    expect((await paymentsOf(invoice!.id)).map((p) => p.status)).toEqual(['requires_payment']);
+
+    // Fifteen minutes on, the time goes back as it would for anyone who never paid.
+    await runDue(w, [`deposit-hold:${(await attendeeOf(held.holdToken))!.id}`]);
+    expect((await attendeeOf(held.holdToken))!.appointment_status).toBe('cancelled');
+    expect((await hold(w, cal.slug, when, customer('Next'))).state).toBe('held');
+    await drain(w);
+  });
+
+  it('refuses a payment id this deposit never started, then confirms the one it did', async () => {
+    const cal = await depositCalendar(w, 'Borrowed intent');
+    const held = await hold(w, cal.slug, at(17, '09:00'));
+
+    // Made up.
+    const madeUp = await pay(w, held.holdToken, { method: 'card', providerPaymentId: 'pi_madeup' });
+    expect(madeUp.statusCode, madeUp.body).toBe(409);
+    expect(errorOf(madeUp).rule).toBe('payment_not_started');
+
+    // Another booking's, really held on its card: it belongs to that deposit, not this one.
+    const other = await hold(w, cal.slug, at(17, '14:00'), customer('Other'));
+    const started = await startOnly(other.holdToken);
+    await payOnStandInPage(w, started.prepared.payment.hostedUrl!, CARD_OK);
+    const borrowed = await pay(w, held.holdToken, {
+      method: 'card',
+      providerPaymentId: started.id,
+    });
+    expect(borrowed.statusCode, borrowed.body).toBe(409);
+    expect(errorOf(borrowed).rule).toBe('payment_not_started');
+    await expectStillHeld(held.holdToken);
+    // Nothing was taken from the other customer's card on this one's behalf.
+    expect(w.s.payments.fake.charges().find((c) => c.id === started.id)?.capturable).toBe(true);
+
+    // The deposit paid the ordinary way still confirms the time.
+    const paid = await payDeposit(w, held.holdToken, CARD_OK);
+    expect(paid.hold.state).toBe('booked');
+    expect(paid.hold.deposit.paidCents).toBe(PRICE / 4);
+    await drain(w);
+  });
+
+  it('never lets anything confirm a deposit that wasn’t paid', async () => {
+    const cal = await depositCalendar(w, 'Direct confirm');
+    const held = await hold(w, cal.slug, at(18, '09:00'));
+    await startOnly(held.holdToken);
+    const seat = await attendeeOf(held.holdToken);
+    const invoice = await invoiceOf(held.holdToken);
+
+    await expect(
+      executeCommand(
+        testDbs().worker.db,
+        bookingConfirmDeposit,
+        { workspaceId: w.workspaceId, attendeeId: seat!.id, invoiceId: invoice!.id },
+        systemActor({ workspaceId: w.workspaceId, organizationId: w.organizationId }),
+        { correlationId: randomUUID(), channel: 'worker' },
+      ),
+    ).rejects.toMatchObject({ rule: 'deposit_not_paid' });
+    await expectStillHeld(held.holdToken);
+  });
+
   it('asks for the full price, or the calendar’s own figure, or nothing at all', async () => {
     const full = await depositCalendar(w, 'Full survey', { mode: 'full' });
     const wholly = await hold(w, full.slug, at(8, '09:00'));
@@ -561,6 +680,38 @@ describe('a deposit through PayPal', () => {
     });
     // The order became a hold, and the hold a capture.
     expect(row!.provider_payment_id).toMatch(/^CAPTURE_/);
+    await drain(w);
+  });
+
+  it('never confirms the time on an order nobody approved', async () => {
+    const cal = await depositCalendar(w, 'Unapproved order');
+    const held = await hold(w, cal.slug, at(19, '09:00'));
+    const { clientId, prepared, id } = await startOnly(held.holdToken, 'paypal');
+    expect(id).toMatch(/^ORDER_/);
+
+    // Back with the order, though PayPal's window was never used: nothing is held there.
+    const res = await post(w, `/public/hold/${held.holdToken}/pay`, {
+      clientId,
+      method: 'paypal',
+      providerPaymentId: id,
+    });
+    expect(res.statusCode, res.body).toBe(409);
+    expect(errorOf(res).rule).toBe('deposit_not_paid');
+    await expectStillHeld(held.holdToken);
+
+    // Approved after all: the same order now holds the deposit, and the time is confirmed.
+    await payOnStandInPage(w, prepared.payment.hostedUrl!, CARD_OK, 'card');
+    const second = await post(w, `/public/hold/${held.holdToken}/pay`, {
+      clientId,
+      providerPaymentId: id,
+    });
+    expect(second.statusCode, second.body).toBe(200);
+    const paid = second.json() as Recorded;
+    expect(paid.hold.state).toBe('booked');
+    expect(await invoiceOf(held.holdToken)).toMatchObject({
+      status: 'paid',
+      amount_paid_cents: PRICE / 4,
+    });
     await drain(w);
   });
 

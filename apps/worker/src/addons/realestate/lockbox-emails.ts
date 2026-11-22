@@ -24,17 +24,17 @@ export interface LockboxEmail {
   readonly phone: string | null;
 }
 
-/** Which maker sent it: by its domain, or by what its subject says. Null for any other email. */
-export function lockboxVendorOf(from: string | null, subject: string | null): LockboxVendor | null {
+/**
+ * Which maker sent it, by the domain it came from; null for any other email. Never by its subject alone: anyone can
+ * write "SentriLock" in a subject (FDE1), and the worker also reads it only when that domain vouched for it.
+ */
+export function lockboxVendorOf(from: string | null): LockboxVendor | null {
   const sender = (from ?? '').trim().toLowerCase();
-  const about = (subject ?? '').toLowerCase();
-  if (/@([a-z0-9-]+\.)*sentrilock\.com\s*>?$/.test(sender) || /\bsentrilock\b/.test(about))
-    return 'sentrilock';
+  if (/@([a-z0-9-]+\.)*sentrilock\.com\s*>?$/.test(sender)) return 'sentrilock';
   if (
     /@([a-z0-9-]+\.)*(supraekey|suprasystems|supra-ekey|utcfs|carrier)\.(com|net)\s*>?$/.test(
       sender,
-    ) ||
-    /\b(supra|keybox|ekey)\b/.test(about)
+    )
   )
     return 'supra';
   return null;
@@ -67,7 +67,7 @@ export function readLockboxEmail(
   subject: string | null,
   body: string | null,
 ): LockboxEmail | null {
-  const vendor = lockboxVendorOf(from, subject);
+  const vendor = lockboxVendorOf(from);
   if (!vendor || !body) return null;
   const text = body.replace(/\r/g, '');
   if (!saysOpened(`${subject ?? ''}\n${text}`)) return null;

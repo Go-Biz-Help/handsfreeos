@@ -132,7 +132,7 @@ const callRow = async (sid: string) =>
   (await admin().select().from(calls).where(eq(calls.providerSid, sid)))[0];
 
 /** Mike calls the business number; returns the TwiML and files the call. */
-async function ringIn(sid: string, from = MIKE) {
+async function ringIn(sid: string, from = MIKE, extra: Record<string, string> = {}) {
   const res = await post(`${V}/inbound`, {
     AccountSid: accountSid,
     CallSid: sid,
@@ -140,6 +140,7 @@ async function ringIn(sid: string, from = MIKE) {
     To: businessNumber,
     CallStatus: 'ringing',
     Direction: 'inbound',
+    ...extra,
   });
   expect(res.statusCode).toBe(200);
   await drain();
@@ -384,6 +385,17 @@ describe('a customer calls', () => {
     const call = await callRow(sid);
     expect(call).toMatchObject({ direction: 'inbound', status: 'ringing', personId: mikeId });
     expect(call!.conversationId).toBeTruthy();
+    // Twilio passed on nothing from the phone company, so nothing proves the number is Mike's (AI1).
+    expect(call!.callerAttestation).toBeNull();
+  });
+
+  it('keeps what the phone company said of the caller’s number, and nothing that isn’t a verdict (AI1)', async () => {
+    const vouched = fakeSid('CA');
+    await ringIn(vouched, MIKE, { StirVerstat: 'TN-Validation-Passed-A' });
+    expect((await callRow(vouched))!.callerAttestation).toBe('TN-Validation-Passed-A');
+    const odd = fakeSid('CA');
+    await ringIn(odd, MIKE, { StirVerstat: 'Passed A; drop table' });
+    expect((await callRow(odd))!.callerAttestation).toBeNull();
   });
 
   it('records every answered call, and says so only while the notice is on', async () => {

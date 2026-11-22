@@ -20,6 +20,11 @@ export interface StreamTicket {
   readonly from: string;
   /** AI outbound calls: the call the teammate placed (app.ai_calls), or absent when it's answering one. */
   readonly aiCallId?: string;
+  /**
+   * An inbound call: what the phone company said of the caller's number (Twilio's StirVerstat), when it said
+   * anything. Only `TN-Validation-Passed-A` proves it (AI1, core's messaging/caller.ts).
+   */
+  readonly attestation?: string;
   /** Epoch milliseconds. */
   readonly expiresAt: number;
 }
@@ -33,6 +38,7 @@ export function sealTicket(sealer: Sealer, t: Omit<StreamTicket, 'expiresAt'>, n
       l: t.line,
       f: t.from,
       ...(t.aiCallId ? { a: t.aiCallId } : {}),
+      ...(t.attestation ? { v: t.attestation } : {}),
       e: now + TICKET_TTL_MS,
     }),
   );
@@ -52,6 +58,7 @@ export function openTicket(
     const e = typeof v['e'] === 'number' ? v['e'] : 0;
     if (!w || !o || !c || !l || !f || e < now) return null;
     const a = str('a');
+    const att = str('v');
     return {
       workspaceId: w,
       organizationId: o,
@@ -59,6 +66,7 @@ export function openTicket(
       line: l,
       from: f,
       ...(a ? { aiCallId: a } : {}),
+      ...(att ? { attestation: att } : {}),
       expiresAt: e,
     };
   } catch {

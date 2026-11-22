@@ -1740,6 +1740,11 @@ export const messages = app.table('messages', {
   social: jsonb('social').$type<SocialExtras>().notNull().default({}),
   /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
   binItemId: binItemRef(),
+  /**
+   * Email (20261027033000): true when the From domain vouched for it (DMARC, or DKIM or SPF for that domain), false
+   * when it didn't, null when nobody checked (a connected mailbox's mail, older mail, other channels).
+   */
+  senderVerified: boolean('sender_verified'),
 });
 
 /**
@@ -1805,6 +1810,13 @@ export const calls = app.table('calls', {
   memberViewerIds: memberViewerIds(),
   /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
   binItemId: binItemRef(),
+  /**
+   * Inbound (20261027033200, AI1): the phone company's word on the caller's number, Twilio's StirVerstat. Only
+   * `TN-Validation-Passed-A` proves it (core's `callerProven`); null when none was sent, and for calls we placed.
+   */
+  callerAttestation: text('caller_attestation'),
+  /** When the caller read back a code sent to the contact on file: proven for the rest of the call (AI1). */
+  callerVerifiedAt: ts('caller_verified_at'),
 });
 
 export const optOuts = app.table('opt_outs', {
@@ -3968,6 +3980,27 @@ export const chatVerificationCodes = app.table('chat_verification_codes', {
   visitorId: uuid('visitor_id')
     .notNull()
     .references(() => chatVisitors.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  codeHash: bytea('code_hash').notNull(),
+  channel: text('channel').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  expiresAt: ts('expires_at').notNull(),
+  usedAt: ts('used_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/**
+ * A code the AI teammate texted (or emailed) to the contact on file for a caller the phone company couldn't vouch for
+ * (20261027033200, AI1): reading it back proves them for the rest of the call. Only its hash is kept.
+ */
+export const callVerificationCodes = app.table('call_verification_codes', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  callId: uuid('call_id')
+    .notNull()
+    .references(() => calls.id, { onDelete: 'cascade' }),
   personId: uuid('person_id')
     .notNull()
     .references(() => people.id, { onDelete: 'cascade' }),
@@ -9023,6 +9056,7 @@ export const tables = {
   chatWidgets,
   chatVisitors,
   chatSignals,
+  callVerificationCodes,
   workflows,
   workflowVersions,
   workflowRuns,

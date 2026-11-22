@@ -1,12 +1,12 @@
 /**
- * Sends the code a website chat visitor types back to prove they're the customer (M18). Core picks where it goes
- * (the phone on file, else the email on file) and keeps only its hash; the worker only delivers it. A text needs
- * the business's number and balance, so the worker says up front whether it can text, and core sends it by email
- * when it can't.
+ * Sends the code a website chat visitor types back to prove they're the customer (M18), or a caller the phone company
+ * couldn't vouch for reads back (AI1). Core picks where it goes (the phone on file, else the email on file) and keeps
+ * only its hash; the worker only delivers it. A text needs the business's number and balance, so the worker says up
+ * front whether it can text, and core sends it by email when it can't.
  */
 import { CODE_MINUTES, defaultNumber, walletRoom } from '@hfos/core/server';
 import type { Tx } from '@hfos/db/client';
-import { chatCodeEmail, chatCodeText } from '../emails/templates';
+import { callCodeEmail, callCodeText, chatCodeEmail, chatCodeText } from '../emails/templates';
 import type { WorkerServices } from '../services';
 import { loadAccount, webhookUrls } from '../telephony/accounts';
 
@@ -15,6 +15,8 @@ export interface ChatCode {
   readonly to: string;
   readonly code: string;
   readonly business: string;
+  /** For a caller to read back on the call they made, not to type into a chat. */
+  readonly onCall?: boolean;
 }
 
 export interface ChatCodeSender {
@@ -38,10 +40,11 @@ export function chatCodeSender(s: Services): ChatCodeSender {
       return !!(await texting(s, tx, workspaceId));
     },
     async send(tx, workspaceId, c) {
+      const words = { business: c.business, code: c.code, minutes: CODE_MINUTES };
       if (c.channel === 'email') {
         await s.mailer.send({
           to: c.to,
-          ...chatCodeEmail({ business: c.business, code: c.code, minutes: CODE_MINUTES }),
+          ...(c.onCall ? callCodeEmail(words) : chatCodeEmail(words)),
         });
         return;
       }
@@ -51,7 +54,7 @@ export function chatCodeSender(s: Services): ChatCodeSender {
         from: ready.number.e164,
         messagingServiceSid: ready.account.messagingServiceSid,
         to: c.to,
-        body: chatCodeText(c.business, c.code, CODE_MINUTES),
+        body: (c.onCall ? callCodeText : chatCodeText)(c.business, c.code, CODE_MINUTES),
         mediaUrls: [],
         statusCallbackUrl: webhookUrls(s.publicUrl).smsStatusUrl,
       });

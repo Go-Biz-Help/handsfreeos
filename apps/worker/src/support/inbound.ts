@@ -26,6 +26,7 @@ import {
   sanitizeInboundHtml,
   type MailHeader,
 } from '../email/render';
+import { checkSender } from '../email/sender-check';
 
 const EMAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 
@@ -200,7 +201,10 @@ export const onSupportInboundEmail: DeliveryProcessor = async (ctx) => {
   const fromName = (p.FromFull?.Name ?? p.FromName ?? '').trim().slice(0, 200);
 
   const found = await findTicket(ctx, p.support?.replyToken ?? null, answers);
-  const writer = await whoWroteIn(ctx, from);
+  // Anyone can write a user's address in From (FDE1): only mail its domain vouched for is filed as theirs, under their
+  // account and business. The rest is from an unverified sender, for support to link by hand if it's really them.
+  const senderVerified = checkSender(headers, from).verified;
+  const writer = senderVerified ? await whoWroteIn(ctx, from) : null;
   const now = new Date();
 
   const ticketId = found ? await unmerged(ctx, found.ticketId) : null;
@@ -257,7 +261,7 @@ export const onSupportInboundEmail: DeliveryProcessor = async (ctx) => {
     await tx.insert(ticketEvents).values({
       ticketId: id,
       kind: opened ? 'opened' : 'customer_replied',
-      data: { channel: 'email', from },
+      data: { channel: 'email', from, ...(senderVerified ? {} : { senderVerified: false }) },
     });
     // Queued with the ticket: a ticket that isn't filed pushes nobody.
     if (opened) await queueNewTicketPush(tx, ctx.log, id, { business });

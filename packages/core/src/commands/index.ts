@@ -340,6 +340,7 @@ import {
   partnerUpdate,
 } from './partners';
 import { chatCheckCodeForCustomer, chatSendCodeForCustomer } from './chat-verify';
+import { callCheckCodeForCustomer, callSendCodeForCustomer } from './call-verify';
 import {
   portalAccessGive,
   portalAccessRevoke,
@@ -1102,6 +1103,8 @@ export const commands: readonly CommandDef[] = [
   subscriptionStartForCustomer,
   chatSendCodeForCustomer,
   chatCheckCodeForCustomer,
+  callSendCodeForCustomer,
+  callCheckCodeForCustomer,
   portalAccessGive,
   portalAccessRevoke,
   portalSendCode,
@@ -1345,6 +1348,7 @@ export * from './partners';
 export * from './partner-payouts';
 export * from './affiliates';
 export * from './chat-verify';
+export * from './call-verify';
 export * from './portal-access';
 export * from './portal-files';
 export * from './portal-messages';

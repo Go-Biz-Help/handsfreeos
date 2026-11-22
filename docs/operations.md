@@ -1839,6 +1839,30 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `SITE_READER_IPS`                     | No                                                                                                                                           | The texting registration's checks and the Knowledge scan still work, but a site whose security shows servers a robot check can't be told to let HandsFreeOS in: the step offers only **Finish the check on my site** and screenshots.                                                                                                                                                                                             | The worker's fixed outgoing addresses, comma-separated, from `fly ips list --app handsfreeos-worker` after `fly ips allocate-egress`. See "When the website's security stops the checks". Not secret. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `WORKER_ENCRYPTION_KEYS_PREVIOUS`     | Only after a key rotation. Leave it unset on the first setup.                                                                                | Nothing, until a key is rotated.                                                                                                                                                                                                                                                                                                                                                                                                  | Old `WORKER_ENCRYPTION_KEY` values from your password manager, separated by commas. Each must be a valid key, or the worker will not start.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
+#### Daily quotas on the Google Maps server key
+
+Anyone can open a booking page, and some of what it does costs money on `GOOGLE_MAPS_SERVER_KEY`: finding a typed address (Geocoding API), timing drives between visits (Routes API's route matrix) and finding a coffee spot halfway (Places API (New) Text Search). The worker keeps every answer it can and gives signed-out booking pages a daily budget of lookups: 500 for each business and 20,000 for each worker machine (`MAP_LOOKUP_BUDGET` in `apps/worker/src/geo/budget.ts`). Past it the page carries on without new lookups: times without drive times, and no coffee spot (the usual spot or one the customer names). A booking itself still looks the address up and keeps room to drive.
+
+Each machine counts on its own, so set a hard cap on the key in Google Cloud as well. Do it once, when you make the key, and again whenever usage grows:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), pick the project that holds the server key.
+2. Open **APIs & Services** → **Enabled APIs & services** and click **Geocoding API**.
+3. Open its **Quotas** tab (**Quotas & System Limits** in newer consoles). Tick **Requests per day**, click **Edit** (the pencil), type the number below, and click **Submit**. Do the same for **Requests per minute**.
+4. Go back to **Enabled APIs & services** and do the same for **Places API (New)** (its Text Search rows) and **Routes API** (its **Compute Route Matrix elements** and **Compute Routes** rows). Where an API offers only a per-minute row, set that.
+5. Open **Billing** → **Budgets & alerts** → **Create budget**, limit it to this project, and have it email you at 50%, 90% and 100% of a monthly figure you're comfortable with.
+
+Suggested starting numbers, to raise as more businesses take bookings:
+
+| API              | Quota row                                    | Suggested  |
+| ---------------- | -------------------------------------------- | ---------- |
+| Geocoding API    | Requests per day                             | 5,000      |
+| Geocoding API    | Requests per minute                          | 100        |
+| Places API (New) | Text Search requests per day (or per minute) | 1,000 (20) |
+| Routes API       | Compute Route Matrix elements per minute     | 300        |
+| Routes API       | Compute Routes requests per minute           | 60         |
+
+When a quota runs out, Google refuses until it resets. Addresses the worker never looked up before can't be found (a calendar that leaves time to drive says it couldn't find the address), drives fall back to a rough guess, On my way texts a rough arrival time, and Find a spot offers the other spots. Check **Google Maps Platform** → **Metrics** before raising a cap: steady growth is new businesses; a sudden spike may be someone running up the bill.
+
 #### The worker: leave these unset
 
 The defaults are right in production. Setting some of these changes real behavior.
@@ -9105,6 +9129,8 @@ On a first setup, the key goes in with the worker's other secrets (Fly Part 6). 
 - **What it writes from.** The knowledge base and the business profile, and the customer's record and messages from the last 7 days (up to 20). It quotes prices only when the profile's **AI may quote prices** switch is on. It never offers a discount on its own: one it wants to offer waits for an owner's or admin's OK. Refunds always go to a person.
 - **A check before anything goes out.** Every reply is checked for its length, links (the business's own only), phone numbers and email addresses (the business's or this customer's only), prices and discounts, leftover placeholders, "you're booked" when nothing was booked, and the disclosure rule. A reply that fails is rewritten once, then goes to a person.
 - **Website chat visitors are strangers.** Anyone can type a customer's phone number into a chat. So a visitor's details link the chat to that customer, but the teammate never reads that customer's history, visits or details back to the visitor, and never moves or cancels their bookings; those go through the links sent to the contact on file. New bookings from a chat work.
+- **So is an email its sender’s domain didn’t vouch for.** Anyone can put a customer’s address in From. The worker checks each email Postmark delivers (`apps/worker/src/email/sender-check.ts`: the mail service’s DMARC or DKIM pass for the From domain, or an SPF pass for an envelope sender at that domain) and keeps the answer on the message (`messages.sender_verified`). For a reply to an email that failed, the teammate follows the website chat’s rules: it doesn’t read the customer’s history or details back, and it can’t change their bookings, bills, quotes, deals or details (`email_sender_unverified`). The email is still filed, but a new thread with a high spam score goes to Spam even from a customer’s address. Mail synced from a connected Gmail or Outlook mailbox isn’t checked yet, so the teammate treats it as before.
+- **And so is a caller the phone company couldn’t vouch for.** Anyone can fake a caller ID. When Twilio passes on the phone company’s check of the caller’s number (STIR/SHAKEN, its `StirVerstat`), the worker keeps it on the call (`calls.caller_attestation`), and only `TN-Validation-Passed-A` proves the caller owns the number (`packages/core/src/messaging/caller.ts`). Any other answer, or none, and the call starts like a website chat: the teammate sees no customer record, history, bookings, bills, quotes or job status, and can’t change them (`caller_unverified`), but it can answer questions, book a new visit or hand off. The owner’s decision (22 Nov 2026) is “Text a code first”: when the number matches a customer, it offers to text a six-digit code to the number on file (or email it to the address on file when it can’t text), never anywhere the caller says. A caller who reads it back is that customer for the rest of the call (`calls.caller_verified_at`). Codes work as a chat’s do: only a hash is kept (`app.call_verification_codes`), each lasts 10 minutes, five wrong tries end it, and a customer gets three an hour from calls however many calls there are. Calls the business or the teammate places count as proven.
 - **When it answers.** Within its **Hours** (always, after hours only, or custom), in conversations it's handling or that nobody is handling or assigned to. It waits a moment first, so a few quick messages get one reply: 3 seconds on chat, 20 on texts, 60 on email. It never answers automatic emails, and it stays out of loops with other bots.
 - **People come first.** A person's reply in a conversation it's handling takes the conversation over, and so does **Take over**. It also puts the customer **in your hands** everywhere (see "In your hands" below), so the teammate stays quiet with them on every channel until someone clicks **Hand back** or **Give back to the AI**.
 - **Texts in quiet hours.** It may text a reply to a customer's own text from the last 15 minutes, up to 3 times in one quiet period. It never starts a text conversation in quiet hours; its own texts wait until they end. STOP, and plain words like "stop texting me", opt the person out.
@@ -9405,7 +9431,7 @@ Two more rows in **Settings** → **Lead intake**, from the funnels plan (`supab
 
 **Someone fills in your lead ad's form.** Leads from a Facebook or Instagram lead ad arrive by themselves once Meta approves lead ads ("Meta Part 7" in "Facebook and Instagram messages: Meta"); until then, send them through Zapier as a connected app. Each lead is filed once, its answers go on the lead's note, and a ticked box on the form whose words are about texts counts as the customer's OK to text. On by default, like the channels above.
 
-**Indeed emails you about an applicant.** Indeed emails the employer for each person who applies to a job. HandsFreeOS reads that email in any inbox it already reads: the business's own address here, a connected Gmail or Outlook, or one the business forwards Indeed's emails to (an automatic forwarding rule keeps Indeed as the sender, which is what HandsFreeOS looks for). The AI reads who applied, the job, their address (Indeed's relay at `indeedemail.com`, which reaches them) and a phone if one is given; without the AI the email's own wording is read instead. The lead reads "Jordan Reyes (Indeed: Sales Associate)". The email itself is filed in Other mail, and Indeed's other mail (a job going live, an invoice) opens nothing. **Off by default**: a pipeline full of applicants would surprise most businesses, so an owner turns it on. Indeed gives no OK to text, so the first message to an applicant is an email, usually with the funnel's link.
+**Indeed emails you about an applicant.** Indeed emails the employer for each person who applies to a job. HandsFreeOS reads that email in any inbox it already reads: the business's own address here, a connected Gmail or Outlook, or one the business forwards Indeed's emails to (an automatic forwarding rule keeps Indeed as the sender, which is what HandsFreeOS looks for). The AI reads who applied, the job, their address (Indeed's relay at `indeedemail.com`, which reaches them) and a phone if one is given; without the AI the email's own wording is read instead. The lead reads "Jordan Reyes (Indeed: Sales Associate)". The email itself is filed in Other mail, and Indeed's other mail (a job going live, an invoice) opens nothing. Mail that only says it's from Indeed, because Indeed's domain didn't vouch for it (no DKIM or DMARC pass), opens nothing either; a forwarding rule keeps Indeed's signature, so forwarded mail still counts. **Off by default**: a pipeline full of applicants would surprise most businesses, so an owner turns it on. Indeed gives no OK to text, so the first message to an applicant is an email, usually with the funnel's link.
 
 Nothing needs setting up for Indeed beyond that switch, and a forwarding rule in the business's own inbox when that inbox isn't connected.
 
@@ -9974,8 +10000,8 @@ What it will never do, whatever the AI answers (the rules are in code, `packages
 
 - **Make up a tag.** Only the business's own tags, matched by name, and on a pass only the ones it was given.
 - **Take off a tag a person put on.** It takes off only tags HandsFreeOS put on (itself, a workflow, the AI teammate).
-- **Write a detail nobody gave.** A new email, number, name or address must appear in what the customer or the team actually wrote or said: texts, emails, call transcripts, form answers, notes. Never a website chat whose visitor didn't prove who they are (a code, M18), never the AI teammate's own words.
-- **Lose what was on file.** A main email or number it replaces moves to the other emails or numbers, labelled **Previous**.
+- **Write a detail nobody gave.** A new email, number, name or address must appear in what the customer or the team actually wrote or said: texts, emails, call transcripts, form answers, notes. Never a website chat whose visitor didn't prove who they are (a code, M18), never an email whose sender's domain didn't vouch for it (or one synced from a connected mailbox, which isn't checked yet), never a call or voicemail whose caller isn't proven (the phone company's A attestation, a code read back, or a call the business placed; older calls kept no attestation, so they don't count), never the AI teammate's own words. The same goes for taking a detail off: it must be in what they wrote too.
+- **Lose what was on file.** It never takes off a main email or number, only replaces it with a new one; the old one moves to the other emails or numbers, labelled **Previous**.
 
 **Adjust** holds **How you tag customers**: a few lines in the business's words ("VIP: has spent over $2,000 with us") the AI reads every time (`workspaces.settings.automations.contactAi.guide`).
 
@@ -10837,6 +10863,19 @@ The owner's call on 2026-10-27, replacing applications:
 
 - **On the phone app,** a business that hasn't paid shows "Finish setting up on the web", with no price and no
   link: the App Store and Google Play don't allow selling outside their own payments in an app.
+- **The server holds the gate too** (the owner's decision of 2026-11-22: "A business with no plan or trial can't
+  text, email, call, buy numbers or use AI, even through the API"). Until it holds a plan, every text, email, call,
+  number and AI run is refused with the rule `needs_plan`, whoever asks: a person, a workflow, the AI teammate or the
+  worker. Texts, calls, numbers and AI ask the wallet gate, which reads it beside the balance
+  (`packages/core/src/money/wallet-gate.ts`); email asks `assertPlanAllowsSpending` in
+  `packages/core/src/money/plan-gate.ts`, and the worker fails a queued email or text with the same words. A trial
+  is a plan, so it passes. HandsFreeOS's own email to the team (sign-in, invitations, billing, alerts) still goes.
+- **Three new businesses a person a day** (the same decision): `organization.create` and `workspace.create` refuse a
+  fourth within 24 hours with `too_many_new_businesses` and when another can be added
+  (`private.check_new_business_room`, `20261027033100`). Staff and the founder aren't counted, and practice
+  businesses don't come that way. An agency setting up more clients than that in a day waits. One person can be
+  allowed more with a row in `private.new_business_allowances` (the tests' people have one); there's no Admin screen
+  for it yet, so that is a migration, not a change by hand.
 - **Somebody who isn't an owner** sees that an owner has to pick the spot.
 - **Picking the other spot before paying** gives the first hold back. If they pay the first page anyway, the
   payment wins and they get that spot.
@@ -11693,7 +11732,13 @@ money, their Home, read-only, until **Stop viewing** on the banner. Needs
 - **Nothing can be changed.** The API refuses every change to the business a viewing request asks for, and the
   phone refuses them before they're queued. Changes waiting on the phone from before still go, as the viewer.
   The viewer's own settings and other businesses work as usual. The Assistant is off while viewing.
-- **Their own mail stays theirs.** A person's own mailbox (M19) isn't shown to anyone viewing as them.
+- **Their own things stay theirs.** A person's own mailbox (M19), safety contacts and check-ins, About you, Sales
+  Coach cards and Social Outreach work aren't shown to anyone viewing as them. Their coached calls and their
+  outreach days show only to a viewer who sees everyone's (`salescoach.review`, `outreach.manage`).
+- **A private record shows only if the viewer could see it too** (a deal kept to its people): an admin without
+  **See every deal** sees none of an agent's deals by viewing as them. Support, viewing as anyone, sees private
+  records only through **Support access**, as in a look. `20261027032800_a_view_shows_no_more_than_the_viewer_sees.sql`
+  holds both in the database.
 - **It ends by itself** if the viewer may no longer view as that person: their role or permissions change, the
   person leaves, or support's look runs out. The page goes back to the viewer's own view and says so.
 

@@ -1035,6 +1035,10 @@ function describeAction(e: AuditEntry): string {
       return `sent a code to ${s(e.after?.sentTo) || 'the customer'} to check who is in the chat`;
     case 'chat.check_code_for_customer':
       return 'checked the chat visitor’s code: they’re the customer';
+    case 'call.send_code_for_customer':
+      return `sent a code to ${s(e.after?.sentTo) || 'the customer'} to check who is calling`;
+    case 'call.check_code_for_customer':
+      return 'checked the caller’s code: they’re the customer';
     case 'offer.create':
       return `added the promotion “${s(e.after?.name) || 'a promotion'}”`;
     case 'offer.update':

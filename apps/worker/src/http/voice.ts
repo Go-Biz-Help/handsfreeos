@@ -1,5 +1,6 @@
 import { and, eq, isNotNull } from 'drizzle-orm';
 import {
+  callerAttestationOf,
   callUpdateStatus,
   executeCommand,
   HfosError,
@@ -230,20 +231,30 @@ async function aiAnswering(
   });
 }
 
-/** Sends the call to the AI teammate; if its stream ends without new instructions, the voicemail follows. */
+/**
+ * Sends the call to the AI teammate; if its stream ends without new instructions, the voicemail follows. The ticket
+ * carries what the phone company said of the caller's number (Twilio's StirVerstat): a caller ID alone proves
+ * nothing (AI1).
+ */
 function toTeammate(
   deps: HttpDeps,
   route: Route,
-  call: { readonly callSid: string; readonly from: string },
+  call: {
+    readonly callSid: string;
+    readonly from: string;
+    readonly attestation?: string | undefined;
+  },
   urls: VoiceUrls,
 ): string {
   const routing = routingOf(route.routing);
+  const attestation = callerAttestationOf(call.attestation);
   const ticket = sealTicket(deps.sealer, {
     workspaceId: route.workspace_id,
     organizationId: route.organization_id,
     callSid: call.callSid,
     line: route.e164,
     from: call.from,
+    ...(attestation ? { attestation } : {}),
   });
   const after = routing.voicemailEnabled
     ? voicemailVerbs(routing.voicemailGreeting ?? defaultGreeting(route.workspace_name), urls)
@@ -362,14 +373,15 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
     if (p['CallSid']) await store(v, 'voice.inbound', `${p['CallSid']}:inbound`, scope);
     const from = p['From'];
     const callSid = p['CallSid'] ?? '';
+    const attestation = p['StirVerstat'];
     const ai = callSid && isPhone(from) ? await aiAnswering(deps, scope) : null;
     // M18 step 5: the AI teammate picks up every call, or every call while the business is closed.
     if (ai && (ai.mode === 'always' || (ai.mode === 'after_hours' && ai.closed)))
-      return xml(reply, toTeammate(deps, route, { callSid, from: from! }, urls));
+      return xml(reply, toTeammate(deps, route, { callSid, from: from!, attestation }, urls));
     const team = await teamTwiml(deps, route, { callSid, from }, urls);
     // Nobody to ring: the teammate answers now rather than after ringing nobody.
     if (!team.rings && ai?.mode === 'no_answer')
-      return xml(reply, toTeammate(deps, route, { callSid, from: from! }, urls));
+      return xml(reply, toTeammate(deps, route, { callSid, from: from!, attestation }, urls));
     return xml(reply, team.twiml);
   });
 
@@ -409,8 +421,12 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
     const from = v.params['From'];
     if (query(req)['after'] !== 'ai' && callSid && isPhone(from)) {
       const ai = await aiAnswering(deps, scopeOf(route));
+      // When this callback doesn't repeat the attestation, the call's record has it from the first webhook.
       if (ai?.mode === 'no_answer')
-        return xml(reply, toTeammate(deps, route, { callSid, from }, urls));
+        return xml(
+          reply,
+          toTeammate(deps, route, { callSid, from, attestation: v.params['StirVerstat'] }, urls),
+        );
     }
     return xml(reply, noAnswerTwiml(routingOf(route.routing), route, urls));
   });

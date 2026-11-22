@@ -50,6 +50,10 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'call.bridge_cancelled',
   'call.voicemail_left',
   'call.transcribed',
+  // A code sent to an unconfirmed caller, and read back (AI1): nothing for a card either, but every call event is
+  // looked at.
+  'call.verification_sent',
+  'call.caller_verified',
   'activity.logged',
   // Conversations.
   'conversation.assigned',

@@ -499,15 +499,17 @@ export async function showingTimeEmail(ctx: AddonEventContext): Promise<void> {
       from_address: string | null;
       subject: string | null;
       body_text: string | null;
+      sender_verified: boolean | null;
       tz: string;
     }>(
       tx,
-      sql`select m.from_address, m.subject, m.body_text, w.timezone as tz
+      sql`select m.from_address, m.subject, m.body_text, m.sender_verified, w.timezone as tz
           from app.messages m join app.workspaces w on w.id = m.workspace_id
           where m.id = ${messageId} and m.workspace_id = ${ctx.scope.workspaceId}`,
     ),
   );
-  if (!m || !isShowingTimeEmail(m.from_address, m.subject)) return;
+  // From ShowingTime's domain, and that domain vouched for it: anyone can write its address in From (FDE1).
+  if (!m || m.sender_verified === false || !isShowingTimeEmail(m.from_address)) return;
   // The business can turn reading them off (Deal settings → Connections).
   const [on] = await asWorker(ctx.db, ctx.scope, (tx) =>
     rows<{ on: boolean | null }>(
