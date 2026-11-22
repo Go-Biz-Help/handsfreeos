@@ -2,7 +2,8 @@
  * Social Outreach: each person's own rows stay their own on the database, not only in the operations. A member reads
  * and writes only their own computers, day, feed, needs, pushes, asks and the people they found. Owners and admins may read the team's days,
  * which hold no words, and see the team's computers and how many needs and asks wait only through private functions
- * that give status and counts, never a line, a need or a drafted message. Nobody changes a colleague's.
+ * that give status and counts, never a line, a need or a drafted message. Nobody changes a colleague's. Nor does a
+ * view of someone (20261027032800) show their own rows, except their days to a viewer who sees the team's.
  */
 import { randomUUID } from 'node:crypto';
 import { asUser, rows, sql } from '@hfos/db/client';
@@ -352,5 +353,52 @@ describe('people found by topic, on the database (decision 92)', () => {
             where workspace_id = ${ws} and user_id = ${riley.id} returning id`,
       ),
     ).toBe(1);
+  });
+});
+
+describe('through a view of someone, on the database', () => {
+  let manager: TestUser;
+
+  /** What `u` sees of a table's rows, read the way the API reads through `viewer`'s view of them. */
+  const seenThrough = async (u: TestUser, viewer: TestUser, table: string): Promise<string[]> =>
+    (
+      await asUser(api(), { ...u.claims, hfos_viewer: viewer.id }, (tx) =>
+        rows<{ user_id: string }>(
+          tx,
+          sql`select user_id from ${sql.raw(`addon_outreach.${table}`)} where workspace_id = ${ws}`,
+        ),
+      )
+    )
+      .map((r) => r.user_id)
+      .sort();
+
+  beforeAll(async () => {
+    // An admin an owner took "manage outreach" from: they don't see the team's days.
+    manager = await createTestUser('outown-admin', { fullName: 'Ali Admin' });
+    await admin()
+      .insert(workspaceMemberships)
+      .values({ workspaceId: ws, userId: manager.id, role: 'admin' });
+    await rows(
+      admin(),
+      sql`insert into app.member_permission_overrides (workspace_id, user_id, permission, allowed)
+          values (${ws}, ${manager.id}, 'outreach.manage', false)`,
+    );
+  });
+
+  it('shows none of their own rows, and their day only to a viewer who sees the team’s days', async () => {
+    for (const table of [
+      'computers',
+      'live_steps',
+      'needs',
+      'list_saves',
+      'waiting_pushes',
+      'asks',
+    ]) {
+      expect(await seenBy(riley, table), table).toContain(riley.id);
+      expect(await seenThrough(riley, owner, table), table).toEqual([]);
+    }
+    expect(await seenThrough(riley, owner, 'days')).toEqual([riley.id]);
+    expect(await seenBy(manager, 'days')).toEqual([]);
+    expect(await seenThrough(riley, manager, 'days')).toEqual([]);
   });
 });

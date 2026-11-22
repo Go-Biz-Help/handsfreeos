@@ -75,7 +75,8 @@ end's timeline unless it is sealed with it. Its main person puts people on it an
 (`custom_record.assign`, `custom_record.unassign`); owners and admins (`records.assign`) do too, and alone choose
 its main person. A task on one goes only to someone on it. Business-made kinds can't be private yet. HandsFreeOS
 support's look sees none, unless someone who may lets them in for 24 hours (`support_access.*`, Settings →
-Support access): then it shows what that person sees, read-only.
+Support access): then it shows what that person sees, read-only. Viewing the app as someone shows a private
+record only when the viewer could see it too, support through that access (`20261027032800`).
 
 **Permissions follow the rest of the CRM.** Making kinds, types and fields needs `fields.manage` (owners
 and admins). Adding records, filling in fields and connecting records needs `records.write`; archiving a

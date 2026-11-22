@@ -11717,7 +11717,13 @@ money, their Home, read-only, until **Stop viewing** on the banner. Needs
 - **Nothing can be changed.** The API refuses every change to the business a viewing request asks for, and the
   phone refuses them before they're queued. Changes waiting on the phone from before still go, as the viewer.
   The viewer's own settings and other businesses work as usual. The Assistant is off while viewing.
-- **Their own mail stays theirs.** A person's own mailbox (M19) isn't shown to anyone viewing as them.
+- **Their own things stay theirs.** A person's own mailbox (M19), safety contacts and check-ins, About you, Sales
+  Coach cards and Social Outreach work aren't shown to anyone viewing as them. Their coached calls and their
+  outreach days show only to a viewer who sees everyone's (`salescoach.review`, `outreach.manage`).
+- **A private record shows only if the viewer could see it too** (a deal kept to its people): an admin without
+  **See every deal** sees none of an agent's deals by viewing as them. Support, viewing as anyone, sees private
+  records only through **Support access**, as in a look. `20261027032800_a_view_shows_no_more_than_the_viewer_sees.sql`
+  holds both in the database.
 - **It ends by itself** if the viewer may no longer view as that person: their role or permissions change, the
   person leaves, or support's look runs out. The page goes back to the viewer's own view and says so.
 

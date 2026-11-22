@@ -200,7 +200,8 @@ The owner's decisions (Chris, 2026-09-30) are settled; ask before going against 
   (else their address, else the team inbox). Every draft's words are checked for fair-housing risk by a fixed list
   and by the AI; it goes only once each flag is fixed or kept with a reason, and every check is kept.
 - **Support can't see private deals** unless the deal's agent or an admin lets them in, for 24 hours or less,
-  covering every deal the person letting them in can see. The founder sees all.
+  covering every deal the person letting them in can see, viewing the app as someone included. The founder sees
+  all.
 - **Commission's final amount** is set by owners and admins.
 
 Round two (Chris, 2026-09-30):
