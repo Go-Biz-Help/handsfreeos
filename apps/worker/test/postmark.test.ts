@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DnsLookup } from '../src/email/dns';
 import { createPostmark } from '../src/email/postmark';
+import { replyToOf } from '../src/processors/postmark';
 import { INBOUND_REFUSALS } from '../src/email/transport';
 
 /**
@@ -44,7 +45,7 @@ const dnsError = (code: string) => Object.assign(new Error(`queryTxt ${code}`), 
 const dns = (answers: {
   txt?: string[][] | Error;
   cname?: string[] | Error;
-  mx?: string[] | Error;
+  mx?: (string | { exchange: string; priority: number })[] | Error;
 }): DnsLookup => ({
   async txt() {
     if (answers.txt instanceof Error) throw answers.txt;
@@ -56,7 +57,9 @@ const dns = (answers: {
   },
   async mx() {
     if (answers.mx instanceof Error) throw answers.mx;
-    return (answers.mx ?? []).map((exchange) => ({ exchange }));
+    return (answers.mx ?? []).map((r) =>
+      typeof r === 'string' ? { exchange: r, priority: 10 } : r,
+    );
   },
 });
 const domains = (lookup: DnsLookup) =>
@@ -117,12 +120,33 @@ describe('checking a workspace domain', () => {
 });
 
 describe('whether a domain receives here (M19)', () => {
-  it('finds Postmark among its MX records, however DNS writes the name', async () => {
+  it('finds Postmark as its MX record, however DNS writes the name', async () => {
     expect(
-      await domains(dns({ mx: ['aspmx.l.google.com', 'INBOUND.POSTMARKAPP.COM.'] })).receives(
-        'lonestarhvac.com',
-      ),
+      await domains(dns({ mx: ['INBOUND.POSTMARKAPP.COM.'] })).receives('lonestarhvac.com'),
     ).toBe(true);
+    // A backup record the mail only falls back to doesn't stop it.
+    expect(
+      await domains(
+        dns({
+          mx: [
+            { exchange: 'inbound.postmarkapp.com', priority: 10 },
+            { exchange: 'mx.backup.example', priority: 50 },
+          ],
+        }),
+      ).receives('lonestarhvac.com'),
+    ).toBe(true);
+  });
+
+  // The old host's records left beside ours still get the mail, so receiving waits until they're gone.
+  it('says no while the old host’s MX records come first or beside ours', async () => {
+    const old = (priority: number) => [
+      { exchange: 'aspmx.l.google.com', priority: 1 },
+      { exchange: 'alt1.aspmx.l.google.com', priority: 5 },
+      { exchange: 'inbound.postmarkapp.com', priority },
+    ];
+    expect(await domains(dns({ mx: old(10) })).receives('lonestarhvac.com')).toBe(false);
+    expect(await domains(dns({ mx: old(1) })).receives('lonestarhvac.com')).toBe(false);
+    expect(await domains(dns({ mx: old(0) })).receives('lonestarhvac.com')).toBe(true);
   });
 
   it('says no when the MX points elsewhere or there is none', async () => {
@@ -284,5 +308,29 @@ describe('a receiving domain’s server (M19)', () => {
       { route: 'DELETE /servers/2', body: undefined },
       { route: 'PUT /servers/2', body: { InboundDomain: '', InboundHookUrl: '' } },
     ]);
+  });
+});
+
+describe('the Reply-To of mail that came in', () => {
+  it('takes the first address and its name, however the header writes them', () => {
+    expect(replyToOf('Dana Rivera <Dana@Example.com>')).toEqual({
+      address: 'dana@example.com',
+      name: 'Dana Rivera',
+    });
+    expect(replyToOf('"Rivera, Dana" <dana@example.com>, lee@example.com')).toEqual({
+      address: 'dana@example.com',
+      name: 'Rivera, Dana',
+    });
+    expect(replyToOf('dana@example.com, lee@example.com')).toEqual({
+      address: 'dana@example.com',
+      name: null,
+    });
+    expect(replyToOf('<dana@example.com>')).toEqual({ address: 'dana@example.com', name: null });
+  });
+
+  it('is nothing when there is no address in it', () => {
+    expect(replyToOf(undefined)).toBeNull();
+    expect(replyToOf('')).toBeNull();
+    expect(replyToOf('[your-email]')).toBeNull();
   });
 });

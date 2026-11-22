@@ -566,7 +566,8 @@ export const platformWalletGet = defineQuery({
       has_card: boolean;
       card_brand: string | null;
       card_last4: string | null;
-      suspended_at: Date | null;
+      // Raw SQL rows carry timestamps as text; read through new Date(), which takes either.
+      suspended_at: Date | string | null;
       suspended_reason: string | null;
       declines_in_row: number;
       escalation_step: number;
@@ -607,7 +608,7 @@ export const platformWalletGet = defineQuery({
       hasCard: w.has_card,
       cardBrand: w.card_brand,
       cardLast4: w.card_last4,
-      suspendedAt: w.suspended_at ? w.suspended_at.toISOString() : null,
+      suspendedAt: w.suspended_at ? new Date(w.suspended_at).toISOString() : null,
       suspendedReason: w.suspended_reason,
       declinesInRow: Number(w.declines_in_row),
       escalationStep: Number(w.escalation_step),

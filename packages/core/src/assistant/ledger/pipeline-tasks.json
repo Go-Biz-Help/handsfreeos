@@ -1,7 +1,7 @@
 {
   "area": "pipeline-tasks",
   "title": "Pipeline, Tasks and Approvals",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-21",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx": "2c9c246bd2a4",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/tasks.tsx": "f094f03c9b02",
@@ -41,7 +41,7 @@
     "apps/web/src/components/files/upload-zone.tsx": "22135ce708f3",
     "apps/web/src/components/funnels/person-funnel.tsx": "6d463f0e6e10",
     "apps/web/src/components/inbox/attachment-chip.tsx": "ebcdf73e5026",
-    "apps/web/src/components/inbox/message-sheet.tsx": "a156995e028d",
+    "apps/web/src/components/inbox/message-sheet.tsx": "b8a8610c66f7",
     "apps/web/src/components/pipeline/attention-banner.tsx": "c47471f7ab30",
     "apps/web/src/components/pipeline/board.tsx": "1df97ee99149",
     "apps/web/src/components/pipeline/lead-card.tsx": "4b9d6fb9f37c",
@@ -895,7 +895,7 @@
     {
       "path": "Lead → banner → message sheet: thread and composer",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/message-sheet.tsx:175",
+      "file": "apps/web/src/components/inbox/message-sheet.tsx:185",
       "covered": "partly",
       "by": "send_text/send_email body, subject; get_conversation; composer extras are the Inbox ledger's"
     },

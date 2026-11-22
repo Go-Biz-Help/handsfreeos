@@ -41,6 +41,11 @@ export interface FakeCalendars {
   events(account: string): readonly FakeCalendarEvent[];
   /** The account's sign-in stops working (until it signs in again), the way a revoked one does. */
   revoke(account: string): void;
+  /**
+   * The account gets no Meet link from here on: Google says it couldn't make one (`failed`), or keeps saying it's
+   * still making it (`pending`). `null` puts it back.
+   */
+  noMeet(account: string, how: 'failed' | 'pending' | null): void;
 }
 
 const enc = (s: string) => Buffer.from(s).toString('base64url');
@@ -55,6 +60,7 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
   const busyTimes = new Map<string, BusyInterval[]>();
   const written = new Map<string, Map<string, FakeCalendarEvent>>();
   const revoked = new Set<string>();
+  const meetless = new Map<string, 'failed' | 'pending'>();
   let seq = 0;
   const key = (account: string) => account.trim().toLowerCase();
   const eventsOf = (account: string) => {
@@ -141,9 +147,10 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
             [...list.values()].find((x) => x.appointmentId === e.appointmentId)?.id ??
             `fake-outlook-event-${++seq}`);
       // Google keeps a Meet link once made; the stand-in makes one from the appointment, so a retry gets the same.
+      const stuck = meetless.get(key(emailOf(accessToken)));
       const meetingUrl =
         list.get(id)?.meetingUrl ??
-        (name === 'google' && e.addMeet
+        (name === 'google' && e.addMeet && !stuck
           ? `https://meet.google.com/fake-${e.appointmentId.slice(0, 8)}`
           : null);
       list.set(id, {
@@ -157,7 +164,11 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
         attendees: [],
         meetingUrl,
       });
-      return { providerEventId: id, meetingUrl };
+      return {
+        providerEventId: id,
+        meetingUrl,
+        ...(e.addMeet && !meetingUrl && stuck === 'failed' ? { meetFailed: true } : {}),
+      };
     },
     async deleteEvent(accessToken, providerEventId) {
       eventsOf(emailOf(accessToken)).delete(providerEventId);
@@ -174,6 +185,10 @@ export function createFakeCalendars(opts: { publicUrl: string }): FakeCalendars 
     events: (account) => [...eventsOf(account).values()],
     revoke(account) {
       revoked.add(key(account));
+    },
+    noMeet(account, how) {
+      if (how) meetless.set(key(account), how);
+      else meetless.delete(key(account));
     },
   };
 }

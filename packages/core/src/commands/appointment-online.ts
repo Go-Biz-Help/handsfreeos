@@ -39,6 +39,7 @@ import {
 } from '../calendar/booking';
 import type { CalendarConfig } from '../calendar/config';
 import { DEPOSIT_HOLD_MS } from '../calendar/deposit';
+import { keptPoint } from '../calendar/geocodes';
 import type { Drives } from '../calendar/engine/drives';
 import { computeSlots } from '../calendar/engine/slots';
 import { chooseAssignment } from '../calendar/engine/strategies';
@@ -506,6 +507,8 @@ export async function rescheduleBooking(
     readonly sessionId?: string | null;
     /** Drive times to the visit's address (decision 179), worked out by the worker. */
     readonly drives?: Drives | null;
+    /** Where the visit's address is, for a calendar that serves a distance or a drawn area. */
+    readonly point?: { lat: number; lng: number } | null;
   },
 ): Promise<{ appointmentId: string; attendeeId: string; startsAt: string; endsAt: string }> {
   const ws = ctx.scope.workspaceId!;
@@ -529,7 +532,16 @@ export async function rescheduleBooking(
   const start = Date.parse(input.startsAt);
   const minutes = Math.round((appt.endsAt.getTime() - appt.startsAt.getTime()) / MIN);
   const from = { startsAt: appt.startsAt.toISOString(), endsAt: appt.endsAt.toISOString() };
-  const location = (appt.location ?? {}) as { kind?: string | null; postalCode?: string | null };
+  const location = (appt.location ?? {}) as {
+    kind?: string | null;
+    postalCode?: string | null;
+    address?: string | null;
+  };
+  // The visit keeps its address but not its map point: without one, a calendar that serves a distance or a drawn
+  // area finds nobody who covers it, and the visit could never be moved. The worker kept the point when it was
+  // booked; only the worker's roles read it, and only they move a booking here.
+  const point =
+    input.point ?? (ctx.actor.type === 'human' ? null : await keptPoint(ctx.tx, location.address));
 
   if (appt.kind === 'booking' && appt.capacity === 1) {
     // The customer's own appointment moves; its people stay when they are free at the new time.
@@ -550,6 +562,7 @@ export async function rescheduleBooking(
       partySize: att.seats,
       locationKind: (location.kind ?? null) as never,
       postalCode: location.postalCode ?? null,
+      point,
       excludeAppointmentIds: [appt.id],
       drives: input.drives ?? null,
     };

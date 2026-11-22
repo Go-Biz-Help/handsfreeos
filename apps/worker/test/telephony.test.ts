@@ -1232,6 +1232,52 @@ describe('releasing the number', () => {
     await drain();
     expect((await numberRow(numberId))?.status).toBe('released');
   });
+
+  it('sends a text to someone whose thread was on it from the number that replaced it, once', async () => {
+    const replacement = tollFree();
+    const { output: bought } = await executeCommand(
+      api(),
+      phoneNumberBuy,
+      { workspaceId, e164: replacement, numberType: 'toll_free' },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    expect((await numberRow(bought.phoneNumberId))?.status).toBe('active');
+    // Mike's thread is still on the released number.
+    const body = `Hi Mike, a new number ${randomUUID().slice(0, 6)}.`;
+    const { output } = await executeCommand(
+      api(),
+      messageSend,
+      { workspaceId, personId: mikeId, body },
+      actor(owner),
+      meta(),
+    );
+    await drain({ timeoutMs: 20_000 });
+    const out = s.telephony.sent.filter((m) => m.body === body);
+    expect(out).toHaveLength(1);
+    expect(out[0]!.from).toBe(replacement);
+    const [m] = await admin().select().from(messages).where(eq(messages.id, output.messageId));
+    expect(m).toMatchObject({
+      providerMessageId: out[0]!.sid,
+      status: 'sending',
+      fromAddress: replacement,
+    });
+    const [conv] = await rows<{ phone_number_id: string }>(
+      admin(),
+      sql`select phone_number_id from app.conversations where id = ${output.conversationId}`,
+    );
+    expect(conv!.phone_number_id).toBe(bought.phoneNumberId);
+    // Back to no number, for the local numbers below.
+    await executeCommand(
+      api(),
+      phoneNumberRelease,
+      { workspaceId, phoneNumberId: bought.phoneNumberId, confirmE164: replacement },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+  });
 });
 
 describe('local numbers (10DLC)', () => {

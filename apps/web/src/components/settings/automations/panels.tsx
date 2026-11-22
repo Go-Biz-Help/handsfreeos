@@ -39,7 +39,7 @@ import {
   renderMaintenance,
   renderNudge,
   shortBusinessName,
-  smsSegments,
+  sentSmsSegments,
   STAGE_ROLE_LABELS,
   STAGE_ROLES,
   type AdjustPanel,
@@ -1437,7 +1437,7 @@ function WordingEditor({
   }).text;
   const verdict = checkNudgeTemplate(draft, env.check);
   const has = (code: NudgeProblemCode) => verdict.problems.some((p) => p.code === code);
-  const segments = smsSegments(preview);
+  const segments = sentSmsSegments(preview);
   const dirty = draft.trim() !== template;
   const short = shortBusinessName(env.businessName);
 

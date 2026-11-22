@@ -10,8 +10,8 @@
     "apps/mobile/src/components/ai-setup/try-ava.tsx": "98bce89daa16",
     "apps/mobile/src/components/email-setup/email-setup-flow.tsx": "5e68d3bf29df",
     "apps/mobile/src/components/email-setup/screens.tsx": "d611416b7a54",
-    "apps/mobile/src/components/onboarding-setup/business.tsx": "11430d47d94b",
-    "apps/mobile/src/components/onboarding-setup/create-business.tsx": "8aa7ebdb352b",
+    "apps/mobile/src/components/onboarding-setup/business.tsx": "c8d4223a317b",
+    "apps/mobile/src/components/onboarding-setup/create-business.tsx": "6cbd61109a08",
     "apps/mobile/src/components/onboarding-setup/frame.tsx": "9c4dd3dcf6cb",
     "apps/mobile/src/components/onboarding-setup/look.tsx": "94e41896520a",
     "apps/mobile/src/components/onboarding-setup/number.tsx": "928071d1d003",
@@ -51,8 +51,8 @@
     "apps/web/src/components/knowledge/website-scan.tsx": "779002bbbe34",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
-    "apps/web/src/components/onboarding-setup/business.tsx": "9ffea6ffe1bf",
-    "apps/web/src/components/onboarding-setup/create-business.tsx": "ccd97c9a8c0d",
+    "apps/web/src/components/onboarding-setup/business.tsx": "8e8fe5fa6004",
+    "apps/web/src/components/onboarding-setup/create-business.tsx": "60995975b824",
     "apps/web/src/components/onboarding-setup/frame.tsx": "5e67d37631eb",
     "apps/web/src/components/onboarding-setup/page-preview.tsx": "a756c826230f",
     "apps/web/src/components/onboarding-setup/quick-setup.tsx": "0a9346bd8104",
@@ -561,16 +561,16 @@
       "by": "do_onboarding_setup_save business.address.state"
     },
     {
-      "path": "Set up → Your business → time zone from the address, Change",
+      "path": "Set up → Your business → time zone (from the address once one is typed, else the device's or the business's own), Change",
       "kind": "see",
-      "file": "apps/web/src/components/onboarding-setup/business.tsx:280",
+      "file": "apps/web/src/components/onboarding-setup/business.tsx:284",
       "covered": "yes",
       "by": "get_settings business timezone"
     },
     {
       "path": "Set up → Your business → time zone select (phone: sheet)",
       "kind": "do",
-      "file": "apps/web/src/components/onboarding-setup/business.tsx:298",
+      "file": "apps/web/src/components/onboarding-setup/business.tsx:302",
       "covered": "yes",
       "by": "do_onboarding_setup_save business.timezone; update_business time_zone"
     },

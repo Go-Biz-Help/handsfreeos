@@ -521,6 +521,8 @@ async function saveCalendar(ctx: CommandContext, args: SaveArgs) {
       revision,
       diff,
       ...(args.restoredFrom ? { restoredFrom: args.restoredFrom } : {}),
+      // Its reminders changed: the worker arms the new ones for everyone already booked (onCalendarReminders).
+      ...(remindersOf(prev) !== remindersOf(next) ? { remindersChanged: true } : {}),
     },
     before: { name: current.name, revision: current.revision, labels: current.labels.join(', ') },
     after: { name, revision, labels: formatLabels(labels), changes: diff },
@@ -541,6 +543,10 @@ async function saveCalendar(ctx: CommandContext, args: SaveArgs) {
 }
 
 // ---- Commands ----
+
+/** A calendar's reminders and the ways they go out, to tell whether a change touched them. */
+const remindersOf = (c: CalendarConfig): string =>
+  JSON.stringify([c.notifications.reminders, c.notifications.reminderChannels]);
 
 export const calendarCreate = defineCommand({
   name: 'calendar.create',

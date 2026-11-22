@@ -835,9 +835,10 @@ async function fillsOnItsOwn(ctx: AddonScopeContext): Promise<boolean> {
 async function oldDrafts(
   ctx: AddonScopeContext,
   most: number,
-): Promise<{ record_id: string; network: string; post_at: Date | null }[]> {
+): Promise<{ record_id: string; network: string; post_at: Date | string | null }[]> {
   return asWorker(ctx.db, ctx.scope, (tx) =>
-    rows<{ record_id: string; network: string; post_at: Date | null }>(
+    // A raw read hands a time back as text, not a Date.
+    rows<{ record_id: string; network: string; post_at: Date | string | null }>(
       tx,
       sql`select c.record_id, c.network, c.post_at from addon_socialcontent.content c
           join app.custom_records r on r.id = c.record_id and r.archived_at is null
@@ -944,13 +945,17 @@ export const runCalendar: AddonJobHandler = async (ctx) => {
     const reserved = (await ideasBefore(ctx)).map((i) => ({ angle: null, topic: i.topic }));
 
     const old = await oldDrafts(ctx, VARIETY.rewritePerRun + 1);
-    const redo = old
-      .slice(0, VARIETY.rewritePerRun)
-      .flatMap((d) =>
-        isPostingNetwork(d.network)
-          ? [{ network: d.network, at: d.post_at?.getTime() ?? null, postId: d.record_id }]
-          : [],
-      );
+    const redo = old.slice(0, VARIETY.rewritePerRun).flatMap((d) =>
+      isPostingNetwork(d.network)
+        ? [
+            {
+              network: d.network,
+              at: d.post_at ? new Date(d.post_at).getTime() : null,
+              postId: d.record_id,
+            },
+          ]
+        : [],
+    );
     let rewritten = 0;
     if (redo.length) {
       const planned = planWrites({

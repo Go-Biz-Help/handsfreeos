@@ -823,6 +823,47 @@ describe('converting an estimate', () => {
     expect(invoice.invoice.totals.taxCents).toBe(0);
   });
 
+  it('bills the rest after the deposit was invoiced on its own, and bills nothing twice', async () => {
+    const made = await newEstimate({ deposit: { kind: 'amount', amountCents: 100_000 } });
+    const ref = { workspaceId: w.wsId, estimateId: made.estimateId };
+    await run(estimateSend, ref, w.owner);
+    const deposit = await run(estimateConvert, { ...ref, purpose: 'deposit' }, w.owner);
+    await run(invoiceSend, { workspaceId: w.wsId, invoiceId: deposit.invoiceId }, w.owner);
+    const { invoice: asked } = await ask(
+      invoiceGet,
+      { workspaceId: w.wsId, invoiceId: deposit.invoiceId },
+      w.owner,
+    );
+    // The deposit is asked for once.
+    await expectHfos(
+      () => run(estimateConvert, { ...ref, purpose: 'deposit' }, w.owner),
+      'rule_violation',
+      'estimate_deposit_invoiced',
+    );
+    // The whole job, after it, is what's left: not the whole total again.
+    const rest = await run(estimateConvert, ref, w.owner);
+    expect(rest.purpose).toBe('balance');
+    expect(rest.totalCents).toBe(made.totalCents - 100_000);
+    const { invoice } = await ask(
+      invoiceGet,
+      { workspaceId: w.wsId, invoiceId: rest.invoiceId },
+      w.owner,
+    );
+    expect(invoice.purpose).toBe('balance');
+    expect(invoice.lines).toHaveLength(1);
+    expect(invoice.totals.taxCents).toBe(0);
+    expect(invoice.lines[0]!.description).toContain(`deposit on ${asked.number}`);
+    // And the job is invoiced once, till that invoice is voided.
+    const twice = await expectHfos(
+      () => run(estimateConvert, ref, w.owner),
+      'rule_violation',
+      'estimate_already_invoiced',
+    );
+    expect(twice.message).toContain('already invoiced on a draft invoice');
+    await run(invoiceVoid, { workspaceId: w.wsId, invoiceId: rest.invoiceId }, w.owner);
+    expect((await run(estimateConvert, ref, w.owner)).totalCents).toBe(made.totalCents - 100_000);
+  });
+
   it('refuses to invoice a draft', async () => {
     const made = await newEstimate();
     const err = await expectHfos(

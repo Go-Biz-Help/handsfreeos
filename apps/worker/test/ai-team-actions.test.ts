@@ -262,6 +262,23 @@ const RULES: TeammateRule[] = [
           },
   },
   {
+    when: /detail my car/i,
+    step: (t) =>
+      t.results['find_times']
+        ? { calls: [{ name: 'reply', arguments: { message: 'Pick a time on our booking page.' } }] }
+        : {
+            calls: [
+              {
+                name: 'find_times',
+                arguments: {
+                  calendarId: calendarIdIn(t.context, 'Detailing'),
+                  from: localDateOf(at(3, '00:00'), CHI),
+                },
+              },
+            ],
+          },
+  },
+  {
     when: /book me a lawn visit/i,
     step: (t) => {
       const times = t.results['find_times']?.at(-1);
@@ -429,8 +446,13 @@ beforeAll(async () => {
     name: 'Downtown',
     postalCodes: ['78701', '78702'],
   });
+  // A mobile detailer's calendar: visits at the customer's place, with time to drive between them.
+  const detailing = await makeCalendar(w, 'Detailing', {
+    locations: { options: [{ kind: 'customer_address' }] },
+    buffers: { driveBetween: true },
+  });
   await saveTeammate(w, {
-    book: { enabled: true, calendarIds: [lawn.id, byZip.id], repeats: true },
+    book: { enabled: true, calendarIds: [lawn.id, byZip.id, detailing.id], repeats: true },
   });
   useModel(w, scriptedAi([TRANSLATE], { teammate: RULES }));
 }, 120_000);
@@ -490,6 +512,34 @@ describe('the service area', () => {
     const find = (await toolCallsOf(r!.id)).find((x) => x.tool === 'find_times');
     expect(find).toMatchObject({ status: 'refused' });
     expect(JSON.stringify(find!.result)).toContain('offers times by ZIP code');
+  });
+});
+
+describe('a calendar that leaves time to drive between visits', () => {
+  it('isn’t the teammate’s to book: it offers no time on a guess, and sends the customer the page', async () => {
+    const c = await newCustomer(w, 'Dee');
+    const m = await textIn(w, c.phone, 'Can you detail my car on Friday?');
+    await replyNow(w, m.conversationId);
+    await drain(w);
+    // It's told so up front, the way it is about a calendar that takes a deposit.
+    const context = briefOf(requestAbout(w, 'detail my car')!);
+    expect(context).toMatch(
+      /Detailing \(calendar id [0-9a-f-]{36}\).*leaves time to drive between visits.*don't book or move it yourself/,
+    );
+    expect(context).not.toMatch(/Lawn care[^\n]*leaves time to drive/);
+    // And a look for times anyway is refused, with where to send them.
+    const [r] = await runsOf(m.conversationId);
+    const find = (await toolCallsOf(r!.id)).find((x) => x.tool === 'find_times');
+    expect(find).toMatchObject({ status: 'refused' });
+    expect(JSON.stringify(find!.result)).toContain('leaves time to drive between visits');
+    expect((await aiReplies(m.conversationId)).map((x) => x.body_text)).toEqual([
+      'Pick a time on our booking page.',
+    ]);
+    const booked = await rows<{ id: string }>(
+      admin(),
+      sql`select t.id from app.appointment_attendees t where t.person_id = ${c.id}`,
+    );
+    expect(booked).toEqual([]);
   });
 });
 

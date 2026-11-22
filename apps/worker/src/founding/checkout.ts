@@ -624,7 +624,11 @@ export const onFoundingBilled: EventHandler = async (ctx) => {
     paidThrough?: string | null;
     problem?: string;
     amountCents?: number;
+    attempt?: number | 'now';
+    lastRetry?: boolean;
   };
+  // Somebody pressed Try my cards now and it failed: the page told them, so no email says it again.
+  if (ctx.event.eventType === 'founding.renewal_retry_failed' && payload.attempt === 'now') return;
   const link = `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/usage`;
   const offer = p.offer_name ?? 'founding';
   const period = periodOf(p.billing ?? '') ?? 'year';
@@ -645,6 +649,8 @@ export const onFoundingBilled: EventHandler = async (ctx) => {
           reason: payload.problem ?? 'The card was declined.',
           link,
           period,
+          again: ctx.event.eventType === 'founding.renewal_retry_failed',
+          lastRetry: payload.lastRetry === true,
         });
   for (const m of await managers(ctx.tx, scope.workspaceId))
     await ctx.mailer.send({ to: m.email, ...mail });

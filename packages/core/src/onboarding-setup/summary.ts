@@ -191,8 +191,14 @@ export function onboardingSetupScreenProblems(
       out.push(p);
   // The AI part's own checks, at its own paths under `ai`.
   const ai = AI_SCREEN_OF[screen];
+  // "Do customers book a time with you?" is answered on this screen, and Ava's jobs only catch up with a No once
+  // the screen is saved. Checked against the jobs as they were, a No still asked for the services customers book.
+  const aiAnswers =
+    screen === 'about' && !answers.booksTime
+      ? { ...answers.ai, jobs: answers.ai.jobs.filter((j) => j !== 'book') }
+      : answers.ai;
   if (ai)
-    for (const p of aiSetupStepProblems(ai, answers.ai, state))
+    for (const p of aiSetupStepProblems(ai, aiAnswers, state))
       if (!out.some((o) => o.path === `ai.${p.path}`))
         out.push({ path: p.path ? `ai.${p.path}` : '', message: p.message });
   return out;

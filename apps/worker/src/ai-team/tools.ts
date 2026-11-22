@@ -538,6 +538,17 @@ const depositInstead = (cal: {
   } before a time is held, and that is paid on the booking page. Tell the customer what it takes and${
     cal.bookingPath ? ` send them ${cal.bookingPath} to book and pay on.` : ' ask them to call us.'
   }`;
+/**
+ * A calendar that leaves time to drive between visits times the drive by road from the customer's address, on its
+ * booking page (docs/outreach.md, decision 179). The teammate has no drive to go by, so a time it offered could sit
+ * right after a visit across town. It books and moves nothing here, and sends them the page.
+ */
+export const drivesInstead = (cal: { name: string; bookingPath: string | null }): string =>
+  `Don’t book or move a visit on ${cal.name} yourself. It leaves time to drive between visits, and the drive is worked out from the customer’s address on its booking page. ${
+    cal.bookingPath
+      ? `Send them ${cal.bookingPath} to pick a time there. To move a visit they have, the link in their confirmation does it.`
+      : 'Hand off so someone on the team can book it.'
+  }`;
 const NO_CUSTOMER =
   'There’s no customer on file for this conversation yet, so there’s nowhere to put that.';
 const NO_CALLS = 'That isn’t a call in this conversation. Use a callId the history gave you.';
@@ -804,6 +815,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       return refused({
         error: 'That isn’t one of your calendars. Use a calendar id from the context.',
       });
+    if (cal.drives) return refused({ error: drivesInstead(cal) });
     const address = str(args['address']);
     if (cal.byAddress && !address && d.geocoder.name !== 'off')
       return refused({
@@ -944,6 +956,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const cal = d.rc.calendars.find((c) => c.id === calendarId);
     if (!cal) return refused({ error: 'That isn’t one of your calendars.' });
     if (cal.deposit) return refused({ error: depositInstead(cal) });
+    if (cal.drives) return refused({ error: drivesInstead(cal) });
     const slot = d.state.offered.get(timeKey(calendarId, String(args['startsAt'])));
     if (!slot)
       return refused({
@@ -976,6 +989,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     if (!appt) return refused({ error: NOT_THEIRS });
     const onPaying = d.rc.calendars.find((c) => c.id === appt.calendarId);
     if (onPaying?.deposit) return refused({ error: depositInstead(onPaying) });
+    if (onPaying?.drives) return refused({ error: drivesInstead(onPaying) });
     const slot = d.state.offered.get(timeKey(appt.calendarId, String(args['startsAt'])));
     if (!slot)
       return refused({
@@ -1103,6 +1117,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const cal = d.rc.calendars.find((c) => c.id === calendarId);
     if (!cal) return refused({ error: 'That isn’t one of your calendars.' });
     if (cal.deposit) return refused({ error: depositInstead(cal) });
+    if (cal.drives) return refused({ error: drivesInstead(cal) });
     if (cal.maxRepeats === null)
       return refused({
         error: `${cal.name} doesn’t take repeat visits. Book one visit, and leave the team a task if they want regular ones.`,

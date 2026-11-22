@@ -129,7 +129,8 @@ async function readFaq(
 
 /**
  * Open times from now to the end of the next few days on the calendars it can book without asking where they
- * are (no ZIP or address needed, no deposit, no service-area check first), a few from each day, spread out.
+ * are (no ZIP or address needed, no deposit, no drive to time, no service-area check first), a few from each day,
+ * spread out.
  */
 async function readOpenTimes(
   deps: { readonly db: Db },
@@ -139,7 +140,7 @@ async function readOpenTimes(
 ): Promise<OfferedTime[]> {
   if (!rc.config.book.enabled || rc.config.book.serviceArea) return [];
   const calendars = rc.calendars
-    .filter((c) => !c.deposit && !c.byZip && !c.byAddress)
+    .filter((c) => !c.deposit && !c.drives && !c.byZip && !c.byAddress)
     .slice(0, CALL_TIMES_CALENDARS);
   const lists = await Promise.all(
     calendars.map(async (cal) => {

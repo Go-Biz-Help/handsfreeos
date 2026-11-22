@@ -422,6 +422,10 @@ interface TextTarget {
   name: string;
   phone: string | null;
   personId: string | null;
+  /**
+   * The conversation it goes in, which Edit on the card opens. Null for a first text, to their main number or to
+   * another of theirs: the send opens that one.
+   */
   conversationId: string | null;
   blocked: string | null;
   fromNumber: string | null;
@@ -429,6 +433,14 @@ interface TextTarget {
   /** Another of their numbers or emails, as the screen's Text ▾ and Email ▾ pick one; null for the main one. */
   to?: string | null;
 }
+
+/**
+ * Whether Edit can write their own version where the card says it goes. The card carries who and which conversation,
+ * never a number or an address, so a first message to another of theirs has nowhere for Edit to open: their main
+ * one would get it instead.
+ */
+const canEditWhere = (t: { to?: string | null; conversationId: string | null }): boolean =>
+  !t.to || !!t.conversationId;
 
 /** Quiet hours as the business has them now: the local time, and when they end (both "21:30"). */
 interface Quiet {
@@ -550,7 +562,7 @@ async function textTarget(db: Db, ctx: ToolContext, args: Args): Promise<TextTar
       name: other.person.fullName,
       phone: other.words,
       personId,
-      conversationId: null,
+      conversationId: lane,
       blocked:
         t?.blocked ??
         (setup && !setup.number
@@ -743,7 +755,7 @@ const sendText: ConfirmTool = {
               : ends
                 ? `Send at ${ends}`
                 : 'Send when quiet hours end',
-        editable: !t.blocked,
+        editable: !t.blocked && canEditWhere(t),
       }),
       result: {
         to: t.name,
@@ -900,7 +912,8 @@ async function emailTarget(db: Db, ctx: ToolContext, args: Args) {
     chosen: fromChoice(opts, str(args['from'])),
     cc: Array.isArray(args['cc']) ? (args['cc'] as string[]) : [],
     name,
-    conversationId: other ? null : (conversationId ?? opts.conversationId ?? null),
+    // Another of their emails: the conversation it already has, which Edit on the card opens.
+    conversationId: other ? lane : (conversationId ?? opts.conversationId ?? null),
     personId: personId ?? null,
     to: other?.value ?? null,
     toWords: other?.words ?? null,
@@ -936,7 +949,7 @@ const sendEmail: ConfirmTool = {
         warnings: blocked ? [{ kind: 'blocked', text: blocked }] : [],
         reasons: [],
         confirmLabel: blocked ? '' : 'Send email',
-        editable: !blocked,
+        editable: !blocked && canEditWhere(e),
       }),
       result: { to: e.name, ...(blocked ? { cannotSend: blocked } : {}) },
     };

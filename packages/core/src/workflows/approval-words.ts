@@ -4,7 +4,7 @@
  * knowledge the AI used), the card's and the Decided list's words, and a waiting approval from a phone's own copy.
  * Browser-safe.
  */
-import { smsSegments } from '../messaging/sms';
+import { sentSmsSegments } from '../messaging/sms';
 import { holds, type WorkspaceRole } from '../permissions';
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -197,7 +197,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 /** The composer's count for a text: "151 of 160 · 1 text". */
 export function approvalSegmentLabel(text: string): string {
-  const seg = smsSegments(text);
+  const seg = sentSmsSegments(text);
   const single = seg.encoding === 'gsm7' ? 160 : 70;
   const parts = Math.max(1, seg.segments);
   const limit = parts === 1 ? single : parts * seg.perSegment;

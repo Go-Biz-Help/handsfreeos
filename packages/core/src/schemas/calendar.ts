@@ -1306,6 +1306,8 @@ export const AttendeeRescheduleOnlineInput = z.object({
   sessionId: uuid.nullable().optional(),
   /** Drive times to the visit's address (decision 179), worked out by the worker. */
   drives: DrivesInput.nullable().optional(),
+  /** Where the visit's address is (the worker looks it up), for distance and drawn service areas. */
+  point: GeoPointInput.nullable().optional(),
 });
 export const AttendeeRescheduleOnlineOutput = z.object({
   appointmentId: uuid,

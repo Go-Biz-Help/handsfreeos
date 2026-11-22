@@ -226,6 +226,54 @@ export function estimateInvoiceProblem(status: EstimateStatus): string | null {
   return `${ESTIMATE_SUBJECT[status]} can’t be invoiced. Make a new one instead.`;
 }
 
+/** An invoice already raised from an estimate, as `estimate.get` lists them. */
+export interface RaisedInvoice {
+  readonly number: string | null;
+  readonly purpose: string;
+  readonly status: string;
+  readonly totalCents: number;
+}
+
+/** What is already billed from an estimate, and what turning it into an invoice would bill next. */
+export interface EstimateBilling {
+  /** The deposit invoices raised from it, not voided. */
+  readonly deposits: readonly RaisedInvoice[];
+  /** What those come to. */
+  readonly depositCents: number;
+  /** The invoice for the job itself (or for the rest after the deposit), not voided; null until there is one. */
+  readonly job: RaisedInvoice | null;
+  /** The estimate's total less the deposits, never below nothing: what the whole-job invoice bills. */
+  readonly restCents: number;
+}
+
+/**
+ * What an estimate has already been billed, so turning it into an invoice never bills it twice: a deposit
+ * invoiced on its own comes off the whole job, and the job itself is invoiced once. estimate.convert and the
+ * screen's Turn into an invoice say the same.
+ */
+export function estimateBilling(
+  totalCents: number,
+  raised: readonly RaisedInvoice[],
+): EstimateBilling {
+  const live = raised.filter((i) => i.status !== 'void');
+  const deposits = live.filter((i) => i.purpose === 'deposit');
+  const depositCents = deposits.reduce((sum, i) => sum + i.totalCents, 0);
+  return {
+    deposits,
+    depositCents,
+    job: live.find((i) => i.purpose !== 'deposit') ?? null,
+    restCents: Math.max(0, totalCents - depositCents),
+  };
+}
+
+/** "INV-0003", "INV-0003 and INV-0005", or "a draft invoice" for one not numbered yet. */
+export function invoiceNames(invoices: readonly Pick<RaisedInvoice, 'number'>[]): string {
+  const names = invoices.map((i) => i.number ?? 'a draft invoice');
+  return names.length > 1
+    ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+    : (names[0] ?? '');
+}
+
 /** Why an invoice can't move there, in a sentence the screen can show, or null. */
 export function invoiceMoveProblem(from: InvoiceStatus, to: InvoiceStatus): string | null {
   if (from === to || canInvoiceMove(from, to)) return null;

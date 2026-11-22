@@ -841,6 +841,16 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
     });
   }
 
+  /**
+   * Where a booked visit's address is, on a calendar that serves a distance or a drawn area. The visit keeps its
+   * address and ZIP but not the point, and without it nobody covers the visit: no time to move it to.
+   */
+  async function bookedPoint(tx: Tx, calendar: LoadedCalendar, location: StoredLocation) {
+    if (calendar.config.territory.routing !== 'zip' || !location.address?.trim()) return null;
+    const p = await placeOf(tx, deps.geocoder, location.address).catch(() => null);
+    return p ? { lat: p.lat, lng: p.lng } : null;
+  }
+
   function addressNotFound(): HfosError {
     return HfosError.rule(
       'address_not_found',
@@ -1129,6 +1139,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           partySize: b.a.seats,
           locationKind: (location.kind ?? null) as LocationKind | null,
           postalCode: location.postalCode ?? null,
+          point: await bookedPoint(tx, calendar, location),
           drives: await bookedDrives(tx, calendar, location, { from, to }, b.p.id),
         },
         { service },
@@ -1886,6 +1897,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
                   partySize: b.a.seats,
                   locationKind: (location.kind ?? null) as LocationKind | null,
                   postalCode: location.postalCode ?? null,
+                  point: await bookedPoint(tx, calendar, location),
                   excludeAppointmentIds: [b.p.id],
                   drives: await bookedDrives(tx, calendar, location, { from, to }, b.p.id),
                 }
@@ -1919,20 +1931,26 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
         const m = await managed(req.params.token);
         const body = parseBody(RescheduleBody, req.body);
         const start = Date.parse(body.startsAt);
-        // Decision 179: the drives to and from the visit's address, for a calendar that leaves time to drive.
-        const drives = body.sessionId
-          ? null
+        // Decision 179: the drives to and from the visit's address, for a calendar that leaves time to drive; and
+        // where that address is, for a calendar that serves a distance or a drawn area.
+        const { drives, point } = body.sessionId
+          ? { drives: null, point: null }
           : await worker(m.scope, async (tx) => {
               const b = await loadBooked(tx, m.attendeeId);
-              if (!b || b.p.kind !== 'booking' || b.p.capacity !== 1) return null;
+              if (!b || b.p.kind !== 'booking' || b.p.capacity !== 1)
+                return { drives: null, point: null };
               const calendar = await loadCalendar(tx, m.scope.workspaceId, b.p.calendarId);
-              return bookedDrives(
-                tx,
-                calendar,
-                (b.p.location ?? {}) as StoredLocation,
-                { from: start, to: start + 1 },
-                b.p.id,
-              );
+              const location = (b.p.location ?? {}) as StoredLocation;
+              return {
+                drives: await bookedDrives(
+                  tx,
+                  calendar,
+                  location,
+                  { from: start, to: start + 1 },
+                  b.p.id,
+                ),
+                point: await bookedPoint(tx, calendar, location),
+              };
             });
         const { output } = await executeCommand(
           deps.httpDb,
@@ -1944,6 +1962,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             startsAt: body.startsAt,
             sessionId: body.sessionId ?? null,
             drives,
+            point,
           },
           systemActor(m.scope),
           meta(),

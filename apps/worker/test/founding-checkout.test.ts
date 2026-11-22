@@ -10,6 +10,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import {
+  balanceHeadline,
   billingStatus,
   executeCommand,
   executeQuery,
@@ -19,6 +20,7 @@ import {
   foundingSetRenewing,
   foundingStartCheckout,
   organizationCreate,
+  walletGet,
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -35,6 +37,7 @@ import {
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
 import { processJobs, type JobContext } from '../src/jobs';
+import { sweepWallet } from '../src/money/recharge';
 import { processOnce } from '../src/outbox';
 import {
   FAKE_CARDS,
@@ -1229,6 +1232,43 @@ describe('a spot bought with a code', () => {
       expect(daysFromNow(trial.trial_ends_at)).toBeGreaterThan(13.9);
       expect(daysFromNow(trial.trial_ends_at)).toBeLessThan(14.1);
 
+      // The trial's card now pays the balance too, with automatic top-up on. Every business starts with $5 against a
+      // $10 floor; put this one under its floor, whatever the tests before it spent. Nothing is charged today, so the
+      // hourly top-up leaves the card alone.
+      await admin().execute(
+        sql`update app.usage_wallets set floor_cents = balance_cents + 1000
+            where workspace_id = ${workspaceId}::uuid`,
+      );
+      const [wallet] = await rows<{ auto_topup: boolean; has_card: boolean }>(
+        admin(),
+        sql`select auto_topup, method_token is not null as has_card
+            from app.usage_wallets where workspace_id = ${workspaceId}::uuid`,
+      );
+      expect(wallet).toEqual({ auto_topup: true, has_card: true });
+      const topUps = async () =>
+        (
+          await rows<{ n: number }>(
+            admin(),
+            sql`select count(*)::int as n from app.wallet_recharges where workspace_id = ${workspaceId}::uuid`,
+          )
+        )[0]?.n ?? 0;
+      const topUpsBefore = await topUps();
+      await sweepWallet({
+        ...s,
+        wallet: { ...s.wallet, mode: 'on' },
+        job: { payload: {} },
+        scope: { workspaceId, organizationId },
+        attempt: 1,
+        now: Date.now(),
+      } as unknown as JobContext);
+      await drain();
+      expect(await topUps()).toBe(topUpsBefore);
+      expect(s.payments.fake.platformCharges()).toHaveLength(charged);
+      // And Billing & Usage doesn't promise one.
+      const shown = await executeQuery(api(), walletGet, { workspaceId }, actor(owner), meta());
+      expect(shown.inTrial).toBe(true);
+      expect(balanceHeadline(shown).headline).toBe('Running low: top-ups start after your trial');
+
       // One email, set for three days before the trial ends.
       const queued = await rows<{ run_at: Date; payload: { grantId: string; endsAt: string } }>(
         admin(),
@@ -1327,5 +1367,22 @@ describe('the renewal emails', () => {
     // Backups were tried, they'll be tried again daily, and the fix is on Settings → Billing & Usage (20261027023600).
     expect(refused.text).toContain('once a day');
     expect(refused.text).toContain('Settings → Billing & Usage');
+    // A daily try that failed says it's still owed, and the last one that nothing more is tried.
+    const again = (lastRetry: boolean) =>
+      foundingRenewalFailedEmail({
+        business: 'Checkout HVAC',
+        offer: 'Founding Monthly',
+        amount: '$97',
+        reason: 'Your card was declined.',
+        link: 'https://app.test/settings',
+        period: 'month',
+        again: true,
+        lastRetry,
+      });
+    expect(again(false).subject).toContain('still hasn’t gone through');
+    expect(again(false).text).toContain('tried again and still couldn’t take the monthly $97');
+    expect(again(false).text).toContain('once a day');
+    expect(again(true).text).toContain('our last try');
+    expect(again(true).text).not.toContain('once a day');
   });
 });

@@ -14,7 +14,7 @@ import {
   tidyOtherPhones,
 } from '../crm/contact-points';
 import { formatPhone } from '../crm/phone';
-import { fullName, requireCompany } from '../crm/records';
+import { fullName, isStandInName, requireCompany } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import {
@@ -80,8 +80,14 @@ export const personUpdate = defineCommand({
     }
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
     const isBlank = (v: unknown) => v === null || v === undefined || v === '';
+    // A name that is only their number or email standing in counts as blank: the name they give replaces it.
+    const standIn = isStandInName(current);
     const edit = <T>(column: keyof typeof current, value: T): T | undefined =>
-      !blankOnly || isBlank(current[column]) ? value : undefined;
+      !blankOnly ||
+      isBlank(current[column]) ||
+      (standIn && (column === 'firstName' || column === 'lastName'))
+        ? value
+        : undefined;
     const seen: NonNullable<typeof input.base> = input.base ?? {};
     const address: NonNullable<typeof input.address> = input.address ?? {};
     const seenAddress: NonNullable<typeof seen.address> = seen.address ?? {};

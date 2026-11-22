@@ -6,6 +6,25 @@ import { formatPhone } from './phone';
 
 export const fullName = (first: string, last: string): string => `${first} ${last}`.trim();
 
+/**
+ * Whether a customer's name is only the stand-in they were saved under before they said (`intakeName`): their
+ * number, or the part of their email before the @, with no last name. It counts as blank, so the name they give the
+ * AI teammate or type into a form replaces it, first and last together. Treated as a real name, the first stayed the
+ * number and only the last was filled in: "(512) 555-0100 Rivera".
+ */
+export function isStandInName(person: {
+  readonly firstName: string | null;
+  readonly lastName: string | null;
+  readonly phoneE164?: string | null;
+  readonly email?: string | null;
+}): boolean {
+  const first = (person.firstName ?? '').trim();
+  if (!first || (person.lastName ?? '').trim()) return false;
+  if (person.phoneE164 && first === formatPhone(person.phoneE164).slice(0, 80)) return true;
+  const local = person.email?.split('@')[0];
+  return !!local && first === local.slice(0, 80);
+}
+
 export interface AddressRow {
   addressLine1: string | null;
   addressLine2: string | null;

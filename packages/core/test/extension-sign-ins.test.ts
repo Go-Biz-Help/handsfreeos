@@ -113,7 +113,9 @@ describe('extension_sign_in.pending and .answer', () => {
     expect(mine).toEqual([
       { id: r.id, browser: 'Chrome', choices: [], expiresAt: expect.any(String) },
     ]);
-    expect(JSON.stringify(mine)).not.toContain('42');
+    // No field carries the number: only these four. (Not a search of the JSON for the number: the random id and the
+    // time can hold those digits too.)
+    expect(Object.keys(mine[0]!).sort()).toEqual(['browser', 'choices', 'expiresAt', 'id']);
     expect(await pending(marco)).toEqual([]);
   });
 

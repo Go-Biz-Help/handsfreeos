@@ -467,13 +467,13 @@ export const walletStartRecharge = defineCommand({
 export const walletRecordRecharge = defineCommand({
   name: 'wallet.record_recharge',
   description:
-    'Worker: what the provider said about a top-up. On success it writes its own ledger row, so the balance and the top-up can never disagree about what landed. A decline is recorded, not thrown.',
+    'Worker: what the provider said about a top-up. On success it writes its own ledger row, so the balance and the top-up can never disagree about what landed, and a suspended balance goes back to normal. A decline is recorded, not thrown.',
   risk: 1,
   input: WalletRecordRechargeInput,
   output: WalletRechargeOutput,
   permission: null,
   scope: inWorkspace,
-  emits: ['wallet.recharged', 'wallet.recharge_failed'],
+  emits: ['wallet.recharged', 'wallet.recharge_failed', 'wallet.resumed'],
   actors: ['system'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
@@ -521,10 +521,14 @@ export const walletRecordRecharge = defineCommand({
 
     const w = await wallet(ctx);
     if (input.status === 'succeeded') {
-      // A card that worked clears the decline ladder, and the window this top-up counts against moves on.
+      // A card that worked clears the decline ladder, and the window this top-up counts against moves on. It
+      // lifts a suspension too: a card that just paid is a working card. Left on, a suspended balance took
+      // somebody's Top up now and still said texts and calls had stopped, and never topped itself up again.
       await ctx.tx
         .update(usageWallets)
         .set({
+          suspendedAt: null,
+          suspendedReason: null,
           declinesInRow: 0,
           pausedUntil: null,
           lastRechargeAt: new Date(),
@@ -543,6 +547,15 @@ export const walletRecordRecharge = defineCommand({
         .where(eq(usageWallets.workspaceId, ws));
     }
 
+    if (input.status === 'succeeded' && w.suspendedAt)
+      await ctx.emit({
+        type: 'wallet.resumed',
+        entityType: 'usage_wallet',
+        entityId: ws,
+        payload: {},
+        before: { suspended: true },
+        after: { suspended: false },
+      });
     await ctx.emit({
       type: input.status === 'succeeded' ? 'wallet.recharged' : 'wallet.recharge_failed',
       entityType: 'wallet_recharge',

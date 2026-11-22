@@ -595,7 +595,8 @@ export const EstimateConvertInput = z.object({
   estimateId: uuid,
   /**
    * 'standard' copies every line and carries the deposit through as what to ask for first. 'deposit' raises
-   * the deposit on its own, as a one-line invoice, for a business that bills it before the work.
+   * the deposit on its own, as a one-line invoice, for a business that bills it before the work; 'standard' after
+   * that bills the rest, as a 'balance' invoice for the total less the deposit.
    */
   purpose: z.enum(['standard', 'deposit']).default('standard'),
   dueOn: localDate.nullable().optional(),

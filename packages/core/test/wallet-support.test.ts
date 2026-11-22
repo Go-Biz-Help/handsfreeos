@@ -12,7 +12,7 @@
  * asserted here is that both doors are shut to everyone except a staff admin, and open to them.
  */
 import { randomUUID } from 'node:crypto';
-import { asUser, rows, sql } from '@hfos/db/client';
+import { asUser, asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HfosError } from '../src/errors';
@@ -285,6 +285,33 @@ describe('a business the agency pays for', () => {
       meta(),
     );
     expect(desk).toMatchObject({ opened: true, stage: 'agency', balanceCents: -5_000 });
+  });
+
+  it('shows the support desk a suspended balance, when it most needs to', async () => {
+    // Only the worker writes a suspension (the database refuses anyone else).
+    const [ws] = await rows<{ organization_id: string }>(
+      admin(),
+      sql`select organization_id from app.workspaces where id = ${workspaceId}`,
+    );
+    const asTheWorker = (set: ReturnType<typeof sql>) =>
+      asWorker(testDbs().worker.db, { workspaceId, organizationId: ws!.organization_id }, (tx) =>
+        tx.execute(
+          sql`update app.usage_wallets set ${set} where workspace_id = ${workspaceId}::uuid`,
+        ),
+      );
+    await asTheWorker(sql`suspended_at = now(), suspended_reason = 'The card was declined.'`);
+    try {
+      const desk = await executeQuery(
+        api(),
+        platformWalletGet,
+        { workspaceId },
+        human(staffAdmin),
+        meta(),
+      );
+      expect((desk as { suspendedAt: string | null }).suspendedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    } finally {
+      await asTheWorker(sql`suspended_at = null, suspended_reason = null`);
+    }
   });
 
   it('starts from zero when it is moved off, with the agency’s credit on its statement', async () => {

@@ -64,16 +64,22 @@ type WalletRow = {
   method_token: string | null;
   customer_ref: string | null;
   provider: string | null;
-  suspended_at: Date | null;
-  paused_until: Date | null;
+  // Timestamps come back from this raw read as text, not Dates: drizzle turns the driver's date parsing off. Typed
+  // as Date alone, `workspace_created_at.getTime()` threw on every sweep from 12 Nov, so no balance was topped up.
+  suspended_at: Date | string | null;
+  paused_until: Date | string | null;
   escalation_step: number;
   recharges_in_window: number;
-  window_started_at: Date | null;
-  last_recharge_at: Date | null;
-  pending_recharges: number;
+  window_started_at: Date | string | null;
+  last_recharge_at: Date | string | null;
+  pending_recharges: number | string;
+  /** The top-up before this one, whatever came of it; null before the first. */
+  last_recharge_id?: string | null;
   spent_30d_cents: number | string;
   stage: string;
-  workspace_created_at: Date;
+  workspace_created_at: Date | string;
+  /** The business's plan is in its free trial, which promises nothing is charged until it ends. */
+  in_trial: boolean;
 };
 
 /** Everything deciding whether and how much to top up, in one read. */
@@ -90,10 +96,16 @@ async function walletFor(
             w.window_started_at, w.last_recharge_at,
             (select count(*) from app.wallet_recharges r
               where r.workspace_id = w.workspace_id and r.status = 'pending') as pending_recharges,
+            (select r.id from app.wallet_recharges r
+              where r.workspace_id = w.workspace_id and r.status <> 'pending'
+              order by r.created_at desc, r.id desc limit 1) as last_recharge_id,
             coalesce((select sum(abs(l.amount_cents)) from app.usage_ledger l
               where l.workspace_id = w.workspace_id and l.kind = 'spend'
                 and l.occurred_at > now() - interval '30 days'), 0) as spent_30d_cents,
-            ws.created_at as workspace_created_at, w.stage::text as stage
+            ws.created_at as workspace_created_at, w.stage::text as stage,
+            exists (select 1 from app.workspace_plans p
+              where p.workspace_id = w.workspace_id and p.renewal_count = 0
+                and p.trial_ends_at > now()) as in_trial
           from app.usage_wallets w join app.workspaces ws on ws.id = w.workspace_id
           where w.workspace_id = ${scope.workspaceId}`,
     ),
@@ -101,14 +113,19 @@ async function walletFor(
   return w ?? null;
 }
 
-const ms = (d: Date | null): number | null => (d ? d.getTime() : null);
+/** A timestamp from a raw read, text or Date, in milliseconds. */
+const ms = (d: Date | string | null): number | null => (d === null ? null : new Date(d).getTime());
 
 /** Whether this wallet should be topped up now, and for how much. */
 export function decideRecharge(w: WalletRow, now: number): Escalation | null {
   // Its agency pays for what it uses: its card, if it has one, is never charged for it.
   if (w.stage === 'agency') return null;
+  // A free trial says nothing is charged until it ends, and every business starts with $5 against a $10 floor, so
+  // topping up here would charge each new trial within the hour. Top-ups start when the trial does end; Top up now
+  // still works, being the business's own press.
+  if (w.in_trial) return null;
   if (!w.auto_topup || !w.method_token || w.suspended_at) return null;
-  if (w.pending_recharges > 0) return null;
+  if (Number(w.pending_recharges) > 0) return null;
   const paused = ms(w.paused_until);
   if (paused !== null && paused > now) return null;
   if (Number(w.balance_cents) > Number(w.floor_cents)) return null;
@@ -121,7 +138,7 @@ export function decideRecharge(w: WalletRow, now: number): Escalation | null {
     },
     topupCents: Number(w.topup_cents),
     spent30dCents: Number(w.spent_30d_cents),
-    workspaceCreatedAt: w.workspace_created_at.getTime(),
+    workspaceCreatedAt: new Date(w.workspace_created_at).getTime(),
     now,
   });
 }
@@ -171,9 +188,12 @@ async function startRecharge(
   const decided = decideRecharge(w, now);
   if (!decided) return null;
 
-  // The key is written before the provider hears anything, and handed to it unchanged. Stripe refuses a reused
-  // key with different parameters, which is exactly the protection wanted: each retry is a new row and key.
-  const idempotencyKey = `wallet-topup:${scope.workspaceId}:${decided.windowStartedAt}:${decided.recharges}`;
+  // One key per try: the run, its place in the run, and the top-up this one follows. Two starters at once (the
+  // balance's own event and the hourly sweep) make the same key, so only one row is written. A try after a
+  // decline follows a different top-up, so it gets a new key: keyed on the run and place alone, the retry the
+  // decline ladder promises in 6 hours was refused as the declined one again, till the 72-hour run ended.
+  // (Unique within the business, which is what its index asks; the business's own id would take it past 100.)
+  const idempotencyKey = `wallet-topup:${decided.windowStartedAt}:${decided.recharges}:${w.last_recharge_id ?? 'first'}`;
   try {
     const { output } = await executeCommand(
       ctx.db,
