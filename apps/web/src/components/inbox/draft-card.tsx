@@ -10,6 +10,7 @@ import {
   expiresLine,
   firstNameOf,
   knowledgeUsedLine,
+  OWN_MAIL_DRAFT_WORDS,
   progressShort,
   rejectedToast,
   rejectReasonLabel,
@@ -606,7 +607,7 @@ export function OwnMailDraft({
   return (
     <div
       role="group"
-      aria-label={`${draft.by}’s draft`}
+      aria-label={OWN_MAIL_DRAFT_WORDS.title(draft.by)}
       data-testid="own-mail-draft"
       className="mt-2.5 flex w-full max-w-[452px] flex-col gap-2.5 self-end rounded-2xl rounded-br-[6px] border-[1.5px] border-dashed border-[color-mix(in_oklab,#7c3aed_62%,var(--border-strong))] bg-card px-3.5 py-3 shadow-1"
     >
@@ -617,10 +618,10 @@ export function OwnMailDraft({
         )}
       >
         <Sparkles className="h-[13px] w-[13px] flex-none" strokeWidth={1.75} />
-        <span className="truncate">{`${draft.by}’s draft`}</span>
+        <span className="truncate">{OWN_MAIL_DRAFT_WORDS.title(draft.by)}</span>
         <span className="ml-auto inline-flex items-center gap-1 font-medium text-text-3">
           <Lock className="h-3 w-3" strokeWidth={1.75} />
-          Only you see this
+          {OWN_MAIL_DRAFT_WORDS.onlyYou}
         </span>
       </div>
       <div
@@ -631,7 +632,7 @@ export function OwnMailDraft({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="min-w-0 flex-1 text-xs text-text-3">
-          Nothing is sent until you send it.
+          {OWN_MAIL_DRAFT_WORDS.nothingSent}
         </span>
         <Button
           variant="ghost"
@@ -640,11 +641,11 @@ export function OwnMailDraft({
           onClick={onDismiss}
           data-testid="own-mail-draft-dismiss"
         >
-          No thanks
+          {OWN_MAIL_DRAFT_WORDS.dismiss}
         </Button>
         <Button size="sm" disabled={busy} onClick={onUse} data-testid="own-mail-draft-use">
           <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Use this draft
+          {OWN_MAIL_DRAFT_WORDS.use}
         </Button>
       </div>
     </div>

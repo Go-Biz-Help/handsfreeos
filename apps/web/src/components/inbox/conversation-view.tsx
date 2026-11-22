@@ -18,6 +18,7 @@ import {
   memberLabel,
   NO_NUMBER_WORDS,
   notCustomerBanner,
+  OWN_MAIL_DRAFT_WORDS,
   PRIVATE_THREAD_WORDS,
   quietStrip,
   rowName,
@@ -622,7 +623,7 @@ export function ConversationView({
     tail =
       usedDraft?.forMessageId === ownDraft.forMessageId ? (
         <TeammateLine testId="own-mail-draft-used">
-          {`${ownDraft.by}’s draft is in your message box. Change what you like, then send it.`}
+          {OWN_MAIL_DRAFT_WORDS.inBox(ownDraft.by)}
         </TeammateLine>
       ) : (
         <OwnMailDraft

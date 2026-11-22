@@ -80,6 +80,7 @@ import {
 } from '@/components/inbox/conversation-parts';
 import { LinkPersonSheet } from '@/components/inbox/link-person-sheet';
 import { LaneSwitcher } from '@/components/inbox/lane-switcher';
+import { OwnMailDraftCard, OwnMailDraftUsed } from '@/components/inbox/own-mail-draft';
 import { PendingReplyBubble } from '@/components/inbox/pending-reply';
 import { CallCard, DayDivider, EmailCard, MessageBubble } from '@/components/inbox/thread-items';
 import { ReplyFeedback } from '@/components/ai-team/reply-feedback';
@@ -109,6 +110,7 @@ import { dropReplyPhoto, sendReply, takeReplyPhoto, type TrayPhoto } from '@/inb
 import { threadEntries, type ThreadEntry } from '@/inbox/thread-entries';
 import { useConversation, useThread } from '@/inbox/use-conversation';
 import { useEmailFacts } from '@/inbox/use-email';
+import { useOwnMailDraft, type OwnMailDraft } from '@/inbox/use-own-mail-draft';
 import { useSender } from '@/inbox/use-sender';
 import { useLanes, useMembers, useNow } from '@/inbox/use-inbox';
 import { api, errorMessage, unwrap } from '@/lib/api';
@@ -118,7 +120,9 @@ import { useNetwork } from '@/lib/network';
 import { useCanStartVideoCall, useStartVideoCall } from '@/video-call/start-call';
 
 type Row =
-  ThreadEntry | { readonly kind: 'draft'; readonly key: string; readonly waiting: WaitingDraft };
+  | ThreadEntry
+  | { readonly kind: 'draft'; readonly key: string; readonly waiting: WaitingDraft }
+  | { readonly kind: 'own-draft'; readonly key: string; readonly draft: OwnMailDraft };
 
 /** How long a search result's message stays rung. */
 const RING_MS = 4_000;
@@ -288,6 +292,24 @@ function Thread() {
     setBody(params.draft);
   }, [params.draft]);
 
+  // Their own mail, when their address lets the AI teammate read it ("Let Ava read this mail", 2026-11-22): its draft
+  // for the newest mail, while they haven't answered it. Asked of HandsFreeOS, so it shows with signal only.
+  const newest = thread.items.at(-1);
+  const ownDraft = useOwnMailDraft(
+    business.id,
+    conversationId,
+    c?.private &&
+      c.channel === 'email' &&
+      !all &&
+      !thread.pending.length &&
+      newest?.type === 'message' &&
+      newest.direction === 'inbound'
+      ? newest.id
+      : null,
+  );
+  /** The mail whose draft they put in the message box. */
+  const [usedDraft, setUsedDraft] = React.useState<string | null>(null);
+
   function startEdit(row: OutboxRow) {
     const input = inputOf(row);
     setEditing(row);
@@ -333,8 +355,14 @@ function Thread() {
     const list: Row[] = threadEntries(thread.items, thread.notes, thread.pending, new Date(now));
     for (const waiting of drafts.visible)
       list.push({ kind: 'draft', key: `draft-${waiting.draft.id}`, waiting });
+    if (ownDraft.draft)
+      list.push({
+        kind: 'own-draft',
+        key: `own-draft-${ownDraft.draft.forMessageId}`,
+        draft: ownDraft.draft,
+      });
     return list.reverse();
-  }, [thread, drafts.visible, now]);
+  }, [thread, drafts.visible, ownDraft.draft, now]);
 
   // A search result opens the thread at its message (`?message=`): once it's in the copy, the list scrolls to it and
   // rings it for a few seconds, as the web's thread does.
@@ -794,6 +822,22 @@ function Thread() {
         );
       case 'draft':
         return <ThreadDraft waiting={item.waiting} who={who} timeZone={data.timeZone} now={now} />;
+      case 'own-draft':
+        return usedDraft === item.draft.forMessageId ? (
+          <OwnMailDraftUsed by={item.draft.by} />
+        ) : (
+          <OwnMailDraftCard
+            draft={item.draft}
+            busy={ownDraft.dismissing}
+            onUse={() => {
+              // Into the message box, to change and send as their own. Nothing goes from the card.
+              setMode('email');
+              setBody(item.draft.body);
+              setUsedDraft(item.draft.forMessageId);
+            }}
+            onDismiss={() => void ownDraft.dismiss()}
+          />
+        );
       case 'item': {
         const i = item.item;
         const shown =

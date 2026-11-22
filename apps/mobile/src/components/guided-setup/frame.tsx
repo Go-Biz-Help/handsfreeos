@@ -1,7 +1,7 @@
 import { GUIDED_SETUP_WORDS as W, type GuidedSetupKey } from '@hfos/core';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { AppState, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ArrowLeft, Check, CircleAlert, PartyPopper } from '@/components/icons';
@@ -42,6 +42,8 @@ export function useGuidedDraft(
   latest.current = text;
   const running = React.useRef<Promise<void>>(Promise.resolve());
   const stopped = React.useRef(false);
+  /** Counts the saves that went through, so what is waiting is looked at again after each. */
+  const [kept, setKept] = React.useState(0);
 
   const save = React.useCallback(async () => {
     // One at a time, each sending the newest answers: a slow save never lands on top of a newer one.
@@ -57,6 +59,7 @@ export function useGuidedDraft(
         );
         saved.current = body;
         setState('saved');
+        setKept((n) => n + 1);
       } catch {
         setState('error');
       }
@@ -66,12 +69,28 @@ export function useGuidedDraft(
   }, [workspaceId, setup]);
 
   React.useEffect(() => {
-    if (text === null || text === saved.current) return;
+    if (text === null) return;
+    if (text === saved.current) {
+      // Just kept, or changed back to what is kept: nothing to send.
+      setState((s) => (s === 'saving' ? 'saved' : s));
+      return;
+    }
+    // "Saved" only once it is: the tick dims the moment an answer changes, until that answer is kept.
+    if (!stopped.current) setState('saving');
     const timer = setTimeout(() => void save(), 700);
     return () => clearTimeout(timer);
-  }, [text, save]);
-  // Leaving by the phone's own Back, or a swipe, presses no button: what was just answered is still kept.
-  React.useEffect(() => () => void save(), [save]);
+  }, [text, save, kept]);
+  // Leaving by the phone's own Back or a swipe, or putting the app away, presses no button: what was just answered
+  // is sent at once.
+  React.useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') void save();
+    });
+    return () => {
+      sub.remove();
+      void save();
+    };
+  }, [save]);
 
   /** Forget the saved answers (finished, or Start over). Nothing more is saved until `resume`. */
   const clear = React.useCallback(async () => {
