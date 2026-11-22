@@ -450,10 +450,14 @@ export const STARTING_FIRST_MESSAGE =
  * there is anything from their profile we can pick up specifically then we should try to do that so it doesn't look
  * like a generic message"). Right after the thanks, one true thing the owner and they have in common (decision 181, the
  * owner's friend, 19 Nov 2026: "You’re skipping the identify part ... Find a way to say I see you own a business too
- * ... Share a commonality"), so they feel a connection before the owner says what the business does.
+ * ... Share a commonality"), so they feel a connection before the owner says who they are. It says who the owner is and
+ * nothing of what the business does (decision 190, the owner, 22 Nov 2026: "I don’t want it to say what I do right away
+ * ... if you say you service them right away they aren’t going to take it as a genuine conversation"): that waits
+ * until they ask (./today.ts `networkingReplyTask`). A business that wants more said of the person, like “the founder
+ * of”, writes it in its own words for the part.
  */
 export const STARTING_INTRO =
-  'Hey [first name], thanks for connecting! [something you have in common] I’m [your first name] with [your business name]. We help [their kind of business] businesses get [what your offer gets them] with [what your offer is]. [a question about them]';
+  'Hey [first name], thanks for connecting! [something you have in common] I’m [your first name] with [your business name]. [a question about them]';
 
 /**
  * The networking chat's offers (decision 173, the owner's words, 16 Nov 2026): a networking call "where i can learn a
@@ -649,10 +653,10 @@ export function openerAsFirst(opener: string): string | null {
  *
  * How a playbook starts a chat with someone who just connected (decision 168, the owner's 1a): the first message's
  * question (`pitch`, decisions 152 and 164), or an introduction in its place (`intro`): thanks for connecting, who the
- * owner is and what the business offers, and a question about them (decision 173), as a text of its own right after it
- * when the person sends a few (decision 175). A networking chat follows: one nudge if they stay quiet, then a check-in
- * once a month; a demo or a networking call offered once each, when it fits; and a yes to either gets the ask for a
- * time.
+ * owner is, with nothing of what the business offers (decision 190), and a question about them (decision 173), as a
+ * text of its own right after it when the person sends a few (decision 175). A networking chat follows: one nudge if
+ * they stay quiet, then a check-in once a month; a demo or a networking call offered once each, when it fits; and a yes
+ * to either gets the ask for a time.
  */
 export const PLAYBOOK_OPENS = {
   pitch: {
@@ -661,7 +665,7 @@ export const PLAYBOOK_OPENS = {
   },
   intro: {
     label: 'Introduction',
-    hint: 'Thanks them for connecting, says something you have in common, who you are and what you offer, then asks them something about themselves in a second message to get them talking. Then a friendly chat, one nudge if they’re quiet, and a check-in once a month.',
+    hint: 'Thanks them for connecting, says something you have in common and who you are, then asks them something about themselves in a second message to get them talking. It doesn’t say what you offer: that waits until they ask. Then a friendly chat, one nudge if they’re quiet, and a check-in once a month.',
   },
 } as const;
 export type PlaybookOpens = keyof typeof PLAYBOOK_OPENS;
@@ -698,7 +702,7 @@ export const OPEN_WAYS = {
   },
   intro: {
     label: 'Introduction',
-    hint: 'Thanks them for connecting, says what you have in common, who you are and what you offer, then asks about them.',
+    hint: 'Thanks them for connecting, says what you have in common and who you are, then asks about them. What you offer waits until they ask.',
     flow: 'chat',
     part: 'intro',
     needs: null,
@@ -1263,7 +1267,7 @@ export const FILL_BLANKS = [
   '[what your offer gets them] is what the offer really does for them, in a few plain words, never more than the offer says. [what your offer is] names the offer the way the offer does, in a few plain words (“my easy to use CRM software”, “my roof inspections”), never by its brand name.',
   '[open times] are the times under <times>, said the way a person texts them; with none given, leave out the words that offer them and keep the rest. [booking link] is the link you’re given, exactly as written; with none, leave its words out. [calendar link] is the owner’s own calendar link when the task gives one, exactly as written; with none, leave it and the words that give it out (“Here’s my calendar:”).',
   '[your first name] is the first word of the name under <owner_name>; with none given, leave it and the words that give it out (“I’m with …”). [your business name] is the business’s name under <business>, written the way people say it.',
-  '[something you have in common] is one short line, right after the hello or the thanks, on one true thing the owner and they have in common, so they feel a connection before the owner says what the business does. It says it plainly, never as a question, and picks the truest: that they’re local to each other, when the facts say so (“Always great to meet another business owner here in the Austin area!”, with their area from the facts); the same line of work, only when the owner’s own business is in it; something About you says of the owner that their pages show of them too; and otherwise that they both run a business (“Always good to meet a fellow business owner!”). Never a group, or where the owner came across them, and never anything you’re not sure of. When they don’t run a business and nothing else is shared, leave it out.',
+  '[something you have in common] is one short line, right after the hello or the thanks, on one true thing the owner and they have in common, so they feel a connection before the owner says who they are. It says it plainly, never as a question, and picks the truest: that they’re local to each other, when the facts say so (“Always great to meet another business owner here in the Austin area!”, with their area from the facts); the same line of work, only when the owner’s own business is in it; something About you says of the owner that their pages show of them too; and otherwise that they both run a business (“Always good to meet a fellow business owner!”). Never a group, or where the owner came across them, and never anything you’re not sure of. When they don’t run a business and nothing else is shared, leave it out.',
   '[a question about them] is one short, friendly question about them as a person, picked from something specific on their pages, in the facts or in the chat: a trip, a milestone, a hobby, a post, how long they’ve been at it, how they got started. People like talking about themselves, so make it about them and easy to answer, never a yes-or-no question, and never about what the offer does. Only when nothing specific stands out, ask how they got into their line of work.',
   '[what they do] is what they do, the way they’d say it (“roofing”, “real estate”). [their area] is the town or area they work in, from their pages or the chat; when they work nationwide or online, say “anywhere” in place of “in [their area]”.',
   '[their name] is their name exactly as it shows under <person>, so the owner can tag them. [what they need] is what the post asks for, in a few plain words (“a good roofer”), never where it was posted. [post link] stays exactly as it is, brackets and all: the link goes in after.',
