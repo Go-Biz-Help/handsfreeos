@@ -3572,11 +3572,8 @@ export function scriptedOwnMailDraft(message: string): { reply: boolean; body: s
   const newest = emails.at(-1);
   const words = newest?.[2] ?? '';
   if (!newest || /\bunsubscribe\b|\bnewsletter\b/i.test(words)) return { reply: false, body: '' };
-  const sender =
-    newest[1]!
-      .replace(/<[^>]*>/g, '')
-      .trim()
-      .split(/\s+/)[0] ?? '';
+  // "Kim Lee <kim@example.com>" gives Kim; a bare address gives nobody to name.
+  const sender = newest[1]!.split('<')[0]!.trim().split(/\s+/)[0] ?? '';
   const greeting = sender && !sender.includes('@') ? `Hi ${sender},` : 'Hi,';
   const first = person && person !== 'The person' ? person.split(/\s+/)[0]! : '';
   const asks = /\?/.test(words);

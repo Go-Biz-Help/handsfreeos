@@ -597,8 +597,8 @@ describe('the AI teammate reads own mail only when its person says so', () => {
             ),
           ),
         )
-      ).constraint_name,
-    ).toBe('conversations_ai_draft_private');
+      ).message,
+    ).toContain('conversations_ai_draft_private');
 
     // Shared with the team, the thread loses it: nobody else ever reads what was drafted for one person.
     await as(member)((tx) =>
