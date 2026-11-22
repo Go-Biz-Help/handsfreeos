@@ -4697,6 +4697,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/email_setup.apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The guided email setup’s “Set it up”: every answer at once. with free: the free address on mail.handsfreeos.com, renamed and made the one customers hear from now. with domain: the business’s own website name, added when new, with the addresses to make there (addresses: local is the name before the @, reader is me for one only you read or team, aiReads lets the AI teammate read your own), the one customers hear from (sender, an address the team reads), the name customers see (name), and whether its mail comes to HandsFreeOS (receive). Until the name’s DNS records check out, mail goes from the free address; then everything is made on its own. It only adds: an address already set up keeps who reads it, and none is removed.
+         * @description Risk level 2. Requires channels.manage. Emits email_domain.added, email_domain.planned, email_address.created, email_address.updated, email_address.ai_reads_changed, email_domain.receiving_requested.
+         */
+        post: operations["command_email_setup_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_setup.look_up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look a website name up before adding it, for the guided email setup’s first question: where its mail goes today and where its DNS records are looked after. Changes nothing about the business’s email. The answer is in email_setup.get’s state.lookup a few seconds later. Up to 40 an hour.
+         * @description Risk level 1. Requires channels.manage. Emits email_domain.lookup_requested.
+         */
+        post: operations["command_email_setup_look_up"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/email_setup.save": {
         parameters: {
             query?: never;
@@ -21167,7 +21207,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business email step: the address booking emails go out from now, the business’s free address and own domains (with their DNS records, where each is managed and what happens once they check out), your own address, connected mailboxes, and the answers to start from.
+         * The business email step and the guided email setup: the address booking emails go out from now, every address the business has and who reads each, its free address and own domains (with their DNS records, their mail records as last seen, where each is managed and what happens once they check out), the website name last looked up, your own address, connected mailboxes, and the answers to start from (answers for the older step, guided for the guided setup).
          * @description Requires channels.manage.
          */
         post: operations["query_email_setup_get"];
@@ -37909,6 +37949,108 @@ export interface operations {
                     "application/json": {
                         address: string;
                         removed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_email_setup_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    email: {
+                        /** @default [] */
+                        addresses?: {
+                            /** @default false */
+                            aiReads?: boolean;
+                            /** @default  */
+                            local?: string;
+                            /** @default false */
+                            picked?: boolean;
+                            /**
+                             * @default team
+                             * @enum {string}
+                             */
+                            reader?: "me" | "team";
+                        }[];
+                        /**
+                         * @default which
+                         * @enum {string}
+                         */
+                        at?: "which" | "addresses" | "readers" | "sender" | "receive" | "review";
+                        /** @default null */
+                        by?: string | null;
+                        /** @default  */
+                        domain?: string;
+                        /** @default  */
+                        freeLocal?: string;
+                        /** @default  */
+                        name?: string;
+                        /** @default null */
+                        receive?: boolean | null;
+                        /** @default  */
+                        sender?: string;
+                        /** @default null */
+                        with?: ("domain" | "free") | null;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: string[];
+                        emailDomainId: string | null;
+                        /** @enum {string} */
+                        left: "records" | "mail" | "done";
+                        sender: string;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_email_setup_look_up: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    domain: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        askedAt: string;
+                        domain: string;
                     };
                 };
             };
@@ -82377,7 +82519,57 @@ export interface operations {
                             /** @default null */
                             with: ("domain" | "free") | null;
                         };
+                        guided: {
+                            /** @default [] */
+                            addresses: {
+                                /** @default false */
+                                aiReads: boolean;
+                                /** @default  */
+                                local: string;
+                                /** @default false */
+                                picked: boolean;
+                                /**
+                                 * @default team
+                                 * @enum {string}
+                                 */
+                                reader: "me" | "team";
+                            }[];
+                            /**
+                             * @default which
+                             * @enum {string}
+                             */
+                            at: "which" | "addresses" | "readers" | "sender" | "receive" | "review";
+                            /** @default null */
+                            by: string | null;
+                            /** @default  */
+                            domain: string;
+                            /** @default  */
+                            freeLocal: string;
+                            /** @default  */
+                            name: string;
+                            /** @default null */
+                            receive: boolean | null;
+                            /** @default  */
+                            sender: string;
+                            /** @default null */
+                            with: ("domain" | "free") | null;
+                        };
                         state: {
+                            addresses: {
+                                address: string;
+                                aiReads: boolean;
+                                domain: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                isDefault: boolean;
+                                localPart: string;
+                                /** @enum {string} */
+                                reader: "me" | "team" | "other";
+                            }[];
+                            aiTeammate: {
+                                name: string;
+                                on: boolean;
+                            } | null;
                             businessName: string;
                             canManage: boolean;
                             domains: {
@@ -82388,7 +82580,17 @@ export interface operations {
                                 lastCheckedAt: string | null;
                                 lastError: string | null;
                                 mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                mxRecords: {
+                                    host: string;
+                                    priority: number;
+                                }[] | null;
                                 plan: {
+                                    addresses?: {
+                                        aiReads?: boolean;
+                                        localPart: string;
+                                        /** Format: uuid */
+                                        userId?: string;
+                                    }[];
                                     own?: {
                                         localPart: string;
                                         /** Format: uuid */
@@ -82424,6 +82626,17 @@ export interface operations {
                                 localPart: string;
                             } | null;
                             inboundMxHost: string;
+                            lookup: {
+                                dnsHost: string | null;
+                                domain: string;
+                                /** Format: date-time */
+                                lookedAt: string;
+                                mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                mxRecords: {
+                                    host: string;
+                                    priority: number;
+                                }[] | null;
+                            } | null;
                             mailboxes: {
                                 accountEmail: string | null;
                                 mine: boolean;
@@ -82437,6 +82650,7 @@ export interface operations {
                             } | null;
                             myEmail: string | null;
                             myFirstName: string | null;
+                            myUserId: string | null;
                             sender: {
                                 address: string;
                                 displayName: string;
@@ -88800,6 +89014,21 @@ export interface operations {
                                 running: ("import" | "migration") | null;
                             };
                             email: {
+                                addresses: {
+                                    address: string;
+                                    aiReads: boolean;
+                                    domain: string | null;
+                                    /** Format: uuid */
+                                    id: string;
+                                    isDefault: boolean;
+                                    localPart: string;
+                                    /** @enum {string} */
+                                    reader: "me" | "team" | "other";
+                                }[];
+                                aiTeammate: {
+                                    name: string;
+                                    on: boolean;
+                                } | null;
                                 businessName: string;
                                 canManage: boolean;
                                 domains: {
@@ -88810,7 +89039,17 @@ export interface operations {
                                     lastCheckedAt: string | null;
                                     lastError: string | null;
                                     mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                    mxRecords: {
+                                        host: string;
+                                        priority: number;
+                                    }[] | null;
                                     plan: {
+                                        addresses?: {
+                                            aiReads?: boolean;
+                                            localPart: string;
+                                            /** Format: uuid */
+                                            userId?: string;
+                                        }[];
                                         own?: {
                                             localPart: string;
                                             /** Format: uuid */
@@ -88846,6 +89085,17 @@ export interface operations {
                                     localPart: string;
                                 } | null;
                                 inboundMxHost: string;
+                                lookup: {
+                                    dnsHost: string | null;
+                                    domain: string;
+                                    /** Format: date-time */
+                                    lookedAt: string;
+                                    mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                    mxRecords: {
+                                        host: string;
+                                        priority: number;
+                                    }[] | null;
+                                } | null;
                                 mailboxes: {
                                     accountEmail: string | null;
                                     mine: boolean;
@@ -88859,6 +89109,7 @@ export interface operations {
                                 } | null;
                                 myEmail: string | null;
                                 myFirstName: string | null;
+                                myUserId: string | null;
                                 sender: {
                                     address: string;
                                     displayName: string;

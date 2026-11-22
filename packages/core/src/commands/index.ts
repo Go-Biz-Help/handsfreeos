@@ -207,7 +207,13 @@ import {
   mailboxResync,
 } from './email';
 import { emailReceive, emailSuppressionRecord } from './email-inbound';
-import { emailDomainSendSteps, emailSetupSave } from './email-setup';
+import {
+  emailDomainSendSteps,
+  emailSetupApply,
+  emailSetupLookUp,
+  emailSetupRecordLookup,
+  emailSetupSave,
+} from './email-setup';
 import {
   callAttachRecording,
   callAttachTranscript,
@@ -646,6 +652,9 @@ export {
   emailDomainStopReceiving,
   emailDomainVerify,
   emailDomainSendSteps,
+  emailSetupApply,
+  emailSetupLookUp,
+  emailSetupRecordLookup,
   emailSetupSave,
   emailSuppressionAdd,
   emailSuppressionRelease,
@@ -927,6 +936,10 @@ export const commands: readonly CommandDef[] = [
   // The business email step: onboarding's "Your business email", and Home's card.
   emailSetupSave,
   emailDomainSendSteps,
+  // The guided email setup: look a website name up, then everything at once on "Set it up".
+  emailSetupLookUp,
+  emailSetupRecordLookup,
+  emailSetupApply,
   mailboxConnect,
   mailboxDisconnect,
   mailboxResync,

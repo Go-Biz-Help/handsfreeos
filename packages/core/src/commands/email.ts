@@ -17,7 +17,7 @@ import { defineCommand } from '../kernel/define';
 import { isUniqueViolation } from '../kernel/pg-errors';
 import type { CommandContext } from '../kernel/types';
 import { SHARED_MAIL_DOMAIN } from '../messaging/email';
-import { emailDomainPlanOf } from '../messaging/email-setup';
+import { emailDomainPlanHasWork, emailDomainPlanOf } from '../messaging/email-setup';
 import { scheduleJob, workspaceMessaging } from '../messaging/store';
 import {
   EmailAddressCreateInput,
@@ -291,6 +291,8 @@ async function insertAddress(
     readonly displayName: string;
     readonly isDefault: boolean;
     readonly ownerUserId: string | null;
+    /** "Let Ava read this mail" from the start: only as the worker, for a plan its own person wrote. */
+    readonly aiReads?: boolean;
   },
 ): Promise<{ id: string; address: string } | null> {
   const previous = a.isDefault ? await clearDefault(ctx) : null;
@@ -308,6 +310,7 @@ async function insertAddress(
       verifiedAt: new Date(),
       createdBy: userIdOf(ctx.actor),
       ownerUserId: a.ownerUserId,
+      ...(a.aiReads && a.ownerUserId ? { aiReads: true } : {}),
     })
     .onConflictDoNothing({ target: emailAddresses.address })
     .returning({ id: emailAddresses.id, address: emailAddresses.address });
@@ -335,6 +338,7 @@ async function insertAddress(
       displayName: a.displayName,
       isDefault: a.isDefault,
       ...(a.ownerUserId ? { ownerUserId: a.ownerUserId } : {}),
+      ...(a.aiReads && a.ownerUserId ? { aiReads: true } : {}),
       ...(previous ? { previousDefault: previous.address } : {}),
     },
   });
@@ -342,11 +346,15 @@ async function insertAddress(
 }
 
 /**
- * What a domain was set up to do once its records check out (the business email step, messaging/email-setup.ts):
- * its team address made and made the default, the person's own address made, and its mail received (as picked, else
- * when nobody got email there before). Runs as the domain verifies (email_domain.record, as the worker), or straight
- * away for a domain that already has. A part that can't be done any more (the name taken since, its person gone) is
- * left out. The plan is cleared once it ran, so a domain that lapses and verifies again changes nothing.
+ * What a domain was set up to do once its records check out (the business email step, messaging/email-setup.ts, and
+ * the guided setup, messaging/email-guided.ts): its team address made and made the default, its other addresses
+ * made (the team's, or one person's own), and its mail received (as picked, else when nobody got email there
+ * before). Runs as the domain verifies (email_domain.record, as the worker), or straight away for a domain that
+ * already has. A part that can't be done any more (the name taken since, its person gone) is left out. The plan is
+ * cleared once it ran, so a domain that lapses and verifies again changes nothing.
+ *
+ * "Let Ava read this mail" on a planned address was its own person's yes (the database lets nobody else write it
+ * into a plan). The worker makes the address with it on; a person running the plan gets it only on their own.
  */
 export async function applyDomainPlan(
   ctx: CommandContext,
@@ -354,7 +362,7 @@ export async function applyDomainPlan(
 ): Promise<string[]> {
   const d = await loadDomain(ctx, emailDomainId);
   const plan = emailDomainPlanOf(d.plan);
-  if (d.status !== 'verified' || (!plan.team && !plan.own && plan.receive === undefined)) return [];
+  if (d.status !== 'verified' || !emailDomainPlanHasWork(plan)) return [];
   const ws = ctx.scope.workspaceId!;
   const changes: string[] = [];
   const existing = async (address: string) =>
@@ -363,6 +371,7 @@ export async function applyDomainPlan(
         .select({
           id: emailAddresses.id,
           isDefault: emailAddresses.isDefault,
+          displayName: emailAddresses.displayName,
           ownerUserId: emailAddresses.ownerUserId,
           workspaceId: emailAddresses.workspaceId,
         })
@@ -403,6 +412,20 @@ export async function applyDomainPlan(
             ...(previous ? { previousDefault: previous.address } : {}),
           },
         });
+      } else if (have.displayName !== plan.team.displayName) {
+        // Customers hear from it already: only the name they see changed.
+        await ctx.tx
+          .update(emailAddresses)
+          .set({ displayName: plan.team.displayName })
+          .where(eq(emailAddresses.id, have.id));
+        await ctx.emit({
+          type: 'email_address.updated',
+          entityType: 'email_address',
+          entityId: have.id,
+          payload: { fields: ['displayName'] },
+          before: { displayName: have.displayName },
+          after: { address, displayName: plan.team.displayName },
+        });
       }
       changes.push(`Emails go out from ${address}`);
     }
@@ -425,6 +448,43 @@ export async function applyDomainPlan(
       });
       if (made) changes.push(`Makes ${address}, which only its person reads`);
     }
+  }
+  const actor = userIdOf(ctx.actor);
+  for (const a of plan.addresses ?? []) {
+    const address = `${a.localPart}@${d.domain}`;
+    if (await existing(address)) continue;
+    if (a.userId) {
+      const [here] = await rows<{ ok: boolean }>(
+        ctx.tx,
+        sql`select private.works_in(${a.userId}::uuid, ${ws}::uuid) as ok`,
+      );
+      if (!here?.ok) continue;
+    }
+    const made = await insertAddress(ctx, {
+      domain: d,
+      localPart: a.localPart,
+      displayName: plan.team?.displayName ?? d.domain,
+      isDefault: false,
+      ownerUserId: a.userId ?? null,
+      aiReads: !!a.aiReads && !!a.userId && !actor,
+    });
+    if (!made) continue;
+    // A person running their own plan turns the switch on the way they would in Settings → Email.
+    if (a.aiReads && a.userId && a.userId === actor) {
+      const [may] = await rows<{ ok: boolean }>(
+        ctx.tx,
+        sql`select private.has_permission(${ws}::uuid, 'inbox.use') as ok`,
+      );
+      if (may?.ok)
+        await ctx.tx.execute(
+          sql`select private.set_email_address_ai_reads(${made.id}::uuid, true)`,
+        );
+    }
+    changes.push(
+      a.userId
+        ? `Makes ${address}, which only its person reads`
+        : `Makes ${address}, which the team reads`,
+    );
   }
   const receive =
     plan.receive ?? (!!plan.team && (d.mailHost === 'none' || d.mailHost === 'handsfreeos'));
@@ -634,6 +694,7 @@ export const emailDomainRecord = defineCommand({
     if (input.returnPathValue !== undefined) patch.returnPathValue = input.returnPathValue;
     if (input.mailHost !== undefined) patch.mailHost = input.mailHost;
     if (input.dnsHost !== undefined) patch.dnsHost = input.dnsHost;
+    if (input.mxRecords !== undefined) patch.mxRecords = input.mxRecords;
     if (input.dkimVerified && !d.dkimVerifiedAt) patch.dkimVerifiedAt = now;
     if (input.returnPathVerified && !d.returnPathVerifiedAt) patch.returnPathVerifiedAt = now;
     // A record a check found missing loses its stamp, so Settings → Email shows it as not found again.
@@ -767,6 +828,8 @@ export const emailDomainRecordReceiving = defineCommand({
         receiving,
         mxCheckedAt: now,
         ...(input.mxFound ? { mxVerifiedAt: now } : {}),
+        ...(input.mailHost !== undefined ? { mailHost: input.mailHost } : {}),
+        ...(input.mxRecords !== undefined ? { mxRecords: input.mxRecords } : {}),
       })
       .where(eq(emailDomains.id, d.id));
     const changed = receiving !== d.receiving;

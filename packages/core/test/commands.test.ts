@@ -258,6 +258,9 @@ describe('registry', () => {
       // The business email step: onboarding's "Your business email", and Home's card.
       'email_setup.save',
       'email_domain.send_steps',
+      'email_setup.look_up',
+      'email_setup.record_lookup',
+      'email_setup.apply',
       'mailbox.connect',
       'mailbox.disconnect',
       'mailbox.resync',

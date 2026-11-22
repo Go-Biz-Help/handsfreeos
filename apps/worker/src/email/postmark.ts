@@ -3,7 +3,7 @@
  */
 import { INBOUND_MX_HOST, ownershipHost } from '@hfos/core';
 import { cnameInDns, dkimInDns, mxInDns, systemDns, tokenInDns, type DnsLookup } from './dns';
-import { lookUp, systemNameServers } from './hosts';
+import { lookUp, lookUpName, systemNameServers } from './hosts';
 import {
   EmailError,
   mailbox,
@@ -206,11 +206,17 @@ export function createPostmark(opts: {
       receives: (domain) => mxInDns(dns, domain, INBOUND_MX_HOST),
       owns: (domain, token) => tokenInDns(dns, ownershipHost(domain), token),
       async hosts(domain) {
-        const [mx, ns] = await Promise.all([
-          lookUp(async () => (await dns.mx(domain)).map((r) => r.exchange)),
-          lookUp(() => (opts.nameServers ?? systemNameServers)(domain)),
+        const [mxRecords, ns] = await Promise.all([
+          lookUp(() => dns.mx(domain)),
+          lookUpName(() => (opts.nameServers ?? systemNameServers)(domain)),
         ]);
-        return { mx, ns };
+        return {
+          mx: mxRecords?.map((r) => r.exchange) ?? null,
+          ns: ns.found,
+          mxRecords,
+          // No such name: its name servers and its mail records both say so.
+          missing: ns.missing && mxRecords?.length === 0,
+        };
       },
       async openInbound(domain) {
         if (!opts.inboundHookUrl)

@@ -391,6 +391,35 @@ the person sends.
 - **The phone** doesn't show the switch or the draft yet; both come with the guided setup's phone
   screens, in one sync change.
 
+**The guided questions: what the server does (Chris, 2026-11-22).** The same canvas, one question at
+a time: which email, the addresses, who reads each one, the one customers hear from, where mail
+arrives, then **Check it over** and **Set it up**. The server side is built; the screens come next.
+
+- **The questions' rules live once**, in `packages/core/src/messaging/email-guided.ts`: the answers
+  (`EmailGuidedAnswers`), which screens a path has, what each screen still needs
+  (`emailGuidedProblems`), the plan the answers make, and every word the screens say
+  (`EMAIL_GUIDED_WORDS`). The web and the phone both read it. `email_setup.get` hands back the
+  answers to start from (`guided`).
+- **Nothing changes until Set it up.** A website name is looked up before it is added
+  (`email_setup.look_up`): the worker reads its mail and name-server records and files what it saw
+  in `app.email_domain_lookups`, one row a business, so the first question can say where the name
+  is looked after and where its mail goes today. A name that doesn't exist says so. Forty look-ups
+  an hour a business (`email_lookup_limit`).
+- **Set it up is one command** (`email_setup.apply`). It checks the answers again, adds the name if
+  it is new, and writes the plan (`email_domains.plan`): the team address customers hear from, the
+  other addresses (`addresses`, each the team's or one person's own), and whether mail arrives in
+  HandsFreeOS. A verified name gets its addresses at once; a new one gets them when its records
+  verify, as before, and the free address carries the mail until then.
+- **It only adds.** An address already set up keeps who reads it, and none is removed. Those changes
+  stay in Settings → Email, where each one is asked on its own.
+- **"Let Ava read this mail" in a plan is its own person's to write.** A trigger on the plan
+  (`email_domains_plan_ai_reads_guard`) refuses a person planning the switch on for someone else's
+  address, so the yes that the worker carries out later is still theirs.
+- **The old mail records.** The worker keeps the name's MX records as it last saw them
+  (`email_domains.mx_records`, with priorities). The last step lists ours to add and the old ones
+  to delete, and says which are still there; the steps email names them too. Receiving still turns
+  on only when ours is the only record at the lowest priority.
+
 ### Step 5 — HandsFreeOS's own business (done, 2026-09-30)
 
 Set `is_platform` on the HandsFreeOS business, add `handsfreeos.com`, add `chris@` as Chris's

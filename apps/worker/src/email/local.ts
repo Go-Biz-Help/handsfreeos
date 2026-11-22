@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import nodemailer from 'nodemailer';
 import type { Logger } from 'pino';
+import { INBOUND_MX_HOST } from '@hfos/core';
 import {
   EmailError,
   INBOUND_REFUSALS,
@@ -138,17 +139,43 @@ export function createLocalEmail(opts: {
         const checks = (mxChecks.get(domain) ?? 0) + 1;
         mxChecks.set(domain, checks);
         // nomx-… never points here, and a lapsed-… domain does the first time, then stops (the daily check's case).
+        // An oldmx-… one does from its second check, once its old records are gone.
+        if (/^oldmx-/.test(domain)) return checks > 1;
         return !(/^nomx-/.test(domain) || (/^lapsed-/.test(domain) && checks > 1));
       },
       // The token is always there, except on a squat-… domain, whose TXT record isn't this business's (M19).
       async owns(domain) {
         return !/^squat-/.test(domain);
       },
-      // Nobody gets email at a domain yet, except a mail-… one (Google Workspace); every domain is at GoDaddy.
+      // Nobody gets email at a domain yet, except a mail-… one (Google Workspace) and an oldmx-… one, whose two old
+      // records at its web host go away once its MX has been checked twice (the person deleting them between
+      // checks; its own record is there from the first). Every domain is at GoDaddy, except oldmx-… (SiteGround)
+      // and typo-…, which DNS has never heard of.
       async hosts(domain) {
+        if (/^typo-/.test(domain)) return { mx: [], ns: [], mxRecords: [], missing: true };
+        const old = /^oldmx-/.test(domain);
+        const mxRecords = /^mail-/.test(domain)
+          ? [{ exchange: 'aspmx.l.google.com', priority: 1 }]
+          : old
+            ? [
+                ...((mxChecks.get(domain) ?? 0) > 0
+                  ? [{ exchange: INBOUND_MX_HOST, priority: 10 }]
+                  : []),
+                ...((mxChecks.get(domain) ?? 0) < 2
+                  ? [
+                      { exchange: 'mx10.mailspamprotection.com', priority: 10 },
+                      { exchange: 'mx20.mailspamprotection.com', priority: 20 },
+                    ]
+                  : []),
+              ]
+            : [];
         return {
-          mx: /^mail-/.test(domain) ? ['aspmx.l.google.com'] : [],
-          ns: ['ns51.domaincontrol.com', 'ns52.domaincontrol.com'],
+          mx: mxRecords.map((r) => r.exchange),
+          ns: old
+            ? ['ns1.siteground.net', 'ns2.siteground.net']
+            : ['ns51.domaincontrol.com', 'ns52.domaincontrol.com'],
+          mxRecords,
+          missing: false,
         };
       },
       // A server for every domain, except elsewhere-… (another account receives it) and full-… (no room left). As

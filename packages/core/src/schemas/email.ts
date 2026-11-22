@@ -103,6 +103,15 @@ export const emailLocalPart = z
     error: 'Don’t put two dots, dashes or underscores in a row.',
   });
 
+/** One MX record: the mail server it names and its priority (lowest is tried first). */
+export const EmailMxRecord = z.object({
+  host: z.string().max(254),
+  priority: z.int().min(0).max(65535),
+});
+export type EmailMxRecord = z.infer<typeof EmailMxRecord>;
+/** How many MX records are kept for a name: more than any mail service asks for. */
+export const EMAIL_MX_RECORDS_MAX = 20;
+
 export const emailDomainStatus = z.enum(['pending', 'verified', 'failed']);
 /** Whether a domain's mail arrives here (M19): people ask (pending), the worker says on or lapsed. */
 export const emailReceivingStatus = z.enum(['off', 'pending', 'on', 'lapsed']);
@@ -145,6 +154,8 @@ export const EmailDomainRecordInput = z.object({
    */
   mailHost: z.string().trim().min(1).max(40).optional(),
   dnsHost: z.string().trim().min(1).max(40).optional(),
+  /** Its MX records as DNS gives them now, for the guided setup's old records to delete. Absent keeps what is stored. */
+  mxRecords: z.array(EmailMxRecord).max(EMAIL_MX_RECORDS_MAX).optional(),
 });
 export const EmailDomainRecordOutput = z.object({
   emailDomainId: uuid,
@@ -177,6 +188,9 @@ export const EmailDomainRecordReceivingInput = z.object({
   workspaceId: uuid,
   emailDomainId: uuid,
   mxFound: z.boolean().nullable(),
+  /** Where its mail goes now and its MX records, as this check saw them. Absent (DNS didn't answer) keeps what is stored. */
+  mailHost: z.string().trim().min(1).max(40).optional(),
+  mxRecords: z.array(EmailMxRecord).max(EMAIL_MX_RECORDS_MAX).optional(),
 });
 
 // ---------- sending addresses ----------

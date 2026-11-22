@@ -1934,6 +1934,23 @@ export const emailDomains = app.table('email_domains', {
   /** Where its mail goes now (none, google, microsoft…) and where its DNS is managed, as the worker last looked. */
   mailHost: text('mail_host'),
   dnsHost: text('dns_host'),
+  /** Its MX records as the worker last saw them, lowest priority first (the guided setup's "old records to delete"). */
+  mxRecords: jsonb('mx_records').$type<{ host: string; priority: number }[]>(),
+});
+
+/**
+ * The website name a business last asked about in the guided email setup, before adding it (20261027033800): where
+ * its mail goes and where its DNS is looked after. One row a business; only the worker writes it.
+ */
+export const emailDomainLookups = app.table('email_domain_lookups', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  domain: text('domain').notNull(),
+  mailHost: text('mail_host'),
+  dnsHost: text('dns_host'),
+  mxRecords: jsonb('mx_records').$type<{ host: string; priority: number }[]>(),
+  lookedAt: ts('looked_at').notNull().defaultNow(),
 });
 
 /** A sending address: on the shared subdomain (no domain) or on a verified workspace domain. */
