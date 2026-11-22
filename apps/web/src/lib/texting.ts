@@ -26,6 +26,7 @@ export async function loadTexting(
     imports,
     twilio,
     draft,
+    guided,
     brandedOrigin,
     origin,
   ] = await Promise.all([
@@ -51,15 +52,20 @@ export async function loadTexting(
     api.POST('/v1/queries/twilio_connection.list', { body: { workspaceId } }).then(unwrapPage),
     // The registration's answers as they were left, so the wizard picks up where it stopped.
     api.POST('/v1/queries/registration.get_draft', { body: { workspaceId } }).then(unwrapPage),
+    // The guided phone setup's answers, when it was started and left: the page offers to carry on. Only an offer,
+    // so a read that fails leaves it out rather than taking the whole page down with it (the API ships some
+    // minutes after this app does, and until then it has no such route).
+    api.POST('/v1/queries/guided_setup.get_draft', { body: { workspaceId, setup: 'phone' } }).then(
+      (r) => r.data ?? null,
+      () => null,
+    ),
     // Where the business's simple page is, for a business without a website of its own.
     brandedOriginFor(api, workspaceId),
     requestOrigin(),
   ]);
   if (!can(got.workspace.permissions, 'channels.manage')) return null;
-  // Everyone who works the inbox — by first name for the "these browsers ring" line, and with their ids
-  // for choosing who each number rings (M17).
+  // Everyone who works the inbox, for choosing who each number rings (M17).
   const inbox = members.members.filter((m) => can(m.permissions, 'inbox.use'));
-  const team = inbox.map((m) => (m.fullName.trim() || m.email).split(/\s+/)[0] ?? m.email);
   const people = inbox.map((m) => ({
     userId: m.userId,
     name: m.fullName.trim() || m.email,
@@ -87,7 +93,6 @@ export async function loadTexting(
     businessAddress: businessAddressOf(settings),
     status,
     me: { fullName: me.user.fullName, email: me.user.email },
-    team,
     people,
     ports: ports.ports,
     portsFromMigration: ports.fromMigration,
@@ -96,6 +101,7 @@ export async function loadTexting(
     twilio,
     inboxPerPerson: got.workspace.inboxPerPerson,
     registrationDraft: draft.answers,
+    guidedDraft: guided?.answers && guided.savedAt ? { savedAt: guided.savedAt } : null,
     surfaces: {
       siteSlug: site.site?.slug ?? null,
       chatPublicKey: liveWidget?.publicKey ?? null,

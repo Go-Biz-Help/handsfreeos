@@ -924,7 +924,9 @@ export interface DraftConversation {
 
 /**
  * The playbook's introduction in place of the first message (decision 168, the owner, 15 Nov 2026: "thanks for
- * connecting and who we are and what we offer"), with a question about them to get them talking (decision 173). `fresh`
+ * connecting and who we are"), with a question about them to get them talking (decision 173). It says nothing of what
+ * the business does unless the playbook's own words do (decision 190, the owner, 22 Nov 2026: "I don’t want it to say
+ * what I do right away"): that waits until they ask (`networkingReplyTask`). `fresh`
  * when they just connected; a friend of a while who was never talked to gets a hello in place of the thanks for
  * connecting. `two` when the question goes as its own text right after it (decision 175, the owner, 17 Nov 2026: "the
  * question should be in a second message right after the introduction so it's not all in one"); else it's one message,
@@ -941,11 +943,11 @@ function introHow(intro: string, fresh: boolean, two: boolean): string {
     fresh
       ? 'They just connected with the owner: they accepted the owner’s request, the owner accepted theirs, or they followed the owner.'
       : 'They’ve been connected with the owner a while without ever talking: in place of thanking them for connecting, say a friendly hello, and keep the rest.',
-    'It says who the owner is and what the business offers, then asks one question about them to get them talking: the one the playbook’s words ask, or, when they ask none, one about them from their page. That’s its only question: never about the offer, and no ask for a call or a demo.',
+    'It says who the owner is, as the playbook’s words do, then asks one question about them to get them talking: the one the playbook’s words ask, or, when they ask none, one about them from their page. That’s its only question: never about the offer, and no ask for a call or a demo.',
     two
       ? 'The question goes as its own text, right after the introduction: write the introduction with no question in it, then a blank line, then the question alone.'
       : 'It’s one message, with the question last.',
-    'Never say how the offer works or the price in it, and no link or web address unless the playbook’s words have one.',
+    'Say nothing of what the business does or offers in it unless the playbook’s words do: that waits until they ask. Never say how the offer works or the price in it, and no link or web address unless the playbook’s words have one.',
   ].join(' ');
 }
 
@@ -1076,7 +1078,7 @@ export function networkingStand(recent: readonly DownloadMessage[]): NetworkingS
 
 /** What they say that asks about the business: a demo is offered after a quick answer to it. */
 const ASKED_ABOUT =
-  'they ask about the business (what it does, what it offers, how it works, the price)';
+  'they ask about the business (what it is, what it does, what it offers, how it works, the price)';
 /** What they say that names a problem: a demo is offered on it too when How the chat goes says so (decision 180). */
 const NAMED_PROBLEM = 'they name a problem the business fixes';
 

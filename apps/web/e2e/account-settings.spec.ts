@@ -136,17 +136,27 @@ test('my cell phone is verified by a call from the business number; forwarded ph
   await expect(page.getByTestId('my-cell-number')).toHaveText('(512) 555-0177');
   await expect(page.getByTestId('my-cell').getByText('Verified', { exact: true })).toBeVisible();
 
-  // Texting & calls: forwarded phones show the business number, and it stays when routing is saved.
+  // Texting & calls: a forwarded phone shows the business number, and it stays when another part is saved.
   await page.goto(`/app/w/${workspaceId}/settings/texting`);
-  const business = page.getByTestId('caller-id-business');
+  const card = page.getByTestId('phone-card');
+  await expect(async () => {
+    await card.getByTestId('change-ring').click();
+    await expect(page.getByTestId('ring-editor')).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 60_000 });
+  await page.getByTestId('phone-more').check();
+  await page.getByTestId('phone-label-0').fill('My cell');
+  await page.getByTestId('phone-number-0').fill('(512) 555-0177');
   await expect(page.getByTestId('caller-id-customer')).toHaveAttribute('aria-checked', 'true');
-  await business.click();
-  await expect(page.getByText(`Forwarded phones show ${display}`)).toBeVisible();
-  await page.getByLabel('Ring for').selectOption('15');
-  await expect(page.getByText('Rings for 15 seconds')).toBeVisible();
+  await page.getByTestId('caller-id-business').click();
+  await page.getByTestId('change-save').click();
+  await expect(card.getByTestId('row-ring')).toContainText('It shows your business number.');
+  await card.getByTestId('change-missed').click();
+  await page.getByTestId('ring-seconds-15').click();
+  await page.getByTestId('change-save').click();
+  await expect(card.getByTestId('row-missed')).toContainText('after 15 seconds');
   await page.reload();
-  await expect(page.getByTestId('caller-id-business')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByLabel('Ring for')).toHaveValue('15');
+  await expect(card.getByTestId('row-ring')).toContainText('It shows your business number.');
+  await expect(card.getByTestId('row-missed')).toContainText('after 15 seconds');
 });
 
 test('a founder makes a teammate an owner in Members, then deletes their account', async ({

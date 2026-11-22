@@ -76,8 +76,10 @@ export const SEND_STATE_KEYS = Object.keys(SEND_STATES) as [SendState, ...SendSt
  *    twice (decision 176, ./today.ts `networkingReplyTask`).
  * 6. An introduction says one true thing the owner and they have in common, right after the thanks (decision 181,
  *    ./script.ts `STARTING_INTRO` and `FILL_BLANKS`).
+ * 7. An introduction says who the owner is and nothing of what the business does, which waits until they ask
+ *    (decision 190, ./script.ts `STARTING_INTRO`, ./today.ts `introTask`).
  */
-export const RULES_VERSION = 6;
+export const RULES_VERSION = 7;
 
 /** Why one drafted under older rules can't be OK'd (`RULES_VERSION`), and what happens to it. */
 export const SEND_REWRITTEN =

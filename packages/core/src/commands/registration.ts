@@ -90,7 +90,7 @@ async function refuseUnsendable(ctx: CommandContext, workspaceId: string, kind: 
     throw HfosError.rule(
       'no_number',
       409,
-      'Toll-free verification is for the toll-free number itself, so it can only be sent once you have it. Get one under Get a business number in Settings → Texting & calls first.',
+      'Toll-free verification is for the toll-free number itself, so it can only be sent once you have it. Get one under Get your business number in Settings → Texting & calls first.',
     );
   if (number && familyFor(number.numberType) !== kind)
     throw HfosError.rule(

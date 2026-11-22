@@ -618,6 +618,21 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
         : numberType === 'toll_free'
           ? ['833', '844', '855', '877']
           : ['713'];
+      // A whole number asked for by its ten digits (the guided setup checking the one somebody picked earlier is
+      // still free): it is, until somebody here has bought it.
+      if (contains && /^[0-9]{10}$/.test(contains)) {
+        const e164 = `+1${contains}`;
+        return [...owned.values()].some((n) => n.e164 === e164)
+          ? []
+          : [
+              {
+                e164,
+                locality: numberType === 'toll_free' ? null : city || 'Houston',
+                region: numberType === 'toll_free' ? null : state || 'TX',
+                capabilities: CAPS,
+              },
+            ];
+      }
       // What was asked for is what comes back: the digits really are in the number, the city really is its city.
       const wanted = (contains ?? '').replace(/[^0-9]/g, '').slice(0, 7);
       return Array.from({ length: Math.min(limit, 6) }, (_, i) => {

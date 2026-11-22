@@ -8,9 +8,14 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/facebook-instagram/page.tsx": "d8f1fdb769fc",
     "apps/web/src/app/app/w/[workspaceId]/settings/lead-intake/page.tsx": "9f59345c668b",
     "apps/web/src/app/app/w/[workspaceId]/settings/templates/page.tsx": "b2960fd030b7",
-    "apps/web/src/app/app/w/[workspaceId]/settings/texting/page.tsx": "b242e42c3f74",
+    "apps/web/src/app/app/w/[workspaceId]/settings/texting/page.tsx": "eb4ca86349a1",
     "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx": "1c86737b9add",
+    "apps/web/src/app/onboarding/[workspaceId]/phone/page.tsx": "41cfea8de77a",
+    "apps/web/src/components/guided-setup/frame.tsx": "27a10c795647",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
+    "apps/web/src/components/phone-setup/editors.tsx": "ef212390d4d3",
+    "apps/web/src/components/phone-setup/number-picker.tsx": "0c548fbb78a8",
+    "apps/web/src/components/phone-setup/phone-setup-flow.tsx": "f612863fb242",
     "apps/web/src/components/settings/a2p-wizard.tsx": "16a231581336",
     "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
@@ -22,6 +27,7 @@
     "apps/web/src/components/settings/number-import.tsx": "c09a55fe0fe4",
     "apps/web/src/components/settings/numbers-card.tsx": "740b4e41ee09",
     "apps/web/src/components/settings/phone-account-card.tsx": "c452df556a06",
+    "apps/web/src/components/settings/phone-card.tsx": "e5c82412934c",
     "apps/web/src/components/settings/port-letter.tsx": "e91925f63ea4",
     "apps/web/src/components/settings/port-step.tsx": "ef0d80282285",
     "apps/web/src/components/settings/rcs-card.tsx": "2ca7ca3b9b22",
@@ -29,11 +35,11 @@
     "apps/web/src/components/settings/site-check-help.tsx": "5a3069cc8238",
     "apps/web/src/components/settings/templates-editor.tsx": "331baf537fed",
     "apps/web/src/components/settings/test-text-dialog.tsx": "7bce9b29ee3c",
-    "apps/web/src/components/settings/texting-page.tsx": "a6b98cdfc4fc",
+    "apps/web/src/components/settings/texting-page.tsx": "96c40a382b8a",
     "apps/web/src/components/settings/web-person.tsx": "f1689ff9d654",
     "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d",
     "apps/web/src/lib/chat/editor-data.ts": "84f9988ce043",
-    "apps/web/src/lib/texting.ts": "c504cf48a679"
+    "apps/web/src/lib/texting.ts": "7fe76340a602"
   },
   "items": [
     {
@@ -200,14 +206,14 @@
     {
       "path": "Texting → Numbers found by a migration callout",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:281",
+      "file": "apps/web/src/components/settings/texting-page.tsx:339",
       "covered": "yes",
       "by": "read_number_port_list fromMigration"
     },
     {
       "path": "Texting → Numbers found by a migration → Bring it / them here",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:293",
+      "file": "apps/web/src/components/settings/texting-page.tsx:334",
       "covered": "yes",
       "by": "do_number_port_start / do_number_import_start"
     },
@@ -298,126 +304,126 @@
     {
       "path": "Texting → Setup → number bar: number, Yours from now on",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:365",
+      "file": "apps/web/src/components/settings/texting-page.tsx:585",
       "covered": "yes",
       "by": "get_settings texting number"
     },
     {
       "path": "Texting → Setup → steps: Number, Business details, Carrier review",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:530",
+      "file": "apps/web/src/components/settings/texting-page.tsx:702",
       "covered": "yes",
       "by": "get_settings texting nextStep"
     },
     {
       "path": "Texting → Setup → getting your number / giving it back",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:401",
+      "file": "apps/web/src/components/settings/texting-page.tsx:625",
       "covered": "yes",
       "by": "get_settings texting nextStep"
     },
     {
       "path": "Texting → Get a business number → intro",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:730",
+      "file": "apps/web/src/components/settings/texting-page.tsx:912",
       "covered": "yes",
       "by": "find_phone_numbers description; settings_help texting"
     },
     {
       "path": "Texting → Get a business number → I already have a number I want to keep →",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:743",
+      "file": "apps/web/src/components/settings/texting-page.tsx:924",
       "covered": "yes",
       "by": "number_port / number_import tools"
     },
     {
       "path": "Texting → Get a business number → didn’t go through callout",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:772",
+      "file": "apps/web/src/components/settings/texting-page.tsx:930",
       "covered": "yes",
       "by": "get_settings texting number status"
     },
     {
       "path": "Texting → Get a business number → Toll-free / Local",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:762",
+      "file": "apps/web/src/components/settings/texting-page.tsx:942",
       "covered": "yes",
       "by": "find_phone_numbers numberType"
     },
     {
       "path": "Texting → Get a business number → Area code",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:784",
+      "file": "apps/web/src/components/settings/texting-page.tsx:969",
       "covered": "yes",
       "by": "find_phone_numbers areaCode"
     },
     {
       "path": "Texting → Get a business number → Starts with 833/844/855",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:797",
+      "file": "apps/web/src/components/settings/texting-page.tsx:982",
       "covered": "yes",
       "by": "find_phone_numbers areaCode (Starts with, for toll-free)"
     },
     {
       "path": "Texting → Get a business number → Show numbers",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:813",
+      "file": "apps/web/src/components/settings/texting-page.tsx:994",
       "covered": "yes",
       "by": "find_phone_numbers"
     },
     {
       "path": "Texting → Get a business number → More choices / Fewer choices",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:822",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1003",
       "covered": "yes",
       "by": "find_phone_numbers city, state, withinMiles, contains"
     },
     {
       "path": "Texting → Get a business number → City and State",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:829",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1014",
       "covered": "yes",
       "by": "find_phone_numbers city and state"
     },
     {
       "path": "Texting → Get a business number → How far out",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:852",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1037",
       "covered": "yes",
       "by": "find_phone_numbers withinMiles"
     },
     {
       "path": "Texting → Get a business number → Digits in the number",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:868",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1053",
       "covered": "yes",
       "by": "find_phone_numbers contains"
     },
     {
       "path": "Texting → Get a business number → Look again without the city or digits",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:898",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1079",
       "covered": "yes",
       "by": "find_phone_numbers again with less, or anywhere"
     },
     {
       "path": "Texting → Get a business number → results: number, place or Toll-free, Calls · Texts · Photos",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:932",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1089",
       "covered": "yes",
       "by": "find_phone_numbers numbers: number, shown, town, state"
     },
     {
       "path": "Texting → Get a business number → pick a number from the results",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:920",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1095",
       "covered": "yes",
       "by": "find_phone_numbers, then manage_phone_number get on the one picked"
     },
     {
       "path": "Texting → Get a business number → Buy <number>",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:950",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1131",
       "covered": "yes",
       "by": "manage_phone_number get on the number picked from find_phone_numbers, on a card with its price"
     },
@@ -1145,182 +1151,182 @@
     {
       "path": "Texting → Register for texting now → explanation",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1346",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1614",
       "covered": "yes",
       "by": "settings-map texting onScreen: Register for texting now"
     },
     {
       "path": "Texting → Register for texting now → approved callout",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1340",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1581",
       "covered": "yes",
       "by": "get_settings texting registrations"
     },
     {
       "path": "Texting → Register for texting now → Start / Pick up the registration",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1360",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1604",
       "covered": "yes",
       "by": "read_registration_get_draft, fill_in_carrier_registration"
     },
     {
       "path": "Texting → Register for texting now → Owners and admins can send it",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1364",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1609",
       "covered": "yes",
       "by": "the tool’s permission refusal"
     },
     {
       "path": "Texting → Carrier review → heading and how long it takes",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1045",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1285",
       "covered": "yes",
       "by": "get_settings texting registrations"
     },
     {
       "path": "Texting → Carrier review → checklist: Number, Business profile and brand, Texting campaign, Toll-free verification, Texting turns on; Done / In review / Turned down / Next",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1063",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1301",
       "covered": "yes",
       "by": "get_settings texting registrations"
     },
     {
       "path": "Texting → Carrier review → View what we sent",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1103",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1345",
       "covered": "yes",
       "by": "get_settings texting registrations[].submission"
     },
     {
       "path": "Texting → Carrier review → Text me a test (greyed until approved)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1107",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1349",
       "covered": "yes",
       "by": "send_test_text, once texting is approved"
     },
     {
       "path": "Texting → Carrier review → Submitted date",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1112",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1354",
       "covered": "yes",
       "by": "get_settings texting registrations"
     },
     {
       "path": "Texting → Texting fee due → callout and fee lines",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1150",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1443",
       "covered": "yes",
       "by": "get_settings texting textingFees"
     },
     {
       "path": "Texting → Texting fee due → Pay $X",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1210",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1451",
       "covered": "person",
       "by": "paying on Stripe’s page"
     },
     {
       "path": "Texting → Texting fee due → Pay $X with another card",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1220",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1460",
       "covered": "person",
       "by": "paying on Stripe’s page"
     },
     {
       "path": "Texting → Texting fee due → Send it without paying (HandsFreeOS’s own business)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1206",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1447",
       "covered": "never",
       "by": "texting_fee.pay is on the NEVER list"
     },
     {
       "path": "Texting → after paying: the result message",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:110",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1388",
       "covered": "yes",
       "by": "get_settings texting textingFees"
     },
     {
       "path": "Texting → Turned down → the carriers’ reason",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1420",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1678",
       "covered": "yes",
       "by": "get_settings texting registrations"
     },
     {
       "path": "Texting → Turned down → What to fix advice",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1437",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1692",
       "covered": "partly",
       "by": "the reason comes back; the advice is written on the page"
     },
     {
       "path": "Texting → Turned down → words for a box on your own website",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1457",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1699",
       "covered": "no",
       "by": "core's ownSiteBoxText, worked out in the browser; no tool returns it"
     },
     {
       "path": "Texting → Turned down → words for a box on your own website → Copy",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1460",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1699",
       "covered": "no",
       "by": "the clipboard"
     },
     {
       "path": "Texting → Turned down → Fix and send again",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1455",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1712",
       "covered": "partly",
       "by": "fill_in_carrier_registration with what to fix, then Before it goes; do_registration_request_review"
     },
     {
       "path": "Texting → Turned down → View what we sent",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1458",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1723",
       "covered": "yes",
       "by": "get_settings texting registrations[].submission"
     },
     {
       "path": "Texting → What happens next (support fix) → text",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1507",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1772",
       "covered": "partly",
       "by": "get_settings texting registrations; text is the page’s"
     },
     {
       "path": "Texting → What happens next (support fix) → Send again",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1516",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1780",
       "covered": "partly",
       "by": "do_registration_request_review; or fill_in_carrier_registration and Before it goes"
     },
     {
       "path": "Texting → What we sent the carriers → Legal name, Business type, EIN, Website, Address, Contact, Texts about, Texts a month, How customers agree, Example texts",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1569",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1791",
       "covered": "yes",
       "by": "get_settings texting registrations[].submission"
     },
     {
       "path": "Texting → What we sent the carriers → Nothing sent yet",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1598",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1863",
       "covered": "yes",
       "by": "get_settings texting registrations"
     },
     {
-      "path": "Texting → Business number → ⋯ → Copy number",
+      "path": "Texting → Setup → number bar → ⋯ → Copy number",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1658",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1911",
       "covered": "yes",
       "by": "get_settings texting number"
     },
     {
-      "path": "Texting → Business number → ⋯ → Release this number",
+      "path": "Texting → Setup → number bar → ⋯ → Release this number",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1665",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1916",
       "covered": "yes",
       "by": "manage_phone_number give_up"
     },
@@ -1330,27 +1336,6 @@
       "file": "apps/web/src/components/settings/release-number-dialog.tsx:65",
       "covered": "yes",
       "by": "manage_phone_number give_up asks first"
-    },
-    {
-      "path": "Texting → Business number → number, Local/Toll-free, bought date",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1770",
-      "covered": "yes",
-      "by": "get_settings texting number"
-    },
-    {
-      "path": "Texting → Business number → Calls ready, Texting approved, Photos and picture texts",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1778",
-      "covered": "yes",
-      "by": "get_settings texting"
-    },
-    {
-      "path": "Texting → Business number → Text me a test",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1799",
-      "covered": "yes",
-      "by": "send_test_text"
     },
     {
       "path": "Texting → Text me a test → Your mobile number, Send",
@@ -1365,27 +1350,6 @@
       "file": "apps/web/src/components/settings/test-text-dialog.tsx:84",
       "covered": "yes",
       "by": "send_test_text duringQuietHours"
-    },
-    {
-      "path": "Texting → Carrier registration → Approved badge and monthly fee",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1811",
-      "covered": "yes",
-      "by": "get_settings texting registrations, textingFees"
-    },
-    {
-      "path": "Texting → Carrier registration → approved parts with dates",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1738",
-      "covered": "yes",
-      "by": "get_settings texting registrations"
-    },
-    {
-      "path": "Texting → Carrier registration → View what we sent",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1843",
-      "covered": "yes",
-      "by": "get_settings texting registrations[].submission"
     },
     {
       "path": "Texting → RCS messaging → status badge and description",
@@ -1603,167 +1567,6 @@
       "file": "apps/web/src/components/settings/rcs-card.tsx:1068",
       "covered": "yes",
       "by": "the tool’s permission refusal"
-    },
-    {
-      "path": "Texting → Texting rules → quiet hours, times and city time shown",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1864",
-      "covered": "yes",
-      "by": "get_settings texting"
-    },
-    {
-      "path": "Texting → Texting rules → Quiet hours switch",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1907",
-      "covered": "yes",
-      "by": "update_texting_settings quietHoursEnabled"
-    },
-    {
-      "path": "Texting → Texting rules → Quiet hours start and end",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1871",
-      "covered": "yes",
-      "by": "update_texting_settings quietHoursStart, quietHoursEnd"
-    },
-    {
-      "path": "Texting → Texting rules → Remind the team when a customer waits",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1919",
-      "covered": "yes",
-      "by": "update_texting_settings remindTeamAfterMinutes"
-    },
-    {
-      "path": "Texting → Texting rules → STOP, START and HELP: Always on",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1951",
-      "covered": "never",
-      "by": "SETTINGS_NEVER texting.stop_help: always on"
-    },
-    {
-      "path": "Texting → When a customer calls → Team browsers, Always",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2173",
-      "covered": "yes",
-      "by": "get_settings texting routing"
-    },
-    {
-      "path": "Texting → When a customer calls → forwarded phones: name, number, on/off",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2190",
-      "covered": "yes",
-      "by": "get_settings texting routing"
-    },
-    {
-      "path": "Texting → When a customer calls → Remove a phone",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2201",
-      "covered": "yes",
-      "by": "update_texting_settings ringPhones"
-    },
-    {
-      "path": "Texting → When a customer calls → Ring this phone switch",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2214",
-      "covered": "yes",
-      "by": "update_texting_settings ringPhones enabled"
-    },
-    {
-      "path": "Texting → When a customer calls → Add a phone: Phone name, Phone number, Add, Cancel",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2243",
-      "covered": "yes",
-      "by": "update_texting_settings ringPhones"
-    },
-    {
-      "path": "Texting → When a customer calls → N of 3 phones",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2280",
-      "covered": "yes",
-      "by": "update_texting_settings allows at most 3"
-    },
-    {
-      "path": "Texting → When a customer calls → Ring for",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2290",
-      "covered": "yes",
-      "by": "update_texting_settings ringSeconds"
-    },
-    {
-      "path": "Texting → When a customer calls → Press 1 callout",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2310",
-      "covered": "no",
-      "by": "not in any tool"
-    },
-    {
-      "path": "Texting → What forwarded phones show → current choice",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2365",
-      "covered": "yes",
-      "by": "get_settings texting routing"
-    },
-    {
-      "path": "Texting → What forwarded phones show → the customer’s number / the business number",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2378",
-      "covered": "yes",
-      "by": "update_texting_settings showCustomerNumber"
-    },
-    {
-      "path": "Texting → What forwarded phones show → iPhone screening callout",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2392",
-      "covered": "no",
-      "by": "not in any tool"
-    },
-    {
-      "path": "Texting → Call recording → whether callers hear the notice",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2442",
-      "covered": "yes",
-      "by": "get_settings texting"
-    },
-    {
-      "path": "Texting → Call recording → notice switch",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2424",
-      "covered": "yes",
-      "by": "do_phone_number_set_recording_notice"
-    },
-    {
-      "path": "Texting → Call recording → states that need everyone’s OK warning",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2459",
-      "covered": "no",
-      "by": "not in any tool"
-    },
-    {
-      "path": "Texting → Voicemail → on/off",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2530",
-      "covered": "yes",
-      "by": "update_texting_settings voicemailEnabled"
-    },
-    {
-      "path": "Texting → Voicemail → Greeting",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2539",
-      "covered": "yes",
-      "by": "update_texting_settings voicemailGreeting"
-    },
-    {
-      "path": "Texting → Voicemail → Play greeting",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2558",
-      "covered": "no",
-      "by": "plays in the browser"
-    },
-    {
-      "path": "Texting → Voicemail → Save",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:2560",
-      "covered": "yes",
-      "by": "update_texting_settings voicemailGreeting"
     },
     {
       "path": "Email → Your addresses → each: address, and who reads it (Only you / Only X / The team / free address)",
@@ -3091,21 +2894,21 @@
     {
       "path": "Texting → Carriers reviewing → Your website → Email your web person",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1055",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1226",
       "covered": "yes",
       "by": "do_registration_email_web_person"
     },
     {
       "path": "Texting → Carriers reviewing → Your website → Hide the website chat until texting is approved",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1064",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1235",
       "covered": "yes",
       "by": "do_chat_widget_hide_until_texting"
     },
     {
       "path": "Texting → Turned down → Email your web person",
       "kind": "do",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1544",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1715",
       "covered": "yes",
       "by": "do_registration_email_web_person"
     },
@@ -3157,6 +2960,629 @@
       "file": "apps/web/src/components/settings/web-person.tsx:441",
       "covered": "yes",
       "by": "do_registration_email_web_person, on a Confirm card"
+    },
+    {
+      "path": "Texting → Get your business number → what the guided setup asks",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/texting-page.tsx:522",
+      "covered": "yes",
+      "by": "settings-map texting onScreen: Get your business number"
+    },
+    {
+      "path": "Texting → Get your business number → couldn’t get the number callout",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/texting-page.tsx:532",
+      "covered": "yes",
+      "by": "get_settings texting number status and lastError"
+    },
+    {
+      "path": "Texting → Get your business number → Start / Carry on where you left off",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/texting-page.tsx:539",
+      "covered": "yes",
+      "by": "find_phone_numbers, then do_phone_setup_save with buy, ring, missed, texting and quietHours: the same questions, asked in the chat"
+    },
+    {
+      "path": "Texting → Get your business number → Your answers from … are saved",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/texting-page.tsx:543",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft setup phone: answers, savedAt"
+    },
+    {
+      "path": "Texting → Get your business number → Ask an owner or admin",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/texting-page.tsx:550",
+      "covered": "yes",
+      "by": "the tool’s permission refusal"
+    },
+    {
+      "path": "Texting → Phone account and transfers (before there is a number)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/texting-page.tsx:558",
+      "covered": "yes",
+      "by": "get_settings texting: account status; number_port / number_import tools"
+    },
+    {
+      "path": "Texting → Phone account and transfers → Move a number here → Move a number",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/texting-page.tsx:257",
+      "covered": "yes",
+      "by": "number_port / number_import tools"
+    },
+    {
+      "path": "Texting → texting approval under the number’s card: steps, fee due, Business details, Carrier review, Turned down",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/texting-page.tsx:445",
+      "covered": "yes",
+      "by": "get_settings texting nextStep, registrations, textingFees"
+    },
+    {
+      "path": "Texting → Your business number → number, Local/Toll-free, yours since",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/phone-card.tsx:204",
+      "covered": "yes",
+      "by": "get_settings texting number"
+    },
+    {
+      "path": "Texting → Your business number → Calls working; Texting approved, needs approval, waiting on the carriers or turned down; Calls only; RCS on",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/phone-card.tsx:175",
+      "covered": "yes",
+      "by": "get_settings texting: nextStep, messagingReady, settings.texting, rcsSender"
+    },
+    {
+      "path": "Texting → Your business number → Text me a test",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:220",
+      "covered": "yes",
+      "by": "send_test_text"
+    },
+    {
+      "path": "Texting → Your business number → Add a number",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:227",
+      "covered": "yes",
+      "by": "find_phone_numbers, then manage_phone_number get on the one picked"
+    },
+    {
+      "path": "Texting → Your business number → Calls → What rings: HandsFreeOS and the phones, and what those phones show",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/phone-card.tsx:258",
+      "covered": "yes",
+      "by": "get_settings texting routing: forwarding, forwardedCallerId"
+    },
+    {
+      "path": "Texting → Your business number → Calls → What rings → Change",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:258",
+      "covered": "yes",
+      "by": "do_phone_setup_save ring with phoneNumberId; or update_texting_settings ringPhones, showCustomerNumber"
+    },
+    {
+      "path": "Texting → Your business number → Calls → If nobody picks up: the AI teammate, voicemail or nothing, and after how long",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/phone-card.tsx:266",
+      "covered": "yes",
+      "by": "get_settings texting: routing ringSeconds and voicemailEnabled, teammate answersCalls and answer, settings.teammateAnswers"
+    },
+    {
+      "path": "Texting → Your business number → Calls → If nobody picks up → Change",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:266",
+      "covered": "yes",
+      "by": "do_phone_setup_save missed with phoneNumberId; or update_texting_settings ringSeconds, voicemailEnabled, voicemailGreeting"
+    },
+    {
+      "path": "Texting → Your business number → Calls → Call recording: whether callers hear the notice",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/phone-card.tsx:274",
+      "covered": "yes",
+      "by": "get_settings texting routing announceRecording"
+    },
+    {
+      "path": "Texting → Your business number → Calls → Call recording → Change: Tell callers the call may be recorded, Save changes",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:673",
+      "covered": "yes",
+      "by": "do_phone_number_set_recording_notice"
+    },
+    {
+      "path": "Texting → Your business number → Calls → Call recording → Change: states that need everyone’s OK warning",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/phone-card.tsx:677",
+      "covered": "no",
+      "by": "not in any tool"
+    },
+    {
+      "path": "Texting → Your business number → Texting → Approval: texting off, not approved yet, with the carriers, turned down, or approved with its date and monthly fee",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/phone-card.tsx:339",
+      "covered": "yes",
+      "by": "get_settings texting: settings.texting, registrations, textingFees"
+    },
+    {
+      "path": "Texting → Your business number → Texting → Approval → Turn on texting",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:317",
+      "covered": "yes",
+      "by": "do_phone_setup_save texting on, with phoneNumberId"
+    },
+    {
+      "path": "Texting → Your business number → Texting → Approval → Start texting approval / See what to fix",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:333",
+      "covered": "yes",
+      "by": "read_registration_get_draft, fill_in_carrier_registration"
+    },
+    {
+      "path": "Texting → Your business number → Texting → Approval → See what we sent",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:323",
+      "covered": "yes",
+      "by": "get_settings texting registrations[].submission"
+    },
+    {
+      "path": "Texting → Your business number → Texting → Quiet hours for texts: the hours",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/phone-card.tsx:350",
+      "covered": "yes",
+      "by": "get_settings texting settings.quietHours"
+    },
+    {
+      "path": "Texting → Your business number → Texting → Quiet hours for texts → Change",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:350",
+      "covered": "yes",
+      "by": "update_texting_settings quietHoursEnabled, quietHoursStart, quietHoursEnd; or do_phone_setup_save quietHours"
+    },
+    {
+      "path": "Texting → Your business number → Texting → When a customer waits: Email the team after",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/phone-card.tsx:358",
+      "covered": "yes",
+      "by": "get_settings texting settings.unansweredReminderMinutes"
+    },
+    {
+      "path": "Texting → Your business number → Texting → When a customer waits → Change: Email the team after, Save changes",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:740",
+      "covered": "yes",
+      "by": "update_texting_settings remindTeamAfterMinutes"
+    },
+    {
+      "path": "Texting → Your business number → Texting → STOP, START and HELP: Handled for you",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/phone-card.tsx:366",
+      "covered": "never",
+      "by": "SETTINGS_NEVER texting.stop_help: always on"
+    },
+    {
+      "path": "Texting → Your business number → Run the guided setup again",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:379",
+      "covered": "yes",
+      "by": "do_phone_setup_save with phoneNumberId: ring, missed, texting and quietHours, a part or all of them"
+    },
+    {
+      "path": "Texting → Your business number → Phone account and transfers",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:389",
+      "covered": "yes",
+      "by": "get_settings texting: account status; number_port / number_import tools"
+    },
+    {
+      "path": "Texting → Your business number → Give up <number>",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:399",
+      "covered": "yes",
+      "by": "manage_phone_number give_up"
+    },
+    {
+      "path": "Texting → Your business number → a Change dialog → Cancel, Save changes, what went wrong",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/phone-card.tsx:524",
+      "covered": "yes",
+      "by": "do_phone_setup_save saves the one part, on a card to confirm; its refusal says what to fix"
+    },
+    {
+      "path": "Texting → What rings (the setup’s question, and Change) → HandsFreeOS, Always on",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:104",
+      "covered": "yes",
+      "by": "get_settings texting routing"
+    },
+    {
+      "path": "Texting → What rings → A cell phone or desk phone too",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:122",
+      "covered": "yes",
+      "by": "do_phone_setup_save ring.forwarding; or update_texting_settings ringPhones"
+    },
+    {
+      "path": "Texting → What rings → Whose phone, Its number",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:153",
+      "covered": "yes",
+      "by": "do_phone_setup_save ring.forwarding label, e164; or update_texting_settings ringPhones"
+    },
+    {
+      "path": "Texting → What rings → switch a phone off without removing it (Change only)",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:177",
+      "covered": "yes",
+      "by": "do_phone_setup_save ring.forwarding enabled; or update_texting_settings ringPhones enabled"
+    },
+    {
+      "path": "Texting → What rings → Remove a phone",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:189",
+      "covered": "yes",
+      "by": "do_phone_setup_save ring.forwarding; or update_texting_settings ringPhones"
+    },
+    {
+      "path": "Texting → What rings → Add a phone / Add another phone, N of 3 phones used",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:209",
+      "covered": "yes",
+      "by": "do_phone_setup_save ring.forwarding, at most 3"
+    },
+    {
+      "path": "Texting → What rings → What should that phone show: The customer’s number / Your business number",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:219",
+      "covered": "yes",
+      "by": "do_phone_setup_save ring.forwardedCallerId; or update_texting_settings showCustomerNumber"
+    },
+    {
+      "path": "Texting → What rings → Your business number: best if your phone silences unknown callers",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:233",
+      "covered": "no",
+      "by": "not in any tool"
+    },
+    {
+      "path": "Texting → What rings → Press 1 note",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:244",
+      "covered": "no",
+      "by": "not in any tool"
+    },
+    {
+      "path": "Texting → If nobody picks up (the setup’s question, and Change) → Ring for 15, 20 or 25 seconds",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:295",
+      "covered": "yes",
+      "by": "do_phone_setup_save missed.ringSeconds; or update_texting_settings ringSeconds"
+    },
+    {
+      "path": "Texting → If nobody picks up → Your AI teammate answers",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:307",
+      "covered": "yes",
+      "by": "do_phone_setup_save missed.then teammate"
+    },
+    {
+      "path": "Texting → If nobody picks up → Your AI teammate answers → no teammate yet, or it’s turned off",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:309",
+      "covered": "yes",
+      "by": "do_phone_setup_save’s answer: teammate waiting, on or off; get_settings texting teammate"
+    },
+    {
+      "path": "Texting → If nobody picks up → Your AI teammate answers → When nobody picks up / When you’re closed / Every call",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:318",
+      "covered": "yes",
+      "by": "do_phone_setup_save missed.teammateMode"
+    },
+    {
+      "path": "Texting → If nobody picks up → Your AI teammate answers → calls use your AI balance",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:321",
+      "covered": "no",
+      "by": "not in any tool"
+    },
+    {
+      "path": "Texting → If nobody picks up → Take a voicemail",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:328",
+      "covered": "yes",
+      "by": "do_phone_setup_save missed.then voicemail; or update_texting_settings voicemailEnabled"
+    },
+    {
+      "path": "Texting → If nobody picks up → Take a voicemail → Greeting",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:340",
+      "covered": "yes",
+      "by": "do_phone_setup_save missed.voicemailGreeting; or update_texting_settings voicemailGreeting"
+    },
+    {
+      "path": "Texting → If nobody picks up → Take a voicemail → Hear it",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:357",
+      "covered": "no",
+      "by": "plays in the browser"
+    },
+    {
+      "path": "Texting → If nobody picks up → Nothing",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:368",
+      "covered": "yes",
+      "by": "do_phone_setup_save missed.then nothing; or update_texting_settings voicemailEnabled false"
+    },
+    {
+      "path": "Texting → Quiet hours for texts (the setup’s question, and Change) → 8 PM to 8 AM",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:404",
+      "covered": "yes",
+      "by": "do_phone_setup_save quietHours; or update_texting_settings quietHoursEnabled, quietHoursStart, quietHoursEnd"
+    },
+    {
+      "path": "Texting → Quiet hours for texts → Hours of my own: Texts stop at, And start again at",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:411",
+      "covered": "yes",
+      "by": "do_phone_setup_save quietHours start, end; or update_texting_settings quietHoursStart, quietHoursEnd"
+    },
+    {
+      "path": "Texting → Quiet hours for texts → It’s never too late",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:454",
+      "covered": "yes",
+      "by": "do_phone_setup_save quietHours enabled false; or update_texting_settings quietHoursEnabled"
+    },
+    {
+      "path": "Texting → Quiet hours for texts → you can still send by hand, and the business’s time",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/editors.tsx:459",
+      "covered": "yes",
+      "by": "get_settings texting: timezone, quiet"
+    },
+    {
+      "path": "Texting → Guided setup → who may open it (others go Home)",
+      "kind": "see",
+      "file": "apps/web/src/app/onboarding/[workspaceId]/phone/page.tsx:29",
+      "covered": "yes",
+      "by": "the tool’s permission refusal"
+    },
+    {
+      "path": "Texting → Guided setup → header: Setting up the number for <business>, Finish later / Close",
+      "kind": "do",
+      "file": "apps/web/src/components/guided-setup/frame.tsx:149",
+      "covered": "yes",
+      "by": "settings-map texting onScreen: Finish later keeps the answers"
+    },
+    {
+      "path": "Texting → Guided setup → Saving… / Saved / Couldn’t save",
+      "kind": "see",
+      "file": "apps/web/src/components/guided-setup/frame.tsx:103",
+      "covered": "never",
+      "by": "guided_setup.save_draft is on the NEVER list: the page keeps its own answers; the Assistant asks in the chat and reads them with read_guided_setup_get_draft"
+    },
+    {
+      "path": "Texting → Guided setup → Question N of M, its title and hint",
+      "kind": "see",
+      "file": "apps/web/src/components/guided-setup/frame.tsx:212",
+      "covered": "yes",
+      "by": "settings-map texting onScreen: the guided setup’s questions, in order"
+    },
+    {
+      "path": "Texting → Guided setup → Your number so far: each answer",
+      "kind": "see",
+      "file": "apps/web/src/components/guided-setup/frame.tsx:226",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft setup phone: answers"
+    },
+    {
+      "path": "Texting → Guided setup → Back, Next, Check it over",
+      "kind": "do",
+      "file": "apps/web/src/components/guided-setup/frame.tsx:388",
+      "covered": "yes",
+      "by": "the questions are asked in the chat; do_phone_setup_save runs each one’s own checks and refuses with its words"
+    },
+    {
+      "path": "Texting → Guided setup → Welcome back: when the answers were saved, and the question stopped at",
+      "kind": "see",
+      "file": "apps/web/src/components/guided-setup/frame.tsx:409",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft setup phone: savedAt, answers.at"
+    },
+    {
+      "path": "Texting → Guided setup → Welcome back → Start over, Keep my answers",
+      "kind": "do",
+      "file": "apps/web/src/components/guided-setup/frame.tsx:420",
+      "covered": "never",
+      "by": "guided_setup.clear_draft is on the NEVER list: the page clears its own answers"
+    },
+    {
+      "path": "Texting → Guided setup → Do you already have a business number?: No, I need a new one / Yes, and I want to keep it / Yes, it’s in Twilio or HighLevel",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:653",
+      "covered": "yes",
+      "by": "find_phone_numbers and do_phone_setup_save for a new one; number_port / number_import tools to move one"
+    },
+    {
+      "path": "Texting → Guided setup → Do you want to text customers?: Yes / No, calls only",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:675",
+      "covered": "yes",
+      "by": "do_phone_setup_save texting on or not_now"
+    },
+    {
+      "path": "Texting → Guided setup → Do you want to text customers? → what getting approved takes",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:687",
+      "covered": "yes",
+      "by": "settings_help texting: get texting approved by the carriers"
+    },
+    {
+      "path": "Texting → Guided setup → Do you have an EIN?: Yes / No",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:708",
+      "covered": "yes",
+      "by": "find_phone_numbers numberType: local with an EIN, toll_free without"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → number taken while you were away",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:469",
+      "covered": "partly",
+      "by": "find_phone_numbers again shows what is free now; no tool says a number picked on the page was taken"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → couldn’t get the number",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:474",
+      "covered": "yes",
+      "by": "get_settings texting number status and lastError"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → Nothing is bought yet",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:746",
+      "covered": "yes",
+      "by": "do_phone_setup_save’s card says it buys the number and that it is billed every month"
+    },
+    {
+      "path": "Texting → Guided setup → Does this look right?: every answer, with Change",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:586",
+      "covered": "yes",
+      "by": "do_phone_setup_save’s card lists what it will do before the person confirms"
+    },
+    {
+      "path": "Texting → Guided setup → Does this look right? → What happens next",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:522",
+      "covered": "yes",
+      "by": "settings_help texting: get texting approved by the carriers"
+    },
+    {
+      "path": "Texting → Guided setup → Does this look right? → Already set for you: recording notice, the waiting email, STOP",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:595",
+      "covered": "yes",
+      "by": "get_settings texting: routing announceRecording, settings.unansweredReminderMinutes; SETTINGS_NEVER texting.stop_help"
+    },
+    {
+      "path": "Texting → Guided setup → Does this look right? → Get my number / Save",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:550",
+      "covered": "yes",
+      "by": "do_phone_setup_save: buy with ring, missed, texting and quietHours, or phoneNumberId to change the number the business has"
+    },
+    {
+      "path": "Texting → Guided setup → Getting <number>",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:404",
+      "covered": "yes",
+      "by": "get_settings texting number status"
+    },
+    {
+      "path": "Texting → Guided setup → It’s yours: the number, Calls ring now, where texting stands",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:809",
+      "covered": "yes",
+      "by": "get_settings texting: number, nextStep, settings.texting"
+    },
+    {
+      "path": "Texting → Guided setup → It’s yours → Try it now",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:840",
+      "covered": "yes",
+      "by": "get_settings texting routing"
+    },
+    {
+      "path": "Texting → Guided setup → It’s yours → Get approved to text: Start texting approval, Do it later",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:862",
+      "covered": "yes",
+      "by": "read_registration_get_draft, fill_in_carrier_registration"
+    },
+    {
+      "path": "Texting → Guided setup → It’s yours → Go to Texting & calls",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/phone-setup-flow.tsx:882",
+      "covered": "yes",
+      "by": "the places map: Settings → Texting & calls"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → Numbers you can have: number, place or Toll-free, Calls · Texts · Photos",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/number-picker.tsx:135",
+      "covered": "yes",
+      "by": "find_phone_numbers numbers: number, shown, town, state"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → pick one",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/number-picker.tsx:143",
+      "covered": "yes",
+      "by": "find_phone_numbers, then do_phone_setup_save buy on the one picked"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → Finding numbers",
+      "kind": "see",
+      "file": "apps/web/src/components/phone-setup/number-picker.tsx:185",
+      "covered": "yes",
+      "by": "find_phone_numbers"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → City and State",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/number-picker.tsx:207",
+      "covered": "yes",
+      "by": "find_phone_numbers city and state"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → How far out",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/number-picker.tsx:231",
+      "covered": "yes",
+      "by": "find_phone_numbers withinMiles"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → Area code",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/number-picker.tsx:245",
+      "covered": "yes",
+      "by": "find_phone_numbers areaCode"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → Starts with Any, 833, 844, 855",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/number-picker.tsx:259",
+      "covered": "yes",
+      "by": "find_phone_numbers areaCode (Starts with, for toll-free)"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → Digits you’d like in it",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/number-picker.tsx:276",
+      "covered": "yes",
+      "by": "find_phone_numbers contains"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → Show numbers",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/number-picker.tsx:285",
+      "covered": "yes",
+      "by": "find_phone_numbers"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → none found, and Look again without the city or digits",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/number-picker.tsx:298",
+      "covered": "yes",
+      "by": "find_phone_numbers again with less, or anywhere"
+    },
+    {
+      "path": "Texting → Guided setup → Pick your number → Show toll-free numbers instead / Show local numbers instead",
+      "kind": "do",
+      "file": "apps/web/src/components/phone-setup/number-picker.tsx:315",
+      "covered": "yes",
+      "by": "find_phone_numbers numberType"
     }
   ],
   "gaps": [

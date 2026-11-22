@@ -8182,7 +8182,7 @@
     "/v1/commands/phone.update_settings": {
       "post": {
         "operationId": "command_phone_update_settings",
-        "summary": "Quiet hours for texts and the reminder email when a customer waits for a reply.",
+        "summary": "Quiet hours for texts, the reminder email when a customer waits for a reply, and whether the business texts customers at all (texting: on, or not_now for calls only, which stops asking it to get approved by the carriers).",
         "tags": [
           "commands"
         ],
@@ -8224,6 +8224,13 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 240
+                  },
+                  "texting": {
+                    "type": "string",
+                    "enum": [
+                      "on",
+                      "not_now"
+                    ]
                   }
                 },
                 "required": [
@@ -8270,17 +8277,435 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 240
+                        },
+                        "texting": {
+                          "type": "string",
+                          "enum": [
+                            "on",
+                            "not_now"
+                          ]
+                        },
+                        "teammateAnswers": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "no_answer",
+                                "after_hours",
+                                "always"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
                         "quietHours",
-                        "unansweredReminderMinutes"
+                        "unansweredReminderMinutes",
+                        "texting",
+                        "teammateAnswers"
                       ],
                       "additionalProperties": false
                     }
                   },
                   "required": [
                     "settings"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/phone_setup.save": {
+      "post": {
+        "operationId": "command_phone_setup_save",
+        "summary": "Carry out the guided phone number setup’s answers together, or change one part of them later: buy the number picked (buy; it is billed every month) or name one the business has (phoneNumberId), then what rings with HandsFreeOS and what those phones show (ring), how long they ring and what a caller gets after that (missed: the AI teammate, the voicemail or nothing), whether the business texts customers (texting) and quiet hours for texts. Parts left out stay as they are.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires channels.manage. Emits phone_number.purchase_requested, phone_number.routing_updated, phone.settings_updated, ai_teammate.config_saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "buy": {
+                    "type": "object",
+                    "properties": {
+                      "e164": {
+                        "type": "string",
+                        "pattern": "^\\+[1-9][0-9]{6,14}$"
+                      },
+                      "numberType": {
+                        "type": "string",
+                        "enum": [
+                          "local",
+                          "toll_free"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "e164",
+                      "numberType"
+                    ]
+                  },
+                  "phoneNumberId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "ring": {
+                    "type": "object",
+                    "properties": {
+                      "forwarding": {
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "e164": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 40
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 40
+                            },
+                            "enabled": {
+                              "default": true,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "e164",
+                            "label"
+                          ]
+                        }
+                      },
+                      "forwardedCallerId": {
+                        "type": "string",
+                        "enum": [
+                          "customer",
+                          "business"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "forwarding",
+                      "forwardedCallerId"
+                    ]
+                  },
+                  "missed": {
+                    "type": "object",
+                    "properties": {
+                      "ringSeconds": {
+                        "type": "integer",
+                        "minimum": 10,
+                        "maximum": 25
+                      },
+                      "then": {
+                        "type": "string",
+                        "enum": [
+                          "teammate",
+                          "voicemail",
+                          "nothing"
+                        ]
+                      },
+                      "teammateMode": {
+                        "type": "string",
+                        "enum": [
+                          "no_answer",
+                          "after_hours",
+                          "always"
+                        ]
+                      },
+                      "voicemailGreeting": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "ringSeconds",
+                      "then"
+                    ]
+                  },
+                  "texting": {
+                    "type": "string",
+                    "enum": [
+                      "on",
+                      "not_now"
+                    ]
+                  },
+                  "quietHours": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "start": {
+                        "type": "string",
+                        "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                      },
+                      "end": {
+                        "type": "string",
+                        "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "start",
+                      "end"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "phoneNumberId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "bought": {
+                      "type": "boolean"
+                    },
+                    "teammate": {
+                      "type": "string",
+                      "enum": [
+                        "on",
+                        "waiting",
+                        "off",
+                        "unchanged"
+                      ]
+                    },
+                    "settings": {
+                      "type": "object",
+                      "properties": {
+                        "quietHours": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "start": {
+                              "type": "string",
+                              "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                            },
+                            "end": {
+                              "type": "string",
+                              "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                            }
+                          },
+                          "required": [
+                            "enabled",
+                            "start",
+                            "end"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "unansweredReminderMinutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 240
+                        },
+                        "texting": {
+                          "type": "string",
+                          "enum": [
+                            "on",
+                            "not_now"
+                          ]
+                        },
+                        "teammateAnswers": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "no_answer",
+                                "after_hours",
+                                "always"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "quietHours",
+                        "unansweredReminderMinutes",
+                        "texting",
+                        "teammateAnswers"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "phoneNumberId",
+                    "bought",
+                    "teammate",
+                    "settings"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/guided_setup.save_draft": {
+      "post": {
+        "operationId": "command_guided_setup_save_draft",
+        "summary": "Keep a guided setup’s answers while they are being given (the phone number’s, the email’s), so a refresh or coming back later picks up where it was left. Nothing is bought or changed until the setup’s last screen.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "setup": {
+                    "type": "string",
+                    "enum": [
+                      "phone",
+                      "email"
+                    ]
+                  },
+                  "answers": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "setup",
+                  "answers"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "savedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "savedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/guided_setup.clear_draft": {
+      "post": {
+        "operationId": "command_guided_setup_clear_draft",
+        "summary": "Forget a guided setup’s saved answers: it is finished, or the person chose Start over. Nothing already set up changes.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "setup": {
+                    "type": "string",
+                    "enum": [
+                      "phone",
+                      "email"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "setup"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cleared": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "cleared"
                   ],
                   "additionalProperties": false
                 }
@@ -158732,11 +159157,35 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 240
+                        },
+                        "texting": {
+                          "type": "string",
+                          "enum": [
+                            "on",
+                            "not_now"
+                          ]
+                        },
+                        "teammateAnswers": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "no_answer",
+                                "after_hours",
+                                "always"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
                         "quietHours",
-                        "unansweredReminderMinutes"
+                        "unansweredReminderMinutes",
+                        "texting",
+                        "teammateAnswers"
                       ],
                       "additionalProperties": false
                     },
@@ -158768,6 +159217,52 @@
                     },
                     "canManage": {
                       "type": "boolean"
+                    },
+                    "teammate": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "answersCalls": {
+                              "type": "boolean"
+                            },
+                            "answer": {
+                              "type": "string",
+                              "enum": [
+                                "no_answer",
+                                "after_hours",
+                                "always"
+                              ]
+                            },
+                            "canManage": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "on",
+                            "answersCalls",
+                            "answer",
+                            "canManage"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "rcsSender": {
                       "anyOf": [
@@ -159295,6 +159790,7 @@
                     "timezone",
                     "quiet",
                     "canManage",
+                    "teammate",
                     "rcsSender",
                     "rcsRequest",
                     "textingFees"
@@ -159484,6 +159980,89 @@
                   "required": [
                     "ports",
                     "fromMigration"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/guided_setup.get_draft": {
+      "post": {
+        "operationId": "query_guided_setup_get_draft",
+        "summary": "A guided setup’s answers as they were left (setup: phone or email), and when they were last saved. Null when nothing is saved: the setup isn’t started, or it was finished.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Any signed-in user.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "setup": {
+                    "type": "string",
+                    "enum": [
+                      "phone",
+                      "email"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "setup"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "answers": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "savedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "answers",
+                    "savedAt"
                   ],
                   "additionalProperties": false
                 }

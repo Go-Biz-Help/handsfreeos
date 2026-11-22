@@ -141,6 +141,8 @@ export * from './automations/index';
 export * from './onboarding/index';
 // The guided setup a new business goes through, from its address to its AI teammate.
 export * from './onboarding-setup/index';
+export * from './guided-setup/index';
+export * from './guided-setup/phone';
 // A computer whose clock is wrong: sign-ins judged by the server's clock, and what the web app says about it.
 export * from './auth/clock';
 // The business's logo and colour, on its booking page, website chat, invoices and emails.

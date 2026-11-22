@@ -12,8 +12,7 @@ import type { ButtonReply, RichText } from '@hfos/db/schema';
 import type { ConversationHandoffReason } from '../schemas/ai-team';
 import type { ConversationChannel, ConversationFolderValue } from '../schemas/conversation';
 import {
-  DEFAULT_TELEPHONY_SETTINGS,
-  TelephonySettings,
+  storedTelephonySettings,
   type TelephonySettings as TelephonySettingsType,
 } from '../schemas/telephony';
 import type { InboxBoxKey, InboxMailbox, ConversationStatus, RowFacts } from './list';
@@ -524,13 +523,7 @@ export function inboxCounts(
 /** The business's texting settings from its synced `settings`, as the server reads them. */
 export function telephonySettingsOf(settings: unknown): TelephonySettingsType {
   const raw = json<Record<string, unknown> | null>(settings, null) ?? {};
-  const parsed = TelephonySettings.partial().safeParse(raw['telephony'] ?? {});
-  const stored = parsed.success ? parsed.data : {};
-  return {
-    quietHours: stored.quietHours ?? DEFAULT_TELEPHONY_SETTINGS.quietHours,
-    unansweredReminderMinutes:
-      stored.unansweredReminderMinutes ?? DEFAULT_TELEPHONY_SETTINGS.unansweredReminderMinutes,
-  };
+  return storedTelephonySettings(raw['telephony']);
 }
 
 // ------------------------------------------------------------------------------------------------ the thread

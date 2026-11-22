@@ -32,6 +32,7 @@ import {
   FILL_BLANKS,
   firstMessagesOf,
   waysOf,
+  OPEN_WAYS,
   PLAYBOOK_OPENS,
   PLAYBOOK_OPENS_KEYS,
   playbookSays,
@@ -58,7 +59,7 @@ const pace = paceOf(blankPlaybook().pace);
 describe('a playbook that starts with an introduction', () => {
   it('has the owner’s starting words, and a choice that keeps when a save leaves it out', () => {
     expect(STARTING_INTRO).toBe(
-      'Hey [first name], thanks for connecting! [something you have in common] I’m [your first name] with [your business name]. We help [their kind of business] businesses get [what your offer gets them] with [what your offer is]. [a question about them]',
+      'Hey [first name], thanks for connecting! [something you have in common] I’m [your first name] with [your business name]. [a question about them]',
     );
     for (const goal of PLAYBOOK_GOAL_KEYS) expect(startingScript(goal).intro).toBe(STARTING_INTRO);
     expect(SCRIPT_INFO.intro.label).toBe('Introduction');
@@ -293,6 +294,45 @@ describe('what the AI is told for an introduction', () => {
     expect(own).toContain('Add nothing of your own before or after it');
     // The introductions already waiting are written again with it.
     expect(RULES_VERSION).toBeGreaterThanOrEqual(6);
+  });
+
+  it('says who the owner is and nothing of what the business does, which waits until they ask (decision 190)', () => {
+    // The starting words: the thanks, what they share, who the owner is, then the question. No word of the offer.
+    expect(STARTING_INTRO).not.toMatch(/We help|\[what your offer|\[their kind of business\]/);
+    expect(STARTING_INTRO).toMatch(
+      /I’m \[your first name\] with \[your business name\]\. \[a question about them\]$/,
+    );
+    // The task keeps the offer out of it, whatever else the draft is told of the business.
+    const prompt = todayDraftPrompt({
+      kind: 'opener',
+      ...base,
+      recent: [],
+      ownerName: 'Chris Lee',
+    });
+    expect(prompt).toContain('It says who the owner is, as the playbook’s words do');
+    expect(prompt).toContain(
+      'Say nothing of what the business does or offers in it unless the playbook’s words do: that waits until they ask.',
+    );
+    expect(prompt).not.toContain('what the business offers, then asks');
+    // A business's own words are still its own: one that says more of the person is kept close to, as written.
+    const founder =
+      'Hey [first name], thanks for connecting! I’m [your first name], the founder of [your business name]. [a question about them]';
+    const own = todayDraftPrompt({
+      kind: 'opener',
+      ...base,
+      recent: [],
+      ownerName: 'Chris Lee',
+      opener: { kind: 'intro', text: founder },
+    });
+    expect(own).toContain(playbookSays(founder));
+    expect(own).toContain('<owner_name>Chris Lee</owner_name>');
+    // The choice's words say so too, on the web and the phone.
+    expect(PLAYBOOK_OPENS.intro.hint).toContain(
+      'It doesn’t say what you offer: that waits until they ask.',
+    );
+    expect(OPEN_WAYS.intro.hint).toContain('What you offer waits until they ask.');
+    // The introductions already waiting are written again without it.
+    expect(RULES_VERSION).toBeGreaterThanOrEqual(7);
   });
 
   it('tells a check-in after an introduction that nothing was asked', () => {

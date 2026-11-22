@@ -15,10 +15,7 @@ test('texting: set up, send, receive live, assign, snooze, close and STOP', asyn
   test.setTimeout(240_000);
   const owner = await signUpAndConfirm(page, 'inbox-owner');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
-  const business = await setUpTexting(page, workspaceId);
-  // Tests text at any hour.
-  await page.getByTestId('quiet-hours-switch').click();
-  await expect(page.getByText('Quiet hours off')).toBeVisible();
+  const business = await setUpTexting(page, workspaceId, { anyHour: true });
   await expect(page.getByTestId('business-number')).toBeVisible();
 
   // A customer, texted from their page without leaving it.

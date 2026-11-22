@@ -60,16 +60,44 @@ export type RegistrationFamily = z.infer<typeof registrationFamily>;
 
 const clock = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, 'Use HH:MM.');
 export const QuietHoursSetting = z.object({ enabled: z.boolean(), start: clock, end: clock });
+/**
+ * Whether the business wants to text customers from its number. `not_now` is calls only: nothing asks it to register
+ * with the carriers until it turns texting on (Settings → Texting & calls).
+ */
+export const textingWanted = z.enum(['on', 'not_now']);
+export type TextingWanted = z.infer<typeof textingWanted>;
+/** When the AI teammate picks up a call: the same three as its own Phone setting (ai-team/config.ts). */
+export const phoneAnswerMode = z.enum(['no_answer', 'after_hours', 'always']);
 export const TelephonySettings = z.object({
   quietHours: QuietHoursSetting,
   /** Minutes a customer waits before the one reminder email; 0 turns reminders off. */
   unansweredReminderMinutes: z.number().int().min(0).max(240),
+  texting: textingWanted,
+  /**
+   * "Your AI teammate answers" picked before the business had one: it starts answering calls this way the moment it
+   * is set up (insertTeammate). Null when nobody asked, or once it has one, whose own Phone setting says.
+   */
+  teammateAnswers: phoneAnswerMode.nullable(),
 });
 export type TelephonySettings = z.infer<typeof TelephonySettings>;
 export const DEFAULT_TELEPHONY_SETTINGS: TelephonySettings = {
   quietHours: { enabled: true, start: '20:00', end: '08:00' },
   unansweredReminderMinutes: 10,
+  texting: 'on',
+  teammateAnswers: null,
 };
+/** A business's stored texting settings with the defaults filled in, however much of them is saved. */
+export function storedTelephonySettings(raw: unknown): TelephonySettings {
+  const parsed = TelephonySettings.partial().safeParse(raw ?? {});
+  const stored = parsed.success ? parsed.data : {};
+  return {
+    quietHours: stored.quietHours ?? DEFAULT_TELEPHONY_SETTINGS.quietHours,
+    unansweredReminderMinutes:
+      stored.unansweredReminderMinutes ?? DEFAULT_TELEPHONY_SETTINGS.unansweredReminderMinutes,
+    texting: stored.texting ?? DEFAULT_TELEPHONY_SETTINGS.texting,
+    teammateAnswers: stored.teammateAnswers ?? DEFAULT_TELEPHONY_SETTINGS.teammateAnswers,
+  };
+}
 
 export const ForwardingPhoneInput = z.object({
   e164: phoneRequired,
@@ -173,8 +201,63 @@ export const PhoneUpdateSettingsInput = z.object({
   workspaceId: uuid,
   quietHours: QuietHoursSetting.optional(),
   unansweredReminderMinutes: z.number().int().min(0).max(240).optional(),
+  /** Turn texting on (the business is then asked to get approved by the carriers), or back to calls only. */
+  texting: textingWanted.optional(),
 });
 export const PhoneUpdateSettingsOutput = z.object({ settings: TelephonySettings });
+
+/** What a caller gets when the phones ring out: the AI teammate, the voicemail, or a short "try again later". */
+export const phoneMissedThen = z.enum(['teammate', 'voicemail', 'nothing']);
+export type PhoneMissedThen = z.infer<typeof phoneMissedThen>;
+/**
+ * The guided phone number setup's answers, carried out together (its last screen, Get my number), or one of its
+ * parts changed later (Change on Settings → Texting & calls). Either a number to buy now, or the one to change.
+ */
+export const PhoneSetupSaveInput = z
+  .object({
+    workspaceId: uuid,
+    /** The number picked from the search results, bought as this runs. */
+    buy: z.object({ e164: e164Phone, numberType: phoneNumberType }).optional(),
+    /** A number the business already has, whose settings change. */
+    phoneNumberId: uuid.optional(),
+    /** What rings beside HandsFreeOS itself, and what those phones show. */
+    ring: z
+      .object({
+        forwarding: z
+          .array(ForwardingPhoneInput)
+          .max(3, 'Up to three phones can ring with the browsers.'),
+        forwardedCallerId: forwardedCallerId,
+      })
+      .optional(),
+    /** How long the phones ring, and what a caller gets after that. */
+    missed: z
+      .object({
+        ringSeconds: z.number().int().min(10).max(25),
+        then: phoneMissedThen,
+        /** With `teammate`: when it picks up. Left out, when nobody picks up. */
+        teammateMode: phoneAnswerMode.optional(),
+        /** The voicemail greeting; null or left out keeps the one there is (or the usual one). */
+        voicemailGreeting: z.string().trim().max(500).nullable().optional(),
+      })
+      .optional(),
+    texting: textingWanted.optional(),
+    quietHours: QuietHoursSetting.optional(),
+  })
+  .refine((v) => !v.buy !== !v.phoneNumberId, {
+    message: 'Say which number: one to buy, or one the business already has.',
+    path: ['phoneNumberId'],
+  });
+export const PhoneSetupSaveOutput = z.object({
+  phoneNumberId: uuid,
+  /** True when this bought the number: it is being set up, and calls ring within seconds. */
+  bought: z.boolean(),
+  /**
+   * What became of "the AI teammate answers": `on` (it answers calls now, or will the moment it is turned on),
+   * `waiting` (there is no teammate yet, so callers get the voicemail until there is), `off`, or `unchanged`.
+   */
+  teammate: z.enum(['on', 'waiting', 'off', 'unchanged']),
+  settings: TelephonySettings,
+});
 
 // ---------- worker-only (system actor) ----------
 export const PhoneNumberActivateInput = z.object({
@@ -567,6 +650,21 @@ export const PhoneSetupStatusOutput = z.object({
   timezone: z.string(),
   quiet: QuietState,
   canManage: z.boolean(),
+  /**
+   * The business's AI teammate as calls see it, for "If nobody picks up": its name, whether it is on, and whether
+   * and when it answers calls. Null when the business has none yet.
+   */
+  teammate: z
+    .object({
+      id: uuid,
+      name: z.string(),
+      on: z.boolean(),
+      answersCalls: z.boolean(),
+      answer: phoneAnswerMode,
+      /** Whether this person may change that (ai_team.manage). */
+      canManage: z.boolean(),
+    })
+    .nullable(),
   /** The business's RCS sender (0103), or null when it has none connected. */
   rcsSender: RcsSenderOut.nullable(),
   /**

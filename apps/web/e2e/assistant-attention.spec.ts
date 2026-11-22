@@ -66,9 +66,7 @@ test('assistant-attention: the same list as Home, and items handled, snoozed and
   // A new business's $5 starting credit sits under the $10 floor, which a sweep reads as a balance running low:
   // the floor goes under it, so the list is customers' cards only.
   await api(token, 'commands', 'wallet.set_auto_topup', { workspaceId, floorCents: 0 });
-  await setUpTexting(page, workspaceId);
-  await page.getByTestId('quiet-hours-switch').click();
-  await expect(page.getByText('Quiet hours off')).toBeVisible();
+  await setUpTexting(page, workspaceId, { anyHour: true });
 
   // Three leads with nothing planned next; their values rank them.
   await customerWithLead(page, workspaceId, {

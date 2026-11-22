@@ -387,10 +387,10 @@ describe('how the chat goes (decision 180)', () => {
     const by = reply(undefined, asked);
     expect(by).toContain('They’ve asked the owner something 1 time so far.');
     expect(by).toContain(
-      'When they’re only answering: they’ve written back 2 times, so unless they ask about the business (what it does, what it offers, how it works, the price), wrap the chat up',
+      'When they’re only answering: they’ve written back 2 times, so unless they ask about the business (what it is, what it does, what it offers, how it works, the price), wrap the chat up',
     );
     expect(by).toContain(
-      'When they’re chatting back, don’t wrap up: unless they ask about the business (what it does, what it offers, how it works, the price), lead to a meeting in this reply:',
+      'When they’re chatting back, don’t wrap up: unless they ask about the business (what it is, what it does, what it offers, how it works, the price), lead to a meeting in this reply:',
     );
     expect(by).toContain(playbookSays(STARTING_CALL_OFFER));
     // Near the owner (decision 177): wanting to meet counts too, and the call is a call or coffee.
@@ -471,13 +471,13 @@ describe('how the chat goes (decision 180)', () => {
     expect(asked).toContain('Never offer a demo when they haven’t asked');
     const problem = reply({ demoWhen: 'problem' });
     expect(problem).toContain(
-      'When they ask about the business (what it does, what it offers, how it works, the price), or they name a problem the business fixes: answer in a sentence or two',
+      'When they ask about the business (what it is, what it does, what it offers, how it works, the price), or they name a problem the business fixes: answer in a sentence or two',
     );
     expect(problem).toContain(playbookSays(STARTING_DEMO_OFFER));
     expect(problem).not.toContain('Never offer a demo when they haven’t asked');
     // A problem puts the demo ahead of the wrap-up too.
     expect(reply({ demoWhen: 'problem' }, two)).toContain(
-      'so unless they ask about the business (what it does, what it offers, how it works, the price), or they name a problem the business fixes, wrap the chat up',
+      'so unless they ask about the business (what it is, what it does, what it offers, how it works, the price), or they name a problem the business fixes, wrap the chat up',
     );
     // With the demo off, a problem changes nothing.
     const off = todayDraftPrompt({
