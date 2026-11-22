@@ -206,8 +206,10 @@ export function createPostmark(opts: {
       receives: (domain) => mxInDns(dns, domain, INBOUND_MX_HOST),
       owns: (domain, token) => tokenInDns(dns, ownershipHost(domain), token),
       async hosts(domain) {
+        // As its own name servers give them now, like `receives`: the last step lists the old records still to
+        // delete, and one deleted a minute ago must not read as still there.
         const [mxRecords, ns] = await Promise.all([
-          lookUp(() => dns.mx(domain)),
+          lookUp(() => dns.mxNow(domain)),
           lookUpName(() => (opts.nameServers ?? systemNameServers)(domain)),
         ]);
         return {
