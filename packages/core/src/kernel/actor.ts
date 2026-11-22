@@ -103,6 +103,9 @@ export const AI_EMPLOYEE_COMMANDS = [
   // M18: a website chat visitor proves who they are with a code sent to the contact on file.
   'chat.send_code_for_customer',
   'chat.check_code_for_customer',
+  // AI1: so does a caller the phone company couldn't vouch for, with a code to the contact on file.
+  'call.send_code_for_customer',
+  'call.check_code_for_customer',
   // M15: asking one of the business's forms in the conversation, a question at a time.
   'form_response.start',
   'form_response.save',

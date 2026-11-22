@@ -5,10 +5,12 @@
  *
  * It also works out the text a detail must be found in (`trustedText`): what the customer and the team wrote or
  * said, never a website chat whose visitor didn't prove who they are, never an email whose sender's domain didn't
- * vouch for it, never what the AI teammate wrote, and never a public form's answers (anybody can fill one in with a
- * customer's email on it). `trusted` decides it for each message and call.
+ * vouch for it, never a call or voicemail whose caller isn't proven (a caller ID can be faked), never what the AI
+ * teammate wrote or said, and never a public form's answers (anybody can fill one in with a customer's email on it).
+ * `trusted` decides it for each message and call.
  */
 import {
+  callerProven,
   formatPhone,
   otherEmailsOf,
   otherPhonesOf,
@@ -27,7 +29,7 @@ export interface ProfileLine {
   readonly at: string;
   /**
    * Who: "the customer", "the team", "the AI teammate", "a website visitor (not verified)", "someone writing from the
-   * customer’s address (not verified)".
+   * customer’s address (not verified)", "a caller using the customer’s number (not verified)".
    */
   readonly who: string;
   /** How: text, email, website chat, call. */
@@ -85,7 +87,14 @@ export type Heard =
       /** An email: whether its From domain vouched for it (messages.sender_verified; null when nobody checked). */
       readonly senderVerified: boolean | null;
     }
-  | { readonly kind: 'call'; readonly direction: 'inbound' | 'outbound' };
+  | {
+      readonly kind: 'call';
+      readonly direction: 'inbound' | 'outbound';
+      /** What the phone company said of an inbound caller's number (calls.caller_attestation; null when nothing). */
+      readonly callerAttestation: string | null;
+      /** When the caller read back a code sent to the contact on file during the call (calls.caller_verified_at). */
+      readonly callerVerifiedAt: Date | string | null;
+    };
 
 /**
  * Whether what was said counts as the customer's or the team's own words, so a detail may come from it
@@ -96,16 +105,29 @@ export type Heard =
  *   domain). Anyone can write a customer's address in From, so a forged one, and one nobody checked (a connected
  *   Gmail or Outlook mailbox's mail, older mail), never changes their details;
  * - a text or portal message counts;
- * - a call's transcript counts, for now. A caller ID can be faked too: when calls carry the carrier's attestation,
- *   an unattested call stops counting here.
+ * - a call's transcript, a voicemail's included, counts only when its caller is proven (AI1, core's callerProven):
+ *   the business placed the call, the phone company vouched for the number (STIR/SHAKEN attestation A), or the caller
+ *   read back a code sent to the contact on file. Anyone can fake a caller ID. A call from before attestations were
+ *   kept has none, so it doesn't count: we can't tell whether its number was real.
  */
 export function trusted(h: Heard): boolean {
-  if (h.kind === 'call') return true;
+  if (h.kind === 'call') return callerProven(h);
   if (h.direction === 'outbound' && !h.byPerson) return false;
   if (h.channel === 'chat') return h.chatVerified;
   if (h.channel === 'email' && h.direction === 'inbound') return h.senderVerified === true;
   return true;
 }
+
+/**
+ * A call the AI teammate took or placed: only what the caller said (its "Caller: " lines), never the teammate's own
+ * words, which may repeat anything (voice-agent/brain.ts `transcriptOf`).
+ */
+export const callersWords = (transcript: string): string =>
+  transcript
+    .split('\n')
+    .filter((l) => l.startsWith('Caller: '))
+    .map((l) => l.slice('Caller: '.length))
+    .join('\n');
 
 const clip = (s: string | null | undefined, max: number): string => {
   const t = (s ?? '').replace(/\s+/g, ' ').trim();
@@ -385,9 +407,13 @@ export async function loadContactProfile(
     seconds: number | null;
     voicemail: boolean;
     transcript: string | null;
+    by_ai: boolean;
+    caller_attestation: string | null;
+    caller_verified_at: Date | null;
   }>(
     tx,
-    sql`select started_at as at, direction, duration_seconds as seconds, is_voicemail as voicemail, transcript
+    sql`select started_at as at, direction, duration_seconds as seconds, is_voicemail as voicemail, transcript,
+          answered_via is not distinct from 'ai' as by_ai, caller_attestation, caller_verified_at
         from app.calls where workspace_id = ${workspaceId} and person_id = ${personId}
         order by started_at desc limit 5`,
   );
@@ -430,12 +456,22 @@ export async function loadContactProfile(
       };
     }),
     ...calls.map((c) => {
-      if (c.transcript && trusted({ kind: 'call', direction: c.direction }))
-        heard.push(c.transcript);
+      const ok = trusted({
+        kind: 'call',
+        direction: c.direction,
+        callerAttestation: c.caller_attestation,
+        callerVerifiedAt: c.caller_verified_at,
+      });
+      if (c.transcript && ok) heard.push(c.by_ai ? callersWords(c.transcript) : c.transcript);
       return {
         t: new Date(c.at).getTime(),
         at: day(c.at),
-        who: c.direction === 'inbound' ? 'the customer' : 'the team',
+        who:
+          c.direction === 'outbound'
+            ? 'the team'
+            : ok
+              ? 'the customer'
+              : 'a caller using the customer’s number (not verified)',
         how: c.voicemail ? 'voicemail' : 'call',
         words: c.transcript
           ? clip(c.transcript, MAX_TRANSCRIPT_CHARS)

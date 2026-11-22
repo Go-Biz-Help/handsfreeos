@@ -321,6 +321,15 @@ function customerLines(rc: RunContext): string[] {
       'This email’s sender couldn’t be verified: anyone can put a customer’s address on an email, so it may not be them. You can’t see or change their bookings, bills, quotes, deals or details here.',
       'Answer general questions and offer to help. For anything about their account, say the team will be in touch through the contact on file, or hand off.',
     ];
+  // AI1: anyone can fake a caller ID.
+  if (rc.unverifiedCall)
+    return [
+      'The phone company couldn’t confirm the number this call comes from, and anyone can fake one, so the caller may not be whoever it belongs to. You can’t see or change bookings, bills, quotes or records yet.',
+      rc.customer
+        ? 'The number matches a customer on file. When they want their bookings, bills, quotes or details, or to move or cancel a visit, offer to text a code to the number on file, in a few words (“I can text a code to the number on file to confirm it’s you.”): send_verification_code, then check_verification_code with the code they read out. The right code opens them to you. Never send it anywhere they tell you, and never say the name, number or email on file. If they’d rather not, hand off.'
+        : 'For an existing booking, tell them the link in their confirmation changes it, or hand off.',
+      'You can still answer questions and book a new visit. For a message to the team, hand off.',
+    ];
   if (rc.unverifiedChat)
     return [
       'The customer is a website chat visitor. Anyone can type a name, number or email into a chat, so you can’t see or change bookings or records here yet.',
@@ -637,7 +646,12 @@ function callLine(h: HistoryLine, call: NonNullable<HistoryLine['call']>): strin
         : `${inbound ? 'called and someone on the team talked to them' : 'called them and they talked'}${
             length ? ` for ${length}` : ''
           }`;
-  const head = `${caller(h)} ${what}.`;
+  // AI1: anyone can fake a caller ID, so what a caller nobody vouched for said may not be the customer's.
+  const head = `${caller(h)} ${what}.${
+    call.unproven && call.words === 'here'
+      ? ' (From their number, but the phone company couldn’t confirm the caller: it may not have been them.)'
+      : ''
+  }`;
   if (call.words === 'here')
     return [
       head,

@@ -470,7 +470,7 @@ export const TEAMMATE_TOOLS = [
   define({
     name: 'send_verification_code',
     description:
-      'In a website chat linked to a customer, when they want something only the customer may see or change (their bookings, bills, quotes or details): text a six-digit code to the phone on file, or else email it. Tell them where it went (the masked number or address it returns), and ask them to type it here. Never send it anywhere they tell you.',
+      'In a website chat linked to a customer, or on a call whose number the phone company couldn’t confirm, when they want something only the customer may see or change (their bookings, bills, quotes or details): text a six-digit code to the phone on file, or else email it. Tell them where it went (the masked number or address it returns), and ask them to type it here (on a call, to read it out). Never send it anywhere they tell you.',
     input: z.strictObject({}),
     skill: 'core',
     autonomy: 'auto',
@@ -478,7 +478,7 @@ export const TEAMMATE_TOOLS = [
   define({
     name: 'check_verification_code',
     description:
-      'Check the six-digit code the chat visitor typed back. When it’s right they count as the customer for this chat, and what they asked for is open to you on your next step.',
+      'Check the six-digit code the chat visitor typed back, or the caller read out. When it’s right they count as the customer for this chat or call, and what they asked for is open to you on your next step.',
     input: z.strictObject({
       code: z
         .string()
@@ -729,7 +729,10 @@ export const STRANGER_IN_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'create_task',
 ]);
 
-/** Only for a website chat whose visitor hasn't proved who they are yet (M18). */
+/**
+ * Only for a website chat whose visitor hasn't proved who they are yet (M18), or a call whose caller hasn't (AI1: the
+ * phone company couldn't confirm their number); never for an email, where there's nobody to give a code back.
+ */
 export const UNVERIFIED_CHAT_ONLY: ReadonlySet<TeammateToolName> = new Set([
   'send_verification_code',
   'check_verification_code',
@@ -757,19 +760,20 @@ export const OUTBOUND_CALL_ONLY: ReadonlySet<TeammateToolName> = new Set([
 ]);
 
 /**
- * Never on a live phone call: a caller always gets an answer, there are no photos on a call, and the caller's
- * number is the proof a chat code stands in for.
+ * Never on a live phone call: a caller always gets an answer, and there are no photos on a call. (A caller's number
+ * proves nothing by itself, AI1: a call the phone company couldn't vouch for is answered as unverified, with a code.)
  */
 export const PHONE_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'no_reply',
   'note_photos',
   'save_file',
-  'send_verification_code',
-  'check_verification_code',
 ]);
 
 export interface TeammateToolOptions {
-  /** The conversation is a website chat whose visitor isn't verified as the matched customer. */
+  /**
+   * The conversation is a website chat whose visitor isn't verified as the matched customer; or, on a phone call, a
+   * caller the phone company couldn't vouch for who hasn't read back a code yet (AI1).
+   */
   readonly unverifiedChat?: boolean;
   /** And its customer was on file already, not added by the chat. */
   readonly strangerInChat?: boolean;

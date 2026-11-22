@@ -93,6 +93,15 @@ export const CallRecordInput = z.object({
   callId: uuid.optional(),
   status: callStatus.default('ringing'),
   startedAt: isoDateTime.optional(),
+  /**
+   * An inbound call: the phone company's word on the caller's number (Twilio's StirVerstat). Only
+   * `TN-Validation-Passed-A` proves it (messaging/caller.ts); left out when Twilio sent none.
+   */
+  callerAttestation: z
+    .string()
+    .regex(/^[A-Za-z0-9-]{1,64}$/)
+    .nullable()
+    .optional(),
 });
 export const CallRecordOutput = z.object({
   callId: uuid,

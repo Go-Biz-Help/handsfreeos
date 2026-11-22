@@ -486,6 +486,8 @@ describe('registry', () => {
       'subscription.start_for_customer',
       'chat.send_code_for_customer',
       'chat.check_code_for_customer',
+      'call.send_code_for_customer',
+      'call.check_code_for_customer',
       // A client's portal (Real Estate round two): signing in, files and messages.
       'portal_access.give',
       'portal_access.revoke',

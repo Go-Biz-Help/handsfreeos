@@ -13,6 +13,7 @@ import {
   appointmentAttendees,
   appointments,
   auditLogs,
+  calls,
   conversations,
   events,
   leads,
@@ -61,6 +62,9 @@ import {
   appointmentAddForCustomer,
   attendeeRescheduleForCustomer,
   calendarAvailability,
+  callCheckCodeForCustomer,
+  callRecord,
+  callSendCodeForCustomer,
   chatIdentify,
   chatReceive,
   chatVisitorStart,
@@ -1498,6 +1502,138 @@ describe('booking for the customer in the conversation', () => {
     );
     await send();
     await expectHfos(() => send(), 'rule_violation', 'too_many_codes');
+  });
+
+  it('on a call the phone company didn’t vouch for, changes nothing of the customer’s until they read back a code sent to the number on file (AI1)', async () => {
+    const fri = nextWeekday(5);
+    const cy = await aiChat(a, 'Cy', 0, { email: 'cy@example.com' });
+    const booked = (
+      await asAva(a, { conversationId: cy.conversationId }, appointmentBookForCustomer, {
+        workspaceId: a.wsId,
+        calendarId: visits.id,
+        startsAt: isoAt(fri, '13:00'),
+        clientId: randomUUID(),
+      })
+    ).output;
+    const { leadId } = await run(
+      leadCreate,
+      { workspaceId: a.wsId, title: 'Furnace repair', personId: cy.personId },
+      a.owner,
+    );
+    // Someone calls from Cy's number: the call goes in her conversation, which Ava answers.
+    const callIn = async (callerAttestation?: string) => {
+      const rec = (
+        await sys(a, callRecord, {
+          workspaceId: a.wsId,
+          providerSid: `CA${randomUUID().replaceAll('-', '')}`,
+          direction: 'inbound',
+          from: cy.phone,
+          to: a.number,
+          ...(callerAttestation ? { callerAttestation } : {}),
+        })
+      ).output;
+      expect(rec.conversationId).toBe(cy.conversationId);
+      const [r] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into app.ai_teammate_runs
+              (workspace_id, teammate_id, conversation_id, person_id, triggered_by, status, outcome, call_id, ended_at)
+            values (${a.wsId}, ${a.teammateId}, ${cy.conversationId}, ${cy.personId}, 'call.answered', 'done',
+              'replied', ${rec.callId}, now())
+            returning id`,
+      );
+      return { callId: rec.callId, on: { conversationId: cy.conversationId, runId: r!.id } };
+    };
+    const changes = (on: Partial<AiEmployeeActor>) => ({
+      reschedule: () =>
+        asAva(a, on, attendeeRescheduleForCustomer, {
+          workspaceId: a.wsId,
+          appointmentId: booked.appointmentId,
+          startsAt: isoAt(fri, '14:00'),
+        }),
+      details: () =>
+        asAva(a, on, personUpdate, {
+          workspaceId: a.wsId,
+          personId: cy.personId,
+          email: 'someone@else.example',
+        }),
+      move: async () =>
+        asAva(a, on, leadMoveStage, {
+          workspaceId: a.wsId,
+          leadId,
+          stageId: await stageOf(a, 'open', 1),
+        }),
+    });
+
+    // No word from the phone company, or only "the number is theirs, maybe" (B): not proven.
+    for (const attestation of [undefined, 'TN-Validation-Passed-B']) {
+      const { on } = await callIn(attestation);
+      const c = changes(on);
+      await expectHfos(c.reschedule, 'forbidden', 'caller_unverified');
+      await expectHfos(c.details, 'forbidden', 'caller_unverified');
+      await expectHfos(c.move, 'forbidden', 'caller_unverified');
+    }
+    const [p] = await admin()
+      .select({ email: people.email })
+      .from(people)
+      .where(eq(people.id, cy.personId));
+    expect(p!.email).toBe('cy@example.com');
+
+    // The code goes to the number on file, never anywhere the caller says.
+    const spoofed = await callIn();
+    const send = (canText = true) =>
+      asAva(a, spoofed.on, callSendCodeForCustomer, { workspaceId: a.wsId, canText });
+    const sent = (await send()).output;
+    expect(sent).toMatchObject({ channel: 'sms', to: cy.phone });
+    expect(sent.code).toMatch(/^\d{6}$/);
+    expect((await send(false)).output).toMatchObject({ channel: 'email', to: 'cy@example.com' });
+    const check = (code: string) =>
+      asAva(a, spoofed.on, callCheckCodeForCustomer, { workspaceId: a.wsId, code });
+    const latest = (await send()).output;
+    const wrong = latest.code === '000000' ? '111111' : '000000';
+    expect((await check(wrong)).output).toEqual({ verified: false, triesLeft: 4 });
+    await expectHfos(changes(spoofed.on).reschedule, 'forbidden', 'caller_unverified');
+    // Three codes an hour to Cy, however many calls they come from.
+    await expectHfos(
+      async () =>
+        asAva(a, (await callIn()).on, callSendCodeForCustomer, {
+          workspaceId: a.wsId,
+          canText: true,
+        }),
+      'rule_violation',
+      'too_many_codes',
+    );
+
+    // The right one: the caller is Cy for the rest of this call.
+    expect((await check(latest.code)).output).toEqual({ verified: true, triesLeft: 0 });
+    const [row] = await admin()
+      .select({ verifiedAt: calls.callerVerifiedAt })
+      .from(calls)
+      .where(eq(calls.id, spoofed.callId));
+    expect(row!.verifiedAt).not.toBeNull();
+    await expectHfos(() => check(latest.code), 'rule_violation', 'caller_proven');
+    const moved = await changes(spoofed.on).reschedule();
+    expect(moved.output.startsAt).toBe(isoAt(fri, '14:00'));
+    // …and only this call: the next one from her number starts over.
+    await expectHfos(changes((await callIn()).on).details, 'forbidden', 'caller_unverified');
+
+    // A call the phone company vouched for (A) is hers from the start, with no code to send.
+    const vouched = await callIn('TN-Validation-Passed-A');
+    await changes(vouched.on).move();
+    await expectHfos(
+      () => asAva(a, vouched.on, callSendCodeForCustomer, { workspaceId: a.wsId, canText: true }),
+      'rule_violation',
+      'caller_proven',
+    );
+    // And a code is only for a call.
+    await expectHfos(
+      () =>
+        asAva(a, { conversationId: cy.conversationId }, callSendCodeForCustomer, {
+          workspaceId: a.wsId,
+          canText: true,
+        }),
+      'rule_violation',
+      'not_a_call',
+    );
   });
 
   it('adds another service, people and a note to the customer’s visit, when the team has the time (M18)', async () => {

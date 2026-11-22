@@ -13,6 +13,7 @@ export * from './messaging/legal-source';
 export * from './messaging/web-person';
 export * from './messaging/phone-account';
 export * from './messaging/call-consent';
+export * from './messaging/caller';
 export * from './messaging/registration-fingerprint';
 // Reads a wallet in the caller's transaction, so it needs a database client and cannot live in the
 // browser-safe `./money` barrel beside the rest of the money code.

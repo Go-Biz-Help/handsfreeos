@@ -9,6 +9,8 @@
  */
 import {
   automationsSaveSettings,
+  callAttachTranscript,
+  callRecord,
   contactAiCancelSweep,
   contactAiReviews,
   contactAiStartSweep,
@@ -30,7 +32,7 @@ import {
 } from '../src/contact-ai/index';
 import { randomUUID } from 'node:crypto';
 import { emailIn, textIn } from './ai-team-world';
-import { attentionWorld, filedCustomer, type AttentionWorld } from './attention-world';
+import { attentionWorld, filedCustomer, sys, type AttentionWorld } from './attention-world';
 import { admin, drain, jobRow, makeWorld, query, run } from './booking-world';
 import type { TestServices } from './helpers';
 
@@ -207,6 +209,50 @@ describe('after something happens with a customer', () => {
     });
     ({ items } = await query(w, contactAiReviews, { workspaceId: w.workspaceId, personId: c.id }));
     expect(items[0]!.skipped).toEqual([{ what: 'the phone number', why: unread }]);
+  });
+
+  it('never takes a detail from a call or voicemail whose number the phone company didn’t vouch for (AI1)', async () => {
+    const c = await filedCustomer(w, 'Jo');
+    /** A voicemail from Jo's number, its words transcribed; `stir` is the phone company's word on the number. */
+    const voicemail = async (words: string, stir?: string) => {
+      const providerSid = `CA${randomUUID().replaceAll('-', '')}`;
+      await sys(w, callRecord, {
+        workspaceId: w.workspaceId,
+        providerSid,
+        direction: 'inbound',
+        from: c.phone,
+        to: w.number!,
+        ...(stir ? { callerAttestation: stir } : {}),
+      });
+      await sys(w, callAttachTranscript, {
+        workspaceId: w.workspaceId,
+        providerSid,
+        transcript: words,
+        status: 'completed',
+      });
+      await drain(w);
+    };
+    const reviews = async () =>
+      (await query(w, contactAiReviews, { workspaceId: w.workspaceId, personId: c.id })).items;
+    const emailOf = async () =>
+      (await query(w, personGet, { workspaceId: w.workspaceId, personId: c.id })).person.email;
+
+    // Anyone can call from Jo's number: the phone company couldn't confirm this one (B: it's probably theirs).
+    await voicemail('Hi, my new email is jo@new.test thanks', 'TN-Validation-Passed-B');
+    await runNow(w, CONTACT_AI_REVIEW_JOB, contactAiReviewKey(c.id));
+    expect(await emailOf()).toBeNull();
+    expect((await reviews())[0]!.skipped).toEqual([
+      {
+        what: 'the email',
+        why: 'there’s nothing the customer or the team is known to have written to go on',
+      },
+    ]);
+
+    // The same words on a call the phone company vouched for (A) are Jo's own.
+    await backdateReviews(c.id, 31);
+    await voicemail('Hello again, my new email is jo@new.test', 'TN-Validation-Passed-A');
+    await runNow(w, CONTACT_AI_REVIEW_JOB, contactAiReviewKey(c.id));
+    expect(await emailOf()).toBe('jo@new.test');
   });
 
   it('takes off a tag it put on itself once it no longer fits', async () => {

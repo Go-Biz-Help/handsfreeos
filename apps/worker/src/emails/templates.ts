@@ -1586,6 +1586,32 @@ export function chatCodeEmail(input: {
 export const chatCodeText = (business: string, code: string, minutes: number): string =>
   `${business}: your chat code is ${code}. It expires in ${minutes} minutes. If you didn’t ask for it, ignore this text.`;
 
+/**
+ * The code a caller reads back to prove they're the customer (AI1), when the phone company couldn't confirm their
+ * number. It warns against anyone calling them for it: someone faking their number could try just that.
+ */
+export function callCodeEmail(input: {
+  business: string;
+  code: string;
+  minutes: number;
+}): EmailContent {
+  const subject = `Your ${input.business} code: ${input.code}`;
+  const warning =
+    'We’ll never call you to ask for it. If you didn’t call us, ignore this email: nobody can see your details without it.';
+  const text = `Your code for your call with ${input.business} is ${input.code}. It expires in ${input.minutes} minutes.\n\n${warning}`;
+  const html = shell(
+    preheader(`Your code is ${input.code}`) +
+      para(`Your code for your call with <strong>${escapeHtml(input.business)}</strong> is:`) +
+      `<p style="font-size: 28px; font-weight: 700; letter-spacing: 4px; margin: 16px 0;">${escapeHtml(input.code)}</p>` +
+      para(`It expires in ${input.minutes} minutes.`) +
+      small(warning),
+  );
+  return { subject, text, html };
+}
+
+export const callCodeText = (business: string, code: string, minutes: number): string =>
+  `${business}: your code for your call with us is ${code}. It expires in ${minutes} minutes. We’ll never call you to ask for it. If you didn’t call us, ignore this text.`;
+
 /** The code a client types to sign in to their portal on a new device (Real Estate round two). */
 export function portalCodeEmail(input: {
   business: string;

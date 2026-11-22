@@ -1,10 +1,10 @@
 /**
- * What contact AI takes a customer's details from (AI2, AI3), without the database: which messages and calls count
- * as the customer's or the team's own words, and a message that can't pass itself off as another line's sender.
+ * What contact AI takes a customer's details from (AI1, AI2, AI3), without the database: which messages and calls
+ * count as the customer's or the team's own words, and a message that can't pass itself off as another line's sender.
  */
 import type { ContactAiSnapshot } from '@hfos/core/server';
 import { describe, expect, it } from 'vitest';
-import { trusted, type Heard } from '../src/contact-ai/profile';
+import { callersWords, trusted, type Heard } from '../src/contact-ai/profile';
 import { contactAiPrompt } from '../src/contact-ai/prompt';
 
 const email = (over: Partial<Extract<Heard, { kind: 'message' }>> = {}): Heard => ({
@@ -30,13 +30,50 @@ describe('what counts as the customer’s own words', () => {
     expect(trusted(email({ direction: 'outbound', senderVerified: null }))).toBe(false);
   });
 
-  it('counts a chat once its visitor proved who they are, a text, and (for now) a call', () => {
+  it('counts a chat once its visitor proved who they are, and a text', () => {
     expect(trusted(email({ channel: 'chat', senderVerified: null }))).toBe(false);
     expect(trusted(email({ channel: 'chat', chatVerified: true, senderVerified: null }))).toBe(
       true,
     );
     expect(trusted(email({ channel: 'sms', senderVerified: null }))).toBe(true);
-    expect(trusted({ kind: 'call', direction: 'inbound' })).toBe(true);
+  });
+});
+
+describe('what counts from a call or a voicemail (AI1)', () => {
+  const call = (over: Partial<Extract<Heard, { kind: 'call' }>> = {}): Heard => ({
+    kind: 'call',
+    direction: 'inbound',
+    callerAttestation: null,
+    callerVerifiedAt: null,
+    ...over,
+  });
+
+  it('counts one only when its caller is proven: anyone can fake a caller ID', () => {
+    // Nothing from the phone company: a call from before attestations were kept, or a number nobody checked.
+    expect(trusted(call())).toBe(false);
+    for (const said of [
+      'TN-Validation-Passed-B',
+      'TN-Validation-Passed-C',
+      'TN-Validation-Failed-A',
+      'No-TN-Validation',
+    ])
+      expect(trusted(call({ callerAttestation: said }))).toBe(false);
+    // The phone company vouched for the number, or the caller read back the code sent to the contact on file.
+    expect(trusted(call({ callerAttestation: 'TN-Validation-Passed-A' }))).toBe(true);
+    expect(
+      trusted(call({ callerAttestation: 'TN-Validation-Passed-C', callerVerifiedAt: new Date() })),
+    ).toBe(true);
+    // A call the business placed reached the number on file.
+    expect(trusted(call({ direction: 'outbound' }))).toBe(true);
+  });
+
+  it('takes only the caller’s own words from a call the AI teammate took or placed', () => {
+    const transcript = [
+      'Ava: Thanks for calling. I have 512-555-0100 on file for you.',
+      'Caller: My new email is lee@new.test',
+      'Ava: Got it, lee@new.test.',
+    ].join('\n');
+    expect(callersWords(transcript)).toBe('My new email is lee@new.test');
   });
 });
 

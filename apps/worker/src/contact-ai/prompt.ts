@@ -20,7 +20,7 @@ export const CONTACT_AI_SYSTEM = [
   '',
   'Contact details (only when <details> says you may change them):',
   '- Change a detail only when the customer said their own detail is new or different, or the team wrote it down: "my new email is…", "we moved to…", "call me on my cell instead…". Copy the value exactly as it was written.',
-  '- Never take details from anyone marked "not verified" (a website visitor, or an email whose sender couldn’t be verified), from the AI teammate’s own messages, or about somebody else (a spouse, a landlord, a colleague). Never guess or complete a detail.',
+  '- Never take details from anyone marked "not verified" (a website visitor, an email whose sender couldn’t be verified, or a caller whose number the phone company couldn’t confirm), from the AI teammate’s own messages, or about somebody else (a spouse, a landlord, a colleague). Never guess or complete a detail.',
   '- A second email or number the customer gave besides their main one is otherEmail or otherPhone. Use remove only when they said a detail is wrong or no longer theirs.',
   '- An address goes in its parts: addressLine1 (street), addressLine2, city, state, postalCode.',
   '',

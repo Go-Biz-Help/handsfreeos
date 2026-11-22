@@ -487,6 +487,13 @@ export const callRecord = defineCommand({
           .where(and(eq(calls.workspaceId, workspaceId), eq(calls.providerSid, input.providerSid)))
       )[0];
     const dup = await existing();
+    // The webhook loop and the AI teammate's pickup both record an inbound call; whichever comes second may know
+    // what the phone company said of the caller's number when the first didn't (AI1).
+    if (dup && input.callerAttestation)
+      await ctx.tx
+        .update(calls)
+        .set({ callerAttestation: input.callerAttestation })
+        .where(and(eq(calls.id, dup.id), isNull(calls.callerAttestation)));
     if (dup) return { callId: dup.id, conversationId: dup.conversationId, duplicate: true };
 
     if (input.callId) {
@@ -526,6 +533,7 @@ export const callRecord = defineCommand({
         providerSid: input.providerSid,
         status: input.status,
         startedAt: input.startedAt ? new Date(input.startedAt) : new Date(),
+        callerAttestation: input.direction === 'inbound' ? (input.callerAttestation ?? null) : null,
       })
       .onConflictDoNothing()
       .returning({ id: calls.id });
