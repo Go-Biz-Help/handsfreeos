@@ -26,6 +26,7 @@ import {
   formPublish,
   formSaveDraft,
   organizationCreate,
+  personCreate,
   formResponseDelete,
   formResponseExport,
   formResponseList,
@@ -293,6 +294,31 @@ describe('sending it', () => {
     expect(person!.email).toBe('noor@example.com');
   });
 
+  it('writes the name on the form over the number a customer was saved under', async () => {
+    // Saved under their number when they first texted, before they said who they are.
+    const { personId } = await run(
+      personCreate,
+      { workspaceId: wsId, firstName: '(512) 555-0131', lastName: '', phone: '+15125550131' },
+      owner,
+    );
+    const form = await publishedForm('Stand-in name');
+    const sent = await submit(await start(form.formId), {
+      [qid('name')]: 'Dana',
+      [qid('phone')]: '(512) 555-0131',
+    });
+    expect(sent.personId).toBe(personId);
+    const [person] = await admin().select().from(people).where(eq(people.id, personId));
+    expect(person).toMatchObject({ firstName: 'Dana', lastName: '' });
+    // A real name stays as it is.
+    const again = await submit(await start(form.formId), {
+      [qid('name')]: 'Danielle',
+      [qid('phone')]: '(512) 555-0131',
+    });
+    expect(again.personId).toBe(personId);
+    const [kept] = await admin().select().from(people).where(eq(people.id, personId));
+    expect(kept!.firstName).toBe('Dana');
+  });
+
   it('fills in a field the business invented', async () => {
     const form = await publishedForm('Gate code', [
       {
@@ -359,6 +385,35 @@ describe('sending it', () => {
     expect(sent.leadId).toBeTruthy();
     const [lead] = await admin().select().from(leads).where(eq(leads.id, sent.leadId!));
     expect(Number(lead!.valueCents)).toBe(427_500);
+  });
+
+  it('still takes the answers and opens the lead after the stage it names is archived away', async () => {
+    const [other] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.pipelines (workspace_id, name, position) values (${wsId}, ${`Installs ${randomUUID().slice(0, 6)}`}, 9)
+          returning id`,
+    );
+    const [otherStage] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.pipeline_stages (workspace_id, pipeline_id, name, position)
+          values (${wsId}, ${other!.id}, 'New', 0) returning id`,
+    );
+    const form = await publishedForm('Install quote', [
+      {
+        op: 'set_on_submit',
+        patch: { lead: { pipelineId: other!.id, stageId: otherStage!.id, title: 'Install' } },
+      },
+    ]);
+    // Weeks later somebody tidies Settings → Pipelines.
+    await rows(admin(), sql`update app.pipelines set archived_at = now() where id = ${other!.id}`);
+    const sent = await submit(await start(form.formId), {
+      [qid('name')]: 'Rosa',
+      [qid('phone')]: '(512) 555-0191',
+    });
+    expect(sent.leadId).toBeTruthy();
+    const [lead] = await admin().select().from(leads).where(eq(leads.id, sent.leadId!));
+    // Where a lead starts when nothing names a stage: the business's first pipeline.
+    expect(lead!.pipelineId).toBe(pipelineId);
   });
 
   it('opens a lead where Lead intake points forms, when the form names no pipeline (M14)', async () => {

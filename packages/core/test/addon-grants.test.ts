@@ -176,11 +176,11 @@ describe('handing out an add-on to try', () => {
     const events = await rows<{ event_type: string }>(
       admin(),
       sql`select event_type from app.events where entity_id = ${workspaceId}::uuid
-            and event_type like 'addon_grant.%' order by created_at`,
+            and event_type like 'platform.addon_gift_%' order by created_at`,
     );
     expect(events.map((e) => e.event_type)).toEqual([
-      'addon_grant.given',
-      'addon_grant.taken_back',
+      'platform.addon_gift_given',
+      'platform.addon_gift_taken_back',
     ]);
   });
 

@@ -43303,7 +43303,7 @@
     "/v1/commands/estimate.convert": {
       "post": {
         "operationId": "command_estimate_convert",
-        "summary": "Turn an estimate into an invoice. The lines are copied as they were agreed and the deposit is carried through as what to ask for first; ask for the deposit on its own and it is raised as a one-line deposit invoice instead.",
+        "summary": "Turn an estimate into an invoice. The lines are copied as they were agreed and the deposit is carried through as what to ask for first; ask for the deposit on its own and it is raised as a one-line deposit invoice instead. Once the deposit is invoiced on its own, the whole job is billed as the rest: one line, the total less the deposit. Nothing is billed twice: an estimate already invoiced, or whose deposit is, is refused.",
         "tags": [
           "commands"
         ],
@@ -47656,7 +47656,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires platform.founding.manage. Emits billing.more_time_answered.",
+        "description": "Risk level 3. Requires platform.founding.manage. Emits platform.plan_more_time_answered.",
         "requestBody": {
           "required": true,
           "content": {
@@ -68280,7 +68280,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires platform.addons.manage. Emits addon_grant.given.",
+        "description": "Risk level 3. Requires platform.addons.manage. Emits platform.addon_gift_given.",
         "requestBody": {
           "required": true,
           "content": {
@@ -68360,7 +68360,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires platform.addons.manage. Emits addon_grant.taken_back.",
+        "description": "Risk level 3. Requires platform.addons.manage. Emits platform.addon_gift_taken_back.",
         "requestBody": {
           "required": true,
           "content": {
@@ -150777,7 +150777,7 @@
     "/v1/queries/extension_sign_in.pending": {
       "post": {
         "operationId": "query_extension_sign_in_pending",
-        "summary": "Your sign-ins to the browser extension waiting for you to pick the number it shows, newest first.",
+        "summary": "Your sign-ins to the browser extension waiting for you to type the number it shows, newest first.",
         "tags": [
           "queries"
         ],
@@ -150815,7 +150815,6 @@
                             "type": "string"
                           },
                           "choices": {
-                            "minItems": 3,
                             "maxItems": 3,
                             "type": "array",
                             "items": {
@@ -201159,6 +201158,9 @@
                         "null"
                       ]
                     },
+                    "inTrial": {
+                      "type": "boolean"
+                    },
                     "aiDailyLimitCents": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -201185,6 +201187,7 @@
                     "spentThisMonthCents",
                     "pendingTopUpCents",
                     "escalation",
+                    "inTrial",
                     "aiDailyLimitCents",
                     "aiSpentTodayCents"
                   ],

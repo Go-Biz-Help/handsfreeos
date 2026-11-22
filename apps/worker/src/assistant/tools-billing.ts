@@ -21,12 +21,14 @@ import {
   depositProblem,
   dueAfterCents,
   dueDateFor,
+  estimateBilling,
   estimateInvoiceProblem,
   estimateMoveProblem,
   ESTIMATE_WORDS,
   HfosError,
   holdOf,
   INVOICE_WORDS,
+  invoiceNames,
   invoiceVoidBlock,
   isManualPaymentMethod,
   jobInvoiceOf,
@@ -217,6 +219,7 @@ interface EstimateGet {
   invoices: {
     id: string;
     number: string | null;
+    status: string;
     state: string;
     purpose: string;
     totalCents: number;
@@ -1333,7 +1336,7 @@ function optionChosen(e: Estimate, asked: unknown): Estimate['options'][number] 
 const manageEstimate: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const act = String(args['action']);
-    const { estimate: e } = await estimateOf(db, ctx, args['estimateId']);
+    const { estimate: e, invoices } = await estimateOf(db, ctx, args['estimateId']);
     const who = e.person.fullName;
     const first = firstName(who);
     const base = [
@@ -1454,6 +1457,28 @@ const manageEstimate: SettingsConfirmTool = {
         409,
         'This estimate doesn’t ask for a deposit. Invoice the whole job instead.',
       );
+    // As estimate.convert refuses: nothing on it is billed twice, and after a deposit the whole job is the rest.
+    const billed = estimateBilling(e.totals.totalCents, invoices);
+    const deposited = invoiceNames(billed.deposits);
+    if (billed.job)
+      throw HfosError.rule(
+        'estimate_already_invoiced',
+        409,
+        `${estimateName(e)} is already invoiced on ${invoiceNames([billed.job])}, so it isn’t billed twice. Change that invoice with write_invoice, or void it with manage_invoice to raise a new one.`,
+      );
+    if (depositOnly && billed.deposits.length)
+      throw HfosError.rule(
+        'estimate_deposit_invoiced',
+        409,
+        `Its deposit is already on ${deposited}, so it isn’t billed twice. Use make_invoice without deposit_only to bill the rest.`,
+      );
+    const rest = !depositOnly && billed.deposits.length > 0;
+    if (rest && billed.restCents <= 0)
+      throw HfosError.rule(
+        'estimate_fully_invoiced',
+        409,
+        `The deposit on ${deposited} already covers its whole ${money(e.totals.totalCents)}, so there’s nothing left to bill.`,
+      );
     const due = str(args['dueOn']);
     const account = await accountFor(db, ctx, str(args['connectionId']));
     return {
@@ -1466,9 +1491,11 @@ const manageEstimate: SettingsConfirmTool = {
             label: 'It bills',
             value: depositOnly
               ? `Only the ${money(e.depositCents)} deposit`
-              : e.depositCents > 0
-                ? `The whole job · the ${money(e.depositCents)} deposit is asked for first`
-                : `The whole job · ${counted(e.lines.length, 'line')}`,
+              : rest
+                ? `The rest · ${money(billed.restCents)}, after the ${money(billed.depositCents)} deposit on ${deposited}`
+                : e.depositCents > 0
+                  ? `The whole job · the ${money(e.depositCents)} deposit is asked for first`
+                  : `The whole job · ${counted(e.lines.length, 'line')}`,
           },
           {
             label: 'Due',
@@ -1490,7 +1517,9 @@ const manageEstimate: SettingsConfirmTool = {
       result: {
         waiting: true,
         estimate: estimateName(e),
-        bills: depositOnly ? money(e.depositCents) : money(e.totals.totalCents),
+        bills: depositOnly
+          ? money(e.depositCents)
+          : money(rest ? billed.restCents : e.totals.totalCents),
       },
     };
   },

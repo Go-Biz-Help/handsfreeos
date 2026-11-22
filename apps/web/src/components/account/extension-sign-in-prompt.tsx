@@ -9,17 +9,21 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 
 /**
  * Someone is signing in to the browser extension with this person's email (20261027002910): "Signing in to the
- * extension on Chrome? Pick the number you see." with three numbers, one of them the extension's. The right one lets
- * it in; a wrong one, or That wasn't me, stops it. Mounted once in the workspace layout; while the tab is in front it
- * asks every few seconds whether a request is waiting (`extension_sign_in.pending`), and a hidden tab asks nothing.
+ * extension on Chrome? Type the number the extension shows." The right number lets it in; a wrong one, or That wasn't
+ * me, stops it. The number is typed, never picked from a list: anyone can start a prompt for any email, and a list of
+ * three let a stranger in one tap in three. Mounted once in the workspace layout; while the tab is in front it asks
+ * every few seconds whether a request is waiting (`extension_sign_in.pending`), and a hidden tab asks nothing. The box
+ * never takes the focus on its own, so typing elsewhere can't answer it.
  */
 export function ExtensionSignInPrompt() {
   const [request, setRequest] = useState<ExtensionSignInPending | null>(null);
   const [busy, setBusy] = useState(false);
+  const [typed, setTyped] = useState('');
   const answered = useRef(new Set<string>());
 
   const look = useCallback(async () => {
@@ -46,6 +50,10 @@ export function ExtensionSignInPrompt() {
     };
   }, [look]);
 
+  // A new request starts with an empty box.
+  const requestId = request?.id;
+  useEffect(() => setTyped(''), [requestId]);
+
   // A request runs out on its own: the prompt goes with it.
   useEffect(() => {
     if (!request) return;
@@ -55,6 +63,7 @@ export function ExtensionSignInPrompt() {
   }, [request]);
 
   if (!request) return null;
+  const typedNumber = /^[1-9][0-9]$/.test(typed) ? Number(typed) : null;
 
   const answer = async (pick: number | null) => {
     setBusy(true);
@@ -97,21 +106,33 @@ export function ExtensionSignInPrompt() {
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        {request.choices.map((n) => (
-          <Button
-            key={n}
-            variant="secondary"
-            size="lg"
-            className="text-xl font-semibold tabular-nums"
-            disabled={busy}
-            onClick={() => void answer(n)}
-            data-testid={`extension-sign-in-pick-${n}`}
-          >
-            {n}
-          </Button>
-        ))}
-      </div>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (typedNumber !== null) void answer(typedNumber);
+        }}
+      >
+        <Input
+          aria-label={EXTENSION_SIGN_IN_WORDS.numberLabel}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={2}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+          disabled={busy}
+          className="w-24 text-center text-xl font-semibold tabular-nums"
+          data-testid="extension-sign-in-number"
+        />
+        <Button
+          type="submit"
+          className="flex-1"
+          disabled={busy || typedNumber === null}
+          data-testid="extension-sign-in-approve"
+        >
+          {EXTENSION_SIGN_IN_WORDS.approve}
+        </Button>
+      </form>
       <Button variant="ghost" disabled={busy} onClick={() => void answer(null)}>
         {EXTENSION_SIGN_IN_WORDS.notMe}
       </Button>

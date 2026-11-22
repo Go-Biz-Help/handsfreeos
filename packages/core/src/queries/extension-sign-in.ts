@@ -6,6 +6,7 @@ import { rows, sql } from '@hfos/db/client';
 import {
   ExtensionSignInPendingInput,
   ExtensionSignInPendingOutput,
+  extensionBrowserName,
 } from '../account/extension-sign-in';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
@@ -13,7 +14,7 @@ import { defineQuery } from '../kernel/define';
 export const extensionSignInPending = defineQuery({
   name: 'extension_sign_in.pending',
   description:
-    'Your sign-ins to the browser extension waiting for you to pick the number it shows, newest first.',
+    'Your sign-ins to the browser extension waiting for you to type the number it shows, newest first.',
   input: ExtensionSignInPendingInput,
   output: ExtensionSignInPendingOutput,
   permission: null,
@@ -23,11 +24,10 @@ export const extensionSignInPending = defineQuery({
     const found = await rows<{
       id: string;
       browser: string;
-      choices: number[];
       expires_at: Date | string;
     }>(
       ctx.tx,
-      sql`select id, browser, choices, expires_at from app.extension_sign_ins
+      sql`select id, browser, expires_at from app.extension_sign_ins
           where user_id = ${me} and status = 'pending' and expires_at > now()
           order by created_at desc
           limit 3`,
@@ -35,8 +35,9 @@ export const extensionSignInPending = defineQuery({
     return {
       requests: found.map((r) => ({
         id: r.id,
-        browser: r.browser,
-        choices: r.choices.map(Number),
+        browser: extensionBrowserName(r.browser),
+        // Never the numbers: the person types the one the extension shows (see ExtensionSignInPendingOutput).
+        choices: [],
         expiresAt: new Date(r.expires_at).toISOString(),
       })),
     };

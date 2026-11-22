@@ -25,7 +25,7 @@ import {
   plainSpaces,
   quoteCustomerText,
   quoteData,
-  smsSegments,
+  sentSmsSegments,
   type KnowledgeMatch,
   type RequestMeta,
 } from '@hfos/core/server';
@@ -181,7 +181,7 @@ function shapeOf(input: AiStepInput): Shape {
             .string()
             .trim()
             .min(1)
-            .refine((s) => smsSegments(s).segments <= TEXT_MAX_SEGMENTS, {
+            .refine((s) => sentSmsSegments(s).segments <= TEXT_MAX_SEGMENTS, {
               error: 'A text is at most two parts.',
             })
         : z.string().trim().min(1).max(EMAIL_MAX_CHARS);

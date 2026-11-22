@@ -50,6 +50,15 @@ describe('the sentence over the balance', () => {
       headline: 'Running low',
       tone: 'warn',
     });
+    // In the free trial nothing is charged on its own, so it promises no top-up.
+    expect(balanceHeadline(wallet({ ...low, inTrial: true }))).toEqual({
+      headline: 'Running low: top-ups start after your trial',
+      tone: 'warn',
+    });
+    expect(balanceHeadline(wallet({ inTrial: true }))).toEqual({
+      headline: 'You’re fine',
+      tone: 'ok',
+    });
   });
 
   it('says what has actually stopped before it says the balance is empty', () => {

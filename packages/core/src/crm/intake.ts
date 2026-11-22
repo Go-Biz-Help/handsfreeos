@@ -303,6 +303,32 @@ export async function findOrCreateCustomer(
  * it is any open lead, and a new lead lands where lead.create puts it: the default pipeline's first open
  * stage. Stale settings never cost the customer their lead: a pipeline that was archived gives null.
  */
+/**
+ * A pipeline and stage a setting names, if both are still there: the stage not deleted, the pipeline not archived.
+ * A setting goes stale when someone tidies Settings → Pipelines, and a stale one must never cost a customer the
+ * form, booking or message they sent.
+ */
+export async function liveStage(
+  tx: Tx,
+  workspaceId: string,
+  target: { pipelineId: string; stageId: string } | null,
+): Promise<{ pipelineId: string; stageId: string } | null> {
+  if (!target) return null;
+  const [stage] = await tx
+    .select({ id: pipelineStages.id })
+    .from(pipelineStages)
+    .innerJoin(pipelines, eq(pipelines.id, pipelineStages.pipelineId))
+    .where(
+      and(
+        eq(pipelineStages.id, target.stageId),
+        eq(pipelines.id, target.pipelineId),
+        eq(pipelines.workspaceId, workspaceId),
+        isNull(pipelines.archivedAt),
+      ),
+    );
+  return stage ? target : null;
+}
+
 export async function leadFor(
   ctx: CommandContext,
   personId: string,
@@ -326,22 +352,8 @@ export async function leadFor(
     )
     .limit(1);
   if (open) return open.id;
-  if (target) {
-    // Stale CRM settings never cost the customer their booking: no pipeline, no lead.
-    const [stage] = await ctx.tx
-      .select({ id: pipelineStages.id })
-      .from(pipelineStages)
-      .innerJoin(pipelines, eq(pipelines.id, pipelineStages.pipelineId))
-      .where(
-        and(
-          eq(pipelineStages.id, target.stageId),
-          eq(pipelines.id, target.pipelineId),
-          eq(pipelines.workspaceId, ws),
-          isNull(pipelines.archivedAt),
-        ),
-      );
-    if (!stage) return null;
-  }
+  // Stale CRM settings never cost the customer their booking: no pipeline, no lead.
+  if (target && !(await liveStage(ctx.tx, ws, target))) return null;
   const out = await leadCreate.handler(
     ctx,
     LeadCreateInput.parse({

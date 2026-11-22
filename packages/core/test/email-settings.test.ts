@@ -654,6 +654,22 @@ describe('email settings', () => {
       'rule_violation',
       'email_domain_unverified',
     );
+    // Only a person who picked it is stopped. The AI teammate and workflows set to send from it carry on from the
+    // shared address, as the owners were just told.
+    const auto = await sys(messageSend, {
+      workspaceId: wsId,
+      conversationId: sent.conversationId,
+      channel: 'email',
+      subject: 'Re: Your quote',
+      body: 'Just checking you got it.',
+      emailAddressId: supportId,
+    });
+    expect(
+      await rows<{ email_address_id: string; from_address: string }>(
+        admin(),
+        sql`select email_address_id, from_address from app.messages where id = ${auto.messageId}`,
+      ),
+    ).toEqual([{ email_address_id: sharedDefaultId, from_address: sharedDefaultAddress }]);
 
     // Back once the record is; then the default moves to the shared subdomain so the domain can go.
     expect(

@@ -45,6 +45,8 @@ export interface CalendarEvent {
 export interface WrittenEvent {
   readonly providerEventId: string;
   readonly meetingUrl?: string | null;
+  /** Google said it couldn't make the Meet link (Meet is off for the account, say): asking again won't either. */
+  readonly meetFailed?: boolean;
 }
 
 export interface CalendarAccount {

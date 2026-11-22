@@ -10,6 +10,7 @@ import {
   onboardingSetupProgress,
   onboardingSetupTitle,
   type AiSetupProblems,
+  withDeviceTimeZone,
   type OnboardingSetupBusinessDraft,
 } from '@hfos/core';
 import { router } from 'expo-router';
@@ -37,6 +38,15 @@ const PROGRESS = onboardingSetupProgress('business', STARTING, {
   chat: false,
 });
 
+/** The zone this phone is set to, for the business's first guess at its own. */
+function deviceTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * "Your business" before there is one, on the phone (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8):
  * straight after signing up, the setup's first screen makes the business (`organization.create`), then saves the rest
@@ -55,8 +65,9 @@ export function CreateBusiness({
   onMaking?: (making: boolean) => void;
 }) {
   const { online } = useNetwork();
-  const [business, setBusiness] = React.useState<OnboardingSetupBusinessDraft>(
-    NEW_ONBOARDING_SETUP_BUSINESS,
+  // The phone's own time zone to start, until an address or the person says another.
+  const [business, setBusiness] = React.useState<OnboardingSetupBusinessDraft>(() =>
+    withDeviceTimeZone(NEW_ONBOARDING_SETUP_BUSINESS, deviceTimeZone()),
   );
   const [problems, setProblems] = React.useState<AiSetupProblems>({});
   const [error, setError] = React.useState<string | null>(null);

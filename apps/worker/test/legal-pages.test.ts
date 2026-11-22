@@ -81,8 +81,9 @@ describe('the pages we write', () => {
     expect(contact.paragraphs[0]).toContain('hello@bayou.example');
     expect(contact.paragraphs[0]).toContain('(504) 555-0144');
     // Theirs, as soon as they've said where it is.
-    expect((await get(`/public/legal/${site}/terms`)).json()).toEqual({
+    expect((await get(`/public/legal/${site}/terms`)).json()).toMatchObject({
       redirectTo: 'https://bayou.example/terms',
+      business: 'Bayou Electric',
     });
   });
 
@@ -95,10 +96,10 @@ describe('the pages we write', () => {
             termsUrl: 'https://bayou.example/terms',
           })}::jsonb, now())`,
     );
-    expect((await get(`/public/legal/${site}/privacy`)).json()).toEqual({
+    expect((await get(`/public/legal/${site}/privacy`)).json()).toMatchObject({
       redirectTo: 'https://bayou.example/privacy',
     });
-    expect((await get(`/public/legal/${site}/terms`)).json()).toEqual({
+    expect((await get(`/public/legal/${site}/terms`)).json()).toMatchObject({
       redirectTo: 'https://bayou.example/terms',
     });
   });

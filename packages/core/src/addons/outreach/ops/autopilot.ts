@@ -192,6 +192,9 @@ export const autopilotList = defineAddonQuery(outreachAddon, {
     keywords: ['autopilot', 'people to ok', 'who it will reach today'],
   },
   scope: inWorkspace,
+  // The worker's mid-day reminder reads it for the person (outreach.autopilot_reminder, on their behalf). Without
+  // the system here every reminder was refused, and nobody heard that people still waited for their OK.
+  actors: ['human', 'system'],
   async handler(ctx) {
     const me = userIdOf(ctx.actor);
     if (!me) throw HfosError.forbidden('Only a person has an Autopilot list.');

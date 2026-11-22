@@ -39,7 +39,11 @@ interface FreeBusy {
 interface GoogleEvent {
   id?: string;
   hangoutLink?: string;
-  conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] };
+  conferenceData?: {
+    entryPoints?: { entryPointType?: string; uri?: string }[];
+    /** How the link we asked for is coming along: `pending`, `success` or `failure`. */
+    createRequest?: { status?: { statusCode?: string } };
+  };
 }
 
 /**
@@ -130,6 +134,10 @@ export function createGoogleCalendar(opts: {
   const written = (made: GoogleEvent, fallbackId: string) => ({
     providerEventId: made.id ?? fallbackId,
     meetingUrl: meetLinkOf(made),
+    // A link Google gave up on never comes, however often the same request is sent.
+    ...(made.conferenceData?.createRequest?.status?.statusCode === 'failure'
+      ? { meetFailed: true }
+      : {}),
   });
   const patch = async (accessToken: string, id: string, e: CalendarEvent) =>
     written(

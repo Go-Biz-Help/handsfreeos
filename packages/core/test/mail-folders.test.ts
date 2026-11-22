@@ -188,6 +188,51 @@ describe('where a new email thread goes', () => {
   });
 });
 
+describe('who wrote it', () => {
+  const counterpartOf = async (conversationId: string) =>
+    (
+      await rows<{ counterpart: string }>(
+        admin(),
+        sql`select counterpart from app.conversations where id = ${conversationId}`,
+      )
+    )[0]!.counterpart;
+
+  it('is the visitor in Reply-To when a website form or the business’s own address sent it', async () => {
+    const visitor = stranger();
+    const site = await receive({
+      from: { address: 'wordpress@folders-site.example', name: 'Folders HVAC' },
+      replyTo: { address: visitor, name: 'Dana Rivera' },
+    });
+    expect(site.outcome).toBe('filed');
+    expect(await counterpartOf(site.conversationId!)).toBe(visitor);
+    const other = stranger();
+    const own = await receive({ from: { address: shared.address }, replyTo: { address: other } });
+    expect(own.outcome).toBe('filed');
+    expect(await counterpartOf(own.conversationId!)).toBe(other);
+    // With nobody in Reply-To, the business's own address coming back is still nobody writing.
+    expect((await receive({ from: { address: shared.address } })).outcome).toBe('skipped');
+  });
+
+  it('is still the sender for a person, a company’s own help desk, or automatic mail', async () => {
+    const elsewhere = { address: stranger() };
+    // A customer writes as themselves, whatever their Reply-To says.
+    const fromMike = await receive({ from: { address: mike }, replyTo: elsewhere });
+    expect(await counterpartOf(fromMike.conversationId!)).toBe(mike);
+    // A company's no-reply mail that points at its own help desk is that company, not a visitor.
+    const receipt = await receive({
+      from: { address: 'no-reply@billing.saas.example' },
+      replyTo: { address: 'support@saas.example' },
+    });
+    expect(await counterpartOf(receipt.conversationId!)).toBe('no-reply@billing.saas.example');
+    const list = await receive({
+      from: { address: 'noreply@lists.example' },
+      replyTo: elsewhere,
+      automatic: true,
+    });
+    expect(await counterpartOf(list.conversationId!)).toBe('noreply@lists.example');
+  });
+});
+
 describe('moving a thread', () => {
   it('moves it and remembers the sender, so their next new thread goes there too', async () => {
     const who = stranger();

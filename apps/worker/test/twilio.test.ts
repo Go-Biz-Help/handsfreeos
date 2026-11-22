@@ -1694,3 +1694,29 @@ describe('what the wizard settled goes to the carriers', () => {
     expect(carrierIndustry('not_a_kind')).toBe('CONSUMER');
   });
 });
+
+describe('a text’s photos and files', () => {
+  it('are fetched from Twilio with the account’s token', async () => {
+    const seen = mockTwilio([[/^GET api\.twilio\.com\//, () => ({ json: {} })]]);
+    await createTwilioTelephony({ accountSid: 'ACmaster', authToken: 't' }).fetchMedia(
+      account,
+      'https://api.twilio.com/2010-04-01/Accounts/ACsubtest/Messages/MMx/Media/MEx',
+    );
+    expect(seen[0]!.auth).toBe(`${account.sid}:${account.authToken}`);
+  });
+
+  it.each([
+    'https://attacker.example/m',
+    'http://api.twilio.com/2010-04-01/Accounts/ACsubtest/Messages/MMx/Media/MEx',
+    'https://api.twilio.com.attacker.example/m',
+    'https://user:pass@api.twilio.com/m',
+    'https://169.254.169.254/latest/meta-data',
+    'not a url',
+  ])('never send the token anywhere but Twilio: %s', async (url) => {
+    const seen = mockTwilio([]);
+    const twilio = createTwilioTelephony({ accountSid: 'ACmaster', authToken: 't' });
+    await expect(twilio.fetchMedia(account, url)).rejects.toBeInstanceOf(ProviderError);
+    await expect(twilio.deleteMedia(account, url)).rejects.toBeInstanceOf(ProviderError);
+    expect(seen).toHaveLength(0);
+  });
+});

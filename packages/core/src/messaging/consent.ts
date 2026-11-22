@@ -146,13 +146,13 @@ export function ownSiteBoxText(business: string, offers: boolean): string {
 /**
  * The one address the agreement box links to, for a business with a public site.
  *
- * Always ours, even for a business using its own policy: `/legal/<site>/privacy` redirects to theirs when
- * they have set one. One canonical link means the consent records all point at something that resolves,
+ * Always ours, even for a business using its own policy: `/legal/<site>/privacy` links on to theirs when
+ * they have set one (a page of ours that names it, never a redirect: the address is the business's own typing). One canonical link means the consent records all point at something that resolves,
  * and a business that later changes where its policy lives does not leave old boxes pointing at nothing.
  */
 export const consentPolicyPath = (siteSlug: string): string => `/legal/${siteSlug}/privacy`;
 
-/** The terms beside it, on the same terms: ours, redirecting to the business's own when it has some. */
+/** The terms beside it, on the same terms: ours, linking on to the business's own when it has some. */
 export const consentTermsPath = (siteSlug: string): string => `/legal/${siteSlug}/terms`;
 
 /**

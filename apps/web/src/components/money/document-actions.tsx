@@ -2,6 +2,7 @@
 import {
   HOW_MUCH_LABEL,
   HOW_PAID_LABEL,
+  invoiceNames,
   localDateOf,
   MANUAL_PAYMENT_METHODS,
   MARK_PAID_TITLE,
@@ -19,6 +20,7 @@ import {
   RECORD_PAYMENT_TITLE,
   recordCashNote,
   recordedToast,
+  type EstimateBilling,
   type ManualPaymentMethod,
 } from '@hfos/core';
 import { useRouter } from 'next/navigation';
@@ -173,6 +175,7 @@ export function ConvertDialog({
   workspaceId,
   estimateId,
   depositCents,
+  billed,
   connections,
 }: {
   open: boolean;
@@ -180,6 +183,8 @@ export function ConvertDialog({
   workspaceId: string;
   estimateId: string;
   depositCents: number;
+  /** What's already billed from it: after a deposit invoiced on its own, this bills the rest. */
+  billed: EstimateBilling;
   connections: readonly PaymentConnectionRow[];
 }) {
   const router = useRouter();
@@ -193,10 +198,14 @@ export function ConvertDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         title="Turn this into an invoice"
-        description="Every line comes across. The estimate keeps what the customer agreed to."
+        description={
+          billed.deposits.length
+            ? `It bills the rest: ${money(billed.restCents)}, after the ${money(billed.depositCents)} deposit on ${invoiceNames(billed.deposits)}. The estimate keeps what the customer agreed to.`
+            : 'Every line comes across. The estimate keeps what the customer agreed to.'
+        }
       >
         <div className="mt-4 flex flex-col gap-3.5" data-testid="convert-dialog">
-          {depositCents > 0 ? (
+          {depositCents > 0 && !billed.deposits.length ? (
             <Field label="What to bill" htmlFor="convert-purpose">
               <Select
                 id="convert-purpose"

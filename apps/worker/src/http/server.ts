@@ -88,6 +88,7 @@ import { SafeFetchError } from './safe-fetch';
 import { registerSiteCheckRoutes, storedSitePages, withSitePages } from './site-check';
 import { scanSiteForms } from './site-forms';
 import { practiceAware } from '../practice/kit';
+import { practiceForRequest } from '../practice/request';
 import { inPractice, practiceRunFor, type PracticeRun } from '../practice/scope';
 import { registerSiteRoutes } from './sites';
 import { registerSpeechRoutes } from './speech';
@@ -135,7 +136,14 @@ function twilioWebhook(
           sql`select workspace_id, organization_id from private.phone_route(${params['To']})`,
         ),
       );
-      if (route) ({ workspace_id: workspaceId, organization_id: organizationId } = route);
+      // Our master account's numbers go wherever they belong. A business's own account (one we opened for it, or
+      // its own Twilio it connected) only ever speaks for its own numbers: anyone holding that account's token can
+      // sign any `To`, and must never land a text or call in somebody else's business.
+      if (
+        route &&
+        (v.account.organizationId === null || route.organization_id === v.account.organizationId)
+      )
+        ({ workspace_id: workspaceId, organization_id: organizationId } = route);
     }
     const dedupeKey = opts.dedupeKey(params);
     if (dedupeKey)
@@ -297,6 +305,27 @@ function idsNamedIn(req: FastifyRequest): { organizationId?: unknown; workspaceI
   };
 }
 
+/** Whether this person practises in this practice organization: the staff member practising, or anyone in it. */
+async function practisesIn(
+  db: HttpDeps['httpDb'],
+  userId: string,
+  organizationId: string,
+): Promise<boolean> {
+  const [row] = await asWorker(db, { organizationId }, (tx) =>
+    rows<{ ok: boolean }>(
+      tx,
+      sql`select exists (
+            select 1 from app.organizations o where o.id = ${organizationId} and o.practice_by = ${userId}
+          ) or exists (
+            select 1 from app.workspaces w
+            where w.organization_id = ${organizationId}
+              and private.asker_has_permission(${userId}, w.id, 'workspace.read')
+          ) as ok`,
+    ),
+  );
+  return !!row?.ok;
+}
+
 export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> {
   // Fly's proxy is the one hop in front, so request.ip is the caller's own address (the booking page's
   // per-address limits); signatures still use WORKER_PUBLIC_URL, never forwarded headers.
@@ -311,7 +340,22 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   deps = practiceAware(deps);
   const httpDb = deps.httpDb;
   app.addHook('preHandler', async (req) => {
-    practiceOf.set(req, await practiceRunFor(httpDb, idsNamedIn(req)));
+    // Only the person practising, signed in, ever gets the stand-ins: never a provider calling back, never a
+    // signed-out page, never someone who just typed a practice business's id (practice/request.ts).
+    practiceOf.set(
+      req,
+      await practiceForRequest(req.url, idsNamedIn(req), {
+        runFor: (ids) => practiceRunFor(httpDb, ids),
+        signedIn: async () => {
+          try {
+            return (await authenticate(deps, req)).userId;
+          } catch {
+            return null;
+          }
+        },
+        practises: (userId, organizationId) => practisesIn(httpDb, userId, organizationId),
+      }),
+    );
   });
   app.addHook('onRoute', (route) => {
     const handler = route.handler;

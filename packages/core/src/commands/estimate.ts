@@ -26,8 +26,10 @@ import { executeCommandWithin } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
 import {
   acceptedWording,
+  estimateBilling,
   estimateInvoiceProblem,
   estimateMoveProblem,
+  invoiceNames,
   money,
   type EstimateStatus,
 } from '../money/index';
@@ -581,7 +583,7 @@ export const estimateMarkAccepted = defineCommand({
 export const estimateConvert = defineCommand({
   name: 'estimate.convert',
   description:
-    'Turn an estimate into an invoice. The lines are copied as they were agreed and the deposit is carried through as what to ask for first; ask for the deposit on its own and it is raised as a one-line deposit invoice instead.',
+    'Turn an estimate into an invoice. The lines are copied as they were agreed and the deposit is carried through as what to ask for first; ask for the deposit on its own and it is raised as a one-line deposit invoice instead. Once the deposit is invoiced on its own, the whole job is billed as the rest: one line, the total less the deposit. Nothing is billed twice: an estimate already invoiced, or whose deposit is, is refused.',
   risk: 2,
   input: EstimateConvertInput,
   output: EstimateConvertOutput,
@@ -609,8 +611,58 @@ export const estimateConvert = defineCommand({
         409,
         'This estimate doesn’t ask for a deposit. Invoice the whole job instead.',
       );
-    const copied =
-      input.purpose === 'deposit'
+    // What's already billed from it, so nothing on it is billed twice.
+    const raised = await rows<{
+      number: string | null;
+      purpose: string;
+      status: string;
+      total_cents: string | number;
+    }>(
+      ctx.tx,
+      sql`select number, purpose::text as purpose, status::text as status, total_cents
+          from app.invoices where workspace_id = ${ws} and estimate_id = ${e.id}`,
+    );
+    const billed = estimateBilling(
+      Number(e.total_cents),
+      raised.map((r) => ({ ...r, totalCents: Number(r.total_cents) })),
+    );
+    if (billed.job)
+      throw HfosError.rule(
+        'estimate_already_invoiced',
+        409,
+        `This estimate is already invoiced on ${invoiceNames([billed.job])}, so it isn’t billed twice. Change that invoice, or void it to raise a new one.`,
+      );
+    const deposited = invoiceNames(billed.deposits);
+    if (input.purpose === 'deposit' && billed.deposits.length)
+      throw HfosError.rule(
+        'estimate_deposit_invoiced',
+        409,
+        `This estimate’s deposit is already on ${deposited}, so it isn’t billed twice. Turn it into an invoice for the rest instead.`,
+      );
+    // After a deposit invoiced on its own, the whole job is the rest: one line, the total less the deposit.
+    const rest = input.purpose === 'standard' && billed.deposits.length > 0;
+    if (rest && billed.restCents <= 0)
+      throw HfosError.rule(
+        'estimate_fully_invoiced',
+        409,
+        `The deposit on ${deposited} already covers this estimate’s whole ${money(Number(e.total_cents))}, so there’s nothing left to bill.`,
+      );
+    const purpose = rest ? ('balance' as const) : input.purpose;
+    const copied = rest
+      ? [
+          {
+            productId: null,
+            name: e.title ? `The rest of ${e.title}` : 'The rest of the job',
+            description: `${nameOf(e)} came to ${money(Number(e.total_cents))}. Less the ${money(billed.depositCents)} deposit on ${deposited}.`,
+            quantity: 1,
+            unitLabel: 'each',
+            unitPriceCents: billed.restCents,
+            // The tax is already in the estimate's total, as it is for the deposit.
+            taxable: false,
+            discountCents: 0,
+          },
+        ]
+      : input.purpose === 'deposit'
         ? [
             {
               productId: null,
@@ -633,16 +685,16 @@ export const estimateConvert = defineCommand({
       assigneeUserId: e.assignee_user_id,
       title: e.title ?? undefined,
       lines: copied,
-      // A deposit invoice has no document discount: the estimate's is already inside the figure.
+      // A deposit or the rest has no document discount: the estimate's is already inside the figure.
       discount:
-        input.purpose === 'deposit'
+        purpose !== 'standard'
           ? { kind: 'none' as const }
           : e.discount_percent_bp !== null
             ? { kind: 'percent' as const, percentBp: e.discount_percent_bp }
             : Number(e.discount_cents) > 0
               ? { kind: 'amount' as const, amountCents: Number(e.discount_cents) }
               : { kind: 'none' as const },
-      purpose: input.purpose,
+      purpose,
       origin: 'estimate' as const,
       estimateId: e.id,
       connectionId: input.connectionId,
@@ -655,19 +707,20 @@ export const estimateConvert = defineCommand({
       payload: {
         ...subjectOf(e),
         invoiceId: made.output.invoiceId,
-        purpose: input.purpose,
+        purpose,
         depositCents,
       },
       after: {
         estimate: nameOf(e),
         invoiced: money(made.output.totalCents),
         ...(input.purpose === 'deposit' ? { deposit: money(depositCents) } : {}),
+        ...(rest ? { lessDeposit: money(billed.depositCents) } : {}),
       },
     });
     return {
       estimateId: e.id,
       invoiceId: made.output.invoiceId,
-      purpose: input.purpose,
+      purpose,
       totalCents: made.output.totalCents,
       depositCents,
     };

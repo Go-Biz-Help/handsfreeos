@@ -141,9 +141,17 @@ export const walletGet = defineQuery({
       ctx.tx,
       sql`select limit_cents, spent_cents from private.ai_spend_today(${ws}::uuid)`,
     );
+    // The first stretch of the plan, before its first renewal, while the trial runs: the worker's sweep reads it
+    // the same way (`apps/worker/src/money/recharge.ts`), so the page never promises a top-up that won't come.
+    const [trial] = await rows<{ in_trial: boolean }>(
+      ctx.tx,
+      sql`select exists (select 1 from app.workspace_plans p
+            where p.workspace_id = ${ws} and p.renewal_count = 0 and p.trial_ends_at > now()) as in_trial`,
+    );
     const aiToday = {
       aiDailyLimitCents: Number(ai?.limit_cents ?? DEFAULT_AI_DAILY_LIMIT_CENTS),
       aiSpentTodayCents: Math.round(Number(ai?.spent_cents ?? 0)),
+      inTrial: trial?.in_trial === true,
     };
     // A business that has never spent anything has no row, and one that is not on the wallet yet is told the
     // same thing for the same reason: nothing has happened here. "Nothing yet" rather than a scary zero.

@@ -339,3 +339,49 @@ describe('the lost-wakeup race', () => {
     expect(await notesOf(p.id)).toEqual(['Woke up']);
   });
 });
+
+describe('a recurring job', () => {
+  it('counts only errors in a row: one that keeps working never runs out of tries', async () => {
+    const scope = { workspaceId: w.workspaceId, organizationId: w.organizationId };
+    const kind = `test.recurring.${randomUUID().slice(0, 8)}`;
+    const key = `recurring:${randomUUID()}`;
+    await asWorker(w.s.db, scope, (tx) =>
+      scheduleJob(tx, { kind, dedupeKey: key, runAt: new Date(), payload: {}, ...scope }),
+    );
+    // Four bad hours, a good one, then four more: never five in a row.
+    const script = [...'xxxx', 'ok', ...'xxxx'];
+    let n = 0;
+    const handler: JobHandler = async () => {
+      if (script[n++] === 'x') throw new Error('the provider is having a bad hour');
+      return { rescheduleAt: new Date(Date.now() + 3_600_000) };
+    };
+    const row = async () =>
+      (
+        await rows<{ status: string; attempts: number }>(
+          admin(),
+          sql`select status::text as status, attempts from app.scheduled_jobs where dedupe_key = ${key}`,
+        )
+      )[0]!;
+    for (let i = 0; i < script.length; i++) {
+      await rows(
+        admin(),
+        sql`update app.scheduled_jobs set run_at = now(), locked_at = now(), locked_by = ${w.workerId}
+            where dedupe_key = ${key} and status = 'pending'`,
+      );
+      await processJobs({
+        ...w.s,
+        jobs: { [kind]: handler },
+        workerId: w.workerId,
+        batchSize: 5,
+        reservedOnly: true,
+      });
+    }
+    expect(n).toBe(script.length);
+    expect(await row()).toEqual({ status: 'pending', attempts: 4 });
+    // This kind has no handler outside this test: don't leave it for the next drain.
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set status = 'cancelled' where dedupe_key = ${key}`,
+    );
+  });
+});

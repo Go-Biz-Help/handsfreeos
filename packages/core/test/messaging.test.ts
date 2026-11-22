@@ -14,7 +14,13 @@ import type {
   SystemActor,
 } from '../src/kernel/types';
 import { formatClock, localMinutes, quietHoursState } from '../src/messaging/quiet-hours';
-import { messagePreview, smsKeyword, smsSegments } from '../src/messaging/sms';
+import {
+  messagePreview,
+  plainSmsText,
+  sentSmsSegments,
+  smsKeyword,
+  smsSegments,
+} from '../src/messaging/sms';
 import { readiness } from '../src/messaging/store';
 import {
   conversationAssign,
@@ -183,6 +189,20 @@ describe('texting rules that run in the browser too', () => {
     expect(smsSegments('{}'.repeat(40)).units).toBe(160);
     expect(smsSegments('Café ☀'.repeat(12))).toMatchObject({ encoding: 'ucs2', segments: 2 });
     expect(smsSegments('')).toMatchObject({ segments: 0 });
+  });
+
+  // A phone's keyboard types ’ for ' and — for -. The worker sends the plain form, as Twilio's Smart Encoding does, so
+  // a text the business sends is counted on that form: one segment here, never the two Unicode ones it looks like.
+  it('counts a text the business sends as it goes out, with plain quotes and dashes', () => {
+    const typed =
+      'Hi Mike, we’re running about 15 minutes behind — we’ll be there by 2:30. Thanks for your patience!';
+    expect(smsSegments(typed)).toMatchObject({ encoding: 'ucs2', segments: 2 });
+    expect(sentSmsSegments(typed)).toMatchObject({ encoding: 'gsm7', segments: 1 });
+    expect(plainSmsText(typed)).toBe(
+      "Hi Mike, we're running about 15 minutes behind - we'll be there by 2:30. Thanks for your patience!",
+    );
+    // What really needs Unicode still counts as Unicode.
+    expect(sentSmsSegments('Café ☀'.repeat(12))).toMatchObject({ encoding: 'ucs2', segments: 2 });
   });
 
   it('recognises carrier keywords only when they are the whole text', () => {
@@ -618,6 +638,23 @@ describe('texts in and out', () => {
       sql`select event_type from app.events where entity_id = ${firstMessage}`,
     );
     expect(event?.event_type).toBe('message.queued');
+  });
+
+  it('a text typed with curly apostrophes is charged as the one plain segment it goes out as', async () => {
+    const sent = await run(
+      messageSend,
+      {
+        workspaceId: wsId,
+        conversationId: mikeConversation,
+        body: 'We’re running about 15 minutes behind. We’ll be there by 2:30. Thanks for your patience, Mike!',
+      },
+      member,
+    );
+    const [row] = await rows<{ segments: number }>(
+      admin(),
+      sql`select segments from app.messages where id = ${sent.messageId}`,
+    );
+    expect(row?.segments).toBe(1);
   });
 
   it('delivery status only moves forward', async () => {
