@@ -56,6 +56,9 @@ export function pdfAttachment(name: string): InboundAttachment {
 /**
  * Someone emails the business, posted to the worker the way Postmark's inbound webhook does. A reply
  * to our Reply-To address carries its token after the "+", which Postmark hands over as the MailboxHash.
+ * Like real mail from Gmail or SentriLock, it comes signed by the From address's domain (Postmark's spam filter
+ * lists DKIM_VALID_AU and DMARC_PASS), so the worker takes it as that address's; `unverified` leaves those out, as a
+ * forged From would (apps/worker/src/email/sender-check.ts).
  */
 export async function emailFromCustomer(opts: {
   from: string;
@@ -64,6 +67,7 @@ export async function emailFromCustomer(opts: {
   subject: string;
   text: string;
   attachments?: InboundAttachment[];
+  unverified?: boolean;
 }): Promise<string> {
   const hash = /\+([^@]+)@/.exec(opts.to)?.[1] ?? '';
   const messageId = randomUUID();
@@ -81,7 +85,17 @@ export async function emailFromCustomer(opts: {
     Date: new Date().toUTCString(),
     TextBody: opts.text,
     HtmlBody: '',
-    Headers: [{ Name: 'Message-ID', Value: `<${randomUUID()}@mail.example.com>` }],
+    Headers: [
+      ...(opts.unverified
+        ? []
+        : [
+            {
+              Name: 'X-Spam-Tests',
+              Value: 'DKIM_SIGNED,DKIM_VALID,DKIM_VALID_AU,DMARC_PASS,SPF_PASS',
+            },
+          ]),
+      { Name: 'Message-ID', Value: `<${randomUUID()}@mail.example.com>` },
+    ],
     Attachments: opts.attachments ?? [],
   };
   const res = await fetch(`${WORKER_URL}/webhooks/postmark/inbound`, {
