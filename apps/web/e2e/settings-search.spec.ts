@@ -17,7 +17,7 @@ test('“quiet” finds Quiet hours, and choosing it rings the row, on its page 
   await signUpAndConfirm(page, 'settings-search');
   const business = 'Quiet Hours Plumbing';
   const workspaceId = await createBusiness(page, { name: business });
-  // Quiet hours is a row of Texting rules, which shows once the business number is working.
+  // Quiet hours is a row of the number's card, under Texting, once the business has its number and wants to text.
   await setUpTexting(page, workspaceId);
 
   await page.goto(`/app/w/${workspaceId}/settings`);
@@ -36,7 +36,7 @@ test('“quiet” finds Quiet hours, and choosing it rings the row, on its page 
   await expect(nav.getByTestId('settings-search-page-automations')).toContainText('Automations');
   const quiet = nav.getByTestId('settings-search-hit-texting.quiet_hours');
   await expect(quiet).toContainText('Quiet hours');
-  await expect(quiet).toContainText('Texting rules');
+  await expect(quiet).toContainText('Texting');
   await expect(nav.getByTestId('settings-search-hit-adjust.gone_quiet')).toContainText(
     'Gone quiet after',
   );

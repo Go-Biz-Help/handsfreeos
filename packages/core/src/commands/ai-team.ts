@@ -49,6 +49,7 @@ import { changeMoment } from '../kernel/moment';
 import { isUniqueViolation } from '../kernel/pg-errors';
 import type { AiEmployeeActor, CommandContext } from '../kernel/types';
 import { workspaceAddresses } from '../messaging/email';
+import { workspaceMessaging } from '../messaging/store';
 import {
   AiTeammateCreateInput,
   AiTeammateCreateOutput,
@@ -275,7 +276,25 @@ export async function insertTeammate(
 ): Promise<{ teammateId: string; revision: number }> {
   const me = requireHuman(ctx).userId;
   const ws = ctx.scope.workspaceId!;
-  const { config } = args;
+  /**
+   * "Your AI teammate answers" picked in the phone number setup before there was a teammate (phone_setup.save): it
+   * answers calls from its first day, the way they asked, and the wish is spent.
+   */
+  const messaging = await workspaceMessaging(ctx.tx, ws);
+  const wish = messaging.settings.teammateAnswers;
+  const config: TeammateConfig = wish
+    ? { ...args.config, phone: { ...args.config.phone, enabled: true, answer: wish } }
+    : args.config;
+  if (wish)
+    await ctx.tx
+      .update(workspaces)
+      .set({
+        settings: {
+          ...messaging.rawSettings,
+          telephony: { ...messaging.settings, teammateAnswers: null },
+        },
+      })
+      .where(eq(workspaces.id, ws));
   const labels = [...inferTeammateLabels(config).tags];
   let teammateId: string;
   try {

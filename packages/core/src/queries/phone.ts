@@ -1,6 +1,7 @@
 import { and, eq, isNotNull } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { telephonyAccounts, textingFees } from '@hfos/db/schema';
+import { loadTeammate, teammateConfigOf } from '../ai-team/load';
 import { formatPhone } from '../crm/phone';
 import { defineQuery } from '../kernel/define';
 import { quietHoursState } from '../messaging/quiet-hours';
@@ -103,6 +104,9 @@ export const phoneSetupStatus = defineQuery({
     // Row-level security shows a request only to people who manage the channels: null for everybody else.
     const asked = await currentRcsRequest(ctx.tx, input.workspaceId);
     const manages = scopeCan(ctx.scope, 'channels.manage');
+    // "If nobody picks up": whether the AI teammate answers calls, which is its own Phone setting.
+    const mate = await loadTeammate(ctx.tx, input.workspaceId);
+    const matePhone = mate ? teammateConfigOf(mate).phone : null;
     const fees = manages ? await textingFeesOf(ctx.tx, input.workspaceId, regs) : null;
     const out = (n: NonNullable<typeof number>) => ({
       id: n.id,
@@ -147,6 +151,17 @@ export const phoneSetupStatus = defineQuery({
       timezone: m.timezone,
       quiet: quietHoursState(m.settings.quietHours, m.timezone),
       canManage: scopeCan(ctx.scope, 'channels.manage'),
+      teammate:
+        mate && matePhone
+          ? {
+              id: mate.id,
+              name: mate.name,
+              on: mate.status !== 'off',
+              answersCalls: matePhone.enabled,
+              answer: matePhone.answer,
+              canManage: scopeCan(ctx.scope, 'ai_team.manage'),
+            }
+          : null,
       rcsSender: rcs
         ? {
             id: rcs.id,

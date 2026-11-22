@@ -92,7 +92,7 @@ const updateTextingSettings: SettingsConfirmTool = {
       throw HfosError.rule(
         'no_number',
         409,
-        'This business has no number yet, so there are no calls to set up. Get one under Get a business number in Settings → Texting & calls first.',
+        'This business has no number yet, so there are no calls to set up. Get one under Get your business number in Settings → Texting & calls first.',
       );
     const fields: Field[] = [];
     const quiet = quietFrom(args, status);

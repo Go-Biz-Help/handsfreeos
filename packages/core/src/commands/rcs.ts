@@ -92,7 +92,7 @@ export const rcsSenderConnect = defineCommand({
       throw HfosError.rule(
         'no_number',
         409,
-        'RCS needs a business number, and this business doesn’t have one yet. Phones that can’t show RCS get your messages as texts from it. Get one under Get a business number in Settings → Texting & calls first.',
+        'RCS needs a business number, and this business doesn’t have one yet. Phones that can’t show RCS get your messages as texts from it. Get one under Get your business number in Settings → Texting & calls first.',
       );
     if (input.phoneNumberId) await assertLine(ctx, input.phoneNumberId);
 

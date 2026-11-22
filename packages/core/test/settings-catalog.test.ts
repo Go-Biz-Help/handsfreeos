@@ -332,7 +332,7 @@ describe('searchSettings', () => {
     const labels = hits.map((h) => h.entry.label);
     expect(labels[0]).toBe('Quiet hours');
     expect(hits[0]!.pageLabel).toBe('Texting & calls');
-    expect(hits[0]!.entry.section).toBe('Texting rules');
+    expect(hits[0]!.entry.section).toBe('Texting');
     expect(hits[0]!.marks).toEqual([[0, 5]]);
     for (const label of [
       'Went quiet after a price',

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
@@ -10,14 +10,37 @@ import { createBusiness, signUpAndConfirm } from './helpers';
 const middle = () => String(200 + Math.floor(Math.random() * 799));
 const WORKER_URL = (process.env.WORKER_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, '');
 
+/** The business's phone account sits behind "Phone account and transfers" until a number is on its way. */
+async function openPhoneAccount(page: Page): Promise<void> {
+  const card = page.getByTestId('phone-account-card');
+  // On a cold dev server the page can show before its script runs, and a click then does nothing.
+  await expect(async () => {
+    if (!(await card.isVisible())) await page.getByTestId('phone-more-link').click();
+    await expect(card).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 60_000 });
+}
+
 test('a GoHighLevel number: checked, watched for, and live on arrival, with texting still its own step', async ({
   page,
 }) => {
   test.setTimeout(180_000);
   await signUpAndConfirm(page, 'import-ghl');
   const workspaceId = await createBusiness(page, { name: 'Magnolia Pest Control' });
+  // Settings → Texting & calls starts the guided setup, whose first question hands a number that is staying with
+  // the business over to the screens for moving it.
   await page.goto(`/app/w/${workspaceId}/settings/texting`);
-  await page.getByTestId('bring-your-number').click();
+  await page.getByTestId('phone-start-go').click();
+  await expect(page.getByTestId('phone-setup')).toHaveAttribute('data-screen', 'have', {
+    timeout: 60_000,
+  });
+  await expect(async () => {
+    await page.getByTestId('have-twilio').click();
+    await expect(page.getByTestId('phone-setup-next')).toHaveText('Move my number', {
+      timeout: 5_000,
+    });
+  }).toPass({ timeout: 60_000 });
+  await page.getByTestId('phone-setup-next').click();
+  await expect(page).toHaveURL(/\/settings\/texting\?bring=choose$/, { timeout: 60_000 });
   await expect(page.getByTestId('bring-number-step')).toBeVisible();
   await page.getByTestId('bring-from-highlevel').click();
 
@@ -70,8 +93,8 @@ test('a Twilio account: connected, listed with who uses each number, one brought
   test.setTimeout(180_000);
   await signUpAndConfirm(page, 'import-twilio');
   const workspaceId = await createBusiness(page, { name: 'Cypress Roofing' });
-  await page.goto(`/app/w/${workspaceId}/settings/texting`);
-  await page.getByTestId('bring-your-number').click();
+  // Where the guided setup's "Yes, it’s in Twilio or HighLevel" lands.
+  await page.goto(`/app/w/${workspaceId}/settings/texting?bring=choose`);
   await page.getByTestId('bring-from-twilio').click();
 
   const connect = page.getByTestId('twilio-connect');
@@ -102,6 +125,7 @@ test('phone & texting: turned on for its Account SID before any number, and off 
   await signUpAndConfirm(page, 'phone-switch');
   const workspaceId = await createBusiness(page, { name: 'Palmetto Pools' });
   await page.goto(`/app/w/${workspaceId}/settings/texting`);
+  await openPhoneAccount(page);
 
   const card = page.getByTestId('phone-account-card');
   await expect(card.getByTestId('phone-account-status')).toHaveText('Off');
@@ -128,6 +152,7 @@ test('a number moved straight into the business’s own account: kept safe, foun
   await signUpAndConfirm(page, 'own-numbers');
   const workspaceId = await createBusiness(page, { name: 'Bayou Septic' });
   await page.goto(`/app/w/${workspaceId}/settings/texting`);
+  await openPhoneAccount(page);
 
   const card = page.getByTestId('phone-account-card');
   await card.getByTestId('phone-account-switch').click();
@@ -171,6 +196,7 @@ test('a number moved straight into the business’s own account: kept safe, foun
   await expect(page.getByTestId('imports-card').getByTestId('transfer-request')).toHaveCount(0);
 
   // One of the business's numbers now, so looking again offers nothing.
+  await openPhoneAccount(page);
   await page.getByTestId('phone-account-card').getByTestId('own-numbers-look').click();
   await expect(page.getByTestId('own-numbers-empty')).toHaveText(/already set up here/, {
     timeout: 30_000,

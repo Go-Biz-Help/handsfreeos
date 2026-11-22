@@ -256,6 +256,13 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
       'This closes the business’s phone account for good. Turning it on again makes a new one.',
   },
   'phone_number.set_recording_notice': {},
+  // The guided phone setup's last screen, and each Change on the number's card (22 Nov 2026).
+  'phone_setup.save': {
+    about:
+      'Pass buy (e164 and numberType, a number the person picked from the numbers free now) for a business with no number yet, or phoneNumberId for one it has, never both. Then only the parts that change: ring (forwarding: every cell or desk phone that rings with HandsFreeOS, up to 3, each with e164, label and enabled; forwardedCallerId: customer or business, what those phones show), missed (ringSeconds 10 to 25; then: teammate, voicemail or nothing; teammateMode when then is teammate: no_answer, after_hours or always; voicemailGreeting when then is voicemail, null for the usual one), texting (on, or not_now for calls only) and quietHours (enabled, start, end). ring replaces the whole list of phones, so pass the ones that stay too.',
+    warning:
+      'With a number to buy, this buys it now and it is billed every month. What rings and what callers get change from the next call.',
+  },
   'registration.request_review': {
     warning:
       'This opens a ticket asking HandsFreeOS to check the texting registration by hand, with what isn’t green. Nothing goes to the carriers until HandsFreeOS approves it.',
@@ -526,6 +533,10 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
     'taking back a whole move from another CRM at once, which puts away what it brought (Delete this move finishes them off); the person presses Take it back on the move’s page (the owner, 2026-10-26)',
   'migration.delete':
     'deleting a move from another CRM, which finishes off the records it archived, for good',
+  'guided_setup.save_draft':
+    'a guided setup keeping its own answers as they are given, so the screen opens where the person left off; the Assistant sets things up with the setup’s own save (do_phone_setup_save)',
+  'guided_setup.clear_draft':
+    'a guided setup putting its kept answers away once it is finished or started over, which the screen does by itself',
   'calendar_connection.connect': 'signing in to Google or Outlook, which only the person can do',
   'mailbox.connect': 'signing in to Outlook or Gmail, which only the person can do',
   'meeting_connection.connect': 'signing in to Zoom, which only the person can do',

@@ -1,10 +1,12 @@
 import { and, eq, ne } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { phoneNumberMembers, phoneNumbers, workspaces } from '@hfos/db/schema';
+import { loadTeammate, teammateConfigOf } from '../ai-team/load';
 import { formatPhone } from '../crm/phone';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { scopeCan } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
 import {
   defaultNumber,
@@ -36,10 +38,13 @@ import {
   PhoneNumberSetRoutingInput,
   PhoneNumberSetRoutingOutput,
   PhoneNumberSystemOutput,
+  PhoneSetupSaveInput,
+  PhoneSetupSaveOutput,
   PhoneUpdateSettingsInput,
   PhoneUpdateSettingsOutput,
   type TelephonySettings,
 } from '../schemas/telephony';
+import { saveTeammate } from './ai-team';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -71,46 +76,93 @@ export const phoneNumberBuy = defineCommand({
   scope: inWorkspace,
   emits: ['phone_number.purchase_requested'],
   async handler(ctx, input) {
-    const workspaceId = ctx.scope.workspaceId!;
-    /**
-     * A business may have several numbers now (M17) — a second location, a dispatch line, a toll-free
-     * beside a local one. But a ceiling is not optional: dropping the one-per-workspace unique index
-     * removed the only thing that stood between a purchase that kept retrying and forty numbers on
-     * somebody's card, each of them billed monthly.
-     */
-    if ((await liveNumberCount(ctx.tx, workspaceId)) >= MAX_NUMBERS_PER_WORKSPACE)
-      throw HfosError.rule(
-        'number_limit',
-        409,
-        `This business already has ${MAX_NUMBERS_PER_WORKSPACE} numbers, and that’s as many as one business can have. Release one you’re not using in Settings → Texting & calls first.`,
-      );
-    // A number is charged a month up front, so it needs the whole month there. Nobody should be able to buy
-    // one at zero and be billed for it later.
-    await assertWalletHasRoom(ctx.tx, workspaceId, 'number');
-    const [row] = await ctx.tx
-      .insert(phoneNumbers)
-      .values({
-        workspaceId,
-        e164: input.e164,
-        numberType: input.numberType,
-        createdBy: userIdOf(ctx.actor),
-      })
-      .returning({ id: phoneNumbers.id });
-    if (!row) throw HfosError.forbidden();
-    await ctx.emit({
-      type: 'phone_number.purchase_requested',
-      entityType: 'phone_number',
-      entityId: row.id,
-      payload: { e164: input.e164, numberType: input.numberType },
-      after: {
-        number: formatPhone(input.e164),
-        numberType: input.numberType,
-        status: 'provisioning',
-      },
-    });
-    return { phoneNumberId: row.id };
+    return { phoneNumberId: await buyNumber(ctx, input) };
   },
 });
+
+/**
+ * Asks for the number picked from the search results (phone_number.buy, and the guided setup's last screen): its row,
+ * being set up, and the event the worker buys it from. Returns its id.
+ */
+async function buyNumber(
+  ctx: CommandContext,
+  input: { readonly e164: string; readonly numberType: 'local' | 'toll_free' },
+): Promise<string> {
+  const workspaceId = ctx.scope.workspaceId!;
+  /**
+   * A business may have several numbers now (M17) — a second location, a dispatch line, a toll-free
+   * beside a local one. But a ceiling is not optional: dropping the one-per-workspace unique index
+   * removed the only thing that stood between a purchase that kept retrying and forty numbers on
+   * somebody's card, each of them billed monthly.
+   */
+  if ((await liveNumberCount(ctx.tx, workspaceId)) >= MAX_NUMBERS_PER_WORKSPACE)
+    throw HfosError.rule(
+      'number_limit',
+      409,
+      `This business already has ${MAX_NUMBERS_PER_WORKSPACE} numbers, and that’s as many as one business can have. Release one you’re not using in Settings → Texting & calls first.`,
+    );
+  // A number is charged a month up front, so it needs the whole month there. Nobody should be able to buy
+  // one at zero and be billed for it later.
+  await assertWalletHasRoom(ctx.tx, workspaceId, 'number');
+  const [row] = await ctx.tx
+    .insert(phoneNumbers)
+    .values({
+      workspaceId,
+      e164: input.e164,
+      numberType: input.numberType,
+      createdBy: userIdOf(ctx.actor),
+    })
+    .returning({ id: phoneNumbers.id });
+  if (!row) throw HfosError.forbidden();
+  await ctx.emit({
+    type: 'phone_number.purchase_requested',
+    entityType: 'phone_number',
+    entityId: row.id,
+    payload: { e164: input.e164, numberType: input.numberType },
+    after: {
+      number: formatPhone(input.e164),
+      numberType: input.numberType,
+      status: 'provisioning',
+    },
+  });
+  return row.id;
+}
+
+/** A number whose settings can still change: not one that was released, or that never finished setting up. */
+function assertSettable(n: { readonly status: string }) {
+  if (n.status === 'released' || n.status === 'failed')
+    throw HfosError.rule(
+      'number_not_active',
+      409,
+      n.status === 'released'
+        ? 'This number was released, so its settings can’t change anymore.'
+        : 'This number never finished setting up, so its settings can’t change. Get another one in Settings → Texting & calls.',
+    );
+}
+
+/** Refuses forwarding phones that are the business number itself, or on the list twice, each by its row. */
+function assertForwarding(
+  forwarding: readonly { readonly e164: string }[],
+  businessE164: string,
+  path: string,
+) {
+  const seen = new Set<string>();
+  const issues: { path: string; message: string }[] = [];
+  forwarding.forEach((f, i) => {
+    if (f.e164 === businessE164)
+      issues.push({
+        path: `${path}.${i}.e164`,
+        message: 'Forward to a phone other than the business number.',
+      });
+    else if (seen.has(f.e164))
+      issues.push({
+        path: `${path}.${i}.e164`,
+        message: 'This phone is already on the list.',
+      });
+    seen.add(f.e164);
+  });
+  if (issues.length > 0) throw HfosError.validation(issues);
+}
 
 export const phoneNumberRelease = defineCommand({
   name: 'phone_number.release',
@@ -167,30 +219,8 @@ export const phoneNumberSetRouting = defineCommand({
   emits: ['phone_number.routing_updated'],
   async handler(ctx, input) {
     const n = await loadNumber(ctx, input.phoneNumberId);
-    if (n.status === 'released' || n.status === 'failed')
-      throw HfosError.rule(
-        'number_not_active',
-        409,
-        n.status === 'released'
-          ? 'This number was released, so its settings can’t change anymore.'
-          : 'This number never finished setting up, so its settings can’t change. Get another one in Settings → Texting & calls.',
-      );
-    const seen = new Set<string>();
-    const issues: { path: string; message: string }[] = [];
-    input.routing.forwarding.forEach((f, i) => {
-      if (f.e164 === n.e164)
-        issues.push({
-          path: `routing.forwarding.${i}.e164`,
-          message: 'Forward to a phone other than the business number.',
-        });
-      else if (seen.has(f.e164))
-        issues.push({
-          path: `routing.forwarding.${i}.e164`,
-          message: 'This phone is already on the list.',
-        });
-      seen.add(f.e164);
-    });
-    if (issues.length > 0) throw HfosError.validation(issues);
+    assertSettable(n);
+    assertForwarding(input.routing.forwarding, n.e164, 'routing.forwarding');
     // What forwarding phones show stays as it is unless this save names it.
     const callerId = input.routing.forwardedCallerId ?? n.routing.forwardedCallerId;
     const announce = input.routing.announceRecording ?? n.routing.announceRecording;
@@ -476,7 +506,8 @@ export const phoneNumberSetMembers = defineCommand({
 
 export const phoneUpdateSettings = defineCommand({
   name: 'phone.update_settings',
-  description: 'Quiet hours for texts and the reminder email when a customer waits for a reply.',
+  description:
+    'Quiet hours for texts, the reminder email when a customer waits for a reply, and whether the business texts customers at all (texting: on, or not_now for calls only, which stops asking it to get approved by the carriers).',
   risk: 2,
   input: PhoneUpdateSettingsInput,
   output: PhoneUpdateSettingsOutput,
@@ -487,9 +518,11 @@ export const phoneUpdateSettings = defineCommand({
     const workspaceId = ctx.scope.workspaceId!;
     const current = await workspaceMessaging(ctx.tx, workspaceId);
     const next: TelephonySettings = {
+      ...current.settings,
       quietHours: input.quietHours ?? current.settings.quietHours,
       unansweredReminderMinutes:
         input.unansweredReminderMinutes ?? current.settings.unansweredReminderMinutes,
+      texting: input.texting ?? current.settings.texting,
     };
     const [row] = await ctx.tx
       .update(workspaces)
@@ -506,6 +539,136 @@ export const phoneUpdateSettings = defineCommand({
       after: { telephony: next },
     });
     return { settings: next };
+  },
+});
+
+/**
+ * The guided phone number setup's last screen, and each Change on Settings → Texting & calls (the owner, 22 Nov 2026):
+ * the number bought, what rings, what happens when nobody picks up, whether the business texts, and quiet hours, all
+ * or nothing. "The AI teammate answers" is the teammate's own Phone setting, saved as a revision like any other
+ * change to it; a business with no teammate yet has the wish kept until it sets one up (insertTeammate).
+ */
+export const phoneSetupSave = defineCommand({
+  name: 'phone_setup.save',
+  description:
+    'Carry out the guided phone number setup’s answers together, or change one part of them later: buy the number picked (buy; it is billed every month) or name one the business has (phoneNumberId), then what rings with HandsFreeOS and what those phones show (ring), how long they ring and what a caller gets after that (missed: the AI teammate, the voicemail or nothing), whether the business texts customers (texting) and quiet hours for texts. Parts left out stay as they are.',
+  risk: 3,
+  input: PhoneSetupSaveInput,
+  output: PhoneSetupSaveOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: [
+    'phone_number.purchase_requested',
+    'phone_number.routing_updated',
+    'phone.settings_updated',
+    'ai_teammate.config_saved',
+  ],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const current = await workspaceMessaging(ctx.tx, workspaceId);
+    const n = await loadNumber(
+      ctx,
+      input.buy ? await buyNumber(ctx, input.buy) : input.phoneNumberId!,
+    );
+    assertSettable(n);
+
+    if (input.ring || input.missed) {
+      if (input.ring) assertForwarding(input.ring.forwarding, n.e164, 'ring.forwarding');
+      const greeting = input.missed?.voicemailGreeting;
+      const routing = {
+        ...n.routing,
+        ...(input.ring
+          ? {
+              forwarding: input.ring.forwarding.map((f) => ({
+                e164: f.e164,
+                label: f.label,
+                enabled: f.enabled,
+              })),
+              forwardedCallerId: input.ring.forwardedCallerId,
+            }
+          : {}),
+        ...(input.missed
+          ? {
+              ringSeconds: input.missed.ringSeconds,
+              // The teammate's own fallback is the voicemail, so it stays on behind it.
+              voicemailEnabled: input.missed.then !== 'nothing',
+              ...(greeting === undefined ? {} : { voicemailGreeting: greeting || null }),
+            }
+          : {}),
+      };
+      await ctx.tx.update(phoneNumbers).set({ routing }).where(eq(phoneNumbers.id, n.id));
+      await ctx.emit({
+        type: 'phone_number.routing_updated',
+        entityType: 'phone_number',
+        entityId: n.id,
+        payload: { ringing: routing.forwarding.filter((f) => f.enabled).length },
+        before: { routing: n.routing },
+        after: { routing },
+      });
+    }
+
+    let teammate: 'on' | 'waiting' | 'off' | 'unchanged' = 'unchanged';
+    let wish = current.settings.teammateAnswers;
+    if (input.missed) {
+      const wants = input.missed.then === 'teammate';
+      const mode = input.missed.teammateMode ?? 'no_answer';
+      const row = await loadTeammate(ctx.tx, workspaceId);
+      if (!row) {
+        // Nobody to answer yet: the wish waits for the teammate, and callers get the voicemail meanwhile.
+        teammate = wants ? 'waiting' : wish ? 'off' : 'unchanged';
+        wish = wants ? mode : null;
+      } else {
+        wish = null;
+        const config = teammateConfigOf(row);
+        const same = config.phone.enabled === wants && (!wants || config.phone.answer === mode);
+        if (!same) {
+          if (ctx.actor.type === 'human' && !scopeCan(ctx.scope, 'ai_team.manage'))
+            throw HfosError.rule(
+              'teammate_not_yours',
+              403,
+              `Only someone who manages the AI teammate can change whether ${row.name} answers calls. Pick another answer for when nobody picks up, or ask an owner or admin of this business.`,
+            );
+          await saveTeammate(ctx, {
+            teammateId: row.id,
+            baseRevision: row.revision,
+            next: {
+              ...config,
+              phone: { ...config.phone, enabled: wants, ...(wants ? { answer: mode } : {}) },
+            },
+            note: 'Texting & calls',
+          });
+        }
+        teammate = wants ? 'on' : same ? 'unchanged' : 'off';
+      }
+    }
+
+    const next: TelephonySettings = {
+      ...current.settings,
+      quietHours: input.quietHours ?? current.settings.quietHours,
+      texting: input.texting ?? current.settings.texting,
+      teammateAnswers: wish,
+    };
+    if (JSON.stringify(next) !== JSON.stringify(current.settings)) {
+      const [row] = await ctx.tx
+        .update(workspaces)
+        .set({ settings: { ...current.rawSettings, telephony: next } })
+        .where(eq(workspaces.id, workspaceId))
+        .returning({ id: workspaces.id });
+      if (!row) throw HfosError.forbidden();
+      await ctx.emit({
+        type: 'phone.settings_updated',
+        entityType: 'workspace',
+        entityId: workspaceId,
+        payload: {
+          fields: (['quietHours', 'texting', 'teammateAnswers'] as const).filter(
+            (k) => JSON.stringify(next[k]) !== JSON.stringify(current.settings[k]),
+          ),
+        },
+        before: { telephony: current.settings },
+        after: { telephony: next },
+      });
+    }
+    return { phoneNumberId: n.id, bought: !!input.buy, teammate, settings: next };
   },
 });
 

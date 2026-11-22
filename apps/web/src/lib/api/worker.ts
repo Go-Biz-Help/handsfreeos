@@ -76,6 +76,30 @@ export function searchNumbers(input: {
   return workerPost('/v1/telephony/available-numbers', input);
 }
 
+/**
+ * Whether one number is still free at the carrier: the guided phone setup asks when someone comes back to a number
+ * they picked earlier, and again just before buying it. A search for its own ten digits either finds it or doesn't.
+ * `null` when the carrier couldn't be asked: buying it is then what tells.
+ */
+export async function numberStillFree(input: {
+  workspaceId: string;
+  e164: string;
+  numberType: 'local' | 'toll_free';
+}): Promise<boolean | null> {
+  const national = input.e164.replace(/^\+1/, '');
+  if (!/^[0-9]{10}$/.test(national)) return null;
+  try {
+    const out = await searchNumbers({
+      workspaceId: input.workspaceId,
+      numberType: input.numberType,
+      contains: national,
+    });
+    return out.numbers.some((n) => n.e164 === input.e164);
+  } catch {
+    return null;
+  }
+}
+
 /** An RCS sender in the business's own Twilio account (0103), as Settings offers it before connecting. */
 export interface FoundRcsSender {
   readonly sid: string;

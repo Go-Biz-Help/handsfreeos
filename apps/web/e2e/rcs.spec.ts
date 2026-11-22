@@ -50,10 +50,7 @@ test('RCS: connect a sender, send buttons, see how each text went, and read the 
   test.setTimeout(300_000);
   await signUpAndConfirm(page, 'rcs-owner');
   const workspaceId = await createBusiness(page, { name: 'Bluebonnet Plumbing' });
-  const business = await setUpTexting(page, workspaceId);
-  // Tests text at any hour.
-  await page.getByTestId('quiet-hours-switch').click();
-  await expect(page.getByText('Quiet hours off')).toBeVisible();
+  const business = await setUpTexting(page, workspaceId, { anyHour: true });
 
   // Settings → Texting & calls: a business asks us to make its sender (0104), and pays; one that already has
   // a sender connects it — the senders already in the business's Twilio account, one click to connect.

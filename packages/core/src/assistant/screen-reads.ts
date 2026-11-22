@@ -57,6 +57,7 @@ export const SCREEN_READS = [
   'funnel.of_person',
   'funnel.people',
   'funnel.suggestions',
+  'guided_setup.get_draft',
   'idea.areas',
   'idea.roadmap',
   'idea.similar',
@@ -272,6 +273,8 @@ export const withAgencyDoor = (input: z.ZodObject, agencyDoor: boolean): z.ZodOb
 
 /** What a look-up's answer adds to what the screen shows, said after its description. */
 const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
+  'guided_setup.get_draft':
+    'For setup phone, the answers are what Settings → Texting & calls’ guided setup has been told so far, and nothing in them has happened yet: have (new, keep or twilio), texting (whether they want to text), ein, number (the one picked, not bought), search (what they looked for), morePhones and phones (cell or desk phones that ring too), callerId (what those phones show), ringSeconds, then (teammate, voicemail or nothing when nobody picks up) with teammateMode and greeting, quiet with quietStart and quietEnd, and at (the question they stopped on). do_phone_setup_save carries the answers out, and buys the number.',
   'email_setup.get':
     'Its answer is what Set up your business email (Home, and the guided setup’s Your business email stop) starts from: state, the business’s addresses, domains with their records (each found or waiting) and where each domain’s DNS is managed, the person’s own address and connected mailboxes; and answers, the screens’ starting picks. do_email_setup_save saves one part at a time (sender, records, own), and do_email_domain_send_steps emails a domain’s records to whoever adds them.',
   'audit.list':

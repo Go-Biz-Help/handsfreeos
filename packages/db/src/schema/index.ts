@@ -1168,6 +1168,24 @@ export const registrationDrafts = app.table('registration_drafts', {
 });
 
 /**
+ * A guided setup's answers so far (20261027033600): one row for each setup a business has started and not finished
+ * ('phone', 'email'), saved as its screens are answered. Finishing the setup, or Start over, deletes it.
+ */
+export const guidedSetupDrafts = app.table(
+  'guided_setup_drafts',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    setup: text('setup').notNull(),
+    answers: jsonb('answers').$type<Json>().notNull().default({}),
+    updatedBy: userRef('updated_by'),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.setup] })],
+);
+
+/**
  * What the registration's last step found for exactly which details (20261027023500): one row per business, written
  * by the worker each time it checks. `registration.submit` sends only details whose fingerprint was found all green.
  */
@@ -9145,6 +9163,7 @@ export const tables = {
   phoneNumbers,
   telephonyRegistrations,
   registrationDrafts,
+  guidedSetupDrafts,
   numberPorts,
   twilioConnections,
   numberImports,
