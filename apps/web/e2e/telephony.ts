@@ -304,3 +304,16 @@ export function hourIn(timeZone = 'America/Chicago'): number {
   );
 }
 export const hh = (h: number): string => `${String(((h % 24) + 24) % 24).padStart(2, '0')}:00`;
+
+/**
+ * Quiet hours of the business's own, picked the way a person does in Settings → Texting & calls: Change on the Quiet
+ * hours row, Hours I pick, when texts stop and when they start again, Save. The window shuts once it's kept.
+ */
+export async function setQuietHours(page: Page, stop: string, start: string): Promise<void> {
+  await page.getByTestId('change-quiet').click();
+  await page.getByTestId('quiet-custom').click();
+  await page.getByTestId('quiet-start').selectOption(stop);
+  await page.getByTestId('quiet-end').selectOption(start);
+  await page.getByTestId('change-save').click();
+  await expect(page.getByTestId('change-dialog')).toHaveCount(0, { timeout: 30_000 });
+}

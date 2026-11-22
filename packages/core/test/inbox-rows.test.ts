@@ -481,6 +481,10 @@ describe('conversations from the copy', () => {
     expect(telephonySettingsOf(null)).toEqual({
       quietHours: { enabled: true, start: '20:00', end: '08:00' },
       unansweredReminderMinutes: 10,
+      // What the guided number setup keeps: a business texts unless it said calls only, and nothing is waiting for
+      // an AI teammate that isn't set up yet.
+      texting: 'on',
+      teammateAnswers: null,
     });
     expect(
       telephonySettingsOf(JSON.stringify({ telephony: { unansweredReminderMinutes: 15 } }))

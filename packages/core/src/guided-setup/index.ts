@@ -6,6 +6,8 @@
  * own questions sit beside this file (phone.ts). Browser-safe.
  */
 import { z } from 'zod';
+import { daysBetween, formatLocalDate, localDateOf } from '../calendar/engine/zoned';
+import { fmtDateLong, fmtMonthDay } from '../calendar/when';
 import type { Permission } from '../permissions';
 import { isoDateTime, uuid } from '../schemas/common';
 
@@ -49,24 +51,20 @@ export const GuidedSetupGetDraftOutput = z.object({
   savedAt: isoDateTime.nullable(),
 });
 
-/** "today", "yesterday", "on Friday", "on Nov 3": when the answers were last saved, for "Welcome back". */
+/**
+ * "today", "yesterday", "on Friday", "on Nov 3": when the answers were last saved, for "Welcome back". Days are the
+ * given zone's, or the reader's own device's when none is given.
+ */
 export function guidedSetupSavedWhen(savedAt: string, now: Date, timeZone?: string): string {
-  const at = new Date(savedAt);
   const day = (d: Date) =>
-    new Intl.DateTimeFormat('en-CA', {
-      ...(timeZone ? { timeZone } : {}),
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(d);
-  const days = Math.round((Date.parse(day(now)) - Date.parse(day(at))) / 86_400_000);
+    timeZone
+      ? localDateOf(d.getTime(), timeZone)
+      : formatLocalDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
+  const saved = day(new Date(savedAt));
+  const days = daysBetween(saved, day(now));
   if (days <= 0) return 'today';
   if (days === 1) return 'yesterday';
-  const fmt = (o: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat('en-US', { ...(timeZone ? { timeZone } : {}), ...o }).format(at);
-  return days < 7
-    ? `on ${fmt({ weekday: 'long' })}`
-    : `on ${fmt({ month: 'short', day: 'numeric' })}`;
+  return days < 7 ? `on ${fmtDateLong(saved).split(',')[0]}` : `on ${fmtMonthDay(saved)}`;
 }
 
 /** The frame's words, the same in every guided setup, on the web and the phone. */
