@@ -6,16 +6,20 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/partners/[partnerId].tsx": "f392529733e2",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/partners/index.tsx": "fe824ca6769b",
+    "apps/mobile/src/app/app/w/[workspaceId]/payments-setup.tsx": "2ac059c98881",
     "apps/mobile/src/components/customers/partner-card.tsx": "1436d5ed4d05",
+    "apps/mobile/src/components/payments-setup/guided-flow.tsx": "d10ed6a127f6",
     "apps/mobile/src/partners/calls.ts": "5ac1e2d02cb1",
     "apps/mobile/src/partners/screens.tsx": "bdfaee242467",
+    "apps/mobile/src/payments-setup/calls.ts": "7ba2d1b80859",
     "apps/web/src/app/app/w/[workspaceId]/settings/imports/page.tsx": "dbc58fe685bf",
     "apps/web/src/app/app/w/[workspaceId]/settings/migrations/[migrationId]/page.tsx": "648fa28d778c",
     "apps/web/src/app/app/w/[workspaceId]/settings/migrations/page.tsx": "aa90c8b49db7",
     "apps/web/src/app/app/w/[workspaceId]/settings/partners/[partnerId]/page.tsx": "68de793a5f5d",
     "apps/web/src/app/app/w/[workspaceId]/settings/partners/page.tsx": "3b681fa6fef9",
-    "apps/web/src/app/app/w/[workspaceId]/settings/payments/page.tsx": "2139dd184e27",
+    "apps/web/src/app/app/w/[workspaceId]/settings/payments/page.tsx": "f08c2e65136d",
     "apps/web/src/app/app/w/[workspaceId]/settings/payments/products/page.tsx": "d04f5eac8abc",
+    "apps/web/src/app/onboarding/[workspaceId]/payments/page.tsx": "000fab092932",
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
     "apps/web/src/components/migrations/wizard.tsx": "ded0c53789b3",
     "apps/web/src/components/money/product-stock-editor.tsx": "549412bdbeea",
@@ -24,9 +28,11 @@
     "apps/web/src/components/partners/partner-detail.tsx": "485bf34fe90f",
     "apps/web/src/components/partners/payouts-section.tsx": "6e34f7fdae98",
     "apps/web/src/components/partners/settings-page.tsx": "0ff4c1bbbd6e",
+    "apps/web/src/components/payments-setup/payments-setup-flow.tsx": "2a0247f70ab0",
     "apps/web/src/components/settings/payment-access-dialog.tsx": "aca450d764a2",
     "apps/web/src/components/settings/payment-connection-card.tsx": "43e7470e0b32",
-    "apps/web/src/components/settings/payments-page.tsx": "1a9b582d93ef"
+    "apps/web/src/components/settings/payments-overview.tsx": "e61bf7f9af7f",
+    "apps/web/src/components/settings/payments-page.tsx": "724fa584a2f0"
   },
   "items": [
     {
@@ -1666,6 +1672,293 @@
       "file": "apps/web/src/components/migrations/wizard.tsx:1089",
       "covered": "yes",
       "by": "read_migration_get → findings groupTitle, summary, whatChanges, recommendedAction, severity"
+    },
+    {
+      "path": "Settings → Payments → How the business gets paid line",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-overview.tsx:75",
+      "covered": "yes",
+      "by": "get_settings payments"
+    },
+    {
+      "path": "Settings → Payments → All settings / Hide all settings",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-overview.tsx:76",
+      "covered": "never",
+      "by": "showing or hiding the settings below on the page; get_settings payments reads all of them"
+    },
+    {
+      "path": "Settings → Payments → Something needs fixing, with All settings",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-overview.tsx:93",
+      "covered": "yes",
+      "by": "get_settings payments → payments.issues[]"
+    },
+    {
+      "path": "Settings → Payments → the account money goes into: provider, its name and Ready / Checking / Needs attention, with its hint",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-overview.tsx:110",
+      "covered": "yes",
+      "by": "get_settings payments → accounts[] state"
+    },
+    {
+      "path": "Settings → Payments → the account → Manage",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-overview.tsx:136",
+      "covered": "yes",
+      "by": "manage_payment_account"
+    },
+    {
+      "path": "Settings → Payments → Set up payments: Start / Pick up where you left off (opens the guided setup)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-overview.tsx:149",
+      "covered": "yes",
+      "by": "update_money_settings and update_numbering_and_ways_to_pay set every answer; read_guided_setup_get_draft setup payments reads where they left off; connecting is the person’s own"
+    },
+    {
+      "path": "Settings → Payments → Your answers: ways to pay, sales tax, when they pay, estimates, reminders, on every invoice, each with Change",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-overview.tsx:158",
+      "covered": "yes",
+      "by": "get_settings payments reads each; update_money_settings and update_numbering_and_ways_to_pay change it"
+    },
+    {
+      "path": "Settings → Payments → Go through the questions again",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-overview.tsx:161",
+      "covered": "yes",
+      "by": "update_money_settings and update_numbering_and_ways_to_pay"
+    },
+    {
+      "path": "Settings → Payments → Under All settings note",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-overview.tsx:195",
+      "covered": "yes",
+      "by": "get_settings payments reads every setting there"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → 1. Where should customer payments go?: Stripe / Square / PayPal (while Connect PayPal is open) / Not now",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:470",
+      "covered": "person",
+      "by": "which account to sign in to at the end; signing in at Stripe, Square or PayPal (payment_connection.connect NEVER); get_settings payments → accounts[].state"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → What’s usual for your kind of business line",
+      "kind": "see",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:360",
+      "covered": "partly",
+      "by": "get_settings payments gives what is set; the starting answers for the kind of business aren’t said"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → 2. What can customers pay with?: Bank transfer, Venmo and Pay Later switches; Card, PayPal, Cash and cheque always on",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:530",
+      "covered": "yes",
+      "by": "update_money_settings offerBankTransfer, offerVenmo, offerPayLater"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → 3. Do you charge sales tax?: No / Yes, with the rate, the tax’s name and New items are taxable",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:605",
+      "covered": "yes",
+      "by": "update_money_settings taxRatePercent, taxName, newItemsTaxable"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → 4. When should customers pay an invoice?: Right away / Within 7, 14 or 30 days",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:671",
+      "covered": "yes",
+      "by": "update_money_settings terms"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → 5. Do you send estimates before the work?: Yes (good for how many days, and no deposit, a percent or an amount) / No, I just send invoices",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:693",
+      "covered": "yes",
+      "by": "update_money_settings estimateGoodForDays, depositKind, depositPercent, depositDollars"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → 6. Should we remind customers who haven’t paid?: Yes, the usual / Just a nudge or two / No, I’ll follow up myself / Keep my own schedule, and the estimate nudge",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:792",
+      "covered": "yes",
+      "by": "update_money_settings remindBeforeDueDays, remindOnDueDay, remindAfterDueDays, nudgeEstimateAfterDays"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → 7. What goes on every invoice?: the business address, the invoice number’s start and next number with a preview, and a note",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:854",
+      "covered": "yes",
+      "by": "update_money_settings businessAddress, invoiceNote; update_numbering_and_ways_to_pay invoicePrefix, invoiceNextNumber"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → Back / Next, answers kept when they leave and come back, Start over",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:200",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft setup payments reads where they left off; the Assistant saves the answers straight away with the tools above, so it keeps no draft"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → Check it over: Here’s how you’ll get paid, each answer with Change",
+      "kind": "see",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:378",
+      "covered": "yes",
+      "by": "get_settings payments reads every answer as it is saved"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → Save and connect Stripe / Square / PayPal, or Save (a refusal names the question that’s wrong)",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:416",
+      "covered": "yes",
+      "by": "update_money_settings and update_numbering_and_ways_to_pay save the same answers and refuse the same mistakes before Confirm; the sign-in after is the person’s own"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → Done: You’re set up to get paid, with what was saved",
+      "kind": "see",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:1038",
+      "covered": "yes",
+      "by": "get_settings payments"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → Done: checking with the provider / ready / not connected, with Connect",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:1051",
+      "covered": "person",
+      "by": "signing in at Stripe, Square or PayPal (payment_connection.connect NEVER); get_settings payments → accounts[].state"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → Skip, I’ll do it in Settings (opens All settings)",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:520",
+      "covered": "yes",
+      "by": "get_settings payments reads every setting there; settings_help payments links the page"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → Done: Next: Add your services and prices / Send your first estimate / Send your first invoice / Take a deposit when they book",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:1087",
+      "covered": "yes",
+      "by": "manage_product; write_estimate; write_invoice; settings_help calendars"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → Done: Back to Getting started / Back to Settings",
+      "kind": "do",
+      "file": "apps/web/src/components/payments-setup/payments-setup-flow.tsx:1116",
+      "covered": "yes",
+      "by": "settings_help payments links the page"
+    },
+    {
+      "path": "Settings → Payments → Guided setup → can’t open it without money.manage (back home)",
+      "kind": "see",
+      "file": "apps/web/src/app/onboarding/[workspaceId]/payments/page.tsx:42",
+      "covered": "yes",
+      "by": "the tools’ permission refusal"
+    },
+    {
+      "path": "Phone → Payments setup → 1. Where should customer payments go?: Stripe / Square / PayPal (while Connect PayPal is open) / Not now",
+      "kind": "do",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:385",
+      "covered": "person",
+      "by": "which account to sign in to at the end; signing in at Stripe, Square or PayPal (payment_connection.connect NEVER); get_settings payments → accounts[].state"
+    },
+    {
+      "path": "Phone → Payments setup → What’s usual for your kind of business line",
+      "kind": "see",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:250",
+      "covered": "partly",
+      "by": "get_settings payments gives what is set; the starting answers for the kind of business aren’t said"
+    },
+    {
+      "path": "Phone → Payments setup → 2. What can customers pay with?: Bank transfer, Venmo and Pay Later switches; Card, PayPal, Cash and cheque always on",
+      "kind": "do",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:434",
+      "covered": "yes",
+      "by": "update_money_settings offerBankTransfer, offerVenmo, offerPayLater"
+    },
+    {
+      "path": "Phone → Payments setup → 3. Do you charge sales tax?: No / Yes, with the rate, the tax’s name and New items are taxable",
+      "kind": "do",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:485",
+      "covered": "yes",
+      "by": "update_money_settings taxRatePercent, taxName, newItemsTaxable"
+    },
+    {
+      "path": "Phone → Payments setup → 4. When should customers pay an invoice?: Right away / Within 7, 14 or 30 days",
+      "kind": "do",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:550",
+      "covered": "yes",
+      "by": "update_money_settings terms"
+    },
+    {
+      "path": "Phone → Payments setup → 5. Do you send estimates before the work?: Yes (good for how many days, and no deposit, a percent or an amount) / No, I just send invoices",
+      "kind": "do",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:573",
+      "covered": "yes",
+      "by": "update_money_settings estimateGoodForDays, depositKind, depositPercent, depositDollars"
+    },
+    {
+      "path": "Phone → Payments setup → 6. Should we remind customers who haven’t paid?: Yes, the usual / Just a nudge or two / No, I’ll follow up myself / Keep my own schedule, and the estimate nudge",
+      "kind": "do",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:684",
+      "covered": "yes",
+      "by": "update_money_settings remindBeforeDueDays, remindOnDueDay, remindAfterDueDays, nudgeEstimateAfterDays"
+    },
+    {
+      "path": "Phone → Payments setup → 7. What goes on every invoice?: the business address, the invoice number’s start and next number with a preview, and a note",
+      "kind": "do",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:749",
+      "covered": "yes",
+      "by": "update_money_settings businessAddress, invoiceNote; update_numbering_and_ways_to_pay invoicePrefix, invoiceNextNumber"
+    },
+    {
+      "path": "Phone → Payments setup → Back / Next, answers kept when they leave and come back, Start over",
+      "kind": "do",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:155",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft setup payments reads where they left off; the Assistant saves the answers straight away with the tools above, so it keeps no draft"
+    },
+    {
+      "path": "Phone → Payments setup → Check it over: Here’s how you’ll get paid, each answer with Change",
+      "kind": "see",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:305",
+      "covered": "yes",
+      "by": "get_settings payments reads every answer as it is saved"
+    },
+    {
+      "path": "Phone → Payments setup → Save and connect Stripe / Square / PayPal, or Save (a refusal names the question that’s wrong)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:375",
+      "covered": "yes",
+      "by": "update_money_settings and update_numbering_and_ways_to_pay save the same answers and refuse the same mistakes before Confirm; the sign-in after is the person’s own"
+    },
+    {
+      "path": "Phone → Payments setup → Done: You’re set up to get paid, with what was saved",
+      "kind": "see",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:999",
+      "covered": "yes",
+      "by": "get_settings payments"
+    },
+    {
+      "path": "Phone → Payments setup → Done: checking with the provider / ready / not connected, with Connect",
+      "kind": "do",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:967",
+      "covered": "person",
+      "by": "signing in at Stripe, Square or PayPal (payment_connection.connect NEVER); get_settings payments → accounts[].state"
+    },
+    {
+      "path": "Phone → Payments setup → can’t open it without money.manage",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/payments-setup.tsx:34",
+      "covered": "yes",
+      "by": "the tools’ permission refusal"
+    },
+    {
+      "path": "Phone → Payments setup → Done: Email me a link (a build without the sign-in)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/payments-setup/guided-flow.tsx:1029",
+      "covered": "yes",
+      "by": "do_onboarding_send_link"
     }
   ],
   "gaps": [

@@ -1114,6 +1114,12 @@ const pages = (): SettingEntry[] =>
     value: null,
   }));
 
+/**
+ * What opens the part of a page that holds its settings: Settings → Payments keeps every setting under All settings,
+ * behind its simple card (the owner, 23 Nov 2026, P3 a).
+ */
+const PAGE_OPEN: Partial<Record<SettingsPageKey, string>> = { payments: 'all=1' };
+
 const rows = (): SettingEntry[] =>
   Object.entries(ROWS).map(([key, raw]) => {
     const r: RowDef = raw;
@@ -1126,7 +1132,7 @@ const rows = (): SettingEntry[] =>
       label: r.label,
       words: r.words ?? [],
       anchor: r.path ? null : (r.anchor ?? anchorOf(key)),
-      open: null,
+      open: r.path ? null : (PAGE_OPEN[r.page] ?? null),
       path: r.path ? `settings${r.path}` : pagePath(r.page),
       needs: r.needs ?? null,
       feature: null,

@@ -40965,7 +40965,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar";
+                    setup: "phone" | "email" | "calendar" | "payments";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -40999,7 +40999,7 @@ export interface operations {
                         [key: string]: unknown;
                     };
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar";
+                    setup: "phone" | "email" | "calendar" | "payments";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -85405,7 +85405,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar";
+                    setup: "phone" | "email" | "calendar" | "payments";
                     /** Format: uuid */
                     workspaceId: string;
                 };

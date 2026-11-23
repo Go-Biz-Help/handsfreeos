@@ -222,12 +222,18 @@ async function stepBody(step: WizardStepKey, c: StepContext): Promise<ReactNode>
 
     case 'payments': {
       const step = c.status.steps.find((s) => s.key === 'payments');
+      // The web ships a little before the API: a draft it can't read yet is no draft.
+      const draft = await api
+        .POST('/v1/queries/guided_setup.get_draft', { body: { workspaceId, setup: 'payments' } })
+        .then((r) => r.data?.answers ?? null)
+        .catch(() => null);
       return (
         <PaymentsSetup
           workspaceId={workspaceId}
           said={c.status.answers?.goal === 'paid'}
           waiting={step?.state === 'waiting' ? (step.note.provider ?? 'stripe') : null}
           result={c.payments}
+          started={draft !== null}
         />
       );
     }

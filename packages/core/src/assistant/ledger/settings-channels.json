@@ -16,7 +16,7 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx": "1c86737b9add",
     "apps/web/src/app/onboarding/[workspaceId]/phone/page.tsx": "41cfea8de77a",
     "apps/web/src/app/onboarding/[workspaceId]/texting/page.tsx": "83bf6bc1b4cb",
-    "apps/web/src/components/guided-setup/frame.tsx": "d7c8b93ce88c",
+    "apps/web/src/components/guided-setup/frame.tsx": "9222ba772a3c",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/phone-setup/editors.tsx": "ef212390d4d3",
     "apps/web/src/components/phone-setup/number-picker.tsx": "0c548fbb78a8",
