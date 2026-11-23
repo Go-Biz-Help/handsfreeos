@@ -67,6 +67,9 @@ Carried over, not re-asked:
 - The worker routes a recipient on a receiving domain through a new
   `private.email_receiving_route(address)`: the address itself, or else the domain's catch-all (the
   business's default shared address). Mail is never dropped because nobody has that address.
+- Mail for a domain still waiting on the MX check (`pending`) is filed too, once Postmark has made the domain's
+  server: Postmark hands us its mail from then on, before our check says `on`. The owner's decision, 22 Nov 2026
+  ("Yes, file it in the Inbox"), after a business that had just moved its MX had mail arrive and go unfiled.
 - Routing order in the webhook: the support desk (`support@` and `help@handsfreeos.com`), a reply
   token, `mail.handsfreeos.com` addresses, then receiving domains.
 - On a receiving domain the business sends with **no Reply-To**. The reply comes straight to the

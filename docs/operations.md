@@ -5967,6 +5967,11 @@ resolver keeps the old records for as long as they said to, a day at some DNS ho
 left beside ours reads as mail still going there. When the name servers can't be found, don't answer or give no
 MX record, the worker asks its usual resolver instead.
 
+Mail that arrives while the page still says **Waiting for the MX record** is filed, not dropped (the owner's
+decision, 22 Nov 2026). Postmark hands us a domain's mail from the moment it makes the domain's server, and our
+own check says **Receiving** only later. So `private.email_receiving_route` also routes a waiting domain once it
+has its server (`inbound_server_id`). A waiting domain with no server yet routes nothing.
+
 Before the first business turns it on:
 
 1. **Room for the servers.** Each receiving domain is one Postmark server. The Pro plan stops at 10 servers, and

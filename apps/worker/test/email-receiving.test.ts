@@ -309,6 +309,30 @@ describe('mail to a receiving domain', () => {
     expect(await filed(p.MessageID)).toBeUndefined();
   });
 
+  // Postmark hands us a domain's mail from the moment the MX points there; our own check says "on" only later.
+  it('is filed while the domain still waits for its MX check, once Postmark has its server', async () => {
+    const domain = `waiting-${token()}.example.com`;
+    const { domainId, addressId } = await domainWith(domain, 'off');
+    const waiting = (serverId: string | null) =>
+      rows(
+        admin(),
+        sql`update app.email_domains set receiving = 'pending', inbound_server_id = ${serverId} where id = ${domainId}`,
+      );
+    // No server yet: Postmark holds no mail for the domain, and nothing naming it is filed.
+    await waiting(null);
+    const early = inbound(`chris@${domain}`);
+    expect((await post(early)).statusCode).toBe(200);
+    await drain();
+    expect(await filed(early.MessageID)).toBeUndefined();
+
+    await waiting('4410123');
+    const p = inbound(`chris@${domain}`);
+    expect((await post(p)).statusCode).toBe(200);
+    await drain();
+    expect((await filed(p.MessageID))?.emailAddressId).toBe(addressId);
+    expect(await receivingOf(domainId)).toBe('pending');
+  });
+
   it('never takes the support desk’s addresses, even on a domain the business receives', async () => {
     const { addressId } = await domainWith(supportDomain, 'on', 'chris');
     const toSupport = inbound(`support@${supportDomain}`);
