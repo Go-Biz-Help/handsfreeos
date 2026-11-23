@@ -9,10 +9,12 @@ import {
   deskSectionsFor,
   screenPlace,
 } from '@hfos/core/server';
+import { answerBlocks } from '@hfos/core';
 import { describe, expect, it } from 'vitest';
 import {
   contextText,
   lastingText,
+  SPOKEN,
   SYSTEM,
   turnText,
   type PromptContext,
@@ -42,9 +44,35 @@ const PROMPT: PromptContext = {
 describe('how the Assistant writes (owner, 2026-11-11)', () => {
   it('answers in as few words as it takes, simply, with more only when asked, and no notes to itself', () => {
     expect(SYSTEM).toContain('Write at a 5th grade reading level');
-    expect(SYSTEM).toContain('never more than three unless they ask for more');
+    expect(SYSTEM).toContain('Start with the answer itself, in one short sentence');
     expect(SYSTEM).toContain('only when they ask for them ("how", "why", "tell me more")');
     expect(SYSTEM).toContain("Don't write notes to yourself");
+  });
+});
+
+describe('answers read at a glance (owner, 2026-11-23)', () => {
+  it('asks for short paragraphs, bullets for lists and bold for the key thing, which the chat shows', () => {
+    expect(SYSTEM).toContain('Never write a wall of text');
+    expect(SYSTEM).toContain('a blank line between paragraphs');
+    expect(SYSTEM).toContain('as a bullet starting "- ", or "1. " for steps in order');
+    expect(SYSTEM).toContain('**bold**');
+    // The old rule asked for one paragraph and no lists; it must not come back.
+    expect(SYSTEM).not.toContain('no lists unless they ask');
+    // What it's asked to write is what the web and the phone draw: paragraphs, bullets, steps, bold.
+    expect(
+      answerBlocks(
+        'You have **3** visits today.\n\n- 9:00 AM Mike\n- 1:00 PM Sue\n\n1. Open it\n2. Press Send',
+      ),
+    ).toEqual([
+      { kind: 'p', lines: ['You have **3** visits today.'] },
+      { kind: 'ul', items: ['9:00 AM Mike', '1:00 PM Sue'] },
+      { kind: 'ol', items: ['Open it', 'Press Send'] },
+    ]);
+  });
+
+  it('keeps lists and symbols out when the answer is read out loud', () => {
+    expect(SPOKEN).toContain('in place of the bullets, bold and line breaks in How to write');
+    expect(SPOKEN).toContain('no lists, tables or symbols');
   });
 });
 
