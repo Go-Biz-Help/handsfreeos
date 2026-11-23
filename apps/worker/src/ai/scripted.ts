@@ -1954,7 +1954,19 @@ function scriptedTodayDraft(message: string) {
     };
   }
   // A reply to a question in one of the owner's groups (decision 114): answers it; one with a link, for the checks to
-  // drop.
+  // drop. Told how people write there (decision 191, the note a comment research left in use for messages), it writes
+  // as they do.
+  if (
+    message.includes(
+      'Write the owner’s public reply under it. The owner’s playbook says how it goes',
+    ) &&
+    message.includes('<how_people_write>')
+  )
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [`Good question ${first}, it opens at eight on Saturdays`],
+    };
   if (
     message.includes(
       'Write the owner’s public reply under it. The owner’s playbook says how it goes',

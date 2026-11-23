@@ -20,12 +20,18 @@
  *   the patterns and a few real examples by kind of post, each checked to be a real comment (`checkedFindings`). The
  *   guide made of it (`commentGuide`) is read by staff first; once they press Use it, every business's comments on
  *   that network are written with it (the worker's today.ts), as how real comments sound and never as words to copy.
+ * - **In messages too** (decision 191; the owner, 22 Nov 2026: "we should be able to use the existing research to
+ *   improve our comments and other natural language skills"): a short note made from the counts alone
+ *   (`writingNote`: emoji, how a line ends, lower case, everyday words; no comment in it) goes in every business's
+ *   first messages, replies, follow-ups and answers to comments on that network once staff press its own Use it
+ *   (`writingNoteBlock`). It shapes how the writing sounds, never what it says or how long it is.
  *
  * Browser-safe: the extension, the web and the worker read these words and shapes. The server's side is
  * ./ops/comment-research.ts.
  */
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
+import { appVersionAtLeast } from '../../mobile';
 import { BROCHURE_WORDS } from './comment-says';
 import { PLATFORMS, type Platform } from './networks';
 
@@ -66,6 +72,10 @@ const DAY = 86_400_000;
 /** Where a research stands. */
 export const RESEARCH_STATES = ['reading', 'summing', 'done', 'stopped'] as const;
 export type ResearchState = (typeof RESEARCH_STATES)[number];
+
+/** What a finished research can be used in: comments (its guide), and messages (its note, decision 191). */
+export const RESEARCH_USES = ['comments', 'messages'] as const;
+export type ResearchUse = (typeof RESEARCH_USES)[number];
 
 /**
  * The everyday kinds of post read on Instagram, Facebook, Threads and X: none about the business, so the comments are
@@ -819,6 +829,64 @@ export const commentGuideBlock = (guide: string, warm = true): string =>
     '</how_people_comment>',
   ].join('\n');
 
+// ------------------------------------------------------------------------------------------- for messages
+
+/** The most the note may be: it goes in every message's prompt on its network. */
+export const WRITING_NOTE_MOST = 700;
+/** How many of the words in the most comments the note names. */
+const NOTE_WORDS = 12;
+
+/**
+ * How people write on a network, for the AI's other writing there (decision 191): first messages, replies,
+ * follow-ups and answers to comments. Made from a research's counts alone, so it holds nothing anyone typed but
+ * single everyday words: how many use an emoji, how a line ends, how many start in lower case, and the words in the
+ * most comments. Never how long a comment is (a message isn't one), the AI's patterns, or an example.
+ */
+export function writingNote(stats: CommentStats, platform: ResearchPlatform): string {
+  const words = stats.words
+    .map((w) => w.word)
+    .filter((word) => !ORDER.test(word))
+    .slice(0, NOTE_WORDS);
+  const lines = [
+    `From ${stats.comments.toLocaleString('en-US')} real comments people wrote on ${researchNetworkName(platform)}:`,
+    `- ${inTen(stats.emoji)} have an emoji.`,
+    `- ${inTen(stats.exclaim)} end with “!”, and ${inTen(stats.fullStop).toLowerCase()} end with a full stop.`,
+    `- ${inTen(stats.lowerStart)} of those that start with a word start it in lower case.`,
+    ...(words.length ? [`- Everyday words in the most of them: ${words.join(', ')}.`] : []),
+  ];
+  let note = '';
+  for (const line of lines) {
+    if (note.length + line.length + 1 > WRITING_NOTE_MOST) break;
+    note += (note ? '\n' : '') + line;
+  }
+  return note;
+}
+
+/**
+ * How the note goes in a message's prompt: as data on how people there write, for how the writing sounds and nothing
+ * else. What a message says and how long it is stay its task's and the playbook's (decision 164), and the playbook's
+ * own words and tone and the person's own voice (./voice.ts, told right after it) win over it. `keepsWords` for a
+ * message whose words are the playbook's (a first message, Reconnect, the ask after a yes), which it barely touches.
+ */
+export const writingNoteBlock = (note: string, keepsWords = false): string =>
+  [
+    [
+      'How people really write on this network, from research on real comments there.',
+      'Use it only for how your writing sounds: how relaxed it is, how a line ends, the plain everyday words.',
+      'It changes nothing about what you say: that is still your task’s and the playbook’s. Write as much as your task needs, and never cut a message short to sound like a comment.',
+      keepsWords
+        ? 'This message’s words are the playbook’s, so keep them: at most it changes a small thing around them, like how a line ends.'
+        : null,
+      'Where it differs from the playbook’s own words or tone, or from the owner’s own voice told next (emoji, short forms, acronyms, how many texts), those win.',
+      'Never put one of its words in for its own sake.',
+    ]
+      .filter(Boolean)
+      .join(' '),
+    '<how_people_write>',
+    quoteData(note),
+    '</how_people_write>',
+  ].join('\n');
+
 // ------------------------------------------------------------------------------------------- shapes
 
 /** A research as its card shows it. */
@@ -839,6 +907,8 @@ export const CommentResearch = z.object({
   findings: CommentFindings.nullable(),
   /** The guide made from the findings, as it would go in comments' prompts. */
   guide: z.string().nullable(),
+  /** The note made from the findings, as it would go in messages' prompts (`writingNote`); null with no findings. */
+  note: z.string().nullable(),
 });
 export type CommentResearch = z.output<typeof CommentResearch>;
 
@@ -856,6 +926,16 @@ export const CommentResearchNetwork = z.object({
       comments: z.number().int().min(0),
       usedAt: z.string(),
       /** Whether it's this research's guide. */
+      thisOne: z.boolean(),
+    })
+    .nullable(),
+  /** The note every business's messages on it are written with now (decision 191); null when none is in use. */
+  inMessages: z
+    .object({
+      note: z.string(),
+      comments: z.number().int().min(0),
+      usedAt: z.string(),
+      /** Whether it's this research's note. */
       thisOne: z.boolean(),
     })
     .nullable(),
@@ -880,6 +960,11 @@ export const CommentResearchUseInput = z.object({
   id: z.uuid(),
   /** True puts this research's guide in every business's comments; false takes the guide in use out again. */
   use: z.boolean(),
+  /**
+   * What it's used in: every business's comments (its guide), or their messages and replies (its note, decision 191).
+   * Each is on or off on its own.
+   */
+  where: z.enum(RESEARCH_USES).default('comments'),
 });
 export type CommentResearchUseInput = z.input<typeof CommentResearchUseInput>;
 
@@ -957,15 +1042,29 @@ export const CommentResearchSumOutput = z.object({ id: z.uuid(), state: z.enum(R
 
 // ------------------------------------------------------------------------------------------- the card's words
 
-/** The extension version that reads on each network: Instagram's from decision 166, the rest from decision 172. */
+/**
+ * The extension version that reads on each network: Instagram's from decision 166, the rest from decision 172.
+ * Facebook's and LinkedIn's from 0.151.1 (decision 191): before it, Facebook's reader read the feed behind a post and
+ * LinkedIn's found no comment on a post's own page.
+ */
 export const RESEARCH_SINCE: Readonly<Record<ResearchPlatform, string>> = {
   instagram: '0.140.0',
-  facebook: '0.144.0',
-  linkedin: '0.144.0',
+  facebook: '0.151.1',
+  linkedin: '0.151.1',
   alignable: '0.144.0',
   threads: '0.144.0',
   x: '0.144.0',
 };
+
+/**
+ * Whether an extension of this version reads for a research on a network. One before `RESEARCH_SINCE` there is handed
+ * nothing to read, so it keeps nothing its reader gets wrong: before 0.151.1 Facebook's read the comments under
+ * another post (decision 191). A request that names no version isn't the extension's own, and is let through.
+ */
+export const researchReads = (
+  platform: ResearchPlatform,
+  version: string | null | undefined,
+): boolean => !version || appVersionAtLeast(version, RESEARCH_SINCE[platform]);
 
 const NETWORK_LIST = 'Instagram, Facebook, LinkedIn, Alignable, Threads and X';
 
@@ -980,7 +1079,9 @@ export const COMMENT_RESEARCH_WORDS = {
   startAgain: 'Run it again',
   stop: 'Stop and sum up what it has',
   use: 'Use in everyone’s comments',
-  unuse: 'Stop using it',
+  unuse: 'Stop using it in comments',
+  useInMessages: 'Use in everyone’s messages',
+  unuseInMessages: 'Stop using it in messages',
   notStarted: 'Not started yet.',
   inUse: (network: string) =>
     `Every business’s ${network} comments are written with this research’s guide now.`,
@@ -988,6 +1089,10 @@ export const COMMENT_RESEARCH_WORDS = {
     `Every business’s ${network} comments are written with an earlier research’s guide now.`,
   inUseFrom: (comments: number, since: string) =>
     `Learned from ${comments.toLocaleString('en-US')} comments, in use since ${since}.`,
+  inMessages: (network: string) =>
+    `Every business’s ${network} messages and replies are written with this research’s note on how people write there now.`,
+  inMessagesOther: (network: string) =>
+    `Every business’s ${network} messages and replies are written with an earlier research’s note on how people write there now.`,
   notMine:
     'Someone else on your team started this one, so their browser does the reading, not yours.',
   needsExtension: (platform: ResearchPlatform) =>
@@ -995,6 +1100,9 @@ export const COMMENT_RESEARCH_WORDS = {
   summing: 'It’s read. The AI is working out the patterns now: a minute or two.',
   stopped: `The last one was stopped before it had ${RESEARCH_MIN_TO_SUM} comments, too few to learn from.`,
   guideTitle: 'What a comment’s writer is told',
+  noteTitle: 'What a message’s writer is told',
+  noteAbout:
+    'For first messages, replies, follow-ups and answers to comments. It only shapes how they sound. What a message says still comes from the playbook, and a message is never cut short to sound like a comment.',
   findingsTitle: (comments: number, copied: number) =>
     `What ${comments.toLocaleString('en-US')} real comments show${copied ? ` (${copied.toLocaleString('en-US')} more left out as pasted under several posts)` : ''}`,
   kindsTitle: 'By kind of post',

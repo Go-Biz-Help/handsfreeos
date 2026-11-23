@@ -8,11 +8,14 @@
  * - **Who engaged:** on the person's own post it reads each comment and reply (who, and what they wrote) and, from
  *   the box **See who reacted to this** opens, who reacted. The person themselves is left out. Nothing is pressed but
  *   that, and the box's Close.
+ *
+ * Both read the post the page shows (./posts.ts `pagePost`): the one in the box over the page when Facebook opened it
+ * there, never the feed it keeps hidden behind that box.
  */
-import { clean, labelOf, mainOf } from './dom';
+import { clean, labelOf, mainOf, textWithEmoji } from './dom';
 import { shown } from './fetch';
 import { yourProfile } from './friends';
-import { COMMENT, commentsIn, postBoxes } from './posts';
+import { COMMENT, commentsIn, pagePost, readPost } from './posts';
 import type { ProfileRef } from './types';
 import { facebookUrl, profileFromUrl, profileKey } from './urls';
 import { hasWriting, WRITING } from './actions';
@@ -123,7 +126,27 @@ function personIn(element: Element, base: string): { name: string; profile: Prof
   return null;
 }
 
-/** What a comment says: its words, never the name, the time or the buttons under it. */
+/**
+ * Facebook's own mark on a comment, said for screen readers before its words: "by author" on one the post's writer
+ * left (the comment research kept it as the comment's first words, 17 to 20 Nov 2026). Never what somebody wrote.
+ */
+const MARK = /^(by )?author$/i;
+
+const marked = (element: Element) => MARK.test(clean(element.textContent));
+
+/**
+ * A piece of a comment's writing as words: an emoji Facebook draws as a picture is put back (`textWithEmoji`), so a
+ * comment that is only one isn't empty; and Facebook's mark is left out, whether it's the whole piece or sits in it.
+ */
+function wordsOf(piece: Element): string {
+  if (marked(piece)) return '';
+  if (![...piece.querySelectorAll('*')].some(marked)) return textWithEmoji(piece);
+  const copy = piece.cloneNode(true) as Element;
+  for (const part of [...copy.querySelectorAll('*')]) if (marked(part)) part.remove();
+  return textWithEmoji(copy);
+}
+
+/** What a comment says: its words, never the name, the time, Facebook's mark on it or the buttons under it. */
 function commentText(article: Element): string | null {
   const parts = [...article.querySelectorAll('div[dir="auto"], span[dir="auto"]')]
     .filter(
@@ -132,14 +155,23 @@ function commentText(article: Element): string | null {
         !e.querySelector('div[dir="auto"], span[dir="auto"]') &&
         e.closest('[role="article"]') === article,
     )
-    .map((e) => clean(e.textContent))
+    .map(wordsOf)
     .filter(Boolean);
   return parts.join('\n') || null;
 }
 
-/** The comments and replies on the person's post the page shows, each person once, never the person themselves. */
+/** Who wrote the post the page shows, when its heading says. */
+export function postWriter(doc: Document, base: string): ProfileRef | null {
+  const post = pagePost(doc);
+  return (post ? readPost(post, base)?.author?.profile : null) ?? null;
+}
+
+/**
+ * The comments and replies on the post the page shows, each person once, never the person themselves: the post in the
+ * box over the page when Facebook opened it there, and never a comment under another post in the feed behind it.
+ */
 export function readComments(doc: Document, base: string): Engaged[] {
-  const post = postBoxes(mainOf(doc))[0] ?? mainOf(doc);
+  const post = pagePost(doc) ?? mainOf(doc);
   const you = yourProfile(doc, base);
   const seen = new Set<string>(you ? [profileKey(you)] : []);
   const found: Engaged[] = [];
@@ -153,13 +185,36 @@ export function readComments(doc: Document, base: string): Engaged[] {
   return found;
 }
 
-/** The box over the page that lists who reacted, while it's open. */
-function reactionsBox(doc: Document): Element | null {
+/** How long a post that says it has comments gets to draw them. */
+const COMMENTS_WAIT_MS = 4_000;
+
+/**
+ * The comments on the post the page shows, once Facebook has drawn them: it draws a post first and its comments a
+ * moment later, so a post read at once had none. Waits a few seconds, only while the page shows no comment and the
+ * post doesn't say it has none. Nothing is pressed.
+ */
+export async function commentsOnceDrawn(
+  doc: Document,
+  base: string,
+  ms = COMMENTS_WAIT_MS,
+): Promise<Engaged[]> {
+  for (let waited = 0; ; waited += LOOK_MS) {
+    const now = readComments(doc, base);
+    if (now.length || waited >= ms) return now;
+    const post = pagePost(doc);
+    if (post && readPost(post, base)?.comments === 0) return now;
+    await pause(LOOK_MS);
+  }
+}
+
+/** The box over the page that lists who reacted, while it's open: never the box the post itself is in. */
+function reactionsBox(doc: Document, post: Element): Element | null {
   return (
     [...doc.querySelectorAll('[role="dialog"]')]
       .filter(shown)
       .reverse()
-      .find((d) => !d.querySelector(WRITING) && d.querySelector('a[href]')) ?? null
+      .find((d) => !d.contains(post) && !d.querySelector(WRITING) && d.querySelector('a[href]')) ??
+    null
   );
 }
 
@@ -168,7 +223,7 @@ function reactionsBox(doc: Document): Element | null {
  * it. Never the person themselves. Empty when nobody has.
  */
 export async function readReactions(doc: Document, base: string): Promise<Engaged[]> {
-  const post = postBoxes(mainOf(doc))[0] ?? mainOf(doc);
+  const post = pagePost(doc) ?? mainOf(doc);
   const toolbar = [...post.querySelectorAll('[aria-label]')].find((e) => REACTED.test(labelOf(e)));
   const press = toolbar?.querySelector('[role="button"]') ?? toolbar;
   if (!press) return [];
@@ -176,7 +231,7 @@ export async function readReactions(doc: Document, base: string): Promise<Engage
   let box: Element | null = null;
   for (let waited = 0; !box && waited < WAIT_MS; waited += LOOK_MS) {
     await pause(LOOK_MS);
-    box = reactionsBox(doc);
+    box = reactionsBox(doc, post);
   }
   if (!box) return [];
   const you = yourProfile(doc, base);

@@ -121402,6 +121402,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "note": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -121417,7 +121423,8 @@
                                   "dropped",
                                   "posts",
                                   "findings",
-                                  "guide"
+                                  "guide",
+                                  "note"
                                 ],
                                 "additionalProperties": false
                               },
@@ -121458,12 +121465,46 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "inMessages": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "note": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "note",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
                           "platform",
                           "research",
-                          "inUse"
+                          "inUse",
+                          "inMessages"
                         ],
                         "additionalProperties": false
                       }
@@ -121823,6 +121864,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "note": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -121838,7 +121885,8 @@
                                   "dropped",
                                   "posts",
                                   "findings",
-                                  "guide"
+                                  "guide",
+                                  "note"
                                 ],
                                 "additionalProperties": false
                               },
@@ -121879,12 +121927,46 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "inMessages": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "note": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "note",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
                           "platform",
                           "research",
-                          "inUse"
+                          "inUse",
+                          "inMessages"
                         ],
                         "additionalProperties": false
                       }
@@ -121904,7 +121986,7 @@
     "/v1/commands/outreach.comment_research.use": {
       "post": {
         "operationId": "command_outreach_comment_research_use",
-        "summary": "HandsFreeOS staff only: put a finished comment research’s guide in every business’s comments on its network (how real comments sound there: their length, words and punctuation), in place of the guide in use on that network; or take the guide in use there out again.",
+        "summary": "HandsFreeOS staff only: put a finished comment research’s guide in every business’s comments on its network (how real comments sound there: their length, words and punctuation), in place of the guide in use on that network; or take the guide in use there out again. With where set to messages, the same for its short note on how people write there (emoji, how a line ends, lower case, everyday words), which goes in every business’s first messages, replies, follow-ups and answers to comments on that network and changes only how they sound.",
         "tags": [
           "commands"
         ],
@@ -121928,6 +122010,14 @@
                   },
                   "use": {
                     "type": "boolean"
+                  },
+                  "where": {
+                    "default": "comments",
+                    "type": "string",
+                    "enum": [
+                      "comments",
+                      "messages"
+                    ]
                   }
                 },
                 "required": [
@@ -122248,6 +122338,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "note": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -122263,7 +122359,8 @@
                                   "dropped",
                                   "posts",
                                   "findings",
-                                  "guide"
+                                  "guide",
+                                  "note"
                                 ],
                                 "additionalProperties": false
                               },
@@ -122304,12 +122401,46 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "inMessages": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "note": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "note",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
                           "platform",
                           "research",
-                          "inUse"
+                          "inUse",
+                          "inMessages"
                         ],
                         "additionalProperties": false
                       }
@@ -264690,6 +264821,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "note": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -264705,7 +264842,8 @@
                                   "dropped",
                                   "posts",
                                   "findings",
-                                  "guide"
+                                  "guide",
+                                  "note"
                                 ],
                                 "additionalProperties": false
                               },
@@ -264746,12 +264884,46 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "inMessages": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "note": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "note",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
                           "platform",
                           "research",
-                          "inUse"
+                          "inUse",
+                          "inMessages"
                         ],
                         "additionalProperties": false
                       }
@@ -264771,7 +264943,7 @@
     "/v1/queries/outreach.comment_research.next": {
       "post": {
         "operationId": "query_outreach_comment_research_next",
-        "summary": "What the person’s computer reads next on a network for the comment research they started there, if they started one: the next hashtags or search words (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.",
+        "summary": "What the person’s computer reads next on a network for the comment research they started there, if they started one: the next hashtags or search words (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one, or for an extension older than the network’s reader needs.",
         "tags": [
           "queries"
         ],
