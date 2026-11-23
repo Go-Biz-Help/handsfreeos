@@ -218,3 +218,13 @@ export function subscriptionListBody(
     limit: 100,
   };
 }
+
+/** Which orders Money → Orders shows (product sellers): still to do, handed over, cancelled, or all. */
+export type OrderShow = 'open' | 'done' | 'cancelled' | 'all';
+
+export const orderListBody = (workspaceId: string, show: OrderShow, q: string) => ({
+  workspaceId,
+  show,
+  ...(q ? { search: q } : {}),
+  limit: 50,
+});

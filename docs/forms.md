@@ -184,7 +184,9 @@ design notes.
 - **The rows are `config.choices`** (`QuantityRow`: `label`, `price` in dollars or null, `productId`), so they're
   added, reworded, reordered and removed with a choice's ops (`add_choice`, `delete_choice`, `update_question` with
   `config.choices` by id), and the AI builder and the Assistant write them the same way. Settings: `unit` (what the
-  total counts), `minTotal` and `maxTotal` (a 12-shirt minimum), `showPrices`.
+  total counts), `minTotal` and `maxTotal` (a 12-shirt minimum), `showPrices`, and `makesOrder` (on unless it's
+  `false`: a sent form with something ordered on it makes an order on Money → Orders, "Orders" in
+  `docs/selling-products.md`; the editor's **Makes an order** switch).
 - **The answer is how many of each row by its id** (`QuantitiesAnswer`, `{"c_ab12cd34": 3}`), only rows above 0.
   Nothing ordered is `{}`, which is no answer, so a required one asks again. Rewording "Adult M" keeps every order
   already given pointing at it.

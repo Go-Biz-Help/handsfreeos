@@ -76,6 +76,8 @@ export const SCREEN_READS = [
   'onboarding.clients',
   'onboarding.status',
   'onboarding_setup.get',
+  'order.get',
+  'order.list',
   'partner.get',
   'partner.of_person',
   'partner.payout_get',
@@ -275,7 +277,7 @@ export const withAgencyDoor = (input: z.ZodObject, agencyDoor: boolean): z.ZodOb
 /** What a look-up's answer adds to what the screen shows, said after its description. */
 const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
   'guided_setup.get_draft':
-    'For setup phone, the answers are what Settings → Texting & calls’ guided setup has been told so far, and nothing in them has happened yet: have (new, keep or twilio), texting (whether they want to text), ein, number (the one picked, not bought), search (what they looked for), morePhones and phones (cell or desk phones that ring too), callerId (what those phones show), ringSeconds, then (teammate, voicemail or nothing when nobody picks up) with teammateMode and greeting, quiet with quietStart and quietEnd, and at (the question they stopped on). do_phone_setup_save carries the answers out, and buys the number. For setup email, they are what the guided email setup has been told so far, shaped as read_email_setup_get’s guided is, with at (the question they stopped on) and by (who was answering); do_email_setup_apply carries them out.',
+    'For setup phone, the answers are what Settings → Texting & calls’ guided setup has been told so far, and nothing in them has happened yet: have (new, keep or twilio), texting (whether they want to text), ein, number (the one picked, not bought), search (what they looked for), morePhones and phones (cell or desk phones that ring too), callerId (what those phones show), ringSeconds, then (teammate, voicemail or nothing when nobody picks up) with teammateMode and greeting, quiet with quietStart and quietEnd, and at (the question they stopped on). do_phone_setup_save carries the answers out, and buys the number. For setup calendar, they are what New calendar’s guided setup (Settings → Calendars) has been told so far, and no calendar is made yet: the same answers do_calendar_setup_save takes, with at (the question they stopped on). For setup email, they are what the guided email setup has been told so far, shaped as read_email_setup_get’s guided is, with at (the question they stopped on) and by (who was answering); do_email_setup_apply carries them out.',
   'email_setup.get':
     'Its answer is what Set up your business email (Home, and the onboarding setup’s Your business email stop) starts from: state, the business’s addresses, domains with their records (each found or waiting) and where each domain’s DNS is managed, the person’s own address and connected mailboxes; and answers, the onboarding stop’s starting picks. do_email_domain_send_steps emails a domain’s records to whoever adds them. guided is where the guided email setup starts, from Home’s card and Settings → Email (which email, the addresses and who reads each one, the one customers hear from, where the mail arrives), and state.lookup what do_email_setup_look_up found for a website name; do_email_setup_apply carries the guided answers out.',
   'audit.list':

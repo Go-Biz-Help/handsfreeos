@@ -140,7 +140,7 @@ test('no staff needed: four beds take four people at once, a fifth can’t, a st
   await expect(page.getByTestId('preset-labels')).toContainText('Resource');
   await page.getByLabel('Name', { exact: true }).fill('Red light');
   await page.getByTestId('calendar-create').click();
-  await expect(page).toHaveURL(/\/settings\/calendars\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/settings\/calendars\/[0-9a-f-]{36}\/all$/);
 
   await page.getByTestId('module-team').click();
   await page.getByTestId('assignment-none').click();

@@ -153,6 +153,17 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'video_call.turn_away': {},
   // ---- Money and plans ----
   'subscription.set_connection': {},
+  // Orders (product sellers, 20261027034500): Money → Orders and an order's page.
+  'order.create': {
+    about:
+      'Find the customer first, for personId. Each line is its name with any choice ("T-shirt (Adult 2XL)"), quantity and unitPriceCents; a line from the price list also passes its productId and the choiceIds it was ordered in.',
+  },
+  'order.update': {
+    about:
+      'Read the order with order.get first. lines replaces every line: pass each one to keep as it reads there, with the change.',
+  },
+  'order.set_status': {},
+  'order.make_invoice': {},
   // ---- Workflows ----
   'workflow.create': {},
   'workflow.publish': {},
@@ -369,6 +380,13 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   // ---- Settings → Calendars ----
   'booking_site.set_page': {},
+  // New calendar's guided setup, Make this calendar (22 Nov 2026, the owner's picks C1 a to C4 b).
+  'calendar_setup.save': {
+    about:
+      'answers is the whole setup, as read_guided_setup_get_draft with setup calendar gives it while the person is part way through: kind (appointment, visit, meeting, class, event, webinar, resource, collective or scratch), name, people (user ids from list_team) with assignment (first_available, round_robin, customer_choice or collective), what (services or length), services (rows of key, id from get_settings services or null for a new one, name, on, minutes, priceCents and userIds), minutes, seats, resource ({id or null, name}), hours (people or own) with ownHours, noticeMinutes, daysAhead, gapMinutes, dates ({date, time} in the business’s zone, for an event or webinar), places, address, meetingUrl, areas (anywhere or areas) with areaIds, travelMinutes, drive, confirm, reminders, byText, byEmail, changeHours (null: they can’t cancel or move online), ask (extra questions: id, label, required), tellStaff, pay (none, deposit or full) with deposit (business, percent or amount), depositPercent and depositCents, and open (open it for booking now). A refusal names the answer that is wrong.',
+    warning:
+      'This makes the calendar now, with any new services, and changes the services it names everywhere they’re used. With open on, customers can book it straight away.',
+  },
   // A calendar's Booking link → Embed: the sites allowed to show it. get_calendar_settings gives the code to paste.
   'calendar.set_embed_sites': {
     about:

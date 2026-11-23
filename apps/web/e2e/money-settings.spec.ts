@@ -363,7 +363,7 @@ test('The calendar’s Payments module: off without an account, on with one', as
   });
 
   // Nothing is connected yet, so asking for a deposit is a conflict with a way out of it.
-  await page.goto(`/app/w/${owner.workspaceId}/settings/calendars/${calendar.id}`);
+  await page.goto(`/app/w/${owner.workspaceId}/settings/calendars/${calendar.id}/all`);
   await page.getByTestId('module-payments').click();
   await expect(page.getByTestId('module-panel-payments')).toContainText(
     'No payment account is connected yet',
@@ -386,7 +386,7 @@ test('The calendar’s Payments module: off without an account, on with one', as
   await enter(page, 'deposit-percent-value', '25');
   await expect.poll(async () => (await savedSettings(owner)).deposit.kind).toBe('percent');
 
-  await page.goto(`/app/w/${owner.workspaceId}/settings/calendars/${calendar.id}`);
+  await page.goto(`/app/w/${owner.workspaceId}/settings/calendars/${calendar.id}/all`);
   await page.getByTestId('module-payments').click();
   await page.getByTestId('pay-mode-deposit').click();
   await expect(page.getByTestId('issue-payment_unavailable')).toHaveCount(0);

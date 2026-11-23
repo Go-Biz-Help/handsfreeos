@@ -184,6 +184,32 @@ describe('the extension on its own', () => {
     ).toBe('validation');
   });
 
+  it('keeps Keep working on other days turned off (decision 139)', async () => {
+    const hoursNow = async () => (await runAs(owner, ws, 'outreach.automation', {})).settings.hours;
+    const off = { ...steps.hours, everyDay: false };
+    // Turned off, it stays off: in the save's answer and read back.
+    const saved = await runAs(owner, ws, 'outreach.automation.save', {
+      settings: { ...steps, hours: off },
+    });
+    expect(saved.settings.hours).toEqual(off);
+    expect(await hoursNow()).toEqual(off);
+    // Hours sent without it (a screen from before it, the Assistant changing only the times): it stays as kept.
+    await runAs(owner, ws, 'outreach.automation.save', {
+      settings: { ...steps, hours: { ...steps.hours, start: 8 } },
+    });
+    expect(await hoursNow()).toEqual({ ...off, start: 8 });
+    await runAs(owner, ws, 'outreach.automation.save', {
+      changes: { hours: { ...steps.hours, end: 18 } },
+    });
+    expect(await hoursNow()).toEqual({ ...off, end: 18 });
+    // Turned on again, it's on, said by leaving it out as before.
+    await runAs(owner, ws, 'outreach.automation.save', {
+      settings: { ...steps, hours: { ...steps.hours, everyDay: true } },
+    });
+    expect(await hoursNow()).toEqual(steps.hours);
+    await runAs(owner, ws, 'outreach.automation.save', { settings: steps });
+  });
+
   it('likes a post a day before the friend request, and sends it without when there’s none', async () => {
     const first = await list();
     expect(first.auto).toEqual(['confirm', 'warm_up', 'friend_request', 'comment']);

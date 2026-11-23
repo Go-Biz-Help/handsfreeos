@@ -89,7 +89,7 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
   const cal = await makeCalendar(owner, 'Coaching call', {
     locations: { options: [{ kind: 'virtual', video: 'handsfree' }] },
   });
-  await page.goto(`/app/w/${owner.workspaceId}/settings/calendars/${cal.id}`);
+  await page.goto(`/app/w/${owner.workspaceId}/settings/calendars/${cal.id}/all`);
   await page.getByTestId('module-locations').click();
   await expect(page.getByLabel('Video link')).toHaveValue('handsfree');
   await expect(page.getByTestId('handsfree-place')).toContainText('nothing to set up');

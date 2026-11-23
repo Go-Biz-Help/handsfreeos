@@ -52,6 +52,7 @@ import {
   calendarSetSlug,
   calendarSetStatus,
 } from './calendar';
+import { calendarSetupSave } from './calendar-setup';
 import {
   bookingSiteSetPage,
   bookingSiteUpdate,
@@ -479,6 +480,7 @@ import {
 } from './money-catalog';
 import { estimateCommands } from './estimate';
 import { invoiceCommands } from './invoice';
+import { orderCommands } from './order';
 import { paymentCommands } from './payment';
 import { partnerPayoutCommands } from './partner-payouts';
 import { subscriptionCommands } from './subscription';
@@ -745,6 +747,7 @@ export {
   calendarSetStatus,
   calendarSetSlug,
   calendarSetEmbedSites,
+  calendarSetupSave,
   serviceCreate,
   serviceUpdate,
   serviceArchive,
@@ -976,6 +979,7 @@ export const commands: readonly CommandDef[] = [
   calendarSetStatus,
   calendarSetSlug,
   calendarSetEmbedSites,
+  calendarSetupSave,
   serviceCreate,
   serviceUpdate,
   serviceArchive,
@@ -1215,6 +1219,8 @@ export const commands: readonly CommandDef[] = [
   ...paymentConnectionCommands,
   ...estimateCommands,
   ...invoiceCommands,
+  // Orders (product sellers, 20261027034500).
+  ...orderCommands,
   ...paymentCommands,
   ...subscriptionCommands,
   ...walletCommands,
@@ -1441,6 +1447,7 @@ export * from './mail-folder';
 export * from './own-mail-draft';
 export * from './ai-provider';
 export * from './job';
+export * from './order';
 export * from './custom-field';
 export * from './custom-record';
 export * from './relationship';
