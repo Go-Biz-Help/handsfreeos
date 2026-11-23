@@ -50,6 +50,23 @@ export async function dayOf(
   return dayShown(row, today);
 }
 
+/**
+ * The person's day on every network, from one read. The extension's heartbeat answers with all of them, every
+ * minute round the clock, and asked once per network: six reads where one does.
+ */
+export async function daysOf(
+  ctx: Ctx,
+  userId: string,
+  today: string,
+): Promise<(platform: Platform) => LiveDay> {
+  const kept = await ctx.tx
+    .select()
+    .from(days)
+    .where(and(eq(days.workspaceId, ctx.scope.workspaceId!), eq(days.userId, userId)));
+  const by = new Map(kept.map((row) => [row.platform, row] as const));
+  return (platform) => dayShown(by.get(platform), today);
+}
+
 export function dayShown(row: typeof days.$inferSelect | undefined, today: string): LiveDay {
   if (!row || row.day !== today)
     return { date: today, state: 'none', why: null, via: null, at: null };
