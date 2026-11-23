@@ -220,7 +220,7 @@ test('the calendar builder saves a deposit of its own and the account it is paid
     services: { mode: 'one', items: [{ serviceId }] },
   });
 
-  const builder = `/app/w/${owner.workspaceId}/settings/calendars/${cal.id}`;
+  const builder = `/app/w/${owner.workspaceId}/settings/calendars/${cal.id}/all`;
   await page.goto(builder);
   await page.getByTestId('module-payments').click();
   await expect(page.getByRole('heading', { name: 'Payments' })).toBeVisible();

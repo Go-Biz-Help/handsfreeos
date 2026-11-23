@@ -8193,12 +8193,33 @@ Owners and admins set up a workspace's booking site:
 
 Each visitor's internet address may load the pages 60 times a minute, make 5 bookings or waitlist requests in 10 minutes, and open a change-or-cancel link 30 times and change it 10 times a minute. Past that, the page says "That’s a lot of tries from here. Wait a minute and try again." The pages also have a hidden field that only bots fill in, and accept only US and Canadian phone numbers. A calendar's page is kept for up to 30 seconds, so a change to its settings can take that long to show.
 
+#### New calendar: the guided setup
+
+**New calendar** in **Settings** → **Calendars** opens a guided setup on a page of its own, `/onboarding/<workspace id>/calendar` (the owner, 2026-11-22, picks C1 a to C4 b). Only someone who may change the business's calendars (`calendars.manage`) gets it; anyone else goes Home.
+
+1. Open **Settings** → **Calendars** and click **New calendar**.
+2. Pick what customers book: **An appointment for a service**, **A visit to their home or business**, **A meeting or a call**, **A class or group session** or **An event on set dates**. **More kinds** adds **A webinar**, **A room or equipment**, **Two of you at every booking** and **Start from scratch**. Name the calendar.
+3. Answer the questions the kind asks, one a page: who does the work (and, for two or more people, **They take turns** and the other ways to share), the services or the length, when, where, what customers hear, and paying. A room needs no staff, and a webinar is always a HandsFreeOS video call, so those skip a question.
+4. On **Check it over**, change anything, leave **Open it for booking right away** ticked or not, and click **Make this calendar**.
+
+   You should see "{name} is open for booking" (or "is saved as a draft"), its link with **Copy**, and next steps: **Add your dates** for an event, **Put it on your website**, **Connect Google or Outlook**.
+
+How it works:
+
+- **Saved as it goes,** like the phone setup ("Number: the guided setup"): `app.guided_setup_drafts` under setup `calendar`, which needs `calendars.manage` (`20261027034200_guided_calendar_setup.sql`). Nothing is made until **Make this calendar**, which clears the answers, so **New calendar** starts fresh after.
+- **Paying is always asked.** A deposit or the full price with no payment account connected says "Connect a payment account first, so the money has somewhere to go. Your answers are saved." with a button to **Settings** → **Payments** (rule `needs_payment_account`).
+- **Make this calendar** is one command, `calendar_setup.save`, that runs the usual ones inside it with all their rules: `service.create` for services added in question 3 (and `service.update` for ones changed there, which changes them everywhere they're used), `resource.create` for a new room or equipment, `calendar.create` from the kind's preset, then `calendar.save` with every answer as revision 2, `session.publish` for each of an event's dates (one that can't be posted says why, and the rest still go up), and `calendar.set_status` when **Open it for booking right away** is ticked. If something still stops it from opening, the Done screen says what and it stays a draft. A wrong answer is refused before anything is made. The Assistant makes calendars the same way (`do_calendar_setup_save`).
+- **Skip the questions and open all settings** (and **Start from scratch**) open the old preset page and then every setting.
+- **The rules live in core** (`packages/core/src/guided-setup/calendar.ts`): which questions a kind asks, what's wrong with an answer, the settings the answers become, and the words. The phone will use the same file; the phone app's version isn't built yet.
+
+**A calendar's page is now one card** (the owner, C3 a). Pressing a calendar in **Settings** → **Calendars** shows its name, **Open for booking** or **Pause booking**, its link with **Copy** and the website code, anything to fix, and the setup's seven answers read back from what it does now (`calendarCardLines`), each with **Change**. **Change** opens **All settings** at that section (`/settings/calendars/<id>/all?part=<section>`). **All settings** is the builder as it was, with every section, **History**, **Archive** and the rest under **More**, so nothing a calendar could do before is gone. Running the guided setup again on a calendar that exists isn't built yet: change it from the card or **All settings**.
+
 #### A calendar on the business's own website
 
 A calendar can sit on the business's own website, the way a form can (the owner, 2026-11-18). It comes from the migration `20261027029300_calendar_embed_sites.sql`.
 
 1. Open **Settings** → **Calendars** and press the calendar.
-2. Under **Booking link**, click **Embed**.
+2. Under **Its booking link**, click **Embed** (it's under **Booking link** in **All settings** too).
 3. In **Sites allowed to show it**, type the website, like `lonestarhvac.com`. The `www` version is added for you. It saves when you click out of the box.
 4. Click **Copy the code** and paste it into an HTML or custom-code block on the site, where the calendar should go.
 
@@ -8213,7 +8234,7 @@ How it works:
 
 **How it looks** is the calendar's **Design** section, the last one down its left (the owner, 2026-11-19: "a design feature similar to the form design"). It has the same choices as a form's Design tab (`docs/forms.md`, "How a form looks"): light or dark, each colour, the font and text size, corners, the boxes people type in, the buttons, and the calendar's name and logo at the top, with **Match my website** and a preview on a website or its own page, on a computer or a phone.
 
-1. Open **Settings** → **Calendars**, press the calendar, then **Design**.
+1. Open **Settings** → **Calendars**, press the calendar, click **All settings**, then **Design**.
 2. Pick the colours and the rest, or type the website under **Match my website** and click **Match**.
 3. Click **Save**.
 
