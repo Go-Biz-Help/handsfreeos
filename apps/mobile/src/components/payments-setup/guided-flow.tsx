@@ -25,7 +25,6 @@ import {
   type PaymentsSetupAccount,
   type PaymentsSetupAnswers,
   type PaymentsSetupContext,
-  type PaymentsSetupQuestion,
   type PaymentsSetupScreen,
   type PaymentTerms,
 } from '@hfos/core';
@@ -262,7 +261,7 @@ export function PaymentsGuidedFlow({
       screen={screen}
       testID="payments-setup"
       kicker={screen === 'review' ? G.checkKicker : G.question(i + 1, questions.length)}
-      settingUp={W.pageTitle}
+      settingUp={W.settingUp(businessName)}
       progress={{ at: i + 1, of: questions.length + 1 }}
       title={title}
       hint={hint}

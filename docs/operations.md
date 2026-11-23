@@ -10372,9 +10372,27 @@ Any business can offer two or three options on one estimate (the owner's decisio
 
 **An estimate an add-on built.** An add-on's builder can write estimates through core's commands (Contractor Operations does, to check the margin). Core stamps `app.estimates.addon_id`, and while that add-on runs in the business, core's own editor, `estimate.update` and `estimate.send` refuse it (`estimate_built_elsewhere`) and the estimate's page says where to change it. With the add-on off, it's an estimate like any other. The add-on puts its panel on the estimate's page through the `estimate.panels` slot.
 
+### Payments: the guided setup
+
+**Set up payments** opens a guided setup on a page of its own, `/onboarding/<workspace id>/payments` (the owner, 2026-11-23, picks P1 a to P4 a). It's on **Settings** → **Payments**, on the payments step of Getting started (`?from=setup`), and on the phone's Getting started card. Only someone who may change the business's payments (`money.manage`) gets it; anyone else goes Home.
+
+1. Open **Settings** → **Payments** and click **Start** on **Set up payments** (or **Pick up where you left off**).
+2. Answer one question a page: where customer payments go (**Stripe**, **Square**, **PayPal** while **Connect PayPal** is open, or **Not now**), what customers can pay with, sales tax, when an invoice is due, estimates and the deposit they ask for, reminders, and what goes on every invoice. The answers start from what the kind of business usually picks; sales tax is always theirs to say.
+3. On **Check it over**, change anything, then click **Save and connect Stripe** (or Square or PayPal), or **Save my answers** with **Not now**.
+
+   You should see the provider's own sign-in, then "You’re set up to get paid" with what was saved, whether the provider is still checking the account, and what to do next.
+
+How it works:
+
+- **Saved as it goes,** like the phone setup ("Number: the guided setup"): `app.guided_setup_drafts` under setup `payments`, which needs `money.manage` (`20261027035000_guided_payments_setup.sql`). **Save** clears the answers.
+- **Nothing changes before Save.** Save is `money.save_settings` with every answer laid over the settings as they are that moment, so nothing else on the page is touched. The invoice number can't go below one already used (`paymentsSettingsAtCounters`). The sign-in comes last (P1), after the answers are saved, and comes back to the Done screen.
+- **Settings → Payments is now one card** (P3). It shows the account money goes into (or **Set up payments** while there's none) and the setup's answers read back from the settings, each with **Change**, which opens that one question and goes straight to **Check it over**. **All settings** is the page as it was, so nothing it could do before is gone. It opens by itself for a link to one setting, for settings search (`?all=1`), coming back from a sign-in started there (`?payments=`), and while something needs fixing.
+- **The phone has the same setup** (P4), from its Getting started card until an account is connected. The sign-in opens in the phone's browser and the Done screen checks again when they come back.
+- **The rules live in core** (`packages/core/src/guided-setup/payments.ts`): the questions, the starting answers for each kind of business, what's wrong with an answer, the settings the answers become, and the words. The Assistant sets the same things with `update_money_settings` and `update_numbering_and_ways_to_pay`.
+
 ### Before a client takes a real payment
 
-1. They connect their own account in **Settings** → **Payments**, signed in as an owner or admin. If they have more than one, mark the one money should land in as **Default**.
+1. They connect their own account in **Settings** → **Payments** (**Set up payments** asks the questions below and then signs them in), signed in as an owner or admin. If they have more than one, mark the one money should land in as **Default** under **All settings**.
    - If people on the team are each paid into their own account (one person's automations work into one Stripe account, another's SEO work into a second), open **Who can use it** on each account and pick the people. **Only the people you pick** keeps an account to them; **Only the people you pick, and only this account for them** also stops them billing into the accounts open to everyone. Their invoices and plans then land in their own account without anyone choosing it, and **Money** can be split by the account things were paid into.
    - Only people who may send invoices are offered: owners and admins, and anyone an owner lets bill — for a role in **Settings** → **Permissions**, or for one person under **Members** (see [Who can do what](#who-can-do-what-roles-and-permissions)).
 2. Fill in **Settings** → **Payments**: the business address that goes at the top of a document, the sales tax rate and what it is called, the estimate and invoice number prefixes and the number to start from, the payment terms, and the deposit they usually ask for.
