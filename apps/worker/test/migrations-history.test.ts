@@ -639,6 +639,27 @@ describe('the history arrives as history', () => {
     );
     expect(products.map((p) => p.name)).toEqual(['Service call', 'Replacement coil']);
     expect(Number(products[0]!.unit_price_cents)).toBe(12_900);
+    // Two prices over there: one product, with a choice for each at the difference (2026-11-23).
+    const [coil] = await rows<{
+      unit_price_cents: string;
+      options: {
+        id: string;
+        name: string;
+        choices: { id: string; label: string; priceCents: number }[];
+      }[];
+    }>(
+      admin(),
+      sql`select unit_price_cents, options from app.products
+          where workspace_id = ${workspaceId}::uuid and name = 'Replacement coil'`,
+    );
+    expect(Number(coil!.unit_price_cents)).toBe(85_000);
+    expect(coil!.options).toHaveLength(1);
+    expect(coil!.options[0]!.name).toBe('Price');
+    expect(coil!.options[0]!.id).toMatch(/^o_/);
+    expect(coil!.options[0]!.choices.map((c) => [c.label, c.priceCents])).toEqual([
+      ['Standard', 0],
+      ['Installed', 25_000],
+    ]);
 
     const got = await ask<{ findings: { code: string }[] }>(migrationGet, {
       organizationId,

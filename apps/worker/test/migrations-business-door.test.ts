@@ -432,7 +432,8 @@ describe('a business moves itself in', () => {
     expect(everything).toContain('invoices');
     type Chosen = { added: { category: string }[]; selectedCategories: string[] };
 
-    // Only invoices. They need their customers and products, and those need the business itself.
+    // Only invoices. They need their customers and products, and those need the business itself. Nothing
+    // else: custom fields come only when ticked (the owner, 2026-11-23).
     const first = await as<Chosen>(migrationSelect, {
       ...door,
       choices: everything.map((category) => ({ category, selected: category === 'invoices' })),
@@ -475,6 +476,72 @@ describe('a business moves itself in', () => {
     );
     expect(queued.map((q) => q.category)).toEqual(['locations', 'tags']);
   }, 120_000);
+
+  it('brings only the customers and products on the invoices when only invoices are ticked', async () => {
+    // The owner, 2026-11-23: "if i choose only invoices then it should only bring the customers that had
+    // invoices", "as well as only the products and services that were in the invoices".
+    const someone = await createTestUser('business-door-invoices', { fullName: 'Ivy Invoices' });
+    const { output: theirs } = await executeCommand(
+      api(),
+      organizationCreate,
+      { businessName: 'Cibolo Creek Cooling', timezone: 'America/Chicago' },
+      actorOf(someone),
+      meta(),
+    );
+    const { as, door } = await upToChoosing(someone, theirs);
+    // Everything starts ticked after the scan, so only invoices is everything else unticked, the way the
+    // screen sends it.
+    const got = (await executeQuery(
+      api(),
+      migrationGet as never,
+      door,
+      actorOf(someone),
+      meta(),
+    )) as { inventory: { category: string; resourceId: string | null }[] };
+    await as(migrationSelect, {
+      ...door,
+      choices: got.inventory
+        .filter((i) => i.resourceId === null && isImportable(i.category))
+        .map((i) => ({ category: i.category, selected: i.category === 'invoices' })),
+    });
+    await as(migrationStart, { ...door, acknowledgedFindingIds: [] });
+    await drain(200, door.migrationId);
+
+    const people = await rows<{ name: string }>(
+      admin(),
+      sql`select x.first_name as name from app.migration_change_journal j
+          join app.people x on x.id = j.target_id
+          where j.migration_id = ${door.migrationId} and j.action = 'create' and j.target_type = 'person'
+          order by 1`,
+    );
+    const products = await rows<{ name: string }>(
+      admin(),
+      sql`select x.name from app.migration_change_journal j
+          join app.products x on x.id = j.target_id
+          where j.migration_id = ${door.migrationId} and j.action = 'create' and j.target_type = 'product'
+          order by 1`,
+    );
+    // Austin's three bills are Dave's, Maria's and Priya's (hers is in Canadian dollars, so the bill itself
+    // stays behind, but she had one). Tom, Sam and the others had none.
+    expect(people.map((p) => p.name)).toEqual(['Dave', 'Maria', 'Priya']);
+    // Only Dave's bill has a line that is a product, the Service call. The Replacement coil is on none.
+    expect(products.map((p) => p.name)).toEqual(['Service call']);
+
+    // Counted as what came, and the checks say where the rest are.
+    const [customers] = await rows<{ found: number; imported: number }>(
+      admin(),
+      sql`select (counts ->> 'found')::int as found, (counts ->> 'imported')::int as imported
+          from app.migration_checkpoints where migration_id = ${door.migrationId} and category = 'contacts'`,
+    );
+    expect(customers).toEqual({ found: 3, imported: 3 });
+    const [check] = await rows<{ result: string; summary: string }>(
+      admin(),
+      sql`select result::text as result, summary from app.migration_verifications
+          where migration_id = ${door.migrationId} and kind = 'counts' and category = 'contacts'`,
+    );
+    expect(check?.result).toBe('passed');
+    expect(check?.summary).toContain('stayed in the old system, because Contacts wasn’t ticked');
+  }, 180_000);
 
   it('stops a batch that is already reading when the move is taken back, so nothing is left behind', async () => {
     // 2026-11-23, Burroughs Digital: taking a move back left records in the business. A batch the worker was
@@ -603,6 +670,82 @@ describe('a business moves itself in', () => {
       confirm: true,
     });
     expect(once).toMatchObject({ status: 'rolled_back', changed: false });
+  }, 180_000);
+
+  it('takes back the tags the move made, and keeps one the business has put on its own customer', async () => {
+    // The owner's decision, 2026-11-23: a tag the move made goes when the move is taken back, unless something
+    // of the business's own uses it. These tags come only on the customers (the Tags box isn't ticked), the
+    // way that used to leave them out of the journal altogether.
+    const someone = await createTestUser('business-door-tags', { fullName: 'Tam Tags' });
+    const { output: theirs } = await executeCommand(
+      api(),
+      organizationCreate,
+      { businessName: 'Brazos Tags & Trim', timezone: 'America/Chicago' },
+      actorOf(someone),
+      meta(),
+    );
+    const tagsHere = async () =>
+      rows<{ id: string; name: string }>(
+        admin(),
+        sql`select id::text as id, name::text as name from app.tags
+            where workspace_id = ${theirs.workspaceId}::uuid order by name`,
+      );
+    const theirOwn = (await tagsHere()).map((t) => t.name);
+    const { as, door } = await upToChoosing(someone, theirs);
+    await as(migrationSelect, { ...door, choices: [{ category: 'contacts', selected: true }] });
+    await as(migrationStart, { ...door, acknowledgedFindingIds: [] });
+    await drain(200, door.migrationId);
+    const brought = await tagsHere();
+    const vip = brought.find((t) => t.name === 'VIP');
+    const plan = brought.find((t) => t.name === 'Maintenance plan');
+    expect(vip && plan).toBeTruthy();
+
+    // A customer of the business's own, wearing one of the move's tags.
+    const [own] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, last_name)
+          values (${theirs.workspaceId}::uuid, 'Own', 'Customer') returning id::text as id`,
+    );
+    await admin().execute(sql`
+      insert into app.record_tags (workspace_id, tag_id, record_type, record_id)
+      values (${theirs.workspaceId}::uuid, ${vip!.id}::uuid, 'person', ${own!.id}::uuid)`);
+
+    await as(migrationRollback, { ...door, confirm: true });
+    await drain(200, door.migrationId);
+
+    // The tag nothing of theirs used is gone; the one on their own customer stays, still on them.
+    expect((await tagsHere()).map((t) => t.name)).toEqual([...theirOwn, 'VIP'].sort());
+    const [still] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.record_tags
+          where tag_id = ${vip!.id}::uuid and record_id = ${own!.id}::uuid`,
+    );
+    expect(still?.n).toBe(1);
+    const journal = await rows<{ target_id: string; reverted: boolean; reason: string | null }>(
+      admin(),
+      sql`select target_id::text as target_id, reverted_at is not null as reverted,
+            revert_skipped_reason as reason
+          from app.migration_change_journal
+          where migration_id = ${door.migrationId} and target_type = 'tag' and action = 'create'`,
+    );
+    expect(journal.find((j) => j.target_id === vip!.id)).toMatchObject({
+      reverted: true,
+      reason: 'depended_on',
+    });
+    expect(journal.find((j) => j.target_id === plan!.id)).toMatchObject({
+      reverted: true,
+      reason: null,
+    });
+    const got = (await executeQuery(
+      api(),
+      migrationGet as never,
+      door,
+      actorOf(someone),
+      meta(),
+    )) as {
+      migration: { status: string; leftBehind: number };
+    };
+    expect(got.migration).toMatchObject({ status: 'rolled_back', leftBehind: 0 });
   }, 180_000);
 
   it('lets the founder, working in a business as its owner, move it in', async () => {

@@ -75,9 +75,23 @@ describe('choosing what to bring', () => {
     expect(ids).toContain('locations');
     const added = r.added.find((a) => a.category === 'conversations');
     expect(added?.requiredBy).toEqual(['messages']);
-    expect(dependencyReason('contacts', ['conversations'])).toBe(
-      'Conversations need their contacts, so contacts were added to this migration.',
+    expect(dependencyReason('conversations', ['messages'])).toBe(
+      'Messages need their conversations, so conversations were added to this migration.',
     );
+  });
+
+  it('says only the customers and products a choice uses come, and how to bring them all', () => {
+    // The owner, 2026-11-23: ticking only invoices should bring the customers and products on them, not the
+    // whole book.
+    const r = resolveSelection({ chosen: ['invoices'] });
+    expect(r.added.map((a) => a.category).sort()).toEqual(['contacts', 'locations', 'products']);
+    expect(dependencyReason('contacts', ['conversations'])).toBe(
+      'Conversations need their contacts, so the contacts on them come too. Tick Contacts to bring all of them.',
+    );
+    expect(dependencyReason('products', ['invoices'])).toContain('Tick Products and prices');
+    // Ticked, it is a choice of its own and comes whole.
+    const both = resolveSelection({ chosen: ['invoices', 'contacts'] });
+    expect(both.added.map((a) => a.category)).not.toContain('contacts');
   });
 
   it('names both askers when two things need the same thing', () => {

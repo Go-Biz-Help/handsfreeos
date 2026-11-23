@@ -557,10 +557,19 @@ describe('a business moves house', () => {
     }
   });
 
-  it('keeps what it has nowhere to put, and says so', async () => {
+  it('leaves custom info out when its custom field didn’t come, and says so once', async () => {
+    // The owner's decision (2026-11-23): custom info comes only with Custom fields. This sign-in can't read
+    // them, so a customer's "Carrier 24ACC6" stays in the old system rather than landing in their notes.
     const list = await people();
-    const withExtras = list.find((p) => p.notes?.includes('From the old system'));
-    expect(withExtras?.notes).toContain('Carrier 24ACC6');
+    expect(list.some((p) => p.notes?.includes('Carrier 24ACC6'))).toBe(false);
+    const said = await rows<{ summary: string }>(
+      admin(),
+      sql`select summary from app.migration_findings
+          where migration_id = ${w.migrationId} and code = 'mapping.unknown_custom_field'`,
+    );
+    // Once for each sub-account it happened in, however many customers had some.
+    expect(said.length).toBeGreaterThanOrEqual(1);
+    for (const s of said) expect(s.summary).toContain('Custom fields');
   });
 
   it('proves the history kept its own dates, and that nothing arrived twice', async () => {
