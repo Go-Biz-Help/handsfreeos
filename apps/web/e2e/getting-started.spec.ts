@@ -174,9 +174,8 @@ test('the guided setup’s answers put the steps in order, and the wizard walks 
   await expect(page).toHaveURL(new RegExp(`/setup/payments$`));
   await expect(page.getByTestId('setup-rail-number')).toHaveAttribute('data-state', 'skipped');
   await expect(page.getByText('You said getting paid comes first.')).toBeVisible();
-  await expect(page.getByTestId('setup-payments-connect')).toHaveText('Connect Stripe');
-  await page.getByTestId('setup-payments-square').click();
-  await expect(page.getByTestId('setup-payments-connect')).toHaveText('Connect Square');
+  // The guided payments setup is a page of its own (the owner, 23 Nov 2026, P1 to P4); the step starts it.
+  await expect(page.getByTestId('setup-payments-start')).toHaveText('Start');
   // Back goes to the number; the rail goes anywhere.
   await page.getByTestId('setup-back').click();
   await expect(page).toHaveURL(new RegExp(`/setup/number$`));
@@ -220,7 +219,10 @@ test('the guided setup’s answers put the steps in order, and the wizard walks 
   );
 });
 
-test('a sign-in started in the wizard comes back to it', async ({ page }) => {
+test('the guided payments setup from the wizard: the answers, then the sign-in, then back to the wizard', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
   await signUpAndConfirm(page, 'guide-payments');
   const workspaceId = await createBusiness(page, { name: 'Wizard Pay Plumbing' });
   await page.goto(`/onboarding/${workspaceId}/setup/payments`);
@@ -228,15 +230,52 @@ test('a sign-in started in the wizard comes back to it', async ({ page }) => {
   // Not a must-do without "Getting paid": it's among the later steps, and Continue goes Home.
   await expect(page.getByTestId('setup-rail-payments')).toHaveCount(0);
 
-  // Stripe's sign-in (the stand-in) goes back to the wizard's step, not to Settings → Payments.
-  await page.getByTestId('setup-payments-connect').click();
+  // Start: one question at a time. Stripe is where the money goes; the rest starts at what's usual.
+  await page.getByTestId('setup-payments-start').click();
+  await expect(page).toHaveURL(new RegExp(`/onboarding/${workspaceId}/payments\\?from=setup$`));
+  const card = page.getByTestId('payments-setup');
+  await expect(card).toHaveAttribute('data-screen', 'where', { timeout: 60_000 });
+  await expect(page.getByTestId('payments-setup-where-stripe')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  const next = page.getByTestId('payments-setup-next');
+  await next.click();
+  await expect(card).toHaveAttribute('data-screen', 'ways');
+  await next.click();
+  // Sales tax is always theirs to say.
+  await expect(card).toHaveAttribute('data-screen', 'tax');
+  await next.click();
+  await expect(card).toContainText('Pick yes or no.');
+  await page.getByTestId('payments-setup-tax-no').click();
+  await next.click();
+  await expect(card).toHaveAttribute('data-screen', 'due');
+  await page.getByTestId('payments-setup-due-net_7').click();
+  await next.click();
+  await expect(card).toHaveAttribute('data-screen', 'estimates');
+  await next.click();
+  await expect(card).toHaveAttribute('data-screen', 'reminders');
+  await next.click();
+  await expect(card).toHaveAttribute('data-screen', 'documents');
+  await next.click();
+
+  // Check it over, then Save and connect Stripe: the sign-in (the stand-in) comes back to Done.
+  await expect(card).toHaveAttribute('data-screen', 'review');
+  await expect(page.getByTestId('payments-review-tax')).toContainText('No');
+  await expect(page.getByTestId('payments-review-due')).toContainText('7 days');
+  await expect(next).toHaveText('Save and connect Stripe');
+  await next.click();
   await page.waitForURL(/\/oauth\/fake\/payments\/stripe\/authorize/);
   await page.locator('#account').fill(`acct_wizard_${randomUUID().slice(0, 8)}`);
   await page.getByTestId('fake-connect').click();
+  await expect(page).toHaveURL(new RegExp(`/onboarding/${workspaceId}/payments\\?done=1`));
+  await expect(page.getByTestId('payments-setup-done')).toBeVisible();
+  await expect(page.getByTestId('payments-setup-done-chips')).toContainText('Due in 7 days');
+  await expect(page.getByTestId('payments-setup-not-connected')).toHaveCount(0);
+
+  // Back to Getting started: the wizard's step is done.
+  await page.getByTestId('payments-setup-done-close').click();
   await expect(page).toHaveURL(new RegExp(`/onboarding/${workspaceId}/setup/payments$`));
-  await expect(
-    page.getByText('Connected. Money from HandsFreeOS goes straight into it.'),
-  ).toBeVisible();
   await expect(page.getByTestId('setup-done')).toBeVisible();
   await page.getByTestId('setup-continue').click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}$`));

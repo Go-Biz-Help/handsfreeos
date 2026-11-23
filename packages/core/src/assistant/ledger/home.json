@@ -32,7 +32,7 @@
     "apps/mobile/src/components/home/item-sheets.tsx": "1e0fc20a6146",
     "apps/mobile/src/components/home/let-handle-sheet.tsx": "aec9005368fb",
     "apps/mobile/src/components/home/waiting-changes.tsx": "5969f5a3aff5",
-    "apps/mobile/src/components/onboarding/getting-started-card.tsx": "414ab563eb67",
+    "apps/mobile/src/components/onboarding/getting-started-card.tsx": "0df62ded38ec",
     "apps/mobile/src/home/actions.ts": "80e1442f9475",
     "apps/mobile/src/search/recent.ts": "6d3884953cf1",
     "apps/mobile/src/search/rows.tsx": "4c8fee7ac09c",
@@ -2591,6 +2591,13 @@
       "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:205",
       "covered": "yes",
       "by": "find_phone_numbers and do_phone_setup_save"
+    },
+    {
+      "path": "Phone → Home → Getting started → Getting paid → Set up payments (opens the guided payments setup until an account is connected)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:221",
+      "covered": "yes",
+      "by": "update_money_settings and update_numbering_and_ways_to_pay set every answer; connecting is the person’s own sign-in"
     }
   ],
   "gaps": [

@@ -273,7 +273,7 @@ test('an account kept to one person is the only one they bill into, and Money sp
   await sentInvoice(owner, client, 'SEO retainer', seo);
 
   // Keep the SEO account to the owner, and the owner to it.
-  await page.goto(`/app/w/${owner.workspaceId}/settings/payments`);
+  await page.goto(`/app/w/${owner.workspaceId}/settings/payments?all=1`);
   await expect(page.getByTestId(`pay-used-by-${seo}`)).toContainText('Everyone who bills');
   await page.getByTestId(`pay-access-${seo}`).click();
   await page.getByTestId('pay-access-only-theirs').click();

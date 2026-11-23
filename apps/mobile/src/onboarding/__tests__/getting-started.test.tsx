@@ -237,6 +237,16 @@ it('sets the business number up on the phone itself until there is one', async (
   expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/phone-setup`);
 });
 
+it('sets payments up on the phone itself until an account is connected', async () => {
+  await show({ ...OWNER, done: 2, next: 'payments' });
+  const next = await screen.findByTestId('getting-started-next');
+  // The guided payments setup runs here as on the web (the owner, 23 Nov 2026, P4 a): no link to email.
+  expect(next).not.toHaveTextContent(LINK_WORDS.easierDetail, { exact: false });
+  expect(screen.queryByTestId('getting-started-payments-link')).toBeNull();
+  await fireEvent.press(screen.getByTestId('getting-started-payments-setup'));
+  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/payments-setup`);
+});
+
 it('emails a link to send the texting details, a long form, once the number is theirs', async () => {
   await show({
     ...OWNER,

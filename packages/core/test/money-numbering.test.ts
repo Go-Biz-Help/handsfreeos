@@ -5,6 +5,7 @@ import {
   NUMBER_PREFIX_MAX,
   nextNumberProblem,
   normalizePrefix,
+  numberingAtCounter,
   numberingChangeProblem,
   numberPreview,
   prefixProblem,
@@ -68,5 +69,26 @@ describe('what a business may change', () => {
     expect(numberingChangeProblem(current, { ...current, prefix: 'LS 1' })).toBe(
       'A prefix can have letters, numbers and hyphens.',
     );
+  });
+});
+
+describe('a counter caught up to the numbers already taken', () => {
+  const inv = { prefix: 'INV-', next: 1_001, pad: 4 };
+
+  it('moves up to the next number money.settings reads, and never down', () => {
+    expect(numberingAtCounter(inv, 'INV-1005').next).toBe(1_005);
+    expect(numberingAtCounter(inv, 'INV-0999').next).toBe(1_001);
+  });
+
+  it('reads the digits at the end when the prefix changed since', () => {
+    expect(numberingAtCounter(inv, 'LS-1042').next).toBe(1_042);
+    expect(numberingAtCounter(inv, 'LS-').next).toBe(1_001);
+  });
+
+  it('reads a long run of digits that ends in something else at once', () => {
+    const long = `${'1'.repeat(50_000)}x`;
+    const started = Date.now();
+    expect(numberingAtCounter(inv, long)).toEqual(inv);
+    expect(Date.now() - started).toBeLessThan(500);
   });
 });

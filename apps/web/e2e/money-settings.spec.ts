@@ -94,7 +94,12 @@ test('Settings → Payments: two accounts, the default, a disconnect, and every 
   await expect(nav.getByTestId('settings-group-bookings-payments')).toContainText('Products');
   await expect(nav.getByTestId('settings-group-business')).toContainText('Billing & Usage');
 
+  // The page is one simple card first (the owner, 23 Nov 2026, P3 a): no account yet, so Set up payments; every
+  // setting from before is under All settings.
   await nav.getByRole('link', { name: 'Payments', exact: true }).click();
+  await expect(page.getByTestId('payments-set-up')).toBeVisible();
+  await expect(page.getByTestId('payments-all-settings')).toBeHidden();
+  await page.getByTestId('payments-all-settings-toggle').click();
   await expect(page.getByTestId('pay-no-accounts')).toBeVisible();
 
   // ---- the accounts money is paid into ----
@@ -379,7 +384,7 @@ test('The calendar’s Payments module: off without an account, on with one', as
   await expect(issue).toHaveCount(0);
 
   // Connect one, and the same choice is fine: the module names the deposit and the account behind it.
-  await page.goto(`/app/w/${owner.workspaceId}/settings/payments`);
+  await page.goto(`/app/w/${owner.workspaceId}/settings/payments?all=1`);
   const deposits = `acct_deposits_${randomUUID().slice(0, 8)}`;
   await connectAccount(page, 'stripe', deposits);
   await page.getByTestId('deposit-switch').click();

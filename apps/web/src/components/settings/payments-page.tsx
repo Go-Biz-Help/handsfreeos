@@ -253,7 +253,8 @@ export function PaymentsSettings({
     if (r.tone === 'success') toast.success(r.text);
     else if (r.tone === 'error') toast.error(r.text);
     else toast(r.text);
-    router.replace(`/app/w/${workspaceId}/settings/payments`, { scroll: false });
+    // Still in All settings, where the sign-in started.
+    router.replace(`/app/w/${workspaceId}/settings/payments?all=1`, { scroll: false });
   }, [result, router, workspaceId]);
 
   const facts = { hasSentDocuments, setupAddress };
