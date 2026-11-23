@@ -95,15 +95,20 @@ test('Website chat settings: sites, the snippet, the install check and a new key
   const off = await page.request.get(`/chat/${key}?o=${encodeURIComponent(OTHER_SITE)}`);
   expect(off.headers()['content-security-policy']).toBe(`frame-ancestors 'self'`);
 
-  // The install check: not seen until the chat opens on the site, then "Seen on 127.0.0.1:4191 just now".
-  await expect(page.getByTestId('chat-install')).toContainText('Not seen yet.');
+  // The install check: not seen until the chat opens on the site, then "Seen on 127.0.0.1:4191 just now". The simple
+  // card above All settings shows it too.
+  const status = page.getByTestId('chat-status-card');
+  await expect(status.getByTestId('chat-install')).toContainText('Not seen yet.');
+  await expect(page.getByTestId('chat-overview-status').getByTestId('chat-install')).toContainText(
+    'Not seen yet.',
+  );
   const visitor = await browser.newContext();
   const site = await visitor.newPage();
   await site.goto(sitePage(CHAT_SITE, key, '/services/ac-tune-up', '#hfos-chat'));
   const chat = await chatFrame(site);
   await expect(chat.getByTestId('chat-window')).toHaveAttribute('data-phase', 'ready');
-  await page.getByTestId('chat-install-recheck').click();
-  await expect(page.getByTestId('chat-install')).toContainText('Seen on 127.0.0.1:4191 just now');
+  await status.getByTestId('chat-install-recheck').click();
+  await expect(status.getByTestId('chat-install')).toContainText('Seen on 127.0.0.1:4191 just now');
   await expect(sites.filter({ hasText: '127.0.0.1:4191' })).toContainText('Installed');
   await visitor.close();
 

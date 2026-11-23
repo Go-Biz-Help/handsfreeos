@@ -236,7 +236,7 @@ function StatusCard({
         />
       </div>
       {widget.paused ? (
-        <Callout tone="warning" icon={Clock} data-testid="chat-paused">
+        <Callout tone="warning" icon={Clock} data-testid="chat-overview-paused">
           Paused. Visitors don’t see the chat button until you turn it back on.
         </Callout>
       ) : (

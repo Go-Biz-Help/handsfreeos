@@ -46,7 +46,7 @@
     "apps/web/src/components/settings/test-text-dialog.tsx": "7bce9b29ee3c",
     "apps/web/src/components/settings/texting-page.tsx": "82451ea75083",
     "apps/web/src/components/settings/web-person.tsx": "3e1b03dad5dc",
-    "apps/web/src/components/settings/website-chat-overview.tsx": "ae4b8b3f4fc3",
+    "apps/web/src/components/settings/website-chat-overview.tsx": "5fb5d1cfdc6a",
     "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d",
     "apps/web/src/components/texting-approval/texting-approval-flow.tsx": "3d171675cb71",
     "apps/web/src/lib/chat/editor-data.ts": "84f9988ce043",
