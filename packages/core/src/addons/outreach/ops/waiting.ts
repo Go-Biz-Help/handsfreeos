@@ -7,7 +7,6 @@
  */
 import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
-import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -60,7 +59,15 @@ import {
 } from '../waiting';
 import { asksNeedingYou } from './ask-rows';
 import { automationOf, everyoneAutomation } from './automation';
-import { contactable, inWorkspace, neverDeleted, type Ctx, LOOKED_UP, rulesAtHand } from './common';
+import {
+  contactable,
+  inWorkspace,
+  neverDeleted,
+  type Ctx,
+  LOOKED_UP,
+  rulesAtHand,
+  zoneOf,
+} from './common';
 import { playbooksInUse } from './friends';
 import { openNeed, retrySince } from './needs';
 import { commentHoldOf, draftedNow, listed, mine, notHeldNow, sendsAgain } from './sends';
@@ -388,7 +395,7 @@ export const waiting = defineAddonQuery(outreachAddon, {
     const [{ kinds, requests }, auto, timezone] = await Promise.all([
       kindsFor(ctx, [me], now, playbooks),
       automationOf(ctx, me, now),
-      workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
+      zoneOf(ctx),
     ]);
     // Someone in the person's hands who wrote back, or whom the AI would have followed up (decision 182): the ask.
     const handsAsked = await handsAsks(ctx, me, now, auto.settings.hours, timezone);

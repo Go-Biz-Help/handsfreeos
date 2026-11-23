@@ -8,7 +8,7 @@ import { rows, type Tx } from '@hfos/db/client';
 import { people, recordTags, tags } from '@hfos/db/schema';
 import { personClientCause, personIsClient } from '../../../crm/clients';
 import { CLIENT_CAUSES, type ClientCause } from '../../../crm/record-words';
-import { fullName, requirePerson, userRef } from '../../../crm/records';
+import { fullName, requirePerson, userRef, workspaceTimezone } from '../../../crm/records';
 import { personCreate } from '../../../commands/person.create';
 import { tagCreate } from '../../../commands/tag.create';
 import { splitName } from '../../../inbox/contact';
@@ -217,6 +217,37 @@ export async function ruledOutIn(tx: Tx, ws: string): Promise<RuleLists> {
         from covered c`,
   );
   return found!;
+}
+
+/**
+ * The business's time zone, looked up once a transaction: one day's list asked for it six times, and a save may
+ * count more than one thing (speed audit, Nov 2026). Nothing Social Outreach does changes it, so in a command too.
+ */
+const zones = new WeakMap<object, Map<string, Promise<string>>>();
+export function zoneOf(ctx: Ctx): Promise<string> {
+  const ws = ctx.scope.workspaceId!;
+  let had = zones.get(ctx.tx);
+  if (!had) zones.set(ctx.tx, (had = new Map()));
+  let zone = had.get(ws);
+  if (!zone) had.set(ws, (zone = workspaceTimezone(ctx.tx, ws)));
+  return zone;
+}
+
+/** The business's small facts a query has read already, by name: its settings, its playbooks. */
+const factsRead = new WeakMap<object, Map<string, Promise<unknown>>>();
+
+/**
+ * Reads one of the business's small facts once for a query, however many of its parts ask: one day's list read the
+ * add-on's settings seven times and the playbooks four (speed audit, Nov 2026). A command reads it each time it
+ * asks, since it may have just changed it. What comes back is shared, so nobody changes it in place.
+ */
+export function readOnce<T>(ctx: Ctx, fact: string, read: () => Promise<T>): Promise<T> {
+  if ('emit' in ctx) return read();
+  let had = factsRead.get(ctx);
+  if (!had) factsRead.set(ctx, (had = new Map()));
+  let found = had.get(fact) as Promise<T> | undefined;
+  if (!found) had.set(fact, (found = read()));
+  return found;
 }
 
 /** The rules as a request has read them already: a query's, or a command's while `rulesReadOnce` holds them. */
@@ -612,13 +643,15 @@ export async function tagIdsFor(ctx: CommandContext, names: readonly string[]): 
 }
 
 /** The business's Social Outreach settings, as they're read: the defaults where they aren't set. */
-export async function outreachSettingsOf(ctx: Ctx): Promise<OutreachSettings> {
-  const [installed] = await rows<{ settings: unknown }>(
-    ctx.tx,
-    sql`select settings from app.addon_installations
-        where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
-  );
-  return outreachSettings(installed?.settings);
+export function outreachSettingsOf(ctx: Ctx): Promise<OutreachSettings> {
+  return readOnce(ctx, 'settings', async () => {
+    const [installed] = await rows<{ settings: unknown }>(
+      ctx.tx,
+      sql`select settings from app.addon_installations
+          where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
+    );
+    return outreachSettings(installed?.settings);
+  });
 }
 
 /**

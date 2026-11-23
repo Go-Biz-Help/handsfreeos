@@ -10,7 +10,6 @@
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { localDateOf, startOfLocalDay } from '../../../calendar/engine/zoned';
-import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -77,6 +76,7 @@ import {
   requestAnswerColumns,
   type Ctx,
   LOOKED_UP,
+  zoneOf,
 } from './common';
 import { endedWarmUp } from './keep-warm';
 import { tally } from './tallies';
@@ -88,7 +88,7 @@ const DAY = 24 * HOUR;
 
 /** Midnight today in the business's time zone. */
 export async function startOfToday(ctx: Ctx, now = Date.now()): Promise<Date> {
-  const timezone = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
+  const timezone = await zoneOf(ctx);
   return new Date(startOfLocalDay(localDateOf(now, timezone), timezone));
 }
 
@@ -572,7 +572,7 @@ export const warningNote = defineAddonCommand(outreachAddon, {
     await wheelsBackOn(ctx, me, input.platform);
     // The network's day stops in HandsFreeOS too, whatever was pressed (decision 41): every computer of theirs
     // follows it. The person's other networks go on.
-    await warnDay(ctx, me, input.platform, at, words[0]!, await workspaceTimezone(ctx.tx, ws));
+    await warnDay(ctx, me, input.platform, at, words[0]!, await zoneOf(ctx));
     await ctx.emit({
       type: 'outreach.warning.seen',
       entityType: 'workspace',

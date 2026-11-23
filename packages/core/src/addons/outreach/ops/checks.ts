@@ -412,12 +412,14 @@ export async function goalStock(
               and ch.via in ('found', 'follower', 'event', 'member')
               and ch.looked_at >= ${ago(FIND_FRESH_DAYS)}::timestamptz
               and ${stillToReach(ruled, me)} and ${lets}) as requests,
-          (select count(*) filter (where f.state = 'request_sent')::int from addon_outreach.friends f
-            join addon_outreach.profiles p on p.id = f.profile_id
-            where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${platform}) as waiting,
-          (select count(*) filter (where f.state = 'friends')::int from addon_outreach.friends f
-            join addon_outreach.profiles p on p.id = f.profile_id
-            where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${platform}) as friends`,
+          fr.waiting, fr.friends
+        from (
+          select count(*) filter (where f.state = 'request_sent')::int as waiting,
+            count(*) filter (where f.state = 'friends')::int as friends
+          from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${platform}
+        ) fr`,
   );
   return {
     messages: (counted?.reconnect ?? 0) + (counted?.accepted ?? 0),

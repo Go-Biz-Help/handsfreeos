@@ -33,23 +33,8 @@ export async function goalFacts(
   const ruled = await ruledOut(ctx);
   const [counted] = await rows<GoalFacts>(
     ctx.tx,
-    sql`select
-          (select count(*)::int from addon_outreach.checks ch
-            join addon_outreach.profiles p on p.id = ch.profile_id
-            where ch.workspace_id = ${ws} and ch.user_id = ${me} and p.platform = ${platform}
-              and ch.verdict in ('good', 'maybe', 'not') and ch.checked_at >= ${today}::timestamptz) as checked,
-          (select count(*)::int from addon_outreach.checks ch
-            join addon_outreach.profiles p on p.id = ch.profile_id
-            where ch.workspace_id = ${ws} and ch.user_id = ${me} and p.platform = ${platform}
-              and ch.verdict in ('good', 'maybe') and ch.checked_at >= ${today}::timestamptz) as fit,
-          (select count(*)::int from addon_outreach.checks ch
-            join addon_outreach.profiles p on p.id = ch.profile_id
-            where ch.workspace_id = ${ws} and ch.user_id = ${me} and p.platform = ${platform}
-              and ch.verdict in ('good', 'maybe', 'not') and ch.checked_at >= ${week}::timestamptz) as "weekChecked",
-          (select count(*)::int from addon_outreach.checks ch
-            join addon_outreach.profiles p on p.id = ch.profile_id
-            where ch.workspace_id = ${ws} and ch.user_id = ${me} and p.platform = ${platform}
-              and ch.verdict in ('good', 'maybe') and ch.checked_at >= ${week}::timestamptz) as "weekFit",
+    // The four counts of checks come from one pass over the week's checks, not four (speed audit, Nov 2026).
+    sql`select wk.checked, wk.fit, wk."weekChecked", wk."weekFit",
           (select count(*)::int from addon_outreach.profiles p
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
             where p.workspace_id = ${ws} and p.platform = ${platform} and ${knownToMe(ruled, me)}
@@ -62,7 +47,18 @@ export async function goalFacts(
             join addon_outreach.profiles p on p.id = t.profile_id
             join addon_outreach.friends f on f.profile_id = p.id and f.user_id = ${me} and f.state = 'friends'
             where t.workspace_id = ${ws} and t.user_id = ${me} and p.platform = ${platform}
-              and t.kind = 'friend_request' and t.at >= ${lately}::timestamptz) as accepted`,
+              and t.kind = 'friend_request' and t.at >= ${lately}::timestamptz) as accepted
+        from (
+          select count(*) filter (where ch.checked_at >= ${today}::timestamptz)::int as checked,
+            count(*) filter (where ch.verdict <> 'not' and ch.checked_at >= ${today}::timestamptz)::int as fit,
+            count(*) filter (where ch.checked_at >= ${week}::timestamptz)::int as "weekChecked",
+            count(*) filter (where ch.verdict <> 'not' and ch.checked_at >= ${week}::timestamptz)::int as "weekFit"
+          from addon_outreach.checks ch
+          join addon_outreach.profiles p on p.id = ch.profile_id
+          where ch.workspace_id = ${ws} and ch.user_id = ${me} and p.platform = ${platform}
+            and ch.verdict in ('good', 'maybe', 'not')
+            and ch.checked_at >= least(${today}::timestamptz, ${week}::timestamptz)
+        ) wk`,
   );
   return {
     checked: counted?.checked ?? 0,

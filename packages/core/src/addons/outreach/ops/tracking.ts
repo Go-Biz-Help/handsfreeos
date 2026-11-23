@@ -9,7 +9,6 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { mainOffers } from '@hfos/db/schema';
 import { rows } from '@hfos/db/client';
 import { addDays, localDateOf, startOfLocalDay } from '../../../calendar/engine/zoned';
-import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -39,7 +38,7 @@ import {
 } from '../tracking';
 import { automationOf } from './automation';
 import { goalShorts } from './goal';
-import { inWorkspace, seesEveryone, type Ctx } from './common';
+import { inWorkspace, seesEveryone, type Ctx, zoneOf } from './common';
 import { periodStart } from './activity';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -208,7 +207,7 @@ export const tracking = defineAddonQuery(outreachAddon, {
         'Only owners and admins (Run Social Outreach) see the whole team’s numbers. Yours are under You.',
         'outreach_activity_everyone',
       );
-    const timezone = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
+    const timezone = await zoneOf(ctx);
     const from = await periodStart(ctx, ACTIVITY_PERIODS[input.period].days, timezone);
     const s = await summed(ctx, await numbersIn(ctx, { me, everyone: input.everyone }, from, ON));
     const goal = input.everyone ? null : await goalOf(ctx, me);
@@ -245,7 +244,7 @@ export const reviewWeekQuery = defineAddonQuery(outreachAddon, {
   async handler(ctx) {
     const me = meOf(ctx);
     const ws = ctx.scope.workspaceId!;
-    const timezone = await workspaceTimezone(ctx.tx, ws);
+    const timezone = await zoneOf(ctx);
     const { week, end } = reviewWeek(Date.now(), timezone);
     const from = new Date(startOfLocalDay(week, timezone)).toISOString();
     const to = new Date(startOfLocalDay(end, timezone)).toISOString();
@@ -322,7 +321,7 @@ export const dayReport = defineAddonQuery(outreachAddon, {
   async handler(ctx, input) {
     const me = meOf(ctx);
     const ws = ctx.scope.workspaceId!;
-    const timezone = await workspaceTimezone(ctx.tx, ws);
+    const timezone = await zoneOf(ctx);
     const now = Date.now();
     const day = input.day ?? localDateOf(now, timezone);
     const from = new Date(startOfLocalDay(day, timezone)).toISOString();

@@ -5,7 +5,6 @@
  */
 import { and, eq, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
-import { workspaceTimezone } from '../../../crm/records';
 import { businessDay } from '../automation';
 import {
   clipLine,
@@ -17,14 +16,14 @@ import {
 } from '../live';
 import type { Platform } from '../playbooks';
 import { days, liveSteps } from '../tables';
-import type { Ctx } from './common';
+import { type Ctx, zoneOf } from './common';
 
 /** The business's day now, and its time zone. */
 export async function businessToday(
   ctx: Ctx,
   now = Date.now(),
 ): Promise<{ today: string; timezone: string }> {
-  const timezone = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
+  const timezone = await zoneOf(ctx);
   return { today: businessDay(now, timezone), timezone };
 }
 

@@ -6,7 +6,6 @@
  */
 import { and, asc, eq, gte, inArray, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
-import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -85,6 +84,7 @@ import {
   type Ctx,
   LOOKED_UP,
   rulesReadOnce,
+  zoneOf,
 } from './common';
 import { automationOf } from './automation';
 import { playbooksInUse } from './friends';
@@ -957,7 +957,7 @@ export const asksList = defineAddonQuery(outreachAddon, {
     const now = Date.now();
     const [todayStart, timezone, all, warned] = await Promise.all([
       startOfToday(ctx, now),
-      workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
+      zoneOf(ctx),
       myComputers(ctx, me),
       warnedToday(ctx, me, now),
     ]);

@@ -13,7 +13,6 @@
  */
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
-import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -39,7 +38,7 @@ import { automation, autopilotPeople } from '../tables';
 import type { TodayKind } from '../today';
 import type { Platform } from '../networks';
 import { automationOf } from './automation';
-import { inWorkspace, type Ctx, rulesReadOnce } from './common';
+import { inWorkspace, type Ctx, rulesReadOnce, zoneOf } from './common';
 import { todayFor } from './today';
 
 /** How many on a day's list still wait for the OK. */
@@ -55,7 +54,7 @@ async function waitingOn(ctx: Ctx, me: string, day: string): Promise<number> {
 
 /** The business's day at `now`, and its time zone. */
 async function dayOf(ctx: Ctx, now: number) {
-  const timeZone = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
+  const timeZone = await zoneOf(ctx);
   return { timeZone, day: businessDay(now, timeZone) };
 }
 

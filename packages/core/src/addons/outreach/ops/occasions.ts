@@ -3,13 +3,12 @@
  * today, among the people already kept, each person's own. Today's pick of them is in ./today.ts. Server-only.
  */
 import { sql } from 'drizzle-orm';
-import { workspaceTimezone } from '../../../crm/records';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand } from '../../server';
 import { outreachAddon } from '../manifest';
 import { OCCASIONS_ON, OccasionsSaveInput, OccasionsSaveOutput } from '../occasions';
-import { inWorkspace, profilesFor } from './common';
+import { inWorkspace, profilesFor, zoneOf } from './common';
 import { tally } from './tallies';
 
 export const occasionsSave = defineAddonCommand(outreachAddon, {
@@ -26,7 +25,7 @@ export const occasionsSave = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
-    const zone = await workspaceTimezone(ctx.tx, ws);
+    const zone = await zoneOf(ctx);
     const shown = OCCASIONS_ON[input.platform];
     let kept = 0;
     let left = 0;

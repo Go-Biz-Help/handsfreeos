@@ -7,7 +7,6 @@ import { sql, type SQL } from 'drizzle-orm';
 import type { z } from 'zod';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
-import { workspaceTimezone } from '../../../crm/records';
 import { intlTimeZone } from '../../../intl/engine-zones';
 import { userIdOf } from '../../../kernel/actor';
 import { defineAddonQuery } from '../../server';
@@ -113,6 +112,7 @@ import {
   requestAnswerColumns,
   type Ctx,
   ruledOut,
+  zoneOf,
 } from './common';
 import { leadPathOf, localOf } from './local';
 import { milesBetweenTowns } from './towns';
@@ -1445,7 +1445,7 @@ export async function todayFor(
   // owed a reply gets the reply instead.
   // First of the follow-ups' limit: they're due on the day.
   if (followLeft > 0) {
-    const zone = await workspaceTimezone(ctx.tx, ws);
+    const zone = await zoneOf(ctx);
     const demoed = await rows<{
       id: string;
       name: string;
@@ -1513,7 +1513,7 @@ export async function todayFor(
   // wrote to them since it began, or skipped it. Anyone owed a reply gets the reply instead. It always waits for the
   // person's OK (the owner's 5a), on the follow-ups' limit after the demos'.
   if (followLeft > 0) {
-    const zone = await workspaceTimezone(ctx.tx, ws);
+    const zone = await zoneOf(ctx);
     const listedNow = new Set(items.map((i) => i.profileId).filter(Boolean));
     const called = await rows<{
       id: string;
@@ -1575,7 +1575,7 @@ export async function todayFor(
   // playbook. Not for a client, Don't pitch, Never contact or Not a fit, nor once the person wrote to them since it
   // was seen, or skipped its note. No link: it waits for the person's OK. Birthdays first, on the follow-ups' limit.
   if (followLeft > 0) {
-    const zone = await workspaceTimezone(ctx.tx, ws);
+    const zone = await zoneOf(ctx);
     const today = sql`(${nowAt}::timestamptz at time zone ${zone})::date`;
     const listedNow = new Set(items.map((i) => i.profileId).filter(Boolean));
     const noted = await rows<{
@@ -1642,6 +1642,19 @@ export async function todayFor(
   // the AI read as ready for the offer, or the person marked ready. Until the link goes, they're booked or not a fit,
   // or the person writes to them again.
   if (followLeft > 0) {
+    // Few can be ready, so the statement starts from them and not from every profile, whose latest chat it otherwise
+    // looked up one by one (speed audit, Nov 2026): a chat read as ready, a mark, or a yes. The rules below, on the
+    // latest chat among them, then say who is.
+    const maybeReady = sql`(
+        select c.profile_id from addon_outreach.file_chats c
+          where c.workspace_id = ${ws} and c.user_id = ${me} and c.pitch = 'ready' and c.profile_id is not null
+        union
+        select s.profile_id from addon_outreach.stages s
+          where s.workspace_id = ${ws} and s.user_id = ${me} and s.mark = 'ready'
+        union
+        select f.profile_id from addon_outreach.follow_ups f
+          where f.workspace_id = ${ws} and f.user_id = ${me} and f.answer = 'yes' and f.stopped_at is null
+            and f.step in ('first', 'video'))`;
     const ready = await rows<{
       id: string;
       name: string;
@@ -1663,7 +1676,8 @@ export async function todayFor(
             left join addon_outreach.stages s on s.profile_id = p.id and s.user_id = ${me}
             left join addon_outreach.follow_ups f on f.profile_id = p.id and f.user_id = ${me}
             ${latestChat('p')}
-            where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable(ruled, 'p')}
+            where p.workspace_id = ${ws} and p.id in ${maybeReady}
+            and p.friendship <> 'self' and ${pitchable(ruled, 'p')}
             and not ${isClient(ruled, 'p')} and ${notLater(me, 'p')} and ${reach}
               and (c.pitch = 'ready' or s.mark = 'ready'
                 or (f.answer = 'yes' and f.stopped_at is null
@@ -1749,7 +1763,7 @@ export async function todayFor(
     followLeft -= quiet.length;
     // Which follow-up of how many, and since when a check-in's been quiet, on the business's calendar.
     const { followUps: of } = await conversationPace(ctx);
-    const zone = quiet.length ? await workspaceTimezone(ctx.tx, ws) : 'UTC';
+    const zone = quiet.length ? await zoneOf(ctx) : 'UTC';
     const day = (at: Date | string) =>
       new Date(at).toLocaleDateString('en-US', {
         month: 'short',
@@ -2414,7 +2428,7 @@ export async function todayFor(
     week,
     fresh: settings.fullSpeed ? { ...fresh, on: false } : fresh,
     fullSpeed: settings.fullSpeed,
-    newMessagesWait: newMessagesWait(everything.hours, await workspaceTimezone(ctx.tx, ws), now),
+    newMessagesWait: newMessagesWait(everything.hours, await zoneOf(ctx), now),
     requestsHeld,
     profileOwn,
     goal,

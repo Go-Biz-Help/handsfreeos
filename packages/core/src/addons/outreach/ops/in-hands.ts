@@ -43,9 +43,8 @@ import {
 import { outreachAddon } from '../manifest';
 import type { Platform } from '../networks';
 import { hands, profiles } from '../tables';
-import { workspaceTimezone } from '../../../crm/records';
 import { automationOf } from './automation';
-import { inWorkspace } from './common';
+import { inWorkspace, zoneOf } from './common';
 
 type Ctx = CommandContext | QueryContext;
 const DAY = 86_400_000;
@@ -604,10 +603,7 @@ async function hoursOf(
   userId: string,
   now: number,
 ): Promise<{ hours: WorkingHours; timeZone: string }> {
-  const [auto, timeZone] = await Promise.all([
-    automationOf(ctx, userId, now),
-    workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
-  ]);
+  const [auto, timeZone] = await Promise.all([automationOf(ctx, userId, now), zoneOf(ctx)]);
   return { hours: auto.settings.hours, timeZone };
 }
 

@@ -9,7 +9,7 @@ import { rows } from '@hfos/db/client';
 import { people } from '@hfos/db/schema';
 import { fmtMonthDay, fmtTime, localDayOf } from '../../../calendar/when';
 import { personCreate } from '../../../commands/person.create';
-import { fullName, requirePerson, userRef, workspaceTimezone } from '../../../crm/records';
+import { fullName, requirePerson, userRef } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { splitName } from '../../../inbox/contact';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
@@ -31,7 +31,7 @@ import {
   type SavedMessage,
 } from '../saves';
 import { fileChats, profiles, threads } from '../tables';
-import { inWorkspace, neverTwins, once, saveProfile, sourceFor } from './common';
+import { inWorkspace, neverTwins, once, saveProfile, sourceFor, zoneOf } from './common';
 import { journeysOf } from './journey';
 import { ownersOf } from './owners';
 
@@ -157,7 +157,7 @@ export const chatKeep = defineAddonCommand(outreachAddon, {
       }
 
       // Each message keeps when it was sent, so the activity counts a reply on its own day.
-      const timeZone = await workspaceTimezone(ctx.tx, ws);
+      const timeZone = await zoneOf(ctx);
       const read = chat.recent.map((m) => ({
         from: m.fromMe ? ('me' as const) : ('them' as const),
         sender: null,

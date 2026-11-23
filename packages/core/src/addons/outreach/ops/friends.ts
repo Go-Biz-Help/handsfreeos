@@ -54,11 +54,12 @@ import {
   neverContactOf,
   once,
   pitchable,
+  readOnce,
   requireFits,
+  ruledOut,
   skipOutreachTo,
   type Profile,
   type ProfileKey,
-  ruledOut,
 } from './common';
 import { automationOf } from './automation';
 import { checksSummary, knownCheck } from './checks';
@@ -538,16 +539,18 @@ const VIEW_ORDER: Readonly<Record<FriendView, ReturnType<typeof sql>>> = {
 const REQUESTS_MOST = 1000;
 
 /** Every playbook in use that reads, a partner playbook too. */
-async function playbooksKept(
+function playbooksKept(
   ctx: QueryContext | CommandContext,
 ): Promise<(FitPlaybook & { readonly details: PlaybookDetails })[]> {
-  const list = await ctx.tx
-    .select({ id: playbooks.id, name: playbooks.name, details: playbooks.details })
-    .from(playbooks)
-    .where(and(eq(playbooks.workspaceId, ctx.scope.workspaceId!), isNull(playbooks.archivedAt)));
-  return list.flatMap((p) => {
-    const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
-    return read.success ? [{ id: p.id, name: p.name, details: read.data }] : [];
+  return readOnce(ctx, 'playbooks', async () => {
+    const list = await ctx.tx
+      .select({ id: playbooks.id, name: playbooks.name, details: playbooks.details })
+      .from(playbooks)
+      .where(and(eq(playbooks.workspaceId, ctx.scope.workspaceId!), isNull(playbooks.archivedAt)));
+    return list.flatMap((p) => {
+      const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
+      return read.success ? [{ id: p.id, name: p.name, details: read.data }] : [];
+    });
   });
 }
 
