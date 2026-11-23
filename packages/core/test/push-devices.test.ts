@@ -315,6 +315,8 @@ describe('pushSwitchOn', () => {
       qualifying: true,
       // 20261027015200: a document someone sent was signed, declined or ran out of time.
       documents: true,
+      // 20261027034600: a product the business counts is running low.
+      stock: true,
     });
   });
 });

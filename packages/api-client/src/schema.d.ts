@@ -8448,7 +8448,7 @@ export interface paths {
         put?: never;
         /**
          * Move an order along: New, Making it, Ready (for pickup, or to deliver), Picked up or Delivered, or Cancelled; or back a step. Nothing is sent to the customer.
-         * @description Risk level 1. Requires records.write. Emits order.status_changed.
+         * @description Risk level 1. Requires records.write. Emits order.status_changed, stock.low.
          */
         post: operations["command_order_set_status"];
         delete?: never;
@@ -57498,6 +57498,18 @@ export interface operations {
                     }[];
                     serviceId?: string | null;
                     sku?: string | null;
+                    stock?: {
+                        /** @default null */
+                        countBy?: string | null;
+                        /** @default [] */
+                        counts?: {
+                            /** @default  */
+                            choice?: string;
+                            onHand: number;
+                        }[];
+                        /** @default null */
+                        lowAt?: number | null;
+                    } | null;
                     taxable?: boolean;
                     /** @default each */
                     unitLabel?: string;
@@ -57537,6 +57549,14 @@ export interface operations {
                             }[];
                             serviceId: string | null;
                             sku: string | null;
+                            /** @default null */
+                            stock: {
+                                counts: {
+                                    [key: string]: number;
+                                };
+                                lowAt: number | null;
+                                optionId: string | null;
+                            } | null;
                             taxable: boolean;
                             unitLabel: string;
                             unitPriceCents: number;
@@ -57578,6 +57598,18 @@ export interface operations {
                     productId: string;
                     serviceId?: string | null;
                     sku?: string | null;
+                    stock?: {
+                        /** @default null */
+                        countBy?: string | null;
+                        /** @default [] */
+                        counts?: {
+                            /** @default  */
+                            choice?: string;
+                            onHand: number;
+                        }[];
+                        /** @default null */
+                        lowAt?: number | null;
+                    } | null;
                     taxable?: boolean;
                     unitLabel?: string;
                     unitPriceCents?: number;
@@ -57615,6 +57647,14 @@ export interface operations {
                             }[];
                             serviceId: string | null;
                             sku: string | null;
+                            /** @default null */
+                            stock: {
+                                counts: {
+                                    [key: string]: number;
+                                };
+                                lowAt: number | null;
+                                optionId: string | null;
+                            } | null;
                             taxable: boolean;
                             unitLabel: string;
                             unitPriceCents: number;
@@ -90412,6 +90452,13 @@ export interface operations {
                             /** @enum {string} */
                             status: "new" | "making" | "ready" | "done" | "cancelled";
                             statusChangedAt: string | null;
+                            /** @default [] */
+                            stockTaken: {
+                                choiceId: string;
+                                left: number;
+                                productId: string;
+                                quantity: number;
+                            }[];
                             totalCents: number;
                             /** Format: date-time */
                             updatedAt: string;
@@ -90504,6 +90551,13 @@ export interface operations {
                             /** @enum {string} */
                             status: "new" | "making" | "ready" | "done" | "cancelled";
                             statusChangedAt: string | null;
+                            /** @default [] */
+                            stockTaken: {
+                                choiceId: string;
+                                left: number;
+                                productId: string;
+                                quantity: number;
+                            }[];
                             totalCents: number;
                             /** Format: date-time */
                             updatedAt: string;
@@ -99465,6 +99519,14 @@ export interface operations {
                             }[];
                             serviceId: string | null;
                             sku: string | null;
+                            /** @default null */
+                            stock: {
+                                counts: {
+                                    [key: string]: number;
+                                };
+                                lowAt: number | null;
+                                optionId: string | null;
+                            } | null;
                             taxable: boolean;
                             unitLabel: string;
                             unitPriceCents: number;

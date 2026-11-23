@@ -7,10 +7,17 @@
  * Nothing is ever deleted. Archiving keeps an item on every document it is already on and takes it out of the
  * picker, which is why the table can show archived rows and put one back.
  */
-import { money, PRODUCT_KIND_HINT, PRODUCT_KIND_WORDS, type MoneySettings } from '@hfos/core';
+import {
+  money,
+  PRODUCT_KIND_HINT,
+  PRODUCT_KIND_WORDS,
+  stockSummary,
+  stockWantsLook,
+  type MoneySettings,
+} from '@hfos/core';
 import { ArrowUpRight, Plus, X } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, type SyntheticEvent } from 'react';
 import { toast } from 'sonner';
 import { MoneyInput } from '@/components/money/money-input';
@@ -19,6 +26,13 @@ import {
   ProductOptionsEditor,
   type OptionDraft,
 } from '@/components/money/product-options-editor';
+import {
+  ProductStockEditor,
+  stockBody,
+  stockDraftOf,
+  stockDraftReady,
+  type StockDraft,
+} from '@/components/money/product-stock-editor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -50,11 +64,30 @@ interface Form {
   serviceId: string | null;
   archived: boolean;
   options: readonly OptionDraft[];
+  stock: StockDraft;
 }
 
 /** "Size (12) · Color (5)": what a product comes in, under its name. */
 const optionsLine = (p: ProductRow): string | null =>
   p.options.length ? p.options.map((o) => `${o.name} (${o.choices.length})`).join(' · ') : null;
+
+/** "38 on hand · 2 sizes low", red or amber when something wants a look. */
+function StockLine({ product, className }: { product: ProductRow; className?: string }) {
+  const words = stockSummary(product);
+  if (!words) return null;
+  return (
+    <span
+      className={cn(
+        'block text-xs',
+        stockWantsLook(product) ? 'font-medium text-warning-text' : 'text-text-3',
+        className,
+      )}
+      data-testid={`product-stock-line-${product.name}`}
+    >
+      {words}
+    </span>
+  );
+}
 
 const blank = (taxable: boolean): Form => ({
   id: null,
@@ -67,6 +100,7 @@ const blank = (taxable: boolean): Form => ({
   serviceId: null,
   archived: false,
   options: [],
+  stock: stockDraftOf(null),
 });
 
 const formOf = (p: ProductRow): Form => ({
@@ -80,6 +114,7 @@ const formOf = (p: ProductRow): Form => ({
   serviceId: p.serviceId,
   archived: p.archivedAt !== null,
   options: p.options,
+  stock: stockDraftOf(p.stock),
 });
 
 export function ProductsPage({
@@ -95,7 +130,12 @@ export function ProductsPage({
   settings: MoneySettings;
 }) {
   useLiveRefresh(['product', 'service']);
-  const [form, setForm] = useState<Form | null>(null);
+  // The Running low push opens its product (?product=<id>).
+  const asked = useSearchParams().get('product');
+  const [form, setForm] = useState<Form | null>(() => {
+    const p = asked ? products.find((x) => x.id === asked) : undefined;
+    return p ? formOf(p) : null;
+  });
   const [showArchived, setShowArchived] = useState(false);
   const live = products.filter((p) => p.archivedAt === null);
   const shown = showArchived ? products : live;
@@ -182,6 +222,7 @@ export function ProductsPage({
                               {optionsLine(p)}
                             </span>
                           ) : null}
+                          <StockLine product={p} className="mt-0.5" />
                         </td>
                         <td className={cn(td, 'font-mono text-[12px]')}>{p.sku || '—'}</td>
                         <td className={td}>{KIND_WORDS[p.kind]}</td>
@@ -251,6 +292,7 @@ export function ProductsPage({
                       {optionsLine(p) ? (
                         <span className="text-[13px] text-text-3">{optionsLine(p)}</span>
                       ) : null}
+                      <StockLine product={p} className="text-[13px]" />
                       <span className="flex flex-wrap items-center gap-1.5">
                         {p.taxable ? (
                           <Badge variant="accent">Taxable</Badge>
@@ -348,7 +390,11 @@ function ProductEditor({
   const [badPrice, setBadPrice] = useState(false);
   const [badChanges, setBadChanges] = useState(0);
   const invalid =
-    !f.name.trim() || !f.unitLabel.trim() || badPrice || !optionDraftsReady(f.options, badChanges);
+    !f.name.trim() ||
+    !f.unitLabel.trim() ||
+    badPrice ||
+    !optionDraftsReady(f.options, badChanges) ||
+    !stockDraftReady(f.stock);
   // One product per bookable service, so "AC tune-up" is one price in two places.
   const taken = new Set(
     products
@@ -378,6 +424,7 @@ function ProductEditor({
             priceCents: c.priceCents,
           })),
         })),
+        stock: stockBody(f.stock, f.options),
       };
       if (f.id)
         unwrap(
@@ -526,6 +573,16 @@ function ProductEditor({
           onBadPrices={setBadChanges}
         />
       </div>
+
+      {f.kind === 'product' || f.stock.on ? (
+        <div className="mt-3.5 border-t border-border pt-3.5">
+          <ProductStockEditor
+            draft={f.stock}
+            options={f.options}
+            onChange={(stock) => setF((was) => ({ ...was, stock }))}
+          />
+        </div>
+      ) : null}
 
       <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-border pt-3.5">
         <span className="flex min-w-0 flex-col">

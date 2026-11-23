@@ -6,6 +6,7 @@ import {
   pickedChoices,
   priceWithChoices,
   productHasOptions,
+  stockChipWords,
   type OptionPicks,
 } from '@hfos/core';
 import { ChevronLeft, Plus, Search, X } from 'lucide-react';
@@ -200,6 +201,9 @@ export function ProductPicker({
                             ? `pick ${p.options.map((o) => o.name).join(', ')}`
                             : null,
                           p.taxable ? 'taxable' : 'no tax',
+                          p.stock && !p.stock.optionId
+                            ? stockChipWords(p.stock.counts[''] ?? 0, p.stock.lowAt)
+                            : null,
                         ]
                           .filter(Boolean)
                           .join(' · ')}
@@ -271,6 +275,11 @@ function ChoicePicker({
             <div className="flex flex-wrap gap-1.5">
               {o.choices.map((c) => {
                 const on = picks[o.id] === c.id;
+                // The stock of the option it's counted by: "3 left" or "Out" on the chip (picking it still works).
+                const stock =
+                  product.stock?.optionId === o.id
+                    ? stockChipWords(product.stock.counts[c.id] ?? 0, product.stock.lowAt)
+                    : null;
                 return (
                   <button
                     key={c.id}
@@ -291,6 +300,9 @@ function ChoicePicker({
                       <span className="ml-1 text-xs text-text-3">
                         {choiceBumpWords(c.priceCents)}
                       </span>
+                    ) : null}
+                    {stock ? (
+                      <span className="ml-1 text-xs font-medium text-warning-text">{stock}</span>
                     ) : null}
                   </button>
                 );

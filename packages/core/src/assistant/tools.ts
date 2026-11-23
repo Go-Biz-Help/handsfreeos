@@ -1400,6 +1400,43 @@ export const assistantTools = [
         .describe(
           'Sizes, colors and other choices (up to 3). The whole list, replacing what it had; an empty list takes them all off. Picking the item on an estimate, an invoice or a form then means picking one of each. Keep each existing option and choice by its name, so form rows made from it still find it',
         ),
+      stock: z
+        .object({
+          countBy: text(40)
+            .nullable()
+            .optional()
+            .describe(
+              'The option its stock is counted by (Size), so each choice has its own count; null: as a whole. Left out on a change, it stays as it is',
+            ),
+          tellAt: z
+            .int()
+            .min(0)
+            .max(1_000_000)
+            .nullable()
+            .optional()
+            .describe(
+              'Tell the people who manage money when a count is down to this many; null: never. Left out on a change, it stays as it is',
+            ),
+          counts: z
+            .array(
+              z.object({
+                choice: text(60)
+                  .optional()
+                  .describe(
+                    'The choice of countBy (Adult M); left out when it is counted as a whole',
+                  ),
+                onHand: z.int().min(-1_000_000).max(1_000_000),
+              }),
+            )
+            .max(40)
+            .optional()
+            .describe('How many they have of each, as counted now; only these change'),
+        })
+        .nullable()
+        .optional()
+        .describe(
+          'Count how many they have on hand (Settings → Products → Count how many I have). An order takes its own off when it is picked up or delivered. null stops counting it',
+        ),
     }),
     autonomy: 'confirm',
     permission: 'money.manage',

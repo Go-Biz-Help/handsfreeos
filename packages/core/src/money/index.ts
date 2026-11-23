@@ -25,3 +25,4 @@ export * from './rcs-fees';
 export * from './texting-fees';
 export * from './options';
 export * from './orders';
+export * from './stock';

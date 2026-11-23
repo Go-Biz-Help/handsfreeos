@@ -4366,7 +4366,30 @@ export const products = app.table('products', {
   archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /** Stock (20261027034600): whether it's counted, by which option (null: as a whole), and when to tell. */
+  stockTracked: boolean('stock_tracked').notNull().default(false),
+  stockOptionId: text('stock_option_id'),
+  lowStockAt: integer('low_stock_at'),
 });
+
+/**
+ * How many of a product, or one choice of it ('' for the product as a whole), are on hand (20261027034600;
+ * docs/selling-products.md). An order takes its lines off when it's done, through a trigger.
+ */
+export const stockCounts = app.table(
+  'stock_counts',
+  {
+    workspaceId: workspaceRef(),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    choiceId: text('choice_id').notNull().default(''),
+    onHand: integer('on_hand').notNull().default(0),
+    updatedBy: userRef('updated_by'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.productId, t.choiceId] })],
+);
 
 /** What a maintenance plan costs and what it includes; a subscription takes a copy when it is sold. */
 export const plans = app.table('plans', {
@@ -4638,6 +4661,8 @@ export const orders = app.table(
     statusChangedBy: userRef('status_changed_by'),
     createdBy: userRef('created_by'),
     ...timestamps(),
+    /** What it took off stock when it was done (20261027034600); only a trigger writes it. */
+    stockTaken: jsonb('stock_taken').$type<object[]>().notNull().default([]),
   },
   (t) => [unique().on(t.workspaceId, t.number)],
 );
@@ -9144,6 +9169,7 @@ export const tables = {
   invoices,
   invoiceLines,
   orders,
+  stockCounts,
   paymentConnections,
   payments,
   refunds,
