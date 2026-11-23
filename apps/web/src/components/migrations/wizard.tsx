@@ -10,6 +10,7 @@ import {
   Trash2,
   Undo2,
 } from 'lucide-react';
+import { isImportable, migrationCategory, resolveSelection } from '@hfos/core';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -75,19 +76,11 @@ export function MigrationWizard({
           />
           {/* What was found, while somebody is still deciding where it lands. Reading it is half of
               deciding, so it is on this step too — just not editable until the businesses are settled. */}
-          <ChooseWhat
-            organizationId={organizationId}
-            workspaceId={workspaceId}
-            detail={detail}
-            readOnly
-          />
+          <ChooseWhat detail={detail} readOnly />
         </>
       ) : null}
       {step === 'review' ? (
-        <>
-          <ChooseWhat organizationId={organizationId} workspaceId={workspaceId} detail={detail} />
-          <ReviewPlan organizationId={organizationId} workspaceId={workspaceId} detail={detail} />
-        </>
+        <ChooseAndStart organizationId={organizationId} workspaceId={workspaceId} detail={detail} />
       ) : null}
       {step === 'importing' ? (
         <Running organizationId={organizationId} workspaceId={workspaceId} detail={detail} />
@@ -165,8 +158,13 @@ function MapScopes({
   businesses: readonly { id: string; name: string }[];
 }) {
   const router = useRouter();
+  // On a business's own page the move is that business's: its sub-account lands there unless somebody says
+  // otherwise. "Make a new business" stays the agency's — it was the default here too, and from a business's
+  // page it either made a second copy of the business or, for anybody not running the account, was refused
+  // (2026-11-23).
+  const landsHere = workspaceId ?? 'new';
   const [choices, setChoices] = useState<Record<string, string>>(() =>
-    Object.fromEntries(detail.scopes.map((s) => [s.id, s.workspaceId ?? 'new'])),
+    Object.fromEntries(detail.scopes.map((s) => [s.id, s.workspaceId ?? landsHere])),
   );
   const [busy, setBusy] = useState(false);
 
@@ -238,7 +236,8 @@ function MapScopes({
             key={s.id}
             scope={s}
             businesses={businesses}
-            value={choices[s.id] ?? 'new'}
+            value={choices[s.id] ?? landsHere}
+            offerNew={!workspaceId}
             shared={(sharing.get(choices[s.id] ?? '') ?? []).length > 1}
             onChange={(v) => setChoices((c) => ({ ...c, [s.id]: v }))}
           />
@@ -309,12 +308,15 @@ function ScopeRow({
   scope,
   businesses,
   value,
+  offerNew,
   shared,
   onChange,
 }: {
   scope: Scope;
   businesses: readonly { id: string; name: string }[];
   value: string;
+  /** Whether "Make a new business" is a choice: the agency's page only. */
+  offerNew: boolean;
   shared: boolean;
   onChange: (value: string) => void;
 }) {
@@ -339,7 +341,7 @@ function ScopeRow({
         onChange={(e) => onChange(e.target.value)}
         className="h-10 rounded-control border border-border bg-card px-2.5 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
-        <option value="new">Make a new business</option>
+        {offerNew ? <option value="new">Make a new business</option> : null}
         {businesses.map((b) => (
           <option key={b.id} value={b.id}>
             {b.name}
@@ -351,26 +353,61 @@ function ScopeRow({
   );
 }
 
-/** Step two: what to bring. Everything importable starts ticked; requirements are added and locked. */
-function ChooseWhat({
+/** What a person ticked themselves. Something added because another choice needed it is not their pick. */
+function ownPicks(rows: readonly Inventory[]): Record<string, boolean> {
+  return Object.fromEntries(rows.map((i) => [i.category, i.selected && !i.autoAdded]));
+}
+
+/**
+ * What pressing Bring it across brings: the ticks on screen and whatever they need, worked out by the same
+ * rule the server uses. So the plan can never list one thing while the button brings another.
+ */
+function planOf(rows: readonly Inventory[], picked: Record<string, boolean>) {
+  const resolved = resolveSelection({
+    chosen: rows
+      .filter((i) => picked[i.category] && isImportable(i.category))
+      .map((i) => i.category),
+    unavailable: rows.filter((i) => i.capability === 'not_available').map((i) => i.category),
+  });
+  const neededBy = new Map(
+    resolved.added.map((a) => [
+      a.category,
+      a.requiredBy.map((id) => migrationCategory(id)?.label ?? id),
+    ]),
+  );
+  const bringing = resolved.categories.map((c) => ({
+    label: c.label,
+    countLabel: rows.find((i) => i.category === c.id)?.countLabel ?? null,
+  }));
+  return { neededBy, bringing };
+}
+
+/**
+ * Steps two and three together, sharing one set of ticks. They used to keep their own: unticking only
+ * changed the screen until Save what to bring was pressed, and Bring it across started with whatever was
+ * saved last, which out of a fresh scan is everything. Ticking only invoices and pressing Bring it across
+ * brought the lot (2026-11-23). Now the plan reads the ticks on screen, and the button saves them first.
+ */
+function ChooseAndStart({
   organizationId,
   workspaceId,
   detail,
-  readOnly,
 }: {
   organizationId: string;
   workspaceId?: string;
   detail: MigrationDetail;
-  readOnly?: boolean;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [picked, setPicked] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(detail.inventory.map((i) => [i.category, i.selected])),
-  );
+  const rows = detail.inventory.filter((i) => i.resourceId === null);
+  const [picked, setPicked] = useState<Record<string, boolean>>(() => ownPicks(rows));
+  const [saved, setSaved] = useState<Record<string, boolean>>(() => ownPicks(rows));
+  const [saving, setSaving] = useState(false);
+  const plan = planOf(rows, picked);
+  const unsaved = rows.some((i) => (picked[i.category] ?? false) !== (saved[i.category] ?? false));
 
-  async function save() {
-    setBusy(true);
+  /** Saves the ticks on screen. False when it was refused, having said why. */
+  async function save(quiet: boolean): Promise<boolean> {
+    const sending = picked;
     try {
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/migration.select', {
@@ -378,22 +415,68 @@ function ChooseWhat({
             organizationId,
             workspaceId,
             migrationId: detail.migration.id,
-            choices: detail.inventory
-              .filter((i) => !i.locked && i.resourceId === null)
-              .map((i) => ({ category: i.category, selected: picked[i.category] ?? false })),
+            choices: rows
+              .filter((i) => isImportable(i.category))
+              .map((i) => ({ category: i.category, selected: sending[i.category] ?? false })),
           },
         }),
       );
-      for (const added of out.added) toast.info(added.reason);
-      router.refresh();
+      setSaved(sending);
+      if (!quiet) for (const added of out.added) toast.info(added.reason);
+      return true;
     } catch (err) {
       toast.error(errorMessage(err));
-    } finally {
-      setBusy(false);
+      return false;
     }
   }
 
+  return (
+    <>
+      <ChooseWhat
+        detail={detail}
+        picked={picked}
+        neededBy={plan.neededBy}
+        onPick={(category, value) => setPicked((p) => ({ ...p, [category]: value }))}
+        saving={saving}
+        onSave={async () => {
+          setSaving(true);
+          if (await save(false)) router.refresh();
+          setSaving(false);
+        }}
+      />
+      <ReviewPlan
+        organizationId={organizationId}
+        workspaceId={workspaceId}
+        detail={detail}
+        bringing={plan.bringing}
+        // Whatever is on screen is what comes: unsaved ticks are saved before anything starts.
+        beforeStart={() => (unsaved ? save(true) : Promise.resolve(true))}
+      />
+    </>
+  );
+}
+
+/** Step two: what to bring. Everything importable starts ticked; requirements are added and locked. */
+function ChooseWhat({
+  detail,
+  readOnly,
+  picked: pickedHere,
+  neededBy: neededHere,
+  onPick,
+  saving,
+  onSave,
+}: {
+  detail: MigrationDetail;
+  readOnly?: boolean;
+  picked?: Record<string, boolean>;
+  neededBy?: ReadonlyMap<string, readonly string[]>;
+  onPick?: (category: string, value: boolean) => void;
+  saving?: boolean;
+  onSave?: () => void;
+}) {
   const rows = detail.inventory.filter((i) => i.resourceId === null);
+  const picked = pickedHere ?? ownPicks(rows);
+  const neededBy = neededHere ?? planOf(rows, picked).neededBy;
   return (
     <Card className="p-5" data-testid={readOnly ? 'migration-inventory' : 'migration-choose'}>
       <h2 className="text-base font-semibold">
@@ -402,7 +485,7 @@ function ChooseWhat({
       <p className="mt-1 text-[13px] text-text-2">
         {readOnly
           ? 'Counted, not moved. Say where each business lands and you can choose what comes across.'
-          : 'Everything we can bring is ticked. Anything a choice needs is added for you and locked, with a line saying which choice asked for it.'}
+          : 'Everything we can bring is ticked. Untick what you don’t want. Anything a choice needs is added for you and locked, with a line saying which choice asked for it.'}
       </p>
       <div className="mt-4 flex flex-col divide-y divide-border">
         {rows.map((i) => (
@@ -410,8 +493,9 @@ function ChooseWhat({
             key={i.category}
             row={i}
             readOnly={readOnly}
-            checked={picked[i.category] ?? i.selected}
-            onChange={(v) => setPicked((p) => ({ ...p, [i.category]: v }))}
+            checked={picked[i.category] ?? false}
+            neededBy={neededBy.get(i.category) ?? null}
+            onChange={(v) => onPick?.(i.category, v)}
           />
         ))}
       </div>
@@ -419,8 +503,8 @@ function ChooseWhat({
         <div className="mt-4 flex justify-end">
           <Button
             variant="secondary"
-            onClick={save}
-            loading={busy}
+            onClick={onSave}
+            loading={saving}
             data-testid="migration-choose-save"
           >
             Save what to bring
@@ -435,14 +519,18 @@ function InventoryRow({
   row,
   checked,
   readOnly,
+  neededBy,
   onChange,
 }: {
   row: Inventory;
   checked: boolean;
   readOnly?: boolean;
+  /** What, of the things ticked on screen, needs this one. Null when nothing does. */
+  neededBy: readonly string[] | null;
   onChange: (value: boolean) => void;
 }) {
   const bringable = row.capability === 'ready' || row.capability === 'needs_review';
+  const locked = neededBy !== null || !isImportable(row.category);
   return (
     <div className="flex items-start gap-3 py-3" data-testid={`migration-row-${row.category}`}>
       <div className="pt-0.5">
@@ -450,7 +538,7 @@ function InventoryRow({
             control — a padlock there would read as "locked forever", which is a different thing. */}
         {readOnly ? (
           <span className="block h-[18px] w-[18px]" aria-hidden />
-        ) : row.locked || !bringable ? (
+        ) : locked || !bringable ? (
           <Lock className="h-4 w-4 text-text-3" strokeWidth={1.5} aria-hidden />
         ) : (
           <Checkbox
@@ -473,9 +561,9 @@ function InventoryRow({
             </Badge>
           ) : null}
         </div>
-        {row.autoAdded && row.requiredBy.length > 0 ? (
+        {neededBy && neededBy.length > 0 ? (
           <p className="mt-0.5 text-xs text-text-3">
-            Added because {row.requiredBy.join(' and ')} need it.
+            Added because {neededBy.join(' and ')} need it.
           </p>
         ) : (
           <p className="mt-0.5 text-xs text-text-3">{row.blurb}</p>
@@ -491,28 +579,37 @@ function ReviewPlan({
   organizationId,
   workspaceId,
   detail,
+  bringing,
+  beforeStart,
 }: {
   organizationId: string;
   workspaceId?: string;
   detail: MigrationDetail;
+  /** What the ticks on screen bring, needs included, in the order it runs. */
+  bringing: readonly { label: string; countLabel: string | null }[];
+  /** Saves ticks that aren't saved yet. False when that was refused, and nothing should start. */
+  beforeStart: () => Promise<boolean>;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const bringing = detail.inventory.filter((i) => i.selected && i.resourceId === null);
   const blocking = detail.findings.filter((f) => f.blocksImport && !f.acknowledged);
   const landing = detail.scopes.filter((s) => s.selected && s.workspaceId);
 
   async function start() {
     setBusy(true);
     try {
-      await apiBrowser().POST('/v1/commands/migration.start', {
-        body: {
-          organizationId,
-          workspaceId,
-          migrationId: detail.migration.id,
-          acknowledgedFindingIds: blocking.map((f) => f.id),
-        },
-      });
+      if (!(await beforeStart())) return;
+      // Unwrapped, so a refusal is said rather than followed by "Bringing it across".
+      unwrap(
+        await apiBrowser().POST('/v1/commands/migration.start', {
+          body: {
+            organizationId,
+            workspaceId,
+            migrationId: detail.migration.id,
+            acknowledgedFindingIds: blocking.map((f) => f.id),
+          },
+        }),
+      );
       toast.success('Bringing it across. You can leave this page — it keeps going.');
       router.refresh();
     } catch (err) {
@@ -535,7 +632,11 @@ function ReviewPlan({
         </div>
         <div className="flex gap-2">
           <dt className="w-40 flex-none text-text-3">Bringing</dt>
-          <dd>{bringing.map((i) => `${i.categoryLabel} (${i.countLabel})`).join(', ')}</dd>
+          <dd data-testid="migration-plan-bringing">
+            {bringing
+              .map((i) => (i.countLabel ? `${i.label} (${i.countLabel})` : i.label))
+              .join(', ') || 'Nothing ticked yet'}
+          </dd>
         </div>
         <div className="flex gap-2">
           <dt className="w-40 flex-none text-text-3">Staying behind</dt>

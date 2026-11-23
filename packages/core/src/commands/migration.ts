@@ -34,6 +34,7 @@ import {
   workspaces,
 } from '@hfos/db/schema';
 import { HfosError } from '../errors';
+import { hasOrgPermission } from '../permissions';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
@@ -617,6 +618,21 @@ export const migrationScan = defineCommand({
   },
 });
 
+/** Why a new business can't be made from here, naming the business that can be picked instead. */
+async function newBusinessRefusal(ctx: CommandContext): Promise<string> {
+  const here = ctx.scope.workspaceId
+    ? (
+        await ctx.tx
+          .select({ name: workspaces.name })
+          .from(workspaces)
+          .where(eq(workspaces.id, ctx.scope.workspaceId))
+      )[0]?.name
+    : null;
+  return here
+    ? `Only an owner of the account can make a new business. Pick ${here} under Where each one lands to bring it in here.`
+    : 'Only an owner of the account can make a new business. Pick a business you already have under Where each one lands, or ask an owner of the account.';
+}
+
 export const migrationMapScopes = defineCommand({
   name: 'migration.map_scopes',
   description:
@@ -666,6 +682,16 @@ export const migrationMapScopes = defineCommand({
         ]);
       let workspaceId = choice.workspaceId ?? null;
       let creates = false;
+      // Making a business is the account's to do, not one business's. Somebody who runs this business but not
+      // the account above it (a client owner, a teammate, the founder working in a customer's business) was
+      // refused by the database here with a bare "You don't have permission", from the very option the screen
+      // offered first (2026-11-23). Said in words instead, with the choice that works.
+      if (!workspaceId && !hasOrgPermission(ctx.scope.orgRole, 'workspace.create'))
+        throw HfosError.rule(
+          'migration_new_business_needs_account_owner',
+          403,
+          await newBusinessRefusal(ctx),
+        );
       if (!workspaceId) {
         // Made here so the rest of the migration has somewhere to land, and so rollback knows it made it.
         const name = choice.createWorkspace!.name;
@@ -841,6 +867,10 @@ export const migrationSelect = defineCommand({
     // What is now chosen, per sub-account, plus whatever that needs. The categories the old system cannot
     // give us are the ones the scan marked unreadable — a choice that depends on one of those is dropped
     // rather than started and abandoned half way.
+    //
+    // Only what a person ticked counts as chosen. Something added because another choice needed it is not a
+    // choice: counting it as one kept it ticked and locked for good, so unticking invoices still brought the
+    // customers and products it had asked for (2026-11-23).
     const chosenRows = await ctx.tx
       .select({ category: migrationSelections.category })
       .from(migrationSelections)
@@ -848,6 +878,7 @@ export const migrationSelect = defineCommand({
         and(
           eq(migrationSelections.migrationId, m.id),
           eq(migrationSelections.selected, true),
+          eq(migrationSelections.autoAdded, false),
           dsql`${migrationSelections.resourceId} is null`,
         ),
       );
@@ -865,8 +896,14 @@ export const migrationSelect = defineCommand({
       unavailable: unreadable.map((r) => r.category),
     });
 
-    // Write the automatic ones so the screen can lock them and say who asked.
+    // Write the automatic ones so the screen can lock them and say who asked. One that nothing asks for any
+    // more is let go: unticked and unlocked, for the person to tick if they want it after all.
+    const stillNeeded = resolved.added.map((a) => a.category);
     for (const scope of scopes) {
+      await ctx.tx.execute(sql`
+        update app.migration_selections set selected = false, auto_added = false, required_by = '{}'
+         where scope_id = ${scope.id} and auto_added
+           and not (category = any(${textArray(stillNeeded)}))`);
       for (const add of resolved.added) {
         await ctx.tx.execute(sql`
           insert into app.migration_selections
@@ -1000,6 +1037,8 @@ export const migrationStart = defineCommand({
     // sub-accounts hold the same customer, which one is read first decides which record the other joins.
     let position = 0;
     for (const scope of scopes) {
+      // What a person ticked, and what that needs, worked out again here — never an automatic tick left over
+      // from a choice somebody has since taken back.
       const chosen = await ctx.tx
         .select({ category: migrationSelections.category })
         .from(migrationSelections)
@@ -1007,6 +1046,7 @@ export const migrationStart = defineCommand({
           and(
             eq(migrationSelections.scopeId, scope.id),
             eq(migrationSelections.selected, true),
+            eq(migrationSelections.autoAdded, false),
             dsql`${migrationSelections.resourceId} is null`,
           ),
         );
