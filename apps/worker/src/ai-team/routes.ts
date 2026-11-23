@@ -32,6 +32,7 @@ export function registerTeammateRoutes(app: FastifyInstance, deps: HttpDeps): vo
       log: deps.log,
       wallet: deps.wallet,
       geocoder: deps.geocoder,
+      driving: deps.driving,
     };
     const prepared = await prepareTest(consoleDeps, input);
     const stream = openStream<ConsoleEvent>(reply);

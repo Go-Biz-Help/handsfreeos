@@ -75842,8 +75842,17 @@ export interface operations {
                             preview: {
                                 /** @default [] */
                                 actions: ({
+                                    address?: string | null;
                                     /** Format: uuid */
                                     calendarId: string;
+                                    drives?: {
+                                        around: {
+                                            [key: string]: number;
+                                        };
+                                        fromStart: {
+                                            [key: string]: number;
+                                        };
+                                    } | null;
                                     /** @default null */
                                     durationMinutes: number | null;
                                     /** @enum {string} */
@@ -75866,8 +75875,17 @@ export interface operations {
                                     /** @default  */
                                     summary: string;
                                 } | {
+                                    address?: string | null;
                                     /** Format: uuid */
                                     calendarId: string;
+                                    drives?: {
+                                        around: {
+                                            [key: string]: number;
+                                        };
+                                        fromStart: {
+                                            [key: string]: number;
+                                        };
+                                    } | null;
                                     /** @default null */
                                     durationMinutes: number | null;
                                     /** @enum {string} */
@@ -75963,6 +75981,14 @@ export interface operations {
                                 } | {
                                     /** Format: uuid */
                                     appointmentId: string;
+                                    drives?: {
+                                        around: {
+                                            [key: string]: number;
+                                        };
+                                        fromStart: {
+                                            [key: string]: number;
+                                        };
+                                    } | null;
                                     /** @enum {string} */
                                     kind: "reschedule";
                                     /** @default null */
@@ -78418,6 +78444,14 @@ export interface operations {
                     /** Format: uuid */
                     calendarId: string;
                     chosenUserId?: string | null;
+                    drives?: {
+                        around: {
+                            [key: string]: number;
+                        };
+                        fromStart: {
+                            [key: string]: number;
+                        };
+                    } | null;
                     durationMinutes?: number;
                     /** Format: date-time */
                     from: string;

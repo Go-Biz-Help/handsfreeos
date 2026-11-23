@@ -13,6 +13,7 @@ import {
   AppointmentBookOnlineOutput,
   AttendeeCancelOnlineOutput,
   AttendeeRescheduleOnlineOutput,
+  DrivesInput,
   GeoPointInput,
 } from './calendar';
 import { DraftCall } from './ai-call';
@@ -114,6 +115,10 @@ export const DraftAction = z.discriminatedUnion('kind', [
     postalCode: z.string().trim().max(20).nullable().default(null),
     /** M18: where their address is, for distance and drawn service areas. */
     point: GeoPointInput.nullable().default(null),
+    /** Where the visit is, on a calendar that goes to the customer and leaves time to drive (decision 179). */
+    address: z.string().trim().max(300).nullable().optional(),
+    /** The drive times the worker worked out for that address when it found the times (decision 179). */
+    drives: DrivesInput.nullable().optional(),
     summary: z.string().trim().max(300).default(''),
   }),
   /** M18: repeat visits, the first at a time find_times offered. */
@@ -130,6 +135,10 @@ export const DraftAction = z.discriminatedUnion('kind', [
     postalCode: z.string().trim().max(20).nullable().default(null),
     /** M18: where their address is, for distance and drawn service areas. */
     point: GeoPointInput.nullable().default(null),
+    /** Where the visits are, on a calendar that leaves time to drive (decision 179). */
+    address: z.string().trim().max(300).nullable().optional(),
+    /** The drive times over the whole series, worked out by the worker (decision 179). */
+    drives: DrivesInput.nullable().optional(),
     summary: z.string().trim().max(300).default(''),
   }),
   /**
@@ -185,6 +194,8 @@ export const DraftAction = z.discriminatedUnion('kind', [
     appointmentId: uuid,
     startsAt: isoDateTime,
     sessionId: uuid.nullable().default(null),
+    /** The drive times to the visit's own address, on a calendar that leaves time to drive (decision 179). */
+    drives: DrivesInput.nullable().optional(),
     summary: z.string().trim().max(300).default(''),
   }),
   z.object({
@@ -463,6 +474,13 @@ export const AppointmentBookForCustomerInput = z.object({
   /** The customer's ZIP, for a calendar that routes by ZIP. */
   postalCode: z.string().trim().max(20).nullable().optional(),
   point: GeoPointInput.nullable().optional(),
+  /**
+   * Where the visit is, on a calendar that goes to the customer and leaves time to drive between visits (decision
+   * 179): kept on the appointment, so the team knows where to go and the next booking's drive is timed from it.
+   */
+  address: z.string().trim().max(300).nullable().optional(),
+  /** Drive times to that address, worked out by the worker: the time must leave room for them. */
+  drives: DrivesInput.nullable().optional(),
   /** Its idempotency key: a retry books once. */
   clientId,
 });
@@ -481,6 +499,10 @@ export const SeriesBookForCustomerInput = z.object({
   notes: z.string().trim().max(2000).nullable().optional(),
   postalCode: z.string().trim().max(20).nullable().optional(),
   point: GeoPointInput.nullable().optional(),
+  /** Where the visits are, on a calendar that leaves time to drive (decision 179). */
+  address: z.string().trim().max(300).nullable().optional(),
+  /** Drive times to that address over the whole series, worked out by the worker. */
+  drives: DrivesInput.nullable().optional(),
   clientId,
 });
 export const SeriesBookForCustomerOutput = z.object({
@@ -562,6 +584,8 @@ export const AttendeeRescheduleForCustomerInput = z.object({
   appointmentId: uuid,
   startsAt: isoDateTime,
   sessionId: uuid.nullable().optional(),
+  /** Drive times to the visit's address (decision 179), worked out by the worker. */
+  drives: DrivesInput.nullable().optional(),
 });
 export const AttendeeRescheduleForCustomerOutput = AttendeeRescheduleOnlineOutput;
 export const AttendeeCancelForCustomerInput = z.object({

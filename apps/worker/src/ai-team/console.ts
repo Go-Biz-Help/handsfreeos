@@ -25,6 +25,7 @@ import {
   type AiToolCall,
   type AiUsage,
 } from '@hfos/ai';
+import type { DriveTimer } from '../geo/driving';
 import type { Geocoder } from '../geo/geocoder';
 import { ADDRESS_NOT_FOUND, serviceAreaAnswer, whereabouts } from './areas';
 import {
@@ -127,7 +128,8 @@ import {
 } from './prompt';
 import { coachingLines } from './turns';
 import { checkReply, closeRun, immediateHandOff, REWRITE_ONLY } from './run';
-import { drivesInstead, newRunState, timeKey, toolDefinition, type RunState } from './tools';
+import { drivesTo } from './drives';
+import { drivesNeedAddress, newRunState, timeKey, toolDefinition, type RunState } from './tools';
 
 export { TestConsoleInput };
 
@@ -147,6 +149,8 @@ export interface ConsoleDeps {
   readonly wallet: WalletDeps;
   /** Finds where a customer's address is (M18), for distance and drawn service areas. */
   readonly geocoder: Geocoder;
+  /** Times drives by road, on a calendar that leaves time to drive between visits (decision 179). */
+  readonly driving: DriveTimer;
 }
 
 /** A test checked and ready to stream: refusals come before the stream opens, as the API's JSON errors. */
@@ -735,8 +739,8 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const cal = h.rc.calendars.find((c) => c.id === calendarId);
     if (!cal)
       return refuse('That isn’t one of your calendars. Use a calendar id from the context.');
-    if (cal.drives) return refuse(drivesInstead(cal));
     const address = str(args['address']);
+    if (cal.drives && !address) return refuse(drivesNeedAddress(cal));
     if (cal.byAddress && !address && h.deps.geocoder.name !== 'off')
       return refuse(
         `${cal.name} offers times by where the customer is. Ask for their street address and city, then look again with it.`,
@@ -766,6 +770,15 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const serviceId = str(args['serviceId']);
     const durationMinutes =
       typeof args['durationMinutes'] === 'number' ? args['durationMinutes'] : undefined;
+    // Decision 179: the drives to where the visit is, as a real conversation times them.
+    const drives = cal.drives
+      ? await asWorker(h.deps.db, h.t.scope, (tx) =>
+          drivesTo(h.deps, tx, h.t.scope.workspaceId, calendarId, address, {
+            from: start,
+            to: end,
+          }),
+        )
+      : null;
     const out = await executeQuery(
       h.deps.db,
       calendarAvailability,
@@ -778,6 +791,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         ...(durationMinutes ? { durationMinutes } : {}),
         ...(postalCode ? { postalCode } : {}),
         ...(where.point ? { point: where.point } : {}),
+        ...(drives ? { drives } : {}),
       },
       systemActor(h.t.scope),
       { correlationId: h.t.runId, channel: 'ai_employee' },
@@ -794,6 +808,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         postalCode: cal.byZip ? postalCode : null,
         point: cal.byZip ? where.point : null,
         label: atLabel(at, tz),
+        ...(cal.drives ? { address, drives } : {}),
       });
     }
     h.send({
