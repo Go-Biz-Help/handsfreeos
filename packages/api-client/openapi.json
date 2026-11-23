@@ -199686,6 +199686,17 @@
                           "taxable": {
                             "type": "boolean"
                           },
+                          "taxRateBp": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "taxCents": {
+                            "type": "number"
+                          },
+                          "totalCents": {
+                            "type": "number"
+                          },
                           "includes": {
                             "type": "array",
                             "items": {
@@ -199939,6 +199950,9 @@
                           "interval",
                           "intervalCount",
                           "taxable",
+                          "taxRateBp",
+                          "taxCents",
+                          "totalCents",
                           "includes",
                           "person",
                           "leadId",
@@ -200082,6 +200096,17 @@
                         },
                         "taxable": {
                           "type": "boolean"
+                        },
+                        "taxRateBp": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "taxCents": {
+                          "type": "number"
+                        },
+                        "totalCents": {
+                          "type": "number"
                         },
                         "includes": {
                           "type": "array",
@@ -200336,6 +200361,9 @@
                         "interval",
                         "intervalCount",
                         "taxable",
+                        "taxRateBp",
+                        "taxCents",
+                        "totalCents",
                         "includes",
                         "person",
                         "leadId",
@@ -201313,6 +201341,17 @@
                           "taxable": {
                             "type": "boolean"
                           },
+                          "taxRateBp": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "taxCents": {
+                            "type": "number"
+                          },
+                          "totalCents": {
+                            "type": "number"
+                          },
                           "includes": {
                             "type": "array",
                             "items": {
@@ -201566,6 +201605,9 @@
                           "interval",
                           "intervalCount",
                           "taxable",
+                          "taxRateBp",
+                          "taxCents",
+                          "totalCents",
                           "includes",
                           "person",
                           "leadId",

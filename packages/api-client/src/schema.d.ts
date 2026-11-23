@@ -87911,6 +87911,9 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
                             taxable: boolean;
+                            taxCents: number;
+                            taxRateBp: number;
+                            totalCents: number;
                         }[];
                     };
                 };
@@ -105799,6 +105802,9 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
                             taxable: boolean;
+                            taxCents: number;
+                            taxRateBp: number;
+                            totalCents: number;
                         };
                     };
                 };
@@ -105881,6 +105887,9 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
                             taxable: boolean;
+                            taxCents: number;
+                            taxRateBp: number;
+                            totalCents: number;
                         }[];
                     };
                 };
