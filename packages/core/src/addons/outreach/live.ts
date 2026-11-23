@@ -62,9 +62,16 @@ export const LINE_MOST = 300;
 /**
  * How often the Live tab asks again while it's open. A heartbeat that changes nothing tells nobody, so without this the
  * last-seen time it shows would stand still and a computer still beating would look offline. Under OFFLINE_MINUTES,
- * less a beat, so a computer that beats every minute is never shown offline.
+ * less a beat, so a computer that beats every minute is never shown offline. On the web's Today only the live view is
+ * asked for on this clock (the status cards and the team's): the page itself redraws as `LIST_REDRAW` says.
  */
 export const LIVE_REFETCH_SECONDS = 60;
+/**
+ * When the web's Today draws its whole page again (the owner's pick, 23 Nov 2026: when something happens, not every
+ * minute): on a change it shows, at most once every `everySeconds`, since a computer at work notes a step every few
+ * seconds at times; and once every `idleSeconds` with nothing heard, for what only the clock changes.
+ */
+export const LIST_REDRAW = { everySeconds: 60, idleSeconds: 600 } as const;
 
 const MIN = 60_000;
 

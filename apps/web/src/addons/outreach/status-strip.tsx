@@ -44,9 +44,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
-import { useRefetchWhileShown, useServerNow } from './live-view';
+import { useAskedAgain, useServerNow } from './live-view';
 import { rememberNetwork } from './network-ui';
 import type { Live } from './types';
 import { PreDayList } from './pre-day-list';
@@ -161,7 +162,7 @@ const heldOf = (n: NetworkLive, ready: boolean): string | null =>
 
 export function StatusStrip({
   workspaceId,
-  networks,
+  networks: drawn,
   platform,
   ready = true,
   canManage = false,
@@ -176,7 +177,26 @@ export function StatusStrip({
   /** An owner or admin, who does the business's part a refusal may point to. */
   canManage?: boolean;
 }) {
-  useRefetchWhileShown();
+  // Each network's live view, asked again every minute and when a day is pressed somewhere else: only that goes out
+  // on the clock, never the whole page (the owner's pick, 23 Nov 2026). The newer of it and the page's own shows.
+  const dayPressed = useLiveVersion(['outreach_day'], 1500);
+  const asked = useAskedAgain(
+    `${workspaceId}:${drawn.map((n) => n.platform).join(',')}`,
+    () =>
+      Promise.all(
+        drawn.map((n) =>
+          apiBrowser()
+            .POST('/v1/queries/outreach.live', { body: { workspaceId, platform: n.platform } })
+            .then((r) => r.data ?? null)
+            .catch(() => null),
+        ),
+      ),
+    dayPressed,
+  );
+  const networks = drawn.map((n, i) => {
+    const live = asked?.[i];
+    return live && Date.parse(live.now) > Date.parse(n.live.now) ? { ...n, live } : n;
+  });
   const shown = networks.find((n) => n.platform === platform) ?? networks[0];
   const now = useServerNow(shown?.live.now ?? NO_ANSWER);
   const { busy, act } = useAct();

@@ -5685,6 +5685,21 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **Offline is worked out by whoever shows it:** no beat for 3 minutes (`OFFLINE_MINUTES`), on the server's clock
   (`live.now`), so the note shows with no event. A heartbeat tells nobody, so the Live tab asks again every minute
   while it's shown (`LIVE_REFETCH_SECONDS`) to keep the last-seen time moving.
+- **The web's Today draws its whole page again only when something happens** (the owner's pick on 23 Nov 2026; it
+  redrew every minute, 12 to 21 requests each time, whether or not anything had changed). On the minute's clock only
+  the live view is asked for, by the cards that show it: each network's status card (`outreach.live`) and the team's
+  (`outreach.live.team`), so last seen and the limit bars still move every minute (`useAskedAgain`). The list draws
+  again when something it shows changed (`TODAY_CHANGES`: a step noted or someone saved, what needs the person, a day
+  pressed, the settings), at most once a minute however much is heard, and once every ten minutes with nothing heard,
+  for what only the clock changes (`LIST_REDRAW`, `useRedrawOnChange`). A press still redraws at once. A card that
+  works out "offline" from a last-seen time asks for that time on the minute itself: it never waits for a redraw.
+  With the live connection down the page hears a "something may have changed" every minute, so it redraws every
+  minute as it did before.
+- **A press that ends its row takes the row away at once** (speed audit, Nov 2026): Send, Skip, OK, Confirm, Delete,
+  "I did it". `useAct` stays busy from the press until the page has drawn again, so nothing on the row can be pressed
+  twice, and a press that says its row `leaves` has the row draw nothing for that while (`Gone`, and `GONE_ROW` on its
+  list item). The redraw has the last word: a row the answer still lists shows again. A new press that ends a row
+  passes `leaves`; one that changes the row in place doesn't.
 - **Owners and admins see status, counts and how many wait; never lines, feeds or messages** (`outreach.live.team`).
   The feed's lines name the people reached, so they stay the person's own, and the database holds it too: beside the
   add-on's usual policies, restrictive ones let a person read and write only their own `computers`, `days`,

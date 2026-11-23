@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import { Gone } from './gone';
 import { useAct } from './use-act';
 
 /** What Drafted needs of a message the extension drafted: Today's list and Needs you both have it. */
@@ -51,6 +52,7 @@ export function Drafted({
   name,
   send,
   comment = null,
+  sentLeaves = false,
 }: {
   workspaceId: string;
   /** Who it's to: for a comment, whose post it goes under. */
@@ -58,12 +60,16 @@ export function Drafted({
   send: DraftedSend;
   /** For a comment on a good post (decision 92): the network it's posted on. Null for a message. */
   comment?: Platform | null;
+  /** On Needs you an OK'd message leaves the list; on Today it stays, shown as OK'd. Skipped, it leaves both. */
+  sentLeaves?: boolean;
 }) {
   const [text, setText] = useState(send.text);
   const [editing, setEditing] = useState(false);
-  const { busy, act } = useAct();
+  const { busy, gone, act } = useAct();
   // A comment is one, under the post; a message may go as a few texts.
   const partsOf = (t: string) => (comment ? [t] : messageParts(t, true));
+  // OK'd or skipped off the list: its row goes at once, before the page has drawn again.
+  if (gone) return <Gone />;
   if (send.state === 'approved')
     return (
       <div className="mt-3 space-y-1.5" data-testid="today-send-approved">
@@ -119,6 +125,8 @@ export function Drafted({
                   }),
                 ),
               comment ? W.okdComment(PLATFORMS[comment]) : W.okd,
+              undefined,
+              sentLeaves,
             )
           }
           data-testid="today-send-ok"
@@ -155,6 +163,8 @@ export function Drafted({
                   }),
                 ),
               comment ? W.commentSkipped : `Skipped. ${name} is off your list for today.`,
+              undefined,
+              true,
             )
           }
           data-testid="today-send-skip"
