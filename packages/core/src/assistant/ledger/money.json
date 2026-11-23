@@ -21,6 +21,9 @@
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/new/page.tsx": "e59893d795bb",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/page.tsx": "90f9f3d0801d",
     "apps/web/src/app/app/w/[workspaceId]/money/load.ts": "815e1c127c77",
+    "apps/web/src/app/app/w/[workspaceId]/money/orders/[orderId]/page.tsx": "775cf5bd1094",
+    "apps/web/src/app/app/w/[workspaceId]/money/orders/new/page.tsx": "ccb2cf425e0c",
+    "apps/web/src/app/app/w/[workspaceId]/money/orders/page.tsx": "39da714bddb8",
     "apps/web/src/app/app/w/[workspaceId]/money/page.tsx": "3aeca4c2854c",
     "apps/web/src/app/app/w/[workspaceId]/money/payments/page.tsx": "5e67d1accc7e",
     "apps/web/src/app/app/w/[workspaceId]/money/plans/[subscriptionId]/page.tsx": "7154f14b99f3",
@@ -39,8 +42,11 @@
     "apps/web/src/components/money/invoices-list.tsx": "f242c6fe2169",
     "apps/web/src/components/money/line-sheet.tsx": "d83841948b14",
     "apps/web/src/components/money/list-bits.tsx": "9fd32e374651",
-    "apps/web/src/components/money/list-options.ts": "4d1e2f397b76",
+    "apps/web/src/components/money/list-options.ts": "fa7d5ba84528",
     "apps/web/src/components/money/money-input.tsx": "297d3a23947d",
+    "apps/web/src/components/money/order-editor.tsx": "533c6e16388c",
+    "apps/web/src/components/money/order-page.tsx": "78308bc8417e",
+    "apps/web/src/components/money/orders-list.tsx": "a640267b06ee",
     "apps/web/src/components/money/payments-list.tsx": "842d1f153a67",
     "apps/web/src/components/money/person-picker.tsx": "0e44e715d4c1",
     "apps/web/src/components/money/plan-editor.tsx": "aa7bbeebe0db",
@@ -49,15 +55,15 @@
     "apps/web/src/components/money/plan-visits.tsx": "cca43a62ad16",
     "apps/web/src/components/money/plans-list.tsx": "69bbce72216d",
     "apps/web/src/components/money/product-options-editor.tsx": "a4b653cdf503",
-    "apps/web/src/components/money/product-picker.tsx": "61d625b10291",
+    "apps/web/src/components/money/product-picker.tsx": "b0122184c9d4",
     "apps/web/src/components/money/products-page.tsx": "7a137b204ccf",
     "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
     "apps/web/src/components/money/public-format.ts": "6f17d4ae1a87",
     "apps/web/src/components/money/public-invoice.tsx": "dcd7994a5807",
     "apps/web/src/components/money/public-plan.tsx": "c149e1585a54",
     "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
-    "apps/web/src/components/money/status-badge.tsx": "d8e7c772f63d",
-    "apps/web/src/components/money/subnav.tsx": "711ebdb6f088",
+    "apps/web/src/components/money/status-badge.tsx": "062e16f61359",
+    "apps/web/src/components/money/subnav.tsx": "14522302974e",
     "apps/web/src/components/money/totals.tsx": "65a9d913bff7"
   },
   "items": [
@@ -2188,6 +2194,209 @@
       "file": "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx:148",
       "covered": "yes",
       "by": "get_money_document → writtenAt"
+    },
+    {
+      "path": "Money → tabs → Orders",
+      "kind": "do",
+      "file": "apps/web/src/components/money/subnav.tsx:29",
+      "covered": "yes",
+      "by": "read_order_list reads the tab whole, with its filters"
+    },
+    {
+      "path": "Money → Orders → header → New order",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/money/orders/page.tsx:53",
+      "covered": "yes",
+      "by": "do_order_create (personId, lines, fulfilment, dueOn, notes)"
+    },
+    {
+      "path": "Money → Orders → Search orders box (a number, a name, something on it)",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/money/orders/page.tsx:68",
+      "covered": "yes",
+      "by": "read_order_list search"
+    },
+    {
+      "path": "Money → Orders → filter: Still to do, Picked up or delivered, Cancelled, Every order",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/money/orders/page.tsx:17",
+      "covered": "yes",
+      "by": "read_order_list show (open, done, cancelled, all)"
+    },
+    {
+      "path": "Money → Orders → each row: number, customer, what (summary), when (pickup or delivery and day), status, total",
+      "kind": "see",
+      "file": "apps/web/src/components/money/orders-list.tsx:100",
+      "covered": "yes",
+      "by": "read_order_list rows: number, person, lines, fulfilment, dueOn, status, totalCents"
+    },
+    {
+      "path": "Money → Orders → open a row",
+      "kind": "do",
+      "file": "apps/web/src/components/money/orders-list.tsx:98",
+      "covered": "yes",
+      "by": "read_order_get orderId"
+    },
+    {
+      "path": "Money → Orders → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/money/orders-list.tsx:159",
+      "covered": "yes",
+      "by": "read_order_list cursor"
+    },
+    {
+      "path": "Money → Orders → empty: No orders yet / No orders match, New order",
+      "kind": "see",
+      "file": "apps/web/src/components/money/orders-list.tsx:58",
+      "covered": "yes",
+      "by": "read_order_list (empty); do_order_create"
+    },
+    {
+      "path": "Money → Orders → note: an order form makes an order; days on the calendar",
+      "kind": "see",
+      "file": "apps/web/src/components/money/orders-list.tsx:174",
+      "covered": "yes",
+      "by": "order.create and order.list descriptions say the same"
+    },
+    {
+      "path": "Money → New order → Who it’s for (customer picker, Change)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-editor.tsx:331",
+      "covered": "yes",
+      "by": "search_customers → personId for do_order_create"
+    },
+    {
+      "path": "Money → New order → What they want → Add from the price list (with its size or color)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-editor.tsx:180",
+      "covered": "yes",
+      "by": "the price list (product.list) → do_order_create lines productId, choiceIds, name, unitPriceCents"
+    },
+    {
+      "path": "Money → New order → What they want → Type a line; each line’s what, how many, price each; take a line off",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-editor.tsx:201",
+      "covered": "yes",
+      "by": "do_order_create lines"
+    },
+    {
+      "path": "Money → New order → items and total",
+      "kind": "see",
+      "file": "apps/web/src/components/money/order-editor.tsx:207",
+      "covered": "yes",
+      "by": "read_order_get → itemCount, totalCents"
+    },
+    {
+      "path": "Money → New order → Pickup or delivery (Pickup, Delivery, Not sure yet) and On what day",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-editor.tsx:239",
+      "covered": "yes",
+      "by": "do_order_create fulfilment, dueOn"
+    },
+    {
+      "path": "Money → New order → Notes",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-editor.tsx:360",
+      "covered": "yes",
+      "by": "do_order_create notes"
+    },
+    {
+      "path": "Money → New order → Save the order / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-editor.tsx:376",
+      "covered": "yes",
+      "by": "do_order_create (Confirm card)"
+    },
+    {
+      "path": "Order page → number, status, customer link, day taken, the form it came from",
+      "kind": "see",
+      "file": "apps/web/src/components/money/order-page.tsx:118",
+      "covered": "yes",
+      "by": "read_order_get → number, status, person, createdAt, form"
+    },
+    {
+      "path": "Order page → steps: New, Making it, Ready, Picked up or Delivered (or cancelled)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/order-page.tsx:274",
+      "covered": "yes",
+      "by": "read_order_get → status, fulfilment"
+    },
+    {
+      "path": "Order page → Start making it / Mark ready / Mark picked up or delivered",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-page.tsx:160",
+      "covered": "yes",
+      "by": "do_order_set_status"
+    },
+    {
+      "path": "Order page → Back to …",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-page.tsx:176",
+      "covered": "yes",
+      "by": "do_order_set_status"
+    },
+    {
+      "path": "Order page → Cancel the order / Reopen it",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-page.tsx:201",
+      "covered": "yes",
+      "by": "do_order_set_status cancelled / new"
+    },
+    {
+      "path": "Order page → What they ordered: each line, how many × price, line total, items and total",
+      "kind": "see",
+      "file": "apps/web/src/components/money/order-page.tsx:367",
+      "covered": "yes",
+      "by": "read_order_get → lines, itemCount, totalCents"
+    },
+    {
+      "path": "Order page → What they ordered → Change (lines editor), Save / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-page.tsx:332",
+      "covered": "yes",
+      "by": "do_order_update lines (all of them)"
+    },
+    {
+      "path": "Order page → When: Pickup or delivery, On what day",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-page.tsx:229",
+      "covered": "yes",
+      "by": "do_order_update fulfilment, dueOn"
+    },
+    {
+      "path": "Order page → Invoice: the invoice’s number, status and total, Open the invoice",
+      "kind": "see",
+      "file": "apps/web/src/components/money/order-page.tsx:426",
+      "covered": "yes",
+      "by": "read_order_get → invoice; get_money_document invoiceId"
+    },
+    {
+      "path": "Order page → Invoice → Make the invoice / Make a new invoice (after a void)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-page.tsx:453",
+      "covered": "yes",
+      "by": "do_order_make_invoice"
+    },
+    {
+      "path": "Order page → Invoice → the order is $X now; change the invoice to match",
+      "kind": "see",
+      "file": "apps/web/src/components/money/order-page.tsx:441",
+      "covered": "yes",
+      "by": "read_order_get → totalCents and invoice.totalCents"
+    },
+    {
+      "path": "Order page → Notes, Save notes",
+      "kind": "do",
+      "file": "apps/web/src/components/money/order-page.tsx:521",
+      "covered": "yes",
+      "by": "do_order_update notes"
+    },
+    {
+      "path": "Order page → What they answered on the form",
+      "kind": "see",
+      "file": "apps/web/src/components/money/order-page.tsx:219",
+      "covered": "yes",
+      "by": "get_form_response responseId (read_order_get → formResponseId)"
     }
   ],
   "gaps": [

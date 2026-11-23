@@ -12,7 +12,7 @@ import { friendListOf, listBeside, readListBeside, withRequests } from './friend
 import { readGroupAbout, readGroupLinks, readGroupPage } from './groups';
 import { readNotices } from './notifications';
 import { readPeople, readPeopleAnywhere } from './people';
-import { readPosts } from './posts';
+import { postOver, readPost, readPosts } from './posts';
 import { readProfile, unavailableIn } from './profile';
 import type { GroupLink, PageKind, ReadResult } from './types';
 import { classifyUrl, facebookUrl, pathParts } from './urls';
@@ -153,7 +153,10 @@ export function readPage(
     }
     case 'post':
     case 'feed': {
-      const posts = readPosts(main, base);
+      // A post's own page often draws it in a box over a feed kept hidden behind it: that post, never the feed's.
+      const over = address.kind === 'post' ? postOver(doc) : null;
+      const opened = over ? readPost(over, base) : null;
+      const posts = over ? (opened ? [opened] : []) : readPosts(main, base);
       found = {
         posts,
         ...(address.kind === 'post' && !posts.length && unavailableIn(main)

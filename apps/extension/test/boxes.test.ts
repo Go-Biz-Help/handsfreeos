@@ -35,6 +35,11 @@ const PAGES: readonly (readonly [fixture: string, url: string])[] = [
   ['chat-window-2026.html', 'https://www.facebook.com/friends/requests/'],
   ['groups-joined.html', 'https://www.facebook.com/groups/joins/'],
   ['warning.html', 'https://www.facebook.com/groups/texascontractors/'],
+  // A post on its own address, drawn in a box over a feed (the owner's outline of 22 Nov 2026).
+  [
+    'post-over-page-2026-11.html',
+    'https://www.facebook.com/dana.reyes.12/posts/pfbid0aaaa1111bbbb2222',
+  ],
 ];
 
 describe('pages with more boxes than their outline shows', () => {

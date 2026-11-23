@@ -353,7 +353,7 @@ test('every workflow, knowledge and agency screen fits a phone, light and dark',
   await check('knowledge-profile', page.getByTestId('profile-form'));
 
   // ---- A calendar's Automations and a customer's Workflows card ----
-  await page.goto(`${ws}/settings/calendars/${calendarId}`);
+  await page.goto(`${ws}/settings/calendars/${calendarId}/all`);
   // A phone picks the calendar's settings from a list instead of the side menu (again if the page was still
   // starting up and put its first module back).
   await expect(async () => {

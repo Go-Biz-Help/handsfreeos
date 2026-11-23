@@ -153,7 +153,7 @@ describe('turning receiving on', () => {
 });
 
 describe('where mail to a receiving domain goes', () => {
-  it('to the address, or the default address when nobody has that name, while it receives', async () => {
+  it('to the address, or the default address when nobody has that name, once its mail comes here', async () => {
     const { id, domain } = await verifiedDomain();
     const [chris] = await as(owner)((tx) =>
       rows<{ id: string }>(
@@ -177,6 +177,22 @@ describe('where mail to a receiving domain goes', () => {
     await set('pending');
     expect(await route(`chris@${domain}`)).toHaveLength(0);
 
+    // Postmark gives a domain its server once the MX points there, and hands us its mail from then on. Our own MX
+    // check comes after, so mail that arrives while the domain still waits is filed, not dropped.
+    const server = (id_: string | null) =>
+      worker()((tx) =>
+        rows(tx, sql`update app.email_domains set inbound_server_id = ${id_} where id = ${id}`),
+      );
+    await server('4410123');
+    expect(await route(`chris@${domain}`)).toEqual([
+      { email_address_id: chris!.id, workspace_id: wsA, organization_id: orgA },
+    ]);
+    expect(await route(`nobody@${domain}`)).toEqual([
+      { email_address_id: fallback!.id, workspace_id: wsA, organization_id: orgA },
+    ]);
+    await server(null);
+    expect(await route(`chris@${domain}`)).toHaveLength(0);
+
     await set('on');
     expect(await route(`Chris@${domain.toUpperCase()}`)).toEqual([
       { email_address_id: chris!.id, workspace_id: wsA, organization_id: orgA },
@@ -198,6 +214,8 @@ describe('where mail to a receiving domain goes', () => {
     await set('lapsed');
     expect(await route(`chris@${domain}`)).toHaveLength(1);
 
+    // Turned off, nothing is filed, even while its server is still on record.
+    await server('4410123');
     await set('off');
     expect(await route(`chris@${domain}`)).toHaveLength(0);
 

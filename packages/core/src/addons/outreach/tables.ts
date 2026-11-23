@@ -929,6 +929,11 @@ export const automation = addonOutreach.table(
       .array()
       .notNull()
       .default(sql`'{1,2,3,4,5}'`),
+    /**
+     * Keep working on other days (decision 139): likes, friend requests, comments and replies go every day in the hours,
+     * and only new messages wait for `days`. On to start.
+     */
+    everyDay: boolean('every_day').notNull().default(true),
     wheelsFrom: ts('wheels_from'),
     wheelsOk: integer('wheels_ok').notNull().default(0),
     wheelsEdits: boolean('wheels_edits')

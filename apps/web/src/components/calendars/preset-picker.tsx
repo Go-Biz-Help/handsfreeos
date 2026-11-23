@@ -244,7 +244,7 @@ export function PresetPicker({
       toast.success(
         `Created “${name.trim()}” from ${PRESET_COPY[pick].title}.${adding ? ` ${draftResource.name.trim()} is under Resources now.` : ''} It starts as a draft.`,
       );
-      router.push(`/app/w/${workspaceId}/settings/calendars/${out.calendarId}`);
+      router.push(`/app/w/${workspaceId}/settings/calendars/${out.calendarId}/all`);
     } catch (e) {
       toast.error(errorMessage(e));
       setBusy(false);

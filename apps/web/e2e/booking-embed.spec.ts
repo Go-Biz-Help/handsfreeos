@@ -19,7 +19,7 @@ test('a calendar shows on the site it lists, books inside it, and nowhere else',
   const cal = await makeCalendar(owner, 'AC tune-up');
 
   // The owner: no site yet says the box would be blank; listing one saves it with the www twin added (none here).
-  await page.goto(`/app/w/${owner.workspaceId}/settings/calendars/${cal.id}`);
+  await page.goto(`/app/w/${owner.workspaceId}/settings/calendars/${cal.id}/all`);
   // A press before the page has woken up does nothing, so press again until the window opens.
   const embed = page.getByTestId('calendar-embed');
   await expect(async () => {

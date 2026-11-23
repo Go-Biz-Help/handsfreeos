@@ -5,16 +5,17 @@
  *
  * - **Staff, on Social Outreach → Settings:** each network's newest research and the guide in use there (`get`),
  *   Start (every network at once, decision 172, or one), Stop and sum up, and Use it in every business's comments on
- *   that network or take it out again.
+ *   that network or take it out again; and, on its own, in their messages and replies there (decision 191).
  * - **The browser of whoever started it:** what to read next on a network (`next`: nothing for anyone else, and
  *   nothing once today's share is read), and a search's posts read (`save`: each comment's words sorted and scrubbed
  *   here again, whatever the browser sent).
- * - **The worker:** what it found, once it's read (`sum`).
+ * - **The worker:** what it found, once it's read (`sum`), and the note in use on a network as it writes a message
+ *   there (`writingNoteFor`).
  *
  * Server-only.
  */
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { rows } from '@hfos/db/client';
+import { rows, type Tx } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -42,9 +43,11 @@ import {
   RESEARCH_TARGET,
   researchEnds,
   researchNetworkName,
+  researchReads,
   researchRoom,
   sortComments,
   topicOfTag,
+  writingNote,
   type CommentResearch,
   type CommentResearchNetwork,
   type ResearchPlatform,
@@ -91,6 +94,7 @@ const shown = (r: Row, me: string | null): CommentResearch => {
     posts: r.posts,
     findings: findings?.success ? findings.data : null,
     guide: r.guide,
+    note: findings?.success ? writingNote(findings.data, r.platform) : null,
   };
 };
 
@@ -120,6 +124,15 @@ async function networkCard(
     ctx.tx,
     sql`select guide, comments, research_id, used_at from private.comment_guide_in_use(${platform})`,
   );
+  const [noted] = await rows<{
+    note: string;
+    comments: number;
+    research_id: string | null;
+    used_at: Date | string;
+  }>(
+    ctx.tx,
+    sql`select note, comments, research_id, used_at from private.writing_note_in_use(${platform})`,
+  );
   return {
     platform,
     research: newest ? shown(newest, me) : null,
@@ -131,7 +144,29 @@ async function networkCard(
           thisOne: !!newest && used.research_id === newest.id,
         }
       : null,
+    inMessages: noted
+      ? {
+          note: noted.note,
+          comments: noted.comments,
+          usedAt: new Date(noted.used_at).toISOString(),
+          thisOne: !!newest && noted.research_id === newest.id,
+        }
+      : null,
   };
+}
+
+/**
+ * The note every business's messages on a network are written with (decision 191): the one staff put in use there,
+ * or null. For the worker, as it writes a message; a network the research doesn't read has none.
+ */
+export async function writingNoteFor(tx: Tx, platform: string): Promise<string | null> {
+  const [row] = await rows<{ note: string }>(
+    tx,
+    sql`select note from platform.writing_notes
+        where platform = ${platform} and stopped_at is null
+        order by used_at desc limit 1`,
+  );
+  return row?.note.trim() || null;
 }
 
 /** Every network's newest research here and the guide in use on it, as the card shows them. */
@@ -261,7 +296,7 @@ export const commentResearchStop = defineAddonCommand(outreachAddon, {
 export const commentResearchUse = defineAddonCommand(outreachAddon, {
   name: 'outreach.comment_research.use',
   description:
-    'HandsFreeOS staff only: put a finished comment research’s guide in every business’s comments on its network (how real comments sound there: their length, words and punctuation), in place of the guide in use on that network; or take the guide in use there out again.',
+    'HandsFreeOS staff only: put a finished comment research’s guide in every business’s comments on its network (how real comments sound there: their length, words and punctuation), in place of the guide in use on that network; or take the guide in use there out again. With where set to messages, the same for its short note on how people write there (emoji, how a line ends, lower case, everyday words), which goes in every business’s first messages, replies, follow-ups and answers to comments on that network and changes only how they sound.',
   risk: 2,
   input: CommentResearchUseInput,
   output: CommentResearchOutput,
@@ -272,18 +307,25 @@ export const commentResearchUse = defineAddonCommand(outreachAddon, {
     await requireStaff(ctx);
     const me = requireHuman(ctx).userId;
     const row = await researchOr404(ctx, input.id);
+    const inMessages = input.where === 'messages';
     if (!input.use) {
-      await ctx.tx.execute(sql`select private.stop_comment_guide(${row.platform})`);
+      await ctx.tx.execute(
+        inMessages
+          ? sql`select private.stop_writing_note(${row.platform})`
+          : sql`select private.stop_comment_guide(${row.platform})`,
+      );
     } else {
       const findings = row.findings ? CommentFindings.safeParse(row.findings) : null;
       if (row.state !== 'done' || !row.guide || !findings?.success)
         throw HfosError.rule(
           'outreach_research_not_done',
           409,
-          'This research has no guide yet. Wait for it to finish reading and for the AI to sum it up, then press Use in everyone’s comments.',
+          `This research has no guide yet. Wait for it to finish reading and for the AI to sum it up, then press ${inMessages ? 'Use in everyone’s messages' : 'Use in everyone’s comments'}.`,
         );
       await ctx.tx.execute(
-        sql`select private.use_comment_guide(${row.platform}, ${row.guide}, ${findings.data.comments}::int, ${row.id}::uuid)`,
+        inMessages
+          ? sql`select private.use_writing_note(${row.platform}, ${writingNote(findings.data, row.platform)}, ${findings.data.comments}::int, ${row.id}::uuid)`
+          : sql`select private.use_comment_guide(${row.platform}, ${row.guide}, ${findings.data.comments}::int, ${row.id}::uuid)`,
       );
     }
     await changed(ctx, row.id, row.state);
@@ -294,13 +336,15 @@ export const commentResearchUse = defineAddonCommand(outreachAddon, {
 export const commentResearchNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.comment_research.next',
   description:
-    'What the person’s computer reads next on a network for the comment research they started there, if they started one: the next hashtags or search words (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.',
+    'What the person’s computer reads next on a network for the comment research they started there, if they started one: the next hashtags or search words (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one, or for an extension older than the network’s reader needs.',
   input: CommentResearchNextInput,
   output: CommentResearchNextOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
+    // An extension from before the network's reader was right reads nothing there (decision 191).
+    if (!researchReads(input.platform, ctx.meta.appVersion)) return { research: null };
     // Row security shows a research to HandsFreeOS staff only, so anyone else has none.
     const [run] = await ctx.tx
       .select()

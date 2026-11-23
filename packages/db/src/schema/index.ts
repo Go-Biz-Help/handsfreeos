@@ -4574,6 +4574,50 @@ export const invoiceLines = app.table('invoice_lines', {
   memberViewerIds: memberViewerIds(),
 });
 
+/** Where an order is (product sellers, 20261027034500): New, Making it, Ready, then done, or Cancelled. */
+export const orderStatus = app.enum('order_status', [
+  'new',
+  'making',
+  'ready',
+  'done',
+  'cancelled',
+]);
+
+/**
+ * What a customer ordered (product sellers, 20261027034500; docs/selling-products.md): its lines as a copy, checked
+ * by core's OrderLine, where it is, the day it's picked up or delivered, and the invoice made from it. Seen with its
+ * customer; nobody deletes one. `number` is the business's own, from 1001, given by a trigger.
+ */
+export const orders = app.table(
+  'orders',
+  {
+    id: id(),
+    workspaceId: workspaceRef(),
+    number: integer('number').notNull().default(0),
+    personId: uuid('person_id')
+      .notNull()
+      .references(() => people.id, { onDelete: 'cascade' }),
+    status: orderStatus('status').notNull().default('new'),
+    /** pickup or delivery. */
+    fulfilment: text('fulfilment'),
+    dueOn: date('due_on'),
+    lines: jsonb('lines').$type<object[]>().notNull().default([]),
+    totalCents: cents('total_cents').notNull().default(0),
+    notes: text('notes'),
+    formId: uuid('form_id').references((): AnyPgColumn => forms.id, { onDelete: 'set null' }),
+    formResponseId: uuid('form_response_id').references((): AnyPgColumn => formResponses.id, {
+      onDelete: 'set null',
+    }),
+    invoiceId: uuid('invoice_id').references(() => invoices.id, { onDelete: 'set null' }),
+    open: boolean('open').generatedAlwaysAs(sql`status in ('new', 'making', 'ready')`),
+    statusChangedAt: ts('status_changed_at'),
+    statusChangedBy: userRef('status_changed_by'),
+    createdBy: userRef('created_by'),
+    ...timestamps(),
+  },
+  (t) => [unique().on(t.workspaceId, t.number)],
+);
+
 /**
  * One account a business has connected. People never read token_enc, token_key_id, pkce_verifier_enc or the
  * sign-in state: those columns are not granted to `authenticated` at all (0046).
@@ -9077,6 +9121,7 @@ export const tables = {
   estimateLines,
   invoices,
   invoiceLines,
+  orders,
   paymentConnections,
   payments,
   refunds,

@@ -1,7 +1,7 @@
 {
   "area": "outreach",
   "title": "The Social Outreach add-on: every page",
-  "checkedOn": "2026-11-22",
+  "checkedOn": "2026-11-23",
   "files": {
     "apps/mobile/src/addons/outreach/actions.ts": "9d1266692122",
     "apps/mobile/src/addons/outreach/ai-help.tsx": "715ac076ab3b",
@@ -70,7 +70,7 @@
     "apps/web/src/addons/outreach/chat-bubbles.tsx": "2be480b27752",
     "apps/web/src/addons/outreach/chat-keep.tsx": "0987dcd6fb0a",
     "apps/web/src/addons/outreach/chats-view.tsx": "7842e3fdeae3",
-    "apps/web/src/addons/outreach/comment-research.tsx": "0df19f755ee2",
+    "apps/web/src/addons/outreach/comment-research.tsx": "d37f35a407b7",
     "apps/web/src/addons/outreach/counters.tsx": "94f401c1d213",
     "apps/web/src/addons/outreach/country-picker.tsx": "2ceb90a52fde",
     "apps/web/src/addons/outreach/country-skipped.tsx": "516d0754c63b",
@@ -91,7 +91,7 @@
     "apps/web/src/addons/outreach/home.tsx": "8b02deb19586",
     "apps/web/src/addons/outreach/install-pictures.tsx": "d328a02984f0",
     "apps/web/src/addons/outreach/like-yours.tsx": "8168753d9e13",
-    "apps/web/src/addons/outreach/live-view.tsx": "08145c749e82",
+    "apps/web/src/addons/outreach/live-view.tsx": "d303b459bdab",
     "apps/web/src/addons/outreach/location-part.tsx": "a618ab4ff9cb",
     "apps/web/src/addons/outreach/menu-count.tsx": "1c09b867d874",
     "apps/web/src/addons/outreach/my-calendars.tsx": "77d95c5f5dda",
@@ -2665,7 +2665,7 @@
     {
       "path": "Settings → Your computer → the computer card: name is working / offline / signed out, Online / Offline / Signed out chip, extension version, last seen; N more computers standing by (Show): each one's name, state, last seen",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/live-view.tsx:398",
+      "file": "apps/web/src/addons/outreach/live-view.tsx:399",
       "covered": "yes",
       "by": "outreach_live computers"
     },
@@ -2679,7 +2679,7 @@
     {
       "path": "Settings → Your computer → N more standing by (Show) → Remove one, or Remove the N standing by (confirm)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/live-view.tsx:534",
+      "file": "apps/web/src/addons/outreach/live-view.tsx:525",
       "covered": "yes",
       "by": "outreach_remove_computers"
     },
@@ -3783,9 +3783,9 @@
       "by": "outreach_live platform day, steps"
     },
     {
-      "path": "Settings → Your computer → Download the extension, how to install (folded)",
+      "path": "Settings → Your computer → the computer card: Download HandsFreeOS Social, the one blue button, with the version and when it was updated under it, and How to install it (folded)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/extension-download.tsx:85",
+      "file": "apps/web/src/addons/outreach/live-view.tsx:515",
       "covered": "yes",
       "by": "outreach_setup download: the whole link, the install steps and how to update; installing is the person’s"
     },
@@ -3902,37 +3902,44 @@
       "by": "do_addon_save_settings rules.networksAllowed"
     },
     {
-      "path": "Settings → General → Comment research (HandsFreeOS staff only): a row per network (Instagram, Facebook, LinkedIn, Alignable, Threads, X): where it stands, what it found, the guide",
+      "path": "Settings → General → Comment research (HandsFreeOS staff only): a row per network (Instagram, Facebook, LinkedIn, Alignable, Threads, X): where it stands, what it found, the guide for comments, the note for messages, and which of the two is in use",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/comment-research.tsx:156",
+      "file": "apps/web/src/addons/outreach/comment-research.tsx:161",
       "covered": "never",
       "by": "HandsFreeOS staff's own study, not a business's: outreach.comment_research.* are in the add-on's notForTheAssistant"
     },
     {
       "path": "Settings → General → Comment research (HandsFreeOS staff only) → Start the research / Start on the other networks (every network not reading)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/comment-research.tsx:115",
+      "file": "apps/web/src/addons/outreach/comment-research.tsx:113",
       "covered": "never",
       "by": "HandsFreeOS staff's own study, not a business's: outreach.comment_research.* are in the add-on's notForTheAssistant"
     },
     {
       "path": "Settings → General → Comment research (HandsFreeOS staff only) → a network's Run it again",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/comment-research.tsx:270",
+      "file": "apps/web/src/addons/outreach/comment-research.tsx:311",
       "covered": "never",
       "by": "HandsFreeOS staff's own study, not a business's: outreach.comment_research.* are in the add-on's notForTheAssistant"
     },
     {
       "path": "Settings → General → Comment research (HandsFreeOS staff only) → a network's Stop and sum up what it has",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/comment-research.tsx:238",
+      "file": "apps/web/src/addons/outreach/comment-research.tsx:258",
       "covered": "never",
       "by": "HandsFreeOS staff's own study, not a business's: outreach.comment_research.* are in the add-on's notForTheAssistant"
     },
     {
-      "path": "Settings → General → Comment research (HandsFreeOS staff only) → a network's Use in everyone’s comments / Stop using it",
+      "path": "Settings → General → Comment research (HandsFreeOS staff only) → a network's Use in everyone’s comments / Stop using it in comments",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/comment-research.tsx:248",
+      "file": "apps/web/src/addons/outreach/comment-research.tsx:269",
+      "covered": "never",
+      "by": "HandsFreeOS staff's own study, not a business's: outreach.comment_research.* are in the add-on's notForTheAssistant"
+    },
+    {
+      "path": "Settings → General → Comment research (HandsFreeOS staff only) → a network's Use in everyone’s messages / Stop using it in messages",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/comment-research.tsx:290",
       "covered": "never",
       "by": "HandsFreeOS staff's own study, not a business's: outreach.comment_research.* are in the add-on's notForTheAssistant"
     },
