@@ -10264,7 +10264,9 @@ Stripe's own test cards are listed under **Developers** → **Test data**.
 3. Save.
 4. Switch to **Sandbox** and set the same field to your laptop's address (see "Trying a real provider from your laptop"), or leave it until you need it.
 
-HandsFreeOS asks a seller for these permissions, and Square refuses the whole sign-in if one is left unticked: `MERCHANT_PROFILE_READ`, `PAYMENTS_READ`, `PAYMENTS_WRITE`, `CUSTOMERS_READ`, `CUSTOMERS_WRITE`, `SUBSCRIPTIONS_READ`, `SUBSCRIPTIONS_WRITE`, `ITEMS_READ`, `ITEMS_WRITE`. The seller sees them listed on Square's own screen.
+HandsFreeOS asks a seller for these permissions, and Square refuses the whole sign-in if one is left unticked: `MERCHANT_PROFILE_READ`, `PAYMENTS_READ`, `PAYMENTS_WRITE`, `CUSTOMERS_READ`, `CUSTOMERS_WRITE`, `SUBSCRIPTIONS_READ`, `SUBSCRIPTIONS_WRITE`, `ITEMS_READ`, `ITEMS_WRITE`, `INVOICES_READ`, `INVOICES_WRITE`, `ORDERS_READ`, `ORDERS_WRITE`. The seller sees them listed on Square's own screen.
+
+The invoice and order permissions are for plans. Square bills each cycle of a plan as an order with an invoice, so it won't make, pause or resume a plan without `INVOICES_WRITE` and `ORDERS_WRITE`. It sends a cycle's `invoice.payment_made` only with `INVOICES_READ`, and the worker reads the cycle's payment off its order with `ORDERS_READ`. They were added on 23 Nov 2026, so a Square account connected before then has to be connected again (**Settings** → **Payments**) before it can sell a plan. None was connected that day.
 
 ### Square Part 4: The webhook
 
@@ -10282,7 +10284,7 @@ Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8)
    - `payment.created`, `payment.updated` — Square has no "payment failed" event and no separate "succeeded" one, so where the money is has to be read off the payment itself
    - `refund.created`, `refund.updated`
    - `dispute.created`, `dispute.state.updated`, `dispute.evidence.created`
-   - `invoice.payment_made`
+   - `invoice.payment_made`, `invoice.scheduled_charge_failed` — a plan's cycle paid, or its card refused (Square has no other word for a refused cycle)
    - `subscription.created`, `subscription.updated`
    - `location.updated`
    - `oauth.authorization.revoked`

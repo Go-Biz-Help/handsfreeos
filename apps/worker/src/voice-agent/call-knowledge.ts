@@ -130,7 +130,8 @@ async function readFaq(
 /**
  * Open times from now to the end of the next few days on the calendars it can book without asking where they
  * are (no ZIP or address needed, no deposit, no drive to time, no service-area check first), a few from each day,
- * spread out.
+ * spread out. A calendar that leaves time to drive needs the visit's address first, so on a call it asks for it and
+ * looks with find_times (decision 179).
  */
 async function readOpenTimes(
   deps: { readonly db: Db },

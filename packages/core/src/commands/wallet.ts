@@ -23,6 +23,7 @@ import { usageWallets, walletRecharges } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { topUpUsageKey } from '../money/usage-keys';
+import { runStartedAt } from '../money/wallet-ladders';
 import {
   WalletAdjustInput,
   WalletAdjustOutput,
@@ -521,9 +522,16 @@ export const walletRecordRecharge = defineCommand({
 
     const w = await wallet(ctx);
     if (input.status === 'succeeded') {
-      // A card that worked clears the decline ladder, and the window this top-up counts against moves on. It
-      // lifts a suspension too: a card that just paid is a working card. Left on, a suspended balance took
-      // somebody's Top up now and still said texts and calls had stopped, and never topped itself up again.
+      // The run this top-up counts in, asked as of when it was decided, as the decision itself asked it. After a
+      // quiet 72 hours it starts a new run, at one top-up. Until 23 Nov 2026 a run was only ever started when
+      // there had never been one, so a business's first run never ended: every top-up after its first three
+      // days was decided as a fresh run, at its own amount, and the doubling the billing page promised never
+      // came again.
+      const decidedAt = row.createdAt.getTime();
+      const run = runStartedAt(w.windowStartedAt?.getTime() ?? null, decidedAt);
+      // A card that worked clears the decline ladder. It lifts a suspension too: a card that just paid is a
+      // working card. Left on, a suspended balance took somebody's Top up now and still said texts and calls
+      // had stopped, and never topped itself up again.
       await ctx.tx
         .update(usageWallets)
         .set({
@@ -532,8 +540,8 @@ export const walletRecordRecharge = defineCommand({
           declinesInRow: 0,
           pausedUntil: null,
           lastRechargeAt: new Date(),
-          rechargesInWindow: sql`${usageWallets.rechargesInWindow} + 1`,
-          windowStartedAt: w.windowStartedAt ?? new Date(),
+          rechargesInWindow: run === null ? 1 : sql`${usageWallets.rechargesInWindow} + 1`,
+          windowStartedAt: run === null ? row.createdAt : w.windowStartedAt,
           escalationStep: row.escalationStep,
           // Back above the floor: the next crossing is a new warning, not the same one again.
           lowWarnedAt: null,

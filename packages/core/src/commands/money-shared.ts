@@ -35,6 +35,7 @@ import {
   lineSubtotalCents,
   moneySettingsOf,
   overdueFrom,
+  planChargeOf,
   type DepositTerms,
   type DocumentDiscount,
   type DocumentNumbering,
@@ -428,6 +429,7 @@ export type SubscriptionRow = {
   interval: string;
   interval_count: number;
   taxable: boolean;
+  tax_rate_bp: number;
   includes: unknown;
   person_id: string;
   first_name: string | null;
@@ -500,7 +502,7 @@ export const invoiceSelect = sql`
 export const subscriptionSelect = sql`
   select s.id, s.public_ref, s.status::text as status, s.plan_id, s.plan_name,
     s.price_cents::float8 as price_cents, s.interval::text as interval, s.interval_count, s.taxable,
-    s.includes, ${PERSON_COLUMNS}, s.lead_id, s.connection_id, s.provider::text as provider,
+    s.tax_rate_bp, s.includes, ${PERSON_COLUMNS}, s.lead_id, s.connection_id, s.provider::text as provider,
     s.external_subscription_id, (s.method_token is not null) as has_card, s.card_brand, s.card_last4,
     s.card_expiry_month, s.card_expiry_year, s.card_requested_at,
     s.started_on::text as started_on, s.current_period_start::text as current_period_start,
@@ -843,6 +845,11 @@ export function refundOut(r: RefundRow) {
 }
 
 export function subscriptionOut(r: SubscriptionRow) {
+  const charge = planChargeOf({
+    priceCents: num(r.price_cents),
+    taxable: r.taxable,
+    taxRateBp: Number(r.tax_rate_bp ?? 0),
+  });
   return {
     id: r.id,
     publicRef: r.public_ref,
@@ -853,6 +860,9 @@ export function subscriptionOut(r: SubscriptionRow) {
     interval: r.interval as never,
     intervalCount: r.interval_count,
     taxable: r.taxable,
+    taxRateBp: Number(r.tax_rate_bp ?? 0),
+    taxCents: charge.taxCents,
+    totalCents: charge.totalCents,
     includes: Array.isArray(r.includes) ? r.includes.filter((x) => typeof x === 'string') : [],
     person: personOf(r),
     leadId: r.lead_id,

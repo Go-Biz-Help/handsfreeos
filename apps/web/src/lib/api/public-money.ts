@@ -345,9 +345,15 @@ export interface PublicPlanView {
   readonly customer: PublicCustomer;
   readonly plan: {
     readonly name: string;
+    /** What each cycle charges, sales tax included. */
     readonly priceCents: number;
     /** "$29 a month", worked out by the worker so every screen says it the same way. */
     readonly priceLabel: string;
+    /**
+     * The sales tax inside that price, when the plan charges it. Optional: the web goes live a few minutes
+     * before the worker that sends it.
+     */
+    readonly taxCents?: number;
     readonly interval: string;
     readonly intervalCount: number;
     readonly includes: readonly string[];

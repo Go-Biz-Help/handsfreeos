@@ -1,7 +1,7 @@
 {
   "area": "public-links",
   "title": "Every link a business gives out, and the public pages behind them",
-  "checkedOn": "2026-11-20",
+  "checkedOn": "2026-11-23",
   "files": {
     "apps/web/src/addons/realestate/portal/bits.tsx": "d7b704452b09",
     "apps/web/src/addons/realestate/portal/home-panel.tsx": "94db9d871e1e",
@@ -69,7 +69,7 @@
     "apps/web/src/components/money/provider-fields.tsx": "96d28fde2225",
     "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
     "apps/web/src/components/money/public-invoice.tsx": "dcd7994a5807",
-    "apps/web/src/components/money/public-plan.tsx": "1364906433dc",
+    "apps/web/src/components/money/public-plan.tsx": "c149e1585a54",
     "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
     "apps/web/src/components/portal/partner-page.tsx": "1e5fbe8cd600",
     "apps/web/src/components/portal/portal-pages.tsx": "6a270ce8937e",
@@ -1898,11 +1898,11 @@
       "by": "list_plans has no included visits or items"
     },
     {
-      "path": "Plan → How it bills: Price, First charge, Then, Card",
+      "path": "Plan → How it bills: Price (and the tax in it), First charge, Then, Card",
       "kind": "see",
       "file": "apps/web/src/components/money/public-plan.tsx:352",
       "covered": "partly",
-      "by": "list_plans nextBilling, card brand and last4"
+      "by": "list_plans chargedEachTime and plusTax, nextBilling, card brand and last4"
     },
     {
       "path": "Plan → Add a card / Use a different card",

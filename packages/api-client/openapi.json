@@ -10761,6 +10761,10 @@
                     "default": false,
                     "type": "boolean"
                   },
+                  "askedForCode": {
+                    "default": false,
+                    "type": "boolean"
+                  },
                   "campaignRecipientId": {
                     "type": "string",
                     "format": "uuid",
@@ -172903,6 +172907,48 @@
                       }
                     ]
                   },
+                  "drives": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "fromStart": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "additionalProperties": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 600
+                            }
+                          },
+                          "around": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "additionalProperties": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 600
+                            }
+                          }
+                        },
+                        "required": [
+                          "fromStart",
+                          "around"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "chosenUserId": {
                     "anyOf": [
                       {
@@ -187631,6 +187677,60 @@
                                             }
                                           ]
                                         },
+                                        "address": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "drives": {
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "fromStart": {
+                                                  "type": "object",
+                                                  "propertyNames": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  "additionalProperties": {
+                                                    "type": "integer",
+                                                    "minimum": 0,
+                                                    "maximum": 600
+                                                  }
+                                                },
+                                                "around": {
+                                                  "type": "object",
+                                                  "propertyNames": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  "additionalProperties": {
+                                                    "type": "integer",
+                                                    "minimum": 0,
+                                                    "maximum": 600
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "fromStart",
+                                                "around"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
                                         "summary": {
                                           "default": "",
                                           "type": "string",
@@ -187758,6 +187858,60 @@
                                               "required": [
                                                 "lat",
                                                 "lng"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "address": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "drives": {
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "fromStart": {
+                                                  "type": "object",
+                                                  "propertyNames": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  "additionalProperties": {
+                                                    "type": "integer",
+                                                    "minimum": 0,
+                                                    "maximum": 600
+                                                  }
+                                                },
+                                                "around": {
+                                                  "type": "object",
+                                                  "propertyNames": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  "additionalProperties": {
+                                                    "type": "integer",
+                                                    "minimum": 0,
+                                                    "maximum": 600
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "fromStart",
+                                                "around"
                                               ],
                                               "additionalProperties": false
                                             },
@@ -188137,6 +188291,49 @@
                                               "type": "string",
                                               "format": "uuid",
                                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "drives": {
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "fromStart": {
+                                                  "type": "object",
+                                                  "propertyNames": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  "additionalProperties": {
+                                                    "type": "integer",
+                                                    "minimum": 0,
+                                                    "maximum": 600
+                                                  }
+                                                },
+                                                "around": {
+                                                  "type": "object",
+                                                  "propertyNames": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  "additionalProperties": {
+                                                    "type": "integer",
+                                                    "minimum": 0,
+                                                    "maximum": 600
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "fromStart",
+                                                "around"
+                                              ],
+                                              "additionalProperties": false
                                             },
                                             {
                                               "type": "null"
@@ -202019,6 +202216,17 @@
                           "taxable": {
                             "type": "boolean"
                           },
+                          "taxRateBp": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "taxCents": {
+                            "type": "number"
+                          },
+                          "totalCents": {
+                            "type": "number"
+                          },
                           "includes": {
                             "type": "array",
                             "items": {
@@ -202272,6 +202480,9 @@
                           "interval",
                           "intervalCount",
                           "taxable",
+                          "taxRateBp",
+                          "taxCents",
+                          "totalCents",
                           "includes",
                           "person",
                           "leadId",
@@ -202415,6 +202626,17 @@
                         },
                         "taxable": {
                           "type": "boolean"
+                        },
+                        "taxRateBp": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "taxCents": {
+                          "type": "number"
+                        },
+                        "totalCents": {
+                          "type": "number"
                         },
                         "includes": {
                           "type": "array",
@@ -202669,6 +202891,9 @@
                         "interval",
                         "intervalCount",
                         "taxable",
+                        "taxRateBp",
+                        "taxCents",
+                        "totalCents",
                         "includes",
                         "person",
                         "leadId",
@@ -203646,6 +203871,17 @@
                           "taxable": {
                             "type": "boolean"
                           },
+                          "taxRateBp": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "taxCents": {
+                            "type": "number"
+                          },
+                          "totalCents": {
+                            "type": "number"
+                          },
                           "includes": {
                             "type": "array",
                             "items": {
@@ -203899,6 +204135,9 @@
                           "interval",
                           "intervalCount",
                           "taxable",
+                          "taxRateBp",
+                          "taxCents",
+                          "totalCents",
                           "includes",
                           "person",
                           "leadId",

@@ -10,8 +10,11 @@
  *   treated as a Date), so a business with auto top-up on and a working card ran down to nothing.
  * - **A top-up that goes through lifts a suspension.** A suspended balance took the money for a Top up now and
  *   still said texts and calls had stopped, and never topped itself up again.
+ * - **Top-ups close together double in every run, not only the first.** A run was only ever started when there
+ *   had never been one, so a business's first run never ended, and every top-up after its first three days was
+ *   its own amount (the owner, 23 Nov 2026: "Yes, make it work as designed").
  */
-import { executeCommand, walletSuspend, walletTopUp } from '@hfos/core/server';
+import { executeCommand, walletGet, walletSuspend, walletTopUp } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, signInTestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -19,6 +22,7 @@ import type { JobContext } from '../src/jobs';
 import { planWallets, RECHARGE_JOBS, sweepWallet, walletSweepKey } from '../src/money/recharge';
 import { FAKE_CARDS } from '../src/payments/fake';
 import { systemActor, workerMeta } from '../src/services';
+import { query } from './booking-world';
 import { admin, drain, moneyWorld, run, type MoneyWorld } from './money-world';
 
 let w: MoneyWorld;
@@ -193,5 +197,66 @@ describe('topping up the balance', () => {
           where workspace_id = ${w.workspaceId} and event_type = 'wallet.resumed'`,
     );
     expect(said).toHaveLength(1);
+  });
+
+  it('doubles top-ups close together in a later run, not only in the business’s first three days', async () => {
+    const scope = { workspaceId: w.workspaceId, organizationId: w.organizationId };
+    // A run of three top-ups that ended weeks ago, and the balance under its floor again today.
+    await asWorker(on.s.db, scope, (tx) =>
+      tx.execute(sql`update app.usage_wallets set floor_cents = balance_cents + 1000, topup_cents = 2_500,
+            auto_topup = true, escalation_step = 2, recharges_in_window = 3,
+            window_started_at = now() - interval '30 days', last_recharge_at = now() - interval '29 days',
+            suspended_at = null, paused_until = null, declines_in_row = 0
+          where workspace_id = ${w.workspaceId}`),
+    );
+    const ladder = async () =>
+      (
+        await rows<{ step: number; recharges: number; startedHoursAgo: number }>(
+          admin(),
+          sql`select escalation_step as step, recharges_in_window as recharges,
+                round(extract(epoch from now() - window_started_at) / 3600)::int as "startedHoursAgo"
+              from app.usage_wallets where workspace_id = ${w.workspaceId}`,
+        )
+      )[0];
+    // The billing page says nothing about a run that has ended.
+    const page = async () => (await query(w, walletGet, { workspaceId: w.workspaceId })).escalation;
+    expect(await page()).toBeNull();
+    const sweep = () =>
+      sweepWallet({
+        ...on.s,
+        job: { payload: {} } as unknown as JobContext['job'],
+        scope,
+        attempt: 1,
+        now: Date.now(),
+      });
+
+    // The first top-up after the quiet spell is their own amount, and starts a new run.
+    const before = charges().length;
+    await sweep();
+    await drain(on);
+    expect(
+      charges()
+        .slice(before)
+        .map((c) => c.amountCents),
+    ).toEqual([2_500]);
+    expect(await ladder()).toEqual({ step: 0, recharges: 1, startedHoursAgo: 0 });
+
+    // Ten hours on (not a rush), it runs low again: the second top-up of this run doubles.
+    await asWorker(on.s.db, scope, (tx) =>
+      tx.execute(sql`update app.usage_wallets set floor_cents = balance_cents + 1000,
+            window_started_at = window_started_at - interval '10 hours',
+            last_recharge_at = last_recharge_at - interval '10 hours'
+          where workspace_id = ${w.workspaceId}`),
+    );
+    await sweep();
+    await drain(on);
+    expect(
+      charges()
+        .slice(before)
+        .map((c) => c.amountCents),
+    ).toEqual([2_500, 5_000]);
+    // Still the run that began ten hours ago, now at two top-ups.
+    expect(await ladder()).toEqual({ step: 1, recharges: 2, startedHoursAgo: 10 });
+    expect(await page()).toContain('topped up 2 times in the last three days');
   });
 });

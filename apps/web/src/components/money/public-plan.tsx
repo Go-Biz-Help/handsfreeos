@@ -351,7 +351,15 @@ export function PublicPlan({ token }: { token: string }) {
         <div className="rounded-card border border-border bg-card p-4" data-print="card">
           <SectionLabel>How it bills</SectionLabel>
           <div className="mt-1.5">
-            <Row label="Price">{plan.priceLabel}</Row>
+            <Row label="Price">
+              {plan.priceLabel}
+              {plan.taxCents ? (
+                <span className="text-text-3" data-testid="plan-tax">
+                  {' '}
+                  · includes {money(plan.taxCents)} tax
+                </span>
+              ) : null}
+            </Row>
             <Row label="First charge">
               <span className="inline-flex items-center gap-1.5" data-testid="plan-first-charge">
                 <CalendarClock className="h-3.5 w-3.5 text-text-3" strokeWidth={1.5} />

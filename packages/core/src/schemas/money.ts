@@ -1235,10 +1235,17 @@ export const SubscriptionOut = z.object({
   status: subscriptionStatus,
   planId: uuid.nullable(),
   planName: z.string(),
+  /** The plan's own price, as it was sold. */
   priceCents: z.number(),
   interval: planInterval,
   intervalCount: z.int(),
   taxable: z.boolean(),
+  /** The business's sales tax rate when it was sold (825 is 8.25%), charged on top only when it is taxable. */
+  taxRateBp: z.int(),
+  /** The sales tax each cycle: 0 unless it is taxable and the business had a rate when it was sold. */
+  taxCents: z.number(),
+  /** What the customer's card is charged each cycle: the price plus its tax. */
+  totalCents: z.number(),
   includes: z.array(z.string()),
   person: personOut,
   leadId: uuid.nullable(),

@@ -271,6 +271,7 @@ export const calendarAvailability = defineQuery({
       partySize: input.partySize,
       postalCode: input.postalCode ?? null,
       point: input.point ?? null,
+      drives: input.drives ?? null,
       chosenUserId: input.chosenUserId ?? null,
       locationKind: input.locationKind,
     });

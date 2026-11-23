@@ -83,6 +83,12 @@ const obj = (value: unknown): Json => (value && typeof value === 'object' ? (val
 const str = (value: unknown): string | null =>
   typeof value === 'string' && value.trim() ? value : null;
 
+/** A plan's first item (`items.data[0]`), where its billing period has lived since `2025-03-31.basil`. */
+function firstItemOf(subscription: Json): Json {
+  const data = obj(subscription['items'])['data'];
+  return Array.isArray(data) ? obj(data[0]) : {};
+}
+
 /** Stripe reads nested form bodies as `a[b][0][c]`. Nothing here ever sends a raw object. */
 function form(input: Json): URLSearchParams {
   const out = new URLSearchParams();
@@ -517,12 +523,14 @@ export function createStripePayments(opts: {
   function subscriptionResult(raw: unknown): SubscriptionResult {
     const s = obj(raw);
     const pause = obj(s['pause_collection']);
+    // Since `2025-03-31.basil` the period is on each item, not the plan; a plan here has one item.
+    const item = firstItemOf(s);
     return {
       providerSubscriptionId: String(s['id'] ?? ''),
       status: subscriptionState(String(s['status'] ?? ''), !!pause['behavior']),
       providerStatus: String(s['status'] ?? ''),
-      currentPeriodStart: isoOf(s['current_period_start']),
-      currentPeriodEnd: isoOf(s['current_period_end']),
+      currentPeriodStart: isoOf(item['current_period_start'] ?? s['current_period_start']),
+      currentPeriodEnd: isoOf(item['current_period_end'] ?? s['current_period_end']),
       cancelAt: isoOf(s['cancel_at']),
     };
   }
@@ -1145,6 +1153,13 @@ export function createStripePayments(opts: {
             `/subscriptions/${encodeURIComponent(input.providerSubscriptionId)}`,
           ),
         );
+      },
+      /** The invoice's payments, the one that paid it first: an invoice stopped naming its PaymentIntent in basil. */
+      async cyclePaymentId(account, input) {
+        const q = new URLSearchParams({ invoice: input.invoiceId, status: 'paid', limit: '1' });
+        const answer = await api<{ data?: unknown[] }>(account, `/invoice_payments?${q}`);
+        const paid = obj((answer.data ?? [])[0]);
+        return str(obj(paid['payment'])['payment_intent']);
       },
     },
 

@@ -5984,6 +5984,10 @@
             "default": false,
             "type": "boolean"
           },
+          "askedForCode": {
+            "default": false,
+            "type": "boolean"
+          },
           "campaignRecipientId": {
             "type": "string",
             "format": "uuid"
@@ -17993,6 +17997,43 @@
                   }
                 },
                 "required": ["lat", "lng"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "drives": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "fromStart": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 600
+                    }
+                  },
+                  "around": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 600
+                    }
+                  }
+                },
+                "required": ["fromStart", "around"]
               },
               {
                 "type": "null"

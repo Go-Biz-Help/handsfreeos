@@ -14,6 +14,7 @@
  * `flow: 'server_charge'`.
  */
 import { randomUUID } from 'node:crypto';
+import { SQUARE_CADENCE_WORDS, squareCadenceOf } from '@hfos/core/server';
 import {
   centsOf,
   cleanMetadata,
@@ -59,7 +60,14 @@ const HOSTS: Record<PaymentEnvironment, string> = {
 };
 /** Pinned, so a new Square version never changes what our calls mean underneath us. */
 const SQUARE_VERSION = '2025-06-18';
-/** Everything we use on the seller's behalf. Square refuses the sign-in outright if one is not granted. */
+/**
+ * Everything we use on the seller's behalf. Square refuses the sign-in outright if one is not granted.
+ *
+ * A plan needs the invoice and order ones: Square bills each cycle as an order with an invoice, so making,
+ * pausing or resuming a plan asks for `INVOICES_WRITE` and `ORDERS_WRITE`, a cycle's `invoice.payment_made`
+ * reaches us only with `INVOICES_READ`, and the order is where that cycle's payment is named (`ORDERS_READ`).
+ * Without them (before 23 Nov 2026) Square would have refused to make any plan at all.
+ */
 export const SQUARE_SCOPES = [
   'MERCHANT_PROFILE_READ',
   'PAYMENTS_READ',
@@ -70,6 +78,10 @@ export const SQUARE_SCOPES = [
   'SUBSCRIPTIONS_WRITE',
   'ITEMS_READ',
   'ITEMS_WRITE',
+  'INVOICES_READ',
+  'INVOICES_WRITE',
+  'ORDERS_READ',
+  'ORDERS_WRITE',
 ] as const;
 /** Square advises refreshing at least weekly; a token under this much life left is renewed at once. */
 export const SQUARE_TOKEN_LIFE_MS = 30 * 86_400_000;
@@ -396,7 +408,15 @@ export function createSquarePayments(opts: {
    * makes a repeat land on the same objects rather than a second plan.
    */
   async function planVariation(account: PaymentAccount, input: SubscriptionInput): Promise<string> {
-    const cadence = input.interval === 'year' ? 'ANNUAL' : 'MONTHLY';
+    // Square's own name for the rhythm. Anything else was made MONTHLY before, so a quarterly plan billed every
+    // month. One Square has no name for is refused when it is sold (core), and here too in case it got through.
+    const cadence = squareCadenceOf(input.interval, input.intervalCount);
+    if (!cadence)
+      throw new PaymentError(
+        `Square can’t bill a plan that often. It bills ${SQUARE_CADENCE_WORDS}.`,
+        null,
+        true,
+      );
     const planId = `#plan-${input.idempotencyKey.slice(0, 20)}`;
     const variationId = `#variation-${input.idempotencyKey.slice(0, 20)}`;
     const made = await api<{ id_mappings?: unknown[] }>(account, '/v2/catalog/batch-upsert', {
@@ -752,6 +772,28 @@ export function createSquarePayments(opts: {
           `/v2/subscriptions/${encodeURIComponent(input.providerSubscriptionId)}`,
         );
         return subscriptionResult(answer.subscription);
+      },
+      /**
+       * A cycle's invoice names the order it billed, and the order names the payment in its tenders. An event
+       * that left the order out is read from the invoice first.
+       */
+      async cyclePaymentId(account, input) {
+        let orderId = input.orderId;
+        if (!orderId) {
+          const found = await api<{ invoice?: unknown }>(
+            account,
+            `/v2/invoices/${encodeURIComponent(input.invoiceId)}`,
+          );
+          orderId = str(obj(found.invoice)['order_id']);
+        }
+        if (!orderId) return null;
+        const answer = await api<{ order?: unknown }>(
+          account,
+          `/v2/orders/${encodeURIComponent(orderId)}`,
+        );
+        const tenders = obj(answer.order)['tenders'];
+        const paid = (Array.isArray(tenders) ? tenders : []).map(obj);
+        return str(paid[0]?.['payment_id']) ?? str(paid[0]?.['id']);
       },
     },
 

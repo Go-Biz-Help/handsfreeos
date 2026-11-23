@@ -6156,11 +6156,15 @@ Facebook: on the other networks, and for someone the person talks with on anothe
 on Today. Today's ordering is the only place near people go first; the Pipeline and the lists don't sort by distance
 yet.
 
-Drive times (decision 179) count only on the booking page and a reschedule from the customer's link. The AI teammate
-doesn't offer or book times on a calendar that leaves time to drive: like one that takes a deposit, it sends the
-customer the booking page, where their address times the drive. A booking the team makes in New appointment, the
-Assistant's, or a time Social Outreach offers in a chat isn't checked for the drive. Where your day
-starts is on the web's Settings → My calendar, not yet on the phone. Google's drives are without traffic.
+Drive times (decision 179) count on the booking page, a reschedule from the customer's link, and the AI teammate's
+times (the owner, 23 Nov 2026: "Yes, teach the AI drive time"). On a calendar that leaves time to drive, the teammate
+asks where the visit is and gives the address to find_times, which times the drives by road the same way the page
+does; the visit keeps that address. The drives go with the time it offers and the booking it holds, so a booking a
+person approves later is checked against the drives found when the time was offered: a visit booked nearby in between
+keeps only its usual buffers. A move is timed afresh from the visit's own address. A phone call doesn't list a
+drive calendar's times up front; it asks for the address and looks. A booking the team makes in New appointment, the
+Assistant's, or a time Social Outreach offers in a chat isn't checked for the drive. Where your day starts is on the
+web's Settings → My calendar, not yet on the phone. Google's drives are without traffic.
 
 Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. Then leads. Then the rest of decisions 26 to 35 (the onboarding,
 decision 36, joining groups, decision 48, and tidying on its own, decision 98, are built), in the order above: team sharing, the after-demo workflow, birthday notes and
