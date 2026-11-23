@@ -302,6 +302,11 @@ export const CalendarAvailabilityInput = z.object({
   partySize,
   postalCode: z.string().trim().max(20).nullable().optional(),
   point: GeoPointInput.nullable().optional(),
+  /**
+   * Drive times to the customer's place, on a calendar that leaves time to drive between visits (decision 179): the
+   * worker times them by road for the AI teammate, and only times that leave room for them are offered.
+   */
+  drives: DrivesInput.nullable().optional(),
   chosenUserId: uuid.nullable().optional(),
   locationKind: LocationKind.nullable().optional(),
 });

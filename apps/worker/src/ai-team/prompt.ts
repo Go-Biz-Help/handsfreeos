@@ -164,36 +164,35 @@ function skillLines(rc: RunContext, texting: boolean, call = false): string[] {
       const deposit = c.deposit
         ? ` — takes ${money(c.deposit.amountCents)}${c.deposit.mode === 'deposit' ? ' as a deposit' : ''} to book, so **don't book it yourself**: say what it takes and send them${c.bookingPath ? ` ${c.bookingPath}` : ' the booking page'} to book and pay on`
         : '';
-      // Nor is one that leaves time to drive between visits: the drive is timed from their address, on the page.
-      const drive =
-        !c.deposit && c.drives
-          ? ` — leaves time to drive between visits, worked out from the customer's address on its booking page, so **don't book or move it yourself**: ${c.bookingPath ? `send them ${c.bookingPath} to pick a time` : 'hand off so the team books it'}`
-          : '';
       // M18: what else the calendar allows, only when its settings let the teammate do it.
-      const extras =
-        c.deposit || c.drives
-          ? []
-          : [
-              ...(c.byAddress
+      const extras = c.deposit
+        ? []
+        : [
+            // Decision 179: the drive is timed by road to where the visit is, so it needs the address first.
+            ...(c.drives
+              ? [
+                  'leaves time to drive between visits: ask for the street address and city where the visit will be and give it to find_times (for a move, the address the visit is at); its times already leave room for the drive',
+                ]
+              : c.byAddress
                 ? [
                     'goes by where they are: ask for their street address and city and give it to find_times',
                   ]
                 : c.byZip
                   ? ['goes by ZIP code: ask for their ZIP and give it to find_times']
                   : []),
-              ...(config.book.waitlist && c.waitlist
-                ? ['keeps a waitlist (join_waitlist) for when nothing open suits them']
-                : []),
-              ...(config.book.repeats && c.maxRepeats !== null
-                ? [`takes repeat visits, up to ${c.maxRepeats} (book_repeating)`]
-                : []),
-            ];
+            ...(config.book.waitlist && c.waitlist
+              ? ['keeps a waitlist (join_waitlist) for when nothing open suits them']
+              : []),
+            ...(config.book.repeats && c.maxRepeats !== null
+              ? [`takes repeat visits, up to ${c.maxRepeats} (book_repeating)`]
+              : []),
+          ];
       // What the business says it's for, on one line and kept short (the calendar's description).
       const forWhat = c.description
         ? `, for “${quoteData(clipLine(c.description, CALENDAR_FOR_MAX_CHARS))}”`
         : '';
       out.push(
-        `  - ${quoteData(c.name)} (calendar id ${c.id})${forWhat}${services}${deposit}${drive}${
+        `  - ${quoteData(c.name)} (calendar id ${c.id})${forWhat}${services}${deposit}${
           extras.length ? `; ${extras.join('; ')}` : ''
         }`,
       );

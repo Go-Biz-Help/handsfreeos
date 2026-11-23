@@ -66,6 +66,7 @@ import {
   type Question,
   type ConversationHandoffReason,
   type DraftAction,
+  type Drives,
   type HandOffReason,
   attendeeConfirmByCall,
   personSetCallConsent,
@@ -82,8 +83,10 @@ import { anyOfWords, findKnowledge } from '../knowledge/find';
 import { systemActor, type TenantScope } from '../services';
 import { HELD_MAX, MONEY_LIST_MAX, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN } from './constants';
 import { estimateUrlFor, invoiceUrlFor, type MoneyLinks } from '../money/links';
+import type { DriveTimer } from '../geo/driving';
 import type { Geocoder } from '../geo/geocoder';
 import { ADDRESS_NOT_FOUND, serviceAreaAnswer, whereabouts } from './areas';
+import { drivesTo, moveDrives, seriesSpan } from './drives';
 import type { ChatCodeSender } from './chat-code';
 import {
   jobsOf,
@@ -113,6 +116,10 @@ export interface OfferedTime {
   readonly label: string;
   /** Read when a phone call was picked up (its context lists them), not offered by find_times. */
   readonly preloaded?: boolean;
+  /** Decision 179: where the visit is, on a calendar that leaves time to drive between visits. */
+  readonly address?: string | null;
+  /** The drives to that address it was found with, so the booking is checked against the same ones. */
+  readonly drives?: Drives | null;
 }
 
 export interface FoundItem {
@@ -260,6 +267,8 @@ export interface ExecutorDeps {
   readonly moneyLinks: MoneyLinks;
   /** Finds where a customer's address is, for distance and drawn service areas (M18). */
   readonly geocoder: Geocoder;
+  /** Times drives by road, on a calendar that leaves time to drive between visits (decision 179). */
+  readonly driving: DriveTimer;
   /** Delivers a website chat visitor's code (M18). */
   readonly chatCodes: ChatCodeSender;
   /** Keeps a run's second pass (after a chat code) from meeting its first pass's calls under the same ids. */
@@ -548,16 +557,12 @@ const depositInstead = (cal: {
     cal.bookingPath ? ` send them ${cal.bookingPath} to book and pay on.` : ' ask them to call us.'
   }`;
 /**
- * A calendar that leaves time to drive between visits times the drive by road from the customer's address, on its
- * booking page (docs/outreach.md, decision 179). The teammate has no drive to go by, so a time it offered could sit
- * right after a visit across town. It books and moves nothing here, and sends them the page.
+ * Decision 179 (the owner, 23 Nov 2026: "Yes, teach the AI drive time"): a calendar that leaves time to drive between
+ * visits times the drive by road to where the visit is, so the teammate needs the address before it can offer a time.
+ * The words are the model's to act on.
  */
-export const drivesInstead = (cal: { name: string; bookingPath: string | null }): string =>
-  `Don’t book or move a visit on ${cal.name} yourself. It leaves time to drive between visits, and the drive is worked out from the customer’s address on its booking page. ${
-    cal.bookingPath
-      ? `Send them ${cal.bookingPath} to pick a time there. To move a visit they have, the link in their confirmation does it.`
-      : 'Hand off so someone on the team can book it.'
-  }`;
+export const drivesNeedAddress = (cal: { name: string }): string =>
+  `${cal.name} leaves time to drive between visits, worked out from where the visit is. Ask for the street address and city where they want us to come, then look again with it. To move a visit, give the address the visit is at.`;
 const NO_CUSTOMER =
   'There’s no customer on file for this conversation yet, so there’s nowhere to put that.';
 const NO_CALLS = 'That isn’t a call in this conversation. Use a callId the history gave you.';
@@ -824,8 +829,8 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       return refused({
         error: 'That isn’t one of your calendars. Use a calendar id from the context.',
       });
-    if (cal.drives) return refused({ error: drivesInstead(cal) });
     const address = str(args['address']);
+    if (cal.drives && !address) return refused({ error: drivesNeedAddress(cal) });
     if (cal.byAddress && !address && d.geocoder.name !== 'off')
       return refused({
         error: `${cal.name} offers times by where the customer is. Ask for their street address and city, then look again with it.`,
@@ -859,6 +864,10 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const serviceId = str(args['serviceId']);
     const durationMinutes =
       typeof args['durationMinutes'] === 'number' ? args['durationMinutes'] : undefined;
+    // Decision 179: the drives to where the visit is, timed by road, so each time leaves room to get there and on.
+    const drives = cal.drives
+      ? await drivesTo(d, tx, d.scope.workspaceId, calendarId, address, { from: start, to: end })
+      : null;
     const out = await executeQuery(
       d.db,
       calendarAvailability,
@@ -871,6 +880,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         ...(durationMinutes ? { durationMinutes } : {}),
         ...(postalCode ? { postalCode } : {}),
         ...(where.point ? { point: where.point } : {}),
+        ...(drives ? { drives } : {}),
       },
       d.ai,
       d.meta,
@@ -887,6 +897,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         postalCode: cal.byZip ? postalCode : null,
         point: cal.byZip ? where.point : null,
         label: atLabel(at, tz),
+        ...(cal.drives ? { address, drives } : {}),
       };
     });
     return {
@@ -965,7 +976,6 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const cal = d.rc.calendars.find((c) => c.id === calendarId);
     if (!cal) return refused({ error: 'That isn’t one of your calendars.' });
     if (cal.deposit) return refused({ error: depositInstead(cal) });
-    if (cal.drives) return refused({ error: drivesInstead(cal) });
     const slot = d.state.offered.get(timeKey(calendarId, String(args['startsAt'])));
     if (!slot)
       return refused({
@@ -984,6 +994,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       notes: str(args['notes']),
       postalCode: slot.postalCode,
       point: slot.point,
+      ...(slot.address ? { address: slot.address, drives: slot.drives ?? null } : {}),
       summary: `Book ${slot.label} on ${cal.name}`.slice(0, 300),
     };
     return {
@@ -998,7 +1009,6 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     if (!appt) return refused({ error: NOT_THEIRS });
     const onPaying = d.rc.calendars.find((c) => c.id === appt.calendarId);
     if (onPaying?.deposit) return refused({ error: depositInstead(onPaying) });
-    if (onPaying?.drives) return refused({ error: drivesInstead(onPaying) });
     const slot = d.state.offered.get(timeKey(appt.calendarId, String(args['startsAt'])));
     if (!slot)
       return refused({
@@ -1006,11 +1016,16 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       });
     if (d.state.held.length >= HELD_MAX)
       return refused({ error: 'That’s as many changes as one reply can make.' });
+    // Decision 179: the drives from the visit's own address, the visit itself left out.
+    const drives = onPaying?.drives
+      ? await moveDrives(d, tx, d.scope.workspaceId, appt, slot.startsAt)
+      : null;
     const held: DraftAction = {
       kind: 'reschedule',
       appointmentId: appt.id,
       startsAt: slot.startsAt,
       sessionId: slot.sessionId,
+      ...(drives ? { drives } : {}),
       summary: `Move ${appt.title} to ${slot.label}`.slice(0, 300),
     };
     return {
@@ -1126,7 +1141,6 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const cal = d.rc.calendars.find((c) => c.id === calendarId);
     if (!cal) return refused({ error: 'That isn’t one of your calendars.' });
     if (cal.deposit) return refused({ error: depositInstead(cal) });
-    if (cal.drives) return refused({ error: drivesInstead(cal) });
     if (cal.maxRepeats === null)
       return refused({
         error: `${cal.name} doesn’t take repeat visits. Book one visit, and leave the team a task if they want regular ones.`,
@@ -1150,6 +1164,17 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         : interval === 1
           ? 'monthly'
           : `every ${interval} months`;
+    // Decision 179: drives to their place over the whole series, so a later visit leaves room to drive too.
+    const drives = slot.address
+      ? await drivesTo(
+          d,
+          tx,
+          d.scope.workspaceId,
+          calendarId,
+          slot.address,
+          seriesSpan(slot.startsAt, every, interval, times),
+        )
+      : null;
     const held: DraftAction = {
       kind: 'book_series',
       calendarId,
@@ -1162,6 +1187,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       notes: str(args['notes']),
       postalCode: slot.postalCode,
       point: slot.point,
+      ...(slot.address ? { address: slot.address, drives } : {}),
       summary: `Book ${times} ${how} visits from ${slot.label} on ${cal.name}`.slice(0, 300),
     };
     return {

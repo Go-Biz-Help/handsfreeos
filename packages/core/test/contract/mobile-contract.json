@@ -18003,6 +18003,43 @@
               }
             ]
           },
+          "drives": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "fromStart": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 600
+                    }
+                  },
+                  "around": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 600
+                    }
+                  }
+                },
+                "required": ["fromStart", "around"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "chosenUserId": {
             "anyOf": [
               {

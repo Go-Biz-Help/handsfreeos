@@ -726,6 +726,7 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
     moneyLinks: ctx.moneyLinks,
     chatCodes: chatCodeSender(ctx),
     geocoder: ctx.geocoder,
+    driving: ctx.driving,
     ...(verified ? { callPrefix: 'verified:' } : {}),
     log: ctx.log,
   });

@@ -112,6 +112,7 @@ export type BrainDeps = Pick<
   | 'wallet'
   | 'moneyLinks'
   | 'geocoder'
+  | 'driving'
   | 'webUrl'
   | 'sealer'
   | 'mailer'
@@ -570,6 +571,7 @@ export async function thinkTurn(
     moneyLinks: deps.moneyLinks,
     chatCodes: chatCodeSender(deps),
     geocoder: deps.geocoder,
+    driving: deps.driving,
     // Each turn is its own request, so its calls get their own ids (and its second pass after a code, its own).
     callPrefix: `t${input.turn}${input.verified ? 'v' : ''}:`,
     phone: true,

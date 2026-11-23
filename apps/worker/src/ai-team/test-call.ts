@@ -328,6 +328,7 @@ export function handleTestCallSocket(socket: WebSocket, deps: HttpDeps): void {
     log: deps.log,
     wallet: deps.wallet,
     geocoder: deps.geocoder,
+    driving: deps.driving,
   };
   let started = false;
   let over = false;

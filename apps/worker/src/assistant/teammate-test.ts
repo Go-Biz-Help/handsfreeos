@@ -133,6 +133,7 @@ export async function testAiTeammate(
     log: services.log,
     wallet: services.wallet,
     geocoder: services.geocoder,
+    driving: services.driving,
   };
   const prepared = await prepareTest(deps, input);
   const events: TestEvent[] = [];
