@@ -41,6 +41,9 @@ import {
   uploadRefusal,
 } from '../forms/uploads';
 import { loadForm, parseStoredForm } from '../forms/load';
+import { orderFromAnswers, type OrderProduct } from '../forms/order';
+import { quantitiesMakeOrder, quantityRowsOf } from '../forms/quantities';
+import { uuidArray } from '../calendar/load';
 import { runCalculations, scoreAnswers, type AnswerSheet } from '../forms/logic';
 import { choiceValues } from '../forms/definition';
 import { FORM_LINK_DAYS, knownTargetsOf, type FillContext } from '../forms/personal';
@@ -100,6 +103,7 @@ import {
 import { AppointmentBookOnlineInput } from '../schemas/calendar';
 import { appointmentBookOnline } from './appointment-online';
 import { invoiceCreate } from './invoice';
+import { insertOrder } from './order';
 import { leadCreate } from './lead.create';
 import { personUpdate } from './person.update';
 import { taskCreate } from './task';
@@ -451,6 +455,30 @@ function outcome(definition: FormDefinition, answers: AnswerSheet) {
   const result: FormResult = pickResult(definition, answers);
   return { score, calculations, result };
 }
+
+/** The price-list products an order form's rows came from, as the order names them. */
+async function orderProducts(
+  ctx: CommandContext,
+  definition: FormDefinition,
+): Promise<Map<string, OrderProduct>> {
+  const ids = [
+    ...new Set(
+      allQuestions(definition)
+        .filter(quantitiesMakeOrder)
+        .flatMap((q) => quantityRowsOf(q).map((r) => r.productId))
+        .filter((id): id is string => typeof id === 'string' && UUID_SHAPE.test(id)),
+    ),
+  ];
+  if (!ids.length) return new Map();
+  const found = await rows<{ id: string; name: string; taxable: boolean; options: unknown }>(
+    ctx.tx,
+    sql`select id, name, taxable, options from app.products
+        where workspace_id = ${ctx.scope.workspaceId!} and id = any(${uuidArray(ids)})`,
+  );
+  return new Map(found.map((p) => [p.id, { name: p.name, taxable: p.taxable, options: p.options }]));
+}
+
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** What the form asks them to pay, in cents, once the answers are in. */
 function dueCents(
@@ -1013,6 +1041,8 @@ export const formResponseSubmit = defineCommand({
     'lead.created',
     'task.created',
     'invoice.created',
+    // Rows ordered on a "How many of each" question (product sellers).
+    'order.created',
     'workflow.enrol_requested',
     // The files they added, copied onto the customer; and any they added then took back, removed.
     'file.received',
@@ -1182,6 +1212,28 @@ export const formResponseSubmit = defineCommand({
       );
       invoiceId = created.invoiceId;
     }
+    // ---- What they ordered ----
+    // Rows ordered on a "How many of each" question make an order on Money → Orders, with the day and pickup or
+    // delivery the form asked for (docs/selling-products.md). It needs a customer to be theirs, as a lead does.
+    if (personId) {
+      const ordered = orderFromAnswers(definition, answers, await orderProducts(ctx, definition));
+      if (ordered)
+        await insertOrder(
+          ctx,
+          {
+            personId,
+            lines: ordered.lines,
+            fulfilment: ordered.fulfilment,
+            dueOn: ordered.dueOn,
+            notes: null,
+            formId: form.id,
+            formResponseId: response.id,
+            invoiceId,
+          },
+          'form',
+        );
+    }
+
     // ---- The files they sent ----
     // Copied onto the customer, where their Files and timeline show them; any they took back are removed.
     await placeSentFiles(ctx, {
