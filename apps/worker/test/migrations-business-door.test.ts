@@ -13,6 +13,7 @@
  *   - connect a source as that business, start a migration on it, and look at it — the three in a row;
  *   - the business can read its own migration before anything has been discovered;
  *   - the discovery pass then finds the sub-account, and the counts follow;
+ *   - an owner who is in the business but not in the organization above it can do all of that too;
  *   - a business still cannot reach a migration that is nobody's business but the agency's.
  *
  * The private-token door is used because that is what Chris connected with first, but nothing here is about
@@ -71,7 +72,7 @@ const ask = <T>(q: unknown, input: unknown): Promise<T> =>
   executeQuery(api(), q as never, input, actorOf(owner), meta()) as Promise<T>;
 
 /** The migration loop until this migration has nothing left of its own to do. */
-async function drain(limit = 200): Promise<void> {
+async function drain(limit = 200, id = migrationId): Promise<void> {
   const deps = {
     db: worker(),
     sealer: services.sealer,
@@ -85,12 +86,12 @@ async function drain(limit = 200): Promise<void> {
   for (let i = 0; i < limit; i++) {
     await admin().execute(
       sql`update app.migration_jobs set run_at = now()
-          where migration_id = ${migrationId} and state in ('pending', 'retry') and run_at > now()`,
+          where migration_id = ${id} and state in ('pending', 'retry') and run_at > now()`,
     );
     const [mine] = await rows<{ count: number }>(
       admin(),
       sql`select count(*)::int as count from app.migration_jobs
-          where migration_id = ${migrationId} and state in ('leased', 'pending', 'retry')`,
+          where migration_id = ${id} and state in ('leased', 'pending', 'retry')`,
     );
     if ((mine?.count ?? 0) === 0) return;
     await processMigrationJobs(deps as never);
@@ -267,6 +268,109 @@ describe('a business moves itself in', () => {
     );
     expect(withValue?.custom?.[unit.id]).toBe('Carrier 24ACC6');
   }, 60_000);
+
+  it('lets an owner who is in the business but not its organization start one too', async () => {
+    // An agency's organization with a client business in it, whose owner was added to the business alone —
+    // the case 0068 opened the door for. Connecting worked for them; starting the migration was refused with
+    // "References must belong to the same organization", because the trigger behind the insert still asked
+    // for an organization member (2026-11-23).
+    const agency = await createTestUser('business-door-agency', { fullName: 'Ava Agency' });
+    const { output: theirs } = await executeCommand(
+      api(),
+      organizationCreate,
+      { businessName: 'Hill Country Roofing', timezone: 'America/Chicago' },
+      actorOf(agency),
+      meta(),
+    );
+    const client = await createTestUser('business-door-client', { fullName: 'Cody Client' });
+    await admin().execute(
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${theirs.workspaceId}, ${client.id}, 'owner')`,
+    );
+    const asClient = <T>(cmd: unknown, input: unknown): Promise<T> =>
+      executeCommand(api(), cmd as never, input, actorOf(client), meta()).then(
+        (r) => r.output as T,
+      );
+
+    const started = await asClient<{ connectionId: string; state: string }>(migrationConnect, {
+      organizationId: theirs.organizationId,
+      workspaceId: theirs.workspaceId,
+      source: 'gohighlevel',
+      authKind: 'private_token',
+    });
+    const pasted = await app.inject({
+      method: 'POST',
+      url: '/migrations/token',
+      payload: { state: started.state, token: 'pit-not-a-real-token', accountId: 'loc_austin' },
+    });
+    expect(pasted.statusCode, pasted.body).toBe(200);
+
+    const created = await asClient<{ migrationId: string }>(migrationCreate, {
+      organizationId: theirs.organizationId,
+      workspaceId: theirs.workspaceId,
+      connectionId: started.connectionId,
+      name: 'GoHighLevel',
+    });
+    const scan = await asClient<{ scanId: string }>(migrationScan, {
+      organizationId: theirs.organizationId,
+      workspaceId: theirs.workspaceId,
+      migrationId: created.migrationId,
+    });
+    expect(scan.scanId).toBeTruthy();
+    const [made] = await rows<{ created_by: string }>(
+      admin(),
+      sql`select created_by::text as created_by from app.migrations where id = ${created.migrationId}`,
+    );
+    expect(made?.created_by).toBe(client.id);
+
+    // And the rest of the way, the same GoHighLevel sub-account as the first business, into this one.
+    await drain(200, created.migrationId);
+    const door = {
+      organizationId: theirs.organizationId,
+      workspaceId: theirs.workspaceId,
+      migrationId: created.migrationId,
+    };
+    const found = await executeQuery(
+      api(),
+      migrationGet as never,
+      door,
+      actorOf(client),
+      meta(),
+    ).then((r) => r as { scopes: { id: string; externalScopeId: string }[] });
+    const austin = found.scopes.find((s) => s.externalScopeId === 'loc_austin')!;
+    await asClient(migrationMapScopes, {
+      ...door,
+      scopes: [{ scopeId: austin.id, workspaceId: theirs.workspaceId }],
+    });
+    await asClient(migrationSelect, {
+      ...door,
+      choices: [{ category: 'contacts', selected: true }],
+    });
+    await asClient(migrationStart, { ...door, acknowledgedFindingIds: [] });
+    await drain(200, created.migrationId);
+    const [people] = await rows<{ count: number }>(
+      admin(),
+      sql`select count(*)::int as count from app.people where workspace_id = ${theirs.workspaceId}::uuid`,
+    );
+    expect(people!.count).toBeGreaterThan(0);
+
+    // Still not somebody who manages nothing here: a stranger naming this business's connection is refused.
+    const stranger = await createTestUser('business-door-nobody', { fullName: 'Nora Nobody' });
+    await expect(
+      executeCommand(
+        api(),
+        migrationCreate,
+        {
+          organizationId: theirs.organizationId,
+          workspaceId: theirs.workspaceId,
+          connectionId: started.connectionId,
+          name: 'Not mine',
+        },
+        actorOf(stranger),
+        meta(),
+      ),
+    ).rejects.toThrow();
+  }, 240_000);
 
   it('still keeps somebody else’s migration out of reach', async () => {
     // A second business in another organization, with its own connection and migration. Ours may not read it.
