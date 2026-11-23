@@ -6,6 +6,7 @@ import {
   onboardingSetupHomeOf,
   onboardingSetupOf,
   PHONE_GUIDE_WORDS,
+  PAYMENTS_SETUP_WORDS,
   PHONE_SETUP_WORDS,
   progressWords,
   stepTitle,
@@ -94,6 +95,9 @@ function Steps({
   // Moving one they have and getting approved to text are long forms, so those still email a link.
   const setsUpNumber = (step: OnboardingStep) =>
     step.key === 'number' && step.note.phase === 'buy_number' && holds(grants, 'channels.manage');
+  // So does the payments one (the owner, 23 Nov 2026, P4 a), until an account is connected.
+  const setsUpPayments = (step: OnboardingStep) =>
+    step.key === 'payments' && step.state === 'todo' && holds(grants, 'money.manage');
   // The teammate quick setup saves reaches the phone's copy: the guide asks again.
   const hadTeammate = React.useRef<boolean | null>(null);
   React.useEffect(() => {
@@ -132,7 +136,8 @@ function Steps({
     step.key === 'app' ||
     step.key === 'notifications' ||
     (step.key === 'ai' && setsUpAi) ||
-    setsUpNumber(step);
+    setsUpNumber(step) ||
+    setsUpPayments(step);
 
   /** One command at a time, with signal; the guide asks again when it's done. */
   const act = async (key: string, run: () => Promise<string | null>) => {
@@ -205,6 +210,17 @@ function Steps({
           testID="getting-started-number-setup"
         >
           {stepWords(step).action ?? PHONE_SETUP_WORDS.startCard.start}
+        </Button>
+      );
+    if (setsUpPayments(step))
+      return (
+        <Button
+          size="sm"
+          variant={primary ? 'primary' : 'secondary'}
+          onPress={() => router.push(businessHref(business.id, 'payments-setup'))}
+          testID="getting-started-payments-setup"
+        >
+          {stepWords(step).action ?? PAYMENTS_SETUP_WORDS.summary.start}
         </Button>
       );
     if (step.key === 'notifications')

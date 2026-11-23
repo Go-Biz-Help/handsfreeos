@@ -892,7 +892,7 @@ export function PaymentsSetupFlow({
                   value={answers.invoiceNext}
                   onChange={(e) => set({ invoiceNext: e.target.value.slice(0, 12) })}
                   invalid={!!problems.invoiceNext}
-                  data-testid="payments-setup-next"
+                  data-testid="payments-setup-next-number"
                 />
               </div>
               {next && !problems.invoicePrefix ? (
