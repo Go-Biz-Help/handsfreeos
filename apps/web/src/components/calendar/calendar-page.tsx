@@ -46,7 +46,14 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { Segmented } from '@/components/ui/segmented';
 import { errorMessage } from '@/lib/api/client';
-import type { Appointment, CalendarSummary, ResourceItem, TeamSchedule } from '@/lib/api/types';
+import type {
+  Appointment,
+  CalendarSummary,
+  OrderSummary,
+  ResourceItem,
+  TeamSchedule,
+} from '@/lib/api/types';
+import { OrdersDue } from './orders-due';
 import {
   clockLabel,
   dateOf,
@@ -120,6 +127,8 @@ export function CalendarPage(props: {
   resources: ResourceItem[];
   people: TeamSchedule[];
   appointments: Appointment[];
+  /** Orders to hand over on these days (product sellers), still to make or hand over. */
+  orders?: readonly OrderSummary[];
 }) {
   const { workspaceId, myUserId, timeZone: tz, today, days, calendars, resources, people } = props;
   const router = useRouter();
@@ -797,6 +806,13 @@ export function CalendarPage(props: {
           </div>
         ) : null}
 
+        <OrdersDue
+          workspaceId={workspaceId}
+          orders={props.orders ?? []}
+          days={q.view === 'day' || q.view === 'team' || q.view === 'resources' ? [date] : days}
+          today={today}
+        />
+
         {q.view === 'month' ? (
           monthCells.length ? (
             <MonthGrid
@@ -847,6 +863,13 @@ export function CalendarPage(props: {
       </div>
 
       <div className="-mt-4 md:hidden">
+        <OrdersDue
+          workspaceId={workspaceId}
+          orders={props.orders ?? []}
+          days={phoneView === 'day' ? [date] : q.view === 'month' ? weekOf(date) : days}
+          today={today}
+          className="mb-3"
+        />
         <Agenda
           view={phoneView}
           timeZone={tz}

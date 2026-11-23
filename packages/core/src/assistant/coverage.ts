@@ -148,6 +148,17 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'video_call.turn_away': {},
   // ---- Money and plans ----
   'subscription.set_connection': {},
+  // Orders (product sellers, 20261027034500): Money → Orders and an order's page.
+  'order.create': {
+    about:
+      'Find the customer first, for personId. Each line is its name with any choice ("T-shirt (Adult 2XL)"), quantity and unitPriceCents; a line from the price list also passes its productId and the choiceIds it was ordered in.',
+  },
+  'order.update': {
+    about:
+      'Read the order with order.get first. lines replaces every line: pass each one to keep as it reads there, with the change.',
+  },
+  'order.set_status': {},
+  'order.make_invoice': {},
   // ---- Workflows ----
   'workflow.create': {},
   'workflow.publish': {},

@@ -25,7 +25,7 @@ async function openSentFile(file: SentFile) {
 }
 
 /** The files one answer holds, each one a button that opens it; a file deleted since says so. */
-function SentFiles({ value, files }: { value: unknown; files: readonly SentFile[] }) {
+export function SentFiles({ value, files }: { value: unknown; files: readonly SentFile[] }) {
   const sent = Array.isArray(value) ? (value as { fileId?: string; name?: string }[]) : [];
   if (!sent.length) return <span className="text-text-3">No files</span>;
   return (
@@ -52,6 +52,28 @@ function SentFiles({ value, files }: { value: unknown; files: readonly SentFile[
         );
       })}
     </span>
+  );
+}
+
+/** What one person answered, each question worded as it read when they answered it. */
+export function ResponseAnswers({ response }: { response: FormResponseGetOut }) {
+  return (
+    <dl className="space-y-3" data-testid="response-answers">
+      {response.answers.map((answer) => (
+        <div key={answer.questionId}>
+          <dt className="text-[12.5px] text-text-3">{answer.questionTitle}</dt>
+          <dd className="text-[14px] text-text">
+            {answer.questionType === 'file' ? (
+              <SentFiles value={answer.value} files={response.files} />
+            ) : answer.labels.length ? (
+              answer.labels.join(', ')
+            ) : (
+              (answer.text ?? JSON.stringify(answer.value))
+            )}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -195,22 +217,7 @@ export function FormResponses({
                 ) : null}
               </div>
 
-              <dl className="space-y-3">
-                {open.answers.map((answer) => (
-                  <div key={answer.questionId}>
-                    <dt className="text-[12.5px] text-text-3">{answer.questionTitle}</dt>
-                    <dd className="text-[14px] text-text">
-                      {answer.questionType === 'file' ? (
-                        <SentFiles value={answer.value} files={open.files} />
-                      ) : answer.labels.length ? (
-                        answer.labels.join(', ')
-                      ) : (
-                        (answer.text ?? JSON.stringify(answer.value))
-                      )}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+              <ResponseAnswers response={open} />
 
               {Object.keys(open.calculations).length ? (
                 <div className="rounded-card bg-card-2 p-3 text-[13px] text-text-2">

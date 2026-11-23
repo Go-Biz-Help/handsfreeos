@@ -11,6 +11,9 @@
 import { z } from 'zod';
 import { money } from './format';
 
+/** Money → Orders, on the web. */
+export const ORDERS_TAB_LABEL = 'Orders';
+
 export const ORDER_STATUSES = ['new', 'making', 'ready', 'done', 'cancelled'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
@@ -145,6 +148,46 @@ export function fulfilmentFromWords(text: string): OrderFulfilment | null {
   if (/\b(pick[\s-]?(it\s+)?up|pickup|collect(ion)?|in[\s-](store|person)|curbside)\b/.test(t))
     return 'pickup';
   return null;
+}
+
+/** "Sat, Dec 5", for a day kept as YYYY-MM-DD: the day itself, whatever the time zone. */
+export function orderDayWords(dueOn: string): string {
+  const at = new Date(`${dueOn}T12:00:00Z`);
+  if (Number.isNaN(at.getTime())) return dueOn;
+  return at.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/** "Pickup Sat, Dec 5", "Delivery", "Due Sat, Dec 5", or null when neither is known. */
+export function orderWhenWords(
+  fulfilment: OrderFulfilment | null | undefined,
+  dueOn: string | null | undefined,
+): string | null {
+  if (!fulfilment && !dueOn) return null;
+  const how = fulfilment === 'pickup' ? 'Pickup' : fulfilment === 'delivery' ? 'Delivery' : 'Due';
+  return dueOn ? `${how} ${orderDayWords(dueOn)}` : how;
+}
+
+/** Which orders Money → Orders shows, in its filter. */
+export const ORDER_SHOW_WORDS = {
+  open: 'Still to do',
+  done: 'Picked up or delivered',
+  cancelled: 'Cancelled',
+  all: 'Every order',
+} as const;
+
+/** What an empty Orders list says. */
+export function ordersEmpty(filtered: boolean): { title: string; body: string } {
+  return filtered
+    ? { title: 'No orders match', body: 'Try another search, or show every order.' }
+    : {
+        title: 'No orders yet',
+        body: 'Orders customers send on an order form land here, and so does one you take with New order.',
+      };
 }
 
 /** "T-shirt (Adult M) × 5, Mug × 2 and 3 more", short enough for a list row. */
