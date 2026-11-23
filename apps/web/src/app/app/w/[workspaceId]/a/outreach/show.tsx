@@ -646,7 +646,8 @@ export async function showOutreach(
       ? null
       : await api
           .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform: net } })
-          .then(unwrapPage));
+          .then(unwrapPage)) ??
+    null;
   return (
     <OutreachHome
       workspaceId={workspaceId}
