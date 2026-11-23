@@ -1,7 +1,7 @@
 {
   "area": "marketing",
   "title": "Campaigns, Reviews, Forms, surveys, quizzes and website chats",
-  "checkedOn": "2026-11-21",
+  "checkedOn": "2026-11-23",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/forms.tsx": "ec0ccb8ac910",
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx": "ee23933f5989",
@@ -51,12 +51,12 @@
     "apps/web/src/components/forms/preview.tsx": "1cf76a16916f",
     "apps/web/src/components/forms/public-form.tsx": "e542de786abd",
     "apps/web/src/components/forms/quantities-field.tsx": "526b0d724c85",
-    "apps/web/src/components/forms/quantities-settings.tsx": "4e5c202c8395",
+    "apps/web/src/components/forms/quantities-settings.tsx": "2f4b78f86887",
     "apps/web/src/components/forms/question-field.tsx": "2e6905b08154",
     "apps/web/src/components/forms/question-list.tsx": "0574a7ce3a88",
     "apps/web/src/components/forms/question-settings.tsx": "fcce8ce168dc",
     "apps/web/src/components/forms/required-text.tsx": "0cb90deec1e4",
-    "apps/web/src/components/forms/responses.tsx": "651721b8f244",
+    "apps/web/src/components/forms/responses.tsx": "38736768af55",
     "apps/web/src/components/forms/results.tsx": "051baab9f435",
     "apps/web/src/components/forms/share.tsx": "2bfbad5c8d8f",
     "apps/web/src/components/forms/steps.tsx": "45030e8f6bdb",
@@ -2168,6 +2168,13 @@
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx:140",
       "covered": "yes",
       "by": "list_form_responses (needs no signal)"
+    },
+    {
+      "path": "Forms → a form → a How many of each question → Makes an order",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/quantities-settings.tsx:335",
+      "covered": "yes",
+      "by": "build_form update_question config.makesOrder"
     }
   ],
   "gaps": [

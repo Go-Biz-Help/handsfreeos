@@ -76,6 +76,8 @@ export const SCREEN_READS = [
   'onboarding.clients',
   'onboarding.status',
   'onboarding_setup.get',
+  'order.get',
+  'order.list',
   'partner.get',
   'partner.of_person',
   'partner.payout_get',

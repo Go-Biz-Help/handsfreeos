@@ -4,6 +4,8 @@ import { portalQueries } from './portal';
 import { portalFileQueries } from '../commands/portal-files';
 import { portalMessageQueries } from '../commands/portal-messages';
 import { formQueries } from './form';
+import { orderQueries } from './order';
+export { orderList, orderGet } from './order';
 import { documentQueries } from './document';
 import { campaignQueries } from './campaign';
 import { contactAiQueries } from './contact-ai';
@@ -449,6 +451,8 @@ export const queries: readonly QueryDef[] = [
   moneySummary,
   moneyForRecord,
   moneySettingsGet,
+  // Orders (product sellers, 20261027034500).
+  ...orderQueries,
   ...walletQueries,
   ...formQueries,
   ...documentQueries,

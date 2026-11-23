@@ -278,6 +278,9 @@ export type EstimateListOut = Ok<'/v1/queries/estimate.list'>;
 export type EstimateSummary = EstimateListOut['estimates'][number];
 export type EstimateGetOut = Ok<'/v1/queries/estimate.get'>;
 export type EstimateDetail = EstimateGetOut['estimate'];
+// Orders (product sellers, 20261027034500).
+export type OrderListOut = Ok<'/v1/queries/order.list'>;
+export type OrderSummary = OrderListOut['orders'][number];
 export type InvoiceListOut = Ok<'/v1/queries/invoice.list'>;
 export type InvoiceSummary = InvoiceListOut['invoices'][number];
 export type InvoiceGetOut = Ok<'/v1/queries/invoice.get'>;
