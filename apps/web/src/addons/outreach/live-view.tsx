@@ -393,7 +393,8 @@ export function TeamCard({ team, className }: { team: LiveTeam; className?: stri
 /**
  * Settings → Your computer's first card (decision 170, part 2): the computer that works for the person, whether it's
  * online, its build and when it was last seen, with Rename and the extension's download; the others standing by fold
- * under it, to remove.
+ * under it, to remove. The download is always shown, the one blue button every add-on draws (decision 189), never
+ * behind a button of its own.
  */
 export function ComputerMain({
   workspaceId,
@@ -409,7 +410,6 @@ export function ComputerMain({
   const { busy, act } = useAct();
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState('');
-  const [getting, setGetting] = useState(false);
   const [others, setOthers] = useState(false);
   const main = live.computers.find((c) => c.working) ?? live.computers[0];
   if (!main)
@@ -510,18 +510,9 @@ export function ComputerMain({
           >
             {SP.rename}
           </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            aria-expanded={getting}
-            onClick={() => setGetting((g) => !g)}
-            data-testid="outreach-computer-main-download"
-          >
-            {getting ? SP.hide : SP.download}
-          </Button>
         </div>
       )}
-      {getting ? download : null}
+      <div className="border-t border-border pt-3.5">{download}</div>
       {rest.length ? (
         <div className="border-t border-border pt-3">
           <div className="flex items-center justify-between gap-3 text-[13px] text-text-2">
