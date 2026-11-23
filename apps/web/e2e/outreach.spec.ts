@@ -1055,6 +1055,25 @@ test('a first-timer is sent to the setup: the main setup, then each network, eac
   await page.goto(`/app/w/${workspaceId}/a/outreach/settings`);
   await page.getByTestId('outreach-setup-again-open').click();
   await expect(setup).toHaveAttribute('data-screen', 'offer');
+
+  // Once the extension says it's there, Settings → Your computer's card shows the same blue download, with its
+  // version and when it was made, and nothing to press first (decision 189).
+  await api(token, 'commands', 'outreach.live.beat', {
+    workspaceId,
+    computer: { id: randomUUID(), name: 'Chrome on Mac', version: '0.151.0' },
+    status: { state: 'idle' },
+  });
+  await page.goto(`/app/w/${workspaceId}/a/outreach/settings/computer`);
+  const card = page.getByTestId('outreach-computer-main');
+  await expect(card.getByTestId('outreach-computer-main-title')).toHaveText(
+    'Chrome on Mac is working',
+  );
+  await expect(card.getByTestId('extension-download-button')).toHaveText(
+    'Download HandsFreeOS Social',
+  );
+  await expect(card.getByTestId('extension-download-about')).toHaveText(
+    /^Version \d+\.\d+\.\d+ · Updated /,
+  );
 });
 
 test('a network’s On for you saves at once on its page, with a line beside it, and goes back when it can’t be saved', async ({

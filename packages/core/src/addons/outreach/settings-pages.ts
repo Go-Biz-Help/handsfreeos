@@ -215,7 +215,6 @@ export const SETTINGS_PAGE_WORDS = {
     version ? `Extension ${version}. Seen ${seen}.` : `Seen ${seen}.`,
   standingBy: (n: number) => `${n} more ${n === 1 ? 'computer' : 'computers'}, standing by`,
   rename: 'Rename',
-  download: 'Download the extension',
   runTitle: 'Run a job now',
   runAbout: 'Most of these run on their own each day.',
   jobs: (n: number) => `${n} ${n === 1 ? 'job' : 'jobs'}`,
