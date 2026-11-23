@@ -279,6 +279,12 @@ export function PlanPage({
               {sub.person.fullName}
             </Link>
             <span>· {sub.planName}</span>
+            {/* Optional for the few minutes the web is live before the API that sends it. */}
+            {sub.taxCents ? (
+              <span data-testid="plan-tax">
+                · plus {money(sub.taxCents)} tax, {money(sub.totalCents)} charged each time
+              </span>
+            ) : null}
             {sub.startedOn ? <span>· since {onDay(sub.startedOn, timeZone)}</span> : null}
           </p>
           <p className="mt-1 text-[13px] text-text-2" data-testid="plan-standing">

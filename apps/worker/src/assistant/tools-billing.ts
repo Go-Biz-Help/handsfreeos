@@ -312,6 +312,9 @@ interface Subscription {
   planId: string | null;
   planName: string;
   priceCents: number;
+  /** The sales tax charged on top each cycle, and the two together (absent from an API older than the worker). */
+  taxCents?: number;
+  totalCents?: number;
   interval: string;
   intervalCount: number;
   person: Person;
@@ -3208,6 +3211,10 @@ export const billingAutoTools: Record<
                   plan: s.planName,
                   planId: s.planId,
                   price: planPriceLabel(s.priceCents, s.interval, s.intervalCount),
+                  // A taxed plan charges its price plus the sales tax it was sold with, as its page says.
+                  ...(s.taxCents && s.totalCents
+                    ? { plusTax: money(s.taxCents), chargedEachTime: money(s.totalCents) }
+                    : {}),
                   status: planStatus(s),
                   // The badge, in the words the Plans tab's status filter uses.
                   badge: SUBSCRIPTION_WORDS[s.status] ?? s.status,

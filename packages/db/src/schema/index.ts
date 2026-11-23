@@ -5023,6 +5023,8 @@ export const subscriptions = app.table('subscriptions', {
   interval: planInterval('interval').notNull().default('month'),
   intervalCount: integer('interval_count').notNull().default(1),
   taxable: boolean('taxable').notNull().default(true),
+  /** The business's sales tax rate when it was sold (825 is 8.25%), charged on top only when `taxable`. */
+  taxRateBp: integer('tax_rate_bp').notNull().default(0),
   includes: jsonb('includes').$type<string[]>().notNull().default([]),
   personId: uuid('person_id')
     .notNull()

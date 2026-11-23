@@ -21,9 +21,9 @@ import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
-import { money } from '../money/index';
+import { money, planChargeOf } from '../money/index';
 import { accountForPerson, assertAccountUsable, refuseAccountForPlan } from './payment-connection';
-import { requireBillable } from './money-shared';
+import { loadMoneySettings, requireBillable } from './money-shared';
 import {
   SubscriptionCancelInput,
   SubscriptionRecordCycleInput,
@@ -141,6 +141,15 @@ export async function startSubscription(
       if (connectionId) await refuseAccountForPlan(ctx, connectionId, every);
     }
   }
+  // The sales tax rate goes on the plan as it is today, beside its price: a rate changed later never reprices a
+  // customer already on it. It is charged on top only when the plan is taxable (money/totals.ts, planChargeOf).
+  const settings = await loadMoneySettings(ctx.tx, ws);
+  const taxable = input.taxable ?? catalogue?.taxable ?? true;
+  const charge = planChargeOf({
+    priceCents: input.priceCents ?? Number(catalogue?.priceCents ?? 0),
+    taxable,
+    taxRateBp: settings.tax.rateBp,
+  });
   const [row] = await ctx.tx
     .insert(subscriptions)
     .values({
@@ -148,10 +157,11 @@ export async function startSubscription(
       publicRef: sql`private.new_public_ref()`,
       planId: catalogue?.id ?? null,
       planName,
-      priceCents: input.priceCents ?? Number(catalogue?.priceCents ?? 0),
+      priceCents: charge.priceCents,
       interval: every.interval,
       intervalCount: every.intervalCount,
-      taxable: input.taxable ?? catalogue?.taxable ?? true,
+      taxable,
+      taxRateBp: settings.tax.rateBp,
       includes: input.includes ?? catalogue?.includes ?? [],
       personId: input.personId,
       leadId: input.leadId ?? null,
@@ -179,6 +189,7 @@ export async function startSubscription(
     after: {
       plan: planName,
       price: money(Number(fresh.price_cents)),
+      ...(charge.taxCents > 0 ? { tax: money(charge.taxCents) } : {}),
       status: 'waiting on a card',
     },
   });

@@ -184,6 +184,31 @@ export function taxCentsOf(taxableBaseCents: number, taxRateBp: number): number 
   return roundHalfUp((base * clampBp(taxRateBp)) / BASIS_POINTS);
 }
 
+export interface PlanCharge {
+  /** The plan's own price, as it was sold. */
+  readonly priceCents: number;
+  /** The sales tax on it: nothing unless the plan is taxed and the business had a rate when it was sold. */
+  readonly taxCents: number;
+  /** What the customer's card is charged each cycle: the price plus its tax. */
+  readonly totalCents: number;
+}
+
+/**
+ * What a plan charges each cycle. A plan marked "Charge sales tax on it" adds the business's rate on top of its
+ * price, at the rate the business had when it was sold (stored on the plan, like its price, so a rate change
+ * never reprices a customer). The provider is asked for the total, the customer's page shows it before a card
+ * goes on, and each cycle's invoice splits it back into the price and its tax with this same sum.
+ */
+export function planChargeOf(plan: {
+  readonly priceCents: number;
+  readonly taxable: boolean;
+  readonly taxRateBp: number | null | undefined;
+}): PlanCharge {
+  const price = Math.max(0, whole(plan.priceCents));
+  const tax = plan.taxable ? taxCentsOf(price, plan.taxRateBp ?? 0) : 0;
+  return { priceCents: price, taxCents: tax, totalCents: price + tax };
+}
+
 /**
  * What's still owed: `total − paid`. **A refund gives money back; it never puts it back on the bill** — that
  * is how Stripe, Square and QuickBooks keep a refunded invoice, and the business voids and reissues to bill

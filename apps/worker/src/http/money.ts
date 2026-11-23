@@ -63,6 +63,7 @@ import {
   money as moneyWords,
   moneyIso,
   PAY_LABEL,
+  planChargeOf,
   subscriptionRecordCard,
   TYPED_NAME_LABEL,
   type EstimateRow,
@@ -576,6 +577,8 @@ interface PlanRow extends Record<string, unknown> {
   price_cents: number;
   interval: string;
   interval_count: number;
+  taxable: boolean;
+  tax_rate_bp: number;
   includes: unknown;
   connection_id: string | null;
   customer_ref: string | null;
@@ -595,7 +598,7 @@ interface PlanRow extends Record<string, unknown> {
 
 const planSql = (subscriptionId: string) =>
   sql`select s.id, s.status::text as status, s.plan_name, s.price_cents::float8 as price_cents,
-        s.interval::text as interval, s.interval_count, s.includes, s.connection_id,
+        s.interval::text as interval, s.interval_count, s.taxable, s.tax_rate_bp, s.includes, s.connection_id,
         s.customer_ref, s.method_token, s.card_brand, s.card_last4,
         s.card_expiry_month, s.card_expiry_year, s.card_requested_at,
         s.started_on::text as started_on, s.next_billing_on::text as next_billing_on,
@@ -674,6 +677,12 @@ async function planView(deps: HttpDeps, scope: TenantScope, subscriptionId: stri
     const includes = Array.isArray(row.includes)
       ? row.includes.filter((x): x is string => typeof x === 'string')
       : [];
+    // What their card is charged each cycle: the price, plus the sales tax the plan was sold with when it's taxed.
+    const charge = planChargeOf({
+      priceCents: Number(row.price_cents),
+      taxable: row.taxable,
+      taxRateBp: Number(row.tax_rate_bp ?? 0),
+    });
     return {
       standing,
       business: await businessOf(tx, scope.workspaceId, deps.storageUrl),
@@ -684,12 +693,11 @@ async function planView(deps: HttpDeps, scope: TenantScope, subscriptionId: stri
       },
       plan: {
         name: row.plan_name,
-        priceCents: Number(row.price_cents),
-        priceLabel: planPriceLabel(
-          Number(row.price_cents),
-          row.interval,
-          Number(row.interval_count),
-        ),
+        /** What each cycle charges, tax included: the figure the provider is asked for. */
+        priceCents: charge.totalCents,
+        priceLabel: planPriceLabel(charge.totalCents, row.interval, Number(row.interval_count)),
+        /** The sales tax inside that figure (0 when there is none), so the page can say so. */
+        taxCents: charge.taxCents,
         interval: row.interval,
         intervalCount: Number(row.interval_count),
         includes,

@@ -23,6 +23,7 @@ import {
   paymentConnectionDisconnect,
   paymentRefund,
   personCreate,
+  subscriptionRecordCard,
   subscriptionRecordCycle,
   subscriptionStart,
 } from '@hfos/core/server';
@@ -701,6 +702,87 @@ describe('what the routes do with an event they take', () => {
           from app.subscriptions s where s.id = ${refused.id}::uuid`,
     );
     expect(state).toEqual({ status: 'past_due', failed_cycles: 1, invoices: 0 });
+  });
+
+  it('charges a taxed plan its price plus the tax it was sold with, and splits each cycle back into the two', async () => {
+    const taxed = (rateBp: number) =>
+      rows(
+        admin(),
+        sql`update app.workspaces
+            set settings = settings || jsonb_build_object('money', coalesce(settings->'money', '{}'::jsonb)
+              || jsonb_build_object('tax', coalesce(settings->'money'->'tax', '{}'::jsonb)
+                || jsonb_build_object('rateBp', ${rateBp}::int)))
+            where id = ${w.workspaceId}`,
+      );
+    await taxed(825);
+    const started = (await run(w, subscriptionStart, {
+      workspaceId: w.workspaceId,
+      personId: w.person.id,
+      planName: 'Taxed Club',
+      priceCents: 2_900,
+      interval: 'month',
+      connectionId: w.stripe.connectionId,
+    })) as { subscriptionId: string };
+    await drain(w);
+    // The rate is the plan's from here, like its price: changing the business's rate never reprices it.
+    await taxed(0);
+    const [kept] = await rows<{ tax_rate_bp: number }>(
+      admin(),
+      sql`select tax_rate_bp from app.subscriptions where id = ${started.subscriptionId}`,
+    );
+    expect(kept?.tax_rate_bp).toBe(825);
+
+    // The customer puts a card on it, and the worker makes the plan at the provider for the price plus its tax.
+    await sys(subscriptionRecordCard, {
+      workspaceId: w.workspaceId,
+      subscriptionId: started.subscriptionId,
+      provider: 'stripe',
+      connectionId: w.stripe.connectionId,
+      customerRef: 'cus_taxed_club',
+      // A card the stand-in can bill each cycle without the customer there.
+      methodToken: w.s.payments.fake.page.tokenise({
+        instrument: FAKE_CARDS.succeeds,
+        method: 'card',
+      }),
+      cardBrand: 'Visa',
+      cardLast4: '4242',
+      cardExpiryMonth: 12,
+      cardExpiryYear: 2030,
+    });
+    await drain(w);
+    const atProvider = w.s.payments.fake.subscriptions().filter((x) => x.name === 'Taxed Club');
+    expect(atProvider.map((x) => x.amountCents)).toEqual([3_139]); // $29.00 + 8.25% ($2.39)
+    const [live] = await rows<{ status: string; external: string | null }>(
+      admin(),
+      sql`select status::text as status, external_subscription_id as external from app.subscriptions
+          where id = ${started.subscriptionId}`,
+    );
+    expect(live?.external).toBe(atProvider[0]!.id);
+
+    // A cycle: the invoice is the price taxed at the plan's rate, which is exactly what was charged.
+    const billed = await post(w, '/test/money/provider-event', {
+      workspaceId: w.workspaceId,
+      subscriptionId: atProvider[0]!.id,
+      event: 'cycle',
+    });
+    expect(billed.statusCode, billed.body).toBe(200);
+    await drain(w);
+    const cycles = await rows<{
+      status: string;
+      subtotal: number;
+      tax: number;
+      rate: number;
+      total: number;
+      balance: number;
+    }>(
+      admin(),
+      sql`select status::text as status, subtotal_cents::float8 as subtotal, tax_cents::float8 as tax,
+            tax_rate_bp as rate, total_cents::float8 as total, balance_cents::float8 as balance
+          from app.invoices where subscription_id = ${started.subscriptionId}::uuid`,
+    );
+    expect(cycles).toEqual([
+      { status: 'paid', subtotal: 2_900, tax: 239, rate: 825, total: 3_139, balance: 0 },
+    ]);
   });
 
   it('disconnects the account when the seller revokes us at the provider', async () => {

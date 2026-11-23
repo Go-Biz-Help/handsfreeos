@@ -25,6 +25,7 @@ import {
   invoiceRecordPayment,
   invoiceSend,
   money,
+  planChargeOf,
   scheduleJob,
   subscriptionRecordCycle,
 } from '@hfos/core/server';
@@ -79,6 +80,7 @@ interface PlanRow extends Record<string, unknown> {
   interval: string;
   interval_count: number;
   taxable: boolean;
+  tax_rate_bp: number;
   includes: unknown;
   person_id: string;
   lead_id: string | null;
@@ -100,7 +102,7 @@ interface PlanRow extends Record<string, unknown> {
 
 const PLAN_SELECT = sql`select s.id, s.status::text as status, s.plan_name,
       s.price_cents::float8 as price_cents, s.interval::text as interval, s.interval_count, s.taxable,
-      s.includes, s.person_id, s.lead_id, s.connection_id, s.provider::text as provider, s.external_subscription_id,
+      s.tax_rate_bp, s.includes, s.person_id, s.lead_id, s.connection_id, s.provider::text as provider, s.external_subscription_id,
       s.customer_ref, s.method_token, s.card_requested_at,
       s.started_on::text as started_on, s.current_period_start::text as current_period_start,
       pc.provider::text as connection_provider, pc.status::text as connection_status,
@@ -110,6 +112,14 @@ const PLAN_SELECT = sql`select s.id, s.status::text as status, s.plan_name,
     from app.subscriptions s
     left join app.payment_connections pc on pc.id = s.connection_id
     left join app.people pe on pe.id = s.person_id`;
+
+/** What the plan charges each cycle: its price, plus the sales tax it was sold with when it is taxed. */
+const chargeOf = (plan: PlanRow) =>
+  planChargeOf({
+    priceCents: Math.round(Number(plan.price_cents)),
+    taxable: plan.taxable,
+    taxRateBp: Number(plan.tax_rate_bp ?? 0),
+  });
 
 async function planById(
   db: Db,
@@ -255,7 +265,8 @@ export const runPlanSync: JobHandler = async (ctx) => {
         customerRef: plan.customer_ref,
         // The card the customer put on their own page: the provider's token for it, never a number.
         methodToken: plan.method_token,
-        amountCents: Math.round(Number(plan.price_cents)),
+        // The price plus its sales tax when the plan is taxed: the total the customer's page showed them.
+        amountCents: chargeOf(plan).totalCents,
         interval: every.interval,
         intervalCount: every.count,
         name: plan.plan_name,
@@ -358,17 +369,19 @@ export const runPlanCardMessage: JobHandler = async (ctx) => {
   if (!found?.url) return;
   const { world, url } = found;
   const every = providerInterval(plan.interval, plan.interval_count);
+  const charge = chargeOf(plan);
   const content = {
     business: world.business,
     firstName: world.person.first_name.trim(),
     planName: plan.plan_name,
-    priceLabel: `${money(Math.round(Number(plan.price_cents)))} ${
+    // What the card will be charged, tax and all, so the message and the page it links to say the same figure.
+    priceLabel: `${money(charge.totalCents)} ${
       every.interval === 'year'
         ? 'a year'
         : every.count === 1
           ? 'a month'
           : `every ${every.count} months`
-    }`,
+    }${charge.taxCents > 0 ? ' with tax' : ''}`,
     includes: Array.isArray(plan.includes)
       ? plan.includes.filter((x): x is string => typeof x === 'string')
       : [],
@@ -450,8 +463,17 @@ export async function recordPlanCycle(
 ): Promise<string | null> {
   const plan = await planById(db, scope, subscriptionId);
   if (!plan) return null;
-  const amountCents = facts.amountPaidCents ?? Math.round(Number(plan.price_cents));
+  const charge = chargeOf(plan);
+  const amountCents = facts.amountPaidCents ?? charge.totalCents;
   if (amountCents <= 0) return null;
+  /**
+   * The invoice says what was charged. When that is the plan's price plus its tax, it is written that way — the
+   * price taxed at the rate the plan was sold at (invoice.create takes a plan cycle's rate from the plan), which
+   * comes to exactly the charge. Anything else (a plan made at the provider for its bare price before plans
+   * charged tax, or a figure the provider changed) is one untaxed line for what was taken, so the invoice is
+   * always paid in full and nobody is chased for tax they weren't charged.
+   */
+  const split = charge.taxCents > 0 && amountCents === charge.totalCents;
 
   /**
    * One invoice per cycle. A provider retries a webhook for days and replays happen, so the cycle is found by
@@ -505,11 +527,8 @@ export async function recordPlanCycle(
               description: cycleWording(facts),
               quantity: 1,
               unitLabel: 'each',
-              unitPriceCents: amountCents,
-              // The invoice says what was charged, and the provider charged this figure and no tax on top (a
-              // plan is created there for its bare price). Taxed again here, every cycle read as partly paid
-              // and the customer was chased for tax nobody had asked them for.
-              taxable: false,
+              unitPriceCents: split ? charge.priceCents : amountCents,
+              taxable: split,
               discountCents: 0,
             },
           ],
