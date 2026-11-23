@@ -64,9 +64,6 @@ export const STAGE_TONE: Record<Stage, BadgeVariant> = {
 const researchCheck = (p: PipelinePerson) =>
   p.check && { ...p.check, why: p.check.verdict === 'not' ? p.check.why : [] };
 
-/** How many people a column shows before "See all". */
-const COLUMN_MOST = 8;
-
 /** Who a row's person menu is for: their page, their chat, and what the list knows of Contacts and demos. */
 const menuPerson = (p: PipelinePerson): MenuPerson => ({
   profileId: p.profileId,
@@ -335,8 +332,7 @@ function BoardView({
       <div className="-mx-1 overflow-x-auto px-1 pb-2">
         <div className="flex items-start gap-3">
           {BOARD_STAGES.map((stage) => {
-            const column = board[stage];
-            const people = column.people.slice(0, COLUMN_MOST);
+            const people = board[stage];
             const count = counts[stage];
             return (
               <section

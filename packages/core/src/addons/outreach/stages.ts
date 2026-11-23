@@ -99,6 +99,8 @@ export const StageMarkOutput = z.object({ profileId: z.uuid(), stage: z.enum(STA
 export type StageMarkOutput = z.output<typeof StageMarkOutput>;
 
 export const STAGES_PAGE = 50;
+/** How many people a column of the web's board shows, the latest first: the rest are behind See all. */
+export const STAGE_COLUMN_MOST = 8;
 
 export const StagesInput = z.object({
   workspaceId: z.uuid(),
@@ -108,10 +110,47 @@ export const StagesInput = z.object({
   page: z.number().int().min(1).max(100_000).default(1),
   /** Only the people on one network, counts too; every network's when left out. */
   platform: z.enum(PLATFORM_KEYS).optional(),
+  /**
+   * For the web's board: the first `STAGE_COLUMN_MOST` people at each of these stages too, in the same answer, so a
+   * board is one question and not one for each column.
+   */
+  columns: z.array(z.enum(STAGE_KEYS)).max(STAGE_KEYS.length).optional(),
 });
 export type StagesInput = z.input<typeof StagesInput>;
 
 const n = z.number().int().min(0);
+
+/** Someone in the pipeline, as a row or a card shows them. */
+const StagedPerson = z.object({
+  profileId: z.uuid(),
+  /** The customer they are in Contacts, when they're there. */
+  personId: z.uuid().nullable(),
+  name: z.string(),
+  url: z.string(),
+  /** The network their profile is on: each row shows it by name. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+  stage: z.enum(STAGE_KEYS),
+  /** Why they're at it: "Asked how to book", "They wrote 2 days ago", "Found in Austin Small Business Owners". */
+  why: z.array(z.string()),
+  /** The AI's next step for them, from their chat or its check of them. */
+  nextStep: z.string().nullable(),
+  /** The latest either way: a step, a message or a reply seen. */
+  lastAt: z.iso.datetime().nullable(),
+  /** Their chat, to open in Messenger. */
+  threadKey: z.string().nullable(),
+  /** Marked by the person, rather than worked out. */
+  marked: z.boolean(),
+  /** The person marked them as having booked a demo. */
+  demoBooked: z.boolean(),
+  /** What the AI made of them when checked (decision 46), for Research on the row (decision 46a). */
+  check: z
+    .object({
+      verdict: z.enum(CHECK_VERDICT_KEYS),
+      playbookName: z.string().nullable(),
+      why: z.array(z.string()),
+    })
+    .nullable(),
+});
 
 export const StagesOutput = z.object({
   counts: z.object({
@@ -127,41 +166,14 @@ export const StagesOutput = z.object({
     client: n,
     lost: n,
   }),
-  people: z.array(
-    z.object({
-      profileId: z.uuid(),
-      /** The customer they are in Contacts, when they're there. */
-      personId: z.uuid().nullable(),
-      name: z.string(),
-      url: z.string(),
-      /** The network their profile is on: each row shows it by name. */
-      platform: z.enum(PLATFORM_KEYS).default('facebook'),
-      stage: z.enum(STAGE_KEYS),
-      /** Why they're at it: "Asked how to book", "They wrote 2 days ago", "Found in Austin Small Business Owners". */
-      why: z.array(z.string()),
-      /** The AI's next step for them, from their chat or its check of them. */
-      nextStep: z.string().nullable(),
-      /** The latest either way: a step, a message or a reply seen. */
-      lastAt: z.iso.datetime().nullable(),
-      /** Their chat, to open in Messenger. */
-      threadKey: z.string().nullable(),
-      /** Marked by the person, rather than worked out. */
-      marked: z.boolean(),
-      /** The person marked them as having booked a demo. */
-      demoBooked: z.boolean(),
-      /** What the AI made of them when checked (decision 46), for Research on the row (decision 46a). */
-      check: z
-        .object({
-          verdict: z.enum(CHECK_VERDICT_KEYS),
-          playbookName: z.string().nullable(),
-          why: z.array(z.string()),
-        })
-        .nullable(),
-    }),
-  ),
+  people: z.array(StagedPerson),
   page: n.min(1),
   pages: n.min(1),
   total: n,
+  /** Each stage asked for in `columns`, in that order, with its first people: only when columns were asked for. */
+  columns: z
+    .array(z.object({ stage: z.enum(STAGE_KEYS), people: z.array(StagedPerson) }))
+    .optional(),
 });
 export type StagesOutput = z.output<typeof StagesOutput>;
 

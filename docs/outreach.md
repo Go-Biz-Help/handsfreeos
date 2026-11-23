@@ -5892,6 +5892,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   of everyone, and `test/addons/outreach-rules-read-once.test.ts` holds them to it: change a rule in both, and there.
   A statement that takes the lists is always tied to the business (`workspace_id`), since they hold only its own
   profiles.
+- **Where everyone stands is worked out once for an answer** (`outreach.stages`, `ops/stages.ts`). One statement
+  works out every person's stage, and the counts, the page asked for and the board's columns all read that. The
+  web's board asks once, with `columns`, and each column is how that stage's own page starts (its first
+  `STAGE_COLUMN_MOST`); it used to ask once for each column, and each ask worked everyone out three times (the speed
+  audit, Nov 2026). Something new on the People page reads the same statement rather than working everyone out again.
 - **Don't pitch refuses the step, not the person.** A step the extension notes to someone on the list is refused
   (`outreach_dont_pitch`) with what to change, so it's never counted as outreach. Saving their profile or a chat
   still works.

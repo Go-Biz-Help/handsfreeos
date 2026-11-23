@@ -13,6 +13,8 @@ import { chatLinksAnswer } from '../ai-answers';
 import { outreachAddon } from '../manifest';
 import { NETWORKS, type Platform } from '../networks';
 import {
+  STAGE_COLUMN_MOST,
+  STAGE_KEYS,
   STAGE_ORDER,
   STAGE_WORDS,
   StageMarkInput,
@@ -400,9 +402,55 @@ export const stagesList = defineAddonQuery(outreachAddon, {
       me,
       input.platform ? sql`p.platform = ${input.platform}` : sql`true`,
     );
-    const counted = await rows<{ stage: Stage; n: number }>(
+    const view: StageView = input.view;
+    const shown = sql`${view === 'all' ? sql`s.stage not in ('client', 'lost')` : sql`s.stage = ${view}`}
+      and ${input.search ? sql`position(${input.search.toLowerCase()} in lower(s.name)) > 0` : sql`true`}`;
+    const order = `{${STAGE_ORDER.join(',')}}`;
+    const columns = [...new Set(input.columns ?? [])];
+    // Everyone staged is worked out once, and the counts, the page asked for and the board's columns all read that:
+    // three statements each worked it out again, and the board asked six times (speed audit, 23 Nov 2026). The first
+    // row always comes, with the counts and the total, and with nobody when the page is empty.
+    const found = await rows<
+      StagedRow & {
+        readonly part: 'page' | 'column' | null;
+        readonly counts: Partial<Record<Stage, number>>;
+        readonly total: number;
+      }
+    >(
       ctx.tx,
-      sql`select s.stage, count(*)::int as n from (${all}) s group by s.stage`,
+      sql`with s as materialized (${all}),
+          shown as (select s.* from s where ${shown}),
+          tot as (select count(*)::int as n from shown),
+          at_page as (
+            select least(${input.page}::int, greatest(1, ceil(n::numeric / ${STAGES_PAGE})::int)) as page from tot
+          ),
+          listed as (
+            select 'page' as part, x.* from (
+              select sh.*, row_number() over (
+                order by array_position(${order}::text[], sh.stage), sh.last_at desc nulls last, sh.profile_id
+              ) as place
+              from shown sh
+            ) x
+            where x.place > ((select page from at_page) - 1) * ${STAGES_PAGE}
+              and x.place <= (select page from at_page) * ${STAGES_PAGE}
+            union all
+            select 'column' as part, y.* from (
+              select s.*, row_number() over (
+                partition by s.stage order by s.last_at desc nulls last, s.profile_id
+              ) as place
+              from s where s.stage = any(${`{${columns.join(',')}}`}::text[])
+            ) y
+            where y.place <= ${STAGE_COLUMN_MOST}
+          )
+          select c.counts, t.n as total, l.*,
+            case when l.stage = 'client' then ${clientCauseOf('l')} end as client_cause
+          from (
+            select coalesce(jsonb_object_agg(g.stage, g.n), '{}'::jsonb) as counts
+            from (select s.stage, count(*)::int as n from s group by s.stage) g
+          ) c
+          cross join tot t
+          left join listed l on true
+          order by l.part, l.place`,
     );
     const counts = {
       all: 0,
@@ -418,46 +466,41 @@ export const stagesList = defineAddonQuery(outreachAddon, {
     };
     // All in play leaves out clients (decision 91) and Not a fit: outreach to them has ended.
     const ended: readonly Stage[] = ['client', 'lost'];
-    for (const c of counted) {
-      counts[c.stage] = c.n;
-      if (!ended.includes(c.stage)) counts.all += c.n;
+    for (const stage of STAGE_KEYS) {
+      const n = found[0]?.counts[stage] ?? 0;
+      counts[stage] = n;
+      if (!ended.includes(stage)) counts.all += n;
     }
-    const view: StageView = input.view;
-    const shown = sql`${view === 'all' ? sql`s.stage not in ('client', 'lost')` : sql`s.stage = ${view}`}
-      and ${input.search ? sql`position(${input.search.toLowerCase()} in lower(s.name)) > 0` : sql`true`}`;
-    const [total] = await rows<{ n: number }>(
-      ctx.tx,
-      sql`select count(*)::int as n from (${all}) s where ${shown}`,
-    );
-    const pages = Math.max(1, Math.ceil((total?.n ?? 0) / STAGES_PAGE));
-    const page = Math.min(input.page, pages);
-    const order = `{${STAGE_ORDER.join(',')}}`;
-    const listed = await rows<StagedRow>(
-      ctx.tx,
-      sql`select s.*, case when s.stage = 'client' then ${clientCauseOf('s')} end as client_cause
-          from (${all}) s where ${shown}
-          order by array_position(${order}::text[], s.stage), s.last_at desc nulls last, s.profile_id
-          limit ${STAGES_PAGE} offset ${(page - 1) * STAGES_PAGE}`,
-    );
+    const total = found[0]?.total ?? 0;
+    const pages = Math.max(1, Math.ceil(total / STAGES_PAGE));
+    const person = (r: StagedRow) => ({
+      profileId: r.profile_id,
+      personId: r.person_id,
+      name: r.name,
+      url: r.url,
+      platform: r.platform,
+      ...standingOf(r, now),
+      threadKey: r.thread_key,
+      marked: r.marked_by === 'person',
+      demoBooked: r.marked_booked,
+      check: r.verdict
+        ? { verdict: r.verdict, playbookName: r.check_playbook, why: r.check_why ?? [] }
+        : null,
+    });
     return {
       counts,
-      people: listed.map((r) => ({
-        profileId: r.profile_id,
-        personId: r.person_id,
-        name: r.name,
-        url: r.url,
-        platform: r.platform,
-        ...standingOf(r, now),
-        threadKey: r.thread_key,
-        marked: r.marked_by === 'person',
-        demoBooked: r.marked_booked,
-        check: r.verdict
-          ? { verdict: r.verdict, playbookName: r.check_playbook, why: r.check_why ?? [] }
-          : null,
-      })),
-      page,
+      people: found.filter((r) => r.part === 'page').map(person),
+      page: Math.min(input.page, pages),
       pages,
-      total: total?.n ?? 0,
+      total,
+      ...(input.columns
+        ? {
+            columns: columns.map((stage) => ({
+              stage,
+              people: found.filter((r) => r.part === 'column' && r.stage === stage).map(person),
+            })),
+          }
+        : {}),
     };
   },
 });

@@ -18794,6 +18794,24 @@
           "platform": {
             "type": "string",
             "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
+          },
+          "columns": {
+            "maxItems": 9,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "found",
+                "warming",
+                "friends",
+                "talking",
+                "ready",
+                "pitched",
+                "booked",
+                "client",
+                "lost"
+              ]
+            }
           }
         },
         "required": ["workspaceId"]

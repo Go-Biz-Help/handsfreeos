@@ -10,7 +10,7 @@ import { isNetworkPart } from '@hfos/core/addons/outreach/settings-parts';
 import { cookies } from 'next/headers';
 import { netCookie, readOutreachAddress, type OutreachView } from '@/addons/outreach/address';
 import { OutreachHome } from '@/addons/outreach/home';
-import { BOARD_STAGES, type Board } from '@/addons/outreach/board';
+import { BOARD_STAGES, boardOf } from '@/addons/outreach/board';
 import type { PlaybookList, Setup } from '@/addons/outreach/types';
 import { apiServer, errorMessage, getWorkspaceShell, unwrap, unwrapPage } from '@/lib/api/server';
 
@@ -273,30 +273,27 @@ export async function showOutreach(
     );
   }
   if (shown.view === 'pipeline') {
-    const stageOf = (view: (typeof BOARD_STAGES)[number] | typeof shown.stages) =>
+    // Everyone in play is a board: each column's first people come with the page, in the one answer.
+    const onBoard = shown.stages === 'all' && !shown.search && shown.page === 1;
+    const [got, pipeline, asks] = await Promise.all([
+      workspace,
       api
         .POST('/v1/queries/outreach.stages', {
           body: {
             workspaceId,
-            view,
+            view: shown.stages,
             ...(shown.search ? { search: shown.search } : {}),
-            page: view === shown.stages ? shown.page : 1,
+            page: shown.page,
+            ...(onBoard ? { columns: [...BOARD_STAGES] } : {}),
             ...onNetwork,
           },
         })
-        .then(unwrapPage);
-    // Everyone in play is a board: each column's first page, asked one stage at a time.
-    const onBoard = shown.stages === 'all' && !shown.search && shown.page === 1;
-    const [got, pipeline, columns, asks] = await Promise.all([
-      workspace,
-      stageOf(shown.stages),
-      onBoard ? Promise.all(BOARD_STAGES.map((stage) => stageOf(stage))) : null,
+        .then(unwrapPage),
       // Research on the rows, and Run now (decision 129): left out (the buttons wait) when it can't be had.
       asksOf('pipeline').catch(() => null),
     ]);
-    const board = columns
-      ? (Object.fromEntries(BOARD_STAGES.map((stage, i) => [stage, columns[i]!])) as Board)
-      : null;
+    // An API a deploy behind answers without the columns: the page is then the list, until it catches up.
+    const board = onBoard && pipeline.columns ? boardOf(pipeline.columns) : null;
     return (
       <OutreachHome
         workspaceId={workspaceId}
