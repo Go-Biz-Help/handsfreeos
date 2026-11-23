@@ -105,6 +105,7 @@ Every refusal a person can read explains the problem and, when anything can be d
   - `scripts/migrations-check.mjs` refuses two files with the same version or name. CI runs it.
 - **Keep the running code working.** Add tables and columns first, and remove old ones in a later migration.
 - **Mirror tables, columns and enums in Drizzle** (`packages/db/src/schema`). The parity test fails when a mirrored table's columns, or any enum, drift from the database.
+- **A function a policy calls is written in plpgsql,** never `language sql`: Postgres plans an sql helper again in every statement on a protected table, and keeps a plpgsql one's plan. `packages/db/test/policy-helpers.test.ts` names any that isn't, and says how to write it.
 - **The hosted database gets a migration before `main` does.**
   - Deploys never run migrations, and a push to `main` deploys within minutes.
   - Follow "Apply new migrations" in `docs/operations.md`.
