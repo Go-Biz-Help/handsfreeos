@@ -117,13 +117,21 @@ export function escalationCeilingCents(input: {
   return Math.max(topup, lowest);
 }
 
+/**
+ * When the run a top-up at `now` belongs to started, or null when there is no run going: a run lasts 72 hours
+ * from its first top-up. Deciding a top-up, recording one and the billing page's sentence all ask this one
+ * question, so they can never disagree about whether a business is in a run.
+ */
+export function runStartedAt(windowStartedAt: number | null, now: number): number | null {
+  return windowStartedAt !== null && now - windowStartedAt <= ESCALATION_WINDOW_MS
+    ? windowStartedAt
+    : null;
+}
+
 export function nextEscalation(input: EscalationInput): Escalation {
   const { state, now } = input;
   const topup = Math.max(1, Math.round(input.topupCents));
-  const runningSince =
-    state.windowStartedAt !== null && now - state.windowStartedAt <= ESCALATION_WINDOW_MS
-      ? state.windowStartedAt
-      : null;
+  const runningSince = runStartedAt(state.windowStartedAt, now);
 
   // A quiet spell ends the run: the next top-up is the business's own amount again.
   if (runningSince === null)

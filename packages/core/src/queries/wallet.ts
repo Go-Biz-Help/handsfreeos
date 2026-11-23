@@ -23,6 +23,7 @@ import {
   escalationCeilingCents,
   escalationWords,
   ESCALATION_MAX_MULTIPLE,
+  runStartedAt,
   isUsageKey,
   priceEvent,
   priceOf,
@@ -111,6 +112,7 @@ export const walletGet = defineQuery({
       suspended_reason: string | null;
       recharges_in_window: number;
       escalation_step: number;
+      window_started_at: Date | string | null;
       paused_until: Date | null;
       workspace_created_at: Date | string;
       spent_30d_cents: number | string;
@@ -122,7 +124,8 @@ export const walletGet = defineQuery({
             w.balance_cents, w.auto_topup, w.floor_cents, w.topup_cents, w.overdraft_cents,
             w.card_brand, w.card_last4, w.card_expiry_month, w.card_expiry_year,
             w.method_token is not null as has_card, w.card_requested_at, w.provider::text as provider,
-            w.suspended_at, w.suspended_reason, w.recharges_in_window, w.escalation_step, w.paused_until,
+            w.suspended_at, w.suspended_reason, w.recharges_in_window, w.escalation_step,
+            w.window_started_at, w.paused_until,
             ws.created_at as workspace_created_at,
             coalesce((select sum(abs(l.amount_cents)) from app.usage_ledger l
               where l.workspace_id = w.workspace_id and l.kind in ('spend', 'adjustment')
@@ -210,8 +213,14 @@ export const walletGet = defineQuery({
        * Why the top-up is the size it is, in the business's own numbers — and how to make it stop. A sentence
        * that only explains is a sentence that annoys, so the fix is in the same breath.
        */
+      // Only while the run is going: after a quiet 72 hours the next top-up is their own amount again, so
+      // "you've topped up 3 times in the last three days" would be about a run that has ended.
       escalation:
-        w.recharges_in_window > 1
+        w.recharges_in_window > 1 &&
+        runStartedAt(
+          w.window_started_at === null ? null : new Date(w.window_started_at).getTime(),
+          Date.now(),
+        ) !== null
           ? escalationWords({
               amountCents: pending ?? topup * 2 ** w.escalation_step,
               topupCents: topup,

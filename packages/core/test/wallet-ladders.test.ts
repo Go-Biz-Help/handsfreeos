@@ -14,6 +14,7 @@ import {
   ESCALATION_HARD_CAP_CENTS,
   needsTopUp,
   nextEscalation,
+  runStartedAt,
   type EscalationState,
 } from '../src/money/wallet-ladders';
 
@@ -109,6 +110,34 @@ describe('escalation', () => {
       lastRechargeAt: NOW - 20 * HOUR,
     });
     expect(long.step).toBe(0);
+  });
+
+  it('doubles again in a later run, not only in the first one', () => {
+    // A run that ended long ago, then a quiet spell: the next top-up starts a new run at their own amount.
+    const first = climb({
+      step: 2,
+      recharges: 3,
+      windowStartedAt: NOW - 30 * DAY,
+      lastRechargeAt: NOW - 29 * DAY,
+    });
+    expect(first).toMatchObject({ amountCents: 2500, step: 0, recharges: 1, windowStartedAt: NOW });
+    // Recorded as the first of that new run, the one after it, ten hours on, doubles.
+    const second = climb(
+      { step: first.step, recharges: first.recharges, windowStartedAt: NOW, lastRechargeAt: NOW },
+      NOW + 10 * HOUR,
+    );
+    expect(second).toMatchObject({
+      amountCents: 5000,
+      step: 1,
+      recharges: 2,
+      windowStartedAt: NOW,
+    });
+  });
+
+  it('counts a run as going for 72 hours from its first top-up, and no longer', () => {
+    expect(runStartedAt(null, NOW)).toBeNull();
+    expect(runStartedAt(NOW - 72 * HOUR, NOW)).toBe(NOW - 72 * HOUR);
+    expect(runStartedAt(NOW - 72 * HOUR - 1, NOW)).toBeNull();
   });
 });
 
