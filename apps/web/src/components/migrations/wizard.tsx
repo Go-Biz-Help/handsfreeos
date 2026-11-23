@@ -916,10 +916,13 @@ function Finished({
   const total = detail.progress.reduce((t, p) => t + p.imported + p.merged, 0);
   const open = detail.tasks.filter((t) => t.state !== 'done' && t.state !== 'not_needed');
 
+  const leftBehind = detail.migration.status === 'rolled_back' ? detail.migration.leftBehind : 0;
   const rollback = async () => {
     if (
       !confirm(
-        'Take back everything this migration put here? Customers you already had are never deleted.',
+        leftBehind > 0
+          ? `Take back the ${leftBehind.toLocaleString()} ${leftBehind === 1 ? 'record' : 'records'} this migration left behind?`
+          : 'Take back everything this migration put here? Customers you already had are never deleted.',
       )
     )
       return;
@@ -986,8 +989,17 @@ function Finished({
           asks rather than stopping quietly.
         </p>
       ) : null}
+      {/* Records that came in after it was taken back: a batch that was already running kept writing until
+          2026-11-23. Taking it back again puts away exactly those. */}
+      {leftBehind > 0 ? (
+        <p className="mt-4 text-[13px] text-text-2" data-testid="migration-left-behind">
+          {leftBehind.toLocaleString()} {leftBehind === 1 ? 'record' : 'records'} came in after this
+          was taken back, so {leftBehind === 1 ? 'it’s' : 'they’re'} still here. Take{' '}
+          {leftBehind === 1 ? 'it' : 'them'} back too.
+        </p>
+      ) : null}
       {/* Taking it back is the way out of a finished move; deleting is the card below, on every step. */}
-      {detail.migration.status !== 'rolled_back' ? (
+      {detail.migration.status !== 'rolled_back' || leftBehind > 0 ? (
         <div className="mt-4 flex flex-wrap gap-2">
           <Button
             variant="ghost"
@@ -996,7 +1008,7 @@ function Finished({
             data-testid="migration-rollback"
           >
             <Undo2 className="h-4 w-4" strokeWidth={1.75} />
-            Take it back
+            {leftBehind > 0 ? 'Take back what’s left' : 'Take it back'}
           </Button>
         </div>
       ) : null}
@@ -1022,9 +1034,12 @@ async function askForRollback(
   workspaceId: string | undefined,
   migrationId: string,
 ) {
-  await apiBrowser().POST('/v1/commands/migration.rollback', {
-    body: { organizationId, workspaceId, migrationId, confirm: true },
-  });
+  // Unwrapped, so a refusal is said rather than followed by "Taking it back".
+  unwrap(
+    await apiBrowser().POST('/v1/commands/migration.rollback', {
+      body: { organizationId, workspaceId, migrationId, confirm: true },
+    }),
+  );
 }
 
 /**
@@ -1125,6 +1140,11 @@ function Discard({
         line: "This move hasn't put anything here — nothing was brought across. Deleting it takes nothing of yours with it, and the import can be set up again from scratch.",
         button: 'delete',
       };
+    if (status === 'rolled_back' && detail.migration.leftBehind > 0)
+      return {
+        line: `${detail.migration.leftBehind.toLocaleString()} of its records came in after it was taken back. Take those back first, then it can be deleted.`,
+        button: 'rollback',
+      };
     if (status === 'rolled_back')
       return {
         line: 'The customers it made are put away, not gone. Delete the move to finish them off and start the import again from scratch — anyone who has been texted, booked or billed since is kept.',
@@ -1165,7 +1185,7 @@ function Discard({
           data-testid="migration-discard-rollback"
         >
           <Undo2 className="h-4 w-4" strokeWidth={1.75} />
-          Take it back
+          {status === 'rolled_back' ? 'Take back what’s left' : 'Take it back'}
         </Button>
       ) : null}
     </Card>
