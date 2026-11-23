@@ -75,8 +75,9 @@ export function useGuidedDraft(
       setState((s) => (s === 'saving' ? 'saved' : s));
       return;
     }
-    // "Saved" only once it is: the tick dims the moment an answer changes, until that answer is kept.
-    if (!stopped.current) setState('saving');
+    // "Saved" only once it is: the tick dims the moment an answer changes, until that answer is kept. Before
+    // anything is kept there is no tick to dim, so it shows once the first save is on its way.
+    if (!stopped.current && saved.current !== null) setState('saving');
     const timer = setTimeout(() => void save(), 700);
     return () => clearTimeout(timer);
   }, [text, save, kept]);
