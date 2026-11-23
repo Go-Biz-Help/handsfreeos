@@ -1,8 +1,12 @@
 {
   "area": "settings-channels",
   "title": "Settings: texting, email, website chat, Facebook and Instagram, templates and lead intake",
-  "checkedOn": "2026-11-22",
+  "checkedOn": "2026-11-23",
   "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/phone-setup.tsx": "71dd2300c14b",
+    "apps/mobile/src/components/phone-setup/editors.tsx": "1f1279a467d1",
+    "apps/mobile/src/components/phone-setup/guided-flow.tsx": "36216bb152e1",
+    "apps/mobile/src/components/phone-setup/number-picker.tsx": "bf53e3c04b02",
     "apps/web/src/app/app/oauth/finish/page.tsx": "32b5c89b1bb7",
     "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "908f13e57cca",
     "apps/web/src/app/app/w/[workspaceId]/settings/facebook-instagram/page.tsx": "d8f1fdb769fc",
@@ -3746,6 +3750,258 @@
       "file": "apps/web/src/components/texting-approval/texting-approval-flow.tsx:129",
       "covered": "person",
       "by": "paying on Stripe’s page"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Question N of M, Back, Next, Check it over, Finish later, Saved as you go",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:478",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft (setup phone) has the answers so far; do_phone_setup_save carries them out, so the Assistant has no screen to step through"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Welcome back, Start over",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:35",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft (setup phone) has the answers so far; the Assistant starts from what the person says"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → only someone who can change texting and calls, and it needs signal",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/phone-setup.tsx:85",
+      "covered": "yes",
+      "by": "do_phone_setup_save needs channels.manage, and its refusal says who can"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Do you already have a business number?: No, I need a new one / Yes, and I want to keep it / Yes, it’s in Twilio or HighLevel",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:625",
+      "covered": "yes",
+      "by": "find_phone_numbers and do_phone_setup_save for a new one; number_port / number_import tools to move one"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Moving a number: easier on a computer, Email me a link",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:643",
+      "covered": "yes",
+      "by": "number_port / number_import tools move one; onboarding_send_link emails the link"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Do you want to text customers?: Yes / Not now, calls only, and what getting approved takes",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:658",
+      "covered": "yes",
+      "by": "do_phone_setup_save texting on or not_now; settings_help texting: get texting approved by the carriers"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Does your business have an EIN?: Yes / No",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:694",
+      "covered": "yes",
+      "by": "find_phone_numbers numberType: local with an EIN, toll_free without"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → number taken while you were away / couldn’t get the number",
+      "kind": "see",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:460",
+      "covered": "partly",
+      "by": "find_phone_numbers again shows what is free now; get_settings texting number status and lastError; no tool says a number picked on the page was taken"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → Nothing is bought yet",
+      "kind": "see",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:746",
+      "covered": "yes",
+      "by": "do_phone_setup_save’s card says it buys the number and that it is billed every month"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → Numbers you can have, pick one",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/number-picker.tsx:156",
+      "covered": "yes",
+      "by": "find_phone_numbers, then do_phone_setup_save buy on the one picked"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → Looking for numbers",
+      "kind": "see",
+      "file": "apps/mobile/src/components/phone-setup/number-picker.tsx:207",
+      "covered": "yes",
+      "by": "find_phone_numbers"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → City and State",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/number-picker.tsx:235",
+      "covered": "yes",
+      "by": "find_phone_numbers city and state"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → How far out",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/number-picker.tsx:262",
+      "covered": "yes",
+      "by": "find_phone_numbers withinMiles"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → Area code",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/number-picker.tsx:274",
+      "covered": "yes",
+      "by": "find_phone_numbers areaCode"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → Starts with Any, 833, 844, 855",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/number-picker.tsx:290",
+      "covered": "yes",
+      "by": "find_phone_numbers areaCode (Starts with, for toll-free)"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → Digits you’d like in it",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/number-picker.tsx:305",
+      "covered": "yes",
+      "by": "find_phone_numbers contains"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → Show numbers, none found, Look again without the city or digits",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/number-picker.tsx:313",
+      "covered": "yes",
+      "by": "find_phone_numbers again with less, or anywhere"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → Show toll-free numbers instead / Show local numbers instead",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/number-picker.tsx:340",
+      "covered": "yes",
+      "by": "find_phone_numbers numberType"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Pick your number → not in this build of the app, Email me a link",
+      "kind": "see",
+      "file": "apps/mobile/src/components/phone-setup/number-picker.tsx:127",
+      "covered": "person",
+      "by": "a build of the app without the worker address; the person’s own phone"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → What rings → HandsFreeOS, Always on",
+      "kind": "see",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:103",
+      "covered": "yes",
+      "by": "get_settings texting routing"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → What rings → A cell phone or desk phone too",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:114",
+      "covered": "yes",
+      "by": "do_phone_setup_save ring.forwarding"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → What rings → Whose phone, Its number, Remove, Add a phone",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:137",
+      "covered": "yes",
+      "by": "do_phone_setup_save ring.forwarding label, e164, at most 3"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → What rings → What should that phone show: The customer’s number / Your business number",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:198",
+      "covered": "yes",
+      "by": "do_phone_setup_save ring.forwardedCallerId"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → What rings → Press 1 note",
+      "kind": "see",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:215",
+      "covered": "no",
+      "by": "not in any tool"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → If nobody picks up → Ring for 15, 20 or 25 seconds",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:253",
+      "covered": "yes",
+      "by": "do_phone_setup_save missed.ringSeconds"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → If nobody picks up → Your AI teammate answers, no teammate yet or it’s off, When nobody picks up / When you’re closed / Every call",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:267",
+      "covered": "yes",
+      "by": "do_phone_setup_save missed.then teammate, missed.teammateMode; get_settings texting teammate"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → If nobody picks up → Your AI teammate answers → calls use your AI balance",
+      "kind": "see",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:282",
+      "covered": "no",
+      "by": "not in any tool"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → If nobody picks up → Take a voicemail, What callers hear",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:290",
+      "covered": "yes",
+      "by": "do_phone_setup_save missed.then voicemail, missed.voicemailGreeting"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → If nobody picks up → Nothing",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:319",
+      "covered": "yes",
+      "by": "do_phone_setup_save missed.then nothing"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Quiet hours for texts → After 8 PM, until 8 AM / I’ll pick the hours: Texts stop at, And start again at / It’s never too late",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:352",
+      "covered": "yes",
+      "by": "do_phone_setup_save quietHours enabled, start, end"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Quiet hours for texts → you can still send by hand, and the business’s time",
+      "kind": "see",
+      "file": "apps/mobile/src/components/phone-setup/editors.tsx:398",
+      "covered": "yes",
+      "by": "get_settings texting: timezone, quiet"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Does this look right?: every answer, with Change; Already set for you; What happens next",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:559",
+      "covered": "yes",
+      "by": "do_phone_setup_save’s card lists what it will do before the person confirms; settings_help texting: get texting approved by the carriers"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Does this look right? → Get my number / Save my answers",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:618",
+      "covered": "yes",
+      "by": "do_phone_setup_save: buy with ring, missed, texting and quietHours, or phoneNumberId to change the number the business has"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → Getting <number>",
+      "kind": "see",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:422",
+      "covered": "yes",
+      "by": "get_settings texting number status"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → It’s yours: the number, Calls ring now, where texting stands, Try it now",
+      "kind": "see",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:818",
+      "covered": "yes",
+      "by": "get_settings texting: number, nextStep, settings.texting, routing"
+    },
+    {
+      "path": "Phone → Guided phone number setup (from Getting started) → It’s yours → Get approved to text: easier on a computer, Email me a link, Do it later",
+      "kind": "do",
+      "file": "apps/mobile/src/components/phone-setup/guided-flow.tsx:868",
+      "covered": "yes",
+      "by": "read_registration_get_draft, fill_in_carrier_registration; onboarding_send_link emails the link"
     }
   ],
   "gaps": [
