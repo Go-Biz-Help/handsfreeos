@@ -134,6 +134,8 @@ export async function sendText(
   meta: RequestMeta,
   /** Who it goes out as: the system, or the system tagged as the Action Center (M8's automatic messages). */
   actor: SystemActor = systemActor(scope),
+  /** A code they just asked for on a signing page: it goes whatever the hour (message.send's `askedForCode`). */
+  opts: { readonly askedForCode?: boolean } = {},
 ): Promise<Sent> {
   try {
     const { output } = await executeCommand(
@@ -146,6 +148,7 @@ export async function sendText(
         body: plainSms(body),
         clientId,
         keepConversationStatus: true,
+        ...(opts.askedForCode ? { askedForCode: true } : {}),
       },
       actor,
       meta,

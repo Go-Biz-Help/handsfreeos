@@ -571,6 +571,8 @@ export const emailReceive = defineCommand({
             }
           : {}),
         ...(!inbound && newest ? { awaitingReplySince: null } : {}),
+        // A draft answered the mail before this one: it goes, and the AI teammate drafts again if it may.
+        ...(sealed && conv.aiDraft ? { aiDraft: null } : {}),
         ...(autoLink ? { personId: person } : {}),
         ...(!conv.emailAddressId && emailAddressId ? { emailAddressId } : {}),
       })

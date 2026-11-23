@@ -90,10 +90,11 @@ each signature by `document.sign`, which takes the wording from the server, neve
 already made. It's filed on the customer's Files from `documents`, locked with reason `signed`, and the original's and
 the signed copy's SHA-256 are kept on the document and printed on the proof page.
 
-**Texts wait for quiet hours.** A link, reminder or copy that can't text now emails at once and texts at the end of
-quiet hours, as one step of the trail. A code can't wait, so in quiet hours it's emailed when the signer has an email,
-and the signing page says so. A signer with only a phone is told when a text can go again
-(`document_code_quiet_hours`); no code is made, so being refused starts no 45-second wait.
+**Texts wait for quiet hours, except a code they ask for.** A link, reminder or copy that can't text now emails at
+once and texts at the end of quiet hours, as one step of the trail. A code is texted whatever the hour, since the
+signer just asked for it and is waiting on the page (the owner's choice, 23 Nov 2026). It's sent with message.send's
+`askedForCode`, which only HandsFreeOS itself may set, and it's the only text of HandsFreeOS's own that skips quiet
+hours.
 
 **Templates are owners' and admins' (`documents.manage`); anyone who can see the customer sends (`documents.send`).**
 Both can be changed per role and per person. The link the team copies is asked for as them, so a customer they

@@ -11,6 +11,7 @@ import {
   emailDomainAdd,
   emailDomainReceive,
   emailDomainStopReceiving,
+  emailSetupLookUp,
   executeCommand,
   messageSend,
   organizationCreate,
@@ -394,6 +395,83 @@ describe('turning receiving on', () => {
           where kind = ${EMAIL_RECEIVING_CHECK_JOB} and dedupe_key = ${receivingCheckKey(domainId)}
             and status = 'pending'`,
     );
+  });
+
+  it('keeps the old mail records it still sees, for the guided setup’s last step, until they are gone', async () => {
+    // The local mail service gives an oldmx-… domain two old records at its web host, gone by the second check.
+    const domain = `oldmx-${token()}.example.com`;
+    const { domainId } = await domainWith(domain, 'off');
+    const seen = async () =>
+      (
+        await rows<{ receiving: string; mail_host: string | null; mx: { host: string }[] | null }>(
+          admin(),
+          sql`select receiving::text as receiving, mail_host, mx_records as mx
+              from app.email_domains where id = ${domainId}`,
+        )
+      )[0]!;
+    const ask = () =>
+      executeCommand(
+        api(),
+        emailDomainReceive,
+        { workspaceId, emailDomainId: domainId },
+        actor(owner),
+        meta(),
+      );
+    await ask();
+    await drain();
+    let now = await seen();
+    expect(now.receiving).toBe('pending');
+    expect(now.mx?.map((r) => r.host)).toEqual([
+      'inbound.postmarkapp.com',
+      'mx10.mailspamprotection.com',
+      'mx20.mailspamprotection.com',
+    ]);
+    // Check now, once the old ones are deleted.
+    await ask();
+    await drain();
+    now = await seen();
+    expect(now).toMatchObject({ receiving: 'on', mail_host: 'handsfreeos' });
+    expect(now.mx?.map((r) => r.host)).toEqual(['inbound.postmarkapp.com']);
+  });
+
+  it('looks a website name up before it is added, and says when there is no such name', async () => {
+    const lookedUp = async (domain: string) => {
+      await executeCommand(api(), emailSetupLookUp, { workspaceId, domain }, actor(owner), meta());
+      await drain();
+      return (
+        await rows<{
+          domain: string;
+          mail_host: string | null;
+          dns_host: string | null;
+          n: number;
+        }>(
+          admin(),
+          sql`select domain, mail_host, dns_host, jsonb_array_length(coalesce(mx_records, '[]'::jsonb))::int as n
+              from app.email_domain_lookups where workspace_id = ${workspaceId}`,
+        )
+      )[0];
+    };
+    const old = `oldmx-${token()}.example.com`;
+    expect(await lookedUp(old)).toEqual({
+      domain: old,
+      mail_host: 'other',
+      dns_host: 'siteground',
+      n: 2,
+    });
+    const typo = `typo-${token()}.example.com`;
+    expect(await lookedUp(typo)).toEqual({
+      domain: typo,
+      mail_host: 'none',
+      dns_host: 'none',
+      n: 0,
+    });
+    // Nothing was added to the business for either.
+    const [added] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.email_domains
+          where workspace_id = ${workspaceId} and domain in (${old}, ${typo})`,
+    );
+    expect(added!.n).toBe(0);
   });
 
   it('lapses when a daily check finds the MX gone, and the daily check covers every receiving domain', async () => {

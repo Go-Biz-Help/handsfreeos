@@ -103,6 +103,15 @@ export const emailLocalPart = z
     error: 'Don’t put two dots, dashes or underscores in a row.',
   });
 
+/** One MX record: the mail server it names and its priority (lowest is tried first). */
+export const EmailMxRecord = z.object({
+  host: z.string().max(254),
+  priority: z.int().min(0).max(65535),
+});
+export type EmailMxRecord = z.infer<typeof EmailMxRecord>;
+/** How many MX records are kept for a name: more than any mail service asks for. */
+export const EMAIL_MX_RECORDS_MAX = 20;
+
 export const emailDomainStatus = z.enum(['pending', 'verified', 'failed']);
 /** Whether a domain's mail arrives here (M19): people ask (pending), the worker says on or lapsed. */
 export const emailReceivingStatus = z.enum(['off', 'pending', 'on', 'lapsed']);
@@ -145,6 +154,8 @@ export const EmailDomainRecordInput = z.object({
    */
   mailHost: z.string().trim().min(1).max(40).optional(),
   dnsHost: z.string().trim().min(1).max(40).optional(),
+  /** Its MX records as DNS gives them now, for the guided setup's old records to delete. Absent keeps what is stored. */
+  mxRecords: z.array(EmailMxRecord).max(EMAIL_MX_RECORDS_MAX).optional(),
 });
 export const EmailDomainRecordOutput = z.object({
   emailDomainId: uuid,
@@ -177,6 +188,9 @@ export const EmailDomainRecordReceivingInput = z.object({
   workspaceId: uuid,
   emailDomainId: uuid,
   mxFound: z.boolean().nullable(),
+  /** Where its mail goes now and its MX records, as this check saw them. Absent (DNS didn't answer) keeps what is stored. */
+  mailHost: z.string().trim().min(1).max(40).optional(),
+  mxRecords: z.array(EmailMxRecord).max(EMAIL_MX_RECORDS_MAX).optional(),
 });
 
 // ---------- sending addresses ----------
@@ -197,13 +211,44 @@ export const EmailAddressUpdateInput = z.object({
   displayName: displayName.optional(),
   isDefault: z.boolean().optional(),
   localPart: emailLocalPart.optional(),
-  /** Give a team address to one person (M19). Taking one from its person is email_address.reassign's. */
+  /**
+   * Who reads it (M19). A person's id gives a team address to them. Null hands one back to the team, which only
+   * its own person does while they work here; their old mail stays theirs. Once they have left, an owner decides
+   * (email_address.reassign).
+   */
   ownerUserId: uuid.nullable().optional(),
+  /**
+   * The team address that becomes the default in the same go, when the one being given to a person is the
+   * default today: a person's own address can't send for the business.
+   */
+  defaultToId: uuid.optional(),
 });
 export const EmailAddressUpdateOutput = z.object({
   emailAddressId: uuid,
   address: z.string(),
   updated: z.array(z.string()),
+});
+/** One address removed. The mail it carried stays; what comes after goes to the default address. */
+/** "Let the AI teammate read this mail": its own person's switch on their own address. */
+export const EmailAddressSetAiReadsInput = z.object({
+  workspaceId: uuid,
+  emailAddressId: uuid,
+  /** On: it reads mail that comes in to this address and drafts answers only its person sees. */
+  aiReads: z.boolean(),
+});
+export const EmailAddressSetAiReadsOutput = z.object({
+  emailAddressId: uuid,
+  address: z.string(),
+  aiReads: z.boolean(),
+  /** False when it was already that way. */
+  changed: z.boolean(),
+});
+export const EmailAddressRemoveInput = z.object({ workspaceId: uuid, emailAddressId: uuid });
+export const EmailAddressRemoveOutput = z.object({
+  emailAddressId: uuid,
+  address: z.string(),
+  /** How many threads it carried, which stay where they are. */
+  threads: z.number().int(),
 });
 
 /**
@@ -297,6 +342,15 @@ export const EmailAddressOut = z.object({
   ownerName: z.string().nullable().optional(),
   /** Its person no longer works here: an owner decides what becomes of it (email_address.reassign). */
   ownerLeft: z.boolean().optional(),
+  /** It is the reader's own: only they hand it back to the team or remove it. */
+  mine: z.boolean().optional(),
+  /** It has carried no mail the reader can see, so it can still be renamed. */
+  renamable: z.boolean().optional(),
+  /**
+   * The reader's own address, and they let the AI teammate read its mail and draft answers only they see. Always
+   * false on anyone else's address: whether a person lets it read their mail is theirs to know.
+   */
+  aiReads: z.boolean().optional(),
 });
 export const EmailDomainOut = z.object({
   id: uuid,
@@ -324,6 +378,8 @@ export const EmailDomainOut = z.object({
   ownershipHost: z.string().nullable(),
   ownershipToken: z.string(),
   ownershipProvedAt: isoDateTime.nullable(),
+  /** Where its records are looked after, as a key `dnsHostFor` names ("Records at SiteGround"). None from an older API. */
+  dnsHost: z.string().nullable().optional(),
 });
 export const MailboxOut = z.object({
   id: uuid,
@@ -346,6 +402,11 @@ export const EmailSetupStatusOutput = z.object({
   /** Where a domain's MX points for its mail to arrive here. */
   inboundMxHost: z.string(),
   addresses: z.array(EmailAddressOut),
+  /**
+   * The business's AI teammate, for the switch that lets it read a person's own mail: its name, and whether it is
+   * working (in training or on its own). Null when the business has none yet.
+   */
+  aiTeammate: z.object({ name: z.string(), on: z.boolean() }).nullable().optional(),
   domains: z.array(EmailDomainOut),
   mailboxes: z.array(MailboxOut),
   counts: z.object({

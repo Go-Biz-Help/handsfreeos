@@ -177,6 +177,27 @@ describe('whether a domain receives here (M19)', () => {
     ).toBe(false);
   });
 
+  // The guided setup's last step lists the old mail records still to delete, from what `hosts` kept.
+  it('keeps a domain’s mail records as its own name servers give them now', async () => {
+    const remembered = [
+      { exchange: 'mx10.oldhost.example', priority: 10 },
+      { exchange: 'inbound.postmarkapp.com', priority: 10 },
+    ];
+    const found = await createPostmark({
+      serverToken: 'server-token-test',
+      accountToken: 'account-token-test',
+      stream: 'outbound',
+      dns: dns({ mx: remembered, mxNow: ['inbound.postmarkapp.com'] }),
+      nameServers: async () => ['ns1.siteground.net'],
+    }).domains.hosts('lonestarhvac.com');
+    expect(found).toMatchObject({
+      mx: ['inbound.postmarkapp.com'],
+      mxRecords: [{ exchange: 'inbound.postmarkapp.com', priority: 10 }],
+      ns: ['ns1.siteground.net'],
+      missing: false,
+    });
+  });
+
   it('says no when the MX points elsewhere or there is none', async () => {
     expect(await domains(dns({ mx: ['aspmx.l.google.com'] })).receives('lonestarhvac.com')).toBe(
       false,

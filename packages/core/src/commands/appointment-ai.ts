@@ -39,6 +39,7 @@ import { formatDuration } from '../calendar/format';
 import { zonedParts } from '../calendar/engine/zoned';
 import { loadCalendar, resolveService } from '../calendar/load';
 import { bookableDurations, defaultLocationKind, resolveTerms } from '../calendar/terms';
+import type { LocationKind } from '../calendar/config';
 import { leadFor } from '../crm/intake';
 import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
@@ -46,6 +47,7 @@ import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { executeCommandIn } from '../kernel/execute';
 import type { AiEmployeeActor, CommandContext, RequestMeta } from '../kernel/types';
+import type { AppointmentLocation } from '../schemas/calendar';
 import { isOptedOut } from '../messaging/store';
 import {
   AppointmentAddForCustomerInput,
@@ -176,6 +178,29 @@ async function customerAttendee(
 }
 
 /** The links in confirmations sent before the change stop working, so only the newest one manages it. */
+/**
+ * Decision 179: a visit at the customer's place keeps the address the teammate found its times for, as one booked on
+ * the booking page does, so the team knows where to go and the next visit's drive is timed from it.
+ */
+function visitAt(
+  kind: LocationKind | null,
+  address: string | null | undefined,
+  postalCode: string | null | undefined,
+): AppointmentLocation | undefined {
+  if (kind !== 'customer_address' || !address?.trim()) return undefined;
+  return {
+    kind,
+    address: address.trim(),
+    meetingUrl: null,
+    video: null,
+    meetingId: null,
+    meetingFor: null,
+    meetingError: null,
+    record: false,
+    postalCode: postalCode ?? null,
+  };
+}
+
 async function bumpManageVersion(ctx: CommandContext, attendeeId: string): Promise<void> {
   await ctx.tx
     .update(appointmentAttendees)
@@ -214,6 +239,7 @@ export const appointmentBookForCustomer = defineCommand({
     await enforceCaps(ctx.tx, ws, calendar.id, person.phoneE164, person.email);
     const attendee = await customerAttendee(ctx, conv, person);
     const smsOk = attendee.smsOk;
+    const locationKind = defaultLocationKind(config);
     const result = await bookAppointment(ctx, {
       calendar,
       startsAt: Date.parse(input.startsAt),
@@ -221,12 +247,14 @@ export const appointmentBookForCustomer = defineCommand({
       serviceId: service?.id ?? null,
       durationMinutes: input.durationMinutes,
       partySize: 1,
-      locationKind: defaultLocationKind(config),
+      locationKind,
       postalCode: input.postalCode ?? null,
       point: input.point ?? null,
+      drives: input.drives ?? null,
       choice: { mode: 'customer' },
       attendee,
       notes: input.notes ?? null,
+      location: visitAt(locationKind, input.address, input.postalCode),
       clientId: input.clientId,
       source: 'ai_teammate',
     });
@@ -448,11 +476,13 @@ export const seriesBookForCustomer = defineCommand({
           locationKind: defaultLocationKind(config),
           postalCode: input.postalCode ?? null,
           point: input.point ?? null,
+          drives: input.drives ?? null,
           choice: { mode: 'customer' },
           // The same person each visit when they're free.
           preferUserIds: prefer,
           attendee,
           notes: input.notes ?? null,
+          location: visitAt(defaultLocationKind(config), input.address, input.postalCode),
           clientId: occ.index === 0 ? input.clientId : `${input.clientId}#${occ.index + 1}`,
           source: 'ai_teammate',
           seriesId: series!.id,
@@ -866,6 +896,8 @@ export async function runHeldAction(
           notes: a.notes,
           postalCode: a.postalCode,
           point: a.point,
+          address: a.address ?? null,
+          drives: a.drives ?? null,
           clientId,
         },
         ai,
@@ -882,6 +914,7 @@ export async function runHeldAction(
           appointmentId: a.appointmentId,
           startsAt: a.startsAt,
           sessionId: a.sessionId,
+          drives: a.drives ?? null,
         },
         ai,
         meta,
@@ -914,6 +947,8 @@ export async function runHeldAction(
           notes: a.notes,
           postalCode: a.postalCode,
           point: a.point,
+          address: a.address ?? null,
+          drives: a.drives ?? null,
           clientId,
         },
         ai,

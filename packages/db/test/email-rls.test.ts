@@ -468,3 +468,100 @@ describe('the daily domain check', () => {
     expect(asPerson.code).toBe('42501');
   });
 });
+
+describe('the guided email setup', () => {
+  it('shows a looked-up website name to those who change the email; only the worker writes it', async () => {
+    const found = {
+      domain: `${token()}.example.com`,
+      mx: JSON.stringify([{ host: 'mx10.mailspamprotection.com', priority: 10 }]),
+    };
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(
+        tx,
+        sql`insert into app.email_domain_lookups (workspace_id, domain, mail_host, dns_host, mx_records)
+            values (${wsA}, ${found.domain}, 'other', 'siteground', ${found.mx}::jsonb)`,
+      ),
+    );
+    const read = (u: TestUser) =>
+      as(u)((tx) =>
+        rows<{ domain: string }>(
+          tx,
+          sql`select domain from app.email_domain_lookups where workspace_id = ${wsA}`,
+        ),
+      );
+    expect(await read(owner)).toEqual([{ domain: found.domain }]);
+    expect(await read(admin)).toEqual([{ domain: found.domain }]);
+    // channels.manage reads it; a member without it and another business see nothing.
+    expect(await read(member)).toEqual([]);
+    expect(await read(outsider)).toEqual([]);
+    const write = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(
+          tx,
+          sql`update app.email_domain_lookups set mail_host = 'none' where workspace_id = ${wsA}`,
+        ),
+      ),
+    );
+    expect(write.code).toBe('42501');
+    // The worker for another business can't reach it either.
+    expect(
+      await worker(
+        wsB,
+        orgB,
+      )((tx) =>
+        rows(tx, sql`select domain from app.email_domain_lookups where workspace_id = ${wsA}`),
+      ),
+    ).toEqual([]);
+  });
+
+  it('lets only its own person plan “Let Ava read this mail”, and keeps a yes already there', async () => {
+    const domain = `${token()}.example.com`;
+    const [d] = await as(owner)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.email_domains (workspace_id, domain, created_by)
+            values (${wsA}, ${domain}, ${owner.id}) returning id`,
+      ),
+    );
+    const plan = (who: TestUser, addresses: unknown[]) =>
+      as(who)((tx) =>
+        rows(
+          tx,
+          sql`update app.email_domains set plan = ${JSON.stringify({ addresses })}::jsonb where id = ${d!.id}`,
+        ),
+      );
+    const mine = { localPart: 'owner', userId: owner.id, aiReads: true };
+    await plan(owner, [mine]);
+    // The admin can change the plan around it, and add an address of their own with the switch on.
+    await plan(admin, [
+      mine,
+      { localPart: 'info' },
+      { localPart: 'me', userId: admin.id, aiReads: true },
+    ]);
+    // Nobody says yes for someone else: not with the switch on, and not by pointing a yes at another person.
+    for (const forged of [
+      { localPart: 'pat', userId: member.id, aiReads: true },
+      { localPart: 'owner', userId: member.id, aiReads: true },
+      { localPart: 'nobody', aiReads: true },
+    ]) {
+      const e = await expectPgError(() => plan(admin, [mine, forged]));
+      expect(e).toMatchObject({ code: '42501', detail: 'email_address_ai_reads_is_theirs' });
+    }
+    // Without the switch, an address for someone else is fine, as it always was.
+    await plan(admin, [mine, { localPart: 'pat', userId: member.id }]);
+    // A new name can't arrive with someone else's yes already in its plan.
+    const fresh = await expectPgError(() =>
+      as(admin)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.email_domains (workspace_id, domain, created_by, plan)
+              values (${wsA}, ${`${token()}.example.com`}, ${admin.id}, ${JSON.stringify({ addresses: [mine] })}::jsonb)`,
+        ),
+      ),
+    );
+    expect(fresh).toMatchObject({ code: '42501', detail: 'email_address_ai_reads_is_theirs' });
+  });
+});

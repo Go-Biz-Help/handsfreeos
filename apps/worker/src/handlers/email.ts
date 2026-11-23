@@ -2,17 +2,22 @@ import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import {
   dnsHostFor,
   dnsHostOf,
+  EMAIL_LOOKUP_NO_SUCH_NAME,
   emailDomainPlanOf,
   emailDomainRecords,
+  emailMxRecordsOf,
+  emailOldMailRecords,
   HANDSFREEOS_DOMAIN,
   INBOUND_MX_HOST,
   mailHostOf,
   ownershipHost,
+  type EmailMxRecord,
 } from '@hfos/core';
 import {
   emailDomainRecord,
   emailDomainRecordInbound,
   emailReceive,
+  emailSetupRecordLookup,
   emailSuppressionRecord,
   executeCommand,
   messageUpdateStatus,
@@ -286,22 +291,54 @@ export async function ownershipFound(
 
 /**
  * Where the domain's mail goes now and where its DNS is managed, for the business email step's steps and its "Get
- * email here too": each left out when DNS didn't answer, so what was found before stays.
+ * email here too", and its MX records with their priorities, for the guided setup's old records to delete: each
+ * left out when DNS didn't answer, so what was found before stays. `missing` when DNS knows no such name.
  */
 export async function domainHosts(
   domains: EmailDomains,
   domain: string,
-): Promise<{ mailHost?: string; dnsHost?: string }> {
+): Promise<{
+  mailHost?: string;
+  dnsHost?: string;
+  mxRecords?: EmailMxRecord[];
+  missing?: boolean;
+}> {
   try {
-    const { mx, ns } = await domains.hosts(domain);
+    const { mx, ns, mxRecords, missing } = await domains.hosts(domain);
     return {
       ...(mx ? { mailHost: mailHostOf(mx, INBOUND_MX_HOST) } : {}),
       ...(ns ? { dnsHost: dnsHostOf(ns) } : {}),
+      ...(mxRecords ? { mxRecords: emailMxRecordsOf(mxRecords) } : {}),
+      ...(missing ? { missing: true } : {}),
     };
   } catch {
     return {};
   }
 }
+
+/**
+ * The guided email setup's first question (email_setup.look_up): someone typed a website name, and nothing is added
+ * yet. Looks up where its mail goes and where its records are looked after, and keeps the answer for the screen. A
+ * name DNS has never heard of is kept as that, so the screen can say to check the spelling.
+ */
+export const onEmailDomainLookupRequested: EventHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const domain = (ctx.event.payload as { domain?: unknown }).domain;
+  if (typeof domain !== 'string' || !domain) return;
+  const { missing, ...found } = await domainHosts(ctx.email.domains, domain);
+  await executeCommand(
+    ctx.db,
+    emailSetupRecordLookup,
+    {
+      workspaceId: scope.workspaceId,
+      domain,
+      ...found,
+      ...(missing ? { dnsHost: EMAIL_LOOKUP_NO_SUCH_NAME } : {}),
+    },
+    systemActor(scope),
+    metaOf(ctx),
+  );
+};
 
 async function recordDomain(
   ctx: HandlerContext,
@@ -311,7 +348,7 @@ async function recordDomain(
   error?: string,
 ) {
   const found = state ? await ownershipFound(ctx.email.domains, d) : undefined;
-  const hosts = await domainHosts(ctx.email.domains, d.domain);
+  const { missing: _, ...hosts } = await domainHosts(ctx.email.domains, d.domain);
   await executeCommand(
     ctx.db,
     emailDomainRecord,
@@ -479,6 +516,10 @@ export const onEmailDomainStepsRequested: EventHandler = async (ctx) => {
       value: r.value,
       ...(r.priority != null ? { priority: r.priority } : {}),
     })),
+    // Its mail is moving here: the old mail records to delete go with the steps.
+    ...(receive
+      ? { oldMail: emailOldMailRecords({ mxRecords: d.mxRecords ?? null }, INBOUND_MX_HOST) }
+      : {}),
   });
   await ctx.mailer.send({ to: p.to, ...mail });
 };

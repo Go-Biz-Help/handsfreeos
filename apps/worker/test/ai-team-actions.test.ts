@@ -5,6 +5,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import {
+  dayStartSet,
   executeCommand,
   invoiceCreate,
   invoiceSend,
@@ -23,6 +24,7 @@ import { testDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ScriptRule } from '@hfos/ai';
 import { scriptedAi, type TeammateRule } from '../src/ai/scripted';
+import { roughMinutes } from '../src/geo/driving';
 import {
   admin,
   aiMessages,
@@ -46,9 +48,18 @@ import {
   useModel,
   type TeammateWorld,
 } from './ai-team-world';
-import { at, drain, get, textsTo } from './booking-world';
+import { at, drain, get, iso, textsTo } from './booking-world';
 
 const CHI = 'America/Chicago';
+const MIN = 60_000;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
+const DOWNTOWN = { lat: 30.2672, lng: -97.7431 };
+const NORTH = { lat: 30.5, lng: -97.7 };
+const AT_DOWNTOWN = '301 Congress Ave, Austin, TX 78701 @30.2672,-97.7431';
+const AT_NORTH = '1 Main St, Round Rock, TX 78664 @30.5,-97.7';
+/** A detailing visit downtown, tomorrow on the hour: the drive from it to Round Rock must be left clear. */
+let detailVisit = 0;
 let w: TeammateWorld;
 let lawn: { id: string; slug: string };
 let byZip: { id: string; slug: string };
@@ -262,21 +273,27 @@ const RULES: TeammateRule[] = [
           },
   },
   {
+    // Decision 179: the drive is timed to where the visit is, so a look without the address is sent back for it.
     when: /detail my car/i,
-    step: (t) =>
-      t.results['find_times']
-        ? { calls: [{ name: 'reply', arguments: { message: 'Pick a time on our booking page.' } }] }
-        : {
-            calls: [
-              {
-                name: 'find_times',
-                arguments: {
-                  calendarId: calendarIdIn(t.context, 'Detailing'),
-                  from: localDateOf(at(3, '00:00'), CHI),
-                },
-              },
-            ],
-          },
+    step: (t) => {
+      const looks = t.results['find_times'] ?? [];
+      const calendarId = calendarIdIn(t.context, 'Detailing');
+      const span = { from: iso(detailVisit + HOUR), to: iso(detailVisit + 5 * HOUR) };
+      if (looks.length < 2)
+        return {
+          calls: [
+            {
+              name: 'find_times',
+              arguments: { calendarId, ...span, ...(looks.length ? { address: AT_NORTH } : {}) },
+            },
+          ],
+        };
+      if (!t.results['book'])
+        return {
+          calls: [{ name: 'book', arguments: { calendarId, startsAt: firstTime(looks.at(-1)) } }],
+        };
+      return { calls: [{ name: 'reply', arguments: { message: 'All set, see you then.' } }] };
+    },
   },
   {
     when: /book me a lawn visit/i,
@@ -446,10 +463,24 @@ beforeAll(async () => {
     name: 'Downtown',
     postalCodes: ['78701', '78702'],
   });
-  // A mobile detailer's calendar: visits at the customer's place, with time to drive between them.
+  // A mobile detailer's calendar: visits at the customer's place, with time to drive between them. The day starts
+  // downtown, and there's a visit downtown tomorrow.
+  await run(w, dayStartSet, { workspaceId: w.workspaceId, address: AT_DOWNTOWN });
   const detailing = await makeCalendar(w, 'Detailing', {
+    durations: { minutes: [60], step: 30 },
     locations: { options: [{ kind: 'customer_address' }] },
     buffers: { driveBetween: true },
+  });
+  detailVisit = Math.ceil((Date.now() + DAY) / HOUR) * HOUR;
+  const downtown = await newCustomer(w, 'Dot');
+  await run(w, appointmentCreate, {
+    workspaceId: w.workspaceId,
+    calendarId: detailing.id,
+    startsAt: iso(detailVisit),
+    personId: downtown.id,
+    title: 'Detailing',
+    location: { kind: 'customer_address', address: AT_DOWNTOWN },
+    acknowledgeWarnings: true,
   });
   await saveTeammate(w, {
     book: { enabled: true, calendarIds: [lawn.id, byZip.id, detailing.id], repeats: true },
@@ -516,30 +547,44 @@ describe('the service area', () => {
 });
 
 describe('a calendar that leaves time to drive between visits', () => {
-  it('isn’t the teammate’s to book: it offers no time on a guess, and sends the customer the page', async () => {
+  it('asks where the visit is, offers only times that leave room to drive, and books there', async () => {
     const c = await newCustomer(w, 'Dee');
-    const m = await textIn(w, c.phone, 'Can you detail my car on Friday?');
+    const m = await textIn(w, c.phone, 'Can you detail my car? I’m in Round Rock.');
     await replyNow(w, m.conversationId);
     await drain(w);
-    // It's told so up front, the way it is about a calendar that takes a deposit.
+    // It's told to ask for the address and give it to find_times.
     const context = briefOf(requestAbout(w, 'detail my car')!);
     expect(context).toMatch(
-      /Detailing \(calendar id [0-9a-f-]{36}\).*leaves time to drive between visits.*don't book or move it yourself/,
+      /Detailing \(calendar id [0-9a-f-]{36}\).*leaves time to drive between visits: ask for the street address and city/,
     );
     expect(context).not.toMatch(/Lawn care[^\n]*leaves time to drive/);
-    // And a look for times anyway is refused, with where to send them.
     const [r] = await runsOf(m.conversationId);
-    const find = (await toolCallsOf(r!.id)).find((x) => x.tool === 'find_times');
-    expect(find).toMatchObject({ status: 'refused' });
-    expect(JSON.stringify(find!.result)).toContain('leaves time to drive between visits');
-    expect((await aiReplies(m.conversationId)).map((x) => x.body_text)).toEqual([
-      'Pick a time on our booking page.',
-    ]);
-    const booked = await rows<{ id: string }>(
+    const looks = (await toolCallsOf(r!.id)).filter((x) => x.tool === 'find_times');
+    // Without the address, the look is sent back for it.
+    expect(looks[0]).toMatchObject({ status: 'refused' });
+    expect(JSON.stringify(looks[0]!.result)).toContain('Ask for the street address and city');
+    // With it, nothing starts before the drive from the visit downtown is done.
+    expect(looks[1]).toMatchObject({ status: 'done' });
+    const drive = roughMinutes(DOWNTOWN, NORTH) * MIN;
+    expect(drive).toBeGreaterThanOrEqual(30 * MIN);
+    const offered = (
+      looks[1]!.result as { content: { times: { startsAt: string }[] } }
+    ).content.times.map((x) => Date.parse(x.startsAt));
+    expect(offered.length).toBeGreaterThan(0);
+    expect(offered.filter((s) => s < detailVisit + HOUR + drive)).toEqual([]);
+    // It books the first of them, at the address it was given, and says so.
+    const booked = await rows<{ starts_at: string; address: string | null }>(
       admin(),
-      sql`select t.id from app.appointment_attendees t where t.person_id = ${c.id}`,
+      sql`select a.starts_at::text, a.location ->> 'address' as address
+            from app.appointment_attendees t join app.appointments a on a.id = t.appointment_id
+           where t.person_id = ${c.id}`,
     );
-    expect(booked).toEqual([]);
+    expect(booked).toHaveLength(1);
+    expect(Date.parse(booked[0]!.starts_at)).toBe(offered[0]);
+    expect(booked[0]!.address).toBe(AT_NORTH);
+    expect((await aiReplies(m.conversationId)).map((x) => x.body_text)).toEqual([
+      'All set, see you then.',
+    ]);
   });
 });
 

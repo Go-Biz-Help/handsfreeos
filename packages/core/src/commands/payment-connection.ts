@@ -34,7 +34,9 @@ import {
   PaymentConnectionSetAccessInput,
   PaymentConnectionSetLabelInput,
   PaymentConnectionStateOutput,
+  type PlanInterval,
 } from '../schemas/money';
+import { SQUARE_CADENCE_WORDS, squareCadenceOf } from '../money/plan-cadence';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -230,7 +232,11 @@ export async function accountForPerson(
 }
 
 /** A plan bills again and again, which PayPal doesn't do here (the PayPal plan, pick 4a). */
-export async function refusePayPalPlan(ctx: CommandContext, connectionId: string): Promise<void> {
+export async function refuseAccountForPlan(
+  ctx: CommandContext,
+  connectionId: string,
+  every: { readonly interval: PlanInterval; readonly intervalCount: number },
+): Promise<void> {
   const [c] = await rows<{ provider: string }>(
     ctx.tx,
     sql`select provider::text as provider from app.payment_connections
@@ -242,6 +248,23 @@ export async function refusePayPalPlan(ctx: CommandContext, connectionId: string
       409,
       'PayPal takes one-time payments here, so a plan can’t bill through it. Pick your Stripe or Square account for the plan.',
     );
+  // Square names only a few rhythms. A plan in another is refused here rather than billed in the nearest one.
+  if (c?.provider === 'square' && !squareCadenceOf(every.interval, every.intervalCount))
+    throw HfosError.rule(
+      'square_plan_cadence',
+      409,
+      `Square can’t bill a plan ${everyWords(every)}. It bills ${SQUARE_CADENCE_WORDS}. Change how often the plan bills, or pick your Stripe account for it.`,
+    );
+}
+
+/** "every 5 months", "every 3 years": how often a plan bills, for a refusal. */
+function everyWords(every: {
+  readonly interval: PlanInterval;
+  readonly intervalCount: number;
+}): string {
+  const n = Math.max(1, Math.trunc(every.intervalCount));
+  const unit = every.interval === 'quarter' ? 'quarter' : every.interval;
+  return n === 1 ? `every ${unit}` : `every ${n} ${unit}s`;
 }
 
 /**

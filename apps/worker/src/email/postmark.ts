@@ -3,7 +3,7 @@
  */
 import { INBOUND_MX_HOST, ownershipHost } from '@hfos/core';
 import { cnameInDns, dkimInDns, mxInDns, systemDns, tokenInDns, type DnsLookup } from './dns';
-import { lookUp, systemNameServers } from './hosts';
+import { lookUp, lookUpName, systemNameServers } from './hosts';
 import {
   EmailError,
   mailbox,
@@ -206,11 +206,19 @@ export function createPostmark(opts: {
       receives: (domain) => mxInDns(dns, domain, INBOUND_MX_HOST),
       owns: (domain, token) => tokenInDns(dns, ownershipHost(domain), token),
       async hosts(domain) {
-        const [mx, ns] = await Promise.all([
-          lookUp(async () => (await dns.mx(domain)).map((r) => r.exchange)),
-          lookUp(() => (opts.nameServers ?? systemNameServers)(domain)),
+        // As its own name servers give them now, like `receives`: the last step lists the old records still to
+        // delete, and one deleted a minute ago must not read as still there.
+        const [mxRecords, ns] = await Promise.all([
+          lookUp(() => dns.mxNow(domain)),
+          lookUpName(() => (opts.nameServers ?? systemNameServers)(domain)),
         ]);
-        return { mx, ns };
+        return {
+          mx: mxRecords?.map((r) => r.exchange) ?? null,
+          ns: ns.found,
+          mxRecords,
+          // No such name: its name servers and its mail records both say so.
+          missing: ns.missing && mxRecords?.length === 0,
+        };
       },
       async openInbound(domain) {
         if (!opts.inboundHookUrl)

@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import {
   AssistantCard,
   assistantToolByName,
+  conversationAiDraftSave,
+  emailReceive,
   executeCommand,
   executeQuery,
   organizationCreate,
@@ -113,7 +115,7 @@ describe('Settings → Email', () => {
     expect(field(card, 'Address')).toBe(`priya@${domain}`);
     expect(field(card, 'Whose')).toBe('Priya Member’s own');
     expect(card.warnings.map((w) => w.text)).toContain(
-      'Only Priya Member sends from it, and mail to it reaches only them: the rest of the team stops seeing it in the Inbox. It stays Priya Member’s while they work here.',
+      'Only Priya Member sends from it, and mail to it reaches only them: the rest of the team stops seeing it in the Inbox. Only Priya Member can hand it back to the team.',
     );
     expect((await addresses()).some((a) => a.address === `priya@${domain}`)).toBe(false);
 
@@ -140,6 +142,198 @@ describe('Settings → Email', () => {
         emailDomainId: randomUUID(),
       }),
     ).rejects.toThrow('That isn’t one of this business’s domains.');
+  });
+});
+
+/**
+ * Changing addresses after setup (Settings → Email, 2026-11-22), by asking: the address customers hear from becomes
+ * the owner's own with another taking over, its person hands it back, and one address is removed with its mail kept.
+ */
+describe('an address changed after setup', () => {
+  const remove = allScreenActionTools().find((t) => t.name === 'do_email_address_remove')!;
+  const run = () => createToolExecutor(api());
+  const all = async () =>
+    (await addresses()) as unknown as {
+      id: string;
+      address: string;
+      isDefault: boolean;
+      ownerUserId?: string | null;
+    }[];
+  const named = async (local: string) =>
+    (await all()).find((a) => a.address === `${local}@${domain}`)!;
+
+  it('makes the one customers hear from the person’s own, with the address that takes over on the card', async () => {
+    await commit({
+      action: 'add_address',
+      localPart: 'dale',
+      displayName: 'Email HVAC',
+      emailDomainId: domainId,
+      isDefault: true,
+    });
+    await commit({
+      action: 'add_address',
+      localPart: 'office',
+      displayName: 'Email HVAC',
+      emailDomainId: domainId,
+    });
+    const [dale, office] = [await named('dale'), await named('office')];
+    expect(dale.isDefault).toBe(true);
+    const args = {
+      action: 'change_address',
+      emailAddressId: dale.id,
+      ownerUserId: owner.id,
+      defaultToId: office.id,
+    };
+    const { card } = await prepare(args);
+    expect(field(card, 'Whose')).toBe('Dale Owner’s own');
+    expect(field(card, 'Customers hear from')).toBe(`dale@${domain} → office@${domain}`);
+    await commit(args);
+    expect(await named('dale')).toMatchObject({ isDefault: false, ownerUserId: owner.id });
+    expect((await named('office')).isDefault).toBe(true);
+  });
+
+  it('hands the person’s own address back to the team, saying what stays theirs', async () => {
+    const dale = await named('dale');
+    const args = { action: 'change_address', emailAddressId: dale.id, ownerUserId: null };
+    const { card } = await prepare(args);
+    expect(card.title).toBe(`Change dale@${domain}`);
+    expect(field(card, 'Who reads it')).toBe('The team, in the Inbox');
+    expect(card.warnings.map((w) => w.text).join(' ')).toContain(
+      'The mail already on it stays Dale Owner’s alone.',
+    );
+    await commit(args);
+    expect((await named('dale')).ownerUserId ?? null).toBeNull();
+  });
+
+  it('removes one address on a card that says where new mail goes, and never the one customers hear from', async () => {
+    const dale = await named('dale');
+    const { card } = (await run().prepare(
+      remove,
+      { emailAddressId: dale.id },
+      ctx(),
+      randomUUID(),
+    )) as { card: ConfirmCard };
+    expect(AssistantCard.safeParse(card).success).toBe(true);
+    expect(card.title).toBe(`Remove dale@${domain}`);
+    expect(card.warnings[0]!.text).toContain('goes to the team’s Inbox');
+    expect(await named('dale')).toBeTruthy();
+    const done = await run().commit(remove, { emailAddressId: dale.id }, ctx(), {
+      toolCallId: randomUUID(),
+    });
+    expect(done.outcome).toBe(`dale@${domain} is removed`);
+    expect(await named('dale')).toBeUndefined();
+    await expect(
+      run().commit(remove, { emailAddressId: (await named('office')).id }, ctx(), {
+        toolCallId: randomUUID(),
+      }),
+    ).rejects.toMatchObject({ rule: 'email_default_required' });
+  });
+});
+
+/**
+ * "Let Ava read this mail" (owner, 2026-11-22), by asking: the switch on a person's own address is theirs alone, its
+ * card names the address and the AI teammate, and the draft Ava leaves on their mail is read back to them only.
+ */
+describe('Let Ava read this mail', () => {
+  const flip = allScreenActionTools().find((t) => t.name === 'do_email_address_set_ai_reads')!;
+  const putAway = allScreenActionTools().find(
+    (t) => t.name === 'do_conversation_ai_draft_dismiss',
+  )!;
+  const getConversation = assistantToolByName.get('get_conversation')!;
+  const run = () => createToolExecutor(api());
+  const as = (u: TestUser): ToolContext => ({ ...ctx(), actor: actor(u) });
+  const system = () => ({ type: 'system' as const, workspaceId, organizationId });
+  const priyas = async () =>
+    ((await addresses()) as unknown as { id: string; address: string }[]).find(
+      (a) => a.address === `priya@${domain}`,
+    )!.id;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const thread = async (conversationId: string, u: TestUser): Promise<any> =>
+    (
+      (await run().run(
+        getConversation,
+        getConversation.input.parse({ conversationId }) as Record<string, unknown>,
+        as(u),
+      )) as { result: unknown }
+    ).result;
+
+  beforeAll(async () => {
+    await rows(
+      admin(),
+      sql`insert into app.ai_teammates (workspace_id, name, status, training_started_at)
+          values (${workspaceId}, 'Ava', 'training', now())`,
+    );
+  });
+
+  it('turns on only for the address’s own person, on a card that names it and says nothing is sent', async () => {
+    const args = { emailAddressId: await priyas(), aiReads: true };
+    // Not an owner of the business, for her: refused before any card.
+    await expect(run().prepare(flip, args, ctx(), randomUUID())).rejects.toMatchObject({
+      rule: 'email_address_ai_reads_is_theirs',
+    });
+    const { card } = (await run().prepare(flip, args, as(member), randomUUID())) as {
+      card: ConfirmCard;
+    };
+    expect(AssistantCard.safeParse(card).success).toBe(true);
+    expect(card.title).toBe(`Let Ava read mail sent to priya@${domain}`);
+    expect(field(card, 'Let Ava read this mail')).toBe('On');
+    expect(card.warnings[0]!.text).toContain('Only you see the draft');
+    expect(card.warnings[0]!.text).toContain('nothing is sent until you send it');
+
+    const done = await run().commit(flip, args, as(member), { toolCallId: randomUUID() });
+    expect(done.outcome).toBe(
+      `Ava now reads mail sent to priya@${domain}, and drafts answers only you see`,
+    );
+    const again = await run().commit(flip, args, as(member), { toolCallId: randomUUID() });
+    expect(again.outcome).toBe(`That was already on for priya@${domain}`);
+  });
+
+  it('reads Ava’s draft on her own mail to her alone, and puts it away when she says', async () => {
+    const got = (
+      await executeCommand(
+        testDbs().worker.db,
+        emailReceive,
+        {
+          workspaceId,
+          provider: 'postmark',
+          providerMessageId: `pm-${randomUUID()}`,
+          messageIdHeader: `<${randomUUID()}@mail.example.com>`,
+          from: { address: `sam-${mark}@example.com` },
+          to: [{ address: `priya@${domain}` }],
+          subject: 'Friday',
+          bodyText: 'Does Friday still work?',
+          emailAddressId: await priyas(),
+        },
+        system(),
+        meta(),
+      )
+    ).output;
+    await executeCommand(
+      testDbs().worker.db,
+      conversationAiDraftSave,
+      {
+        workspaceId,
+        conversationId: got.conversationId,
+        forMessageId: got.messageId,
+        body: 'Hi Sam, Friday works. Priya',
+      },
+      system(),
+      meta(),
+    );
+
+    const hers = await thread(got.conversationId!, member);
+    expect(hers.draftAnswer).toMatchObject({
+      draftedBy: 'Ava',
+      draft: { ai_teammate_drafted: 'Hi Sam, Friday works. Priya' },
+    });
+    expect(hers.draftAnswer.note).toContain('nothing was sent');
+    // The owner of the business can't open her thread, so there is no draft to read.
+    await expect(thread(got.conversationId!, owner)).rejects.toMatchObject({ code: 'not_found' });
+
+    await run().commit(putAway, { conversationId: got.conversationId }, as(member), {
+      toolCallId: randomUUID(),
+    });
+    expect((await thread(got.conversationId!, member)).draftAnswer).toBeUndefined();
   });
 });
 

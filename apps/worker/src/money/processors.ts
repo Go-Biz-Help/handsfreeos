@@ -41,6 +41,7 @@ import {
   refundFactsOf,
   subscriptionFactsOf,
   subscriptionOutcomeOf,
+  type SubscriptionEventFacts,
 } from './webhook-events';
 
 /**
@@ -314,15 +315,64 @@ const asDate = (iso: string | null): string | null => (iso ? iso.slice(0, 10) : 
 async function ourSubscription(ctx: DeliveryContext, r: Routed, externalId: string | null) {
   if (!externalId) return null;
   const [row] = await asWorker(ctx.db, r.scope, (tx) =>
-    rows<{ id: string; status: string }>(
+    rows<{ id: string; status: string; connection_id: string | null }>(
       tx,
-      sql`select s.id, s.status::text as status from app.subscriptions s
+      sql`select s.id, s.status::text as status, s.connection_id from app.subscriptions s
           where s.workspace_id = ${r.scope.workspaceId}
             and s.external_subscription_id = ${externalId}
           limit 1`,
     ),
   );
   return row ?? null;
+}
+
+/**
+ * What a billed cycle's event leaves out, asked of the provider: the payment that paid it (Stripe's invoices
+ * stopped naming it in basil, and Square's name only the order), so the payment here carries the provider's own
+ * id, and a refund made in their dashboard finds it; and, for Square, whose invoice says nothing of the period,
+ * where the plan is billed up to now. A provider that can't be asked leaves the facts as they were: the cycle
+ * is still recorded, under its invoice's id.
+ */
+async function withCyclePayment(
+  ctx: DeliveryContext,
+  r: Routed,
+  plan: { id: string; connection_id: string | null },
+  facts: SubscriptionEventFacts,
+): Promise<SubscriptionEventFacts> {
+  const needsPayment = !facts.providerPaymentId && !!facts.providerInvoiceId;
+  const needsPeriod = !facts.currentPeriodEnd && !!facts.providerSubscriptionId;
+  if ((!needsPayment && !needsPeriod) || !plan.connection_id) return facts;
+  const provider = ctx.payments.providers[r.provider];
+  if (!provider?.configured) return facts;
+  const [connection] = await asWorker(ctx.db, r.scope, (tx) =>
+    tx.select().from(paymentConnections).where(eq(paymentConnections.id, plan.connection_id!)),
+  );
+  if (!connection || !paymentConnectionUsable(connection)) return facts;
+  const account = accountFor(ctx.sealer, connection);
+  let next = facts;
+  try {
+    if (needsPayment && provider.subscriptions.cyclePaymentId) {
+      const paymentId = await provider.subscriptions.cyclePaymentId(account, {
+        invoiceId: facts.providerInvoiceId!,
+        orderId: facts.providerOrderId,
+      });
+      if (paymentId) next = { ...next, providerPaymentId: paymentId };
+    }
+    if (needsPeriod) {
+      const state = await provider.subscriptions.get(account, {
+        providerSubscriptionId: facts.providerSubscriptionId!,
+      });
+      // Only the end: Square's plan says how far it is paid up to (`charged_through_date`), and its start is
+      // the day the plan began, not this cycle's.
+      next = { ...next, currentPeriodEnd: state.currentPeriodEnd ?? next.currentPeriodEnd };
+    }
+  } catch (e) {
+    ctx.log.warn(
+      { subscriptionId: plan.id, err: errorMessage(e) },
+      'could not ask the provider which payment paid a plan’s cycle; recording it under its invoice',
+    );
+  }
+  return next;
 }
 
 /**
@@ -336,13 +386,15 @@ function cycleProcessor(outcome: 'billed' | 'failed'): DeliveryProcessor {
   return async (ctx) => {
     const r = routed(ctx);
     if (!r) return 'ignored';
-    const facts = subscriptionFactsOf(r.event);
-    const plan = await ourSubscription(ctx, r, facts.providerSubscriptionId);
+    const said = subscriptionFactsOf(r.event);
+    const plan = await ourSubscription(ctx, r, said.providerSubscriptionId);
     if (!plan) return 'ignored';
+    const facts = outcome === 'billed' ? await withCyclePayment(ctx, r, plan, said) : said;
     const invoiceId =
       outcome === 'billed'
         ? await recordPlanCycle(ctx.db, r.scope, plan.id, {
             providerPaymentId: facts.providerPaymentId,
+            providerInvoiceId: facts.providerInvoiceId,
             amountPaidCents: facts.amountPaidCents,
             currentPeriodStart: facts.currentPeriodStart,
             currentPeriodEnd: facts.currentPeriodEnd,

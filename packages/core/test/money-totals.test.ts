@@ -12,6 +12,7 @@ import {
   discountCentsOf,
   lineAmountCents,
   lineSubtotalCents,
+  planChargeOf,
   quantityThousandths,
   refundShares,
   roundHalfUp,
@@ -323,5 +324,46 @@ describe('a whole document', () => {
     const nets = totals.lines.reduce((sum, l) => sum + l.netCents, 0);
     expect(nets).toBe(totals.subtotalCents);
     expect(totals.subtotalCents + totals.taxCents).toBe(totals.totalCents);
+  });
+});
+
+describe('what a plan charges each cycle', () => {
+  it('adds the sales tax it was sold with when the plan is taxed', () => {
+    expect(planChargeOf({ priceCents: 2_900, taxable: true, taxRateBp: TEXAS })).toEqual({
+      priceCents: 2_900,
+      taxCents: 239, // 8.25% of $29.00 is $2.3925
+      totalCents: 3_139,
+    });
+  });
+
+  it('charges the bare price when the plan isn’t taxed, or the business had no rate', () => {
+    expect(planChargeOf({ priceCents: 2_900, taxable: false, taxRateBp: TEXAS })).toMatchObject({
+      taxCents: 0,
+      totalCents: 2_900,
+    });
+    expect(planChargeOf({ priceCents: 2_900, taxable: true, taxRateBp: 0 })).toMatchObject({
+      taxCents: 0,
+      totalCents: 2_900,
+    });
+    expect(planChargeOf({ priceCents: 2_900, taxable: true, taxRateBp: null })).toMatchObject({
+      totalCents: 2_900,
+    });
+  });
+
+  it('comes to the same figure as the cycle’s invoice: the price on one taxed line', () => {
+    for (const [price, rate] of [
+      [2_900, TEXAS],
+      [4_999, 725],
+      [12_345, 1_000],
+      [1, 2_000],
+    ] as const) {
+      const charge = planChargeOf({ priceCents: price, taxable: true, taxRateBp: rate });
+      const invoice = computeTotals({
+        lines: [{ quantity: 1, unitPriceCents: price, taxable: true }],
+        taxRateBp: rate,
+      });
+      expect(invoice.totalCents).toBe(charge.totalCents);
+      expect(invoice.taxCents).toBe(charge.taxCents);
+    }
   });
 });

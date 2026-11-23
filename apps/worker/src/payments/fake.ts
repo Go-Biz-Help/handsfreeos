@@ -451,6 +451,8 @@ export function createFakePayments(opts: {
   const givenBack: FakeGiveBack[] = [];
   const refundRows: FakeRefund[] = [];
   const subs = new Map<string, FakeSubscription>();
+  /** Which charge paid each cycle, by the cycle's invoice and (Square) its order: `cyclePaymentId` reads it. */
+  const cyclePayments = new Map<string, string>();
   const posts: FakeWebhookPost[] = [];
   const revoked = new Set<string>();
   const held = new Set<string>();
@@ -474,6 +476,11 @@ export function createFakePayments(opts: {
     });
 
   const now = () => new Date().toISOString();
+  /** Square nests its object under its type (`{ invoice: { id } }`): the id of the one nested object, if any. */
+  const nestedId = (data: Record<string, unknown>): string => {
+    const [inner] = Object.values(data);
+    return inner && typeof inner === 'object' ? String((inner as { id?: unknown }).id ?? '') : '';
+  };
   const nextId = (prefix: string) =>
     `${prefix}_${(++seq).toString().padStart(4, '0')}_${randomUUID().slice(0, 8)}`;
 
@@ -611,7 +618,11 @@ export function createFakePayments(opts: {
               merchant_id: accountId,
               type,
               created_at: now(),
-              data: { type: type.split('.')[0], id: String(data['id'] ?? ''), object: data },
+              data: {
+                type: type.split('.')[0],
+                id: String(data['id'] ?? nestedId(data)),
+                object: data,
+              },
             });
     const headers =
       provider === 'stripe'
@@ -1679,6 +1690,14 @@ export function createFakePayments(opts: {
           if (!row) throw new PaymentError('No plan with that id.', 404, true);
           return subscriptionOf(row);
         },
+        async cyclePaymentId(account, input) {
+          guard(account);
+          return (
+            (input.orderId ? cyclePayments.get(input.orderId) : undefined) ??
+            cyclePayments.get(input.invoiceId) ??
+            null
+          );
+        },
       },
 
       async fees(account, providerPaymentId) {
@@ -1936,23 +1955,64 @@ export function createFakePayments(opts: {
       const answer = outcome(t.instrument, t.method, true);
       await land(c, answer.status, answer.failureCode);
       if (answer.status === 'failed') row.status = 'past_due';
-      await send(
-        row.provider,
-        row.provider === 'stripe'
-          ? answer.status === 'failed'
-            ? 'invoice.payment_failed'
-            : 'invoice.paid'
-          : 'subscription.updated',
-        row.accountId,
-        {
-          id: `${row.id}-cycle-${row.cycles}`,
+      const paid = answer.status === 'succeeded';
+      const invoiceId = `${row.id}-cycle-${row.cycles}`;
+      const orderId = `${row.id}-order-${row.cycles}`;
+      if (paid) {
+        cyclePayments.set(invoiceId, c.id);
+        cyclePayments.set(orderId, c.id);
+      }
+      // Each provider's cycle event in its own shape today. Stripe's invoice names its plan under `parent` and no
+      // longer names its payment (since `2025-03-31.basil`); Square's comes nested under `invoice`, naming the
+      // order it billed. Neither names the payment, which is asked for (`cyclePaymentId`).
+      if (row.provider === 'stripe')
+        await send('stripe', paid ? 'invoice.paid' : 'invoice.payment_failed', row.accountId, {
+          id: invoiceId,
           object: 'invoice',
-          subscription: row.id,
-          payment_intent: c.id,
-          amount_paid: answer.status === 'succeeded' ? row.amountCents : 0,
-          status: row.status,
-        },
-      );
+          status: paid ? 'paid' : 'open',
+          amount_paid: paid ? row.amountCents : 0,
+          parent: {
+            type: 'subscription_details',
+            subscription_details: { subscription: row.id, metadata: {} },
+          },
+          lines: {
+            object: 'list',
+            data: [
+              {
+                object: 'line_item',
+                amount: row.amountCents,
+                period: {
+                  start: Math.floor(Date.parse(row.periodStart) / 1000),
+                  end: Math.floor(Date.parse(row.periodEnd) / 1000),
+                },
+              },
+            ],
+          },
+        });
+      else
+        await send(
+          row.provider,
+          paid ? 'invoice.payment_made' : 'invoice.scheduled_charge_failed',
+          row.accountId,
+          {
+            invoice: {
+              id: invoiceId,
+              subscription_id: row.id,
+              order_id: orderId,
+              status: paid ? 'PAID' : 'UNPAID',
+              payment_requests: [
+                {
+                  request_type: 'BALANCE',
+                  computed_amount_money: { amount: row.amountCents, currency: 'USD' },
+                  total_completed_amount_money: {
+                    amount: paid ? row.amountCents : 0,
+                    currency: 'USD',
+                  },
+                },
+              ],
+            },
+          },
+        );
       return c;
     },
 

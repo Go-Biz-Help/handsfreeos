@@ -18,9 +18,13 @@ export const TEAMMATE_JOBS = {
   handoffText: 'ai_teammate.handoff_text',
   /** The business's fixed words (hand-off line, emergency steps) in a customer's language (M18). */
   translate: 'ai_teammate.translate',
+  /** A draft answer on a person's own mail, when their address lets the teammate read it (own-mail.ts). */
+  ownMailDraft: 'ai_teammate.own_mail_draft',
 } as const;
 
 export const replyJobKey = (conversationId: string): string => `ai-reply:${conversationId}`;
+export const ownMailDraftJobKey = (conversationId: string): string =>
+  `ai-own-mail-draft:${conversationId}`;
 export const sendDraftJobKey = (draftId: string): string => `ai-send-draft:${draftId}`;
 /** One first message per lead (`<leadId>`), or per workflow step (`wf:<runId>:<stepKey>`). */
 export const outreachJobKey = (key: string): string => `ai-outreach:${key}`;
@@ -116,3 +120,9 @@ export const handoffTextJobKey = (eventId: string, userId: string): string =>
 
 /** M18: the most photos the teammate looks at in one reply (the newest). */
 export const PHOTOS_MAX = 3;
+
+/** A person's own mail: how long a draft waits for the sender to finish (two mails in a row get one draft). */
+export const OWN_MAIL_DRAFT_DELAY_MS = 45_000;
+/** The newest mails of the thread the draft's writer reads, and how much of each. */
+export const OWN_MAIL_MESSAGES = 6;
+export const OWN_MAIL_BODY_CHARS = 6_000;

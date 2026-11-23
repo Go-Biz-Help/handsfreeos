@@ -22,6 +22,8 @@ import {
   numberingAtCounter,
   PRODUCT_KIND_WORDS,
   choiceBumpWords,
+  stockRows,
+  type ProductStock,
   reminderSchedule,
   type AutomationDef,
   type AttentionSettings,
@@ -358,6 +360,7 @@ interface Product {
   serviceId: string | null;
   options: ProductOptionRow[];
   archivedAt: string | null;
+  stock: ProductStock | null;
 }
 
 type ProductAct = 'create' | 'change' | 'archive' | 'put_back';
@@ -367,6 +370,31 @@ export const priceWords = (p: Pick<Product, 'unitPriceCents' | 'unitLabel'>) =>
   `${exactMoney(p.unitPriceCents)} ${p.unitLabel === 'each' ? 'each' : `per ${p.unitLabel}`}`;
 
 /** What the model asked for, in the command's own words: anything left out stays as it is. */
+/**
+ * The stock as product.create / product.update take it. Left-out parts of a change stay as they are: the command
+ * takes how it's counted and the number to hear at whole, so they're filled in from the item.
+ */
+function stockInput(args: Args, current: Product | null): Record<string, unknown> {
+  if (args['stock'] === undefined) return {};
+  if (args['stock'] === null) return { stock: null };
+  const s = args['stock'] as {
+    countBy?: string | null;
+    tellAt?: number | null;
+    counts?: { choice?: string; onHand: number }[];
+  };
+  const was = current?.stock ?? null;
+  const wasBy = was?.optionId
+    ? (current!.options.find((o) => o.id === was.optionId)?.name ?? null)
+    : null;
+  return {
+    stock: {
+      countBy: s.countBy === undefined ? wasBy : s.countBy,
+      lowAt: s.tellAt === undefined ? (was?.lowAt ?? null) : s.tellAt,
+      counts: (s.counts ?? []).map((c) => ({ choice: c.choice ?? '', onHand: c.onHand })),
+    },
+  };
+}
+
 function productInput(args: Args): Record<string, unknown> {
   const price = num(args['priceDollars']);
   return {
@@ -480,7 +508,19 @@ async function productRows(
             .join('; ')
         : 'None',
     });
+  if (shows('stock') && (only || p.stock)) rows.push({ label: 'Stock', value: stockFieldWords(p) });
   return rows;
+}
+
+/** "By size: Adult M 5, Adult L 3 · tell at 2", "12 on hand", or "Not counted". */
+function stockFieldWords(p: Product): string {
+  if (!p.stock) return 'Not counted';
+  const rows = stockRows(p);
+  const option = p.stock.optionId ? p.options.find((o) => o.id === p.stock!.optionId) : null;
+  const counts = option
+    ? `By ${option.name.toLowerCase()}: ${rows.map((r) => `${r.label} ${r.onHand}`).join(', ')}`
+    : `${rows[0]?.onHand ?? 0} on hand`;
+  return p.stock.lowAt === null ? counts : `${counts} · tell at ${p.stock.lowAt}`;
 }
 
 const PRODUCT_TITLES: Record<ProductAct, (name: string) => string> = {
@@ -504,12 +544,10 @@ const manageProduct: SettingsConfirmTool = {
     // Each is tried as the person and rolled back, so a name already taken or a service another item prices is
     // refused in the command's own words before a card is drawn.
     if (act === 'create') {
-      const tried = await rehearse<{ product: Product }>(
-        db,
-        ctx,
-        'product.create',
-        productInput(args),
-      );
+      const tried = await rehearse<{ product: Product }>(db, ctx, 'product.create', {
+        ...productInput(args),
+        ...stockInput(args, null),
+      });
       fields.push(...(await productRows(db, ctx, tried.product, null)));
     } else if (act === 'change') {
       const was = current!;
@@ -517,7 +555,7 @@ const manageProduct: SettingsConfirmTool = {
         db,
         ctx,
         'product.update',
-        { productId: was.id, ...productInput(args) },
+        { productId: was.id, ...productInput(args), ...stockInput(args, was) },
       );
       if (!tried.updated.length) throw nothingChanges(`${was.name} is already set that way.`);
       const changed = new Set(tried.updated);
@@ -595,7 +633,7 @@ const manageProduct: SettingsConfirmTool = {
         db,
         ctx,
         'product.create',
-        productInput(args),
+        { ...productInput(args), ...stockInput(args, null) },
       );
       return {
         outcome: `${made.product.name} is in the catalogue.`,
@@ -607,6 +645,7 @@ const manageProduct: SettingsConfirmTool = {
     const saved = await command<{ product: Product }>(db, ctx, 'product.update', {
       productId: current!.id,
       ...productInput(args),
+      ...stockInput(args, current),
     });
     return { outcome: `${saved.product.name} saved.`, href, command: 'product.update' };
   },

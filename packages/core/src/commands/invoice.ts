@@ -221,6 +221,24 @@ async function announcePayment(
 // ---------- writing one ----------
 
 /**
+ * A plan's cycle is taxed at the rate the plan was sold at, which is what the provider charged on top of its
+ * price (money/totals.ts, planChargeOf), not at whatever the business's rate is today. Any other invoice takes
+ * the business's rate as usual.
+ */
+async function planTaxRate(
+  ctx: CommandContext,
+  input: z.infer<typeof InvoiceCreateInput>,
+): Promise<number | undefined> {
+  if (input.origin !== 'subscription' || !input.subscriptionId) return undefined;
+  const [plan] = await rows<{ tax_rate_bp: number }>(
+    ctx.tx,
+    sql`select tax_rate_bp from app.subscriptions
+         where workspace_id = ${ctx.scope.workspaceId!} and id = ${input.subscriptionId}::uuid`,
+  );
+  return plan ? Number(plan.tax_rate_bp) : undefined;
+}
+
+/**
  * A new draft invoice. `by` is who it is from (its assignee unless one is named, and who created it): a person,
  * the person who approved the AI teammate's bill (M18), or nobody for one the system raises.
  */
@@ -233,7 +251,10 @@ export async function createInvoice(
   await requirePerson(ctx.tx, ws, input.personId);
   await requireBillable(ctx, input);
   const settings = await loadMoneySettings(ctx.tx, ws);
-  const draft = draftOf(input.lines, settings, { discount: input.discount });
+  const draft = draftOf(input.lines, settings, {
+    discount: input.discount,
+    taxRateBp: await planTaxRate(ctx, input),
+  });
   // Paid outside HandsFreeOS: never paid into an account, so it has none.
   const outside = input.payOutside === true;
   const [row] = await ctx.tx

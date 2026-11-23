@@ -266,9 +266,9 @@ export interface RunCalendar {
   /** The page a customer books it on, when the booking site is on. */
   readonly bookingPath: string | null;
   /**
-   * It leaves time to drive between visits (docs/outreach.md, decision 179). The drive is timed by road from the
-   * customer's address on the booking page, so like a calendar that takes a deposit it is **not the teammate's to
-   * book**: a time it offered would be a guess, back to back with a visit across town.
+   * It leaves time to drive between visits (docs/outreach.md, decision 179). The drive is timed by road to where the
+   * visit is, as on the booking page, so find_times needs the address of the visit first (the owner, 23 Nov 2026:
+   * "Yes, teach the AI drive time"; before, the teammate sent the booking page instead).
    */
   readonly drives: boolean;
   /** It offers times by the customer's ZIP code, so find_times needs theirs (M18). */

@@ -16,6 +16,8 @@
  */
 import { z } from 'zod';
 import {
+  EMAIL_MX_RECORDS_MAX,
+  EmailMxRecord,
   emailDomainName,
   emailDomainStatus,
   emailLocalPart,
@@ -63,18 +65,40 @@ export const EmailSetupAnswers = z.object({
 export type EmailSetupAnswers = z.infer<typeof EmailSetupAnswers>;
 export type EmailSetupAnswersInput = z.input<typeof EmailSetupAnswers>;
 
+/** How many addresses a guided setup makes at once, the one customers hear from among them. */
+export const EMAIL_PLAN_ADDRESSES_MAX = 12;
+
 /**
  * What a domain does once its records check out, kept on the domain (`email_domains.plan`): make the team address
- * and the default, make the person's own address, and receive its mail. Cleared once it's done.
+ * and the default, make the other addresses, and receive its mail. Cleared once it's done.
  */
 export const EmailDomainPlan = z.object({
   team: z
     .object({ localPart: z.string().min(1).max(64), displayName: z.string().min(1).max(120) })
     .optional(),
   own: z.object({ localPart: z.string().min(1).max(64), userId: z.uuid() }).optional(),
+  /**
+   * The other addresses the guided setup asked for (messaging/email-guided.ts): the team's, or one person's own
+   * (`userId`). `aiReads` is "Let Ava read this mail", which only that person writes into a plan (the database
+   * checks: 20261027033800).
+   */
+  addresses: z
+    .array(
+      z.object({
+        localPart: z.string().min(1).max(64),
+        userId: z.uuid().optional(),
+        aiReads: z.boolean().optional(),
+      }),
+    )
+    .max(EMAIL_PLAN_ADDRESSES_MAX)
+    .optional(),
   receive: z.boolean().optional(),
 });
 export type EmailDomainPlan = z.infer<typeof EmailDomainPlan>;
+
+/** Whether a plan still has anything to do once its domain verifies. */
+export const emailDomainPlanHasWork = (plan: EmailDomainPlan): boolean =>
+  !!plan.team || !!plan.own || !!plan.addresses?.length || plan.receive !== undefined;
 
 /** A domain's plan as stored, read forgivingly: anything that no longer parses counts as none. */
 export const emailDomainPlanOf = (raw: unknown): EmailDomainPlan => {
@@ -322,6 +346,34 @@ export const dnsHostFor = (key: string | null | undefined): DnsHost | null =>
 
 const iso = z.iso.datetime();
 
+/** MX records as kept: host names as DNS gives them, lowest priority first, the first twenty. */
+export const emailMxRecordsOf = (
+  found: readonly { readonly exchange: string; readonly priority?: number }[],
+): EmailMxRecord[] =>
+  found
+    .map((r) => ({
+      host: host(r.exchange),
+      priority: Math.max(0, Math.min(65535, r.priority ?? 0)),
+    }))
+    .filter((r) => r.host)
+    .sort((a, b) => a.priority - b.priority || a.host.localeCompare(b.host))
+    .slice(0, EMAIL_MX_RECORDS_MAX);
+
+/** MX records as stored, read forgivingly: null for anything that isn't a list of them. */
+export const emailMxRecordsFrom = (raw: unknown): EmailMxRecord[] | null => {
+  const r = z.array(EmailMxRecord).safeParse(raw);
+  return r.success ? r.data : null;
+};
+
+/**
+ * The mail records that still send a name's mail somewhere else: every one that doesn't name our inbound host. The
+ * guided setup's last step lists them to delete. Empty when there are none, or nobody has looked yet.
+ */
+export const emailOldMailRecords = (
+  d: { readonly mxRecords: readonly EmailMxRecord[] | null },
+  inboundMxHost: string,
+): EmailMxRecord[] => (d.mxRecords ?? []).filter((r) => r.host !== host(inboundMxHost));
+
 export const EmailSetupRecordOut = z.object({
   type: z.enum(['TXT', 'CNAME', 'MX']),
   purpose: z.string(),
@@ -344,10 +396,42 @@ export const EmailSetupDomainOut = z.object({
   plan: EmailDomainPlan,
   /** The records to add, in order; empty while they're being made. */
   records: z.array(EmailSetupRecordOut),
+  /**
+   * Its mail records as the worker last saw them, lowest priority first; null until it has looked. Defaults, for an
+   * older API.
+   */
+  mxRecords: z.array(EmailMxRecord).nullable().default(null),
   lastCheckedAt: iso.nullable(),
   lastError: z.string().nullable(),
 });
 export type EmailSetupDomain = z.infer<typeof EmailSetupDomainOut>;
+
+/** One of the business's addresses, as the guided setup and Settings → Email's lower card show it. */
+export const EmailSetupAddressOut = z.object({
+  id: z.uuid(),
+  address: z.string(),
+  localPart: z.string(),
+  /** The website name it's on; null on the shared subdomain. */
+  domain: z.string().nullable(),
+  /** Who reads it: only this person, the team, or only someone else. */
+  reader: z.enum(['me', 'team', 'other']),
+  /** "Let Ava read this mail", shown to its own person only. */
+  aiReads: z.boolean(),
+  isDefault: z.boolean(),
+});
+export type EmailSetupAddress = z.infer<typeof EmailSetupAddressOut>;
+
+/** A website name looked up before it's added: where its mail goes and where its records are looked after. */
+export const EmailDomainLookupOut = z.object({
+  domain: z.string(),
+  /** `MAIL_HOSTS`; null when DNS didn't answer. */
+  mailHost: z.enum(MAIL_HOSTS).nullable(),
+  /** `DNS_HOSTS`, or "other"; null when DNS didn't answer. */
+  dnsHost: z.string().nullable(),
+  mxRecords: z.array(EmailMxRecord).nullable(),
+  lookedAt: iso,
+});
+export type EmailDomainLookup = z.infer<typeof EmailDomainLookupOut>;
 
 /** What the step starts from: the business's addresses and domains as they are, and who's setting it up. */
 export const EmailSetupStateOut = z.object({
@@ -384,6 +468,15 @@ export const EmailSetupStateOut = z.object({
   domains: z.array(EmailSetupDomainOut),
   /** This person's own address ("Only you"), when they have one. */
   mine: z.object({ address: z.string() }).nullable(),
+  // The guided setup's four. Each defaults, for an older API (the web can be live a few minutes before it).
+  /** This person, so answers saved for later know whose "Only me" they were. */
+  myUserId: z.uuid().nullable().default(null),
+  /** Every address the business has, the one customers hear from first. */
+  addresses: z.array(EmailSetupAddressOut).default([]),
+  /** The AI teammate, by the name the business gave it, and whether it's working. Null when there is none. */
+  aiTeammate: z.object({ name: z.string(), on: z.boolean() }).nullable().default(null),
+  /** The website name this business last looked up in the guided setup, before adding it. */
+  lookup: EmailDomainLookupOut.nullable().default(null),
   /** Gmail and Outlook mailboxes connected here, and whether each is this person's. */
   mailboxes: z.array(
     z.object({
@@ -805,6 +898,10 @@ export const NO_EMAIL_SETUP: EmailSetupState = {
   free: null,
   domains: [],
   mine: null,
+  myUserId: null,
+  addresses: [],
+  aiTeammate: null,
+  lookup: null,
   mailboxes: [],
   canManage: true,
 };

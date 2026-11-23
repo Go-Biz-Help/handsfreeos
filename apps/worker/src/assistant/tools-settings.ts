@@ -49,6 +49,8 @@ import {
   permissionHeldBack,
   PAYMENTS_PAGE_WORDS,
   PRODUCT_KIND_WORDS,
+  stockSummary,
+  type ProductStock,
   readMoneySettings,
   registry,
   SAFETY_DEFAULTS,
@@ -266,6 +268,8 @@ interface ProductRow {
   unitPriceCents: number;
   unitLabel: string;
   archivedAt: string | null;
+  options?: unknown;
+  stock?: ProductStock | null;
 }
 
 /**
@@ -279,6 +283,8 @@ export function productsRead(v: unknown): unknown {
     ...p,
     price: priceWords(p),
     kindLabel: PRODUCT_KIND_WORDS[p.kind] ?? p.kind,
+    // "38 on hand · 2 sizes low", as the list's line under the name; nothing when it isn't counted.
+    ...(p.stock ? { stockLine: stockSummary({ options: p.options, stock: p.stock }) } : {}),
   });
   const archived = list.filter((p) => p.archivedAt);
   const one = archived.length === 1;

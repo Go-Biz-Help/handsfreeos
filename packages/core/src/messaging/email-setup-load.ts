@@ -5,11 +5,23 @@
  */
 import { asc, desc, eq } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
-import { emailAddresses, emailDomains, mailboxConnections } from '@hfos/db/schema';
+import {
+  emailAddresses,
+  emailDomainLookups,
+  emailDomains,
+  mailboxConnections,
+} from '@hfos/db/schema';
+import { loadTeammate } from '../ai-team/load';
 import { ownershipHost } from '../schemas/branded-domain';
 import { HANDSFREEOS_DOMAIN, INBOUND_MX_HOST, normalizeEmailDomain } from '../schemas/email';
 import { emailDomainRecords } from './email-records';
-import { emailDomainPlanOf, MAIL_HOSTS, type EmailSetupState, type MailHost } from './email-setup';
+import {
+  emailDomainPlanOf,
+  emailMxRecordsFrom,
+  MAIL_HOSTS,
+  type EmailSetupState,
+  type MailHost,
+} from './email-setup';
 
 const SHARED = 'mail.handsfreeos.com';
 const iso = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString() : null);
@@ -53,6 +65,7 @@ export async function loadEmailSetupState(
       isDefault: emailAddresses.isDefault,
       emailDomainId: emailAddresses.emailDomainId,
       ownerUserId: emailAddresses.ownerUserId,
+      aiReads: emailAddresses.aiReads,
       domain: emailDomains.domain,
     })
     .from(emailAddresses)
@@ -74,6 +87,11 @@ export async function loadEmailSetupState(
     .from(mailboxConnections)
     .where(eq(mailboxConnections.workspaceId, workspaceId))
     .orderBy(asc(mailboxConnections.createdAt));
+  const [lookup] = await tx
+    .select()
+    .from(emailDomainLookups)
+    .where(eq(emailDomainLookups.workspaceId, workspaceId));
+  const teammate = await loadTeammate(tx, workspaceId);
 
   const sender = addresses.find((a) => a.isDefault) ?? null;
   const free = addresses.find((a) => !a.emailDomainId && !a.ownerUserId) ?? null;
@@ -129,11 +147,37 @@ export async function loadEmailSetupState(
         dnsHost: d.dnsHost,
         plan,
         records: emailDomainRecords(like, INBOUND_MX_HOST),
+        mxRecords: emailMxRecordsFrom(d.mxRecords),
         lastCheckedAt: iso(d.lastCheckedAt),
         lastError: d.lastError,
       };
     }),
     mine: mine ? { address: mine.address } : null,
+    myUserId: userId,
+    addresses: addresses.map((a) => ({
+      id: a.id,
+      address: a.address,
+      localPart: a.localPart,
+      domain: a.emailDomainId ? a.domain : null,
+      reader: !a.ownerUserId
+        ? ('team' as const)
+        : a.ownerUserId === userId
+          ? ('me' as const)
+          : ('other' as const),
+      // Whether someone else lets the AI read their mail is theirs to know.
+      aiReads: a.ownerUserId === userId && a.aiReads,
+      isDefault: a.isDefault,
+    })),
+    aiTeammate: teammate ? { name: teammate.name, on: teammate.status !== 'off' } : null,
+    lookup: lookup
+      ? {
+          domain: lookup.domain,
+          mailHost: mailHostOf(lookup.mailHost),
+          dnsHost: lookup.dnsHost,
+          mxRecords: emailMxRecordsFrom(lookup.mxRecords),
+          lookedAt: iso(lookup.lookedAt)!,
+        }
+      : null,
     mailboxes: mailboxes
       .filter((m) => m.status !== 'disconnected' && m.status !== 'pending')
       .map((m) => ({

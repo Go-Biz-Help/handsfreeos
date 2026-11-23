@@ -115,6 +115,8 @@ const SQUARE_KINDS: Readonly<Record<string, PaymentEventKind>> = {
   'dispute.state.changed': 'payment.disputed',
   'dispute.evidence.added': 'payment.disputed',
   'invoice.payment_made': 'invoice.paid',
+  // A plan's card refused at its cycle. Square has no other word for it, so a failed cycle went unseen before.
+  'invoice.scheduled_charge_failed': 'invoice.payment_failed',
   'subscription.created': 'subscription.changed',
   'subscription.updated': 'subscription.changed',
   'merchant.updated': 'account.updated',
@@ -375,11 +377,15 @@ export interface SubscriptionEventFacts {
   readonly currentPeriodStart: string | null;
   readonly currentPeriodEnd: string | null;
   readonly cancelAt: string | null;
+  /** The cycle's invoice at the provider (Stripe's `in_…`, Square's `inv:…`), when the event is about one. */
+  readonly providerInvoiceId: string | null;
+  /** The order Square billed for the cycle, which is where its payment is named. */
+  readonly providerOrderId: string | null;
 }
 
 /**
- * Whose plan this is. A cycle's event is about the invoice it raised and names its plan in `subscription`,
- * which is an id at Stripe and (nested) an object at Square; a plan's own event is the plan itself.
+ * Whose plan this is. A plan's own event is the plan itself; a Stripe invoice from before `2025-03-31.basil`
+ * named its plan in `subscription` (an id, or the plan expanded).
  */
 function subscriptionIdOf(data: Data): string | null {
   const named = data['subscription'];
@@ -388,16 +394,96 @@ function subscriptionIdOf(data: Data): string | null {
   return str(data['subscription_id']) ?? str(data['id']);
 }
 
+/** The first entry of a Stripe list (`{ data: [...] }`) or of a plain array, or nothing. */
+function firstOf(list: unknown): Data {
+  const data = isRecord(list) ? list['data'] : list;
+  return Array.isArray(data) && isRecord(data[0]) ? data[0] : {};
+}
+
+/**
+ * A Stripe cycle's invoice. Since `2025-03-31.basil` (the worker pins a later version, and the endpoint is set to
+ * it) the plan is under `parent.subscription_details.subscription`, the invoice no longer names its payment, and
+ * the period billed is on its line. Before 23 Nov 2026 only the old top-level `subscription` was read, so no
+ * cycle Stripe billed ever found its plan, and none was recorded.
+ */
+function stripeInvoiceFacts(data: Data): SubscriptionEventFacts {
+  const parent = isRecord(data['parent']) ? data['parent'] : {};
+  const details = isRecord(parent['subscription_details']) ? parent['subscription_details'] : {};
+  const fromParent = details['subscription'];
+  const plan =
+    typeof fromParent === 'string' && fromParent.trim() !== ''
+      ? fromParent.trim()
+      : isRecord(fromParent)
+        ? str(fromParent['id'])
+        : null;
+  const legacy = data['subscription'];
+  const line = firstOf(data['lines']);
+  const period = isRecord(line['period']) ? line['period'] : {};
+  return {
+    providerSubscriptionId:
+      plan ??
+      (typeof legacy === 'string' ? str(legacy) : isRecord(legacy) ? str(legacy['id']) : null),
+    providerStatus: str(data['status']),
+    providerPaymentId: str(data['payment_intent']),
+    amountPaidCents: data['amount_paid'] == null ? null : centsOf(data['amount_paid']),
+    currentPeriodStart: isoOf(period['start']) ?? isoOf(data['current_period_start']),
+    currentPeriodEnd: isoOf(period['end']) ?? isoOf(data['current_period_end']),
+    cancelAt: null,
+    providerInvoiceId: str(data['id']),
+    providerOrderId: null,
+  };
+}
+
+/**
+ * A Square cycle's invoice (`invoice.payment_made`, `invoice.scheduled_charge_failed`): nested under `invoice`,
+ * naming its plan in `subscription_id` and what was paid in its payment requests. Before 23 Nov 2026 it was
+ * read as if it were the plan, so its plan was never found and no cycle Square billed was recorded.
+ */
+function squareInvoiceFacts(invoice: Data): SubscriptionEventFacts {
+  const requests = Array.isArray(invoice['payment_requests'])
+    ? invoice['payment_requests'].filter(isRecord)
+    : [];
+  const paid = requests.reduce((sum, r) => {
+    const money = isRecord(r['total_completed_amount_money'])
+      ? r['total_completed_amount_money']
+      : {};
+    return sum + (money['amount'] == null ? 0 : (centsOf(money['amount']) ?? 0));
+  }, 0);
+  return {
+    providerSubscriptionId: str(invoice['subscription_id']),
+    providerStatus: str(invoice['status']),
+    providerPaymentId: null,
+    amountPaidCents: paid > 0 ? paid : null,
+    currentPeriodStart: null,
+    currentPeriodEnd: null,
+    cancelAt: null,
+    providerInvoiceId: str(invoice['id']),
+    providerOrderId: str(invoice['order_id']),
+  };
+}
+
 export function subscriptionFactsOf(event: PaymentEvent): SubscriptionEventFacts {
+  if (isRecord(event.data['invoice'])) return squareInvoiceFacts(event.data['invoice']);
   const data = unwrap(event.data, 'subscription');
+  if (str(data['object']) === 'invoice') return stripeInvoiceFacts(data);
+  // The plan itself. A Stripe plan's period has been on its item since basil.
+  const item = firstOf(data['items']);
   return {
     providerSubscriptionId: subscriptionIdOf(data),
     providerStatus: str(data['status']),
     providerPaymentId: str(data['payment_intent']) ?? str(data['payment_id']),
-    amountPaidCents: centsOf(data['amount_paid']),
-    currentPeriodStart: isoOf(data['current_period_start']) ?? isoOf(data['charged_through_date']),
-    currentPeriodEnd: isoOf(data['current_period_end']) ?? isoOf(data['canceled_date']),
+    amountPaidCents: data['amount_paid'] == null ? null : centsOf(data['amount_paid']),
+    currentPeriodStart:
+      isoOf(item['current_period_start']) ??
+      isoOf(data['current_period_start']) ??
+      isoOf(data['charged_through_date']),
+    currentPeriodEnd:
+      isoOf(item['current_period_end']) ??
+      isoOf(data['current_period_end']) ??
+      isoOf(data['canceled_date']),
     cancelAt: isoOf(data['cancel_at']),
+    providerInvoiceId: null,
+    providerOrderId: null,
   };
 }
 

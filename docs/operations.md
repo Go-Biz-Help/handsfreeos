@@ -5757,7 +5757,7 @@ You should see the email reach **Delivered**. Nothing arrives anywhere, and ther
 After approval, test business email:
 
 1. Sign in at `https://app.handsfreeos.com` and open a workspace you can test in.
-2. Open **Settings** → **Email** and note the workspace's address under **Sending address**. The test email comes from it. It looks like `<business-name>-<6 letters and digits>@mail.handsfreeos.com`; copy it from the page rather than typing it.
+2. Open **Settings** → **Email** and note the workspace's address under **Your addresses**. The test email comes from it. It looks like `<business-name>-<6 letters and digits>@mail.handsfreeos.com`; copy it from the page rather than typing it.
 3. Click **Contacts**.
 4. Click **Add person**, or open the customer you added for the phone tests.
 5. Type a **First name**, and in **Email** type a personal address you can read, like a Gmail address.
@@ -5913,9 +5913,10 @@ Do it once the M19 migrations are on the hosted database and M19 is on `main`:
 1. **Mark the business.** Sign in at `https://app.handsfreeos.com/admin` as a staff admin, open
    **Businesses**, find HandsFreeOS's own business, and set **HandsFreeOS's own business** to **Yes**. Only one
    business should carry it. Only staff with `platform.own_business.manage` (staff admins) can change it.
-2. **Add the domain.** Switch to that business and open **Settings → Email**. Under **Use your own domain**,
-   type `handsfreeos.com` and click **Add domain**. Postmark already has this domain, so the worker reuses it and
-   its records are already in DNS: click **Check now** and it should say **Verified** within a minute.
+2. **Add the domain.** Switch to that business and open **Settings → Email**. Under **Use your own website
+   name**, click **Set it up** and answer the questions with `handsfreeos.com`. Postmark already has this domain,
+   so the worker reuses it and its records are already in DNS: on the last step, click **Check now** and it
+   should say **Verified** within a minute.
 3. **Add the addresses.** Under **Add an address on handsfreeos.com**:
    - `chris`, with **Who reads it** set to **Only Chris**. Only Chris reads and sends from it.
    - Any shared address, like `office` or `hello`, left as **The team**. It goes to the team's Inbox.
@@ -5923,8 +5924,8 @@ Do it once the M19 migrations are on the hosted database and M19 is on `main`:
 
    The first team address becomes the business's default, and mail to a name nobody has added goes there.
 
-4. **Receive mail here too.** In the same card, click **Receive mail here**. The MX record already points at
-   `inbound.postmarkapp.com`, so the badge turns to **Receiving** within 15 minutes.
+4. **Mail coming in.** In the **Your website name** card, click **Receive mail here**. The MX record already
+   points at `inbound.postmarkapp.com`, so the row turns to **Working** within 15 minutes.
 5. **Test it from outside.** From a personal email account, write to `chris@handsfreeos.com`.
    - Within a minute it shows in the **Inbox** marked **Only you**, and Chris's phone buzzes.
    - Nobody else in the business sees it.
@@ -6075,7 +6076,7 @@ fly logs --app handsfreeos-worker
 - **Replies always route through `mail.handsfreeos.com`,** even for a business on its own domain, so a business never needs MX changes on its own domain.
 - **Nothing is tracked.** Open and link tracking are off for customer email. The worker turns them off on every business email. Keep them off in the server's settings so invitations, alerts and sign-in emails stay untracked too.
 - **A business's domain is checked on request and once a day.** When a business adds its domain, HandsFreeOS creates it in Postmark and shows the records. HandsFreeOS checks the records when someone presses **Check now** in **Settings** → **Email**, and the worker checks every domain once a day. A domain shows as verified only when both DKIM and Return-Path pass. Postmark keeps DKIM marked verified even after the record is removed, so HandsFreeOS also looks both records up in DNS itself. The owners and admins get an email when a domain verifies, and another when a verified domain stops verifying. Email then goes out from the workspace's `mail.handsfreeos.com` address until the records are fixed and the next check passes. That includes the AI teammate and workflows set to send from one of the domain's addresses. Only a person who picks such an address in the composer is refused, and told to verify it or pick another. A workspace can add up to 3 domains. HandsFreeOS refuses `handsfreeos.com` and its subdomains, public email domains such as `gmail.com` or `outlook.com`, and a domain another workspace already uses. The one exception is HandsFreeOS's own business, which a staff admin marks: it may use `handsfreeos.com` itself (M19), though never its subdomains or the support desk's names.
-- **Workspace addresses come from the workspace's slug.** HandsFreeOS makes the slug from the workspace name when the workspace is created: lower-cased, `&` becomes `and`, anything other than letters and digits becomes `-`, cut at 40 characters, then a dash and 6 random letters and digits, like `lone-star-3f9a1c`. The address is that slug at `mail.handsfreeos.com`. Renaming the workspace later doesn't change the address. **Settings** → **Email** shows each workspace's address under **Sending address**. In the rare case that the address is reserved (like `support` or `info`) or already taken, HandsFreeOS puts `team-` in front or adds `-2`, `-3` and so on.
+- **Workspace addresses come from the workspace's slug.** HandsFreeOS makes the slug from the workspace name when the workspace is created: lower-cased, `&` becomes `and`, anything other than letters and digits becomes `-`, cut at 40 characters, then a dash and 6 random letters and digits, like `lone-star-3f9a1c`. The address is that slug at `mail.handsfreeos.com`. Renaming the workspace later doesn't change the address. **Settings** → **Email** shows each workspace's address under **Your addresses**. In the rare case that the address is reserved (like `support` or `info`) or already taken, HandsFreeOS puts `team-` in front or adds `-2`, `-3` and so on.
 - **Attachments are capped at 10 MB per email.** HandsFreeOS adds up the attachments' sizes and refuses more than 10 MB when you press **Send email**. Postmark's own 10 MB limit covers the whole message after encoding, which adds about a third, so in practice keep attachments under about 7 MB. An email over Postmark's limit shows **Not sent**.
 - **Automatic mail is skipped.** Out-of-office replies and mailing-list mail that reach `mail.handsfreeos.com` don't go into conversations.
 - **The webhook addresses are typed into Postmark by hand.** If `hooks.handsfreeos.com` ever changes, update both webhooks in Postmark.
@@ -9200,6 +9201,7 @@ On a first setup, the key goes in with the worker's other secrets (Fly Part 6). 
 - **So is an email its sender’s domain didn’t vouch for.** Anyone can put a customer’s address in From. The worker checks each email Postmark delivers (`apps/worker/src/email/sender-check.ts`: the mail service’s DMARC or DKIM pass for the From domain, or an SPF pass for an envelope sender at that domain) and keeps the answer on the message (`messages.sender_verified`). For a reply to an email that failed, the teammate follows the website chat’s rules: it doesn’t read the customer’s history or details back, and it can’t change their bookings, bills, quotes, deals or details (`email_sender_unverified`). The email is still filed, but a new thread with a high spam score goes to Spam even from a customer’s address. Mail synced from a connected Gmail or Outlook mailbox isn’t checked yet, so the teammate treats it as before.
 - **And so is a caller the phone company couldn’t vouch for.** Anyone can fake a caller ID. When Twilio passes on the phone company’s check of the caller’s number (STIR/SHAKEN, its `StirVerstat`), the worker keeps it on the call (`calls.caller_attestation`), and only `TN-Validation-Passed-A` proves the caller owns the number (`packages/core/src/messaging/caller.ts`). Any other answer, or none, and the call starts like a website chat: the teammate sees no customer record, history, bookings, bills, quotes or job status, and can’t change them (`caller_unverified`), but it can answer questions, book a new visit or hand off. The owner’s decision (22 Nov 2026) is “Text a code first”: when the number matches a customer, it offers to text a six-digit code to the number on file (or email it to the address on file when it can’t text), never anywhere the caller says. A caller who reads it back is that customer for the rest of the call (`calls.caller_verified_at`). Codes work as a chat’s do: only a hash is kept (`app.call_verification_codes`), each lasts 10 minutes, five wrong tries end it, and a customer gets three an hour from calls however many calls there are. Calls the business or the teammate places count as proven.
 - **When it answers.** Within its **Hours** (always, after hours only, or custom), in conversations it's handling or that nobody is handling or assigned to. It waits a moment first, so a few quick messages get one reply: 3 seconds on chat, 20 on texts, 60 on email. It never answers automatic emails, and it stays out of loops with other bots.
+- **Someone's own mail, only when they say so.** The teammate leaves a person's own address ("Only you") alone unless that person turns on **Let Ava read this mail** under it in **Settings → Email** (the owner's ask of 2026-11-22; off to start, and nobody turns it on for them, not even an owner). With it on, new mail to that address gets a draft answer on the thread, marked **Only you see this**: **Use this draft** puts it in the message box, and **No thanks** puts it away. It never sends, books or links a customer there, and the draft isn't in **Approvals** or **Activity**, which the team reads. The draft goes when they answer, when new mail comes, when they share the thread or when the switch goes off. The code is `apps/worker/src/ai-team/own-mail.ts`; the rules are in "Let Ava read this mail" in `HANDSFREEOS_M19_EMAIL_HOSTING_IMPLEMENTATION_PLAN.md`.
 - **People come first.** A person's reply in a conversation it's handling takes the conversation over, and so does **Take over**. It also puts the customer **in your hands** everywhere (see "In your hands" below), so the teammate stays quiet with them on every channel until someone clicks **Hand back** or **Give back to the AI**.
 - **Texts in quiet hours.** It may text a reply to a customer's own text from the last 15 minutes, up to 3 times in one quiet period. It never starts a text conversation in quiet hours; its own texts wait until they end. STOP, and plain words like "stop texting me", opt the person out.
 - **New leads.** With **Message new leads first** on (in **Respond**), it writes once to each new lead: by text when they agreed to texts (with STOP wording), otherwise by email, otherwise not at all. Imported leads and booking-page leads are skipped.
@@ -10262,7 +10264,9 @@ Stripe's own test cards are listed under **Developers** → **Test data**.
 3. Save.
 4. Switch to **Sandbox** and set the same field to your laptop's address (see "Trying a real provider from your laptop"), or leave it until you need it.
 
-HandsFreeOS asks a seller for these permissions, and Square refuses the whole sign-in if one is left unticked: `MERCHANT_PROFILE_READ`, `PAYMENTS_READ`, `PAYMENTS_WRITE`, `CUSTOMERS_READ`, `CUSTOMERS_WRITE`, `SUBSCRIPTIONS_READ`, `SUBSCRIPTIONS_WRITE`, `ITEMS_READ`, `ITEMS_WRITE`. The seller sees them listed on Square's own screen.
+HandsFreeOS asks a seller for these permissions, and Square refuses the whole sign-in if one is left unticked: `MERCHANT_PROFILE_READ`, `PAYMENTS_READ`, `PAYMENTS_WRITE`, `CUSTOMERS_READ`, `CUSTOMERS_WRITE`, `SUBSCRIPTIONS_READ`, `SUBSCRIPTIONS_WRITE`, `ITEMS_READ`, `ITEMS_WRITE`, `INVOICES_READ`, `INVOICES_WRITE`, `ORDERS_READ`, `ORDERS_WRITE`. The seller sees them listed on Square's own screen.
+
+The invoice and order permissions are for plans. Square bills each cycle of a plan as an order with an invoice, so it won't make, pause or resume a plan without `INVOICES_WRITE` and `ORDERS_WRITE`. It sends a cycle's `invoice.payment_made` only with `INVOICES_READ`, and the worker reads the cycle's payment off its order with `ORDERS_READ`. They were added on 23 Nov 2026, so a Square account connected before then has to be connected again (**Settings** → **Payments**) before it can sell a plan. None was connected that day.
 
 ### Square Part 4: The webhook
 
@@ -10280,7 +10284,7 @@ Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8)
    - `payment.created`, `payment.updated` — Square has no "payment failed" event and no separate "succeeded" one, so where the money is has to be read off the payment itself
    - `refund.created`, `refund.updated`
    - `dispute.created`, `dispute.state.updated`, `dispute.evidence.created`
-   - `invoice.payment_made`
+   - `invoice.payment_made`, `invoice.scheduled_charge_failed` — a plan's cycle paid, or its card refused (Square has no other word for a refused cycle)
    - `subscription.created`, `subscription.updated`
    - `location.updated`
    - `oauth.authorization.revoked`
@@ -12602,7 +12606,7 @@ The worker uses the fake carrier whenever `TELEPHONY_PROVIDER` is `fake` or not 
 
 - **Every email** the local stack sends lands in Mailpit at `http://127.0.0.1:54424`: sign-in emails from Supabase Auth, invitations and reminder alerts from the worker, and email a business sends to its customers. Nothing reaches a real inbox.
 - **Delivery reports.** About 0.6 seconds after a business emails a customer, the worker reports the email as delivered to itself, the way Postmark would. If the first recipient's address ends in `@bounce.example.com`, it reports a hard bounce (`smtp;550 5.1.1 user unknown`) instead.
-- **A business's own domain.** In **Settings** → **Email**, type the domain and click **Add domain**, then click **Check now**. It verifies at once. The DNS records it shows are placeholders (the DKIM value reads `LOCAL-DEVELOPMENT-KEY-NOT-REAL`). After a worker restart, domains it no longer remembers count as verified. A domain whose name starts with `lapsed-` (for example `lapsed-test.com`) verifies once, then stops verifying at the next check, so you can see how a lapsed domain looks. The daily check runs an hour after the worker first starts, then once a day, and its emails land in Mailpit.
+- **A business's own domain.** In **Settings** → **Email**, click **Set it up**, answer the questions with the domain, then click **Check now** on the last step. It verifies at once. The questions look the name up first: locally every name is at GoDaddy with no mail, except a name starting with `oldmx-` (looked after at SiteGround, with two old mail records that go away after two checks), `mail-` (its mail is at Google) and `typo-` (no such name). The DNS records it shows are placeholders (the DKIM value reads `LOCAL-DEVELOPMENT-KEY-NOT-REAL`). After a worker restart, domains it no longer remembers count as verified. A domain whose name starts with `lapsed-` (for example `lapsed-test.com`) verifies once, then stops verifying at the next check, so you can see how a lapsed domain looks. The daily check runs an hour after the worker first starts, then once a day, and its emails land in Mailpit.
 - **A customer writing in** has no button either. Post a message to the worker the way Postmark's inbound webhook would. The example writes as Mike Johnson (`mike.johnson@example.com`), one of Lone Star's seeded customers. Replace `<Lone Star address>` in both places with Lone Star's address on `mail.handsfreeos.com`, shown in Lone Star's **Settings** → **Email**. The first line sets the local webhook password, a fixed value that is not a secret. If you set your own `POSTMARK_WEBHOOK_PASSWORD` in `apps/worker/.env`, use that instead.
 
   ```bash
@@ -14009,7 +14013,7 @@ If you created your account in Stage 5, the sign-up and password-reset test in "
 
 #### Check 2: note the workspace's email address
 
-1. Open **Settings** → **Email** and note the workspace's address under **Sending address**. It looks like `<business-name>-<6 letters and digits>@mail.handsfreeos.com` (for example `go-biz-help-3f9a1c@mail.handsfreeos.com`). Copy it from the page rather than typing it.
+1. Open **Settings** → **Email** and note the workspace's address under **Your addresses**. It looks like `<business-name>-<6 letters and digits>@mail.handsfreeos.com` (for example `go-biz-help-3f9a1c@mail.handsfreeos.com`). Copy it from the page rather than typing it.
 
 #### Checks 3 and 4: buy a number and submit the carrier registration (costs money)
 
@@ -14036,21 +14040,20 @@ You should see the email marked delivered within a minute (that proves Postmark'
 
 Use a domain the business owns, where you can edit DNS.
 
-1. In **Settings** → **Email**, find **Use your own domain**, type the domain (for example `yourbusiness.com`), and click **Add domain**.
+1. In **Settings** → **Email**, find **Use your own website name** and click **Set it up**. Pick **My own, with my website name**, type the domain (for example `yourbusiness.com`), and answer the questions: an address for the team (for example `office`), who reads it, and where the mail arrives. On **Check it over**, click **Set it up**.
 
-   You should see "Domain added. Now add the two records." and the badge **Waiting for DNS**.
+   You should see the last step, **Add your records**, with the records to copy.
 
-2. At the domain's DNS provider, add the TXT record labeled "Proves the mail is yours (DKIM)", copying its Host and Value from the page.
-3. Add the CNAME record labeled "Handles bounces (Return-Path)": Host `pm-bounces`, Value `pm.mtasv.net`. The hosts are shown relative to the domain; most DNS providers add the domain for you, so type them as shown.
-4. Wait a few minutes, then click **Check now**. Click it again until both records show **Verified**. If you don't, the worker checks once a day and emails the owners and admins when the domain verifies.
+2. At the domain's DNS provider, add each record the last step lists, copying its Name and Value from the page. The names are shown relative to the domain; most DNS providers add the domain for you, so type them as shown.
+3. Wait a few minutes, then click **Check now**. Click it again until every record shows **Found**. If you don't, the worker checks on its own and emails the owners and admins when the domain verifies.
 
-   You should see "{domain} is verified".
+   You should see **Your email is ready** (or, if you picked mail arriving in HandsFreeOS, the mail record to change next).
 
-5. Under **Add an address on {domain}**, type the part before the @ (for example `office`) and click **Add address**.
+4. Open **Settings** → **Email**.
 
-   You should see "{address} is now the default address". The `mail.handsfreeos.com` address stays as the backup.
+   You should see the new address marked **Customers hear from this one**. The `mail.handsfreeos.com` address stays as the backup.
 
-6. Send another email to your personal address and reply to it.
+5. Send another email to your personal address and reply to it.
 
    You should see it come from the new address, with the reply address still on `mail.handsfreeos.com`, and the reply arrive in the inbox.
 
@@ -14505,7 +14508,7 @@ If a Gmail mailbox shows **Not syncing** with "Google refused the sign-in (<code
 
 #### A business's own domain never verifies, or stops verifying
 
-**Symptom.** The domain stays at **Waiting for DNS**, or shows **Needs attention**.
+**Symptom.** The website name stays at **Waiting for its records**, or shows **Needs attention**.
 
 **Likely cause.** The records are not visible yet, or were typed with the domain twice (for example `pm-bounces.yourbusiness.com.yourbusiness.com`). The worker also checks every domain once a day and emails the owners and admins when it verifies, so a domain left waiting verifies on its own once the records show. A verified domain moves to **Needs attention** when a daily check finds one of its records gone.
 

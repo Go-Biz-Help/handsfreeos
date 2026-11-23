@@ -31,6 +31,9 @@ import {
   leadUpdate,
   messageReceive,
   messageSend,
+  orderCreate,
+  orderSetStatus,
+  productCreate,
   PUSH_BUTTONS,
   PushData,
   pushDeviceRegister,
@@ -1159,6 +1162,40 @@ describe('the moments, on a business with phones', () => {
       await settingsOf(priya, { push: {} });
       await settingsOf(w.owner, { push: {} });
     }
+  });
+
+  it('tells the people who manage money when an order takes a count down to their number', async () => {
+    const mug = await run(w, productCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Camp mug',
+      unitPriceCents: 1500,
+      stock: { lowAt: 2, counts: [{ onHand: 3 }] },
+    });
+    const c = await filedCustomer(w, 'Rosa');
+    const { orderId, number } = await run(w, orderCreate, {
+      workspaceId: w.workspaceId,
+      personId: c.id,
+      lines: [{ productId: mug.productId, name: 'Camp mug', quantity: 1, unitPriceCents: 1500 }],
+      fulfilment: 'pickup',
+    });
+    await drain(w);
+    const before = sent().length;
+    // Marco, a member, marks it picked up: Dale and Priya manage money and hear; Marco doesn't.
+    await as(w.member, orderSetStatus, { workspaceId: w.workspaceId, orderId, status: 'done' });
+    await drain(w);
+    const pushes = sent().slice(before);
+    expect(tokensOf(pushes)).toEqual(
+      [phones.daleIphone.token, phones.daleAndroid.token, phones.priyaIphone.token].sort(),
+    );
+    const iphone = pushes.find((p) => p.message.to === phones.priyaIphone.token)!;
+    expect(iphone.message).toMatchObject({
+      title: 'Running low: Camp mug',
+      body: `2 left after Order #${number}. Count more in Settings → Payments → Products.`,
+      categoryId: 'stock_low',
+    });
+    expect(dataOf(iphone.message)).toMatchObject({
+      path: `/app/w/${w.workspaceId}/settings/payments/products?product=${mug.productId}`,
+    });
   });
 
   it('turns off a phone the app is gone from: at once from its ticket, or from its receipt later', async () => {

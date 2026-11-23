@@ -11,7 +11,7 @@ All of it is in core, for every business (6b), and nothing in it is shirt-only.
 | 5a   | Customers add their design on a public form              | "Files on a public form (designs and photos)" in `forms.md` |
 | 3a   | Sizes, colors and other choices on a product             | Below                                                       |
 | 2a   | Orders: a status, a pickup or delivery date, an invoice  | Below                                                       |
-| 4a   | Stock counts                                             | Later, once orders work                                     |
+| 4a   | Stock counts                                             | Below                                                       |
 
 ## Sizes, colors and other choices (product options)
 
@@ -45,7 +45,7 @@ below, browser-safe, so the web, the server, the Assistant and the AI teammate r
   card, and takes `choices` on a `write_estimate` / `write_invoice` line.
 - **Not on the phone yet.** The phone has no product screens and its sync stream names the product columns it sends,
   so it doesn't get options; a document's lines carry the choices in their names.
-- **Not per choice yet:** a code (SKU), a picture or stock. Stock (4a) will count by product and choice.
+- **Not per choice yet:** a code (SKU) or a picture. Stock counts by one option's choices ("Stock" below).
 
 ## Orders
 
@@ -61,8 +61,8 @@ web, the server and the Assistant read them the same way.
 - **Numbered per business from #1001** (`private.order_number()`, under a lock so two at once never share one). The
   number, the business and who made it never change.
 - **The lines are a copy,** like an invoice's: `[{productId, choiceIds, name, quantity, unitPriceCents, taxable}]`
-  (`OrderLine`), up to 200. A line from the price list keeps the product and its choices' ids, which stock (4a) will
-  count by; repricing a product never reprices an order. A product or choice that isn't this business's is dropped
+  (`OrderLine`), up to 200. A line from the price list keeps the product and its choices' ids, which stock counts
+  by; repricing a product never reprices an order. A product or choice that isn't this business's is dropped
   from the line, and its name and price stay.
 - **Steps:** New → Making it → Ready (for pickup, or to deliver) → Picked up or Delivered, or Cancelled
   (`orderStatusWords`, `nextOrderStatus`). Any step can be moved to, back or forward, and a cancelled one reopens.
@@ -108,3 +108,50 @@ orders (`makesOrder`, on by default; `docs/forms.md`):
 - **Merging customers moves their orders** to the one kept (the `people_orders_follow_merge` trigger).
 - **Not on the phone yet,** and no customer portal page or public tracking link. An order isn't a job: nothing is
   booked on the calendar for it, and no message goes to the customer when it moves along.
+
+## Stock
+
+How many the business has, counted as a whole ("Mug: 38 on hand") or by one option's choices ("T-shirt: Adult M 5,
+Adult 2XL 2"), with a number to hear at. An order takes its lines off when it's picked up or delivered. The words and
+rules are in `packages/core/src/money/stock.ts`, browser-safe, so the web, the worker and the Assistant say the same
+thing.
+
+- **Kept on the product and in `app.stock_counts`** (migration `20261027034600_stock`): the product's
+  `stock_tracked`, `stock_option_id` (the option it's counted by, null for a whole) and `low_stock_at` (the number to
+  hear at, or null); one count per product and choice (`choice_id`, `''` for a whole), which may go below 0. Seeing
+  the counts needs `money.read`, and changing them `money.manage`.
+- **Set on Settings → Payments → Products,** in the product's editor under **Stock**: "Count how many I have", by
+  what ("As a whole" or by an option, "By size"), a count per choice, and "Tell me when it’s down to". Only the counts
+  typed in are saved. The list shows "7 on hand · 1 size low · 1 out" under the product, amber when one is low or out.
+  `?product=<id>` opens a product's editor (the push uses it).
+- **Through `product.create` and `product.update`** (`stock`, `StockInput`): `countBy` is an option's name, counts
+  are by choice label, and `resolveStock` turns them into ids on the server. `stock: null` stops counting and keeps
+  the counts, so turning it back on finds them. Removing the option the stock is counted by is refused
+  (`stock_option_gone`) unless the same save counts it another way.
+- **An order takes its lines off** when it moves to Picked up or Delivered (`private.orders_take_stock`, a trigger on
+  the status, security definer so whoever moves the order needn't manage money). A line comes off when it keeps a
+  product that's counted and, for one counted by an option, a choice of that option; other lines aren't counted. What
+  came off is kept on the order (`orders.stock_taken`: product, choice, how many, how many were left, the number to
+  hear at). Moving the order back puts exactly that back, so editing the product in between never miscounts.
+- **Running low:** when an order takes a count to its number or below, `order.set_status` emits `stock.low` and the
+  worker sends the `stock_low` push ("Running low: T-shirt (Adult M)", "1 left after Order #1001.") to the people who
+  manage money, except whoever moved the order. It's under **Running low** in Notifications (switch `stock`), and
+  kept under the bell like every push.
+
+**Where it shows:**
+
+- **The products list** and the editor, as above.
+- **The product picker** on an invoice, estimate or order: "3 left" or "Out" beside a product or a counted choice.
+- **The order page:** a note under each counted line: "Comes off stock when it’s picked up · 5 on hand" before, "Took
+  4 off stock · 1 left" after.
+- **The Assistant:** `manage_product` `stock` (`countBy`, `tellAt`, `counts` by choice), with a Stock row on its
+  card, and each product's stock line in what it reads of the products page.
+
+**Rules worth knowing before changing anything:**
+
+- **Only a finished order takes stock.** New, Making it, Ready and Cancelled change nothing, so a cancelled order
+  never needs putting back. Invoices and estimates never touch stock.
+- **Counts can go below 0** ("Out · 2 more went out than counted") rather than refuse an order: the shirts already
+  went out.
+- **A count is set, not added to:** typing 12 makes it 12. Taking stock in or out by hand is a later step.
+- **Not on the phone yet,** like products and orders.

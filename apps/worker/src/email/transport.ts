@@ -74,9 +74,16 @@ export interface EmailDomains {
   owns(domain: string, token: string): Promise<boolean | null>;
   /**
    * Where the domain's mail goes now and where its DNS is managed, for the business email step: the names its MX
-   * records and its name servers point at ([] for none). Each null when DNS didn't answer.
+   * records and its name servers point at ([] for none). Each null when DNS didn't answer. `mxRecords` are the MX
+   * records with their priorities, for the guided setup's old records to delete; `missing` says DNS knows no such
+   * name at all.
    */
-  hosts(domain: string): Promise<{ mx: string[] | null; ns: string[] | null }>;
+  hosts(domain: string): Promise<{
+    mx: string[] | null;
+    ns: string[] | null;
+    mxRecords?: { exchange: string; priority?: number }[] | null;
+    missing?: boolean;
+  }>;
   /**
    * A server of the service's own that receives the domain's mail and posts it to our inbound webhook (M19), made
    * or found again (a retry, or a domain that received before). Returns its id. Refusals are permanent

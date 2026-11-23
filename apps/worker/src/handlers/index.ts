@@ -93,6 +93,7 @@ import { onReviewReplied, onReviewSyncWanted } from './reviews';
 import {
   onEmailDomainAdded,
   onEmailDomainChecked,
+  onEmailDomainLookupRequested,
   onEmailDomainStepsRequested,
   onEmailDomainReceivingRequested,
   onEmailDomainReceivingStopped,
@@ -303,6 +304,7 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'email_domain.verify_requested': onEmailDomainVerifyRequested,
       'email_domain.checked': onEmailDomainChecked,
       'email_domain.steps_requested': onEmailDomainStepsRequested,
+      'email_domain.lookup_requested': onEmailDomainLookupRequested,
       'email_domain.removed': onEmailDomainRemoved,
       'email_domain.receiving_requested': onEmailDomainReceivingRequested,
       'email_domain.receiving_stopped': onEmailDomainReceivingStopped,

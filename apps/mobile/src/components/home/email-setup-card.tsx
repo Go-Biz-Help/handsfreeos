@@ -1,10 +1,10 @@
 import {
   EMAIL_SETUP_WORDS as W,
-  emailSetupHomeOf,
+  emailGuidedHomeOf,
   holds,
   onboardingSetupHomeOf,
   onboardingSetupOf,
-  type EmailSetupHome,
+  type EmailGuidedHome,
 } from '@hfos/core';
 import { router } from 'expo-router';
 import * as React from 'react';
@@ -24,15 +24,17 @@ import { useNetwork } from '@/lib/network';
 import { cn } from '@/lib/utils';
 
 const REST_MS = 7 * 24 * 60 * 60 * 1000;
-const keyOf = (workspaceId: string, kind: EmailSetupHome['kind']) =>
+const keyOf = (workspaceId: string, kind: EmailGuidedHome['kind']) =>
   `emailSetupNotNow.${workspaceId}.${kind}`;
 
 /**
  * Home's "Set up your business email" (the owner's 7a), as on the web: for someone who can change the business's
- * email, outside the guided setup (which asks it as its own stop), while it still sends from the address it was made
- * with, or "Finish your email records" while its domain's records are on their way (emailSetupHomeOf). Asked of
- * HandsFreeOS as Home opens, since the phone's copy doesn't keep email addresses. Set it up opens the email
- * screens on a screen of their own; Not now sets the card aside on this phone for a week.
+ * email, outside the onboarding setup (which asks it as its own stop), while it still sends from the address it was
+ * made with; "Finish your email records" while a website name's records are on their way; "Bring your mail in"
+ * once it sends and its mail record still has to change (emailGuidedHomeOf, which also words each one). Asked of
+ * HandsFreeOS as Home opens, since the phone's copy doesn't keep email addresses. The button opens the guided
+ * setup on a screen of its own, on its last step when that is what's left; Not now sets the card aside on this
+ * phone for a week.
  */
 export function EmailSetupCard({ className }: { className?: string }) {
   const { business, userId } = useBusiness();
@@ -50,7 +52,7 @@ export function EmailSetupCard({ className }: { className?: string }) {
     return s.finished || !s.started;
   }, [settings, userId]);
   const allowed = holds(grants, 'channels.manage') && outsideSetup;
-  const [home, setHome] = React.useState<EmailSetupHome | null>(null);
+  const [home, setHome] = React.useState<EmailGuidedHome | null>(null);
   const [rested, setRested] = React.useState(0);
 
   React.useEffect(() => {
@@ -59,7 +61,7 @@ export function EmailSetupCard({ className }: { className?: string }) {
     emailSetupCalls(business.id)
       .get()
       .then((got) => {
-        if (!cancelled) setHome(emailSetupHomeOf(got.state));
+        if (!cancelled) setHome(emailGuidedHomeOf(got.state));
       })
       .catch(() => {
         // A nicety: Home carries on without it.
@@ -72,7 +74,6 @@ export function EmailSetupCard({ className }: { className?: string }) {
   if (!allowed || !home) return null;
   const at = deviceStore.get<number>(keyOf(business.id, home.kind)) ?? 0;
   if (Date.now() - at < REST_MS || rested) return null;
-  const records = home.kind === 'records';
 
   return (
     <Card className={cn('gap-3 px-3.5 py-3', className)} testID="email-setup-card">
@@ -81,14 +82,8 @@ export function EmailSetupCard({ className }: { className?: string }) {
           <Icon as={Mail} className="size-4 text-accent-text" />
         </View>
         <View className="min-w-0 flex-1 gap-0.5">
-          <Text className="text-[15px] font-semibold">
-            {records ? W.homeRecordsTitle : W.homeStartTitle}
-          </Text>
-          <Text className="text-[13.5px] leading-[19px] text-text-2">
-            {home.kind === 'records'
-              ? W.homeRecordsBody(home.found, home.of, home.host, home.from, home.to)
-              : W.homeStartBody(home.address)}
-          </Text>
+          <Text className="text-[15px] font-semibold">{home.title}</Text>
+          <Text className="text-[13.5px] leading-[19px] text-text-2">{home.body}</Text>
         </View>
       </View>
       <View className="flex-row flex-wrap items-center gap-2">
@@ -96,11 +91,11 @@ export function EmailSetupCard({ className }: { className?: string }) {
           variant="secondary"
           size="sm"
           onPress={() =>
-            router.push(businessHref(business.id, `email-setup${records ? '?at=records' : ''}`))
+            router.push(businessHref(business.id, `email-setup${home.last ? '?at=records' : ''}`))
           }
           testID="email-setup-card-open"
         >
-          {records ? W.homeRecords : W.homeStart}
+          {home.open}
         </Button>
         <Button
           variant="ghost"

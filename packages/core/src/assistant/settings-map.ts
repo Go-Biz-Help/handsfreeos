@@ -654,8 +654,9 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'the addresses you send from, your own sending domain, connected mailboxes and blocked addresses',
     where: ['Settings', 'Email'],
     onScreen: [
-      'Sending address: Name customers see (one name, on every address), Make default, and Who reads it',
-      'Use your own domain: Add domain, Add address, Check now, Remove domain, Receive mail here too and Stop receiving here; Another domain for a second one',
+      'Your addresses: each address with who reads it and which one customers hear from; Change on a row (rename it while it has carried no mail, Who reads it: Only me or The team, Make this the one customers hear from, Remove address); under your own address, the switch Let Ava read this mail (it names the business’s AI teammate; on, it drafts answers only you see); Add an address; Name customers see (one name, on every address)',
+      'Use your own website name: Set it up, which opens the guided setup on a page of its own (which email, which addresses, who reads each one, the one customers hear from, where the mail arrives, Check it over, Set it up, then the records to add)',
+      'Your website name, once there is one: Mail coming in (Receive mail here, Check now, Stop receiving here), Records with Show and Check now, Open the steps while something is left, Remove this website name; under it, Run the guided setup again',
       // Connect Gmail is greyed out as Coming soon until Google's review (NEXT_PUBLIC_GMAIL_ENABLED).
       'Connected mailboxes: Connect Outlook, and Connect Gmail marked Coming soon',
       'Where senders’ mail goes: Remove',
@@ -669,7 +670,10 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     permission: 'channels.manage',
     canChange: [
       'add or change a sending address, on the shared domain or your own',
-      'make an address one person’s own',
+      'make an address one person’s own, naming the address that takes over when it is the one customers hear from',
+      'hand your own address back to the team (only its own person can)',
+      'remove one address, keeping the mail it already got',
+      'let the AI teammate read the mail that comes to your own address and draft answers only you see, or stop it (only its own person can)',
       'decide what becomes of the address of someone who has left',
       'add or remove your own sending domain, and check it',
       'receive mail at your own domain, or stop',
