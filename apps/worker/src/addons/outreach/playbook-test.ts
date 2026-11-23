@@ -20,6 +20,7 @@ import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
 import { contactIn, isTimeKind, openTimeOf } from '@hfos/core/addons/outreach/meeting-times';
 import { aboutOwnerFor } from '@hfos/core/addons/outreach/ops/about-owner';
 import { voiceFor } from '@hfos/core/addons/outreach/ops/automation';
+import { writingNoteFor } from '@hfos/core/addons/outreach/ops/comment-research';
 import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import {
   checkedPlay,
@@ -142,6 +143,8 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
         library: installed ? outreachSettings(installed.settings).videos : undefined,
         notes: messageNotesOf(said?.message_notes),
         voice: await voiceFor(tx, ws, ctx.userId),
+        // How people write on the network picked, as a real message there is told (decision 191).
+        writing: await writingNoteFor(tx, input.person.platform),
         // About you (decision 165), as their real messages are written with it.
         aboutOwner: await aboutOwnerFor(tx, ctx.userId),
         // Their own name, for an introduction (decision 168).
@@ -297,6 +300,7 @@ export const playbookTest: AddonWorkerAction<PlaybookTestInput> = {
             ownerName: found.ownerName,
             fresh: person.known === 'new',
             voice: found.voice,
+            writing: found.writing,
             lastAt: recent.at(-1)?.at ?? new Date(now - o.gapDays * DAY_MS),
             now,
             requests: false,

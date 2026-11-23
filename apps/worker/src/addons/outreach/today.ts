@@ -61,6 +61,7 @@ import {
 } from '@hfos/core/addons/outreach/openers';
 import { aboutOwnerFor } from '@hfos/core/addons/outreach/ops/about-owner';
 import { voiceFor } from '@hfos/core/addons/outreach/ops/automation';
+import { writingNoteFor } from '@hfos/core/addons/outreach/ops/comment-research';
 import { answerNote } from '@hfos/core/addons/outreach/ops/conversation';
 import { theirWorkNote, theirWorkShown } from '@hfos/core/addons/outreach/ops/local';
 import { RADIUS_START, theirWorkFact } from '@hfos/core/addons/outreach/local';
@@ -267,6 +268,9 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               )
             )[0]?.guide?.trim() || null
           : null;
+      // How people write on their network, for everything but a comment (decision 191): the note staff put in use.
+      const writing =
+        profile && input.kind !== 'comment' ? await writingNoteFor(tx, profile.platform) : null;
       const lines = profileId
         ? await rows<{ lines: string[] }>(
             tx,
@@ -438,6 +442,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         post,
         commentedLately,
         commentGuide,
+        writing,
         engaged,
         profile,
         lines: lines[0]?.lines ?? [],
@@ -717,6 +722,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         ways: choices.map((c) => ({ way: c.way, text: c.opener.text })),
         opened,
         voice: found.voice,
+        writing: found.writing,
         lastAt: found.lastAt,
         requests: toRequests,
         demoWhen: found.demoAt

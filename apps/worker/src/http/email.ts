@@ -95,7 +95,8 @@ async function routeInbound(
 
 /**
  * Mail to a business's own domain once it receives there (M19): the address's own lane, or the business's default
- * address when nobody has that name.
+ * address when nobody has that name. A domain still waiting on our MX check counts once Postmark has its server:
+ * Postmark hands us its mail from then on, and what arrives before the check says "on" is filed too.
  */
 async function routeReceiving(
   deps: HttpDeps,
