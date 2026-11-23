@@ -20,6 +20,7 @@ export const GUIDED_SETUPS = {
   phone: { permission: 'channels.manage' },
   email: { permission: 'channels.manage' },
   calendar: { permission: 'calendars.manage' },
+  payments: { permission: 'money.manage' },
 } as const satisfies Record<string, { readonly permission: Permission }>;
 export type GuidedSetupKey = keyof typeof GUIDED_SETUPS;
 export const GUIDED_SETUP_KEYS = Object.keys(GUIDED_SETUPS) as [
