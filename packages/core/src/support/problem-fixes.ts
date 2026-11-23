@@ -381,9 +381,9 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'facebook',
     job: 'friend_request',
     note: 'Facebook didn’t take it',
-    fixedIn: '0.151.1',
+    fixedIn: '0.151.2',
     pr: 734,
-    said: 'From 20 Nov 2026 Facebook answered Add friend with a box of its own (a heading, a line and one button), and the request didn’t go: none of 8 on 22 Nov, the box’s words hidden from the reports. The step now says Facebook showed a box, in its words, the desk sorts that as Facebook’s limit, and after 2 in a row no more friend requests go that day (decision 191).',
+    said: 'From 20 Nov 2026 Facebook answered Add friend with a box of its own (a heading, a line and one button), and the request didn’t go: none of 8 on 22 Nov, the box’s words hidden from the reports. The step now says Facebook showed a box, in its words, the desk sorts that as Facebook’s limit, and after 2 in a row no more friend requests go that day (decision 192).',
   },
 ];
 

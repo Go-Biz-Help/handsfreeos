@@ -230,7 +230,13 @@ export type GroupPostAsk =
 
 export type GroupPostAnswer =
   | { readonly ok: true; readonly result: PostResult }
-  | { readonly ok: true; readonly comments: Engaged[]; readonly reactions: Engaged[] }
+  | {
+      readonly ok: true;
+      readonly comments: Engaged[];
+      readonly reactions: Engaged[];
+      /** Facebook: who wrote the post the comments are under, as the page shows it when they're read. */
+      readonly writer?: ProfileRef | null;
+    }
   | { readonly ok: false; readonly error: string };
 
 /**

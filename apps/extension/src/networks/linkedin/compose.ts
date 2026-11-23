@@ -423,6 +423,34 @@ export function readComments(doc: Document, href: string, options: LeaveOut = {}
   }));
 }
 
+/** How long a post's comments are looked for on its own page before it's read as having none shown. */
+const COMMENTS_WAIT_MS = 4_000;
+
+/**
+ * The comments on the post the page shows, once LinkedIn has drawn them (`readComments`): it draws a post's comments
+ * a moment after the post itself, so a post whose bar counts some, or shows no count, is looked at till one shows, a
+ * few seconds at most. One whose bar says it has none isn't waited on. For the comment research, which reads a post
+ * the moment its page opens (decision 172).
+ */
+export async function commentsOnceDrawn(
+  doc: Document,
+  href: string,
+  options: LeaveOut = {},
+  ms = COMMENTS_WAIT_MS,
+): Promise<Engaged[]> {
+  const read = () => readComments(doc, href, options);
+  const now = read();
+  if (now.length) return now;
+  const post = postOnPage(doc);
+  if (!post || readPost(post, href)?.comments === 0) return now;
+  return (
+    (await waitFor(() => {
+      const drawn = read();
+      return drawn.length ? drawn : null;
+    }, ms)) ?? []
+  );
+}
+
 /**
  * The line under someone's name in the links to them, and how far they are: the newer layout writes both in the link
  * around their name ("Owen Park • 3rd+", then their headline).

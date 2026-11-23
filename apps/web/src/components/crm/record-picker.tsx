@@ -13,6 +13,9 @@ export interface PickedRecord {
   id: string;
   name: string;
   detail?: string | null;
+  /** A person's main number and email, as the search or Add a person gave them (New message offers a text or an email). */
+  phone?: string | null;
+  email?: string | null;
 }
 
 /**
@@ -47,7 +50,14 @@ export function RecordPicker({
     enabled: addNew,
     onAdded: (c) => {
       setQ('');
-      onChange({ kind: 'person', id: c.id, name: c.fullName, detail: c.phone ?? c.email });
+      onChange({
+        kind: 'person',
+        id: c.id,
+        name: c.fullName,
+        detail: c.phone ?? c.email,
+        phone: c.phone,
+        email: c.email,
+      });
     },
   });
 
@@ -81,6 +91,8 @@ export function RecordPicker({
             id: p.id,
             name: p.fullName,
             detail: p.company?.name ?? p.phone ?? p.email,
+            phone: p.phone,
+            email: p.email,
           })),
           ...companies.items.map((c) => ({
             kind: 'company' as const,

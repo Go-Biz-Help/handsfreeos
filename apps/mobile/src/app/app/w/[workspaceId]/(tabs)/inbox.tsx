@@ -1,5 +1,7 @@
 import {
   boxLabel,
+  COMPOSE_WORDS,
+  holds,
   INBOX_SHOW_NOTES,
   inboxEmptyWords,
   inboxShowOf,
@@ -15,8 +17,9 @@ import * as React from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 
 import { useAiColors } from '@/components/drafts';
-import { Inbox as InboxIcon, Search, Sparkles, UserRound, X } from '@/components/icons';
+import { Inbox as InboxIcon, Search, Sparkles, SquarePen, UserRound, X } from '@/components/icons';
 import { ConversationRow } from '@/components/inbox/conversation-row';
+import { NewMessageSheet } from '@/components/inbox/new-message-sheet';
 import { ShowPicker } from '@/components/inbox/show-picker';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
@@ -45,9 +48,14 @@ export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
  *
  * The person's own mail is in the list beside the team's, each thread of theirs marked "Only you" (in Mine and All,
  * Other mail and Spam). It has no page of its own (Chris, 2026-11-11), as on the web.
+ *
+ * New message, in the top bar, texts or emails anyone, whether or not they've written before (2026-11-22), as the
+ * web's does. Not while viewing as a teammate, when nothing is changed.
  */
 export default function Inbox() {
-  const { business, me } = useBusiness();
+  const { business, me, viewing } = useBusiness();
+  const mayCompose = !viewing && holds(business, 'inbox.use');
+  const [composing, setComposing] = React.useState(false);
   const [box, setBox] = React.useState<InboxBoxKey>('all');
   const [status, setStatus] = React.useState<ConversationStatus>('open');
   const [unread, setUnread] = React.useState(false);
@@ -102,7 +110,24 @@ export default function Inbox() {
   );
 
   return (
-    <Screen title="Inbox" testID="inbox" scroll={false}>
+    <Screen
+      title="Inbox"
+      testID="inbox"
+      scroll={false}
+      trailing={
+        mayCompose ? (
+          <Pressable
+            role="button"
+            accessibilityLabel={COMPOSE_WORDS.button}
+            onPress={() => setComposing(true)}
+            testID="inbox-new"
+            className="size-11 items-center justify-center rounded-full active:bg-card-2"
+          >
+            <Icon as={SquarePen} className="size-[22px] text-accent" />
+          </Pressable>
+        ) : undefined
+      }
+    >
       <View className="gap-3 border-b border-border bg-card px-3.5 pb-3 pt-3">
         <Input
           value={typed}
@@ -232,6 +257,9 @@ export default function Inbox() {
           )
         }
       />
+      {mayCompose ? (
+        <NewMessageSheet open={composing} onClose={() => setComposing(false)} onOpened={open} />
+      ) : null}
     </Screen>
   );
 }

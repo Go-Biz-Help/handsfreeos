@@ -9702,7 +9702,7 @@
     "/v1/commands/registration.email_web_person": {
       "post": {
         "operationId": "command_registration_email_web_person",
-        "summary": "Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and terms’ part about texts, and the website chat’s code. Sent from HandsFreeOS’s support desk in the business’s name, as a ticket: replies land on the ticket and go to the person sending it, who gets a copy.",
+        "summary": "Email whoever looks after the business’s website the changes it needs before the carriers approve its texting, each in its own text file: add the sign-up form (one of the business’s published forms, or the box and its words for a form of their own), the privacy policy and the terms (each whole, with the part about texts in it), and the website chat’s code. Sent from HandsFreeOS’s support desk in the business’s name, as a ticket: replies land on the ticket and go to the person sending it, who gets a copy.",
         "tags": [
           "commands"
         ],
@@ -9789,6 +9789,86 @@
                   "required": [
                     "sentTo",
                     "files"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/registration.ensure_contact_form": {
+      "post": {
+        "operationId": "command_registration_ensure_contact_form",
+        "summary": "Make sure the business has a published contact form customers can agree to texts on, for its texting approval: the one it already has, or a new “Get in touch” form with the box to agree to texts. Its website is added to the sites the form may show on. Safe to run again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires channels.manage. Emits form.created, form.published, form.delivery_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "website": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "formId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "siteSlug": {
+                      "type": "string"
+                    },
+                    "embedOrigins": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "created": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "formId",
+                    "name",
+                    "slug",
+                    "siteSlug",
+                    "embedOrigins",
+                    "created"
                   ],
                   "additionalProperties": false
                 }
@@ -120859,6 +120939,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "note": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -120874,7 +120960,8 @@
                                   "dropped",
                                   "posts",
                                   "findings",
-                                  "guide"
+                                  "guide",
+                                  "note"
                                 ],
                                 "additionalProperties": false
                               },
@@ -120915,12 +121002,46 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "inMessages": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "note": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "note",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
                           "platform",
                           "research",
-                          "inUse"
+                          "inUse",
+                          "inMessages"
                         ],
                         "additionalProperties": false
                       }
@@ -121280,6 +121401,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "note": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -121295,7 +121422,8 @@
                                   "dropped",
                                   "posts",
                                   "findings",
-                                  "guide"
+                                  "guide",
+                                  "note"
                                 ],
                                 "additionalProperties": false
                               },
@@ -121336,12 +121464,46 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "inMessages": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "note": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "note",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
                           "platform",
                           "research",
-                          "inUse"
+                          "inUse",
+                          "inMessages"
                         ],
                         "additionalProperties": false
                       }
@@ -121361,7 +121523,7 @@
     "/v1/commands/outreach.comment_research.use": {
       "post": {
         "operationId": "command_outreach_comment_research_use",
-        "summary": "HandsFreeOS staff only: put a finished comment research’s guide in every business’s comments on its network (how real comments sound there: their length, words and punctuation), in place of the guide in use on that network; or take the guide in use there out again.",
+        "summary": "HandsFreeOS staff only: put a finished comment research’s guide in every business’s comments on its network (how real comments sound there: their length, words and punctuation), in place of the guide in use on that network; or take the guide in use there out again. With where set to messages, the same for its short note on how people write there (emoji, how a line ends, lower case, everyday words), which goes in every business’s first messages, replies, follow-ups and answers to comments on that network and changes only how they sound.",
         "tags": [
           "commands"
         ],
@@ -121385,6 +121547,14 @@
                   },
                   "use": {
                     "type": "boolean"
+                  },
+                  "where": {
+                    "default": "comments",
+                    "type": "string",
+                    "enum": [
+                      "comments",
+                      "messages"
+                    ]
                   }
                 },
                 "required": [
@@ -121705,6 +121875,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "note": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -121720,7 +121896,8 @@
                                   "dropped",
                                   "posts",
                                   "findings",
-                                  "guide"
+                                  "guide",
+                                  "note"
                                 ],
                                 "additionalProperties": false
                               },
@@ -121761,12 +121938,46 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "inMessages": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "note": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "note",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
                           "platform",
                           "research",
-                          "inUse"
+                          "inUse",
+                          "inMessages"
                         ],
                         "additionalProperties": false
                       }
@@ -159675,6 +159886,303 @@
                   "required": [
                     "answers",
                     "savedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/registration.get_policies": {
+      "post": {
+        "operationId": "query_registration_get_policies",
+        "summary": "The business’s own privacy policy and terms as they were last handed back whole with the part about texts added, each with the address it was read from and when; nothing for one that hasn’t been made.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires channels.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "privacy": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "sourceUrl": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "pasted": {
+                              "type": "boolean"
+                            },
+                            "blocks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "heading",
+                                      "paragraph",
+                                      "item"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "maxLength": 80000
+                                  },
+                                  "level": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 6
+                                  },
+                                  "gap": {
+                                    "type": "boolean"
+                                  },
+                                  "mark": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "added",
+                                          "changed"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "text",
+                                  "gap",
+                                  "mark"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "changes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "action": {
+                                    "type": "string",
+                                    "enum": [
+                                      "remove",
+                                      "replace"
+                                    ]
+                                  },
+                                  "before": {
+                                    "type": "string",
+                                    "maxLength": 80000
+                                  },
+                                  "after": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 80000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "why": {
+                                    "type": "string",
+                                    "maxLength": 1000
+                                  }
+                                },
+                                "required": [
+                                  "action",
+                                  "before",
+                                  "after",
+                                  "why"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "madeAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "sourceUrl",
+                            "pasted",
+                            "blocks",
+                            "changes",
+                            "madeAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "terms": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "sourceUrl": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "pasted": {
+                              "type": "boolean"
+                            },
+                            "blocks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "heading",
+                                      "paragraph",
+                                      "item"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "maxLength": 80000
+                                  },
+                                  "level": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 6
+                                  },
+                                  "gap": {
+                                    "type": "boolean"
+                                  },
+                                  "mark": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "added",
+                                          "changed"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "text",
+                                  "gap",
+                                  "mark"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "changes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "action": {
+                                    "type": "string",
+                                    "enum": [
+                                      "remove",
+                                      "replace"
+                                    ]
+                                  },
+                                  "before": {
+                                    "type": "string",
+                                    "maxLength": 80000
+                                  },
+                                  "after": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 80000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "why": {
+                                    "type": "string",
+                                    "maxLength": 1000
+                                  }
+                                },
+                                "required": [
+                                  "action",
+                                  "before",
+                                  "after",
+                                  "why"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "madeAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "sourceUrl",
+                            "pasted",
+                            "blocks",
+                            "changes",
+                            "madeAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "privacy",
+                    "terms"
                   ],
                   "additionalProperties": false
                 }
@@ -263194,6 +263702,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "note": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -263209,7 +263723,8 @@
                                   "dropped",
                                   "posts",
                                   "findings",
-                                  "guide"
+                                  "guide",
+                                  "note"
                                 ],
                                 "additionalProperties": false
                               },
@@ -263250,12 +263765,46 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "inMessages": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "note": {
+                                    "type": "string"
+                                  },
+                                  "comments": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "usedAt": {
+                                    "type": "string"
+                                  },
+                                  "thisOne": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "note",
+                                  "comments",
+                                  "usedAt",
+                                  "thisOne"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
                           "platform",
                           "research",
-                          "inUse"
+                          "inUse",
+                          "inMessages"
                         ],
                         "additionalProperties": false
                       }
@@ -263275,7 +263824,7 @@
     "/v1/queries/outreach.comment_research.next": {
       "post": {
         "operationId": "query_outreach_comment_research_next",
-        "summary": "What the person’s computer reads next on a network for the comment research they started there, if they started one: the next hashtags or search words (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.",
+        "summary": "What the person’s computer reads next on a network for the comment research they started there, if they started one: the next hashtags or search words (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one, or for an extension older than the network’s reader needs.",
         "tags": [
           "queries"
         ],

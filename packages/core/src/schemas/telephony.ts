@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { normalizePhone } from '../crm/phone';
 import { SENSITIVE_TOPIC_IDS, SENSITIVE_TOPICS } from '../messaging/a2p';
+import {
+  POLICY_MAX_BLOCKS,
+  POLICY_MAX_CHANGES,
+  POLICY_MAX_CHARS,
+} from '../messaging/policy-update';
 import { CONFIRMATION_IDS } from '../messaging/preflight';
 import { WEBSITE_FIX_IDS } from '../messaging/website-fixes';
 import { isoDateTime, uuid } from './common';
@@ -358,7 +363,7 @@ export const BusinessProfile = z
     termsPageUrl: z.url().max(300).nullable().optional(),
     /** The page carrying the tick box: the business's own for `own_site`, our form for `hosted`. */
     optInUrl: z
-      .url({ error: 'Enter the full address of the page with your tick box.' })
+      .url({ error: 'Enter the full address of the page your contact form is on.' })
       .max(300)
       .nullable()
       .optional(),
@@ -394,7 +399,8 @@ export const BusinessProfile = z
   })
   .refine((b) => b.optInPath !== 'own_site' || !!b.optInUrl, {
     path: ['optInUrl'],
-    error: 'Enter the address of the page with your tick box, like https://yoursite.com/contact.',
+    error:
+      'Enter the address of the page your contact form is on, like https://yoursite.com/contact.',
   })
   .refine((b) => b.optInPath !== 'in_person' || !!b.optInProofUrl, {
     path: ['optInProofUrl'],
@@ -555,6 +561,81 @@ export const RegistrationEmailWebPersonOutput = z.object({
   sentTo: z.string(),
   /** The files it carries, by name. */
   files: z.array(z.string()),
+});
+
+/**
+ * The contact form texting approval hands a business (the owner, 2026-11-22): made when the business is, and again
+ * when approval starts if it isn't there. It carries our box to agree to texts, so it's ready to go on their website.
+ */
+export const RegistrationEnsureContactFormInput = z.object({
+  workspaceId: uuid,
+  /** The business's website, so the form may show on it. Left out, the one in Settings → Workspace is used. */
+  website: z.string().trim().max(300).optional(),
+});
+export const RegistrationEnsureContactFormOutput = z.object({
+  formId: uuid,
+  name: z.string(),
+  /** Its public link is `/f/<siteSlug>/<slug>`. */
+  slug: z.string(),
+  siteSlug: z.string(),
+  /** The sites it may be framed on. */
+  embedOrigins: z.array(z.string()),
+  /** It was made just now; false when the business already had one. */
+  created: z.boolean(),
+});
+
+// ---------- the business's own policy and terms, kept whole (the owner, 2026-11-22) ----------
+
+/** One block of a policy handed back whole (core's UpdatedPolicyBlock). */
+const policyBlockOut = z.object({
+  kind: z.enum(['heading', 'paragraph', 'item']),
+  text: z.string().max(POLICY_MAX_CHARS),
+  level: z.number().int().min(1).max(6).optional(),
+  gap: z.boolean(),
+  /** `added` for the part about texts, `changed` for a line of the business's own that had to change. */
+  mark: z.enum(['added', 'changed']).nullable(),
+});
+/** A line of the business's own that changed (core's PolicyChange). */
+const policyChangeOut = z.object({
+  action: z.enum(['remove', 'replace']),
+  before: z.string().max(POLICY_MAX_CHARS),
+  after: z.string().max(POLICY_MAX_CHARS).nullable(),
+  why: z.string().max(1000),
+});
+
+/**
+ * Worker: a business's own privacy policy or terms as it was just handed back, whole, with the part about texts in
+ * place. Kept so coming back shows it without reading the page again, and so "Email your web person" can send it.
+ */
+export const RegistrationRecordPolicyInput = z.object({
+  workspaceId: uuid,
+  kind: z.enum(['privacy', 'terms']),
+  /** The page it's on, as the registration names it. Null when it was pasted with no address given. */
+  sourceUrl: z.string().trim().min(1).max(2000).nullable(),
+  /** Its words were pasted in, because the page couldn't be read. */
+  pasted: z.boolean(),
+  // The business's blocks, and the section's own few.
+  blocks: z
+    .array(policyBlockOut)
+    .min(1)
+    .max(POLICY_MAX_BLOCKS + 50),
+  changes: z.array(policyChangeOut).max(POLICY_MAX_CHANGES),
+});
+export const RegistrationRecordPolicyOutput = z.object({ madeAt: isoDateTime });
+
+/** A policy or terms as it was last handed back. */
+const keptPolicy = z.object({
+  sourceUrl: z.string().nullable(),
+  pasted: z.boolean(),
+  blocks: z.array(policyBlockOut),
+  changes: z.array(policyChangeOut),
+  madeAt: isoDateTime,
+});
+export const RegistrationGetPoliciesInput = z.object({ workspaceId: uuid });
+export const RegistrationGetPoliciesOutput = z.object({
+  /** Null when the business's own privacy policy hasn't been handed back yet. */
+  privacy: keptPolicy.nullable(),
+  terms: keptPolicy.nullable(),
 });
 
 /** Worker: send what HandsFreeOS approved, exactly as the business left it. */

@@ -7,7 +7,8 @@
     <!--
       Deliberately unlinked and absent from sitemap.xml: a crawl must not reach it, because the knowledge
       spec counts the pages a scan finds (REACHABLE_PAGES). The registration wizard's pre-flight opens it
-      directly, as a business's own privacy policy that was written properly.
+      directly, as a business's own privacy policy that was written properly. Only /with-policy/<name>
+      links to it (server.ts), a page nothing links to, for the test that finds a site's own policy.
     -->
     <h1>Privacy Policy</h1>
     <p>

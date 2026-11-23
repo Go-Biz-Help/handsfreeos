@@ -235,8 +235,8 @@ export async function runAs(
 }
 
 /**
- * Runs one of the add-on's commands as `u` in `ws` with the request's details as given: the web (`channel: 'web'`,
- * no id), or the extension with its own clock (`sentAt`).
+ * Runs one of the add-on's commands or look-ups as `u` in `ws` with the request's details as given: the web
+ * (`channel: 'web'`, no id), or the extension with its own clock (`sentAt`) or its version (`appVersion`).
  */
 export async function runWith(
   u: TestUser,
@@ -245,12 +245,19 @@ export async function runWith(
   input: Record<string, unknown>,
   meta: Partial<RequestMeta> & Pick<RequestMeta, 'channel'>,
 ): Promise<Any> {
+  const found = op(name);
   if (seasonedIn.has(ws)) await season(ws, u.id);
   if (GATED.has(name) && gettingReady.has(ws)) await getReady(ws, [u.id]);
-  return executeCommand(api(), op(name) as CommandDef, { workspaceId: ws, ...input }, human(u), {
-    correlationId: randomUUID(),
-    ...meta,
-  }).then((r) => r.output);
+  const details = { correlationId: randomUUID(), ...meta };
+  return found.kind === 'command'
+    ? executeCommand(
+        api(),
+        found as CommandDef,
+        { workspaceId: ws, ...input },
+        human(u),
+        details,
+      ).then((r) => r.output)
+    : executeQuery(api(), found as QueryDef, { workspaceId: ws, ...input }, human(u), details);
 }
 
 /**

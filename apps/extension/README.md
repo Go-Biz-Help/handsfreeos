@@ -1283,14 +1283,14 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
-### Two friend requests Facebook says no to in a row, and no more that day (0.151.1)
+### Two friend requests Facebook says no to in a row, and no more that day (0.151.2)
 
 From 20 Nov 2026 Facebook answered Add friend with a box of its own over the profile: a heading of a few words, a line
 and one button that isn't Confirm, and the request didn't go (none of 8 on 22 Nov, the owner's problem reports). Its
 words aren't a warning's, so the day went on, every request after met the same box, and each went to the problem
 reports as "Facebook didn’t take it", with the box's words hidden from them.
 
-From 0.151.1 (decision 191, the owner's pick of 22 Nov 2026):
+From 0.151.2 (decision 192, the owner's pick of 22 Nov 2026):
 
 - A profile's read says the heading of each box over the page, in Facebook's words (`boxesOver` in
   `src/networks/facebook/page.ts`). A box there after Add friend that wasn't before is Facebook's answer, and the step
@@ -1302,6 +1302,36 @@ From 0.151.1 (decision 191, the owner's pick of 22 Nov 2026):
   no limit is halved, and the next day starts with requests on.
 - Not taken with no new box, it still says "Facebook didn’t take it" for the AI helper to look at, and a box with a
   warning's words still stops the day, as before.
+
+### The comments under the post itself, on Facebook and LinkedIn (0.151.1)
+
+The first comment research on every network (decision 172) ended with 44 comments kept on Facebook, 6 of them
+different, and none on LinkedIn after 109 posts (found 22 Nov 2026, from the owner's page outlines). Both readers
+looked in the wrong place. Decision 191 in `docs/outreach.md`.
+
+- **Facebook opens a post on its own address in a box over the page.** The page behind it is a feed of other people's
+  posts, with their comments, hidden. The readers read that feed. Now the post in the box is the page's post
+  (`postOver` and `pagePost` in `src/networks/facebook/posts.ts`): its comments (`readComments`), who wrote it
+  (`postWriter`), who reacted (`readReactions`, which never takes the post's own box for the box of who reacted), the
+  look at it before a comment (`lookStep`) and what the page reader says of it (`readPage`). A post drawn on the page
+  itself, with nothing over it, is read as before.
+- **Facebook's own marks stay out of the words.** It writes "by author" for screen readers on the comments of whoever
+  wrote the post, sometimes as its own piece and sometimes inside the words: neither is kept (`wordsOf`). An emoji it
+  draws as a picture is put back from the picture's name.
+- **Who wrote the post goes with the comments** (`writer` in the tab's answer), so the research leaves the writer's own
+  comments out by the post it really read.
+- **LinkedIn draws a post's comments beside the post's box on its own page,** not in it: the list holds the post, then
+  the faces of who reacted, then each comment. They're read from the part of the page around the post that holds no
+  other post (`commentsPlaceOf` in `src/networks/linkedin/posts.ts`), never past the page's main part. In a feed,
+  where each post's comments are in its own box, nothing changes.
+- **Both wait for the comments to be drawn** (`commentsOnceDrawn`): the research reads a post the moment its page
+  opens, and the comments come a moment later. It looks for up to 4 seconds, and not at all when the post says it has
+  none. Nothing is pressed.
+- A research reads on Facebook and LinkedIn from this version (`RESEARCH_SINCE`): HandsFreeOS hands an older one
+  nothing to read there. Staff run those two again.
+
+Fixtures: `post-over-page-2026-11.html` and `linkedin-post-2026-11.html`, both made up. Tests:
+`test/facebook-post-over-page.test.ts` and `test/linkedin-post-beside.test.ts`.
 
 ### A Facebook post that isn't there any more (0.150.3)
 

@@ -138,7 +138,7 @@ export async function tapFromCustomer(opts: {
 }
 
 /** The stand-in website playwright.config.ts serves, which the worker may open (FETCH_TEST_ORIGINS). */
-const KNOWLEDGE_SITE = 'http://127.0.0.1:4190';
+export const KNOWLEDGE_SITE = 'http://127.0.0.1:4190';
 
 /** The guided setup's Next: on to the screen named, or Check it over. */
 export async function nextTo(page: Page, screen: string): Promise<void> {
@@ -218,8 +218,10 @@ export async function setUpTexting(
 ): Promise<string> {
   const e164 = await getNumber(page, workspaceId, opts);
   await page.getByTestId('phone-setup-approval').click();
+  // Texting approval is its own guided page: what's coming and what to have handy, then the questions.
+  await page.getByTestId('texting-approval-start').click({ timeout: 90_000 });
   await expect(page.getByTestId('business-step')).toBeVisible({ timeout: 90_000 });
-  // The registration is a wizard now: one question at a time, and a step with a blocker on it will not
+  // The registration is a wizard: one question at a time, and a step with a blocker on it will not
   // advance. So this walks it the way a business does, and a check that starts failing here is the wizard
   // refusing details a carrier would have refused later.
   const next = page.getByTestId('a2p-next');
@@ -259,10 +261,16 @@ export async function setUpTexting(
   await expect(page.locator('#a2p-sample-1')).not.toHaveValue('');
   await next.click();
 
-  // 6. How customers agree. In person, so the test does not stand up a chat widget and a public form. In person
-  //    needs something a reviewer can open to see it: a page on the fixture site stands in for the photo.
-  await page.getByTestId('optin-in_person').click();
-  await page.getByTestId('a2p-optin-proof').fill(`${KNOWLEDGE_SITE}/contact`);
+  // 6. How customers agree: on the contact form every business is given, which is there (or made) when this question
+  //    opens. A page of the stand-in site shows it in a frame, the way a business's contact page does once the form's
+  //    code is pasted there, and the review really opens that page and looks inside the frame for the box.
+  await page.getByTestId('optin-own_site').click();
+  const formLink = page.getByTestId('optin-form-link');
+  await expect(formLink).toBeVisible({ timeout: 60_000 });
+  const formUrl = (await formLink.getAttribute('href'))!;
+  await page
+    .getByTestId('a2p-optin-url')
+    .fill(`${KNOWLEDGE_SITE}/with-form?src=${encodeURIComponent(`${formUrl}?embed=1`)}`);
   await next.click();
 
   // 7. The privacy policy and terms. The fixture site has a policy written properly, so this takes the "I
@@ -274,8 +282,8 @@ export async function setUpTexting(
   await page.getByLabel('Where your terms are').fill(`${KNOWLEDGE_SITE}/privacy`);
   await next.click();
 
-  // The review opens the website, the policy, the terms and (for in-person consent) the proof before it will
-  // let the registration go. Nothing is submitted until all four have been looked at.
+  // The review opens the website, the policy, the terms and the page with the contact form before it will let the
+  // registration go. Nothing is submitted until all four have been looked at.
   await expect(page.getByText('Your privacy policy covers texting')).toBeVisible({
     timeout: 30_000,
   });
@@ -286,8 +294,9 @@ export async function setUpTexting(
   await expect(page.getByTestId('registration-all-green')).toBeVisible({ timeout: 30_000 });
   await page.getByTestId('business-agree').check();
   await page.getByTestId('submit-registration').click();
-  // The details go to the (fake) carriers. On a cold server that can take a while, and they may approve before the
-  // review step has shown, so either will do; then the page turns into the configured settings.
+  // The details go to the (fake) carriers and the guided page hands over to Settings. On a cold server that can take
+  // a while, and they may approve before the review step has shown, so either will do; then the page turns into the
+  // configured settings.
   await expect(
     page.getByTestId('review-step').or(page.getByTestId('texting-approved')).first(),
   ).toBeVisible({ timeout: 60_000 });

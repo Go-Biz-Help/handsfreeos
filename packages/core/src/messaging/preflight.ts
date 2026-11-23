@@ -692,11 +692,11 @@ export function checkOptInSurface(
       detail:
         path === 'hosted'
           ? 'Nothing was set up yet. Go back a step and press "Set this up for me".'
-          : 'No page was given to check. Enter the address of the page with your tick box in the “How customers agree” step.',
+          : 'No page was given to check. Enter the address of the page your contact form is on in the “How customers agree” step.',
       url: null,
     };
   const url = page.finalUrl ?? page.url;
-  const blocked = robotChecked(page, 'the page with your tick box');
+  const blocked = robotChecked(page, 'the page with your form');
   if (blocked) return { ...base, ok: false, ...blocked, url };
   if (page.status === null || page.status >= 400)
     return {
@@ -711,7 +711,11 @@ export function checkOptInSurface(
       ...base,
       ok: false,
       detail:
-        'That page opens, but we could not find a tick box with the agreement wording beside it. A reviewer looking for it would not find it either. If your form sits inside a box from another service, give us that form’s own address instead.',
+        'That page opens, but we could not find a tick box with the agreement wording beside it. A reviewer looking for it would not find it either. ' +
+        (path === 'own_site'
+          ? 'Paste your contact form’s code from the “How customers agree” step into that page and publish it. '
+          : '') +
+        'If your form sits inside a box from another service, give us that form’s own address instead.',
       url,
     };
   if (box.preTicked)
@@ -782,8 +786,8 @@ export const takesSignUps = (html: string): boolean =>
 
 /** The words each way customers agree goes by, in the review's rows. */
 const WAY_NAMES: Readonly<Record<'hosted' | 'own_site' | 'in_person', string>> = {
-  hosted: 'the chat on your website',
-  own_site: 'your own website form',
+  hosted: 'in the chat on your website',
+  own_site: 'on your contact form',
   in_person: 'in person or on the phone',
 };
 
@@ -800,7 +804,7 @@ export function checkOtherWay(
   const check = checkOptInSurface(page, way.path, names);
   const missing =
     !page && way.path === 'hosted'
-      ? 'Your website chat isn’t set up to ask about texts yet. Choose “Let us collect it for you” above it, or take this way out of the list.'
+      ? 'Your website chat isn’t set up to ask about texts yet. Go back to “How customers agree” and press “Set this up for me”, or pick your contact form on its own.'
       : null;
   return {
     ...check,

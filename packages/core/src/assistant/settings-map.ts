@@ -589,7 +589,8 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Texting, on the number’s card: Approval (with Turn on texting for a calls-only business, Start texting approval, or See what we sent), Quiet hours for texts, When a customer waits, and STOP, START and HELP (handled for you)',
       'Under the number’s card: Run the guided setup again, Phone account and transfers, and Give up (the number)',
       'Phone account and transfers: Phone & texting, On or Off, with its Account SID and Sub-account SID and Numbers already in this account; and Move a number here (with Check for a HighLevel number and Bring it here for a Twilio account)',
-      'Texting approval, under the number’s card until the carriers approve: the Steps (Number, Business details, Carrier review); The carriers are reviewing (the business), with Number bought, Business profile and brand, Texting campaign and Texting turns on; Pay the carrier fees first when they’re due; Fix and send again after a rejection',
+      'Texting approval, under the number’s card until the carriers approve: the Steps (Number, Business details, Carrier review); Get approved to text, with Start (Carry on where you left off once answers are saved); The carriers are reviewing (the business), with Number bought, Business profile and brand, Texting campaign and Texting turns on; Pay the carrier fees first when they’re due; Fix and send again after a rejection',
+      'Texting approval’s own page, which Start, Carry on where you left off and Fix and send again open: Let’s get you approved to text (the four parts, Have these handy, Start and Do it later), then 8 questions in four parts (Your business, Your texts, Your website, and We check it, then you send it), with Saved and Finish later at the top; Pick from these under the two example texts; its last question is Before it goes',
       'Register for texting now (while a number is on its way here): Start the registration, or Pick up the registration where it was left',
       'Your numbers: Add a number',
       'Who sees which conversations',
@@ -622,7 +623,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         what: 'get texting approved by the carriers',
         why: 'the phone carriers review it, which takes a few days and is out of everyone’s hands here',
         steps: [
-          'I fill in the registration with you; you send it from Before it goes, its last step, once its checks are all green (or I ask HandsFreeOS to check it by hand).',
+          'I fill in the registration with you. To send it, open Settings → Texting & calls and press Carry on where you left off under Get approved to text: its last question, Before it goes, sends it once its checks are all green (or I ask HandsFreeOS to check it by hand).',
           'Wait for the carriers: The carriers are reviewing, on Settings → Texting & calls, shows where it stands (the Approval row on the number’s card, once they approve).',
           'Texting turns on by itself once they approve it.',
         ],

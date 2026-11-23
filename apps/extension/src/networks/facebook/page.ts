@@ -13,7 +13,7 @@ import { friendListOf, listBeside, readListBeside, withRequests } from './friend
 import { readGroupAbout, readGroupLinks, readGroupPage } from './groups';
 import { readNotices } from './notifications';
 import { readPeople, readPeopleAnywhere } from './people';
-import { readPosts } from './posts';
+import { postOver, readPost, readPosts } from './posts';
 import { readProfile, unavailableIn } from './profile';
 import type { GroupLink, PageKind, ReadResult } from './types';
 import { classifyUrl, facebookUrl, pathParts } from './urls';
@@ -51,7 +51,7 @@ const SCROLLS: ReadonlySet<PageKind> = new Set([
 const BOXES = '[role="dialog"], [role="alertdialog"]';
 
 /**
- * The boxes over the page, each by its heading in Facebook's own words (decision 191): a box that wasn't there before
+ * The boxes over the page, each by its heading in Facebook's own words (decision 192): a box that wasn't there before
  * Add friend, and is after, is Facebook's answer to the request. One with no heading goes by its label.
  */
 export function boxesOver(doc: Document): string[] {
@@ -179,7 +179,10 @@ export function readPage(
     }
     case 'post':
     case 'feed': {
-      const posts = readPosts(main, base);
+      // A post's own page often draws it in a box over a feed kept hidden behind it: that post, never the feed's.
+      const over = address.kind === 'post' ? postOver(doc) : null;
+      const opened = over ? readPost(over, base) : null;
+      const posts = over ? (opened ? [opened] : []) : readPosts(main, base);
       found = {
         posts,
         ...(address.kind === 'post' && !posts.length && unavailableIn(main)

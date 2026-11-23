@@ -921,7 +921,7 @@ describe('a friend request on Facebook', () => {
     '<div><span dir="auto"><div>Requests go to people you may know. This one wasn’t sent.</div></span></div>' +
     '<div role="button" aria-label="OK"><span>OK</span></div></div>';
 
-  it('says Facebook didn’t take it and showed a box, in Facebook’s words, when a box opens after Add friend (decision 191)', async () => {
+  it('says Facebook didn’t take it and showed a box, in Facebook’s words, when a box opens after Add friend (decision 192)', async () => {
     world.pages = (url) =>
       url === DANA
         ? addFriend((doc) => doc.body.insertAdjacentHTML('beforeend', box('Request not sent')))

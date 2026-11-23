@@ -446,7 +446,8 @@ export function describe(
           'A change to a conversation',
           'a conversation changed',
           'inbox',
-          personOf(names.conversationPerson(str(input.conversationId))),
+          // Opening someone's conversation names them, not a conversation (there may be none yet).
+          personOf(input.personId) ?? personOf(names.conversationPerson(str(input.conversationId))),
         );
       return words('A change', 'a change', 'change', null);
   }

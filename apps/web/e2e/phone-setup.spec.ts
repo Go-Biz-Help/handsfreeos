@@ -127,9 +127,9 @@ test('guided phone setup: answers are kept, and a number taken while away is pic
   await expect(phone.getByTestId('row-ring')).toContainText('HandsFreeOS and Dale’s cell');
   await expect(phone.getByTestId('row-missed')).toContainText('Voicemail after 25 seconds');
   await expect(page.getByTestId('phone-start')).toHaveCount(0);
-  // Texting was wanted: its approval is the next thing on the page.
+  // Texting was wanted: its approval is the next thing on the page, and Start opens its own guided page.
   await expect(page.getByTestId('texting-setup')).toBeVisible();
-  await expect(page.getByTestId('business-step')).toBeVisible();
+  await expect(page.getByTestId('approval-start')).toBeVisible();
 });
 
 test('guided phone setup: calls only, and texting turned on later from Settings', async ({
@@ -159,7 +159,7 @@ test('guided phone setup: calls only, and texting turned on later from Settings'
       await page.getByTestId('turn-on-texting').click();
     await expect(page.getByTestId('texting-setup')).toBeVisible({ timeout: 10_000 });
   }).toPass({ timeout: 60_000 });
-  await expect(page.getByTestId('business-step')).toBeVisible();
+  await expect(page.getByTestId('approval-start')).toBeVisible();
   await expect(approval).not.toContainText('Texting is off');
   await expect(phone.getByTestId('row-quiet')).toBeVisible();
 });

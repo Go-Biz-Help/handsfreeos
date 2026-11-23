@@ -194,7 +194,7 @@ describe('a limit or a fix (20261027023100)', () => {
     );
   });
 
-  it('sorts a network that said no in a box of its own as the network’s, whatever the helper saw (decision 191)', () => {
+  it('sorts a network that said no in a box of its own as the network’s, whatever the helper saw (decision 192)', () => {
     const note = `Facebook ${BOX_SAID_NO}: “Can’t send request”`;
     expect(sorted(note)).toEqual({ kind: 'limit', limitKind: 'network' });
     expect(sorted(note, 'unclear').limitKind).toBe('network');

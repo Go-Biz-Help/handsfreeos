@@ -87,6 +87,15 @@ later, the AI) asks them, so it has no public page, no embed, no rules on its qu
 phone never ask it; `form_response.*` refuses one (`form_is_poll`). Its answers still land as an ordinary response,
 so nothing that reads answers needs to know.
 
+**Every business has a contact form** (the owner, 2026-11-22: "we should just automatically create an a2p compliant
+contact form when someone creates an account"). `registration.ensure_contact_form` (`forms/contact-form.ts`) gives a
+business the **Get in touch** starter, published, unless it already has a published form that asks for a phone
+number and shows our texting box when it opens (`worksAsContactForm` in `texting-box.ts`; a form that goes a page at
+a time shows the box later, so it doesn't count). The worker runs it when a business is
+made, and texting approval runs it again when it starts, so a business made before this, or one that deleted its
+form, gets one then. It's an ordinary form afterwards: the business can change it, close it or delete it. Texting
+approval's side is "Letting us collect it: the chat or our contact form" in `docs/operations.md`.
+
 **Ids are made by us, never by a model.** The AI builder writes labels; `formToolCallsToOps` stamps the
 ids and tells the model what they are.
 

@@ -67,6 +67,16 @@ export async function ensureBookingSite(
       );
       if (row) return { id: row.id, slug };
     } catch (e) {
+      // Made for this business a moment ago by something else (a new business's contact form and its first chat can
+      // arrive together): that one is the business's site.
+      if (isUniqueViolation(e, 'booking_sites_workspace_id_key')) {
+        const [made] = await tx
+          .select({ id: bookingSites.id, slug: bookingSites.slug })
+          .from(bookingSites)
+          .where(eq(bookingSites.workspaceId, workspaceId));
+        if (made) return { id: made.id, slug: String(made.slug) };
+        throw e;
+      }
       if (!isUniqueViolation(e, 'booking_sites_slug_key')) throw e;
     }
   }

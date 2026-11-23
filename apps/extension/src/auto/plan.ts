@@ -178,8 +178,8 @@ export interface AutoState {
    */
   readonly referAt?: number | null;
   /**
-   * Friend requests in a row Facebook said no to today in a box of its own (decision 191, `refusedAfter`), and whether
-   * that made it stop sending them till tomorrow. Missing in a state kept before 0.151.1: none.
+   * Friend requests in a row Facebook said no to today in a box of its own (decision 192, `refusedAfter`), and whether
+   * that made it stop sending them till tomorrow. Missing in a state kept before 0.151.2: none.
    */
   readonly refusedInRow?: number;
   readonly requestsOff?: boolean;
@@ -487,13 +487,13 @@ export type Work =
 
 /**
  * How many friend requests in a row Facebook may say no to in a box of its own before it sends no more that day
- * (decision 191, the owner's pick of 22 Nov 2026). Likes, comments and messages go on, and no limit is halved: a
+ * (decision 192, the owner's pick of 22 Nov 2026). Likes, comments and messages go on, and no limit is halved: a
  * warning does that (decision 25), and a box like this isn't one.
  */
 export const REFUSED_IN_A_ROW = 2;
 
 /**
- * Friend requests in a row Facebook said no to, after a step (decision 191): one more for a request it said no to in a
+ * Friend requests in a row Facebook said no to, after a step (decision 192): one more for a request it said no to in a
  * box of its own, none once a request goes, and as it was after anything else (a like, or a request passed over).
  */
 export function refusedAfter(
@@ -507,7 +507,7 @@ export function refusedAfter(
   return inRow;
 }
 
-/** What's left today, without friend requests once Facebook's said no to them too often (decision 191). */
+/** What's left today, without friend requests once Facebook's said no to them too often (decision 192). */
 export const withoutRequests = (left: readonly Work[], off: boolean | undefined): Work[] =>
   off
     ? left.filter((work) => !(work.do === 'step' && work.item.kind === 'friend_request'))

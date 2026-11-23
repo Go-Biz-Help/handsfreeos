@@ -429,6 +429,9 @@ became.
   reads about 2,000 public comments over 3 days, keeps their words alone, leaves out what reads like a bot's, and the
   guide made of it goes in every business's warm-up comments on Instagram once staff press Use it. From decision 172
   both are on every network: one Start reads all six, each with its own guide for its warm-up and topic comments.
+  From decision 191 a short note on how people write there (emoji, how a line ends, lower case, everyday words) can
+  go in that network's messages and replies too, with its own **Use in everyone’s messages**. It shapes how they
+  sound, never what they say.
 - **An introduction in place of the pitch** (decision 168, `script.ts`, `ops/checks.ts`): a playbook can start with
   an introduction: thanks for connecting, who the person is, and a question about them from their page (decision
   173), as a second text right after it when the person sends a few (decision 175). It says nothing of what the
@@ -4567,8 +4570,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         (`outreach.comment_research.start` with no network; one network's, with `platform`, for Run it again), each
         about 2,000 comments over 3 days (`RESEARCH_TARGET`, `RESEARCH_DAYS`), one at a time a network. The card has a
         row per network (`networks`), each summed up on its own, with its own **Use in everyone’s comments** and
-        **Stop using it**: a network's guide reaches only that network's comments (`comment_guide_in_use(platform)`).
-        A network a research reads for needs extension 0.144.0 (Instagram's 0.140.0, `RESEARCH_SINCE`).
+        **Stop using it** (**Stop using it in comments** from decision 191): a network's guide reaches only that
+        network's comments (`comment_guide_in_use(platform)`). A network a research reads for needs extension
+        0.144.0 (Instagram's 0.140.0, and Facebook's and LinkedIn's 0.151.1 from decision 191: `RESEARCH_SINCE`).
       - **What each reads** (2a, `researchSearches`): everyday kinds of post on Facebook, Threads and X through
         search words (`RESEARCH_TOPICS`' `words`: dinner, my dog, road trip and so on), as each network ranks them;
         Instagram keeps its hashtags; LinkedIn reads work kinds (`WORK_TOPICS`: new jobs, wins, tips, hiring, events,
@@ -5187,8 +5191,56 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **How it's built** (no migration, no extension change): `script.ts`, `today.ts`, `sends.ts` and
         `ops/playbooks.ts` in Social Outreach.
 
-191.  **Two friend requests Facebook says no to in a row, and no more that day** (Chris's pick on 22 Nov 2026: "Yes,
-      stop after 2 refusals"; extension 0.151.1). From 20 Nov 2026 Facebook answered Add friend with a box of its own
+191.  **The comment research in messages too, and readers that read the post's own comments on Facebook and
+      LinkedIn** (Chris, 22 Nov 2026: "we should be able to use the existing research to improve our comments and
+      other natural language skills right?", then **Build both** on the card that asked "Build the tone note for
+      messages and fix the Facebook and LinkedIn readers?"). Builds on decisions 166 and 172. Extension 0.151.1,
+      migration `20261027033700_writing_notes.sql` (it only adds: one table and three functions).
+      - **A note on how people write on a network** (`writingNote`), made from the counts a finished research
+        already holds, so nothing is read again: how many comments have an emoji, how many end with “!” and how many
+        with a full stop, how many start in lower case, and the dozen everyday words in the most of them. It holds no
+        comment, no example and none of the AI's patterns, and never how long a comment is: a message isn't one. At
+        most `WRITING_NOTE_MOST` (700) characters.
+      - **Where it goes** (`writingNoteBlock`, in `todayDraftPrompt`): every draft for a customer on that network
+        but a comment, which keeps its own guide: first messages, Reconnect, replies, follow-ups, check-ins,
+        reminders, and answers to comments under the person's posts. Test it writes with it too. Partners' messages
+        and the Content Creator's posts don't: the research never read a post.
+      - **How the sound changes, never what's said.** The note is quoted data (`<how_people_write>`), told "Use it
+        only for how your writing sounds", "It changes nothing about what you say", and "never cut a message short to
+        sound like a comment". The playbook's own words and tone, and the person's own voice (`voiceLines`, told
+        right after it), win where they differ. Where the playbook's words are the message (a first message,
+        Reconnect, the ask after a yes: decision 164) it's told to keep them and change at most a small thing around
+        them. So first messages change the least and replies the most. `LOCKED_RULES` are as they were.
+      - **Off until staff press it, and apart from the guide.** Each network's row on the Comment research card
+        shows the note under **What a message’s writer is told**, with **Use in everyone’s messages** and **Stop
+        using it in messages** beside **Use in everyone’s comments** and **Stop using it in comments** (the old
+        **Stop using it**). One command does both (`outreach.comment_research.use` with `where`: `comments`, as it
+        was, or `messages`). Either is on without the other, and one network's never reaches another's.
+      - **Where it's kept** (`platform.writing_notes`, as `platform.comment_guides` is): one in use a network, read
+        by the worker as it writes (`writingNoteFor`), written only through `private.use_writing_note` and
+        `private.stop_writing_note`, which check `platform.ai.manage` for themselves. It names its research as a
+        label, not a key.
+      - **Nothing already drafted is written again** (`RULES_VERSION` stays 7): pressing the button changes the
+        messages written after it.
+      - **Facebook's reader read the wrong post** (0.151.1). Facebook opens a post on its own address in a box over
+        the page, and the page behind it is a feed of other people's posts with their comments. The reader read the
+        feed, so the first research kept 44 comments on Facebook, 6 of them different. Now the post in the box is
+        the page's post (`postOver`, `pagePost`) for its comments, who wrote it, who reacted and the look at it
+        (decision 166). Facebook's own "by author" mark on the writer's comments is left out of the words, and an
+        emoji Facebook draws as a picture is put back.
+      - **LinkedIn's reader found none** (0.151.1). On a post's own page LinkedIn draws the comments beside the
+        post's box, not in it, so the research opened 109 posts and kept no comment. Now they're read from the part
+        of the page around the post that holds no other post (`commentsPlaceOf`).
+      - **Both wait for the comments** (`commentsOnceDrawn`): a research reads a post the moment its page opens, and
+        the comments are drawn a moment later, so it looks for up to 4 seconds unless the post says it has none.
+        Still nothing is pressed.
+      - **Run it again on those two.** `RESEARCH_SINCE` is 0.151.1 for Facebook and LinkedIn, so their row asks for
+        that extension, and an older one is handed nothing to read there (`researchReads`, in
+        `outreach.comment_research.next`), so it can't keep another post's comments again. Neither has a note or a
+        guide until its research is run again and finishes.
+
+192.  **Two friend requests Facebook says no to in a row, and no more that day** (Chris's pick on 22 Nov 2026: "Yes,
+      stop after 2 refusals"; extension 0.151.2). From 20 Nov 2026 Facebook answered Add friend with a box of its own
       over the profile (a heading of a few words, a line and one button that isn't Confirm), and the request didn't
       go: none of 8 on 22 Nov. Its words aren't a warning's, so the day went on and every request after met the same
       box.
@@ -5207,7 +5259,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         warning's still stops the day and halves the limits, as before.
       - **The support desk sorts it as Facebook's limit** (`BOX_SAID_NO` in `packages/core/src/schemas/problem-report.ts`,
         read by `problemKind`), whatever the AI helper saw, as nothing in HandsFreeOS is there to fix. The reports of
-        "Facebook didn’t take it" from before clear as fixed once 0.151.1 is out (`PROBLEM_FIXES`).
+        "Facebook didn’t take it" from before clear as fixed once 0.151.2 is out (`PROBLEM_FIXES`).
       - **How it's built** (no migration, no server change): the count and the switch live in the runner's state for
         the day on that computer (`refusedInRow`, `requestsOff`), as its tries do.
 
@@ -5303,6 +5355,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   reaches comments only through `platform.comment_guides` after staff press Use it, as quoted data
   (`commentGuideBlock`), never as an instruction, only on its own network, and every example in it is a comment
   really kept (`checkedFindings`). A research reads comments alone: never a box of who reacted.
+- **The research reaches messages only as its note** (decision 191, `writingNote`, `writingNoteBlock`): through
+  `platform.writing_notes` after staff press **Use in everyone’s messages**, apart from the guide, as quoted data,
+  only on its own network. The note is counts and single everyday words: never a comment, an example or how long a
+  comment is. It shapes how a message sounds and nothing else. What a message says is the playbook's (decision 164),
+  and the playbook's words and tone and the person's voice win over it, so it's told before `voiceLines`. Never put a
+  guide's examples in a message's prompt, and never let the note shorten one.
 - **A change to what the AI writes can reach messages already drafted** (decision 157): raise `RULES_VERSION` in
   `sends.ts`, and every message waiting for an OK or OK'd and not yet sent is written again.
 - **A message's texts are its parts between blank lines** (`messageParts`), when the person sends a few
@@ -5406,7 +5464,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   over anything that isn't as expected for the rest of the day rather than retrying, and notes each step marked as
   its own (`auto`). It stops for the day on any warning, its own or the panel's
   (`src/hfos/warned.ts`), and on Facebook sends no more friend requests that day after 2 in a row that Facebook said no
-  to in a box of its own (decision 191), and keeps its state in the extension's storage, so a restart carries on where it was. The
+  to in a box of its own (decision 192), and keeps its state in the extension's storage, so a restart carries on where it was. The
   day's start and stop follow HandsFreeOS's (decision 41): a press here goes to `outreach.day.*`, and one in the app
   reaches it within seconds.
 - **Under Autopilot, nobody new is reached without the day's OK** (decision 151). `outreach.today` gates every kind

@@ -1658,7 +1658,7 @@ describe('the carrier registration', () => {
       EIN: '12-3456789',
     });
     // No way customers agree yet, so the screen opens on that step.
-    expect(first.result.opensAt).toBe('How customers agree to get texts');
+    expect(first.result.opensAt).toBe('How will customers agree to get texts?');
     expect(first.result.stillToAnswer).toEqual(
       expect.arrayContaining([
         'Website',
@@ -1680,6 +1680,7 @@ describe('the carrier registration', () => {
       ein: '12-3456789',
       samples: [sample, ''],
     });
+    expect(saved.answers!.form).not.toHaveProperty('policyLooked');
     expect(saved.answers!.at).toBe(5);
 
     // A later answer keeps the earlier ones. With a way customers agree but nothing yet to tell the carriers about
@@ -1690,9 +1691,9 @@ describe('the carrier registration', () => {
       sensitive: [],
       ownPolicyUrl: null,
     });
-    expect(second.result.opensAt).toBe('How customers agree to get texts');
+    expect(second.result.opensAt).toBe('How will customers agree to get texts?');
     expect(second.result.saved).toMatchObject({
-      'How customers agree': 'The sign-up page HandsFreeOS hosts',
+      'How customers agree': 'The website chat',
       'Topics the carriers treat differently': 'None of these',
       'Privacy policy': 'The one HandsFreeOS hosts',
     });
@@ -1705,6 +1706,8 @@ describe('the carrier registration', () => {
       optInPath: 'hosted',
       sensitive: [],
       ownPolicyUrl: '',
+      // The person's own pick: the screen's look at their website for a policy leaves it alone.
+      policyLooked: true,
       samples: [sample, ''],
     });
     expect(again.answers!.at).toBe(5);

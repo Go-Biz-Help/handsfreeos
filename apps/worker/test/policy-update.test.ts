@@ -2,8 +2,14 @@ import { randomUUID } from 'node:crypto';
 import {
   createTokenVerifier,
   executeCommand,
+  executeQuery,
+  HfosError,
   MOBILE_DATA_CLAUSE,
   organizationCreate,
+  registrationGetPolicies,
+  websiteFixFactsFrom,
+  websiteFixFiles,
+  websiteFixSourcesOf,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import {
@@ -25,6 +31,9 @@ import { standInMedia, testServices } from './helpers';
  * channels; the business's page read, or its pasted words, and given back whole with the texting section in place;
  * the tokens counted as texting_policy use; and a page that can't be read or isn't a policy refused in words that
  * say to paste it instead.
+ *
+ * What it makes is kept (app.registration_policies, the owner, 2026-11-22): the last one for each document, for the
+ * people who manage the business's channels to read back, and for the web person's files.
  */
 
 const env = testEnv();
@@ -74,6 +83,22 @@ let ownerToken: string;
 let memberToken: string;
 let ws: string;
 let app: FastifyInstance;
+
+/** What's kept for the business, as the wizard reads it back. */
+const keptFor = (user: TestUser) =>
+  executeQuery(
+    testDbs().api.db,
+    registrationGetPolicies,
+    { workspaceId: ws },
+    { type: 'human', userId: user.id, email: user.email, claims: user.claims },
+    { correlationId: randomUUID(), channel: 'test' },
+  );
+const keptRows = () =>
+  rows<{ kind: string; source_url: string | null; pasted: boolean; made_by: string | null }>(
+    admin(),
+    sql`select kind, source_url, pasted, made_by from app.registration_policies
+        where workspace_id = ${ws} order by kind`,
+  );
 
 const post = (token: string, payload: Record<string, unknown>) =>
   app.inject({
@@ -148,6 +173,26 @@ describe('adding the texting section to a business’s own policy', () => {
             and source = 'texting_policy' and user_id = ${owner.id}`,
     );
     expect(used?.n).toBe(1);
+
+    // Kept as it was handed back, under the address the registration names it by, for whoever comes back.
+    expect(await keptRows()).toEqual([
+      {
+        kind: 'privacy',
+        source_url: 'https://lonestar.test/privacy',
+        pasted: false,
+        made_by: owner.id,
+      },
+    ]);
+    const kept = await keptFor(owner);
+    expect(kept.terms).toBeNull();
+    expect(kept.privacy).toMatchObject({
+      sourceUrl: 'https://lonestar.test/privacy',
+      pasted: false,
+      blocks: body.blocks,
+      changes: body.changes,
+    });
+    // Only for people who manage the business's channels, like the registration itself.
+    await expect(keptFor(member)).rejects.toBeInstanceOf(HfosError);
   });
 
   it('works on pasted words, and links the terms to the privacy policy', async () => {
@@ -167,6 +212,60 @@ describe('adding the texting section to a business’s own policy', () => {
     expect(texts[0]).toBe('Terms of Service');
     expect(texts.join(' ')).toContain('privacy policy at https://lonestar.test/privacy');
     expect(texts.join(' ')).toMatch(/Reply STOP/);
+    // Pasted with no address: kept, with no page to its name.
+    expect((await keptRows()).find((r) => r.kind === 'terms')).toMatchObject({
+      source_url: null,
+      pasted: true,
+    });
+
+    // Pasted for a page we couldn't read: kept under that page, in place of the one before. One for each document.
+    const again = await post(ownerToken, {
+      kind: 'terms',
+      url: 'https://lonestar.test/terms',
+      text: pasted,
+      business: { ...business, privacyUrl: 'https://lonestar.test/privacy' },
+    });
+    expect(again.statusCode).toBe(200);
+    expect(await keptRows()).toMatchObject([
+      { kind: 'privacy', source_url: 'https://lonestar.test/privacy', pasted: false },
+      { kind: 'terms', source_url: 'https://lonestar.test/terms', pasted: true },
+    ]);
+  });
+
+  it('the web person’s file is the business’s own policy, whole, while the registration names that page', async () => {
+    const filesNow = async () => {
+      const sources = await testDbs().admin.db.transaction((tx) =>
+        websiteFixSourcesOf(tx, ws, ['policy'], null),
+      );
+      const facts = websiteFixFactsFrom(sources, {
+        app: 'http://localhost:3000',
+        pages: 'http://localhost:3000',
+      });
+      return { sources, files: websiteFixFiles(facts, ['policy']) };
+    };
+    const { sources } = await filesNow();
+    expect(sources.kept?.privacy?.sourceUrl).toBe('https://lonestar.test/privacy');
+    // With the registration naming that page, the file is the whole of it; with any other page, the part to add.
+    const named = (policyUrl: string) =>
+      websiteFixFiles(
+        websiteFixFactsFrom(
+          { ...sources, legal: { ...sources.legal, policyUrl } },
+          { app: 'http://localhost:3000', pages: 'http://localhost:3000' },
+        ),
+        ['policy'],
+      )[0]!.text;
+    const whole = named('https://www.lonestar.test/privacy/');
+    expect(whole).toContain('Replace everything on the privacy policy page');
+    expect(whole).toContain(
+      'We collect your name, phone number, email address and service address',
+    );
+    expect(whole).toContain(MOBILE_DATA_CLAUSE);
+    expect(whole).toContain('What changed in its own words');
+    const part = named('https://lonestar.test/our-privacy');
+    expect(part).toContain(
+      'Add this part to the privacy policy at https://lonestar.test/our-privacy',
+    );
+    expect(part).not.toContain('We collect your name, phone number');
   });
 
   it('says to paste it when the page can’t be read, isn’t there, or isn’t a policy', async () => {
@@ -193,5 +292,11 @@ describe('adding the texting section to a business’s own policy', () => {
 
     const nothing = await post(ownerToken, { kind: 'privacy' });
     expect(nothing.json().error).toMatchObject({ rule: 'policy_missing' });
+
+    // A refusal keeps nothing, and leaves what was kept before as it was.
+    expect(await keptRows()).toMatchObject([
+      { kind: 'privacy', source_url: 'https://lonestar.test/privacy' },
+      { kind: 'terms', source_url: 'https://lonestar.test/terms' },
+    ]);
   });
 });

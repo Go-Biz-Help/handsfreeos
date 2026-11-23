@@ -88,6 +88,7 @@ export async function loadTexting(
   return {
     workspaceId,
     businessName: got.workspace.name,
+    industry: got.workspace.industry,
     businessWebsite: website ?? page,
     // Setup's address, which a first registration starts from.
     businessAddress: businessAddressOf(settings),

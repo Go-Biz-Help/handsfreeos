@@ -1844,7 +1844,7 @@ describe('writing a message', () => {
   });
 });
 
-describe('friend requests Facebook says no to in a box (decision 191)', () => {
+describe('friend requests Facebook says no to in a box (decision 192)', () => {
   const request: Work = { do: 'step', item: item({}) };
   const like: Work = { do: 'step', item: item({ kind: 'warm_up', name: 'Ana Ruiz' }) };
   const draft: Work = { do: 'draft', item: item({ kind: 'opener', name: 'Jo Hill' }) };

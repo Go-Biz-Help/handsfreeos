@@ -269,7 +269,7 @@ type Outcome =
       /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 145). */
       readonly skip?: true;
       /**
-       * Facebook didn't take it and said why in a box of its own over the page (decision 191): two friend requests in a
+       * Facebook didn't take it and said why in a box of its own over the page (decision 192): two friend requests in a
        * row like that, and it sends no more today.
        */
       readonly refused?: true;
@@ -347,7 +347,7 @@ function keptOf(item: TodayListItem): ProfileRef | null {
 /** What the runner says of a profile Facebook won't show. */
 const PROFILE_UNAVAILABLE = 'Facebook says their profile isn’t available right now';
 const POST_UNAVAILABLE = 'Facebook says it isn’t available any more';
-/** What it says when Facebook's said no to friend requests too often in a row today (decision 191). */
+/** What it says when Facebook's said no to friend requests too often in a row today (decision 192). */
 const REQUESTS_OFF = `Facebook said no to ${REFUSED_IN_A_ROW} friend requests in a row, each in a box of its own, so no more friend requests today. Likes, comments and messages go on, and your limits stay as they are.`;
 
 /**
@@ -447,7 +447,7 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
   if (page.profile?.friendship !== plan.after) {
-    // A box over the page that wasn't there before the press: Facebook's answer, a no (decision 191), in its words.
+    // A box over the page that wasn't there before the press: Facebook's answer, a no (decision 192), in its words.
     const box = (page.boxes ?? []).find((words) => !(opened.page.boxes ?? []).includes(words));
     return {
       done: false,
@@ -1806,7 +1806,7 @@ async function listNow(
   const says = listSays(list);
   const kept = await stateNow();
   if (kept.more !== says.more || (kept.retryAt ?? null) !== says.retryAt) await setState(says);
-  // No friend requests once Facebook's said no to too many in a row today (decision 191).
+  // No friend requests once Facebook's said no to too many in a row today (decision 192).
   return { list, left: withoutRequests(workLeft(list, tried, replied), kept.requestsOff) };
 }
 
@@ -1872,7 +1872,7 @@ async function workNext(
     'done' in outcome && outcome.done
       ? { ...state.done, [kind]: (state.done[kind] ?? 0) + 1 }
       : state.done;
-  // Friend requests Facebook said no to in a row: at two, no more today (decision 191).
+  // Friend requests Facebook said no to in a row: at two, no more today (decision 192).
   const refusedInRow = refusedAfter(state.refusedInRow ?? 0, work, outcome);
   const requestsOff = !state.requestsOff && refusedInRow >= REFUSED_IN_A_ROW;
   await setState({

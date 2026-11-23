@@ -198,6 +198,7 @@ describe('registry', () => {
       'registration.update_status',
       // 2026-11-05: all green, or checked by HandsFreeOS first.
       'registration.record_check',
+      'registration.record_policy',
       'registration.site_check_start',
       'registration.site_check_save_pages',
       'registration.save_site_screenshot',
@@ -207,6 +208,8 @@ describe('registry', () => {
       'registration.send_reviewed',
       // 2026-11-12: email the business's web person the website changes.
       'registration.email_web_person',
+      // 2026-11-22: the contact form every business has, for its texting approval.
+      'registration.ensure_contact_form',
       'conversation.open',
       'conversation.mark_read',
       'conversation.mark_unread',
@@ -1057,6 +1060,7 @@ describe('registry', () => {
       'number_port.list',
       'guided_setup.get_draft',
       'registration.get_draft',
+      'registration.get_policies',
       'registration.review.get',
       'registration.review.for_staff',
       'number_import.list',

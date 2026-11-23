@@ -232,7 +232,7 @@ export interface ReadResult {
    */
   readonly unavailable?: true;
   /**
-   * On a profile, the boxes over the page, each by its heading as Facebook worded it (decision 191, ./page.ts
+   * On a profile, the boxes over the page, each by its heading as Facebook worded it (decision 192, ./page.ts
    * `boxesOver`): a new one after Add friend is Facebook saying no to the request.
    */
   readonly boxes?: readonly string[];

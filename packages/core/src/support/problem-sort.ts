@@ -8,7 +8,7 @@
  * - `ai_balance`: the business's balance ran out, so the AI paused (`WALLET_REFUSALS.ai`);
  * - `network`: the network refused the step or warned (the AI helper's verdict), the tool's own words say it hit
  *   a network's daily, weekly or monthly limit, or that the network said no in a box of its own (`BOX_SAID_NO`,
- *   decision 191 in docs/outreach.md).
+ *   decision 192 in docs/outreach.md).
  *
  * Everything else is a fix. Reports sent before this were sorted the same way by the migration.
  *

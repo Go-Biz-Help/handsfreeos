@@ -1,11 +1,18 @@
 import { and, desc, eq, gt, ne } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { registrationDrafts, registrationReviews, telephonyRegistrations } from '@hfos/db/schema';
+import {
+  registrationDrafts,
+  registrationPolicies,
+  registrationReviews,
+  telephonyRegistrations,
+} from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import {
   RegistrationGetDraftInput,
   RegistrationGetDraftOutput,
+  RegistrationGetPoliciesInput,
+  RegistrationGetPoliciesOutput,
   RegistrationReviewForStaffInput,
   RegistrationReviewForStaffOutput,
   RegistrationReviewGetInput,
@@ -30,6 +37,40 @@ export const registrationGetDraft = defineQuery({
       answers: row ? (row.answers as Record<string, unknown>) : null,
       savedAt: row ? row.updatedAt.toISOString() : null,
     };
+  },
+});
+
+/**
+ * The business's own privacy policy and terms as texting approval last handed them back: whole, with the part about
+ * texts in place (`registration.record_policy`). The wizard shows them again instead of reading the pages a second
+ * time; each says the address it was made for, so one made for a page the business has since changed isn't shown.
+ */
+export const registrationGetPolicies = defineQuery({
+  name: 'registration.get_policies',
+  description:
+    'The business’s own privacy policy and terms as they were last handed back whole with the part about texts added, each with the address it was read from and when; nothing for one that hasn’t been made.',
+  input: RegistrationGetPoliciesInput,
+  output: RegistrationGetPoliciesOutput,
+  permission: 'channels.manage',
+  scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+  async handler(ctx, input) {
+    const kept = await ctx.tx
+      .select()
+      .from(registrationPolicies)
+      .where(eq(registrationPolicies.workspaceId, input.workspaceId));
+    const of = (kind: 'privacy' | 'terms') => {
+      const row = kept.find((r) => r.kind === kind);
+      return row
+        ? {
+            sourceUrl: row.sourceUrl,
+            pasted: row.pasted,
+            blocks: row.blocks as never,
+            changes: row.changes as never,
+            madeAt: row.madeAt.toISOString(),
+          }
+        : null;
+    };
+    return { privacy: of('privacy'), terms: of('terms') };
   },
 });
 
