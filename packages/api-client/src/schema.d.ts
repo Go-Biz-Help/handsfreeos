@@ -43914,6 +43914,8 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     acknowledgeQuietHours?: boolean;
+                    /** @default false */
+                    askedForCode?: boolean;
                     /** @default [] */
                     attachmentFileIds?: string[];
                     body: string;

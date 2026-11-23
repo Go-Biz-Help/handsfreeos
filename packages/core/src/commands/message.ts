@@ -1398,6 +1398,14 @@ export const messageSend = defineCommand({
           message: 'Only HandsFreeOS itself answers a customer’s HELP.',
         },
       ]);
+    // Only HandsFreeOS itself texts a code someone asked for on its pages.
+    if (input.askedForCode && (ctx.actor.type !== 'system' || input.channel !== 'sms'))
+      throw HfosError.validation([
+        {
+          path: 'askedForCode',
+          message: 'Only HandsFreeOS itself texts a code someone asked for.',
+        },
+      ]);
     // Only HandsFreeOS's own campaign sender marks an email as a campaign email.
     if (input.campaignRecipientId && (ctx.actor.type !== 'system' || input.channel !== 'email'))
       throw HfosError.validation([
@@ -1495,8 +1503,9 @@ export const messageSend = defineCommand({
     const claim = ai ? await assertAiMaySend(ctx, ai, conv, created) : false;
     const { number, quietHours, holdUntil } = await assertCanText(ctx, conv, {
       acknowledgeQuietHours: input.acknowledgeQuietHours,
-      // The answer to a HELP goes whatever the hour: the customer asked for it a moment ago.
-      skipQuietHours: input.keywordReply,
+      // The answer to a HELP, or a signing code they just asked for, goes whatever the hour: the customer asked
+      // for it a moment ago.
+      skipQuietHours: input.keywordReply || input.askedForCode,
       sendAfterQuietHours: input.sendAfterQuietHours,
       inReplyToMessageId: input.inReplyToMessageId,
       created,

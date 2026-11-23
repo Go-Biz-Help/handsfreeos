@@ -10761,6 +10761,10 @@
                     "default": false,
                     "type": "boolean"
                   },
+                  "askedForCode": {
+                    "default": false,
+                    "type": "boolean"
+                  },
                   "campaignRecipientId": {
                     "type": "string",
                     "format": "uuid",

@@ -64,6 +64,12 @@ export const MessageSendInput = z
      */
     keywordReply: z.boolean().default(false),
     /**
+     * A code the person asked for a moment ago on one of HandsFreeOS's pages (their code to open a document to
+     * sign): it goes whatever the hour, since they're on the page waiting for it. The owner chose this on 23 Nov
+     * 2026, and it's the only text of HandsFreeOS's own that skips quiet hours. HandsFreeOS itself only, by text.
+     */
+    askedForCode: z.boolean().default(false),
+    /**
      * Email campaigns: the campaign email this is, so it goes with an unsubscribe link in its headers and on the
      * bulk stream. HandsFreeOS itself only.
      */
