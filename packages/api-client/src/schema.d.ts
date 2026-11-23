@@ -2317,6 +2317,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/chat_setup.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Carry out the guided website chat setup’s answers, as its Turn on website chat (or, for a chat already set up, Save my answers) does: makes the chat when widgetId is null, or changes that chat, with the sites it shows on, who answers, what happens while nobody is answering, what it asks visitors for, how it looks and where its button sits. Picking the AI teammate also turns on its Website chat for this chat. Nothing changes when an answer is wrong.
+         * @description Risk level 2. Requires channels.manage. Emits .
+         */
+        post: operations["command_chat_setup_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/chat_widget.create": {
         parameters: {
             query?: never;
@@ -33413,6 +33433,69 @@ export interface operations {
             };
         };
     };
+    command_chat_setup_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        accentColor: string;
+                        /** @enum {string} */
+                        askEmail: "never" | "when_needed" | "after_first_message" | "before_chat";
+                        /** @enum {string} */
+                        askName: "never" | "when_needed" | "after_first_message" | "before_chat";
+                        /** @enum {string} */
+                        askPhone: "never" | "when_needed" | "after_first_message" | "before_chat";
+                        awayMessage: string;
+                        /** @enum {string} */
+                        desktopButton: "label" | "icon";
+                        greeting: string;
+                        launcherLabel: string;
+                        /** @enum {string} */
+                        mobileButton: "label" | "icon";
+                        mobileLift: number;
+                        /** @enum {string} */
+                        phone: "same" | "lift" | "hidden";
+                        /** @enum {string} */
+                        position: "right" | "left";
+                        showLogo: boolean;
+                        sites: string[];
+                        smsConsent: boolean;
+                        /** @enum {string} */
+                        whenAway: "away_form" | "chat";
+                        /** @enum {string} */
+                        who: "ai" | "team";
+                    };
+                    widgetId: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        created: boolean;
+                        publicKey: string;
+                        /** @enum {string} */
+                        teammateChat: "none" | "on" | "turned_on" | "not_allowed";
+                        /** Format: uuid */
+                        widgetId: string;
+                    };
+                };
+            };
+        };
+    };
     command_chat_widget_create: {
         parameters: {
             query?: never;
@@ -40965,7 +41048,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar" | "payments";
+                    setup: "phone" | "email" | "calendar" | "payments" | "chat";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -40999,7 +41082,7 @@ export interface operations {
                         [key: string]: unknown;
                     };
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar" | "payments";
+                    setup: "phone" | "email" | "calendar" | "payments" | "chat";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -85405,7 +85488,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar" | "payments";
+                    setup: "phone" | "email" | "calendar" | "payments" | "chat";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -88371,6 +88454,7 @@ export interface operations {
                             importedAt: string | null;
                             includeDeleted: boolean;
                             lastError: string | null;
+                            leftBehind: number;
                             name: string;
                             putRecordsHere: boolean;
                             /** @enum {string} */

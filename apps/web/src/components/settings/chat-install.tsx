@@ -52,13 +52,20 @@ export function SnippetCode({ src, className }: { src: string; className?: strin
 }
 
 /** "How to add it on": a site builder to pick, and its steps. */
-export function PlatformSteps({ className }: { className?: string }) {
+export function PlatformSteps({
+  className,
+  label = 'How to add it on',
+}: {
+  className?: string;
+  /** Above the builders: "What is your website built with?" in the guided setup. */
+  label?: string;
+}) {
   const [platform, setPlatform] = useState<(typeof PLATFORMS)[number]['key']>('wordpress');
   const steps = PLATFORMS.find((p) => p.key === platform)?.steps ?? [];
   return (
     <div className={className}>
       <p className="mb-2 text-[13px] font-medium" id="chat-platforms">
-        How to add it on
+        {label}
       </p>
       <div role="radiogroup" aria-labelledby="chat-platforms" className="flex flex-wrap gap-1.5">
         {PLATFORMS.map((p) => (

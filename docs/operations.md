@@ -9284,7 +9284,7 @@ Two more emails go to customers, not to the team:
 Do this with the client's web person, or send them the page: it has the steps for common site builders.
 
 1. Check that Turnstile is set up ("Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking"). Without it, the chat relies on its limits and a hidden field only bots fill in.
-2. In the business, open **Forms** and click **New website chat** under **Website chats** (or open **Settings** → **Website chat** and click **Turn on website chat**, for its first one).
+2. In the business, open **Settings** → **Website chat** and click **Start** on **Set up website chat** for its first one (see "Website chat: the guided setup" below; the steps here are the same settings under **All settings**), or open **Forms** and click **New website chat** under **Website chats** for another.
 3. Under **Your sites**, add each website the chat button may show on, such as `acmeroofing.com`, up to 10. Type the address people visit. `http://` becomes `https://`, and a bare domain gets its `www` version too. Wildcards like `*.acme.com` don't work, so add each subdomain on its own. Browsers refuse to show the chat window on any site that isn't listed, even with the snippet pasted.
 4. Choose **Who answers**: the AI teammate, or **Only your team**. The teammate also needs **Website chat** on in its **Channels**.
 5. Set the look (its name, greeting, button label, the button's colour, the words' colour and the top bar's, and **Show your logo**), **Where the button sits** (below), what happens **When nobody is answering** with its **Away message**, **What to ask visitors for** (**Don’t ask**, **When needed**, **After their first message** or **Before the chat starts**), whether to **Offer a box to get texts**, and the **Daily limit** of new chats, so a flood of strangers can't use up the business's AI time. Click **Save**.
@@ -9318,11 +9318,34 @@ To pause the chat, turn off its switch at the top of its page. The page then say
 
 **More than one chat.** **Forms** → **Website chats** lists every chat the business has, the texting registration's one included, and each opens the same page. Another chat has its own name, sites, look and who answers; only one chat shows on a page, so give each its own sites. **Settings** → **Website chat** shows the first one. The texting registration uses the chat that offers the box to get texts.
 
+#### Website chat: the guided setup
+
+**Set up website chat** opens a guided setup on a page of its own, `/onboarding/<workspace id>/chat` (the owner, 2026-11-23, picks W1 a to W4 b). It's on **Settings** → **Website chat** while the business has no chat, on the email and chat step of Getting started once the mailbox is in (`?from=setup`), and on the phone's Getting started card. Only someone who may change the business's channels (`channels.manage`) gets it; anyone else goes Home.
+
+1. Open **Settings** → **Website chat** and click **Start** on **Set up website chat** (or **Pick up where you left off**).
+2. Answer one question a page: which website shows the chat, who answers (the AI teammate or **Only your team**), what happens when nobody is answering, what to ask visitors for (today's three rows), how it looks, and where the button sits on computers and on phones. The answers start from the sign-up: the business's website, its colour and its logo.
+3. On **Check it over**, change anything, then click **Turn on website chat**.
+
+   You should see "Website chat is on. One last step." with the code, **Copy**, the steps for each site builder, **Email your web person**, and the install check.
+
+4. Paste the code on the site (step 7 above), open the site and click the chat button once, then click **Done**.
+
+   You should see "Your website chat is live" with the answers.
+
+How it works:
+
+- **Saved as it goes,** like the phone setup ("Number: the guided setup"): `app.guided_setup_drafts` under setup `chat`, which needs `channels.manage` (`20261027035100_guided_website_chat_setup.sql`). **Turn on website chat** clears the answers.
+- **Nothing is made before Turn on website chat.** It is `chat_setup.save`, which checks every answer first (a refusal opens the question that's wrong), then makes the chat (`chat_widget.create`) or changes it (`chat_widget.update`), keeping its name, daily limit and anything else the questions don't ask, all in one go.
+- **Picking the AI teammate turns on its Website chat** for this chat (W1), and moves it from another chat if it answered one. Someone without `ai_team.manage` still saves the chat, and is told their team answers until someone who can change the AI teammate turns it on.
+- **Settings → Website chat is now one card** (W3). It shows **On** or **Paused** with its switch, the install check, **Copy the code**, **Try it** and **Put it on your site**, then the setup's answers read back from the chat, each with **Change**, and **Go through the questions again**. **All settings** is the page as it was (the daily limit, the colours of the words and top bar, how far up the button sits, **New key**, the logo, the chat's name), so nothing it could do before is gone. Settings search opens it (`?all=1`).
+- **The phone has the same questions** (W4), from its Getting started card once the mailbox is in. Only pasting the code opens the web; **Email me the link** sends it to a computer. A chat that's made but not seen on the site yet opens on that step.
+- **The rules live in core** (`packages/core/src/guided-setup/chat.ts`): the questions, the starting answers, what's wrong with an answer, the chat the answers become, the lines read back and the words. The Assistant does the same with `do_chat_setup_save`, and reads a setup part way through with `read_guided_setup_get_draft` (setup `chat`).
+
 #### Get a new key
 
 The `wk_…` part of the snippet is the widget's key. It isn't secret: anyone can read it on the business's site, and it only works on the listed sites anyway. A new key is for when the snippet turns up on a site that isn't the business's, as the page suggests, or when the business wants to start over.
 
-1. In **Settings** → **Website chat**, click **New key**.
+1. In **Settings** → **Website chat**, click **All settings**, then **New key**.
 2. Read the warning: "The snippet you pasted before stops working within a few minutes, and the chat button disappears from your sites until you paste the new one." Click **Get a new key**.
 
    You should see "New key ready. Paste the new snippet on your site."

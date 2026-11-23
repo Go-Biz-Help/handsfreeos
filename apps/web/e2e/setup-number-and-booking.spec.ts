@@ -39,8 +39,11 @@ test('setup: a local number on what we host, its fees paid, and the booking page
     website: WEBSITE,
   });
 
-  // Website chat starts from that website.
-  await page.goto(`/app/w/${workspaceId}/settings/website-chat`);
+  // Website chat starts from that website: the guided setup's first question, and All settings' set-up form.
+  await page.goto(`/onboarding/${workspaceId}/chat`);
+  await expect(page.getByTestId('chat-setup-site')).toContainText(WEBSITE, { timeout: 60_000 });
+  await expect(page.getByTestId('chat-setup-site')).toContainText('From your sign-up');
+  await page.goto(`/app/w/${workspaceId}/settings/website-chat?all=1`);
   await expect(page.getByTestId('chat-setup').getByTestId('chat-site')).toContainText(WEBSITE);
   await expect(page.getByTestId('chat-create')).toBeEnabled();
 

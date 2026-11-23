@@ -427,6 +427,7 @@ import {
   chatWidgetRotateKey,
   chatWidgetUpdate,
 } from './chat-widget';
+import { chatSetupSave } from './chat-setup';
 import {
   chatBlockVisitor,
   chatIdentify,
@@ -748,6 +749,7 @@ export {
   calendarSetSlug,
   calendarSetEmbedSites,
   calendarSetupSave,
+  chatSetupSave,
   serviceCreate,
   serviceUpdate,
   serviceArchive,
@@ -1162,6 +1164,7 @@ export const commands: readonly CommandDef[] = [
   indeedApplicantReceive,
   chatWidgetCreate,
   chatWidgetUpdate,
+  chatSetupSave,
   chatWidgetPause,
   chatWidgetResume,
   chatWidgetHideUntilTexting,

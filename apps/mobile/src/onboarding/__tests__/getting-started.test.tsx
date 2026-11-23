@@ -247,6 +247,25 @@ it('sets payments up on the phone itself until an account is connected', async (
   expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/payments-setup`);
 });
 
+it('sets website chat up on the phone itself once the mailbox is in', async () => {
+  await show({
+    ...OWNER,
+    steps: OWNER.steps.map((s) =>
+      s.key === 'email_chat'
+        ? step('email_chat', 'later', 'todo', { phase: 'mailbox', partsDone: 1, partsTotal: 2 })
+        : s,
+    ),
+    done: 2,
+    next: 'email_chat',
+  });
+  const next = await screen.findByTestId('getting-started-next');
+  // The guided website chat setup runs here as on the web (the owner, 23 Nov 2026, W4 b): no link to email.
+  expect(next).not.toHaveTextContent(LINK_WORDS.easierDetail, { exact: false });
+  expect(screen.getByTestId('getting-started-chat-setup')).toHaveTextContent('Add chat');
+  await fireEvent.press(screen.getByTestId('getting-started-chat-setup'));
+  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/chat-setup`);
+});
+
 it('emails a link to send the texting details, a long form, once the number is theirs', async () => {
   await show({
     ...OWNER,

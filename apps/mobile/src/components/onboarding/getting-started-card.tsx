@@ -1,4 +1,5 @@
 import {
+  CHAT_SETUP_WORDS,
   GUIDE_WORDS,
   holds,
   LINK_WORDS,
@@ -48,9 +49,10 @@ const FOLDED = 4;
  * Getting started on the phone's Home (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, boards 9 and 10).
  *
  * An owner or admin sees the business's guide, shorter than the web's: the count, the next step with its button,
- * and a few rows under it. A teammate sees "Get set up", their own four rows. The phone does four steps itself (the
- * app, which it is, its notifications, the AI teammate's quick setup while the business has no teammate, and the
- * business number's guided setup while it has no number); everything else is easier on a computer, so its button
+ * and a few rows under it. A teammate sees "Get set up", their own four rows. The phone does these steps itself: the
+ * app (which it is), its notifications, the AI teammate's quick setup while the business has no teammate, the
+ * business number's guided setup while it has no number, the payments setup until an account is connected, and the
+ * website chat setup once the mailbox is in. Everything else is easier on a computer, so its button
  * emails the person a link (`onboarding.send_link`). Hidden or
  * finished on the web, it's gone here too.
  *
@@ -98,6 +100,12 @@ function Steps({
   // So does the payments one (the owner, 23 Nov 2026, P4 a), until an account is connected.
   const setsUpPayments = (step: OnboardingStep) =>
     step.key === 'payments' && step.state === 'todo' && holds(grants, 'money.manage');
+  // And the website chat one once the mailbox is in (the owner, 23 Nov 2026, W4 b): only the code step opens the web.
+  const setsUpChat = (step: OnboardingStep) =>
+    step.key === 'email_chat' &&
+    step.state === 'todo' &&
+    step.note.phase === 'mailbox' &&
+    holds(grants, 'channels.manage');
   // The teammate quick setup saves reaches the phone's copy: the guide asks again.
   const hadTeammate = React.useRef<boolean | null>(null);
   React.useEffect(() => {
@@ -137,7 +145,8 @@ function Steps({
     step.key === 'notifications' ||
     (step.key === 'ai' && setsUpAi) ||
     setsUpNumber(step) ||
-    setsUpPayments(step);
+    setsUpPayments(step) ||
+    setsUpChat(step);
 
   /** One command at a time, with signal; the guide asks again when it's done. */
   const act = async (key: string, run: () => Promise<string | null>) => {
@@ -221,6 +230,17 @@ function Steps({
           testID="getting-started-payments-setup"
         >
           {stepWords(step).action ?? PAYMENTS_SETUP_WORDS.summary.start}
+        </Button>
+      );
+    if (setsUpChat(step))
+      return (
+        <Button
+          size="sm"
+          variant={primary ? 'primary' : 'secondary'}
+          onPress={() => router.push(businessHref(business.id, 'chat-setup'))}
+          testID="getting-started-chat-setup"
+        >
+          {stepWords(step).action ?? CHAT_SETUP_WORDS.summary.start}
         </Button>
       );
     if (step.key === 'notifications')

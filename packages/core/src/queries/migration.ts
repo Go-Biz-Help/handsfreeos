@@ -6,7 +6,7 @@
  * the single most misleading thing a migration screen could say. `countLabel` carries the honest version, and
  * the screen shows that rather than the number.
  */
-import { rows, sql } from '@hfos/db/client';
+import { rows, sql, type Tx } from '@hfos/db/client';
 import { uuidArray } from '../calendar/load';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
@@ -157,6 +157,29 @@ export const migrationList = defineQuery({
     };
   },
 });
+
+/**
+ * What a taken-back move left here: records it made or changed that are neither put back nor kept on purpose.
+ * A rollback marks every one it deals with, the ones it keeps included, so after a finished rollback this is
+ * zero unless something wrote after it ran — a batch that was already running did, until 2026-11-23.
+ *
+ * Minus what a rollback never touches, the same as the preview says: the kinds in `MIGRATION_ROLLBACK_LEAVES`,
+ * and changes to anything but a customer or a company, which are the only ones it puts back field by field.
+ */
+const leftBehindSql = (migrationId: string) => sql`
+  select count(*)::int from app.migration_change_journal j
+   where j.migration_id = ${migrationId} and j.reverted_at is null
+     and ((j.action = 'create' and j.target_type not in (${sql.join(
+       MIGRATION_ROLLBACK_LEAVES.map((t) => sql`${t}`),
+       sql`, `,
+     )}))
+       or (j.action in ('update', 'merge', 'link') and j.target_type in ('person', 'company')))`;
+
+/** The same count, for the command that decides whether taking a move back again has anything to do. */
+export async function leftBehindCount(tx: Tx, migrationId: string): Promise<number> {
+  const [left] = await rows<{ n: number }>(tx, sql`select (${leftBehindSql(migrationId)}) as n`);
+  return Number(left?.n ?? 0);
+}
 
 export const migrationGet = defineQuery({
   name: 'migration.get',
@@ -344,6 +367,7 @@ export const migrationGet = defineQuery({
       needs_review: number;
       retryable: number;
       put_records_here: boolean;
+      left_behind: number;
     }>(
       ctx.tx,
       sql`select
@@ -355,7 +379,9 @@ export const migrationGet = defineQuery({
             -- "this move has changed nothing here" means. An existence test rather than a count: the screen
             -- asks whether, never how many, and the journal of a finished move is long (0088).
             exists (select 1 from app.migration_change_journal
-                    where migration_id = ${m.id}) as put_records_here`,
+                    where migration_id = ${m.id}) as put_records_here,
+            -- Only asked of a move that was taken back, where it is short: everything else there is marked.
+            case when ${m.status} = 'rolled_back' then (${leftBehindSql(m.id)}) else 0 end as left_behind`,
     );
 
     return {
@@ -374,6 +400,7 @@ export const migrationGet = defineQuery({
         totals: m.totals ?? {},
         lastError: m.last_error,
         putRecordsHere: counts?.put_records_here ?? false,
+        leftBehind: Number(counts?.left_behind ?? 0),
       },
       connection: {
         id: m.connection_id,
