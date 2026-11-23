@@ -5265,6 +5265,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `rules`, set on the Settings tab; the extension reads it from `outreach.automation` and keeps no copy but the one
   `src/hfos/follow.ts` writes. Saving the person's settings is what tells the extension (`outreach.automation.saved`
   and `addon.settings_saved` on the live channel), so nothing else needs to.
+- **The extension asks HandsFreeOS only when something can have changed** (the owner's pick on 23 Nov 2026: "Yes,
+  change the extension", on the speed audit's card "Change the outreach browser extension so it asks the server
+  less?"; extension 0.152.0, no migration). Its side panel asked for the day, Get ready and the settings after every
+  beat's answer, and its background asked who's signed in every minute, all day, with nothing changed. Now the panel
+  asks after a beat's answer only when that answer can have moved what it shows, every five minutes otherwise, and
+  never while it's hidden; and who's signed in is asked every ten minutes, or at once after a call refused because
+  Social Outreach is off or out of reach. Nothing a person sees changes. A new thing the panel shows from HandsFreeOS
+  says what moves it (`beatAsks`, `beatNews`), rather than asking on every beat again; the rules and their tests are
+  "How often it asks HandsFreeOS" in `apps/extension/README.md`.
 - **What the AI writes for the person goes through `voice.ts`** (decisions 53 to 55). Every prompt that writes for
   them carries `PLAIN_WRITING` (everyday words, short sentences, relaxed, no long dash), and what comes back is cleaned
   with `noDashes` (a dash between words becomes a comma, between numbers a hyphen) whatever the prompt said. A message

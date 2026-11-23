@@ -173,6 +173,28 @@ export function wakeFor(
   };
 }
 
+/** A kept answer's words but when it was kept and the lines it took, whatever order its parts come back in. */
+const saidBy = (kept: Record<string, unknown>): string =>
+  JSON.stringify({ ...kept, at: null, stepsKept: null }, (_key, value: unknown) =>
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1)))
+      : value,
+  );
+
+/**
+ * Whether a beat's answer kept says something the one before it didn't, for the panel (../panel/status.ts), which
+ * asks HandsFreeOS for the day again only then: another computer works now, a day moved, an ask waits, a ticker came
+ * on screen, or it's someone else's answer. When it was kept (`at`) moves with every beat and says nothing. The lines
+ * HandsFreeOS took (`stepsKept`) are news whenever there are any: the day's steps moved.
+ */
+export function beatNews(before: unknown, after: unknown): boolean {
+  const kept = (v: unknown): v is Record<string, unknown> =>
+    typeof v === 'object' && v !== null && !Array.isArray(v);
+  if (!kept(before) || !kept(after)) return true;
+  if (Array.isArray(after.stepsKept) && after.stepsKept.length > 0) return true;
+  return saidBy(before) !== saidBy(after);
+}
+
 /**
  * Whether a change heard on the live channel is for this computer to look at: the signed-in person's own, and not
  * this computer's own beat coming back, nor another's line alone, told every few seconds for a ticker (decision 140),

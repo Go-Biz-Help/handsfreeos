@@ -10,8 +10,11 @@ import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ASK_TYPING_WORDS } from '@hfos/core/addons/outreach/asks';
 import { EXTENSION_DOWNLOAD_WORDS } from '@hfos/core/extension-download';
+import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import { freshState } from '../src/auto/plan';
 import { ASK_KEY, askKeyOf, type KeptAsk } from '../src/hfos/asks';
+import { SETTINGS_KEY } from '../src/hfos/follow';
+import { LIVE_ACTIVE_KEY, LIVE_KEY } from '../src/hfos/live';
 import {
   BUSINESS_KEY,
   PLACE_KEY,
@@ -33,13 +36,16 @@ const ACCOUNT: Account = {
   webUrl: WEB,
 };
 
-type Changed = (changes: Record<string, { newValue?: unknown }>, area: string) => void;
+type Changed = (
+  changes: Record<string, { newValue?: unknown; oldValue?: unknown }>,
+  area: string,
+) => void;
 
 interface Panel {
   readonly document: Document;
   /** What the panel asked the background. */
   readonly sent: { readonly type: string; readonly [key: string]: unknown }[];
-  /** A change to the extension's storage, as the background writes it. */
+  /** A change to the extension's storage, as the background writes it: `undefined` takes a key away. */
   readonly change: (values: Record<string, unknown>) => void;
 }
 
@@ -77,10 +83,16 @@ function panel(kept: Record<string, unknown>, answers: Record<string, unknown> =
     document: window.document,
     sent,
     change: (values) => {
-      for (const [k, v] of Object.entries(values)) store.set(k, v);
       const changes = Object.fromEntries(
-        Object.entries(values).map(([k, v]) => [k, { newValue: v }]),
+        Object.entries(values).map(([k, v]) => [
+          k,
+          { oldValue: store.get(k), ...(v === undefined ? {} : { newValue: v }) },
+        ]),
       );
+      for (const [k, v] of Object.entries(values)) {
+        if (v === undefined) store.delete(k);
+        else store.set(k, v);
+      }
       for (const fn of listeners) fn(changes, 'local');
     },
   };
@@ -393,6 +405,194 @@ describe('the day’s buttons (decision 95)', () => {
     expect(await buttons(inHours, { ...freshState('2026-10-28'), stopped: 'person' })).toEqual([
       'Start my day',
     ]);
+  });
+});
+
+describe('asking HandsFreeOS for the day again (0.152.0)', () => {
+  const day = {
+    date: '2026-11-23',
+    state: 'started',
+    why: null,
+    via: 'web',
+    at: '2026-11-23T15:00:00.000Z',
+  };
+  /** A beat's answer as the background keeps it: only when it was kept moves, unless `more` says so. */
+  const answer = (more: Record<string, unknown> = {}) => ({
+    computerId: '00000000-0000-4000-8000-000000000001',
+    name: 'Chrome on Windows',
+    working: true,
+    workingName: null,
+    day,
+    days: {},
+    stepsKept: [],
+    asks: 0,
+    watched: false,
+    ...ME,
+    at: Date.now(),
+    ...more,
+  });
+  /** What the background answers: the day's steps and Get ready, as HandsFreeOS last said. */
+  const shown = (more: Partial<AutoStatus> = {}): AutoStatus => ({
+    automation: {
+      settings: { sending: 'steps', hours: { start: 10, end: 22, days: [1, 2, 3, 4, 5] } },
+      timezone: 'America/Chicago',
+    } as unknown as AutoStatus['automation'],
+    trouble: null,
+    businessId: 'b-one',
+    noting: true,
+    state: freshState('2026-11-23'),
+    webUrl: WEB,
+    live: { working: true, workingName: null },
+    warned: null,
+    pastLimit: null,
+    today: {
+      limits: Object.fromEntries(
+        DAILY_STEPS.map((step) => [step, { done: 1, most: 10 }]),
+      ) as unknown as NonNullable<AutoStatus['today']>['limits'],
+      steps: [],
+    },
+    ready: { ready: true, items: [] },
+    ...more,
+  });
+  const askUnder: KeptAsk = {
+    ...ME,
+    askId: '4c3b2a1d-0e9f-4a8b-8c7d-6e5f4a3b2c1d',
+    platform: 'facebook',
+    kind: 'file_download',
+    about: null,
+    state: 'working',
+    line: 'Opening your Facebook file’s page…',
+    at: Date.now(),
+  };
+
+  /** The panel open on `status`, with the last beat's answer kept: how often it asked, and a new answer kept. */
+  async function open(
+    status: unknown = { ok: true, value: shown() },
+    kept: Record<string, unknown> = {},
+  ) {
+    const p = panel({ [LIVE_KEY]: answer(), ...kept }, { 'hfos-auto': status });
+    const { startStatus, STATUS_FOR_MS, STATUS_SOON_MS } = await import('../src/panel/status');
+    const box = p.document.createElement('section');
+    p.document.body.append(box);
+    startStatus(box);
+    await settle();
+    return {
+      panel: p,
+      asked: () => p.sent.filter((m) => m.type === 'hfos-auto').length,
+      beat: async (more: Record<string, unknown> = {}) => {
+        p.change({ [LIVE_KEY]: answer(more) });
+        await settle();
+      },
+      STATUS_FOR_MS,
+      STATUS_SOON_MS,
+    };
+  }
+
+  it('asks as it opens, and nothing for a beat’s answer that says nothing new', async () => {
+    const { asked, beat } = await open();
+    expect(asked()).toBe(1);
+    for (let i = 0; i < 3; i++) await beat();
+    expect(asked()).toBe(1);
+  });
+
+  it('asks when an answer took a step, says another computer works, or the day moved', async () => {
+    const { asked, beat } = await open();
+    await beat({ stepsKept: ['7d0c4b9e-1f2a-4c3b-8d5e-6f7a8b9c0d1e'] });
+    expect(asked()).toBe(2);
+    // The next one took none: nothing moved, though its list isn't the last one's.
+    await beat();
+    expect(asked()).toBe(2);
+    const standing = { working: false, workingName: 'Chrome on Mac' };
+    await beat(standing);
+    expect(asked()).toBe(3);
+    await beat(standing);
+    expect(asked()).toBe(3);
+    await beat({ ...standing, day: { ...day, state: 'stopped', why: 'person' } });
+    expect(asked()).toBe(4);
+  });
+
+  it('asks after the person used this computer: a step of their own counts against the limits', async () => {
+    const { asked, beat, panel: p } = await open();
+    p.change({ [LIVE_ACTIVE_KEY]: { ...ME, at: Date.now() } });
+    await settle();
+    // Nothing yet: the beat that tells HandsFreeOS so hasn't been answered.
+    expect(asked()).toBe(1);
+    p.change({ [LIVE_ACTIVE_KEY]: undefined });
+    await beat();
+    expect(asked()).toBe(2);
+    await beat();
+    expect(asked()).toBe(2);
+  });
+
+  it('asks again once the last look is five minutes old', async () => {
+    const { asked, beat, STATUS_FOR_MS } = await open();
+    const from = Date.now();
+    vi.setSystemTime(from + STATUS_FOR_MS - 30_000);
+    await beat();
+    expect(asked()).toBe(1);
+    vi.setSystemTime(from + STATUS_FOR_MS + 1_000);
+    await beat();
+    expect(asked()).toBe(2);
+    // And not again for the next five.
+    await beat();
+    expect(asked()).toBe(2);
+  });
+
+  it('asks with the minute’s beat while Get ready holds the day, or an ask is under way here', async () => {
+    const holding = shown({
+      ready: { ready: false, items: [{ item: 'offer', state: 'todo', left: null }] },
+    });
+    // One panel at a time: each open takes the page and the background's stand-in for itself.
+    for (const opening of [
+      () => open({ ok: true, value: holding }),
+      () => open(undefined, { [ASK_KEY]: askUnder }),
+    ]) {
+      const opened = await opening();
+      const from = Date.now();
+      vi.setSystemTime(from + 10_000);
+      await opened.beat();
+      expect(opened.asked()).toBe(1);
+      vi.setSystemTime(from + opened.STATUS_SOON_MS + 1_000);
+      await opened.beat();
+      expect(opened.asked()).toBe(2);
+    }
+  });
+
+  it('asks when an ask under way here ends, and not for its line', async () => {
+    const { asked, panel: p } = await open(undefined, { [ASK_KEY]: askUnder });
+    p.change({ [ASK_KEY]: { ...askUnder, line: 'Waiting for Facebook to make your file…' } });
+    await settle();
+    expect(asked()).toBe(1);
+    p.change({ [ASK_KEY]: undefined });
+    await settle();
+    expect(asked()).toBe(2);
+  });
+
+  it('asks on every answer while the last look failed, or HandsFreeOS couldn’t say', async () => {
+    const failed = await open({
+      ok: false,
+      problem: { message: 'Couldn’t reach HandsFreeOS.', rule: null, status: null, recheck: false },
+    });
+    await failed.beat();
+    await failed.beat();
+    expect(failed.asked()).toBe(3);
+    // A new panel, once the first is done with.
+    const unsaid = await open({ ok: true, value: shown({ today: null }) });
+    await unsaid.beat();
+    expect(unsaid.asked()).toBe(2);
+  });
+
+  it('asks nothing while nobody can see the panel, whatever changed', async () => {
+    const { asked, beat, panel: p } = await open();
+    Object.defineProperty(p.document, 'visibilityState', { value: 'hidden', configurable: true });
+    await beat({ stepsKept: ['7d0c4b9e-1f2a-4c3b-8d5e-6f7a8b9c0d1e'] });
+    p.change({ [SETTINGS_KEY]: { settings: { sending: 'off' } } });
+    await settle();
+    expect(asked()).toBe(1);
+    // Shown again: the next answer with something new asks (and the panel's own page asks at once: panel.ts).
+    Object.defineProperty(p.document, 'visibilityState', { value: 'visible', configurable: true });
+    await beat({ asks: 1 });
+    expect(asked()).toBe(2);
   });
 });
 
