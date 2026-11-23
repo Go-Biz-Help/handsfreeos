@@ -170,6 +170,8 @@ export interface BuilderProps {
   businessZone: string;
   /** The business's colour, logo and website (Settings → Workspace), which the Design section starts from. */
   brand: FormBrand;
+  /** The section it opens at: the card's Change names one. */
+  initialModule?: ModuleKey;
 }
 
 /**
@@ -242,7 +244,7 @@ export function CalendarBuilder(props: BuilderProps) {
   const blocking = hasBlockingIssues(issues);
   const blocksSave = calendar.status === 'active' && blocking;
 
-  const [module, setModule] = useState<ModuleKey>('team');
+  const [module, setModule] = useState<ModuleKey>(props.initialModule ?? 'team');
   const [lastFix, setLastFix] = useState<{ label: string; before: CalendarConfig } | null>(null);
   const [saving, setSaving] = useState(false);
   const [impact, setImpact] = useState<{ impacts: Impact[]; restore: number | null } | null>(null);
@@ -426,7 +428,15 @@ export function CalendarBuilder(props: BuilderProps) {
           Calendars
         </Link>
         <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-        <span className="truncate">{d.name}</span>
+        <Link
+          href={`${base}/calendars/${calendar.id}`}
+          className="truncate text-accent-text hover:underline"
+          data-testid="builder-card-link"
+        >
+          {d.name}
+        </Link>
+        <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+        <span className="whitespace-nowrap">All settings</span>
       </div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-3">

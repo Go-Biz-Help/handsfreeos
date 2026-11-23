@@ -1877,6 +1877,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/calendar_setup.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a calendar from the guided calendar setup’s answers, as its Make this calendar does: services added in question 3 are made (and ones changed there change everywhere), a room or equipment named there is made, then the calendar with every answer, its dates for an event, and it opens for booking when open is true. Nothing is made when an answer is wrong.
+         * @description Risk level 2. Requires calendars.manage. Emits .
+         */
+        post: operations["command_calendar_setup_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/calendar.create": {
         parameters: {
             query?: never;
@@ -31911,6 +31931,120 @@ export interface operations {
             };
         };
     };
+    command_calendar_setup_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        address: string;
+                        areaIds: string[];
+                        /** @enum {string} */
+                        areas: "anywhere" | "areas";
+                        ask: {
+                            id: string;
+                            label: string;
+                            required: boolean;
+                        }[];
+                        /** @enum {string} */
+                        assignment: "first_available" | "round_robin" | "customer_choice" | "collective";
+                        byEmail: boolean;
+                        byText: boolean;
+                        changeHours: number | null;
+                        confirm: boolean;
+                        dates: {
+                            date: string;
+                            time: string;
+                        }[];
+                        daysAhead: number;
+                        /** @enum {string} */
+                        deposit: "business" | "percent" | "amount";
+                        depositCents: number | null;
+                        depositPercent: number;
+                        drive: boolean;
+                        gapMinutes: number;
+                        /** @enum {string} */
+                        hours: "people" | "own";
+                        kind: ("appointment" | "visit" | "meeting" | "class" | "event" | "webinar" | "resource" | "collective" | "scratch") | null;
+                        meetingUrl: string;
+                        minutes: number;
+                        name: string;
+                        noticeMinutes: number;
+                        open: boolean;
+                        ownHours: {
+                            day: number;
+                            end: string;
+                            start: string;
+                        }[];
+                        /** @enum {string} */
+                        pay: "none" | "deposit" | "full";
+                        people: string[];
+                        places: ("customer_address" | "business" | "virtual" | "phone" | "meetup")[];
+                        reminders: ({
+                            /** @default 16:00 */
+                            at?: string;
+                            /** @enum {string} */
+                            kind: "day_before";
+                        } | {
+                            /** @enum {string} */
+                            kind: "before";
+                            minutes: number;
+                        })[];
+                        resource: {
+                            id: string | null;
+                            name: string;
+                        };
+                        seats: number;
+                        services: {
+                            id: string | null;
+                            key: string;
+                            minutes: number;
+                            name: string;
+                            on: boolean;
+                            priceCents: number | null;
+                            userIds: string[];
+                        }[];
+                        tellStaff: boolean;
+                        travelMinutes: number;
+                        /** @enum {string} */
+                        what: "services" | "length";
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        blocked: string[];
+                        /** Format: uuid */
+                        calendarId: string;
+                        dates: {
+                            published: boolean;
+                            /** Format: date-time */
+                            startsAt: string;
+                            why: string | null;
+                        }[];
+                        servicesMade: number;
+                        slug: string;
+                        /** @enum {string} */
+                        status: "draft" | "active";
+                    };
+                };
+            };
+        };
+    };
     command_calendar_create: {
         parameters: {
             query?: never;
@@ -40524,7 +40658,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    setup: "phone" | "email";
+                    setup: "phone" | "email" | "calendar";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -40558,7 +40692,7 @@ export interface operations {
                         [key: string]: unknown;
                     };
                     /** @enum {string} */
-                    setup: "phone" | "email";
+                    setup: "phone" | "email" | "calendar";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -84795,7 +84929,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    setup: "phone" | "email";
+                    setup: "phone" | "email" | "calendar";
                     /** Format: uuid */
                     workspaceId: string;
                 };

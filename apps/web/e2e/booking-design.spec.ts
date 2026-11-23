@@ -29,7 +29,7 @@ test('a calendar’s design shows in its preview, then on its booking page and e
   expect(await background(customer)).not.toBe('rgba(0, 0, 0, 0)');
   await expect(customer.getByTestId('form-look')).toHaveCount(0);
 
-  await page.goto(`/app/w/${owner.workspaceId}/settings/calendars/${cal.id}`);
+  await page.goto(`/app/w/${owner.workspaceId}/settings/calendars/${cal.id}/all`);
   // A press before the page has woken up does nothing, so press again until the section opens.
   const design = page.getByTestId('calendar-design');
   await expect(async () => {

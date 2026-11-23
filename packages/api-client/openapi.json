@@ -8611,7 +8611,8 @@
                     "type": "string",
                     "enum": [
                       "phone",
-                      "email"
+                      "email",
+                      "calendar"
                     ]
                   },
                   "answers": {
@@ -8680,7 +8681,8 @@
                     "type": "string",
                     "enum": [
                       "phone",
-                      "email"
+                      "email",
+                      "calendar"
                     ]
                   }
                 },
@@ -15612,6 +15614,554 @@
                   "required": [
                     "calendarId",
                     "embedOrigins"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/calendar_setup.save": {
+      "post": {
+        "operationId": "command_calendar_setup_save",
+        "summary": "Make a calendar from the guided calendar setup’s answers, as its Make this calendar does: services added in question 3 are made (and ones changed there change everywhere), a room or equipment named there is made, then the calendar with every answer, its dates for an event, and it opens for booking when open is true. Nothing is made when an answer is wrong.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires calendars.manage. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "answers": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "appointment",
+                              "visit",
+                              "meeting",
+                              "class",
+                              "event",
+                              "webinar",
+                              "resource",
+                              "collective",
+                              "scratch"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "name": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "people": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "assignment": {
+                        "type": "string",
+                        "enum": [
+                          "first_available",
+                          "round_robin",
+                          "customer_choice",
+                          "collective"
+                        ]
+                      },
+                      "what": {
+                        "type": "string",
+                        "enum": [
+                          "services",
+                          "length"
+                        ]
+                      },
+                      "services": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "id": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "name": {
+                              "type": "string",
+                              "maxLength": 120
+                            },
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "minutes": {
+                              "type": "integer",
+                              "minimum": 5,
+                              "maximum": 720
+                            },
+                            "priceCents": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 100000000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "userIds": {
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              }
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "id",
+                            "name",
+                            "on",
+                            "minutes",
+                            "priceCents",
+                            "userIds"
+                          ]
+                        }
+                      },
+                      "minutes": {
+                        "type": "integer",
+                        "minimum": 5,
+                        "maximum": 720
+                      },
+                      "seats": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 500
+                      },
+                      "resource": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string",
+                            "maxLength": 120
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name"
+                        ]
+                      },
+                      "hours": {
+                        "type": "string",
+                        "enum": [
+                          "people",
+                          "own"
+                        ]
+                      },
+                      "ownHours": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "day": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 6
+                            },
+                            "start": {
+                              "type": "string"
+                            },
+                            "end": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "day",
+                            "start",
+                            "end"
+                          ]
+                        }
+                      },
+                      "noticeMinutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 129600
+                      },
+                      "daysAhead": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365
+                      },
+                      "gapMinutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 240
+                      },
+                      "dates": {
+                        "maxItems": 24,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "date": {
+                              "type": "string",
+                              "maxLength": 10
+                            },
+                            "time": {
+                              "type": "string",
+                              "maxLength": 5
+                            }
+                          },
+                          "required": [
+                            "date",
+                            "time"
+                          ]
+                        }
+                      },
+                      "places": {
+                        "maxItems": 5,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "customer_address",
+                            "business",
+                            "virtual",
+                            "phone",
+                            "meetup"
+                          ]
+                        }
+                      },
+                      "address": {
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "meetingUrl": {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      "areas": {
+                        "type": "string",
+                        "enum": [
+                          "anywhere",
+                          "areas"
+                        ]
+                      },
+                      "areaIds": {
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "travelMinutes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 240
+                      },
+                      "drive": {
+                        "type": "boolean"
+                      },
+                      "confirm": {
+                        "type": "boolean"
+                      },
+                      "reminders": {
+                        "maxItems": 5,
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "day_before"
+                                  ]
+                                },
+                                "at": {
+                                  "default": "16:00",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "before"
+                                  ]
+                                },
+                                "minutes": {
+                                  "type": "integer",
+                                  "minimum": 15,
+                                  "maximum": 10080
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "minutes"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "byText": {
+                        "type": "boolean"
+                      },
+                      "byEmail": {
+                        "type": "boolean"
+                      },
+                      "changeHours": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 720
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "ask": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 40
+                            },
+                            "label": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "required": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "label",
+                            "required"
+                          ]
+                        }
+                      },
+                      "tellStaff": {
+                        "type": "boolean"
+                      },
+                      "pay": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "deposit",
+                          "full"
+                        ]
+                      },
+                      "deposit": {
+                        "type": "string",
+                        "enum": [
+                          "business",
+                          "percent",
+                          "amount"
+                        ]
+                      },
+                      "depositPercent": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                      },
+                      "depositCents": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "open": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "name",
+                      "people",
+                      "assignment",
+                      "what",
+                      "services",
+                      "minutes",
+                      "seats",
+                      "resource",
+                      "hours",
+                      "ownHours",
+                      "noticeMinutes",
+                      "daysAhead",
+                      "gapMinutes",
+                      "dates",
+                      "places",
+                      "address",
+                      "meetingUrl",
+                      "areas",
+                      "areaIds",
+                      "travelMinutes",
+                      "drive",
+                      "confirm",
+                      "reminders",
+                      "byText",
+                      "byEmail",
+                      "changeHours",
+                      "ask",
+                      "tellStaff",
+                      "pay",
+                      "deposit",
+                      "depositPercent",
+                      "depositCents",
+                      "open"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "answers"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "calendarId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "active"
+                      ]
+                    },
+                    "blocked": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "servicesMade": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "dates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "startsAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "published": {
+                            "type": "boolean"
+                          },
+                          "why": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "startsAt",
+                          "published",
+                          "why"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "calendarId",
+                    "slug",
+                    "status",
+                    "blocked",
+                    "servicesMade",
+                    "dates"
                   ],
                   "additionalProperties": false
                 }
@@ -160279,7 +160829,8 @@
                     "type": "string",
                     "enum": [
                       "phone",
-                      "email"
+                      "email",
+                      "calendar"
                     ]
                   }
                 },

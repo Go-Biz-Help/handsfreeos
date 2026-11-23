@@ -1,28 +1,32 @@
 {
   "area": "settings-calendars",
   "title": "Settings: calendars, services, resources, territories and the booking site",
-  "checkedOn": "2026-11-19",
+  "checkedOn": "2026-11-23",
   "files": {
-    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/page.tsx": "84acabfce33c",
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/all/page.tsx": "d8017113227e",
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/page.tsx": "9ec318570a34",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/booking-site/page.tsx": "616f1f3e4d68",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/new/page.tsx": "1b37fdd5533a",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/page.tsx": "8092237794c5",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/resources/page.tsx": "1b12cf5f93c3",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/services/page.tsx": "4a39947c02a0",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/territories/page.tsx": "4022e3a92693",
+    "apps/web/src/app/onboarding/[workspaceId]/calendar/page.tsx": "63eeb6bed044",
+    "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx": "b84978a26a59",
     "apps/web/src/components/calendar/zone-field.tsx": "bb70cbad3575",
     "apps/web/src/components/calendars/address-input.tsx": "9a72d8346951",
     "apps/web/src/components/calendars/area-map.tsx": "e71af06c083d",
     "apps/web/src/components/calendars/booking-site-form.tsx": "f9c406f07de7",
-    "apps/web/src/components/calendars/builder.tsx": "1b65e21d8508",
-    "apps/web/src/components/calendars/calendars-list.tsx": "8897d35761c2",
+    "apps/web/src/components/calendars/builder.tsx": "50e3cd5323db",
+    "apps/web/src/components/calendars/calendar-card.tsx": "658da205d6fd",
+    "apps/web/src/components/calendars/calendars-list.tsx": "a1b8e09035e6",
     "apps/web/src/components/calendars/chips.tsx": "e12df0c43d2b",
     "apps/web/src/components/calendars/design-module.tsx": "ca405a334a21",
     "apps/web/src/components/calendars/embed-dialog.tsx": "be51af03b53d",
     "apps/web/src/components/calendars/history-sheet.tsx": "84f5900a0942",
     "apps/web/src/components/calendars/impact-dialog.tsx": "a4f8fffc6f1b",
     "apps/web/src/components/calendars/modules.tsx": "ed0a2228872a",
-    "apps/web/src/components/calendars/preset-picker.tsx": "d94ea6b44ddb",
+    "apps/web/src/components/calendars/preset-picker.tsx": "933352f586c9",
     "apps/web/src/components/calendars/resources-page.tsx": "2be3dc659304",
     "apps/web/src/components/calendars/services-page.tsx": "b24ab458a23f",
     "apps/web/src/components/calendars/subnav.tsx": "06ee0e5186ec",
@@ -49,11 +53,11 @@
       "by": "get_settings calendars → what/where; get_calendar_settings bookingLink and linkThatNeverChanges; a link change says the old link keeps working"
     },
     {
-      "path": "Settings → Calendars → Calendars → New calendar",
+      "path": "Settings → Calendars → Calendars → New calendar (opens the guided setup)",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/calendars-list.tsx:47",
+      "file": "apps/web/src/components/calendars/calendars-list.tsx:49",
       "covered": "yes",
-      "by": "manage_calendar action create"
+      "by": "do_calendar_setup_save makes one from the same answers; manage_calendar action create for a preset"
     },
     {
       "path": "Settings → Calendars → Calendars → banner: no booking site → Set up the booking site",
@@ -70,7 +74,7 @@
       "by": "get_settings calendars → site.enabled"
     },
     {
-      "path": "Settings → Calendars → Calendars → empty state: No calendars yet, New calendar",
+      "path": "Settings → Calendars → Calendars → empty state: No calendars yet, New calendar (opens the guided setup)",
       "kind": "see",
       "file": "apps/web/src/components/calendars/calendars-list.tsx:68",
       "covered": "yes",
@@ -210,7 +214,7 @@
       "by": "manage_calendar create → calendar.create"
     },
     {
-      "path": "Calendar → breadcrumb: Settings, Calendars, name",
+      "path": "Calendar → All settings → breadcrumb: Settings, Calendars, name (its card), All settings",
       "kind": "do",
       "file": "apps/web/src/components/calendars/builder.tsx:424",
       "covered": "yes",
@@ -2007,6 +2011,300 @@
       "file": "apps/web/src/components/calendars/design-module.tsx:255",
       "covered": "no",
       "by": "a picture only; nothing shows it"
+    },
+    {
+      "path": "Calendar → Guided setup → who may open it (others go Home)",
+      "kind": "see",
+      "file": "apps/web/src/app/onboarding/[workspaceId]/calendar/page.tsx:36",
+      "covered": "yes",
+      "by": "the tool’s permission refusal"
+    },
+    {
+      "path": "Calendar → Guided setup → 1. What do customers book?: an appointment, a visit, a meeting or call, a class, an event on set dates",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:596",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.kind"
+    },
+    {
+      "path": "Calendar → Guided setup → 1. More kinds: a webinar, a room or equipment, two of you at every booking, start from scratch",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:611",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.kind (scratch makes a calendar with every setting at its default)"
+    },
+    {
+      "path": "Calendar → Guided setup → 1. What should we call this calendar?",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:623",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.name"
+    },
+    {
+      "path": "Calendar → Guided setup → Skip the questions and open all settings",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:642",
+      "covered": "yes",
+      "by": "manage_calendar action create with a preset, as the page it opens does"
+    },
+    {
+      "path": "Calendar → Guided setup → 2. Who does the work / Who runs it / Who goes to every booking: each person with their hours",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:673",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.people; get_settings team for each person’s hours"
+    },
+    {
+      "path": "Calendar → Guided setup → 2. Invite someone to your team",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:702",
+      "covered": "yes",
+      "by": "reads the destination: Settings → Team; inviting is the team tools"
+    },
+    {
+      "path": "Calendar → Guided setup → 2. How bookings are shared: the first one free, they take turns, the customer picks, all of them together",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:717",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.assignment"
+    },
+    {
+      "path": "Calendar → Guided setup → 3. Services: tick each, its name, Takes, Price, Who does it; Add a service",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:789",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.services (new ones are made; changes to ones the business has change them everywhere, which its warning says)"
+    },
+    {
+      "path": "Calendar → Guided setup → 3. Switch between services and one length",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:929",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.what and minutes"
+    },
+    {
+      "path": "Calendar → Guided setup → 3. What gets booked: a room or equipment the business has, or a new one by name",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:943",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.resource (id, or name for a new one)"
+    },
+    {
+      "path": "Calendar → Guided setup → 3. How long and how many seats",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:988",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.minutes and seats"
+    },
+    {
+      "path": "Calendar → Guided setup → 4. When: the dates and start times of an event; Add a date",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1039",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.dates (each posted when the calendar is made; one that can’t be says why)"
+    },
+    {
+      "path": "Calendar → Guided setup → 4. When: the hours the people work, or set hours for this calendar (weekly hours editor)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1104",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.hours and ownHours"
+    },
+    {
+      "path": "Calendar → Guided setup → 4. How much notice, how far ahead, gap between bookings",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1120",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.noticeMinutes, daysAhead, gapMinutes"
+    },
+    {
+      "path": "Calendar → Guided setup → 5. Where: each place, the address customers come to, the meeting link",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1229",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.places, address, meetingUrl"
+    },
+    {
+      "path": "Calendar → Guided setup → 5. Going to them: anywhere or the areas you cover, Add an area, travel time, drive between visits",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1299",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.areas, areaIds, travelMinutes, drive; territory tools to add an area"
+    },
+    {
+      "path": "Calendar → Guided setup → 6. What customers hear: a confirmation, up to 3 reminders, by Text and Email",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1380",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.confirm, reminders, byText, byEmail"
+    },
+    {
+      "path": "Calendar → Guided setup → 6. Texts wait until texting is approved (note)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1475",
+      "covered": "yes",
+      "by": "get_settings phone: whether texting is approved"
+    },
+    {
+      "path": "Calendar → Guided setup → 6. Can they cancel or move online, and up to when; questions to ask when they book; tell staff by email",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1487",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.changeHours, ask, tellStaff"
+    },
+    {
+      "path": "Calendar → Guided setup → 7. Paying: they pay later, a deposit when they book (the business’s, a percent or an amount), the full price",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1585",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.pay, deposit, depositPercent, depositCents"
+    },
+    {
+      "path": "Calendar → Guided setup → 7. Connect a payment account first (a deposit or the full price with none connected)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1641",
+      "covered": "yes",
+      "by": "do_calendar_setup_save is refused with needs_payment_account, which says to connect one in Settings → Payments"
+    },
+    {
+      "path": "Calendar → Guided setup → Your calendar so far: the answers beside each question",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:361",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft setup calendar"
+    },
+    {
+      "path": "Calendar → Guided setup → saved as it goes; Welcome back, Start over",
+      "kind": "do",
+      "file": "apps/web/src/components/guided-setup/frame.tsx:84",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft reads what was kept; the screen keeps and clears its own answers"
+    },
+    {
+      "path": "Calendar → Guided setup → Check it over: the seven answers, each with Change",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:411",
+      "covered": "yes",
+      "by": "do_calendar_setup_save takes the whole set; read_guided_setup_get_draft shows what is kept so far"
+    },
+    {
+      "path": "Calendar → Guided setup → Check it over: things to check (hours not set, texts wait, no dates yet), Take X off for now",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:439",
+      "covered": "yes",
+      "by": "get_settings team and phone say the same things; answers.people to take someone off"
+    },
+    {
+      "path": "Calendar → Guided setup → Check it over: Open it for booking right away; Make this calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:474",
+      "covered": "yes",
+      "by": "do_calendar_setup_save answers.open; its warning says what it makes and changes"
+    },
+    {
+      "path": "Calendar → Guided setup → Done: open for booking or a draft, what still stops it, dates that couldn’t be posted",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1716",
+      "covered": "yes",
+      "by": "do_calendar_setup_save returns status, blocked and dates"
+    },
+    {
+      "path": "Calendar → Guided setup → Done: its booking link, Copy, See it as a customer",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1743",
+      "covered": "yes",
+      "by": "get_calendar_settings bookingLink"
+    },
+    {
+      "path": "Calendar → Guided setup → Done: Add your dates, Put it on your website, Connect Google or Outlook",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1767",
+      "covered": "yes",
+      "by": "sessions on the calendar tools; get_calendar_settings embedCode; connecting a calendar is the person’s own sign-in"
+    },
+    {
+      "path": "Calendar → Guided setup → Done: Set up another calendar, Open its settings",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar-setup/calendar-setup-flow.tsx:1808",
+      "covered": "yes",
+      "by": "reads the destination"
+    },
+    {
+      "path": "Calendar → card → breadcrumb: Settings, Calendars, name",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/calendar-card.tsx:67",
+      "covered": "yes",
+      "by": "reads the destination: get_settings calendars"
+    },
+    {
+      "path": "Calendar → card → header: name and status badge",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendar-card.tsx:81",
+      "covered": "yes",
+      "by": "get_calendar_settings calendar.name and calendar.status"
+    },
+    {
+      "path": "Calendar → card → Open for booking (draft) / Open it again (paused) / Pause booking (open)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/calendar-card.tsx:94",
+      "covered": "yes",
+      "by": "manage_calendar action turn_on or turn_off"
+    },
+    {
+      "path": "Calendar → card → All settings (top) and Open all settings (bottom)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/calendar-card.tsx:109",
+      "covered": "yes",
+      "by": "reads the destination: get_calendar_settings"
+    },
+    {
+      "path": "Calendar → card → note: a draft, paused or archived",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendar-card.tsx:118",
+      "covered": "yes",
+      "by": "get_calendar_settings calendar.status"
+    },
+    {
+      "path": "Calendar → card → Things to check, each with Fix it",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendar-card.tsx:131",
+      "covered": "yes",
+      "by": "get_calendar_settings issues; Fix it opens All settings at that section"
+    },
+    {
+      "path": "Calendar → card → Its booking link, Copy, See it as a customer",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/calendar-card.tsx:158",
+      "covered": "yes",
+      "by": "get_calendar_settings bookingLink"
+    },
+    {
+      "path": "Calendar → card → Put it on your website (embed)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/calendar-card.tsx:174",
+      "covered": "yes",
+      "by": "get_calendar_settings embedCode and sitesAllowedToShowIt; do_calendar_set_embed_sites"
+    },
+    {
+      "path": "Calendar → card → the seven answers: what they book, who does the work, services or length, when, where, reminders and rules, paying",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendar-card.tsx:194",
+      "covered": "yes",
+      "by": "get_calendar_settings (the same settings, read section by section)"
+    },
+    {
+      "path": "Calendar → card → Change on each answer (opens All settings at that section)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/calendar-card.tsx:205",
+      "covered": "yes",
+      "by": "update_calendar_settings for that section"
+    },
+    {
+      "path": "Calendar → All settings → opens at the section the card’s Change named",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/all/page.tsx:31",
+      "covered": "yes",
+      "by": "get_calendar_settings by section"
     }
   ],
   "gaps": [

@@ -1,118 +1,61 @@
-import { can, lookOf } from '@hfos/core';
+import { calendarCardLines, can, parseConfig } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { CalendarBuilder } from '@/components/calendars/builder';
+import { CalendarCard } from '@/components/calendars/calendar-card';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrapPage } from '@/lib/api/server';
+import { buildCatalogs } from '@/lib/calendar/catalogs';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
-import { logoSrc } from '@/lib/look';
 
-export const metadata: Metadata = { title: 'Calendar settings' };
+export const metadata: Metadata = { title: 'Calendar' };
 
 const ID = /^[0-9a-f-]{36}$/i;
-const DAY = 86_400_000;
-const ROLE: Record<string, string> = { owner: 'Owner', admin: 'Admin', member: 'Member' };
 
-/** The builder: every module, labels, conflicts with Fix, the booking link, Save with the impact review. */
-export default async function CalendarBuilderPage({
+/**
+ * A calendar's card (the owner, 22 Nov 2026, C3 a): the guided setup's seven answers, read back from what it does now,
+ * each with Change, and All settings (./all) behind it with every setting it has.
+ */
+export default async function CalendarCardPage({
   params,
 }: {
   params: Promise<{ workspaceId: string; calendarId: string }>;
 }) {
   const { workspaceId, calendarId } = await params;
   if (!ID.test(calendarId)) notFound();
-  const { api, userId } = await apiServer();
+  const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
-  const now = Date.now();
-  const [cal, members, team, services, resources, territories, pipelines] = await Promise.all([
+  const [cal, members, services, resources, territories, brandedOrigin] = await Promise.all([
     api.POST('/v1/queries/calendar.get', { body: { workspaceId, calendarId } }).then(unwrapPage),
     api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
-    api
-      .POST('/v1/queries/schedule.team', {
-        body: {
-          workspaceId,
-          from: new Date(now).toISOString(),
-          to: new Date(now + DAY).toISOString(),
-        },
-      })
-      .then(unwrapPage),
     api
       .POST('/v1/queries/service.list', { body: { workspaceId, includeArchived: true } })
       .then(unwrapPage),
     api
-      .POST('/v1/queries/resource.list', {
-        body: { workspaceId, includeArchived: true },
-      })
+      .POST('/v1/queries/resource.list', { body: { workspaceId, includeArchived: true } })
       .then(unwrapPage),
     api.POST('/v1/queries/territory.list', { body: { workspaceId } }).then(unwrapPage),
-    api.POST('/v1/queries/pipeline.list', { body: { workspaceId } }).then(unwrapPage),
-  ]);
-  let textingReady = false;
-  try {
-    textingReady = unwrap(
-      await api.POST('/v1/queries/phone.setup_status', { body: { workspaceId } }),
-    ).messagingReady;
-  } catch {
-    // Not able to read it: treat texting as not ready, which only adds a warning.
-  }
-  // Settings → Payments, for the Payments module: the accounts money can be taken into, and the deposit the
-  // business asks for. Both are the business's, set once; the calendar only chooses whether to ask.
-  const [accounts, moneySettings, brandedOrigin] = await Promise.all([
-    api
-      .POST('/v1/queries/payment_connection.list', { body: { workspaceId } })
-      .then((r) => r.data?.connections ?? [])
-      .catch(() => []),
-    api
-      .POST('/v1/queries/money.settings', { body: { workspaceId } })
-      .then((r) => r.data?.settings ?? null)
-      .catch(() => null),
     brandedOriginFor(api, workspaceId),
   ]);
-  // The business's logo, colour and website (Settings → Workspace), which the Design section starts from.
-  const settings = (got.workspace.settings ?? {}) as Record<string, unknown>;
-  const look = lookOf(settings);
-  const roles = new Map(members.members.map((m) => [m.userId, m.role]));
-  const people = assigneeOptions(members).map((p) => ({
-    userId: p.id,
-    fullName: p.fullName,
-    role: ROLE[roles.get(p.id) ?? ''] ?? 'Organization admin',
-    weekly: team.people.find((t) => t.userId === p.id)?.weekly ?? null,
-  }));
+  const config = parseConfig(cal.calendar.config);
+  // Names only: the card says who, what and where in words, and the server's own check says what to fix.
+  const catalogs = buildCatalogs({
+    timeZone: cal.calendar.timezone,
+    people: assigneeOptions(members).map((p) => ({ userId: p.id, fullName: p.fullName })),
+    departed: config.team.members.map((m) => m.userId),
+    services: services.items,
+    resources: resources.items,
+    territories: territories.items,
+    pipelines: [],
+    textingReady: true,
+  });
   return (
-    <CalendarBuilder
+    <CalendarCard
       key={cal.calendar.id}
       workspaceId={workspaceId}
-      myUserId={userId}
       calendar={cal.calendar}
-      revisions={cal.revisions}
-      people={people}
-      services={services.items}
-      resources={resources.items}
-      territories={territories.items}
-      pipelines={pipelines.pipelines}
-      textingReady={textingReady}
+      lines={calendarCardLines(config, catalogs)}
       brandedOrigin={brandedOrigin}
-      businessZone={got.workspace.timezone}
-      brand={{
-        website: typeof settings['website'] === 'string' ? settings['website'] || null : null,
-        color: look.color?.hex ?? null,
-        logo: look.logo
-          ? { url: logoSrc(look.logo.path), width: look.logo.width, height: look.logo.height }
-          : null,
-      }}
-      payments={{
-        // Only a live account counts, exactly as the server's `paymentsAvailable` counts it.
-        accounts: accounts
-          .filter((c) => c.status === 'active')
-          .map((c) => ({
-            id: c.id,
-            name: c.label ?? c.displayName ?? '',
-            provider: c.provider,
-            isDefault: c.isDefault,
-          })),
-        deposit: moneySettings?.deposit ?? { kind: 'none' },
-      }}
     />
   );
 }

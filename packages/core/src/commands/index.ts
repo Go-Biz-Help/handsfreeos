@@ -52,6 +52,7 @@ import {
   calendarSetSlug,
   calendarSetStatus,
 } from './calendar';
+import { calendarSetupSave } from './calendar-setup';
 import {
   bookingSiteSetPage,
   bookingSiteUpdate,
@@ -732,6 +733,7 @@ export {
   calendarSetStatus,
   calendarSetSlug,
   calendarSetEmbedSites,
+  calendarSetupSave,
   serviceCreate,
   serviceUpdate,
   serviceArchive,
@@ -956,6 +958,7 @@ export const commands: readonly CommandDef[] = [
   calendarSetStatus,
   calendarSetSlug,
   calendarSetEmbedSites,
+  calendarSetupSave,
   serviceCreate,
   serviceUpdate,
   serviceArchive,
