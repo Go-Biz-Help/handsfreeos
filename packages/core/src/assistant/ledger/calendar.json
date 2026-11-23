@@ -1,7 +1,7 @@
 {
   "area": "calendar",
   "title": "Calendar, appointments, My calendar and booking links",
-  "checkedOn": "2026-11-20",
+  "checkedOn": "2026-11-23",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/calendar.tsx": "bf2926675f7a",
     "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "99f851115c11",
@@ -43,7 +43,7 @@
     "apps/web/src/components/calendar/appointment-dialog.tsx": "203927cbd1b4",
     "apps/web/src/components/calendar/appointment-sheet.tsx": "18d1db33c373",
     "apps/web/src/components/calendar/appt.ts": "762bf72583c0",
-    "apps/web/src/components/calendar/calendar-page.tsx": "ec13031132fb",
+    "apps/web/src/components/calendar/calendar-page.tsx": "a78d17e5678e",
     "apps/web/src/components/calendar/call-review.tsx": "f69afb7ea4c8",
     "apps/web/src/components/calendar/cancel-dialog.tsx": "05f18f021f01",
     "apps/web/src/components/calendar/config-cache.ts": "8e3ca8370dff",
@@ -51,6 +51,7 @@
     "apps/web/src/components/calendar/job-block.tsx": "60f5d9828e2e",
     "apps/web/src/components/calendar/month-grid.tsx": "4cc9835eca64",
     "apps/web/src/components/calendar/move-dialog.tsx": "6249cf7ee953",
+    "apps/web/src/components/calendar/orders-due.tsx": "43fa4b357261",
     "apps/web/src/components/calendar/reassign-dialog.tsx": "b06001a23547",
     "apps/web/src/components/calendar/tell-field.tsx": "c1f789643f81",
     "apps/web/src/components/calendar/time-grid.tsx": "76f63ac0f34f",
@@ -1888,6 +1889,13 @@
       "file": "apps/web/src/components/booking/booking-flow.tsx:143",
       "covered": "yes",
       "by": "get_calendar_settings design"
+    },
+    {
+      "path": "Calendar → Pickups and deliveries: orders to hand over on the days showing, each opening its order",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/orders-due.tsx:34",
+      "covered": "yes",
+      "by": "read_order_list dueFrom, dueTo"
     }
   ],
   "gaps": [

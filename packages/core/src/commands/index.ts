@@ -472,6 +472,7 @@ import {
 } from './money-catalog';
 import { estimateCommands } from './estimate';
 import { invoiceCommands } from './invoice';
+import { orderCommands } from './order';
 import { paymentCommands } from './payment';
 import { partnerPayoutCommands } from './partner-payouts';
 import { subscriptionCommands } from './subscription';
@@ -1197,6 +1198,8 @@ export const commands: readonly CommandDef[] = [
   ...paymentConnectionCommands,
   ...estimateCommands,
   ...invoiceCommands,
+  // Orders (product sellers, 20261027034500).
+  ...orderCommands,
   ...paymentCommands,
   ...subscriptionCommands,
   ...walletCommands,
@@ -1422,6 +1425,7 @@ export * from './video-calls-switch';
 export * from './mail-folder';
 export * from './ai-provider';
 export * from './job';
+export * from './order';
 export * from './custom-field';
 export * from './custom-record';
 export * from './relationship';

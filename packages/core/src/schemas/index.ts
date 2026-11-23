@@ -68,6 +68,7 @@ export * from './founding';
 export * from './billing';
 export * from './affiliates';
 export * from './job';
+export * from './order';
 export * from './custom-field';
 export * from './relationship';
 export * from './support-access';

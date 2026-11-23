@@ -5028,7 +5028,7 @@ export interface paths {
         put?: never;
         /**
          * Fill in a form for a customer yourself and send it, in one go. Works with no signal; the phone keeps it until there is some.
-         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested, file.received, file.deleted. Can wait on a phone with no signal.
+         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, order.created, workflow.enrol_requested, file.received, file.deleted. Can wait on a phone with no signal.
          */
         post: operations["command_form_response_record"];
         delete?: never;
@@ -8291,6 +8291,86 @@ export interface paths {
          * @description Risk level 1. Requires workspace.read. Emits onboarding.step_skipped.
          */
         post: operations["command_onboarding_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/order.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take an order for a customer by hand (New order on Money → Orders): each thing they want with its choice, how many and the price, pickup or delivery and on what day, and notes. It starts as New and gets the business’s next order number.
+         * @description Risk level 1. Requires records.write. Emits order.created.
+         */
+        post: operations["command_order_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/order.make_invoice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make the invoice for an order: a draft with each thing on the order at its price, for the order’s customer, linked to the order. It still needs sending (or marking paid) from the invoice. One invoice an order, unless that one was voided.
+         * @description Risk level 1. Requires money.bill. Emits invoice.created, order.updated.
+         */
+        post: operations["command_order_make_invoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/order.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an order along: New, Making it, Ready (for pickup, or to deliver), Picked up or Delivered, or Cancelled; or back a step. Nothing is sent to the customer.
+         * @description Risk level 1. Requires records.write. Emits order.status_changed.
+         */
+        post: operations["command_order_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/order.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change an order: what is on it (the lines are replaced whole, while it is still open), pickup or delivery, the day, or its notes. Something left out stays as it is.
+         * @description Risk level 1. Requires records.write. Emits order.updated.
+         */
+        post: operations["command_order_update"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22751,6 +22831,46 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_onboarding_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/order.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One order: each thing on it with its choice, how many and the price, the total, where it is, pickup or delivery and the day, notes, the customer, the form it came from and the invoice made from it.
+         * @description Requires records.read.
+         */
+        post: operations["query_order_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/order.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Orders customers placed (product sellers), newest first: what is on each, its number, where it is (New, Making it, Ready, Picked up or Delivered, or Cancelled), pickup or delivery and on what day, and its invoice. Shows the ones still to make or hand over unless you ask for done, cancelled or all; narrow it to one customer, to pickup and delivery days in a range (the calendar), or by a number, a name or something on it.
+         * @description Requires records.read.
+         */
+        post: operations["query_order_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -46488,6 +46608,184 @@ export interface operations {
                         step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_order_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    dueOn?: string | null;
+                    /** @default null */
+                    fulfilment?: ("pickup" | "delivery") | null;
+                    lines: {
+                        /** @default [] */
+                        choiceIds?: string[];
+                        name: string;
+                        /** @default null */
+                        productId?: string | null;
+                        quantity: number;
+                        /** @default true */
+                        taxable?: boolean;
+                        unitPriceCents: number;
+                    }[];
+                    /** @default null */
+                    notes?: string | null;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        number: number;
+                        /** Format: uuid */
+                        orderId: string;
+                        /** @enum {string} */
+                        status: "new" | "making" | "ready" | "done" | "cancelled";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_order_make_invoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    orderId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        invoiceId: string;
+                        /** Format: uuid */
+                        orderId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_order_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    orderId: string;
+                    /** @enum {string} */
+                    status: "new" | "making" | "ready" | "done" | "cancelled";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        number: number;
+                        /** Format: uuid */
+                        orderId: string;
+                        /** @enum {string} */
+                        status: "new" | "making" | "ready" | "done" | "cancelled";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_order_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dueOn?: string | null;
+                    fulfilment?: ("pickup" | "delivery") | null;
+                    lines?: {
+                        /** @default [] */
+                        choiceIds?: string[];
+                        name: string;
+                        /** @default null */
+                        productId?: string | null;
+                        quantity: number;
+                        /** @default true */
+                        taxable?: boolean;
+                        unitPriceCents: number;
+                    }[];
+                    notes?: string | null;
+                    /** Format: uuid */
+                    orderId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        number: number;
+                        /** Format: uuid */
+                        orderId: string;
+                        /** @enum {string} */
+                        status: "new" | "making" | "ready" | "done" | "cancelled";
+                        totalCents: number;
                     };
                 };
             };
@@ -89633,6 +89931,175 @@ export interface operations {
                         website: string | null;
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_order_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    orderId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        order: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            dueOn: string | null;
+                            form: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            formResponseId: string | null;
+                            fulfilment: ("pickup" | "delivery") | null;
+                            /** Format: uuid */
+                            id: string;
+                            invoice: {
+                                /** Format: uuid */
+                                id: string;
+                                number: string | null;
+                                status: string;
+                                totalCents: number;
+                            } | null;
+                            invoiceId: string | null;
+                            itemCount: number;
+                            lines: {
+                                /** @default [] */
+                                choiceIds: string[];
+                                name: string;
+                                productId: string | null;
+                                quantity: number;
+                                /** @default true */
+                                taxable: boolean;
+                                unitPriceCents: number;
+                            }[];
+                            notes: string | null;
+                            number: number;
+                            open: boolean;
+                            person: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            };
+                            /** @enum {string} */
+                            status: "new" | "making" | "ready" | "done" | "cancelled";
+                            statusChangedAt: string | null;
+                            totalCents: number;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_order_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** Format: date */
+                    dueFrom?: string;
+                    /** Format: date */
+                    dueTo?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    personId?: string;
+                    search?: string;
+                    /**
+                     * @default open
+                     * @enum {string}
+                     */
+                    show?: "open" | "done" | "cancelled" | "all";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        nextCursor: string | null;
+                        openCount: number;
+                        orders: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            dueOn: string | null;
+                            form: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            formResponseId: string | null;
+                            fulfilment: ("pickup" | "delivery") | null;
+                            /** Format: uuid */
+                            id: string;
+                            invoice: {
+                                /** Format: uuid */
+                                id: string;
+                                number: string | null;
+                                status: string;
+                                totalCents: number;
+                            } | null;
+                            invoiceId: string | null;
+                            itemCount: number;
+                            lines: {
+                                /** @default [] */
+                                choiceIds: string[];
+                                name: string;
+                                productId: string | null;
+                                quantity: number;
+                                /** @default true */
+                                taxable: boolean;
+                                unitPriceCents: number;
+                            }[];
+                            notes: string | null;
+                            number: number;
+                            open: boolean;
+                            person: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            };
+                            /** @enum {string} */
+                            status: "new" | "making" | "ready" | "done" | "cancelled";
+                            statusChangedAt: string | null;
+                            totalCents: number;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
                     };
                 };
             };
