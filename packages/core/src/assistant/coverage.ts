@@ -682,6 +682,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   'notifications.assigned': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'assigned' }],
   'notifications.qualifying': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'qualifying' }],
   'notifications.documents': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'documents' }],
+  'notifications.stock': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'stock' }],
   'notifications.payments': [
     { tool: 'update_my_alerts', field: 'turnOn', value: 'payment' },
     { tool: 'update_my_account', field: 'emailWhenPaid' },

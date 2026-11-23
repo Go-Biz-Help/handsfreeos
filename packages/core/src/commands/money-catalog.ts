@@ -12,7 +12,7 @@
  */
 import { and, eq, isNull, ne } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { plans, products, services, workspaces } from '@hfos/db/schema';
+import { plans, products, services, stockCounts, workspaces } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -25,8 +25,11 @@ import {
   optionsProblem,
   parseMoneySettings,
   productOptionsOf,
+  resolveStock,
   withOptionIds,
   type MoneySettings,
+  type ProductStock,
+  type StockInput,
   type OptionsDraft,
   type ProductOptionRow,
 } from '../money/index';
@@ -81,7 +84,70 @@ async function requireProduct(ctx: CommandContext, productId: string) {
   return p;
 }
 
-const productOut = (p: typeof products.$inferSelect): typeof ProductOut._output => ({
+/** A product's counts by choice id ('' for the whole product). */
+async function stockCountsOf(
+  ctx: CommandContext,
+  productId: string,
+): Promise<Record<string, number>> {
+  const list = await ctx.tx
+    .select({ choiceId: stockCounts.choiceId, onHand: stockCounts.onHand })
+    .from(stockCounts)
+    .where(eq(stockCounts.productId, productId));
+  return Object.fromEntries(list.map((c) => [c.choiceId, c.onHand]));
+}
+
+const stockOf = (
+  p: typeof products.$inferSelect,
+  counts: Record<string, number>,
+): ProductStock | null =>
+  p.stockTracked ? { optionId: p.stockOptionId, lowAt: p.lowStockAt, counts } : null;
+
+/**
+ * Counts how many are on hand, or stops (null): how it's counted and its number to hear at go on the product, and
+ * the counts sent are set (the rest stay). Checked against the options as they'll be kept.
+ */
+async function saveStock(
+  ctx: CommandContext,
+  product: { id: string; name: string },
+  input: StockInput | null,
+  options: readonly ProductOptionRow[],
+  me: string,
+): Promise<void> {
+  if (input === null) {
+    await ctx.tx
+      .update(products)
+      .set({ stockTracked: false, stockOptionId: null })
+      .where(eq(products.id, product.id));
+    return;
+  }
+  const resolved = resolveStock(product.name, input, options);
+  if ('problem' in resolved)
+    throw HfosError.validation([resolved.problem], resolved.problem.message);
+  const { stock } = resolved;
+  await ctx.tx
+    .update(products)
+    .set({ stockTracked: true, stockOptionId: stock.optionId, lowStockAt: stock.lowAt })
+    .where(eq(products.id, product.id));
+  for (const c of stock.counts)
+    await ctx.tx
+      .insert(stockCounts)
+      .values({
+        workspaceId: ctx.scope.workspaceId!,
+        productId: product.id,
+        choiceId: c.choiceId,
+        onHand: c.onHand,
+        updatedBy: me,
+      })
+      .onConflictDoUpdate({
+        target: [stockCounts.productId, stockCounts.choiceId],
+        set: { onHand: c.onHand, updatedBy: me, updatedAt: new Date() },
+      });
+}
+
+const productOut = (
+  p: typeof products.$inferSelect,
+  counts: Record<string, number> = {},
+): typeof ProductOut._output => ({
   id: p.id,
   name: p.name,
   description: p.description,
@@ -97,6 +163,7 @@ const productOut = (p: typeof products.$inferSelect): typeof ProductOut._output 
     choices: o.choices.map((c) => ({ id: c.id, label: c.label, priceCents: c.priceCents })),
   })),
   archivedAt: iso(p.archivedAt),
+  stock: stockOf(p, counts),
 });
 
 /**
@@ -179,6 +246,11 @@ export const productCreate = defineCommand({
       })
       .returning();
     if (!row) throw HfosError.forbidden();
+    let saved = row;
+    if (input.stock) {
+      await saveStock(ctx, row, input.stock, productOptionsOf(row), me);
+      [saved = row] = await ctx.tx.select().from(products).where(eq(products.id, row.id));
+    }
     await ctx.emit({
       type: 'product.created',
       entityType: 'product',
@@ -187,10 +259,16 @@ export const productCreate = defineCommand({
         kind: row.kind,
         unitPriceCents: Number(row.unitPriceCents),
         options: productOptionsOf(row).length,
+        stock: saved.stockTracked,
       },
       after: { name: row.name, price: Number(row.unitPriceCents), kind: row.kind },
     });
-    return { productId: row.id, archived: false, product: productOut(row), updated: [] };
+    return {
+      productId: row.id,
+      archived: false,
+      product: productOut(saved, await stockCountsOf(ctx, row.id)),
+      updated: [],
+    };
   },
 });
 
@@ -205,7 +283,7 @@ export const productUpdate = defineCommand({
   scope: inWorkspace,
   emits: ['product.updated'],
   async handler(ctx, input) {
-    requireHuman(ctx);
+    const me = requireHuman(ctx).userId;
     const before = await requireProduct(ctx, input.productId);
     if (input.serviceId) await assertServiceFree(ctx, input.serviceId, before.id);
     const set = patch(input, [
@@ -226,24 +304,45 @@ export const productUpdate = defineCommand({
         productOptionsOf(before),
       );
     if (input.options === undefined) delete set.options;
-    if (!Object.keys(set).length)
+    // Taking off the option the stock is counted by needs the stock counted another way in the same save.
+    const keptOptions = (set.options as ProductOptionRow[] | undefined) ?? productOptionsOf(before);
+    if (
+      input.stock === undefined &&
+      before.stockTracked &&
+      before.stockOptionId &&
+      !keptOptions.some((o) => o.id === before.stockOptionId)
+    ) {
+      const was = productOptionsOf(before).find((o) => o.id === before.stockOptionId);
+      throw HfosError.rule(
+        'stock_option_gone',
+        409,
+        `${before.name}’s stock is counted by ${was?.name ?? 'that option'}, so it can’t come off yet. Count the stock as a whole or by another option under Stock, then save.`,
+      );
+    }
+    const countsBefore = await stockCountsOf(ctx, before.id);
+    if (!Object.keys(set).length && input.stock === undefined)
       return {
         productId: before.id,
         archived: !!before.archivedAt,
-        product: productOut(before),
+        product: productOut(before, countsBefore),
         updated: [],
       };
-    const [row] = await ctx.tx
-      .update(products)
-      .set(set)
-      .where(eq(products.id, before.id))
-      .returning();
+    let [row] = Object.keys(set).length
+      ? await ctx.tx.update(products).set(set).where(eq(products.id, before.id)).returning()
+      : [before];
     if (!row) throw HfosError.forbidden();
+    if (input.stock !== undefined) {
+      await saveStock(ctx, row, input.stock, productOptionsOf(row), me);
+      [row = row] = await ctx.tx.select().from(products).where(eq(products.id, before.id));
+    }
+    const countsAfter = await stockCountsOf(ctx, before.id);
     const updated = Object.keys(set).filter(
       (k) =>
         JSON.stringify((row as Record<string, unknown>)[k]) !==
         JSON.stringify((before as Record<string, unknown>)[k]),
     );
+    if (JSON.stringify(stockOf(row, countsAfter)) !== JSON.stringify(stockOf(before, countsBefore)))
+      updated.push('stock');
     await ctx.emit({
       type: 'product.updated',
       entityType: 'product',
@@ -252,7 +351,12 @@ export const productUpdate = defineCommand({
       before: { name: before.name, price: Number(before.unitPriceCents) },
       after: { name: row.name, price: Number(row.unitPriceCents) },
     });
-    return { productId: row.id, archived: !!row.archivedAt, product: productOut(row), updated };
+    return {
+      productId: row.id,
+      archived: !!row.archivedAt,
+      product: productOut(row, countsAfter),
+      updated,
+    };
   },
 });
 

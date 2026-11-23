@@ -9,6 +9,7 @@
  */
 import { z } from 'zod';
 import { ProductOptions } from '../money/options';
+import { StockInput } from '../money/stock';
 import { MoneySettings } from '../money/settings';
 import {
   ESTIMATE_STATUSES,
@@ -264,6 +265,11 @@ export const ProductCreateInput = z.object({
    * off). Picking the product then means picking one choice of each. Ids are made for choices that have none.
    */
   options: ProductOptions.optional(),
+  /**
+   * Count how many are on hand (docs/selling-products.md "Stock"): as a whole, or by one option's name (countBy), with
+   * the number to hear at (lowAt) and the counts to set. Left out or null: not counted.
+   */
+  stock: StockInput.nullable().optional(),
 });
 export const ProductUpdateInput = z.object({
   ...inWorkspace,
@@ -278,6 +284,11 @@ export const ProductUpdateInput = z.object({
   serviceId: uuid.nullable().optional(),
   /** The whole list, replacing what it had. Keep a choice's id to keep form rows made from it pointing at it. */
   options: ProductOptions.optional(),
+  /**
+   * How it's counted, its number to hear at, and the counts to set (only those sent change). Null stops counting it,
+   * keeping the counts for if it's counted again; left out leaves it as it is.
+   */
+  stock: StockInput.nullable().optional(),
 });
 export const ProductArchiveInput = z.object({
   ...inWorkspace,
@@ -303,6 +314,18 @@ export const ProductOut = z.object({
   /** Sizes, colors and other choices, each with its price bump in cents. Empty: picked as it is. */
   options: z.array(productOptionOut).default([]),
   archivedAt: isoDateTime.nullable(),
+  /**
+   * How many are on hand, when it's counted: by the option `optionId` (each choice's count by its id) or as a whole
+   * (the count under ''), and the number to hear at. Null when it isn't counted.
+   */
+  stock: z
+    .object({
+      optionId: z.string().nullable(),
+      lowAt: z.number().nullable(),
+      counts: z.record(z.string(), z.number()),
+    })
+    .nullable()
+    .default(null),
 });
 export const ProductRefOutput = z.object({ productId: uuid, archived: z.boolean() });
 export const ProductSaveOutput = z.object({

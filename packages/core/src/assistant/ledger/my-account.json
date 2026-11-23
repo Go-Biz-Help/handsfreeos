@@ -1112,6 +1112,13 @@
       "by": "update_my_alerts documents"
     },
     {
+      "path": "Notifications → Running low → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:124",
+      "covered": "yes",
+      "by": "update_my_alerts stock"
+    },
+    {
       "path": "Notifications → A customer pays → push and email",
       "kind": "do",
       "file": "packages/core/src/account/notification-rows.ts:124",

@@ -110,6 +110,20 @@ export const OrderOut = z.object({
     })
     .nullable(),
   statusChangedAt: isoDateTime.nullable(),
+  /**
+   * What it took off stock when it was picked up or delivered (empty before, and after it's moved back): each count by
+   * product and choice ('' for a product counted as a whole), how many, and how many were left just after.
+   */
+  stockTaken: z
+    .array(
+      z.object({
+        productId: z.string(),
+        choiceId: z.string(),
+        quantity: z.number(),
+        left: z.number(),
+      }),
+    )
+    .default([]),
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
 });

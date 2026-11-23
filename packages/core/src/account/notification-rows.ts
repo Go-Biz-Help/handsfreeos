@@ -120,6 +120,15 @@ const PUSH_ROWS = [
     email: null,
   },
   {
+    key: 'notifications.stock',
+    title: 'Running low',
+    detail: 'Something you count is down to your number',
+    description:
+      'When an order is picked up or delivered and a product you count stock for is down to the number you set under Settings → Payments → Products. To the people who manage money.',
+    push: 'stock',
+    email: null,
+  },
+  {
     key: 'notifications.payments',
     title: 'A customer pays',
     detail: 'An invoice is paid in full',

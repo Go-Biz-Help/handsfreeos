@@ -21,7 +21,7 @@
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/new/page.tsx": "e59893d795bb",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/page.tsx": "90f9f3d0801d",
     "apps/web/src/app/app/w/[workspaceId]/money/load.ts": "815e1c127c77",
-    "apps/web/src/app/app/w/[workspaceId]/money/orders/[orderId]/page.tsx": "775cf5bd1094",
+    "apps/web/src/app/app/w/[workspaceId]/money/orders/[orderId]/page.tsx": "f8ac35ef1a8c",
     "apps/web/src/app/app/w/[workspaceId]/money/orders/new/page.tsx": "ccb2cf425e0c",
     "apps/web/src/app/app/w/[workspaceId]/money/orders/page.tsx": "39da714bddb8",
     "apps/web/src/app/app/w/[workspaceId]/money/page.tsx": "3aeca4c2854c",
@@ -45,7 +45,7 @@
     "apps/web/src/components/money/list-options.ts": "fa7d5ba84528",
     "apps/web/src/components/money/money-input.tsx": "297d3a23947d",
     "apps/web/src/components/money/order-editor.tsx": "533c6e16388c",
-    "apps/web/src/components/money/order-page.tsx": "78308bc8417e",
+    "apps/web/src/components/money/order-page.tsx": "51ec25c75896",
     "apps/web/src/components/money/orders-list.tsx": "a640267b06ee",
     "apps/web/src/components/money/payments-list.tsx": "842d1f153a67",
     "apps/web/src/components/money/person-picker.tsx": "0e44e715d4c1",
@@ -55,8 +55,8 @@
     "apps/web/src/components/money/plan-visits.tsx": "cca43a62ad16",
     "apps/web/src/components/money/plans-list.tsx": "69bbce72216d",
     "apps/web/src/components/money/product-options-editor.tsx": "a4b653cdf503",
-    "apps/web/src/components/money/product-picker.tsx": "b0122184c9d4",
-    "apps/web/src/components/money/products-page.tsx": "7a137b204ccf",
+    "apps/web/src/components/money/product-picker.tsx": "52e67347bb5b",
+    "apps/web/src/components/money/products-page.tsx": "056818b11378",
     "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
     "apps/web/src/components/money/public-format.ts": "6f17d4ae1a87",
     "apps/web/src/components/money/public-invoice.tsx": "dcd7994a5807",
@@ -1580,6 +1580,13 @@
       "by": "get_settings products (empty)"
     },
     {
+      "path": "Money → catalogue picker → stock: “3 left” or “Out” beside an item counted as a whole, and on each counted choice’s chip",
+      "kind": "see",
+      "file": "apps/web/src/components/money/product-picker.tsx:304",
+      "covered": "yes",
+      "by": "get_settings products → stock and stockLine"
+    },
+    {
       "path": "Money → draft editor → Take off: Nothing / A % / An amount",
       "kind": "do",
       "file": "apps/web/src/components/money/document-editor.tsx:928",
@@ -2397,6 +2404,13 @@
       "file": "apps/web/src/components/money/order-page.tsx:219",
       "covered": "yes",
       "by": "get_form_response responseId (read_order_get → formResponseId)"
+    },
+    {
+      "path": "Order page → What they ordered → each line’s stock: “Comes off stock when it’s picked up · 8 on hand”, “Took 5 off stock · 3 left”, or not counted",
+      "kind": "see",
+      "file": "apps/web/src/components/money/order-page.tsx:385",
+      "covered": "yes",
+      "by": "read_order_get → stockTaken; get_settings products → stock"
     }
   ],
   "gaps": [
