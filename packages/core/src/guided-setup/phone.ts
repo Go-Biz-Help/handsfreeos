@@ -638,7 +638,7 @@ export function phoneSetupLines(
   });
 }
 
-type PhoneSetupSaveBody = Omit<z.input<typeof PhoneSetupSaveInput>, 'workspaceId'>;
+export type PhoneSetupSaveBody = Omit<z.input<typeof PhoneSetupSaveInput>, 'workspaceId'>;
 
 /** A part of what the number does that Settings → Texting & calls changes on its own, behind Change. */
 export type PhoneSetupPart = 'ring' | 'missed' | 'quiet';

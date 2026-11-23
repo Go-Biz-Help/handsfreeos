@@ -6,6 +6,8 @@ import {
   onboardingSetupHomeOf,
   onboardingSetupOf,
   PHONE_GUIDE_WORDS,
+  PAYMENTS_SETUP_WORDS,
+  PHONE_SETUP_WORDS,
   progressWords,
   stepTitle,
   stepWords,
@@ -46,9 +48,10 @@ const FOLDED = 4;
  * Getting started on the phone's Home (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, boards 9 and 10).
  *
  * An owner or admin sees the business's guide, shorter than the web's: the count, the next step with its button,
- * and a few rows under it. A teammate sees "Get set up", their own four rows. The phone does three steps itself (the
- * app, which it is, its notifications, and the AI teammate's quick setup while the business has no teammate);
- * everything else is easier on a computer, so its button emails the person a link (`onboarding.send_link`). Hidden or
+ * and a few rows under it. A teammate sees "Get set up", their own four rows. The phone does four steps itself (the
+ * app, which it is, its notifications, the AI teammate's quick setup while the business has no teammate, and the
+ * business number's guided setup while it has no number); everything else is easier on a computer, so its button
+ * emails the person a link (`onboarding.send_link`). Hidden or
  * finished on the web, it's gone here too.
  *
  * Until the guided setup is finished (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8), whoever sets the
@@ -88,6 +91,13 @@ function Steps({
   const hasTeammate = teammates.length > 0;
   // Quick setup runs here as on the web, for whoever manages the teammate, until there is one.
   const setsUpAi = !isLoading && !hasTeammate && holds(grants, 'ai_team.manage');
+  // The business number's guided setup runs here as on the web, until there is a number (the owner, 22 Nov 2026).
+  // Moving one they have and getting approved to text are long forms, so those still email a link.
+  const setsUpNumber = (step: OnboardingStep) =>
+    step.key === 'number' && step.note.phase === 'buy_number' && holds(grants, 'channels.manage');
+  // So does the payments one (the owner, 23 Nov 2026, P4 a), until an account is connected.
+  const setsUpPayments = (step: OnboardingStep) =>
+    step.key === 'payments' && step.state === 'todo' && holds(grants, 'money.manage');
   // The teammate quick setup saves reaches the phone's copy: the guide asks again.
   const hadTeammate = React.useRef<boolean | null>(null);
   React.useEffect(() => {
@@ -123,7 +133,11 @@ function Steps({
       : null;
   /** The step this phone does itself. */
   const onPhone = (step: OnboardingStep) =>
-    step.key === 'app' || step.key === 'notifications' || (step.key === 'ai' && setsUpAi);
+    step.key === 'app' ||
+    step.key === 'notifications' ||
+    (step.key === 'ai' && setsUpAi) ||
+    setsUpNumber(step) ||
+    setsUpPayments(step);
 
   /** One command at a time, with signal; the guide asks again when it's done. */
   const act = async (key: string, run: () => Promise<string | null>) => {
@@ -185,6 +199,28 @@ function Steps({
           testID="getting-started-ai-setup"
         >
           {PHONE_GUIDE_WORDS.aiSetUp}
+        </Button>
+      );
+    if (setsUpNumber(step))
+      return (
+        <Button
+          size="sm"
+          variant={primary ? 'primary' : 'secondary'}
+          onPress={() => router.push(businessHref(business.id, 'phone-setup'))}
+          testID="getting-started-number-setup"
+        >
+          {stepWords(step).action ?? PHONE_SETUP_WORDS.startCard.start}
+        </Button>
+      );
+    if (setsUpPayments(step))
+      return (
+        <Button
+          size="sm"
+          variant={primary ? 'primary' : 'secondary'}
+          onPress={() => router.push(businessHref(business.id, 'payments-setup'))}
+          testID="getting-started-payments-setup"
+        >
+          {stepWords(step).action ?? PAYMENTS_SETUP_WORDS.summary.start}
         </Button>
       );
     if (step.key === 'notifications')

@@ -8612,7 +8612,8 @@
                     "enum": [
                       "phone",
                       "email",
-                      "calendar"
+                      "calendar",
+                      "payments"
                     ]
                   },
                   "answers": {
@@ -8682,7 +8683,8 @@
                     "enum": [
                       "phone",
                       "email",
-                      "calendar"
+                      "calendar",
+                      "payments"
                     ]
                   }
                 },
@@ -161501,7 +161503,8 @@
                     "enum": [
                       "phone",
                       "email",
-                      "calendar"
+                      "calendar",
+                      "payments"
                     ]
                   }
                 },

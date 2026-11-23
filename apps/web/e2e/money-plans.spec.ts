@@ -365,7 +365,7 @@ test('Money → Plans: Square says what it will not do, and disconnecting asks a
   await waitForProvider(owner, subscriptionId);
 
   // ---- Settings → Payments: the disconnect lists the plan, and offers to cancel it first ----
-  await page.goto(`/app/w/${owner.workspaceId}/settings/payments`);
+  await page.goto(`/app/w/${owner.workspaceId}/settings/payments?all=1`);
   const card = page.getByTestId(`pay-account-${owner.accountId}`);
   await expect(card).toContainText('1 plan bills through it.');
   await page.getByRole('button', { name: /actions$/ }).click();

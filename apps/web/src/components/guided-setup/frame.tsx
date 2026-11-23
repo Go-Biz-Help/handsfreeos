@@ -203,6 +203,7 @@ export function GuidedCard({
   footer,
   steps,
   stepsTitle,
+  stepsNote,
   aside,
   testId = 'guided-setup',
   children,
@@ -218,12 +219,21 @@ export function GuidedCard({
   /** The answers so far, beside the question. */
   steps?: readonly GuidedStep[];
   stepsTitle?: string;
+  /** Under the answers so far: where they started from ("Started from what roofing businesses usually pick."). */
+  stepsNote?: ReactNode;
   /** Something else beside the question in place of the answers so far (Check it over's "What happens next"). */
   aside?: ReactNode;
   testId?: string;
   children: ReactNode;
 }) {
-  const side = aside ?? (steps ? <StepList title={stepsTitle ?? ''} steps={steps} /> : null);
+  const side =
+    aside ??
+    (steps ? (
+      <>
+        <StepList title={stepsTitle ?? ''} steps={steps} />
+        {stepsNote}
+      </>
+    ) : null);
   return (
     <Card
       className={cn(
