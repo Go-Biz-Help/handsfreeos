@@ -30,6 +30,8 @@ export function CalendarsList({
   useLiveRefresh(['calendar', 'booking_site', 'appointment']);
   const origin = usePublicOrigin(brandedOrigin);
   const base = `/app/w/${workspaceId}/settings/calendars`;
+  // New calendar opens the guided setup (the owner, 22 Nov 2026, C2 a), which links on to every setting.
+  const setup = `/onboarding/${workspaceId}/calendar`;
   const shown = [...items].sort(
     (a, b) => Number(a.status === 'archived') - Number(b.status === 'archived'),
   );
@@ -44,7 +46,7 @@ export function CalendarsList({
             change any time without changing its link.
           </p>
         </div>
-        <ButtonLink href={`${base}/new`} variant="primary" size="sm" data-testid="calendar-new">
+        <ButtonLink href={setup} variant="primary" size="sm" data-testid="calendar-new">
           <Plus className="h-4 w-4" strokeWidth={1.75} />
           New calendar
         </ButtonLink>
@@ -69,12 +71,13 @@ export function CalendarsList({
           title="No calendars yet"
           className="border-t border-border"
           actions={
-            <ButtonLink href={`${base}/new`} variant="primary" size="sm">
+            <ButtonLink href={setup} variant="primary" size="sm">
               New calendar
             </ButtonLink>
           }
         >
-          Start with a preset like Personal or Round Robin. You can change how it works later.
+          A few quick questions set it up: what customers book, who does the work, when and where.
+          You can change anything later.
         </EmptyState>
       ) : (
         <ul>

@@ -22,6 +22,8 @@ export interface PickedProduct {
   readonly unitPriceCents: number;
   readonly unitLabel: string;
   readonly taxable: boolean;
+  /** The product's choices picked for it (Adult 2XL, Black), which an order keeps for counting stock by choice. */
+  readonly choiceIds: readonly string[];
 }
 
 /** A typed-in line: no catalogue row behind it, and the price is whatever the document says. */
@@ -33,6 +35,7 @@ export function blankLine(name: string): PickedProduct {
     unitPriceCents: 0,
     unitLabel: 'each',
     taxable: true,
+    choiceIds: [],
   };
 }
 
@@ -46,6 +49,7 @@ const pick = (p: ProductRow, picks: OptionPicks = {}): PickedProduct => {
     unitPriceCents: priceWithChoices(p.unitPriceCents, choices),
     unitLabel: p.unitLabel,
     taxable: p.taxable,
+    choiceIds: choices.map((c) => c.id),
   };
 };
 

@@ -31,11 +31,18 @@ export default async function CalendarRoute({
   const days = query.view === 'month' ? monthGridOf(query.date) : weekOf(query.date);
   const from = new Date(localInstant(days[0]!, '00:00', timeZone)).toISOString();
   const to = new Date(localInstant(days.at(-1)!, '24:00', timeZone)).toISOString();
-  const [calendars, resources, team, appointments] = await Promise.all([
+  const [calendars, resources, team, appointments, orders] = await Promise.all([
     api.POST('/v1/queries/calendar.list', { body: { workspaceId } }).then(unwrapPage),
     api.POST('/v1/queries/resource.list', { body: { workspaceId } }).then(unwrapPage),
     api.POST('/v1/queries/schedule.team', { body: { workspaceId, from, to } }).then(unwrapPage),
     api.POST('/v1/queries/appointment.list', { body: { workspaceId, from, to } }).then(unwrapPage),
+    // Orders to hand over on these days (product sellers): the calendar still opens if they can't load.
+    api
+      .POST('/v1/queries/order.list', {
+        body: { workspaceId, show: 'open', dueFrom: days[0]!, dueTo: days.at(-1)!, limit: 200 },
+      })
+      .then((r) => r.data?.orders ?? [])
+      .catch(() => []),
   ]);
   return (
     <CalendarPage
@@ -50,6 +57,7 @@ export default async function CalendarRoute({
       resources={resources.items}
       people={team.people}
       appointments={appointments.items}
+      orders={orders}
     />
   );
 }

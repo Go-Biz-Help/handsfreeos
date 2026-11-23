@@ -1,0 +1,128 @@
+import { CALENDAR_SECTIONS, can, lookOf, type CalendarSectionKey } from '@hfos/core';
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { CalendarBuilder } from '@/components/calendars/builder';
+import { assigneeOptions } from '@/lib/api/people';
+import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
+import { brandedOriginFor } from '@/lib/hosting/branded-origin';
+import { logoSrc } from '@/lib/look';
+
+export const metadata: Metadata = { title: 'All calendar settings' };
+
+const ID = /^[0-9a-f-]{36}$/i;
+const DAY = 86_400_000;
+const ROLE: Record<string, string> = { owner: 'Owner', admin: 'Admin', member: 'Member' };
+
+/**
+ * All settings, behind the calendar's card (the owner, 22 Nov 2026, C3 a): the builder, with every module, labels,
+ * conflicts with Fix, the booking link, Save with the impact review. `?part=<section>` opens at that section, which
+ * is where the card's Change goes.
+ */
+export default async function CalendarBuilderPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ workspaceId: string; calendarId: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const { workspaceId, calendarId } = await params;
+  if (!ID.test(calendarId)) notFound();
+  const part = (await searchParams)['part'];
+  const initialModule =
+    CALENDAR_SECTIONS.find((s) => s.key === part)?.key ?? ('team' satisfies CalendarSectionKey);
+  const { api, userId } = await apiServer();
+  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
+  const now = Date.now();
+  const [cal, members, team, services, resources, territories, pipelines] = await Promise.all([
+    api.POST('/v1/queries/calendar.get', { body: { workspaceId, calendarId } }).then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
+    api
+      .POST('/v1/queries/schedule.team', {
+        body: {
+          workspaceId,
+          from: new Date(now).toISOString(),
+          to: new Date(now + DAY).toISOString(),
+        },
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/service.list', { body: { workspaceId, includeArchived: true } })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/resource.list', {
+        body: { workspaceId, includeArchived: true },
+      })
+      .then(unwrapPage),
+    api.POST('/v1/queries/territory.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/pipeline.list', { body: { workspaceId } }).then(unwrapPage),
+  ]);
+  let textingReady = false;
+  try {
+    textingReady = unwrap(
+      await api.POST('/v1/queries/phone.setup_status', { body: { workspaceId } }),
+    ).messagingReady;
+  } catch {
+    // Not able to read it: treat texting as not ready, which only adds a warning.
+  }
+  // Settings → Payments, for the Payments module: the accounts money can be taken into, and the deposit the
+  // business asks for. Both are the business's, set once; the calendar only chooses whether to ask.
+  const [accounts, moneySettings, brandedOrigin] = await Promise.all([
+    api
+      .POST('/v1/queries/payment_connection.list', { body: { workspaceId } })
+      .then((r) => r.data?.connections ?? [])
+      .catch(() => []),
+    api
+      .POST('/v1/queries/money.settings', { body: { workspaceId } })
+      .then((r) => r.data?.settings ?? null)
+      .catch(() => null),
+    brandedOriginFor(api, workspaceId),
+  ]);
+  // The business's logo, colour and website (Settings → Workspace), which the Design section starts from.
+  const settings = (got.workspace.settings ?? {}) as Record<string, unknown>;
+  const look = lookOf(settings);
+  const roles = new Map(members.members.map((m) => [m.userId, m.role]));
+  const people = assigneeOptions(members).map((p) => ({
+    userId: p.id,
+    fullName: p.fullName,
+    role: ROLE[roles.get(p.id) ?? ''] ?? 'Organization admin',
+    weekly: team.people.find((t) => t.userId === p.id)?.weekly ?? null,
+  }));
+  return (
+    <CalendarBuilder
+      key={cal.calendar.id}
+      initialModule={initialModule}
+      workspaceId={workspaceId}
+      myUserId={userId}
+      calendar={cal.calendar}
+      revisions={cal.revisions}
+      people={people}
+      services={services.items}
+      resources={resources.items}
+      territories={territories.items}
+      pipelines={pipelines.pipelines}
+      textingReady={textingReady}
+      brandedOrigin={brandedOrigin}
+      businessZone={got.workspace.timezone}
+      brand={{
+        website: typeof settings['website'] === 'string' ? settings['website'] || null : null,
+        color: look.color?.hex ?? null,
+        logo: look.logo
+          ? { url: logoSrc(look.logo.path), width: look.logo.width, height: look.logo.height }
+          : null,
+      }}
+      payments={{
+        // Only a live account counts, exactly as the server's `paymentsAvailable` counts it.
+        accounts: accounts
+          .filter((c) => c.status === 'active')
+          .map((c) => ({
+            id: c.id,
+            name: c.label ?? c.displayName ?? '',
+            provider: c.provider,
+            isDefault: c.isDefault,
+          })),
+        deposit: moneySettings?.deposit ?? { kind: 'none' },
+      }}
+    />
+  );
+}
