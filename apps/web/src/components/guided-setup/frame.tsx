@@ -37,6 +37,8 @@ export function useGuidedDraft(
   latest.current = text;
   const running = useRef<Promise<void>>(Promise.resolve());
   const stopped = useRef(false);
+  /** Counts the saves that went through, so what is waiting is looked at again after each. */
+  const [kept, setKept] = useState(0);
 
   const save = useCallback(async () => {
     // One at a time, each sending the newest answers: a slow save never lands on top of a newer one.
@@ -48,10 +50,13 @@ export function useGuidedDraft(
         unwrap(
           await apiBrowser().POST('/v1/commands/guided_setup.save_draft', {
             body: { workspaceId, setup, answers: JSON.parse(body) as Record<string, unknown> },
+            // Still sent when the page is on its way out (a reload, the tab closing).
+            keepalive: true,
           }),
         );
         saved.current = body;
         setState('saved');
+        setKept((n) => n + 1);
       } catch {
         setState('error');
       }
@@ -61,10 +66,32 @@ export function useGuidedDraft(
   }, [workspaceId, setup]);
 
   useEffect(() => {
-    if (text === null || text === saved.current) return;
+    if (text === null) return;
+    if (text === saved.current) {
+      // Just kept, or changed back to what is kept: nothing to send.
+      setState((s) => (s === 'saving' ? 'saved' : s));
+      return;
+    }
+    // "Saved" only once it is: the tick dims the moment an answer changes, until that answer is kept. Before
+    // anything is kept there is no tick to dim, so it shows once the first save is on its way.
+    if (!stopped.current && saved.current !== null) setState('saving');
     const timer = setTimeout(() => void save(), 700);
     return () => clearTimeout(timer);
-  }, [text, save]);
+  }, [text, save, kept]);
+  // Reloading, closing the tab or going back presses no button: what was just answered is sent at once.
+  useEffect(() => {
+    const now = () => void save();
+    const hidden = () => {
+      if (document.visibilityState === 'hidden') now();
+    };
+    window.addEventListener('pagehide', now);
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      window.removeEventListener('pagehide', now);
+      document.removeEventListener('visibilitychange', hidden);
+      now();
+    };
+  }, [save]);
 
   /** Forget the saved answers (finished, or Start over). Nothing more is saved until `resume`. */
   const clear = useCallback(async () => {

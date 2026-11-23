@@ -87,6 +87,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'conversation.move': {},
   'conversation.open': {},
   'conversation.share': {},
+  // "No thanks" on the draft the AI teammate left on someone's own mail (2026-11-22). Nothing was sent.
+  'conversation.ai_draft_dismiss': {
+    about:
+      'Only on the asker’s own mail, when their address lets the AI teammate read it. The draft goes; a new one comes with the next mail.',
+  },
   'video_link.create': {},
   'ai_teammate.answer_feedback': {},
   'ai_teammate.give_feedback': {},
@@ -307,13 +312,20 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'rcs_sender.connect': {},
   // ---- Settings → Email ----
   'mailbox.disconnect': {},
-  // "Set up your business email" (Home's card and the guided setup's stop), a part at a time, from read_email_setup_get.
-  'email_setup.save': {
+  // The guided email setup (22 Nov 2026): Settings → Email's Set it up, and Home's card. Its first question looks the
+  // website name up, and its last screen carries the answers out.
+  'email_setup.look_up': {
     about:
-      'part is sender (which address customers see: with is domain or free, then domain and local for the domain, or freeLocal for the free address, and name, the name customers see), records (receive: whether the domain’s email comes here too) or own (mine and mineLocal: an address only the person reads, on the domain). Pass email whole: read_email_setup_get’s answers with what changes.',
-    warning:
-      'Your business email adds the domain and moves booking emails to the address picked once its records are found; the free address is renamed straight away.',
+      'domain is the website name the person gave. It only looks up where that name’s mail goes today and where its records are looked after, and adds nothing. A moment later read_email_setup_get’s state.lookup has the answer.',
   },
+  'email_setup.apply': {
+    about:
+      'Pass email whole: read_email_setup_get’s guided, with what changes. with is domain or free; domain is the website name, or freeLocal the name before @ on the free address; name is the name customers see; addresses are the new ones (local, the name before @; reader, me for only the person asking or team; aiReads, true to let the AI teammate read the person’s own); sender is the local of the address customers hear from, which the team must read; receive is true for mail to the website name to arrive in HandsFreeOS, false to keep it where it goes today. It only adds: an address already set up is changed with manage_email_settings.',
+    warning:
+      'This adds the website name and its addresses, which are made once its records are found; booking emails move to the address customers hear from then. Mail arrives here only after the mail record is changed where the website name is looked after.',
+  },
+  // email_setup.save (a part at a time) isn't here: no screen runs it since the phone's Home card moved to the guided
+  // setup too. The command stays for phones that haven't updated; the Assistant sets email up with email_setup.apply.
   'email_domain.send_steps': {
     about: 'to is the email address the domain’s records and where to add them go to.',
   },
@@ -331,6 +343,21 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
       values: ['remove'],
       why: 'Removing it deletes the address and every conversation on it for good, which stays the person’s (the owner, 2026-10-26): Remove it, under the address on Settings → Email.',
     },
+  },
+  // Remove address, in an address's Change box (2026-11-22): the mail it carried stays, so this one is offered; its
+  // own card names the address and says where new mail to it goes.
+  'email_address.remove': {
+    about:
+      'emailAddressId from get_settings (area email). Never the one customers hear from, nor the last free address; a person’s own address only that person removes.',
+    warning:
+      'The mail it already got stays where it is. New mail sent to it goes to the team’s Inbox.',
+  },
+  // "Let Ava read this mail", the switch under a person's own address (2026-11-22). Only that person turns it on.
+  'email_address.set_ai_reads': {
+    about:
+      'emailAddressId from get_settings (area email): only the asker’s own address (mine true), never the team’s or someone else’s. aiReads true lets the AI teammate read new mail sent to it and draft answers only they see; false stops it and clears the drafts it left.',
+    warning:
+      'On, the AI teammate reads the mail that comes in to this address. It only drafts: nothing is sent until you send it, and nobody else sees the drafts.',
   },
   'email_sender_rule.remove': {},
   // ---- Settings → Website chat, Facebook & Instagram ----
@@ -682,6 +709,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   'notifications.assigned': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'assigned' }],
   'notifications.qualifying': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'qualifying' }],
   'notifications.documents': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'documents' }],
+  'notifications.stock': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'stock' }],
   'notifications.payments': [
     { tool: 'update_my_alerts', field: 'turnOn', value: 'payment' },
     { tool: 'update_my_account', field: 'emailWhenPaid' },
@@ -857,7 +885,10 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_email_settings', field: 'displayName' },
     { tool: 'manage_email_settings', field: 'isDefault' },
     { tool: 'manage_email_settings', field: 'ownerUserId' },
+    { tool: 'manage_email_settings', field: 'defaultToId' },
     { tool: 'do_email_address_reassign', field: 'to' },
+    { tool: 'do_email_address_remove', field: 'emailAddressId' },
+    { tool: 'do_email_address_set_ai_reads', field: 'aiReads' },
   ],
   'email.own_domain': [
     { tool: 'manage_email_settings', field: 'action', value: 'add_domain' },

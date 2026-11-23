@@ -2510,8 +2510,15 @@ export function emailDomainStepsEmail(input: {
   /** Where the domain's DNS is managed, when we know. */
   host: { label: string; url: string; where: string; add: string; note?: string } | null;
   records: readonly StepsRecord[];
+  /** The old mail records to delete, when the domain's mail is moving here and still goes somewhere else. */
+  oldMail?: readonly { host: string; priority: number }[];
 }): EmailContent {
   const n = input.records.length;
+  const old = input.oldMail ?? [];
+  const oldIntro = old.length
+    ? `Then delete ${old.length === 1 ? 'the old mail (MX) record' : `the ${old.length} old mail (MX) records`}, so mail to ${input.domain} comes to HandsFreeOS. Until ${old.length === 1 ? 'it is' : 'they are'} gone, mail keeps going where it goes today, and nothing is lost.`
+    : '';
+  const oldLines = old.map((r) => `- MX ${r.host} (priority ${r.priority})`);
   const subject = `Add ${n} DNS records for ${input.domain}`;
   const intro = `${input.by} at ${input.business} asked for these: ${n} DNS records for ${input.domain}, so ${input.business}’s emails go out from it through HandsFreeOS and land in inboxes, not spam.`;
   const where = input.host
@@ -2524,9 +2531,9 @@ export function emailDomainStepsEmail(input: {
   );
   const after =
     'HandsFreeOS checks for them on its own and switches over once they’re found. Records can take up to a few hours to show up.';
-  const text = `${intro}\n\n${where}${note}\n\n${lines.join('\n\n')}\n\n${after}${
-    input.host ? `\n\nOpen ${input.host.label}: ${input.host.url}` : ''
-  }`;
+  const text = `${intro}\n\n${where}${note}\n\n${lines.join('\n\n')}\n\n${
+    old.length ? `${oldIntro}\n\n${oldLines.join('\n')}\n\n` : ''
+  }${after}${input.host ? `\n\nOpen ${input.host.label}: ${input.host.url}` : ''}`;
   const cell = 'padding: 6px 8px; border-top: 1px solid #e4e8ee; vertical-align: top;';
   const mono =
     "font-family: 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 13px; word-break: break-all;";
@@ -2544,6 +2551,15 @@ export function emailDomainStepsEmail(input: {
     para(escapeHtml(intro)) +
       para(escapeHtml(where + note)) +
       `<table style="width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0 16px;"><tr><th style="text-align: left; padding: 6px 8px;">Type</th><th style="text-align: left; padding: 6px 8px;">Name</th><th style="text-align: left; padding: 6px 8px;">Value</th></tr>${rows}</table>` +
+      (old.length
+        ? para(escapeHtml(oldIntro)) +
+          `<table style="width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0 16px;"><tr><th style="text-align: left; padding: 6px 8px;">Type</th><th style="text-align: left; padding: 6px 8px;">Points to</th><th style="text-align: left; padding: 6px 8px;">Priority</th></tr>${old
+            .map(
+              (r) =>
+                `<tr><td style="${cell}">MX</td><td style="${cell} ${mono}">${escapeHtml(r.host)}</td><td style="${cell}">${r.priority}</td></tr>`,
+            )
+            .join('')}</table>`
+        : '') +
       para(escapeHtml(after)) +
       (input.host ? button(input.host.url, `Open ${input.host.label}`) : '') +
       small(`Sent by HandsFreeOS for ${escapeHtml(input.business)}.`),

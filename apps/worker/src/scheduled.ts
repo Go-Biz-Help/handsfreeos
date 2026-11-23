@@ -68,6 +68,7 @@ import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
 import { PORTAL_JOBS, portalUnreadNotice } from './portal/replies';
 import {
   EMAIL_RECEIVING_CHECK_JOB,
+  domainHosts,
   domainRecordInput,
   ownershipFound,
   lapsedMessage,
@@ -491,10 +492,18 @@ export const checkEmailReceivingJob: JobHandler = async (ctx) => {
     if (opened === 'refused') return;
     if (opened === 'waiting') return { rescheduleAt: new Date(Date.now() + POSTMARK_CATCH_UP_MS) };
   }
+  // What its mail records are now goes with it, so the guided setup's last step shows which old ones are still there.
+  const { mailHost, mxRecords } = await domainHosts(ctx.email.domains, d.domain);
   const { output } = await executeCommand(
     ctx.db,
     emailDomainRecordReceiving,
-    { workspaceId: scope.workspaceId, emailDomainId, mxFound },
+    {
+      workspaceId: scope.workspaceId,
+      emailDomainId,
+      mxFound,
+      ...(mailHost ? { mailHost } : {}),
+      ...(mxRecords ? { mxRecords } : {}),
+    },
     systemActor(scope),
     workerMeta(),
   );

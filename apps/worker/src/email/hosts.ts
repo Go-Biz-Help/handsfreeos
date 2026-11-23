@@ -17,3 +17,18 @@ export async function lookUp<T>(fn: () => Promise<T[]>): Promise<T[] | null> {
     return ABSENT.has(String((e as { code?: unknown }).code ?? '')) ? [] : null;
   }
 }
+
+/**
+ * The answers, and whether DNS said there is no such name at all (not just no records of this kind): the guided
+ * email setup tells someone their website name looks misspelled. `missing` is false when DNS didn't answer.
+ */
+export async function lookUpName<T>(
+  fn: () => Promise<T[]>,
+): Promise<{ found: T[] | null; missing: boolean }> {
+  try {
+    return { found: await fn(), missing: false };
+  } catch (e) {
+    const code = String((e as { code?: unknown }).code ?? '');
+    return { found: ABSENT.has(code) ? [] : null, missing: code === 'ENOTFOUND' };
+  }
+}

@@ -1,17 +1,19 @@
 import { can, EMAIL_SETUP_WORDS, EmailSetupGetOutput } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
-import { EmailSetupFlow } from '@/components/email-setup/email-setup-flow';
-import { SetupPage } from '@/components/onboarding-setup/frame';
-import { ButtonLink } from '@/components/ui/button';
+import { EmailGuidedFlow } from '@/components/email-setup/guided-flow';
 import { apiServer, getSetupWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: EMAIL_SETUP_WORDS.homeStartTitle };
 
 /**
- * Home's "Set up your business email" (the owner's 7a): the guided setup's email screens on a page of their own, for
- * a business that finished setting up before the step existed, or whose domain's records are still on their way
- * (`?at=records`). Only someone who can change the business's email comes here; anyone else goes Home.
+ * The guided email setup (the owner, 22 Nov 2026): one question at a time on a page of its own, opened from Home's
+ * "Set up your business email" and from Settings → Email (`?from=settings`, so Finish later goes back there). The
+ * answers are saved as they are given, so this page opens where they left off; nothing changes until Set it up.
+ * A business whose website name still has its last step open lands on it (`?at=records` asks for it by name, and
+ * `&d=` says which website name when Settings has more than one), `?again=1` is "Run the guided setup again" (the
+ * questions, whatever is left), and `?done=1` is the Done screen. Only someone who can change the business's email
+ * comes here; anyone else goes Home.
  */
 export default async function EmailSetupPage({
   params,
@@ -28,26 +30,32 @@ export default async function EmailSetupPage({
   if (!mine) notFound();
   const { ws } = mine;
   if (!can(ws.permissions, 'channels.manage')) redirect(home);
-  const got = EmailSetupGetOutput.parse(
-    unwrapPage(await api.POST('/v1/queries/email_setup.get', { body: { workspaceId } })),
-  );
-  const at = (await searchParams)['at'];
+  const [got, draft] = await Promise.all([
+    api
+      .POST('/v1/queries/email_setup.get', { body: { workspaceId } })
+      .then((r) => EmailSetupGetOutput.parse(unwrapPage(r))),
+    // The answers as they were left. Only a head start, so a read that fails starts from the first question rather
+    // than taking the page down with it (the API ships some minutes after this app does, and until then it has no
+    // such route).
+    api.POST('/v1/queries/guided_setup.get_draft', { body: { workspaceId, setup: 'email' } }).then(
+      (r) => r.data ?? null,
+      () => null,
+    ),
+  ]);
+  const query = await searchParams;
   return (
-    <SetupPage
-      business={{ name: got.state.businessName || ws.name, home }}
+    <EmailGuidedFlow
+      workspaceId={workspaceId}
+      businessName={ws.name}
       email={email}
-      settingUp={EMAIL_SETUP_WORDS.homeStartTitle}
-      finishLater={
-        <ButtonLink href={home} variant="ghost" data-testid="email-setup-later">
-          {EMAIL_SETUP_WORDS.notNow}
-        </ButtonLink>
-      }
-    >
-      <EmailSetupFlow
-        workspaceId={workspaceId}
-        got={got}
-        at={at === 'records' ? 'records' : null}
-      />
-    </SetupPage>
+      firstName={got.state.myFirstName}
+      got={got}
+      draft={{ answers: draft?.answers ?? null, savedAt: draft?.savedAt ?? null }}
+      at={query['at'] === 'records' ? 'records' : null}
+      domainId={typeof query['d'] === 'string' ? query['d'] : null}
+      again={query['again'] === '1'}
+      done={query['done'] === '1'}
+      from={query['from'] === 'settings' ? 'settings' : 'home'}
+    />
   );
 }

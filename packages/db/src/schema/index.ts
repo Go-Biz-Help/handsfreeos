@@ -1645,6 +1645,11 @@ export const conversations = app.table('conversations', {
   folder: conversationFolder('folder').notNull().default('inbox'),
   /** M19: the one person who may read it (their own address's mail); null is the team's. Never linked to a customer. */
   privateTo: uuid('private_to'),
+  /**
+   * The answer the AI teammate drafted for the newest mail in a person's own thread, when their address lets it
+   * read: `{ body, forMessageId, at }`. Only ever on a private thread, so only its person reads it.
+   */
+  aiDraft: jsonb('ai_draft').$type<{ body: string; forMessageId: string; at: string }>(),
   /** The record a thread is about (a portal thread's deal); a private record's thread is sealed with it (round two). */
   customRecordId: uuid('custom_record_id').references(() => customRecords.id, {
     onDelete: 'set null',
@@ -1969,6 +1974,23 @@ export const emailDomains = app.table('email_domains', {
   /** Where its mail goes now (none, google, microsoft…) and where its DNS is managed, as the worker last looked. */
   mailHost: text('mail_host'),
   dnsHost: text('dns_host'),
+  /** Its MX records as the worker last saw them, lowest priority first (the guided setup's "old records to delete"). */
+  mxRecords: jsonb('mx_records').$type<{ host: string; priority: number }[]>(),
+});
+
+/**
+ * The website name a business last asked about in the guided email setup, before adding it (20261027033800): where
+ * its mail goes and where its DNS is looked after. One row a business; only the worker writes it.
+ */
+export const emailDomainLookups = app.table('email_domain_lookups', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  domain: text('domain').notNull(),
+  mailHost: text('mail_host'),
+  dnsHost: text('dns_host'),
+  mxRecords: jsonb('mx_records').$type<{ host: string; priority: number }[]>(),
+  lookedAt: ts('looked_at').notNull().defaultNow(),
 });
 
 /** A sending address: on the shared subdomain (no domain) or on a verified workspace domain. */
@@ -1987,6 +2009,8 @@ export const emailAddresses = app.table('email_addresses', {
   ...timestamps(),
   /** M19: the person whose own address this is; only they send from it, and its mail is theirs alone. */
   ownerUserId: uuid('owner_user_id'),
+  /** Its own person lets the AI teammate read the mail that comes in here and draft answers only they see. */
+  aiReads: boolean('ai_reads').notNull().default(false),
 });
 
 /** An Outlook or Gmail mailbox; tokens and sign-in secrets are sealed by the worker. */
@@ -4342,7 +4366,30 @@ export const products = app.table('products', {
   archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /** Stock (20261027034600): whether it's counted, by which option (null: as a whole), and when to tell. */
+  stockTracked: boolean('stock_tracked').notNull().default(false),
+  stockOptionId: text('stock_option_id'),
+  lowStockAt: integer('low_stock_at'),
 });
+
+/**
+ * How many of a product, or one choice of it ('' for the product as a whole), are on hand (20261027034600;
+ * docs/selling-products.md). An order takes its lines off when it's done, through a trigger.
+ */
+export const stockCounts = app.table(
+  'stock_counts',
+  {
+    workspaceId: workspaceRef(),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    choiceId: text('choice_id').notNull().default(''),
+    onHand: integer('on_hand').notNull().default(0),
+    updatedBy: userRef('updated_by'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.productId, t.choiceId] })],
+);
 
 /** What a maintenance plan costs and what it includes; a subscription takes a copy when it is sold. */
 export const plans = app.table('plans', {
@@ -4614,6 +4661,8 @@ export const orders = app.table(
     statusChangedBy: userRef('status_changed_by'),
     createdBy: userRef('created_by'),
     ...timestamps(),
+    /** What it took off stock when it was done (20261027034600); only a trigger writes it. */
+    stockTaken: jsonb('stock_taken').$type<object[]>().notNull().default([]),
   },
   (t) => [unique().on(t.workspaceId, t.number)],
 );
@@ -9120,6 +9169,7 @@ export const tables = {
   invoices,
   invoiceLines,
   orders,
+  stockCounts,
   paymentConnections,
   payments,
   refunds,

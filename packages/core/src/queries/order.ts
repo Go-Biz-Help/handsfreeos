@@ -16,6 +16,7 @@ import {
   type OrderFulfilment,
   type OrderStatus,
 } from '../money/orders';
+import { stockTakenOf } from '../money/stock';
 import {
   OrderGetOutput,
   OrderListInput,
@@ -50,6 +51,7 @@ export type OrderRow = {
   inv_status: string | null;
   inv_total_cents: number | string | null;
   status_changed_at: Date | string | null;
+  stock_taken: unknown;
   created_at: Date | string;
   updated_at: Date | string;
   sort_key: string;
@@ -63,7 +65,7 @@ export const orderSelect = sql`select o.id, o.number, o.status::text as status, 
       pe.email::text, pe.phone) as person_name,
     o.form_id, f.name as form_name, o.form_response_id, o.invoice_id,
     i.id as inv_id, i.number as inv_number, i.status::text as inv_status, i.total_cents::float8 as inv_total_cents,
-    o.status_changed_at, o.created_at, o.updated_at,
+    o.status_changed_at, o.stock_taken, o.created_at, o.updated_at,
     to_char(o.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as sort_key
   from app.orders o
   join app.people pe on pe.id = o.person_id
@@ -104,6 +106,12 @@ export function orderOut(r: OrderRow): OrderOut {
         }
       : null,
     statusChangedAt: r.status_changed_at ? iso(r.status_changed_at) : null,
+    stockTaken: stockTakenOf(r.stock_taken).map((t) => ({
+      productId: t.productId,
+      choiceId: t.choiceId,
+      quantity: t.quantity,
+      left: t.left,
+    })),
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
   };

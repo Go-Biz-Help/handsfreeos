@@ -49,6 +49,8 @@ export const PUSH_SWITCHES = [
   'qualifying',
   /** Documents to sign (20261027015200): one you sent was signed by everyone, declined or ran out of time. */
   'documents',
+  /** Stock (20261027034600): a product the business counts is down to its number to hear at. */
+  'stock',
 ] as const;
 export type PushSwitch = (typeof PUSH_SWITCHES)[number];
 /** The kinds nobody turns off (a check-in's): not a switch in Settings, and always on (`private.push_on`). */
@@ -80,6 +82,7 @@ export const PushSwitches = z.object({
   supportTickets: z.boolean(),
   qualifying: z.boolean(),
   documents: z.boolean(),
+  stock: z.boolean(),
 });
 export type PushSwitches = z.infer<typeof PushSwitches>;
 
@@ -211,6 +214,11 @@ export const PUSH_CATEGORIES = {
    * it ran out of time. Open goes to the document.
    */
   document: { switch: 'documents', buttons: ['open'] },
+  /**
+   * Stock (20261027034600): a product the business counts went down to its number to hear at when an order was picked
+   * up or delivered, to the people who manage money. Open goes to Settings → Payments → Products.
+   */
+  stock_low: { switch: 'stock', buttons: ['open'] },
   /**
    * Someone wrote to HandsFreeOS support, in the app or by email: a new ticket, to the support people. It belongs to
    * no business; Open goes to the ticket on the support desk.

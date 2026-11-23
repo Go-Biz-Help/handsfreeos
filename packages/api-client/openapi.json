@@ -12474,10 +12474,154 @@
         }
       }
     },
+    "/v1/commands/email_address.remove": {
+      "post": {
+        "operationId": "command_email_address_remove",
+        "summary": "Remove one sending address. The mail it already got stays, and mail that comes to it after goes to the team’s Inbox. Never the default address or the free backup address, and one person’s own address only by them.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires channels.manage. Emits email_address.removed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "emailAddressId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "emailAddressId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "emailAddressId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "address": {
+                      "type": "string"
+                    },
+                    "threads": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "emailAddressId",
+                    "address",
+                    "threads"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/email_address.set_ai_reads": {
+      "post": {
+        "operationId": "command_email_address_set_ai_reads",
+        "summary": "Let the AI teammate read the mail that comes in to your own address and draft answers only you see, or stop it. Only on an address one person reads, and only by that person. Nothing is sent: you send the draft, or don’t.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires inbox.use. Emits email_address.ai_reads_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "emailAddressId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "aiReads": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "emailAddressId",
+                  "aiReads"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "emailAddressId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "address": {
+                      "type": "string"
+                    },
+                    "aiReads": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "emailAddressId",
+                    "address",
+                    "aiReads",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/email_address.update": {
       "post": {
         "operationId": "command_email_address_update",
-        "summary": "Change the name customers see on an address, rename it while it has not sent mail, or make it the default.",
+        "summary": "Change the name customers see on an address, rename it while it has not carried mail, make it the default, give a team address to one person, or (its own person only) hand it back to the team.",
         "tags": [
           "commands"
         ],
@@ -12524,6 +12668,11 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "defaultToId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 },
                 "required": [
@@ -12771,6 +12920,257 @@
                   "required": [
                     "emailDomainId",
                     "to"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/email_setup.look_up": {
+      "post": {
+        "operationId": "command_email_setup_look_up",
+        "summary": "Look a website name up before adding it, for the guided email setup’s first question: where its mail goes today and where its DNS records are looked after. Changes nothing about the business’s email. The answer is in email_setup.get’s state.lookup a few seconds later. Up to 40 an hour.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires channels.manage. Emits email_domain.lookup_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "domain": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "domain"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "domain": {
+                      "type": "string"
+                    },
+                    "askedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "domain",
+                    "askedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/email_setup.apply": {
+      "post": {
+        "operationId": "command_email_setup_apply",
+        "summary": "The guided email setup’s “Set it up”: every answer at once. with free: the free address on mail.handsfreeos.com, renamed and made the one customers hear from now. with domain: the business’s own website name, added when new, with the addresses to make there (addresses: local is the name before the @, reader is me for one only you read or team, aiReads lets the AI teammate read your own), the one customers hear from (sender, an address the team reads), the name customers see (name), and whether its mail comes to HandsFreeOS (receive). Until the name’s DNS records check out, mail goes from the free address; then everything is made on its own. It only adds: an address already set up keeps who reads it, and none is removed.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires channels.manage. Emits email_domain.added, email_domain.planned, email_address.created, email_address.updated, email_address.ai_reads_changed, email_domain.receiving_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "email": {
+                    "type": "object",
+                    "properties": {
+                      "with": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "domain",
+                              "free"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "domain": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "freeLocal": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "name": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "addresses": {
+                        "default": [],
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "local": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            "reader": {
+                              "default": "team",
+                              "type": "string",
+                              "enum": [
+                                "me",
+                                "team"
+                              ]
+                            },
+                            "aiReads": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "picked": {
+                              "default": false,
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      },
+                      "sender": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "receive": {
+                        "default": null,
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "at": {
+                        "default": "which",
+                        "type": "string",
+                        "enum": [
+                          "which",
+                          "addresses",
+                          "readers",
+                          "sender",
+                          "receive",
+                          "review"
+                        ]
+                      },
+                      "by": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "changes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "sender": {
+                      "type": "string"
+                    },
+                    "emailDomainId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "left": {
+                      "type": "string",
+                      "enum": [
+                        "records",
+                        "mail",
+                        "done"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "changes",
+                    "sender",
+                    "emailDomainId",
+                    "left"
                   ],
                   "additionalProperties": false
                 }
@@ -13422,6 +13822,69 @@
                   "required": [
                     "conversationId",
                     "personId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/conversation.ai_draft_dismiss": {
+      "post": {
+        "operationId": "command_conversation_ai_draft_dismiss",
+        "summary": "Put away the answer the AI teammate drafted on your own mail. Nothing was sent, and it drafts again when new mail comes.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires inbox.use. Emits conversation.ai_draft_dismissed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "conversationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "conversationId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conversationId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "dismissed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "conversationId",
+                    "dismissed"
                   ],
                   "additionalProperties": false
                 }
@@ -41819,6 +42282,67 @@
                         "choices"
                       ]
                     }
+                  },
+                  "stock": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "countBy": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "lowAt": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "counts": {
+                            "default": [],
+                            "maxItems": 40,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "choice": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 60
+                                },
+                                "onHand": {
+                                  "type": "integer",
+                                  "minimum": -1000000,
+                                  "maximum": 1000000
+                                }
+                              },
+                              "required": [
+                                "onHand"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -41954,6 +42478,46 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "stock": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "optionId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "lowAt": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "counts": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {
+                                    "type": "number"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "optionId",
+                                "lowAt",
+                                "counts"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -41967,7 +42531,8 @@
                         "taxable",
                         "serviceId",
                         "options",
-                        "archivedAt"
+                        "archivedAt",
+                        "stock"
                       ],
                       "additionalProperties": false
                     },
@@ -42128,6 +42693,67 @@
                         "choices"
                       ]
                     }
+                  },
+                  "stock": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "countBy": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "lowAt": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "counts": {
+                            "default": [],
+                            "maxItems": 40,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "choice": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 60
+                                },
+                                "onHand": {
+                                  "type": "integer",
+                                  "minimum": -1000000,
+                                  "maximum": 1000000
+                                }
+                              },
+                              "required": [
+                                "onHand"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -42263,6 +42889,46 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "stock": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "optionId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "lowAt": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "counts": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {
+                                    "type": "number"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "optionId",
+                                "lowAt",
+                                "counts"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -42276,7 +42942,8 @@
                         "taxable",
                         "serviceId",
                         "options",
-                        "archivedAt"
+                        "archivedAt",
+                        "stock"
                       ],
                       "additionalProperties": false
                     },
@@ -46009,7 +46676,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits order.status_changed.",
+        "description": "Risk level 1. Requires records.write. Emits order.status_changed, stock.low.",
         "requestBody": {
           "required": true,
           "content": {
@@ -164143,6 +164810,41 @@
                         }
                       ]
                     },
+                    "aiDraft": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "body": {
+                              "type": "string"
+                            },
+                            "forMessageId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "by": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "body",
+                            "forMessageId",
+                            "at",
+                            "by"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "canText": {
                       "type": "object",
                       "properties": {
@@ -166952,6 +167654,15 @@
                           },
                           "ownerLeft": {
                             "type": "boolean"
+                          },
+                          "mine": {
+                            "type": "boolean"
+                          },
+                          "renamable": {
+                            "type": "boolean"
+                          },
+                          "aiReads": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -166966,6 +167677,29 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "aiTeammate": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "on": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "on"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "domains": {
                       "type": "array",
@@ -167117,6 +167851,12 @@
                               {
                                 "type": "null"
                               }
+                            ]
+                          },
+                          "dnsHost": {
+                            "type": [
+                              "string",
+                              "null"
                             ]
                           }
                         },
@@ -167292,7 +168032,7 @@
     "/v1/queries/email_setup.get": {
       "post": {
         "operationId": "query_email_setup_get",
-        "summary": "The business email step: the address booking emails go out from now, the business’s free address and own domains (with their DNS records, where each is managed and what happens once they check out), your own address, connected mailboxes, and the answers to start from.",
+        "summary": "The business email step and the guided email setup: the address booking emails go out from now, every address the business has and who reads each, its free address and own domains (with their DNS records, their mail records as last seen, where each is managed and what happens once they check out), the website name last looked up, your own address, connected mailboxes, and the answers to start from (answers for the older step, guided for the guided setup).",
         "tags": [
           "queries"
         ],
@@ -167527,6 +168267,32 @@
                                     ],
                                     "additionalProperties": false
                                   },
+                                  "addresses": {
+                                    "maxItems": 12,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "localPart": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 64
+                                        },
+                                        "userId": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "aiReads": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "localPart"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
                                   "receive": {
                                     "type": "boolean"
                                   }
@@ -167578,6 +168344,36 @@
                                   "additionalProperties": false
                                 }
                               },
+                              "mxRecords": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "host": {
+                                          "type": "string",
+                                          "maxLength": 254
+                                        },
+                                        "priority": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 65535
+                                        }
+                                      },
+                                      "required": [
+                                        "host",
+                                        "priority"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "lastCheckedAt": {
                                 "anyOf": [
                                   {
@@ -167606,6 +168402,7 @@
                               "dnsHost",
                               "plan",
                               "records",
+                              "mxRecords",
                               "lastCheckedAt",
                               "lastError"
                             ],
@@ -167623,6 +168420,176 @@
                               },
                               "required": [
                                 "address"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "myUserId": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "addresses": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "address": {
+                                "type": "string"
+                              },
+                              "localPart": {
+                                "type": "string"
+                              },
+                              "domain": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "reader": {
+                                "type": "string",
+                                "enum": [
+                                  "me",
+                                  "team",
+                                  "other"
+                                ]
+                              },
+                              "aiReads": {
+                                "type": "boolean"
+                              },
+                              "isDefault": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "address",
+                              "localPart",
+                              "domain",
+                              "reader",
+                              "aiReads",
+                              "isDefault"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "aiTeammate": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "on": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "on"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "lookup": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "domain": {
+                                  "type": "string"
+                                },
+                                "mailHost": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "none",
+                                        "handsfreeos",
+                                        "google",
+                                        "microsoft",
+                                        "godaddy",
+                                        "zoho",
+                                        "other"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "dnsHost": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "mxRecords": {
+                                  "anyOf": [
+                                    {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "host": {
+                                            "type": "string",
+                                            "maxLength": 254
+                                          },
+                                          "priority": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 65535
+                                          }
+                                        },
+                                        "required": [
+                                          "host",
+                                          "priority"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "lookedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "domain",
+                                "mailHost",
+                                "dnsHost",
+                                "mxRecords",
+                                "lookedAt"
                               ],
                               "additionalProperties": false
                             },
@@ -167688,6 +168655,10 @@
                         "free",
                         "domains",
                         "mine",
+                        "myUserId",
+                        "addresses",
+                        "aiTeammate",
+                        "lookup",
                         "mailboxes",
                         "canManage"
                       ],
@@ -167757,6 +168728,127 @@
                         "receive",
                         "mine",
                         "mineLocal"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "guided": {
+                      "type": "object",
+                      "properties": {
+                        "with": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "domain",
+                                "free"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "domain": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "freeLocal": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "name": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "addresses": {
+                          "default": [],
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "local": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 300
+                              },
+                              "reader": {
+                                "default": "team",
+                                "type": "string",
+                                "enum": [
+                                  "me",
+                                  "team"
+                                ]
+                              },
+                              "aiReads": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "picked": {
+                                "default": false,
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "local",
+                              "reader",
+                              "aiReads",
+                              "picked"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "sender": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "receive": {
+                          "default": null,
+                          "type": [
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "at": {
+                          "default": "which",
+                          "type": "string",
+                          "enum": [
+                            "which",
+                            "addresses",
+                            "readers",
+                            "sender",
+                            "receive",
+                            "review"
+                          ]
+                        },
+                        "by": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 64
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "with",
+                        "domain",
+                        "freeLocal",
+                        "name",
+                        "addresses",
+                        "sender",
+                        "receive",
+                        "at",
+                        "by"
                       ],
                       "additionalProperties": false
                     }
@@ -197506,6 +198598,46 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "stock": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "optionId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "lowAt": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "counts": {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string"
+                                    },
+                                    "additionalProperties": {
+                                      "type": "number"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "optionId",
+                                  "lowAt",
+                                  "counts"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -197519,7 +198651,8 @@
                           "taxable",
                           "serviceId",
                           "options",
-                          "archivedAt"
+                          "archivedAt",
+                          "stock"
                         ],
                         "additionalProperties": false
                       }
@@ -203436,6 +204569,34 @@
                               }
                             ]
                           },
+                          "stockTaken": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "productId": {
+                                  "type": "string"
+                                },
+                                "choiceId": {
+                                  "type": "string"
+                                },
+                                "quantity": {
+                                  "type": "number"
+                                },
+                                "left": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "productId",
+                                "choiceId",
+                                "quantity",
+                                "left"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -203464,6 +204625,7 @@
                           "invoiceId",
                           "invoice",
                           "statusChangedAt",
+                          "stockTaken",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -203769,6 +204931,34 @@
                             }
                           ]
                         },
+                        "stockTaken": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "productId": {
+                                "type": "string"
+                              },
+                              "choiceId": {
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "type": "number"
+                              },
+                              "left": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "productId",
+                              "choiceId",
+                              "quantity",
+                              "left"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time",
@@ -203797,6 +204987,7 @@
                         "invoiceId",
                         "invoice",
                         "statusChangedAt",
+                        "stockTaken",
                         "createdAt",
                         "updatedAt"
                       ],
@@ -218857,6 +220048,32 @@
                                         ],
                                         "additionalProperties": false
                                       },
+                                      "addresses": {
+                                        "maxItems": 12,
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "localPart": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 64
+                                            },
+                                            "userId": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "aiReads": {
+                                              "type": "boolean"
+                                            }
+                                          },
+                                          "required": [
+                                            "localPart"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
                                       "receive": {
                                         "type": "boolean"
                                       }
@@ -218908,6 +220125,36 @@
                                       "additionalProperties": false
                                     }
                                   },
+                                  "mxRecords": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "host": {
+                                              "type": "string",
+                                              "maxLength": 254
+                                            },
+                                            "priority": {
+                                              "type": "integer",
+                                              "minimum": 0,
+                                              "maximum": 65535
+                                            }
+                                          },
+                                          "required": [
+                                            "host",
+                                            "priority"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "lastCheckedAt": {
                                     "anyOf": [
                                       {
@@ -218936,6 +220183,7 @@
                                   "dnsHost",
                                   "plan",
                                   "records",
+                                  "mxRecords",
                                   "lastCheckedAt",
                                   "lastError"
                                 ],
@@ -218953,6 +220201,176 @@
                                   },
                                   "required": [
                                     "address"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "myUserId": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "addresses": {
+                              "default": [],
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "address": {
+                                    "type": "string"
+                                  },
+                                  "localPart": {
+                                    "type": "string"
+                                  },
+                                  "domain": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "reader": {
+                                    "type": "string",
+                                    "enum": [
+                                      "me",
+                                      "team",
+                                      "other"
+                                    ]
+                                  },
+                                  "aiReads": {
+                                    "type": "boolean"
+                                  },
+                                  "isDefault": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "address",
+                                  "localPart",
+                                  "domain",
+                                  "reader",
+                                  "aiReads",
+                                  "isDefault"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "aiTeammate": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "on": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "name",
+                                    "on"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "lookup": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "domain": {
+                                      "type": "string"
+                                    },
+                                    "mailHost": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "none",
+                                            "handsfreeos",
+                                            "google",
+                                            "microsoft",
+                                            "godaddy",
+                                            "zoho",
+                                            "other"
+                                          ]
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "dnsHost": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "mxRecords": {
+                                      "anyOf": [
+                                        {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "host": {
+                                                "type": "string",
+                                                "maxLength": 254
+                                              },
+                                              "priority": {
+                                                "type": "integer",
+                                                "minimum": 0,
+                                                "maximum": 65535
+                                              }
+                                            },
+                                            "required": [
+                                              "host",
+                                              "priority"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "lookedAt": {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    }
+                                  },
+                                  "required": [
+                                    "domain",
+                                    "mailHost",
+                                    "dnsHost",
+                                    "mxRecords",
+                                    "lookedAt"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -219018,6 +220436,10 @@
                             "free",
                             "domains",
                             "mine",
+                            "myUserId",
+                            "addresses",
+                            "aiTeammate",
+                            "lookup",
                             "mailboxes",
                             "canManage"
                           ],

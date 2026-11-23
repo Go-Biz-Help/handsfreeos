@@ -1,7 +1,7 @@
 {
   "area": "settings-money-partners",
   "title": "Settings: payments, products, partners, imports and migrations",
-  "checkedOn": "2026-11-21",
+  "checkedOn": "2026-11-23",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/partners/[partnerId].tsx": "f392529733e2",
@@ -18,7 +18,8 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/payments/products/page.tsx": "d04f5eac8abc",
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
     "apps/web/src/components/migrations/wizard.tsx": "65ae1c100765",
-    "apps/web/src/components/money/products-page.tsx": "7a137b204ccf",
+    "apps/web/src/components/money/product-stock-editor.tsx": "549412bdbeea",
+    "apps/web/src/components/money/products-page.tsx": "056818b11378",
     "apps/web/src/components/partners/partner-card.tsx": "b27e21964bf3",
     "apps/web/src/components/partners/partner-detail.tsx": "485bf34fe90f",
     "apps/web/src/components/partners/payouts-section.tsx": "6e34f7fdae98",
@@ -741,6 +742,48 @@
       "file": "apps/web/src/components/money/products-page.tsx:594",
       "covered": "yes",
       "by": "manage_product card note: documents that already have it keep it"
+    },
+    {
+      "path": "Settings → Products → each item: its stock (“38 on hand · 2 sizes low · 1 out”), amber when something is low or out",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:225",
+      "covered": "yes",
+      "by": "get_settings products → items[].stockLine and stock (optionId, lowAt, counts by choice id)"
+    },
+    {
+      "path": "Settings → Products → opened from the Running low push (?product=)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:108",
+      "covered": "yes",
+      "by": "get_settings products → the item by id"
+    },
+    {
+      "path": "Settings → Products → editor → Count how many I have (An order takes its own off when it’s picked up or delivered.)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/product-stock-editor.tsx:112",
+      "covered": "yes",
+      "by": "manage_product stock (null stops counting); card's Stock row"
+    },
+    {
+      "path": "Settings → Products → editor → Count it: As a whole / By size (each option)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/product-stock-editor.tsx:125",
+      "covered": "yes",
+      "by": "manage_product stock.countBy (an option's name; null: as a whole); product.update refuses taking off the option it's counted by (stock_option_gone)"
+    },
+    {
+      "path": "Settings → Products → editor → each count (On hand, or one per choice), amber when low and red when out",
+      "kind": "do",
+      "file": "apps/web/src/components/money/product-stock-editor.tsx:166",
+      "covered": "yes",
+      "by": "manage_product stock.counts [{choice, onHand}] (only those sent change); card's Stock row shows them"
+    },
+    {
+      "path": "Settings → Products → editor → Tell me when it’s down to (blank for never)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/product-stock-editor.tsx:190",
+      "covered": "yes",
+      "by": "manage_product stock.tellAt (null: never)"
     },
     {
       "path": "Settings → Partners → People who send you customers for a share of what each one pays in their first 12 months…",

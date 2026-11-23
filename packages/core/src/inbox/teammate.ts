@@ -459,6 +459,22 @@ export const DRAFT_WORDS = {
   sendAsItIs: 'Send as it is',
 } as const;
 
+/**
+ * The draft the AI teammate leaves on someone’s own mail ("Let Ava read this mail", the owner 2026-11-22): what its
+ * card says on the web and on the phone. The card never sends: "Use this draft" puts the words in the message box.
+ */
+export const OWN_MAIL_DRAFT_WORDS = {
+  /** "Ava’s draft". */
+  title: (name: string) => `${name}’s draft`,
+  onlyYou: 'Only you see this',
+  nothingSent: 'Nothing is sent until you send it.',
+  use: 'Use this draft',
+  dismiss: 'No thanks',
+  /** In the card's place once its words are in the box. */
+  inBox: (name: string) =>
+    `${name}’s draft is in your message box. Change what you like, then send it.`,
+} as const;
+
 /** "Why? It helps Ava next time (optional)". */
 export const rejectReasonLabel = (name: string): string =>
   `Why? It helps ${name} next time (optional)`;

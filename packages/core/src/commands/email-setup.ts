@@ -14,13 +14,23 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { emailAddresses, emailDomains } from '@hfos/db/schema';
+import { emailAddresses, emailDomainLookups, emailDomains } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { executeCommandWithin } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
 import {
+  EMAIL_GUIDED_WORDS,
+  emailGuidedDomain,
+  emailGuidedLeft,
+  emailGuidedPlan,
+  emailGuidedProblems,
+  emailGuidedSender,
+  type EmailGuidedAnswers,
+} from '../messaging/email-guided';
+import {
+  emailDomainPlanHasWork,
   emailSetupDomainOf,
   emailSetupOffersReceiving,
   emailSetupProblems,
@@ -29,10 +39,21 @@ import {
   type EmailSetupState,
 } from '../messaging/email-setup';
 import { loadEmailSetupState } from '../messaging/email-setup-load';
-import { normalizeEmailDomain } from '../schemas/email';
+import {
+  emailDomainName,
+  isConsumerMailDomain,
+  isHandsFreeOsDomain,
+  normalizeEmailDomain,
+} from '../schemas/email';
 import {
   EmailDomainSendStepsInput,
   EmailDomainSendStepsOutput,
+  EmailSetupApplyInput,
+  EmailSetupApplyOutput,
+  EmailSetupLookUpInput,
+  EmailSetupLookUpOutput,
+  EmailSetupRecordLookupInput,
+  EmailSetupRecordLookupOutput,
   EmailSetupSaveInput,
   EmailSetupSaveOutput,
 } from '../schemas/email-setup';
@@ -76,7 +97,7 @@ async function setPlan(
 /** Another domain's records were on their way for the team address: now they won't switch anything. */
 async function dropOtherPlans(ctx: CommandContext, state: EmailSetupState, keep: string | null) {
   for (const d of state.domains)
-    if (d.id !== keep && d.status !== 'verified' && (d.plan.team || d.plan.own))
+    if (d.id !== keep && d.status !== 'verified' && emailDomainPlanHasWork(d.plan))
       await setPlan(ctx, d, {});
 }
 
@@ -266,6 +287,196 @@ export const emailSetupSave = defineCommand({
       .from(emailAddresses)
       .where(and(eq(emailAddresses.workspaceId, ws), eq(emailAddresses.isDefault, true)));
     return { workspaceId: ws, ...out, sender: now?.address ?? state.sender?.address ?? '' };
+  },
+});
+
+/**
+ * The guided setup's "Set it up" (messaging/email-guided.ts): every answer at once, checked again here. Nothing
+ * about the business's email changed before this.
+ *
+ * - A free address: renamed and made the one customers hear from, as the older step does.
+ * - The business's own website name: added when it's new, with a plan of what to make once its records check out
+ *   (the address customers hear from, the other addresses, where its mail arrives). A name whose records already
+ *   check out gets all of it now. Until then the free address carries the mail.
+ *
+ * It only adds. An address that's already set up keeps who reads it, and none is removed: those stay in Settings →
+ * Email, where its own person is asked.
+ */
+async function applyGuided(
+  ctx: CommandContext,
+  state: EmailSetupState,
+  answers: EmailGuidedAnswers,
+  out: Saved,
+) {
+  const ws = ctx.scope.workspaceId!;
+  const me = requireHuman(ctx).userId;
+  const name = answers.name.trim();
+  const freeLocal = answers.freeLocal.trim().toLowerCase();
+  if (answers.with !== 'domain') {
+    await dropOtherPlans(ctx, state, null);
+    const address = await useFree(ctx, state, freeLocal, name, true);
+    out.changes.push(`Emails go out from ${address}`);
+    return;
+  }
+  const domain = emailGuidedDomain(answers.domain);
+  const d = emailSetupDomainOf(state, { domain });
+  let id = d?.id ?? null;
+  if (!id) {
+    const made = await executeCommandWithin(ctx, emailDomainAdd, { workspaceId: ws, domain });
+    id = made.output.emailDomainId;
+    out.changes.push(`Adds ${domain}, and makes its records`);
+  }
+  out.emailDomainId = id;
+  await dropOtherPlans(ctx, state, id);
+  const plan = emailGuidedPlan(answers, state, me);
+  await setPlan(ctx, { id, domain, plan: d?.plan ?? {} }, plan);
+  if (d?.status === 'verified') {
+    out.changes.push(...(await applyDomainPlan(ctx, id)));
+    return;
+  }
+  // Until the records are in, the free address carries the mail, without its random letters. A name someone else
+  // has keeps the one it has: the website name's address takes over soon.
+  if (!state.sender?.domain && freeLocal)
+    try {
+      await useFree(ctx, state, freeLocal, name, true);
+    } catch (e) {
+      if (
+        !(e instanceof HfosError) ||
+        (e.rule !== 'email_address_taken' &&
+          e.rule !== 'email_local_part_reserved' &&
+          e.code !== 'validation')
+      )
+        throw e;
+    }
+  const sender = emailGuidedSender(answers, state);
+  if (sender) out.changes.push(`Emails go out from ${sender.address} once its records are in`);
+  for (const a of plan.addresses ?? [])
+    out.changes.push(`Makes ${a.localPart}@${domain} once its records are in`);
+  if (plan.receive) out.changes.push(`Mail to ${domain} comes here once its records are in`);
+}
+
+export const emailSetupApply = defineCommand({
+  name: 'email_setup.apply',
+  description:
+    'The guided email setup’s “Set it up”: every answer at once. with free: the free address on mail.handsfreeos.com, renamed and made the one customers hear from now. with domain: the business’s own website name, added when new, with the addresses to make there (addresses: local is the name before the @, reader is me for one only you read or team, aiReads lets the AI teammate read your own), the one customers hear from (sender, an address the team reads), the name customers see (name), and whether its mail comes to HandsFreeOS (receive). Until the name’s DNS records check out, mail goes from the free address; then everything is made on its own. It only adds: an address already set up keeps who reads it, and none is removed.',
+  risk: 2,
+  input: EmailSetupApplyInput,
+  output: EmailSetupApplyOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: [
+    'email_domain.added',
+    'email_domain.planned',
+    'email_address.created',
+    'email_address.updated',
+    'email_address.ai_reads_changed',
+    'email_domain.receiving_requested',
+  ],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const state = await loadEmailSetupState(ctx.tx, ws, me);
+    const problems = emailGuidedProblems('review', input.email, state);
+    if (problems.length)
+      throw HfosError.validation(
+        problems.map((p) => ({ path: p.path, message: p.message })),
+        problems[0]!.message,
+      );
+    const out: Saved = { changes: [], emailDomainId: null };
+    await applyGuided(ctx, state, input.email, out);
+    const [now] = await ctx.tx
+      .select({ address: emailAddresses.address })
+      .from(emailAddresses)
+      .where(and(eq(emailAddresses.workspaceId, ws), eq(emailAddresses.isDefault, true)));
+    const [d] = out.emailDomainId
+      ? await ctx.tx
+          .select({
+            status: emailDomains.status,
+            receiving: emailDomains.receiving,
+            plan: emailDomains.plan,
+          })
+          .from(emailDomains)
+          .where(eq(emailDomains.id, out.emailDomainId))
+      : [];
+    return {
+      workspaceId: ws,
+      ...out,
+      sender: now?.address ?? state.sender?.address ?? '',
+      left: emailGuidedLeft(d ? { status: d.status, receiving: d.receiving, plan: {} } : null),
+    };
+  },
+});
+
+/** How many website names a business can look up in an hour: plenty for typing one in, and no more. */
+export const EMAIL_LOOKUPS_PER_HOUR = 40;
+
+export const emailSetupLookUp = defineCommand({
+  name: 'email_setup.look_up',
+  description: `Look a website name up before adding it, for the guided email setup’s first question: where its mail goes today and where its DNS records are looked after. Changes nothing about the business’s email. The answer is in email_setup.get’s state.lookup a few seconds later. Up to ${EMAIL_LOOKUPS_PER_HOUR} an hour.`,
+  risk: 1,
+  input: EmailSetupLookUpInput,
+  output: EmailSetupLookUpOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['email_domain.lookup_requested'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const W = EMAIL_GUIDED_WORDS;
+    const refuse = (message: string) =>
+      HfosError.validation([{ path: 'domain', message }], message);
+    const r = emailDomainName.safeParse(emailGuidedDomain(input.domain));
+    if (!r.success) throw refuse(W.domainMissing);
+    if (isConsumerMailDomain(r.data)) throw refuse(W.consumerDomain(r.data));
+    if (isHandsFreeOsDomain(r.data)) throw refuse(W.ourDomain);
+    const [asked] = await rows<{ n: number }>(
+      ctx.tx,
+      sql`select count(*)::int as n from app.events
+          where workspace_id = ${ws} and event_type = 'email_domain.lookup_requested'
+            and created_at > now() - interval '1 hour'`,
+    );
+    if ((asked?.n ?? 0) >= EMAIL_LOOKUPS_PER_HOUR)
+      throw HfosError.rule(
+        'email_lookup_limit',
+        429,
+        `That’s ${EMAIL_LOOKUPS_PER_HOUR} website names looked up in the last hour, which is the most. Carry on without it: the last step still shows what to change. Or try again in an hour.`,
+      );
+    await ctx.emit({
+      type: 'email_domain.lookup_requested',
+      entityType: 'workspace',
+      entityId: ws,
+      payload: { domain: r.data, by: me },
+      broadcast: false,
+    });
+    return { domain: r.data, askedAt: new Date().toISOString() };
+  },
+});
+
+export const emailSetupRecordLookup = defineCommand({
+  name: 'email_setup.record_lookup',
+  description:
+    'Worker: what DNS said about a website name a business looked up in the guided email setup.',
+  risk: 1,
+  input: EmailSetupRecordLookupInput,
+  output: EmailSetupRecordLookupOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: [],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const found = {
+      domain: input.domain,
+      mailHost: input.mailHost ?? null,
+      dnsHost: input.dnsHost ?? null,
+      mxRecords: input.mxRecords ?? null,
+      lookedAt: new Date(),
+    };
+    await ctx.tx
+      .insert(emailDomainLookups)
+      .values({ workspaceId: ws, ...found })
+      .onConflictDoUpdate({ target: emailDomainLookups.workspaceId, set: found });
+    return { domain: input.domain };
   },
 });
 
