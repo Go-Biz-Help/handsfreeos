@@ -10,6 +10,7 @@ import {
   orderTotalCents,
   ORDER_STEPS,
   INVOICE_WORDS,
+  dayLabel,
   type InvoiceState,
   type OrderFulfilment,
   type OrderStatus as Status,
@@ -52,6 +53,7 @@ export function OrderPage({
   response,
   canWrite,
   canBill,
+  timeZone,
 }: {
   workspaceId: string;
   order: OrderSummary;
@@ -60,6 +62,8 @@ export function OrderPage({
   response: FormResponseGetOut | null;
   canWrite: boolean;
   canBill: boolean;
+  /** The business's, for the day it was taken. */
+  timeZone: string;
 }) {
   const router = useRouter();
   useLiveRefresh(['order', 'invoice']);
@@ -128,11 +132,8 @@ export function OrderPage({
             {order.person.name}
           </Link>
           {' · '}
-          {new Date(order.createdAt).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-          })}
+          {/* The business's day, so the server and the browser say the same one. */}
+          {dayLabel(Date.parse(order.createdAt), timeZone)}
           {order.form ? (
             <>
               {' · from '}

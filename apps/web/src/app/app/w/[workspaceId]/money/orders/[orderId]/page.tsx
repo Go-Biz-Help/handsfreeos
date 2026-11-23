@@ -38,6 +38,7 @@ export default async function OrderDetailPage({
       response={response}
       canWrite={shell.permissions.includes('records.write')}
       canBill={shell.canBill}
+      timeZone={shell.timeZone}
     />
   );
 }

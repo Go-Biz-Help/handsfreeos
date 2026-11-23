@@ -45,7 +45,7 @@
     "apps/web/src/components/money/list-options.ts": "fa7d5ba84528",
     "apps/web/src/components/money/money-input.tsx": "297d3a23947d",
     "apps/web/src/components/money/order-editor.tsx": "533c6e16388c",
-    "apps/web/src/components/money/order-page.tsx": "ada907ad5980",
+    "apps/web/src/components/money/order-page.tsx": "78308bc8417e",
     "apps/web/src/components/money/orders-list.tsx": "a640267b06ee",
     "apps/web/src/components/money/payments-list.tsx": "842d1f153a67",
     "apps/web/src/components/money/person-picker.tsx": "0e44e715d4c1",
