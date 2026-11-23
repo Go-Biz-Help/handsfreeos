@@ -150,22 +150,30 @@ export const paymentsSetupContextFrom = (input: {
   readonly setupAddress: string | null;
 }): PaymentsSetupContext => {
   const account = paymentsSetupAccountOf(input.connections);
-  const s = input.money.settings;
   return {
     mode: account ? 'again' : 'new',
     account,
     payPalOpen: input.payPalOpen,
-    settings: {
-      ...s,
-      numbering: {
-        estimate: numberingAtCounter(s.numbering.estimate, input.money.nextEstimateNumber),
-        invoice: numberingAtCounter(s.numbering.invoice, input.money.nextInvoiceNumber),
-      },
-    },
+    settings: paymentsSettingsAtCounters(input.money),
     setupAddress: input.setupAddress,
-    configured: paymentsSettingsConfigured(s),
+    configured: paymentsSettingsConfigured(input.money.settings),
   };
 };
+
+/** money.settings' settings with the numbers caught up to the counters: what Save starts from. */
+export function paymentsSettingsAtCounters(m: {
+  readonly settings: MoneySettings;
+  readonly nextEstimateNumber: string;
+  readonly nextInvoiceNumber: string;
+}): MoneySettings {
+  return {
+    ...m.settings,
+    numbering: {
+      estimate: numberingAtCounter(m.settings.numbering.estimate, m.nextEstimateNumber),
+      invoice: numberingAtCounter(m.settings.numbering.invoice, m.nextInvoiceNumber),
+    },
+  };
+}
 
 // ---------- the starting answers ----------
 
@@ -776,6 +784,7 @@ export const PAYMENTS_SETUP_WORDS = {
       title: 'PayPal',
       hint: 'Customers pay with PayPal or a card through PayPal, and you can add Venmo and Pay Later.',
       soon: 'Coming soon',
+      soonHint: 'PayPal, Venmo and Pay Later. You can pick it here once it’s open to everyone.',
     },
     later: {
       title: 'Not now',
@@ -827,12 +836,12 @@ export const PAYMENTS_SETUP_WORDS = {
     title: 'When should customers pay an invoice?',
     hint: 'Counted from the day you send it. You can change it on any single invoice.',
     options: DUE,
-    note: 'Payment reminders count from this date.',
+    note: 'The reminders in the next questions count from this date.',
   },
 
   estimates: {
     title: 'Do you send estimates before the work?',
-    hint: 'A price the customer says yes to before you start.',
+    hint: 'A price the customer says yes to first. It turns into the invoice when the job is done.',
     yes: { title: 'Yes', hint: 'The customer reads it, then says yes or no from their own page.' },
     no: {
       title: 'No, I just send invoices',
@@ -853,11 +862,12 @@ export const PAYMENTS_SETUP_WORDS = {
 
   reminders: {
     title: 'Should we remind customers who haven’t paid?',
-    hint: 'A short, friendly message with the amount and the Pay link. It stops once they pay.',
+    hint: 'A short, friendly message with the amount and the Pay link. It stops the moment they pay.',
     usual: {
       title: 'Yes, the usual',
       hint: 'After the last one it stops, and Home asks you what to do.',
       line: 'The usual reminders',
+      most: (n: number) => `${n} reminders at most`,
     },
     few: {
       title: 'Just a nudge or two',
@@ -866,7 +876,7 @@ export const PAYMENTS_SETUP_WORDS = {
     },
     none: {
       title: 'No, I’ll follow up myself',
-      hint: 'Nothing goes out on its own.',
+      hint: 'Nothing goes out on its own. Home still shows you who’s late.',
       line: 'No reminders',
     },
     own: { title: 'Keep my own schedule', line: '' },
@@ -886,7 +896,8 @@ export const PAYMENTS_SETUP_WORDS = {
     startWith: 'Start with',
     nextNumber: 'Next number',
     preview: 'The next one will be',
-    numbersHint: 'Moving from another app? Carry on from your last number there.',
+    numbersHint: (estimates: string | null) =>
+      `Moving from another app? Carry on from your last number there.${estimates ? ` Estimates start at ${estimates}.` : ''}`,
     note: 'Note at the bottom',
     noteHint: 'You can change it on a single invoice while you write it.',
   },
@@ -989,6 +1000,23 @@ export const PAYMENTS_SETUP_WORDS = {
       hint: 'Set on each calendar, so no-shows cost you less.',
     },
     close: 'Back to Getting started',
+    toSettings: 'Back to Settings',
+    chips: {
+      bankAndCard: 'Bank transfer and card',
+      card: 'Card',
+      payPal: 'PayPal and card',
+      tax: (rate: string) => `${rate}% sales tax`,
+      noTax: 'No sales tax',
+      due: {
+        due_on_receipt: 'Due right away',
+        net_7: 'Due in 7 days',
+        net_14: 'Due in 14 days',
+        net_30: 'Due in 30 days',
+      } satisfies Record<PaymentTerms, string>,
+      deposit: (what: string) => `${what} deposit`,
+      reminders: 'Reminders on',
+      noReminders: 'No reminders',
+    },
   },
 
   summary: {
@@ -999,6 +1027,24 @@ export const PAYMENTS_SETUP_WORDS = {
     setUp: 'Set up payments',
     setUpHint:
       'Seven quick questions, then connect Stripe or Square so customers can pay from your invoices.',
+    start: 'Start',
+    resume: 'Pick up where you left off',
+    howPaid: (business: string) => `How ${business} gets paid.`,
+    account: {
+      ready: 'Connected',
+      checking: 'Checking',
+      broken: 'Sign in again',
+      readyHint: 'Customers pay from the link on every invoice.',
+      checkingHint: (provider: string) =>
+        `${provider} is checking your account. Invoices get a Pay button once it’s done.`,
+      brokenHint: (provider: string) =>
+        `${provider} needs you to sign in again before customers can pay. Open All settings to do it.`,
+      manage: 'Manage',
+    },
+    under: 'Under All settings',
+    underHint:
+      'A second account, who can use each account, PayPal’s Venmo and Pay Later, estimate numbers and their note, invoice reminders day by day, and your price list. Nothing from before is taken away.',
+    fix: 'Something here needs fixing. It’s at the top of All settings.',
   },
 
   problems: {
@@ -1039,4 +1085,25 @@ function sameValue(a: unknown, b: unknown): boolean {
     ka.length === kb.length &&
     ka.every((k) => sameValue((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
   );
+}
+
+/** The Done screen's chips, from the settings as saved: "Bank transfer and card", "8.25% sales tax", "Due in 14 days". */
+export function paymentsDoneChips(
+  s: MoneySettings,
+  provider: ConnectableProvider | null,
+): string[] {
+  const C = PAYMENTS_SETUP_WORDS.done.chips;
+  const reminders =
+    s.reminders.beforeDueDays.length + s.reminders.afterDueDays.length > 0 || s.reminders.onDue;
+  return [
+    provider === 'paypal' ? C.payPal : provider ? (s.bankTransfer ? C.bankAndCard : C.card) : null,
+    s.tax.rateBp > 0 ? C.tax(paymentsRateText(s.tax.rateBp)) : C.noTax,
+    C.due[s.terms],
+    s.deposit.kind === 'percent'
+      ? C.deposit(`${paymentsRateText(s.deposit.percentBp)}%`)
+      : s.deposit.kind === 'amount'
+        ? C.deposit(money(s.deposit.amountCents))
+        : null,
+    reminders ? C.reminders : C.noReminders,
+  ].filter((x): x is string => !!x);
 }
