@@ -1,19 +1,25 @@
 {
   "area": "safety-team",
   "title": "Safety check-ins, the team (members and invites), permissions and support access",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-23",
   "files": {
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "aea3150ab514",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/safety.tsx": "89edd1308007",
     "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "99f851115c11",
     "apps/mobile/src/components/safety/check-in-banner.tsx": "c88184b11b8c",
     "apps/mobile/src/components/safety/check-in-sheet.tsx": "e0da61398345",
     "apps/mobile/src/components/safety/help-sheet.tsx": "414a9416ca2d",
     "apps/mobile/src/components/safety/my-safety.tsx": "d5c8ce4d6f4b",
+    "apps/mobile/src/safety/actions.ts": "1a205a6b11e8",
     "apps/mobile/src/safety/check-in.ts": "a74f2b9d02e8",
     "apps/mobile/src/safety/follow.ts": "71a73dcc123e",
+    "apps/mobile/src/safety/use-check-in.ts": "04d92969220a",
     "apps/web/src/app/app/w/[workspaceId]/members/page.tsx": "2762c6231abb",
+    "apps/web/src/app/app/w/[workspaceId]/safety/[checkInId]/page.tsx": "98a7ee05563d",
+    "apps/web/src/app/app/w/[workspaceId]/safety/page.tsx": "c0475b6afcf0",
     "apps/web/src/app/app/w/[workspaceId]/settings/permissions/page.tsx": "2463927b8cfc",
+    "apps/web/src/app/app/w/[workspaceId]/settings/safety/page.tsx": "a529b3351588",
+    "apps/web/src/app/app/w/[workspaceId]/settings/support-access/page.tsx": "844ab9bbd36b",
     "apps/web/src/app/invite/[token]/page.tsx": "a1abb7862fdb",
     "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
     "apps/web/src/components/members/invite-dialog.tsx": "bf6dfb35adce",
@@ -791,8 +797,8 @@
       "path": "Side menu → Get help → Take the tour",
       "kind": "do",
       "file": "apps/web/src/components/support/get-help.tsx:146",
-      "covered": "no",
-      "by": "no tool starts the tour; settings map Home How to gives the way (Get help, then Take the tour)"
+      "covered": "person",
+      "by": "the tour lights up the person’s own menu on their screen, so starting it stays theirs; the Assistant gives the way (places map Home: Get help, then Take the tour, or Take the tour on Getting started) and explains each place in words"
     },
     {
       "path": "Side menu → Get help → Ask us for help",
@@ -980,15 +986,15 @@
       "path": "Phone banner → Check out / I’m OK; Checked out. Glad you’re OK.",
       "kind": "do",
       "file": "apps/mobile/src/components/safety/check-in-banner.tsx:140",
-      "covered": "partly",
-      "by": "my_check_in action check_out; the phone’s own reminder isn’t cleared"
+      "covered": "yes",
+      "by": "my_check_in action check_out; the phone clears its own reminder once its copy hears (reconcileReminders, apps/mobile/src/safety/actions.ts)"
     },
     {
       "path": "Phone banner → +15 min; You’re checked in until time",
       "kind": "do",
       "file": "apps/mobile/src/components/safety/check-in-banner.tsx:151",
-      "covered": "partly",
-      "by": "my_check_in action add_time (15 when left out); the phone’s own reminder isn’t moved"
+      "covered": "yes",
+      "by": "my_check_in action add_time (15 when left out); the phone moves its own reminder once its copy hears (reconcileReminders)"
     },
     {
       "path": "Phone banner → Help (opens Help, which tells contacts at once with where you are)",
@@ -1045,6 +1051,97 @@
       "file": "apps/mobile/src/safety/follow.ts:75",
       "covered": "yes",
       "by": "read_safety_mine → open.follows, locatedAt, place"
+    },
+    {
+      "path": "My safety page → opens (title My safety; the “Still there?” push opens it; everyone has one)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/safety/page.tsx:11",
+      "covered": "yes",
+      "by": "read_safety_mine; places map /safety"
+    },
+    {
+      "path": "My safety page → their open check-in and contacts (safety.mine)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/safety/page.tsx:16",
+      "covered": "yes",
+      "by": "read_safety_mine"
+    },
+    {
+      "path": "My safety page → the business’s times (safety.settings)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/safety/page.tsx:17",
+      "covered": "yes",
+      "by": "get_settings safety"
+    },
+    {
+      "path": "My safety page → times shown in the business’s time zone",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/safety/page.tsx:24",
+      "covered": "yes",
+      "by": "read_safety_mine; the Assistant is told the business’s time zone and gives times in it"
+    },
+    {
+      "path": "Safety alert page → opens (title Safety alert; the push, the email and the all-clear push open it)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/safety/[checkInId]/page.tsx:15",
+      "covered": "yes",
+      "by": "read_safety_alert; places map /safety/[checkInId]"
+    },
+    {
+      "path": "Safety alert page → an address that isn’t a check-in shows Not found",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/safety/[checkInId]/page.tsx:21",
+      "covered": "yes",
+      "by": "read_safety_alert input checkInId (a uuid); an unknown one answers alert null"
+    },
+    {
+      "path": "Safety alert page → the alert, while it’s theirs to answer (safety.alert)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/safety/[checkInId]/page.tsx:25",
+      "covered": "yes",
+      "by": "read_safety_alert → alert (null once answered)"
+    },
+    {
+      "path": "Settings → Safety page → opens (title Safety; everyone may read the times)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/safety/page.tsx:13",
+      "covered": "yes",
+      "by": "get_settings safety; settings map safety"
+    },
+    {
+      "path": "Settings → Safety page → changes only for whoever may change the business’s settings",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/safety/page.tsx:24",
+      "covered": "yes",
+      "by": "update_safety_settings needs workspace.update; settings map safety canChange"
+    },
+    {
+      "path": "Settings → Safety page → the team to pick the safety person from, sorted by name",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/safety/page.tsx:26",
+      "covered": "yes",
+      "by": "list_team; update_safety_settings input safetyPersonId"
+    },
+    {
+      "path": "Support access page → opens (title Support access; the email from support links here)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/support-access/page.tsx:13",
+      "covered": "yes",
+      "by": "read_support_access_list; places map /settings/support-access"
+    },
+    {
+      "path": "Support access page → requests and access given (support_access.list)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/support-access/page.tsx:22",
+      "covered": "yes",
+      "by": "read_support_access_list → items, canLetIn"
+    },
+    {
+      "path": "Support access page → who may end access: owners and admins (records.assign) or whoever gave it",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/support-access/page.tsx:31",
+      "covered": "yes",
+      "by": "do_support_access_end (the command checks who may end it)"
     }
   ],
   "gaps": [

@@ -3,7 +3,7 @@ import * as Notifications from 'expo-notifications';
 import type { ChangeOptions } from '@/changes';
 import { FakePowerSync } from '@/changes/__tests__/fake-powersync';
 
-import { changeFromPress } from '../actions';
+import { changeFromPress, reconcileReminders } from '../actions';
 import { reminderId } from '../check-in';
 import { following, startFollowing } from '../follow';
 
@@ -88,7 +88,18 @@ function phone(settings: unknown) {
       'SELECT planned_end_at, state, extended_count FROM safety_checkins WHERE id = ?',
       [CHECK_IN],
     )[0]!;
-  return { make: make as never, checkIn };
+  // The copy hearing about a change made somewhere else: the web, Ask HandsFreeOS, another phone.
+  const heard = (set: { planned_end_at?: string; state?: string }) => {
+    if (set.planned_end_at)
+      put(
+        'UPDATE safety_checkins SET planned_end_at = ? WHERE id = ?',
+        set.planned_end_at,
+        CHECK_IN,
+      );
+    if (set.state) put('UPDATE safety_checkins SET state = ? WHERE id = ?', set.state, CHECK_IN);
+    return [{ id: CHECK_IN, ...checkIn() }];
+  };
+  return { make: make as never, checkIn, heard, db };
 }
 
 beforeEach(() => {
@@ -169,6 +180,40 @@ describe('the check-in reminder’s buttons, with no signal', () => {
       p.make,
     );
     expect(p.checkIn()).toMatchObject({ state: 'out', extended_count: 1 });
+    expect(scheduled()).toHaveLength(0);
+  });
+});
+
+describe('the reminder when the check-in changes somewhere else', () => {
+  it('moves when time is added elsewhere, stays when it fits, and goes once checked out elsewhere', async () => {
+    const p = phone({ safety: { askAfterMinutes: 5, alertAfterMinutes: 20 } });
+    await changeFromPress(
+      'safety.extend',
+      { workspaceId: WS, checkInId: CHECK_IN, minutes: 15 },
+      { madeAt: PRESSED },
+      p.make,
+    );
+    expect(scheduled()[0]?.trigger.date).toEqual(new Date('2026-10-01T21:55:00.000Z'));
+
+    // Ask HandsFreeOS added half an hour on the web: the reminder follows the new planned end.
+    await reconcileReminders(p.db, p.heard({ planned_end_at: '2026-10-01T22:20:00.000Z' }));
+    expect(scheduled()).toHaveLength(1);
+    expect(scheduled()[0]?.trigger.date).toEqual(new Date('2026-10-01T22:25:00.000Z'));
+    expect(scheduled()[0]?.content.body).toMatch(/check out at 5:20 PM/);
+
+    // Heard again with nothing new: left as it is.
+    const before = scheduled()[0];
+    await reconcileReminders(p.db, p.heard({}));
+    expect(scheduled()[0]).toBe(before);
+
+    // Checked out on the web: the reminder goes.
+    await reconcileReminders(p.db, p.heard({ state: 'out' }));
+    expect(scheduled()).toHaveLength(0);
+  });
+
+  it('sets none for a check-in this phone has no reminder for', async () => {
+    const p = phone({});
+    await reconcileReminders(p.db, p.heard({ planned_end_at: '2026-10-01T22:20:00.000Z' }));
     expect(scheduled()).toHaveLength(0);
   });
 });
