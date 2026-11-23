@@ -42,6 +42,23 @@ describe('GET /healthz', () => {
     expect(replaced.headers['x-correlation-id']).not.toContain('drop');
   });
 
+  it('lets the browser remember the answer to "may I call this?" for a day', async () => {
+    // With no Access-Control-Max-Age a browser forgets in five seconds, per operation, and asks again before
+    // nearly every call the web makes.
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/v1/queries/account.me',
+      headers: {
+        origin: 'http://localhost:3000',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'authorization,content-type,x-correlation-id',
+      },
+    });
+    expect(res.statusCode).toBe(204);
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+    expect(res.headers['access-control-max-age']).toBe('86400');
+  });
+
   it('serves the OpenAPI document with every command people run and every query', async () => {
     const res = await app.inject({ method: 'GET', url: '/openapi.json' });
     expect(res.statusCode).toBe(200);
