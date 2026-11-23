@@ -64,7 +64,7 @@
     "apps/web/src/components/forms/website-chats.tsx": "7b25ec4e137e",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/reviews/reviews-board.tsx": "685e5ab4c16c",
-    "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
+    "apps/web/src/components/settings/chat-install.tsx": "000b8ddf3f39",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
     "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d"
   },
@@ -842,14 +842,14 @@
     {
       "path": "Forms → a website chat → Seen on <site> N min ago / Not seen yet",
       "kind": "see",
-      "file": "apps/web/src/components/settings/chat-install.tsx:165",
+      "file": "apps/web/src/components/settings/chat-install.tsx:172",
       "covered": "yes",
       "by": "get_settings website_chat install"
     },
     {
       "path": "Forms → a website chat → install check → Check again",
       "kind": "do",
-      "file": "apps/web/src/components/settings/chat-install.tsx:150",
+      "file": "apps/web/src/components/settings/chat-install.tsx:157",
       "covered": "yes",
       "by": "read_chat_widget_get"
     },

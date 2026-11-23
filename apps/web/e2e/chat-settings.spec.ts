@@ -35,6 +35,9 @@ test('Website chat settings: sites, the snippet, the install check and a new key
   expect(tabs.indexOf('Website chat')).toBe(tabs.indexOf('Email') + 1);
   await nav.getByRole('link', { name: 'Website chat' }).click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/settings/website-chat$`));
+  // The simple card (W3 a) with every setting from before under All settings.
+  await expect(page.getByTestId('chat-set-up')).toHaveText('Start');
+  await page.getByTestId('chat-all-settings-toggle').click();
 
   // Sites are checked as they're typed, and refused in plain words.
   const setup = page.getByTestId('chat-setup');
@@ -132,7 +135,7 @@ test('Website chat settings: sites, the snippet, the install check and a new key
   await expect(page.getByTestId('website-chat-row')).toContainText('on phones');
   await page.getByTestId('website-chat-row').click();
   await expect(page.getByTestId('chat-label')).toHaveValue('Ask us anything');
-  await page.goto(`/app/w/${workspaceId}/settings/website-chat`);
+  await page.goto(`/app/w/${workspaceId}/settings/website-chat?all=1`);
 
   // The daily limit saves on Enter.
   await page.getByTestId('chat-daily-cap').fill('150');
@@ -182,7 +185,7 @@ test('Try it: the preview answers through the test console and creates nothing',
   const biz = await businessWithChat(page, 'chat-preview');
   await automaticTeammate(biz.token, biz.workspaceId, biz.widgetId);
 
-  await page.goto(`/app/w/${biz.workspaceId}/settings/website-chat`);
+  await page.goto(`/app/w/${biz.workspaceId}/settings/website-chat?all=1`);
   await expect(page.getByTestId('chat-who')).toHaveValue(/[0-9a-f-]{36}/);
   const [preview] = await Promise.all([
     page.context().waitForEvent('page'),

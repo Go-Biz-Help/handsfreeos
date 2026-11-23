@@ -369,6 +369,13 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'chat_widget.rotate_key': {
     warning: 'Every chat snippet pasted before stops working until the new one is pasted in.',
   },
+  // The guided website chat setup's Turn on website chat (23 Nov 2026, the owner's picks W1 a to W4 b).
+  'chat_setup.save': {
+    about:
+      'answers is the whole setup, as read_guided_setup_get_draft with setup chat gives it while the person is part way through: sites (as typed, like acme.com; the www version is added), who (ai or team), whenAway (chat or away_form) with awayMessage, askName, askPhone and askEmail (never, when_needed, after_first_message or before_chat), smsConsent, greeting, launcherLabel, accentColor (#rrggbb), showLogo, position (right or left), desktopButton (label or icon), phone (same, lift or hidden) with mobileLift (pixels) and mobileButton (label or icon). widgetId is the chat to change (manage_website_chat lists them), or null to make the first one. A refusal names the answer that is wrong.',
+    warning:
+      'This makes or changes the website chat now. With who ai, it also turns on the AI teammate’s Website chat for this chat. Nothing shows on a site until its code is pasted there.',
+  },
   // Disconnecting is a click; connecting again is signing in to Facebook, which only the person can do.
   'meta_account.disconnect': {
     warning:

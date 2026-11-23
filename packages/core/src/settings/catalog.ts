@@ -1115,10 +1115,13 @@ const pages = (): SettingEntry[] =>
   }));
 
 /**
- * What opens the part of a page that holds its settings: Settings → Payments keeps every setting under All settings,
- * behind its simple card (the owner, 23 Nov 2026, P3 a).
+ * What opens the part of a page that holds its settings: Settings → Payments and Settings → Website chat keep every
+ * setting under All settings, behind their simple cards (the owner, 23 Nov 2026, P3 a and W3 a).
  */
-const PAGE_OPEN: Partial<Record<SettingsPageKey, string>> = { payments: 'all=1' };
+const PAGE_OPEN: Partial<Record<SettingsPageKey, string>> = {
+  payments: 'all=1',
+  website_chat: 'all=1',
+};
 
 const rows = (): SettingEntry[] =>
   Object.entries(ROWS).map(([key, raw]) => {

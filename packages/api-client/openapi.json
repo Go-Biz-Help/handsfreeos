@@ -8613,7 +8613,8 @@
                       "phone",
                       "email",
                       "calendar",
-                      "payments"
+                      "payments",
+                      "chat"
                     ]
                   },
                   "answers": {
@@ -8684,7 +8685,8 @@
                       "phone",
                       "email",
                       "calendar",
-                      "payments"
+                      "payments",
+                      "chat"
                     ]
                   }
                 },
@@ -35019,6 +35021,220 @@
                     "widgetId",
                     "updated",
                     "allowedOrigins"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/chat_setup.save": {
+      "post": {
+        "operationId": "command_chat_setup_save",
+        "summary": "Carry out the guided website chat setup’s answers, as its Turn on website chat (or, for a chat already set up, Save my answers) does: makes the chat when widgetId is null, or changes that chat, with the sites it shows on, who answers, what happens while nobody is answering, what it asks visitors for, how it looks and where its button sits. Picking the AI teammate also turns on its Website chat for this chat. Nothing changes when an answer is wrong.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires channels.manage. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "widgetId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "answers": {
+                    "type": "object",
+                    "properties": {
+                      "sites": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 300
+                        }
+                      },
+                      "who": {
+                        "type": "string",
+                        "enum": [
+                          "ai",
+                          "team"
+                        ]
+                      },
+                      "whenAway": {
+                        "type": "string",
+                        "enum": [
+                          "away_form",
+                          "chat"
+                        ]
+                      },
+                      "awayMessage": {
+                        "type": "string",
+                        "maxLength": 600
+                      },
+                      "askName": {
+                        "type": "string",
+                        "enum": [
+                          "never",
+                          "when_needed",
+                          "after_first_message",
+                          "before_chat"
+                        ]
+                      },
+                      "askPhone": {
+                        "type": "string",
+                        "enum": [
+                          "never",
+                          "when_needed",
+                          "after_first_message",
+                          "before_chat"
+                        ]
+                      },
+                      "askEmail": {
+                        "type": "string",
+                        "enum": [
+                          "never",
+                          "when_needed",
+                          "after_first_message",
+                          "before_chat"
+                        ]
+                      },
+                      "smsConsent": {
+                        "type": "boolean"
+                      },
+                      "greeting": {
+                        "type": "string",
+                        "maxLength": 600
+                      },
+                      "launcherLabel": {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      "accentColor": {
+                        "type": "string",
+                        "maxLength": 7
+                      },
+                      "showLogo": {
+                        "type": "boolean"
+                      },
+                      "position": {
+                        "type": "string",
+                        "enum": [
+                          "right",
+                          "left"
+                        ]
+                      },
+                      "desktopButton": {
+                        "type": "string",
+                        "enum": [
+                          "label",
+                          "icon"
+                        ]
+                      },
+                      "phone": {
+                        "type": "string",
+                        "enum": [
+                          "same",
+                          "lift",
+                          "hidden"
+                        ]
+                      },
+                      "mobileLift": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 300
+                      },
+                      "mobileButton": {
+                        "type": "string",
+                        "enum": [
+                          "label",
+                          "icon"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "sites",
+                      "who",
+                      "whenAway",
+                      "awayMessage",
+                      "askName",
+                      "askPhone",
+                      "askEmail",
+                      "smsConsent",
+                      "greeting",
+                      "launcherLabel",
+                      "accentColor",
+                      "showLogo",
+                      "position",
+                      "desktopButton",
+                      "phone",
+                      "mobileLift",
+                      "mobileButton"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "widgetId",
+                  "answers"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "widgetId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "publicKey": {
+                      "type": "string"
+                    },
+                    "created": {
+                      "type": "boolean"
+                    },
+                    "teammateChat": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "on",
+                        "turned_on",
+                        "not_allowed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "widgetId",
+                    "publicKey",
+                    "created",
+                    "teammateChat"
                   ],
                   "additionalProperties": false
                 }
@@ -161504,7 +161720,8 @@
                       "phone",
                       "email",
                       "calendar",
-                      "payments"
+                      "payments",
+                      "chat"
                     ]
                   }
                 },

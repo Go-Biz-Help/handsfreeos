@@ -3,7 +3,9 @@
   "title": "Settings: texting, email, website chat, Facebook and Instagram, templates and lead intake",
   "checkedOn": "2026-11-23",
   "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/chat-setup.tsx": "4a2af3014be3",
     "apps/mobile/src/app/app/w/[workspaceId]/phone-setup.tsx": "71dd2300c14b",
+    "apps/mobile/src/components/chat-setup/guided-flow.tsx": "79c8e8160836",
     "apps/mobile/src/components/phone-setup/editors.tsx": "1f1279a467d1",
     "apps/mobile/src/components/phone-setup/guided-flow.tsx": "36216bb152e1",
     "apps/mobile/src/components/phone-setup/number-picker.tsx": "bf53e3c04b02",
@@ -13,16 +15,18 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/lead-intake/page.tsx": "9f59345c668b",
     "apps/web/src/app/app/w/[workspaceId]/settings/templates/page.tsx": "b2960fd030b7",
     "apps/web/src/app/app/w/[workspaceId]/settings/texting/page.tsx": "eb4ca86349a1",
-    "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx": "1c86737b9add",
+    "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx": "b09994efe770",
+    "apps/web/src/app/onboarding/[workspaceId]/chat/page.tsx": "bc80c1f7bddb",
     "apps/web/src/app/onboarding/[workspaceId]/phone/page.tsx": "41cfea8de77a",
     "apps/web/src/app/onboarding/[workspaceId]/texting/page.tsx": "83bf6bc1b4cb",
+    "apps/web/src/components/chat-setup/chat-setup-flow.tsx": "84f9cbb5ffd8",
     "apps/web/src/components/guided-setup/frame.tsx": "9222ba772a3c",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/phone-setup/editors.tsx": "ef212390d4d3",
     "apps/web/src/components/phone-setup/number-picker.tsx": "0c548fbb78a8",
     "apps/web/src/components/phone-setup/phone-setup-flow.tsx": "1b96c6135e2a",
     "apps/web/src/components/settings/a2p-wizard.tsx": "45ac1acabcce",
-    "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
+    "apps/web/src/components/settings/chat-install.tsx": "000b8ddf3f39",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
     "apps/web/src/components/settings/email-addresses.tsx": "0a161e86d75f",
     "apps/web/src/components/settings/email-page.tsx": "f050b6292547",
@@ -42,6 +46,7 @@
     "apps/web/src/components/settings/test-text-dialog.tsx": "7bce9b29ee3c",
     "apps/web/src/components/settings/texting-page.tsx": "82451ea75083",
     "apps/web/src/components/settings/web-person.tsx": "3e1b03dad5dc",
+    "apps/web/src/components/settings/website-chat-overview.tsx": "ae4b8b3f4fc3",
     "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d",
     "apps/web/src/components/texting-approval/texting-approval-flow.tsx": "3d171675cb71",
     "apps/web/src/lib/chat/editor-data.ts": "84f9988ce043",
@@ -2109,16 +2114,233 @@
     {
       "path": "Website chat → how many chats callout",
       "kind": "see",
-      "file": "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx:30",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx:58",
       "covered": "yes",
       "by": "get_settings website_chat"
     },
     {
       "path": "Website chat → See them all in Forms / Open Forms",
       "kind": "do",
-      "file": "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx:34",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx:63",
       "covered": "yes",
       "by": "get_settings website_chat lists every chat"
+    },
+    {
+      "path": "Website chat → the simple card: On / Paused badge and the switch",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/website-chat-overview.tsx:222",
+      "covered": "yes",
+      "by": "get_settings website_chat paused; manage_website_chat turn_on / turn_off"
+    },
+    {
+      "path": "Website chat → the simple card: install check, or the paused note",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/website-chat-overview.tsx:239",
+      "covered": "yes",
+      "by": "read_chat_widget_get install; get_settings website_chat"
+    },
+    {
+      "path": "Website chat → the simple card: Copy the code",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/website-chat-overview.tsx:252",
+      "covered": "yes",
+      "by": "get_settings website_chat snippet, whole on the domain that serves it"
+    },
+    {
+      "path": "Website chat → the simple card: Try it",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/website-chat-overview.tsx:262",
+      "covered": "yes",
+      "by": "get_settings website_chat tryIt: the link Try it opens (nothing to set)"
+    },
+    {
+      "path": "Website chat → the simple card: Put it on your site (opens Put the chat on your site)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/website-chat-overview.tsx:270",
+      "covered": "yes",
+      "by": "get_settings website_chat snippet and settings_help website_chat onEachBuilder; pasting it on the site is the person’s own"
+    },
+    {
+      "path": "Website chat → Set up website chat: Start / Pick up where you left off (opens the guided setup while there is no chat)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/website-chat-overview.tsx:113",
+      "covered": "yes",
+      "by": "do_chat_setup_save takes every answer, on a Confirm card; read_guided_setup_get_draft setup chat reads where they left off"
+    },
+    {
+      "path": "Website chat → Your answers: your website, who answers, when nobody’s answering, what it asks, how it looks, where the button sits, each with Change",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/website-chat-overview.tsx:140",
+      "covered": "yes",
+      "by": "get_settings website_chat reads each; do_chat_setup_save or manage_website_chat changes it"
+    },
+    {
+      "path": "Website chat → Go through the questions again",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/website-chat-overview.tsx:127",
+      "covered": "yes",
+      "by": "do_chat_setup_save with the chat’s widgetId"
+    },
+    {
+      "path": "Website chat → All settings / Hide all settings, and the Under All settings note",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/website-chat-overview.tsx:91",
+      "covered": "yes",
+      "by": "get_settings website_chat reads every setting there; settings_help website_chat links the page"
+    },
+    {
+      "path": "Website chat → Guided setup → 1. Which website should show the chat?: type a site, Add, checked as you type, Remove, the No website yet note",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:431",
+      "covered": "yes",
+      "by": "do_chat_setup_save sites (the www version is added); its refusal names the site that’s wrong"
+    },
+    {
+      "path": "Website chat → Guided setup → 2. Who should answer chats?: the AI teammate / Only your team, the turn-on, move and off notes, Set up an AI teammate",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:444",
+      "covered": "yes",
+      "by": "do_chat_setup_save who (ai turns the teammate’s Website chat on for this chat, and moves it from another chat); get_settings ai_teammate says whether there is one and whether it’s on"
+    },
+    {
+      "path": "Website chat → Guided setup → 3. What should happen when nobody is answering?: Let them chat anyway / Show a short form instead, and what the chat says then",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:509",
+      "covered": "yes",
+      "by": "do_chat_setup_save whenAway, awayMessage"
+    },
+    {
+      "path": "Website chat → Guided setup → 4. What should the chat ask visitors for?: Name, Mobile, Email, each Don’t ask / When needed / After their first message / Before the chat starts; Offer a box to get texts",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:554",
+      "covered": "yes",
+      "by": "do_chat_setup_save askName, askPhone, askEmail, smsConsent"
+    },
+    {
+      "path": "Website chat → Guided setup → 5. How should the chat look?: Greeting, Words on the button, Colour swatches and Any colour, Show your logo, What visitors see",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:604",
+      "covered": "yes",
+      "by": "do_chat_setup_save greeting, launcherLabel, accentColor, showLogo; the preview only shows them"
+    },
+    {
+      "path": "Website chat → Guided setup → 6. Where should the chat button sit?: corner, Words and icon / Just the icon, on phones the same corner / moved up (how far) / hidden",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:612",
+      "covered": "yes",
+      "by": "do_chat_setup_save position, desktopButton, phone, mobileLift, mobileButton"
+    },
+    {
+      "path": "Website chat → Guided setup → Started from your sign-up note, and So far with each answer",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:322",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft setup chat; the starting answers come from get_settings workspace’s website, colour and logo"
+    },
+    {
+      "path": "Website chat → Guided setup → Back / Next, answers kept when they leave and come back, Welcome back, Start over",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:302",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft setup chat reads where they left off; the Assistant saves the answers straight away with do_chat_setup_save, so it keeps no draft"
+    },
+    {
+      "path": "Website chat → Guided setup → Check it over: each answer with Change, and What happens next",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:346",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft setup chat while part way; get_settings website_chat once saved"
+    },
+    {
+      "path": "Website chat → Guided setup → Turn on website chat / Save my answers (a refusal names the question that’s wrong; a note when the AI teammate can’t be turned on)",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:393",
+      "covered": "yes",
+      "by": "do_chat_setup_save, on a Confirm card; its refusal names the answer, and teammateChat says whether the teammate was turned on"
+    },
+    {
+      "path": "Website chat → Guided setup → Put the chat on your site: Website chat is on, Your code, Copy",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:1125",
+      "covered": "yes",
+      "by": "get_settings website_chat snippet; pasting it on the site is the person’s own"
+    },
+    {
+      "path": "Website chat → Guided setup → Put the chat on your site: What is your website built with? and each platform’s steps",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:1153",
+      "covered": "yes",
+      "by": "settings_help website_chat onEachBuilder steps"
+    },
+    {
+      "path": "Website chat → Guided setup → Put the chat on your site: Email your web person",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:1159",
+      "covered": "yes",
+      "by": "do_registration_email_web_person, with the chat"
+    },
+    {
+      "path": "Website chat → Guided setup → Put the chat on your site: install check, Check again",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:1168",
+      "covered": "yes",
+      "by": "read_chat_widget_get install"
+    },
+    {
+      "path": "Website chat → Guided setup → Put the chat on your site: Try it first / I’ll do it later / Done",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:1175",
+      "covered": "yes",
+      "by": "get_settings website_chat tryIt; the others only move between screens"
+    },
+    {
+      "path": "Website chat → Guided setup → Done: Your website chat is on / live, the answers, install check, Back to Getting started / Back to Settings",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-setup/chat-setup-flow.tsx:1231",
+      "covered": "yes",
+      "by": "get_settings website_chat; read_chat_widget_get install"
+    },
+    {
+      "path": "Website chat → Guided setup → can’t open it without channels.manage (back home)",
+      "kind": "see",
+      "file": "apps/web/src/app/onboarding/[workspaceId]/chat/page.tsx:40",
+      "covered": "yes",
+      "by": "the tools’ permission refusal"
+    },
+    {
+      "path": "Phone → Website chat setup → the six questions, as on the web: your website, who answers, when nobody’s answering, what it asks, how it looks, where the button sits",
+      "kind": "do",
+      "file": "apps/mobile/src/components/chat-setup/guided-flow.tsx:335",
+      "covered": "yes",
+      "by": "do_chat_setup_save takes the same answers, on a Confirm card"
+    },
+    {
+      "path": "Phone → Website chat setup → Back / Next, answers kept when they leave and come back, Welcome back, Start over",
+      "kind": "do",
+      "file": "apps/mobile/src/components/chat-setup/guided-flow.tsx:210",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft setup chat reads where they left off; the Assistant saves the answers straight away with do_chat_setup_save, so it keeps no draft"
+    },
+    {
+      "path": "Phone → Website chat setup → Check it over, then Turn on website chat / Save my answers",
+      "kind": "do",
+      "file": "apps/mobile/src/components/chat-setup/guided-flow.tsx:328",
+      "covered": "yes",
+      "by": "do_chat_setup_save, on a Confirm card; its refusal names the answer"
+    },
+    {
+      "path": "Phone → Website chat setup → Website chat is on: the answers, Open it on the web, Email me the link, Go through the questions again, Done",
+      "kind": "do",
+      "file": "apps/mobile/src/components/chat-setup/guided-flow.tsx:961",
+      "covered": "yes",
+      "by": "get_settings website_chat snippet; do_onboarding_send_link; pasting the code is the person’s own"
+    },
+    {
+      "path": "Phone → Website chat setup → needs channels.manage and signal, Try again",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/chat-setup.tsx:99",
+      "covered": "yes",
+      "by": "the tools’ permission refusal"
     },
     {
       "path": "Website chat → Set up → Name",
@@ -2179,14 +2401,14 @@
     {
       "path": "Website chat → install check: Seen on host X ago / Not seen yet",
       "kind": "see",
-      "file": "apps/web/src/components/settings/chat-install.tsx:156",
+      "file": "apps/web/src/components/settings/chat-install.tsx:163",
       "covered": "yes",
       "by": "read_chat_widget_get install"
     },
     {
       "path": "Website chat → install check → Check again",
       "kind": "do",
-      "file": "apps/web/src/components/settings/chat-install.tsx:180",
+      "file": "apps/web/src/components/settings/chat-install.tsx:187",
       "covered": "yes",
       "by": "read_chat_widget_get"
     },
@@ -2214,7 +2436,7 @@
     {
       "path": "Website chat → Add it to your site → the snippet",
       "kind": "see",
-      "file": "apps/web/src/components/settings/chat-install.tsx:73",
+      "file": "apps/web/src/components/settings/chat-install.tsx:80",
       "covered": "yes",
       "by": "get_settings website_chat snippet, whole on the domain that serves it"
     },
@@ -2228,7 +2450,7 @@
     {
       "path": "Website chat → Add it to your site → How to add it on: WordPress, Wix, Squarespace, GoHighLevel, Webflow, Something else",
       "kind": "do",
-      "file": "apps/web/src/components/settings/chat-install.tsx:109",
+      "file": "apps/web/src/components/settings/chat-install.tsx:116",
       "covered": "yes",
       "by": "settings_help website_chat onEachBuilder"
     },

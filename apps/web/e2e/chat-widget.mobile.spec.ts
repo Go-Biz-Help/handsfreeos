@@ -25,7 +25,7 @@ test('the chat on a phone: a full-screen sheet, the page locked, a 16 px box, da
   const phoneWidth = () => page.evaluate(() => document.documentElement.scrollWidth);
 
   // Settings → Website chat on the owner's phone: it fits, with the snippet, and its fields are 16 px.
-  await page.goto(`/app/w/${biz.workspaceId}/settings/website-chat`);
+  await page.goto(`/app/w/${biz.workspaceId}/settings/website-chat?all=1`);
   await expect(page.getByTestId('chat-settings')).toBeVisible();
   await expect(page.getByTestId('chat-snippet')).toBeVisible();
   await expect(page.getByTestId('chat-daily-cap')).toHaveCSS('font-size', '16px');
