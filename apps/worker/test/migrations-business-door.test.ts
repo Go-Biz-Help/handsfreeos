@@ -489,7 +489,21 @@ describe('a business moves itself in', () => {
       meta(),
     );
     const { as, door } = await upToChoosing(someone, theirs);
-    await as(migrationSelect, { ...door, choices: [{ category: 'invoices', selected: true }] });
+    // Everything starts ticked after the scan, so only invoices is everything else unticked, the way the
+    // screen sends it.
+    const got = (await executeQuery(
+      api(),
+      migrationGet as never,
+      door,
+      actorOf(someone),
+      meta(),
+    )) as { inventory: { category: string; resourceId: string | null }[] };
+    await as(migrationSelect, {
+      ...door,
+      choices: got.inventory
+        .filter((i) => i.resourceId === null && isImportable(i.category))
+        .map((i) => ({ category: i.category, selected: i.category === 'invoices' })),
+    });
     await as(migrationStart, { ...door, acknowledgedFindingIds: [] });
     await drain(200, door.migrationId);
 
