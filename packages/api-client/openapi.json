@@ -139814,6 +139814,11 @@
                         },
                         "putRecordsHere": {
                           "type": "boolean"
+                        },
+                        "leftBehind": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -139830,7 +139835,8 @@
                         "finalizedAt",
                         "totals",
                         "lastError",
-                        "putRecordsHere"
+                        "putRecordsHere",
+                        "leftBehind"
                       ],
                       "additionalProperties": false
                     },

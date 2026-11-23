@@ -173,15 +173,48 @@ async function finishJob(
   deps: MigrationDeps,
   job: JobRow,
   result: Record<string, unknown>,
-): Promise<void> {
-  await asWorker(deps.db, { workspaceId: null, organizationId: job.organization_id }, (tx) =>
-    tx.execute(sql`
-      update app.migration_jobs
-         set state = 'done', finished_at = now(), leased_by = null, leased_until = null,
-             result = ${JSON.stringify(result)}::jsonb
-       where id = ${job.id}`),
+): Promise<boolean> {
+  // A batch somebody stopped stays stopped: taking a move back cancels what it had queued, and a batch that
+  // was already running must not write over that on its way out (see `stillMine`).
+  const [finished] = await asWorker(
+    deps.db,
+    { workspaceId: null, organizationId: job.organization_id },
+    (tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`update app.migration_jobs
+               set state = 'done', finished_at = now(), leased_by = null, leased_until = null,
+                   result = ${JSON.stringify(result)}::jsonb
+             where id = ${job.id} and state <> 'cancelled'
+            returning id::text as id`,
+      ),
   );
+  if (!finished) return false;
   await recovered(deps, job);
+  return true;
+}
+
+/**
+ * Whether this batch is still the one doing the work, asked inside the transaction about to write and held
+ * there: the row lock makes taking the move back wait for a page already being written, and a page that
+ * starts after it finds the batch cancelled and writes nothing.
+ *
+ * Until 2026-11-23 nothing asked. Taking a move back cancelled its batches in the database, but a batch the
+ * worker was already running kept reading page after page, then put itself back in the queue as though
+ * nobody had said stop, and the queue serves a move that is being taken back. What it wrote after the
+ * rollback had passed stayed in the business, with nothing on the screen to take it back with.
+ */
+async function stillMine(tx: Tx, job: JobRow): Promise<boolean> {
+  const [held] = await rows<{ state: string; status: string }>(
+    tx,
+    sql`select j.state::text as state, m.status::text as status
+        from app.migration_jobs j join app.migrations m on m.id = j.migration_id
+        where j.id = ${job.id}
+        for update of j`,
+  );
+  return (
+    held?.state === 'leased' && held.status !== 'rolling_back' && held.status !== 'rolled_back'
+  );
 }
 
 /**
@@ -225,7 +258,7 @@ async function requeueJob(
          set state = 'pending', leased_by = null, leased_until = null, attempts = 0,
              run_at = now() + make_interval(secs => ${Math.round(delayMs / 1000)}),
              input = ${JSON.stringify(input)}::jsonb
-       where id = ${job.id}`),
+       where id = ${job.id} and state <> 'cancelled'`),
   );
 }
 
@@ -250,7 +283,7 @@ async function failJob(deps: MigrationDeps, job: JobRow, error: Error): Promise<
              run_at = now() + make_interval(secs => ${Math.min(2 ** job.attempts * 10, 900)}),
              last_error = ${message},
              finished_at = ${permanent ? sql`now()` : sql`null`}
-       where id = ${job.id}`);
+       where id = ${job.id} and state <> 'cancelled'`);
       await tx.execute(sql`
       insert into app.migration_errors
         (migration_id, organization_id, scope_id, workspace_id, category, kind, code, message, retryable)
@@ -476,13 +509,13 @@ async function fetchCategory(
    * nobody answers.
    */
   if (cat.targetType === 'file' || cat.targetType === 'reconnect_task') {
-    await finishJob(deps, job, {
+    const finished = await finishJob(deps, job, {
       skipped:
         cat.targetType === 'file'
           ? 'files are copied as the records that point at them arrive'
           : 'worked out from the imported data, with the checks',
     });
-    await afterCategory(deps, job);
+    if (finished) await afterCategory(deps, job);
     return 'done';
   }
   /**
@@ -576,6 +609,8 @@ async function fetchCategory(
       deps.db,
       { workspaceId: job.workspace_id, organizationId: job.organization_id },
       async (tx) => {
+        // Stopped since this batch was claimed (the move is being taken back): write nothing.
+        if (!(await stillMine(tx, job))) return 'stopped' as const;
         /**
          * Nobody else has saved this page first. Two batches for one category can read the same mark at the
          * same moment; the row lock makes them take turns, and the second finds the mark has moved on and
@@ -691,6 +726,8 @@ async function fetchCategory(
       },
     );
 
+    // Somebody stopped it. Nothing was written, and nothing is queued after it.
+    if (counts === 'stopped') return 'done';
     // Another batch saved this page first: it carries on from here, and this one has nothing left to do.
     if (!counts) {
       await finishJob(deps, job, { skipped: 'another batch read this page' });
@@ -702,8 +739,7 @@ async function fetchCategory(
       await requeueJob(deps, job, { ...job.input, cursor: page.cursor });
       return 'again';
     }
-    await finishJob(deps, job, { ...counts });
-    await afterCategory(deps, job);
+    if (await finishJob(deps, job, { ...counts })) await afterCategory(deps, job);
     return 'done';
   }
 }
@@ -762,6 +798,7 @@ async function importDecided(deps: MigrationDeps, job: JobRow): Promise<Outcome>
     deps.db,
     { workspaceId: job.workspace_id, organizationId: job.organization_id },
     async (tx): Promise<Record<string, unknown>> => {
+      if (!(await stillMine(tx, job))) return { skipped: 'stopped: the move is being taken back' };
       const [candidate] = await rows<{
         resolution: string;
         target_id: string | null;
@@ -864,8 +901,7 @@ async function importDecided(deps: MigrationDeps, job: JobRow): Promise<Outcome>
       return { ...totals };
     },
   );
-  await finishJob(deps, job, outcome);
-  await afterCategory(deps, job);
+  if (await finishJob(deps, job, outcome)) await afterCategory(deps, job);
   return 'done';
 }
 
@@ -910,8 +946,7 @@ async function copyFiles(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
     await requeueJob(deps, job, job.input);
     return 'again';
   }
-  await finishJob(deps, job, { ...result });
-  await afterCategory(deps, job);
+  if (await finishJob(deps, job, { ...result })) await afterCategory(deps, job);
   return 'done';
 }
 

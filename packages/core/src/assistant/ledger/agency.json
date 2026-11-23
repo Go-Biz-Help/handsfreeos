@@ -24,7 +24,7 @@
     "apps/web/src/components/agency/template-list.tsx": "70cbce82a184",
     "apps/web/src/components/agency/template-update.tsx": "9ec0941a3b39",
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
-    "apps/web/src/components/migrations/wizard.tsx": "ded0c53789b3",
+    "apps/web/src/components/migrations/wizard.tsx": "c600c329d74f",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
     "apps/web/src/components/shell/workspace-switcher.tsx": "a94cb85f3c21",
     "apps/web/src/components/workflows/add-step-menu.tsx": "8b4a3810e05f",
@@ -1720,11 +1720,18 @@
       "by": "get_settings migrations → status transition, transitionEndsAt"
     },
     {
-      "path": "A migration → Take it back (finished; confirm)",
+      "path": "A migration → Take it back / Take back what’s left (finished; confirm)",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:895",
       "covered": "never",
       "by": "migration.rollback NEVER: takes back the whole move, putting away what it brought; the person presses Take it back"
+    },
+    {
+      "path": "A migration → Taken back → n records came in after this was taken back, so they’re still here",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx",
+      "covered": "yes",
+      "by": "read_migration_get status, leftBehind (wholeAgency)"
     },
     {
       "path": "A migration → Delete this move → what it asks for (being taken back / pause first / put nothing here / take it back first)",
@@ -1741,7 +1748,7 @@
       "by": "migration.delete NEVER: finishes off archived records for good"
     },
     {
-      "path": "A migration → Delete this move → Take it back",
+      "path": "A migration → Delete this move → Take it back / Take back what’s left",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:1064",
       "covered": "never",

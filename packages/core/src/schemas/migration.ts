@@ -466,6 +466,12 @@ export const MigrationGetOutput = z.object({
      * the screen can offer the right one of the two rather than guess from the badge.
      */
     putRecordsHere: z.boolean(),
+    /**
+     * On a move that was taken back: how many of its records are still here because they arrived after it
+     * was taken back (a batch that was already running, before 2026-11-23). Taking it back again puts them
+     * away too. Zero on every other step.
+     */
+    leftBehind: z.number().int(),
   }),
   connection: z.object({
     id: uuid,

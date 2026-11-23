@@ -30,6 +30,8 @@ import {
   migrationCreate,
   migrationGet,
   migrationMapScopes,
+  migrationPause,
+  migrationRollback,
   migrationScan,
   migrationSelect,
   migrationStart,
@@ -38,7 +40,7 @@ import {
   platformViewAsStart,
   type HumanActor,
 } from '@hfos/core/server';
-import { rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -77,16 +79,21 @@ const ask = <T>(q: unknown, input: unknown): Promise<T> =>
   executeQuery(api(), q as never, input, actorOf(owner), meta()) as Promise<T>;
 
 /** The migration loop until this migration has nothing left of its own to do. */
-async function drain(limit = 200, id = migrationId): Promise<void> {
+async function drain(
+  limit = 200,
+  id = migrationId,
+  options: { using?: MigrationAdapters; pageBudgetMs?: number } = {},
+): Promise<void> {
   const deps = {
     db: worker(),
     sealer: services.sealer,
     log: pino({ level: 'silent' }),
-    adapters,
+    adapters: options.using ?? adapters,
     store: services.store,
     fetchUrl: services.fetchUrl,
     workerId: `vitest-business-door-${process.pid}`,
     batchSize: 8,
+    pageBudgetMs: options.pageBudgetMs,
   };
   for (let i = 0; i < limit; i++) {
     await admin().execute(
@@ -468,6 +475,135 @@ describe('a business moves itself in', () => {
     );
     expect(queued.map((q) => q.category)).toEqual(['locations', 'tags']);
   }, 120_000);
+
+  it('stops a batch that is already reading when the move is taken back, so nothing is left behind', async () => {
+    // 2026-11-23, Burroughs Digital: taking a move back left records in the business. A batch the worker was
+    // already running was cancelled in the database but carried on reading, put itself back in the queue, and
+    // wrote more after the rollback had passed. Here the owner pauses and takes it back while the customers'
+    // first page is being read, one customer a page and one page a turn, as a long import would.
+    const someone = await createTestUser('business-door-takeback', { fullName: 'Tia Takeback' });
+    const { output: theirs } = await executeCommand(
+      api(),
+      organizationCreate,
+      { businessName: 'Llano River Pools', timezone: 'America/Chicago' },
+      actorOf(someone),
+      meta(),
+    );
+    const { as, door } = await upToChoosing(someone, theirs);
+    let pressed = false;
+    const midRead: MigrationAdapters = {
+      ...adapters,
+      get(system) {
+        const real = adapters.get(system);
+        if (!real) return real;
+        return {
+          ...real,
+          async list(connection, scope, category, options) {
+            if (category === 'contacts' && !pressed) {
+              pressed = true;
+              await as(migrationPause, door);
+              await as(migrationRollback, { ...door, confirm: true });
+            }
+            return real.list(connection, scope, category, { ...options, limit: 1 });
+          },
+        };
+      },
+    };
+    await as(migrationSelect, { ...door, choices: [{ category: 'contacts', selected: true }] });
+    await as(migrationStart, { ...door, acknowledgedFindingIds: [] });
+    await drain(200, door.migrationId, { using: midRead, pageBudgetMs: 1 });
+    expect(pressed).toBe(true);
+
+    const [after] = await rows<{ status: string; live: number; working: number }>(
+      admin(),
+      sql`select m.status::text as status,
+            (select count(*)::int from app.people p
+              where p.workspace_id = ${theirs.workspaceId}::uuid and p.archived_at is null) as live,
+            (select count(*)::int from app.migration_jobs j
+              where j.migration_id = m.id and j.state in ('pending', 'retry', 'leased')) as working
+          from app.migrations m where m.id = ${door.migrationId}`,
+    );
+    expect(after).toMatchObject({ status: 'rolled_back', live: 0, working: 0 });
+    const got = (await executeQuery(
+      api(),
+      migrationGet as never,
+      door,
+      actorOf(someone),
+      meta(),
+    )) as {
+      migration: { leftBehind: number };
+    };
+    expect(got.migration.leftBehind).toBe(0);
+  }, 120_000);
+
+  it('takes back again what a move left behind after it was taken back, and only then', async () => {
+    const someone = await createTestUser('business-door-again', { fullName: 'Al Again' });
+    const { output: theirs } = await executeCommand(
+      api(),
+      organizationCreate,
+      { businessName: 'Pedernales Painting', timezone: 'America/Chicago' },
+      actorOf(someone),
+      meta(),
+    );
+    const { as, door } = await upToChoosing(someone, theirs);
+    await as(migrationSelect, { ...door, choices: [{ category: 'contacts', selected: true }] });
+    await as(migrationStart, { ...door, acknowledgedFindingIds: [] });
+    await drain(200, door.migrationId);
+    await as(migrationRollback, { ...door, confirm: true });
+    await drain(200, door.migrationId);
+
+    // What a batch that kept going used to leave: a customer this move made, written after the rollback ran.
+    const [stray] = await rows<{ id: string }>(
+      admin(),
+      sql`select j.target_id::text as id from app.migration_change_journal j
+          where j.migration_id = ${door.migrationId} and j.action = 'create' and j.target_type = 'person'
+          limit 1`,
+    );
+    await admin().execute(sql`
+      update app.migration_change_journal set reverted_at = null, revert_skipped_reason = null
+       where migration_id = ${door.migrationId} and target_id = ${stray!.id}::uuid and action = 'create'`);
+    // Written as the worker, the way the batch wrote it: taking a customer out of the archive is guarded.
+    await asWorker(worker(), theirs, (tx) =>
+      tx.execute(sql`update app.people set archived_at = null where id = ${stray!.id}::uuid`),
+    );
+
+    type Detail = { migration: { status: string; leftBehind: number } };
+    const before = (await executeQuery(
+      api(),
+      migrationGet as never,
+      door,
+      actorOf(someone),
+      meta(),
+    )) as Detail;
+    expect(before.migration).toMatchObject({ status: 'rolled_back', leftBehind: 1 });
+
+    const again = await as<{ status: string; changed: boolean }>(migrationRollback, {
+      ...door,
+      confirm: true,
+    });
+    expect(again).toMatchObject({ status: 'rolling_back', changed: true });
+    await drain(200, door.migrationId);
+    const [person] = await rows<{ archived: boolean }>(
+      admin(),
+      sql`select archived_at is not null as archived from app.people where id = ${stray!.id}::uuid`,
+    );
+    expect(person?.archived).toBe(true);
+    const after = (await executeQuery(
+      api(),
+      migrationGet as never,
+      door,
+      actorOf(someone),
+      meta(),
+    )) as Detail;
+    expect(after.migration).toMatchObject({ status: 'rolled_back', leftBehind: 0 });
+
+    // Nothing left, so pressing it again does nothing.
+    const once = await as<{ status: string; changed: boolean }>(migrationRollback, {
+      ...door,
+      confirm: true,
+    });
+    expect(once).toMatchObject({ status: 'rolled_back', changed: false });
+  }, 180_000);
 
   it('lets the founder, working in a business as its owner, move it in', async () => {
     // The founder opens a customer's business as its owner (20261013002100) without ever joining it or its

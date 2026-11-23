@@ -88371,6 +88371,7 @@ export interface operations {
                             importedAt: string | null;
                             includeDeleted: boolean;
                             lastError: string | null;
+                            leftBehind: number;
                             name: string;
                             putRecordsHere: boolean;
                             /** @enum {string} */
