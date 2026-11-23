@@ -11,6 +11,8 @@ import {
   ORDER_STEPS,
   INVOICE_WORDS,
   dayLabel,
+  stockChoiceOf,
+  stockWords,
   type InvoiceState,
   type OrderFulfilment,
   type OrderStatus as Status,
@@ -324,6 +326,10 @@ function Lines({
   const [badPrice, setBadPrice] = useState(false);
   const problem = editing ? linesProblem(editing, badPrice) : null;
 
+  // What each line did to stock: taken off when it was done ("Took 5 off stock · 3 left"), or, before then, what's
+  // on hand for a product that's counted ("Comes off stock when it’s picked up · 8 on hand").
+  const stockNotes = lineStockNotes(order, products);
+
   return (
     <Card className="px-5 pb-5 pt-4" data-testid="order-what">
       <div className="mb-3 flex items-center gap-2">
@@ -377,6 +383,14 @@ function Lines({
                     {l.quantity.toLocaleString('en-US')} ×{' '}
                     {l.unitPriceCents > 0 ? money(l.unitPriceCents) : 'no price yet'}
                   </span>
+                  {stockNotes[i] ? (
+                    <span
+                      className="block text-[12.5px] text-text-3"
+                      data-testid="order-line-stock"
+                    >
+                      {stockNotes[i]}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="whitespace-nowrap tabular-nums">
                   {l.unitPriceCents > 0 ? money(orderLineCents(l)) : '—'}
@@ -402,6 +416,34 @@ function Lines({
       )}
     </Card>
   );
+}
+
+/** Each line's stock note, or null. The order keeps what it took in line order, one entry per counted line. */
+function lineStockNotes(order: OrderSummary, products: readonly ProductRow[]): (string | null)[] {
+  const taken = [...order.stockTaken];
+  const doneWord =
+    order.fulfilment === 'pickup'
+      ? 'picked up'
+      : order.fulfilment === 'delivery'
+        ? 'delivered'
+        : 'done';
+  return order.lines.map((l) => {
+    if (order.stockTaken.length || order.status === 'done') {
+      const at = taken.findIndex(
+        (t) =>
+          t.productId === l.productId && (t.choiceId === '' || l.choiceIds.includes(t.choiceId)),
+      );
+      if (at === -1) return null;
+      const [t] = taken.splice(at, 1);
+      return `Took ${t!.quantity.toLocaleString('en-US')} off stock · ${t!.left.toLocaleString('en-US')} left`;
+    }
+    if (order.status === 'cancelled' || !l.productId) return null;
+    const product = products.find((p) => p.id === l.productId);
+    if (!product?.stock) return null;
+    const choice = stockChoiceOf(product, l.choiceIds);
+    if (choice === null) return 'Not counted: no choice of what its stock is counted by';
+    return `Comes off stock when it’s ${doneWord} · ${stockWords(product.stock.counts[choice] ?? 0, product.stock.lowAt)}`;
+  });
 }
 
 function InvoiceCard({

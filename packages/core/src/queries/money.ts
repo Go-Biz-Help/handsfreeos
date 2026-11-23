@@ -203,11 +203,18 @@ export const productList = defineQuery({
       service_id: string | null;
       options: unknown;
       archived_at: Date | string | null;
+      stock_tracked: boolean;
+      stock_option_id: string | null;
+      low_stock_at: number | null;
+      stock_counts: Record<string, number> | null;
     }>(
       ctx.tx,
       sql`select p.id, p.name, p.description, p.sku, p.kind::text as kind,
             p.unit_price_cents::float8 as unit_price_cents, p.unit_label, p.taxable, p.service_id, p.options,
-            p.archived_at
+            p.archived_at, p.stock_tracked, p.stock_option_id, p.low_stock_at,
+            case when p.stock_tracked then
+              (select jsonb_object_agg(s.choice_id, s.on_hand) from app.stock_counts s where s.product_id = p.id)
+            end as stock_counts
           from app.products p
           where p.workspace_id = ${ctx.scope.workspaceId!}
             ${input.includeArchived ? sql`` : sql`and p.archived_at is null`}
@@ -233,6 +240,9 @@ export const productList = defineQuery({
           choices: o.choices.map((c) => ({ id: c.id, label: c.label, priceCents: c.priceCents })),
         })),
         archivedAt: moneyIso(p.archived_at),
+        stock: p.stock_tracked
+          ? { optionId: p.stock_option_id, lowAt: p.low_stock_at, counts: p.stock_counts ?? {} }
+          : null,
       })),
     };
   },

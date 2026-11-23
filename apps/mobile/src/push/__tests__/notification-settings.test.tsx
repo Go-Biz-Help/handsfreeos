@@ -102,6 +102,7 @@ const ALL_ON = {
   supportTickets: true,
   qualifying: true,
   documents: true,
+  stock: true,
 };
 
 beforeEach(() => {

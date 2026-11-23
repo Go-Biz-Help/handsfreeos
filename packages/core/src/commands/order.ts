@@ -25,6 +25,8 @@ import {
   orderStatusWords,
   orderSummary,
   orderTotalCents,
+  stockCrossedLow,
+  stockTakenOf,
   type OrderFulfilment,
   type OrderLine,
   type OrderStatus,
@@ -285,18 +287,21 @@ export const orderSetStatus = defineCommand({
   output: OrderStateOutput,
   permission: 'records.write',
   scope: inWorkspace,
-  emits: ['order.status_changed'],
+  emits: ['order.status_changed', 'stock.low'],
   async handler(ctx, input) {
     const before = await lockOrder(ctx, input.orderId);
     if (before.status === input.status) return stateOut(before, false);
-    await ctx.tx
+    // Done takes its lines off stock, and leaving done puts them back: the database does both
+    // (private.orders_take_stock) and keeps what it took on the order.
+    const [moved] = await ctx.tx
       .update(orders)
       .set({
         status: input.status,
         statusChangedAt: new Date(),
         statusChangedBy: userIdOf(ctx.actor),
       })
-      .where(eq(orders.id, before.id));
+      .where(eq(orders.id, before.id))
+      .returning({ stockTaken: orders.stockTaken });
     await ctx.emit({
       type: 'order.status_changed',
       entityType: 'order',
@@ -319,6 +324,26 @@ export const orderSetStatus = defineCommand({
         status: orderStatusWords(input.status, before.fulfilment),
       },
     });
+    // A count this order took down to its product's number to hear at: the people who manage money hear (push).
+    for (const t of stockCrossedLow(stockTakenOf(moved?.stockTaken))) {
+      const line = before.lines.find(
+        (l) => l.productId === t.productId && (!t.choiceId || l.choiceIds.includes(t.choiceId)),
+      );
+      await ctx.emit({
+        type: 'stock.low',
+        entityType: 'product',
+        entityId: t.productId,
+        payload: {
+          productId: t.productId,
+          choiceId: t.choiceId || null,
+          name: line?.name ?? 'A product',
+          left: t.left,
+          lowAt: t.lowAt,
+          orderId: before.id,
+          orderNumber: before.number,
+        },
+      });
+    }
     return stateOut({ ...before, status: input.status }, true);
   },
 });

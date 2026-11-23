@@ -1346,6 +1346,7 @@ const PUSH_LABELS: Record<PushSwitch, string> = {
   supportTickets: 'New support tickets',
   qualifying: 'Your AI teammate’s qualifying',
   documents: 'Documents you sent',
+  stock: 'Running low',
 };
 
 function nextPush(now: PushSwitches, args: Args): PushSwitches {

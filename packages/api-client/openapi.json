@@ -41819,6 +41819,67 @@
                         "choices"
                       ]
                     }
+                  },
+                  "stock": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "countBy": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "lowAt": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "counts": {
+                            "default": [],
+                            "maxItems": 40,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "choice": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 60
+                                },
+                                "onHand": {
+                                  "type": "integer",
+                                  "minimum": -1000000,
+                                  "maximum": 1000000
+                                }
+                              },
+                              "required": [
+                                "onHand"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -41954,6 +42015,46 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "stock": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "optionId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "lowAt": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "counts": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {
+                                    "type": "number"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "optionId",
+                                "lowAt",
+                                "counts"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -41967,7 +42068,8 @@
                         "taxable",
                         "serviceId",
                         "options",
-                        "archivedAt"
+                        "archivedAt",
+                        "stock"
                       ],
                       "additionalProperties": false
                     },
@@ -42128,6 +42230,67 @@
                         "choices"
                       ]
                     }
+                  },
+                  "stock": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "countBy": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "lowAt": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "counts": {
+                            "default": [],
+                            "maxItems": 40,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "choice": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 60
+                                },
+                                "onHand": {
+                                  "type": "integer",
+                                  "minimum": -1000000,
+                                  "maximum": 1000000
+                                }
+                              },
+                              "required": [
+                                "onHand"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -42263,6 +42426,46 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "stock": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "optionId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "lowAt": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "counts": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {
+                                    "type": "number"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "optionId",
+                                "lowAt",
+                                "counts"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -42276,7 +42479,8 @@
                         "taxable",
                         "serviceId",
                         "options",
-                        "archivedAt"
+                        "archivedAt",
+                        "stock"
                       ],
                       "additionalProperties": false
                     },
@@ -46009,7 +46213,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits order.status_changed.",
+        "description": "Risk level 1. Requires records.write. Emits order.status_changed, stock.low.",
         "requestBody": {
           "required": true,
           "content": {
@@ -197506,6 +197710,46 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "stock": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "optionId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "lowAt": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "counts": {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string"
+                                    },
+                                    "additionalProperties": {
+                                      "type": "number"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "optionId",
+                                  "lowAt",
+                                  "counts"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -197519,7 +197763,8 @@
                           "taxable",
                           "serviceId",
                           "options",
-                          "archivedAt"
+                          "archivedAt",
+                          "stock"
                         ],
                         "additionalProperties": false
                       }
@@ -203436,6 +203681,34 @@
                               }
                             ]
                           },
+                          "stockTaken": {
+                            "default": [],
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "productId": {
+                                  "type": "string"
+                                },
+                                "choiceId": {
+                                  "type": "string"
+                                },
+                                "quantity": {
+                                  "type": "number"
+                                },
+                                "left": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "productId",
+                                "choiceId",
+                                "quantity",
+                                "left"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -203464,6 +203737,7 @@
                           "invoiceId",
                           "invoice",
                           "statusChangedAt",
+                          "stockTaken",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -203769,6 +204043,34 @@
                             }
                           ]
                         },
+                        "stockTaken": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "productId": {
+                                "type": "string"
+                              },
+                              "choiceId": {
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "type": "number"
+                              },
+                              "left": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "productId",
+                              "choiceId",
+                              "quantity",
+                              "left"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time",
@@ -203797,6 +204099,7 @@
                         "invoiceId",
                         "invoice",
                         "statusChangedAt",
+                        "stockTaken",
                         "createdAt",
                         "updatedAt"
                       ],

@@ -27,6 +27,7 @@ import {
   loadCustomerSaid,
   money,
   PAYMENT_METHOD_WORDS,
+  stockLowWords,
   TeammateDraftPreview,
   whenLabel,
   type AttentionKind,
@@ -566,6 +567,41 @@ export const onPaidPush = pushMoment('payment', async (ctx, scope) => {
   });
 });
 
+// ---------- running low ----------
+
+/**
+ * `stock.low`: an order picked up or delivered took a product's count down to the business's number to hear at, to
+ * the people who manage money here (as a payment's), except whoever marked it. One push per count it crossed.
+ */
+export const onStockLowPush = pushMoment('stock', async (ctx, scope) => {
+  const p = payloadOf(ctx);
+  const productId = str(p['productId']) ?? ctx.event.entityId;
+  if (!productId) return;
+  const ws = scope.workspaceId;
+  const people = await rows<{ id: string }>(
+    ctx.tx,
+    sql`select wm.user_id as id from app.workspace_memberships wm
+        join app.workspace_access wa on wa.user_id = wm.user_id and wa.workspace_id = wm.workspace_id
+        where wm.workspace_id = ${ws} and wa.manages_money`,
+  );
+  const words = stockLowWords(
+    str(p['name']) ?? 'A product',
+    Number(p['left'] ?? 0),
+    Number(p['orderNumber'] ?? 0),
+  );
+  await queuePush(ctx.tx, scope, {
+    key: `stock:${ctx.event.id}`,
+    category: 'stock_low',
+    userIds: people.map((u) => u.id),
+    exceptUserId: personActor(ctx),
+    title: words.title,
+    body: words.body,
+    path: `/app/w/${ws}/settings/payments/products?product=${productId}`,
+    refs: {},
+    collapseId: `stock-${productId}-${str(p['choiceId']) ?? 'all'}`,
+  });
+});
+
 // ---------- a call nobody took ----------
 
 /** "0:14", the same shape the conversation list uses for a call's length. */
@@ -671,6 +707,7 @@ const PUSH_HANDLERS: Readonly<Record<string, EventHandler>> = {
   'task.updated': onAssignedPush,
   'attention.assigned': onAssignedPush,
   'invoice.paid': onPaidPush,
+  'stock.low': onStockLowPush,
   'wallet.empty': onWalletPush,
   'wallet.suspended': onWalletPush,
 };
