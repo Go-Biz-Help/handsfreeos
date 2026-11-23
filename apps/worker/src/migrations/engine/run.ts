@@ -1253,6 +1253,43 @@ async function countFiles(deps: MigrationDeps, job: JobRow): Promise<FileTally> 
 }
 
 /**
+ * Customers and products still waiting in the old system, per sub-account and category: the ones a move
+ * added only because a choice needed them, and nothing it brought ever pointed at.
+ *
+ * One transaction per business, like countFiles: the worker's policy on the staged rows admits only the
+ * business it is holding, so the migration-wide checks below would count none of them.
+ */
+async function countWaiting(deps: MigrationDeps, job: JobRow): Promise<Map<string, number>> {
+  const workspaces = await asWorker(
+    deps.db,
+    { workspaceId: null, organizationId: job.organization_id },
+    (tx) =>
+      rows<{ workspace_id: string }>(
+        tx,
+        sql`select distinct workspace_id::text as workspace_id from app.migration_scopes
+            where migration_id = ${job.migration_id} and workspace_id is not null`,
+      ),
+  );
+  const waiting = new Map<string, number>();
+  for (const { workspace_id: workspaceId } of workspaces) {
+    const found = await asWorker(
+      deps.db,
+      { workspaceId, organizationId: job.organization_id },
+      (tx) =>
+        rows<{ scope_id: string; category: string; count: number }>(
+          tx,
+          sql`select scope_id::text as scope_id, category, count(*)::int as count
+              from app.migration_source_objects
+              where migration_id = ${job.migration_id} and state = 'waiting'
+              group by 1, 2`,
+        ),
+    );
+    for (const row of found) waiting.set(`${row.scope_id}:${row.category}`, Number(row.count));
+  }
+  return waiting;
+}
+
+/**
  * Counting is not proof, so this does not only count. It checks that every source record has exactly one
  * record here, that nothing points at something that is not there, and that the history really kept its own
  * dates — that last one because it is the promise most easily broken by a careless default.
@@ -1511,6 +1548,8 @@ async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
   // The files, counted before the checks start: they belong to a business, and the checks run across the
   // whole migration where no business is held, so counting them there would count nothing.
   const files = await countFiles(deps, job);
+  // The same for customers and products left waiting, which also belong to a business.
+  const leftWaiting = await countWaiting(deps, job);
   await asWorker(
     deps.db,
     { workspaceId: null, organizationId: job.organization_id },
@@ -1544,48 +1583,49 @@ async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
        * used them (bringWhatItUses), and the rest are still waiting. For those, what should have arrived is
        * what was taken — the checkpoint's found — not the whole of the old system's list.
        */
-      const perCategory = await rows<{
+      const perScope = await rows<{
         category: string;
-        expected: number;
-        actual: number;
+        scope_id: string;
         failed: number;
-        left: number;
+        found: number;
+        actual: number;
+        listed: number;
       }>(
         tx,
-        sql`select category, sum(failed)::bigint as failed, sum(actual)::bigint as actual,
-            sum(left_waiting)::bigint as left,
-            sum(case when left_waiting > 0 then found else listed end)::bigint as expected
-          from (
-            select c.category,
-              coalesce((c.counts ->> 'failed')::bigint, 0) as failed,
-              coalesce((c.counts ->> 'found')::bigint, 0) as found,
-              coalesce((c.counts ->> 'imported')::bigint, 0)
-                + coalesce((c.counts ->> 'merged')::bigint, 0)
-                + coalesce((c.counts ->> 'skipped')::bigint, 0) as actual,
-              coalesce((select sum(i.found_count) from app.migration_inventory i
-                        where i.migration_id = c.migration_id and i.scope_id = c.scope_id
-                          and i.category = c.category and i.resource_id is null), 0) as listed,
-              (select count(*) from app.migration_source_objects o
-                where o.scope_id = c.scope_id and o.category = c.category
-                  and o.state = 'waiting') as left_waiting
-            from app.migration_checkpoints c
-            where c.migration_id = ${job.migration_id}
-          ) per_scope
-          group by category`,
+        sql`select c.category, c.scope_id::text as scope_id,
+            coalesce((c.counts ->> 'failed')::bigint, 0) as failed,
+            coalesce((c.counts ->> 'found')::bigint, 0) as found,
+            coalesce((c.counts ->> 'imported')::bigint, 0)
+              + coalesce((c.counts ->> 'merged')::bigint, 0)
+              + coalesce((c.counts ->> 'skipped')::bigint, 0) as actual,
+            coalesce((select sum(i.found_count) from app.migration_inventory i
+                      where i.migration_id = c.migration_id and i.scope_id = c.scope_id
+                        and i.category = c.category and i.resource_id is null), 0) as listed
+          from app.migration_checkpoints c
+          where c.migration_id = ${job.migration_id}`,
       );
-      for (const row of perCategory) {
-        const expected = Number(row.expected);
-        const actual = Number(row.actual);
-        const failed = Number(row.failed);
-        const left = Number(row.left);
-        const label = migrationCategory(row.category)?.label ?? row.category;
+      const perCategory = new Map<
+        string,
+        { expected: number; actual: number; failed: number; left: number }
+      >();
+      for (const row of perScope) {
+        const left = leftWaiting.get(`${row.scope_id}:${row.category}`) ?? 0;
+        const sum = perCategory.get(row.category) ?? { expected: 0, actual: 0, failed: 0, left: 0 };
+        sum.expected += left > 0 ? Number(row.found) : Number(row.listed);
+        sum.actual += Number(row.actual);
+        sum.failed += Number(row.failed);
+        sum.left += left;
+        perCategory.set(row.category, sum);
+      }
+      for (const [category, { expected, actual, failed, left }] of perCategory) {
+        const label = migrationCategory(category)?.label ?? category;
         // The ones set aside with a reason are known, not a mystery: saying they "may have been added or
         // removed while we read" sent people looking for a problem that was already written down.
         const short = expected - actual;
         const explained = Math.min(failed, short);
         await put(
           'counts',
-          row.category,
+          category,
           actual >= expected ? 'passed' : 'warned',
           expected,
           actual,
