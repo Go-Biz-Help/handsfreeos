@@ -87,16 +87,38 @@ interface NetProps {
   nav: StepNav;
 }
 
+/** How long the Allow step waits before reading the setup again: 5 seconds for a minute, 15 for four more, then 60. */
+const allowWaitMs = (asked: number): number => (asked < 12 ? 5_000 : asked < 28 ? 15_000 : 60_000);
+
 /** Chrome's Allow, a step at a time, ticking by itself once the computer says it's let on. */
 function AllowStep({ workspaceId, at, setup, nav }: NetProps) {
   const router = useRouter();
   const name = PLATFORMS[at.net];
   const done = stateOf(setup, at)?.state === 'done';
-  // The computer's check-in that says so isn't broadcast: read the setup again while waiting.
+  // The computer's check-in that says so isn't broadcast: read the setup again while waiting. Only while this tab is
+  // shown (the step sends the person to Chrome's own page, and a tab left here asked every 5 seconds until it was
+  // closed), at once when they come back to it, and less often the longer it has waited.
   useEffect(() => {
     if (done) return;
-    const t = setInterval(() => router.refresh(), 5_000);
-    return () => clearInterval(t);
+    let asked = 0;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const ask = () => {
+      if (document.visibilityState !== 'visible') return;
+      asked += 1;
+      router.refresh();
+      t = setTimeout(ask, allowWaitMs(asked));
+    };
+    const shown = () => {
+      clearTimeout(t);
+      asked = 0;
+      ask();
+    };
+    t = setTimeout(ask, allowWaitMs(asked));
+    document.addEventListener('visibilitychange', shown);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('visibilitychange', shown);
+    };
   }, [done, router]);
   const pictures = allowPictures(name, W.site(at.net));
   return (
