@@ -257,10 +257,16 @@ describe('registry', () => {
       'email_domain.record_inbound',
       'email_address.create',
       'email_address.reassign',
+      'email_address.remove',
+      // "Let Ava read this mail": the switch on a person's own address, theirs alone to flip.
+      'email_address.set_ai_reads',
       'email_address.update',
       // The business email step: onboarding's "Your business email", and Home's card.
       'email_setup.save',
       'email_domain.send_steps',
+      'email_setup.look_up',
+      'email_setup.record_lookup',
+      'email_setup.apply',
       'mailbox.connect',
       'mailbox.disconnect',
       'mailbox.resync',
@@ -273,6 +279,9 @@ describe('registry', () => {
       'conversation.move',
       'email_sender_rule.remove',
       'conversation.share',
+      // The AI teammate's draft on someone's own mail: kept by the worker, put away by its person.
+      'conversation.ai_draft_save',
+      'conversation.ai_draft_dismiss',
       'email.receive',
       'email_suppression.record',
       'assistant_thread.rename',

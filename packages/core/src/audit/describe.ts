@@ -610,6 +610,21 @@ function describeAction(e: AuditEntry): string {
           : s(e.after?.status) === 'failed'
             ? `recorded that ${s(e.after?.domain)} did not verify${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`
             : `saved the DNS records for ${s(e.after?.domain)}`;
+    // The guided email setup's "Set it up": one entry for each thing it did.
+    case 'email_setup.apply':
+      return e.after?.plan
+        ? `set what ${s(e.after?.domain)} does once its DNS records check out, in the guided email setup`
+        : e.after?.receiving
+          ? `asked for mail to ${s(e.after?.domain)} to come to HandsFreeOS, in the guided email setup`
+          : s(e.after?.address)
+            ? e.after?.isDefault
+              ? `made ${s(e.after?.address)} the address customers hear from, in the guided email setup`
+              : s(e.after?.displayName) && e.before?.displayName !== undefined
+                ? `changed the name on ${s(e.after?.address)} to ${s(e.after?.displayName)}, in the guided email setup`
+                : `added the email address ${s(e.after?.address)}, in the guided email setup`
+            : 'set up the business’s email, in the guided email setup';
+    case 'email_setup.look_up':
+      return 'looked up a website name for the business’s email, without adding it';
     case 'email_address.create':
       return `added the email address ${s(e.after?.address)}${e.after?.isDefault ? ' as the default' : ''}`;
     case 'email_address.update':
@@ -618,6 +633,18 @@ function describeAction(e: AuditEntry): string {
         : s(e.after?.displayName)
           ? `changed the name on ${s(e.after?.address)} to ${s(e.after?.displayName)}`
           : `updated the email address ${s(e.after?.address)}`;
+    case 'email_address.remove':
+      return `removed the email address ${s(e.before?.address)}`;
+    // "Let Ava read this mail": the switch on a person's own address, and the draft it leaves on their mail. The
+    // entries say that it happened, never what was written or who wrote in.
+    case 'email_address.set_ai_reads':
+      return e.after?.aiReads
+        ? `let the AI teammate read mail sent to ${s(e.before?.address)}, their own address, and draft answers only they see`
+        : `stopped the AI teammate reading mail sent to ${s(e.before?.address)}, their own address`;
+    case 'conversation.ai_draft_save':
+      return 'had the AI teammate draft an answer on someone’s own mail, for them alone to read and send';
+    case 'conversation.ai_draft_dismiss':
+      return 'put away the AI teammate’s draft on their own mail';
     case 'mailbox.connect':
       return `started connecting ${s(e.after?.provider) === 'google' ? 'a Gmail' : 'an Outlook'} mailbox`;
     case 'mailbox.activate':
@@ -2056,6 +2083,7 @@ export const AUDIT_CATEGORY_RULES: readonly {
       'rcs_request.',
       'texting_fee.',
       'email.',
+      'email_setup.',
       'email_domain.',
       'email_address.',
       'email_suppression.',

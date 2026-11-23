@@ -17,7 +17,7 @@ export default async function EmailSettingsPage({
   const { workspaceId } = await params;
   // Coming back from Microsoft's or Google's sign-in: how it went.
   const { mailbox } = await searchParams;
-  const { api } = await apiServer();
+  const { api, userId } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   if (!can(got.workspace.permissions, 'channels.manage')) notFound();
   const [status, blocked, unmatched, senderRules, members, tags] = await Promise.all([
@@ -40,12 +40,12 @@ export default async function EmailSettingsPage({
     <>
       <EmailPage
         workspaceId={workspaceId}
-        workspaceName={got.workspace.name}
         status={status}
         blocked={blocked.items}
         unmatched={unmatched.items}
         senderRules={senderRules.items}
         people={people}
+        myUserId={userId}
         tags={tags.tags}
         mailboxResult={typeof mailbox === 'string' ? mailbox : null}
       />

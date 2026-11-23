@@ -793,6 +793,7 @@ export const conversationGet = defineQuery({
         row.channel === 'email' && !person && !row.private
           ? await senderOf(ctx, input.workspaceId, row.id, row.counterpart)
           : null,
+      aiDraft: row.private ? await aiDraftOf(ctx, input.workspaceId, row.id) : null,
       canText,
       social: isSocialChannel(row.channel) ? await socialOf(ctx, row, row.channel) : null,
       fromNumber: number ? formatPhone(number.e164) : null,
@@ -802,6 +803,33 @@ export const conversationGet = defineQuery({
     };
   },
 });
+
+/**
+ * The answer the AI teammate drafted on someone's own mail ("Let Ava read this mail"), for its person alone: the
+ * thread's policies already keep everyone else from reading the row it is on.
+ */
+async function aiDraftOf(
+  ctx: QueryContext,
+  workspaceId: string,
+  conversationId: string,
+): Promise<ConversationGetOutputShape['aiDraft']> {
+  const [r] = await rows<{ draft: unknown; by: string | null }>(
+    ctx.tx,
+    sql`select c.ai_draft as draft,
+          (select t.name from app.ai_teammates t
+            where t.workspace_id = c.workspace_id and t.archived_at is null limit 1) as by
+        from app.conversations c
+        where c.id = ${conversationId} and c.workspace_id = ${workspaceId} and c.ai_draft is not null`,
+  );
+  const d = r?.draft as { body?: unknown; forMessageId?: unknown; at?: unknown } | null | undefined;
+  if (!d || typeof d.body !== 'string' || typeof d.forMessageId !== 'string') return null;
+  return {
+    body: d.body,
+    forMessageId: d.forMessageId,
+    at: iso(typeof d.at === 'string' ? d.at : null) ?? new Date().toISOString(),
+    by: r?.by ?? 'Your AI teammate',
+  };
+}
 
 /**
  * Who a team email thread nobody has linked is from: the name their mail gave, and the customer with the address.

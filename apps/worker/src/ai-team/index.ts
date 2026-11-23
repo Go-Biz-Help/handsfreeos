@@ -12,6 +12,7 @@ import { expireDraftsJob } from './expiry';
 import { followUpJob } from './follow-up';
 import { handoffLineJob } from './handoff';
 import { outreachJob } from './outreach';
+import { ownMailDraftJob } from './own-mail';
 import { teammateReplyJob } from './run';
 import { translateJob } from './translations';
 
@@ -22,6 +23,7 @@ export { expireDueDrafts } from './expiry';
 export {
   TEAMMATE_JOBS,
   replyJobKey,
+  ownMailDraftJobKey,
   sendDraftJobKey,
   outreachJobKey,
   followUpJobKey,
@@ -40,4 +42,5 @@ export const teammateJobs: JobMap = {
   [TEAMMATE_JOBS.expireDrafts]: expireDraftsJob,
   [TEAMMATE_JOBS.handoffText]: handoffTextJob,
   [TEAMMATE_JOBS.translate]: translateJob,
+  [TEAMMATE_JOBS.ownMailDraft]: ownMailDraftJob,
 };

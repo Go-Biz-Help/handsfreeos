@@ -42,6 +42,7 @@ const domain = (over: Partial<EmailSetupDomain> = {}): EmailSetupDomain => ({
   mailHost: 'none',
   dnsHost: 'godaddy',
   plan: { team: { localPart: 'hello', displayName: 'Bella’s Salon' } },
+  mxRecords: null,
   records: [
     {
       type: 'TXT',

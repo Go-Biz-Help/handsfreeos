@@ -1645,6 +1645,11 @@ export const conversations = app.table('conversations', {
   folder: conversationFolder('folder').notNull().default('inbox'),
   /** M19: the one person who may read it (their own address's mail); null is the team's. Never linked to a customer. */
   privateTo: uuid('private_to'),
+  /**
+   * The answer the AI teammate drafted for the newest mail in a person's own thread, when their address lets it
+   * read: `{ body, forMessageId, at }`. Only ever on a private thread, so only its person reads it.
+   */
+  aiDraft: jsonb('ai_draft').$type<{ body: string; forMessageId: string; at: string }>(),
   /** The record a thread is about (a portal thread's deal); a private record's thread is sealed with it (round two). */
   customRecordId: uuid('custom_record_id').references(() => customRecords.id, {
     onDelete: 'set null',
@@ -1969,6 +1974,23 @@ export const emailDomains = app.table('email_domains', {
   /** Where its mail goes now (none, google, microsoft…) and where its DNS is managed, as the worker last looked. */
   mailHost: text('mail_host'),
   dnsHost: text('dns_host'),
+  /** Its MX records as the worker last saw them, lowest priority first (the guided setup's "old records to delete"). */
+  mxRecords: jsonb('mx_records').$type<{ host: string; priority: number }[]>(),
+});
+
+/**
+ * The website name a business last asked about in the guided email setup, before adding it (20261027033800): where
+ * its mail goes and where its DNS is looked after. One row a business; only the worker writes it.
+ */
+export const emailDomainLookups = app.table('email_domain_lookups', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  domain: text('domain').notNull(),
+  mailHost: text('mail_host'),
+  dnsHost: text('dns_host'),
+  mxRecords: jsonb('mx_records').$type<{ host: string; priority: number }[]>(),
+  lookedAt: ts('looked_at').notNull().defaultNow(),
 });
 
 /** A sending address: on the shared subdomain (no domain) or on a verified workspace domain. */
@@ -1987,6 +2009,8 @@ export const emailAddresses = app.table('email_addresses', {
   ...timestamps(),
   /** M19: the person whose own address this is; only they send from it, and its mail is theirs alone. */
   ownerUserId: uuid('owner_user_id'),
+  /** Its own person lets the AI teammate read the mail that comes in here and draft answers only they see. */
+  aiReads: boolean('ai_reads').notNull().default(false),
 });
 
 /** An Outlook or Gmail mailbox; tokens and sign-in secrets are sealed by the worker. */

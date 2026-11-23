@@ -300,7 +300,9 @@ the team's, so it now shows in one list with a mark. His picks:
   Spam.~~ Gone the next day, below.
 - **Badges** count their own unread mail in Mine and All (and the menu's Inbox badge), on their
   screen only. Waiting, Needs a person and the AI teammate's count stay the team's.
-- **The AI teammate never reads or answers anyone's own mail**, as before.
+- **The AI teammate never reads or answers anyone's own mail**, as before. (Changed 2026-11-22: it
+  reads and drafts on an address whose own person turns the switch on, and still never answers. See
+  "Let Ava read this mail" below.)
 - A sender who writes to both someone's own address and a team one is **two rows**, never one with
   two lanes (`GROUP_KEY` and `customerKeyOf` keep own mail apart), so sharing or answering one never
   reaches the other.
@@ -322,6 +324,165 @@ still opened a page of his own mail, and Chris wanted one Inbox. He picked desig
   out (Move to Inbox, Not spam), with **Back to Open**.
 - At phone width on the web the menu sits beside **Unread**, since the search is in the top bar.
 - The Assistant keeps `mailbox` `mine` for "only my own mail"; only the screens lost the page.
+
+**Changing addresses after setup (Chris, 2026-11-22).** Burroughs Digital added `blake@` first, so
+it became the address customers hear from and could never be Blake's own. Chris approved the
+"Guided email setup" canvas ("after setup also need to be able to change the email, add more, change
+who can see it"). Its Settings part and the switch that lets the AI teammate read someone's own
+mail (below) are built; the guided questions come next. What changed from the rules above:
+
+- **Settings → Email opens on Your addresses.** Each row says who reads it and which one customers
+  hear from (the default; the free address is the **Backup** once an own address is). **Change**
+  opens one box: rename it while it has carried no mail, pick who reads it, make it the one
+  customers hear from, or remove it. **Add an address** is a box too, on any verified domain.
+- **The default can become one person's own.** `email_address.update` takes `defaultToId`, the team
+  address that takes over, and does both in one go. Without it the refusal
+  (`email_address_owner_default`) asks for one.
+- **Its own person hands an address back to the team** (`ownerUserId: null`,
+  `private.hand_back_email_address`). The mail they already got stays theirs alone; new mail is the
+  team's. Nobody else can do it for them, and it never goes straight to another person
+  (`email_address_owner_is_theirs`). Once they've left, an owner still decides, as before.
+- **One address can be removed on its own** (`email_address.remove`,
+  `private.remove_email_address`), where before it only went with its whole domain. The mail it
+  carried stays where it is. New mail to it goes to the domain's catch-all, the team's Inbox, since
+  mail is never dropped because nobody has that address. Never the default, never the last free
+  address (the backup), and a person's own only by that person.
+- **The Assistant** does the same on Confirm cards: `manage_email_settings` hands back and names the
+  takeover, and `do_email_address_remove` removes one address, keeping its mail. Removing a left
+  person's address with its mail is still never offered.
+- Changing or removing an address takes `channels.manage`, so someone without it asks an owner or
+  admin to add the address again as the team's.
+
+**Let Ava read this mail (Chris, 2026-11-22).** "Need to add a toggle that allows Ava to read the
+Only me emails and it can be changed after setup as well." This reverses the 2026-11-10 pick above
+for the addresses whose own person says so, and only this far: the AI teammate reads and drafts, and
+the person sends.
+
+- **The switch is on the address** (`email_addresses.ai_reads`), under each of a person's own
+  addresses on Settings → Email, and in the Add and Change boxes while **Only me** is picked. It
+  starts off.
+- **Only the address's own person turns it on** (`email_address.set_ai_reads`, through
+  `private.set_email_address_ai_reads`). Not an admin adding their address, and not an owner: the
+  refusal (`email_address_ai_reads_is_theirs`) says whose it is. People can't write the column any
+  other way, and a team address has no such switch (`email_address_ai_reads_team`: the team's mail
+  follows the teammate's own Channels). It takes `inbox.use`, not `channels.manage`, so a member
+  without Settings can still ask the Assistant to flip it.
+- **It goes off when the address changes hands** (handed back, given to someone else): the yes was
+  one person's.
+- **What on does.** New mail to the address that lands in their Inbox queues one job per thread
+  (`ai_teammate.own_mail_draft`, on `email.filed`, after a short wait so a few mails get one draft).
+  The teammate reads the last six mails of the thread, the business profile and its knowledge, and
+  writes a draft answer as the person. Newsletters, automatic mail, Other mail and Spam get none,
+  and neither does a thread they already answered. A teammate that is off drafts nothing.
+- **Where the draft lives.** On the thread itself (`conversations.ai_draft`: the words, which mail it
+  answers, when), never in the team's drafts or the teammate's runs, which the whole business reads.
+  A check keeps it on private threads only, so the policies that hide the thread hide the draft.
+  It goes when they answer, when new mail comes, when they put it away
+  (`conversation.ai_draft_dismiss`), when the thread stops being theirs (shared, or reassigned), and
+  when they turn the switch off.
+- **Nothing is sent.** The thread shows the draft on a card marked **Only you see this**, with
+  **Use this draft** (it fills the message box, where they change what they like and send as
+  themselves) and **No thanks**. There is no run, tool call, customer link, task or approval, and
+  only its person can send from the address, as before.
+- **What the history says.** That the switch changed and that a draft was made on a private thread,
+  never its words or who wrote in. The tokens count toward the business's daily AI limit as the
+  teammate's.
+- **The Assistant** flips the switch on a card that names the address and the teammate
+  (`do_email_address_set_ai_reads`), reads the draft back to its person in `get_conversation`
+  (`draftAnswer`), and puts it away (`do_conversation_ai_draft_dismiss`). It runs as the person, so
+  nobody else is read a draft.
+- **The phone** has the switch in its guided setup ("Who reads each one?"), and shows the draft in
+  a thread on the same card (`apps/mobile/src/components/inbox/own-mail-draft.tsx`). The draft isn't
+  in the phone's copy: it is asked of `conversation.get` while there's signal
+  (`src/inbox/use-own-mail-draft.ts`), when the thread opens, when new mail shows (again after 8
+  and 30 seconds, since the teammate writes a little after the mail lands) and when the app comes
+  back to the front. So it needed no sync change. The card's words are core's
+  (`OWN_MAIL_DRAFT_WORDS`).
+
+**The guided questions: what the server does (Chris, 2026-11-22).** The same canvas, one question at
+a time: which email, the addresses, who reads each one, the one customers hear from, where mail
+arrives, then **Check it over** and **Set it up**. The server side is below, then the web screens;
+the phone's come next.
+
+- **The questions' rules live once**, in `packages/core/src/messaging/email-guided.ts`: the answers
+  (`EmailGuidedAnswers`), which screens a path has, what each screen still needs
+  (`emailGuidedProblems`), the plan the answers make, and every word the screens say
+  (`EMAIL_GUIDED_WORDS`). The web and the phone both read it. `email_setup.get` hands back the
+  answers to start from (`guided`).
+- **Nothing changes until Set it up.** A website name is looked up before it is added
+  (`email_setup.look_up`): the worker reads its mail and name-server records and files what it saw
+  in `app.email_domain_lookups`, one row a business, so the first question can say where the name
+  is looked after and where its mail goes today. A name that doesn't exist says so. Forty look-ups
+  an hour a business (`email_lookup_limit`).
+- **Set it up is one command** (`email_setup.apply`). It checks the answers again, adds the name if
+  it is new, and writes the plan (`email_domains.plan`): the team address customers hear from, the
+  other addresses (`addresses`, each the team's or one person's own), and whether mail arrives in
+  HandsFreeOS. A verified name gets its addresses at once; a new one gets them when its records
+  verify, as before, and the free address carries the mail until then.
+- **It only adds.** An address already set up keeps who reads it, and none is removed. Those changes
+  stay in Settings → Email, where each one is asked on its own.
+- **"Let Ava read this mail" in a plan is its own person's to write.** A trigger on the plan
+  (`email_domains_plan_ai_reads_guard`) refuses a person planning the switch on for someone else's
+  address, so the yes that the worker carries out later is still theirs.
+- **The old mail records.** The worker keeps the name's MX records as it last saw them
+  (`email_domains.mx_records`, with priorities). The last step lists ours to add and the old ones
+  to delete, and says which are still there; the steps email names them too. Receiving still turns
+  on only when ours is the only record at the lowest priority.
+
+**The guided questions: the web screens (Chris, 2026-11-22).**
+
+- **One page**, `/onboarding/<business>/email`, on the shared guided-setup frame
+  (`apps/web/src/components/guided-setup/frame.tsx`): the questions and Check it over in
+  `email-setup/guided-flow.tsx`, the last step and Done in `email-setup/guided-last.tsx`. Only
+  someone who can change the business's email opens it.
+- **The answers save as they are given** (`guided_setup.save_draft`, setup `email`), with the
+  question they were left on and who was answering, so leaving and coming back lands on the same
+  question. Nothing is saved until something is answered, and Set it up puts the saved answers away.
+- **The last step** is for a website name with something left: its records to add, then our mail
+  record to add and the old ones to delete, each marked found or still there. It checks again on its
+  own every minute for ten minutes, and **Send these steps** emails them to whoever looks after the
+  website. What it lists and says is worked out once, in core (`emailGuidedLastStep`,
+  `emailGuidedDone`), for the phone too.
+- **Home's card** (`emailGuidedHomeOf`) says "Set up your business email", "Finish your email
+  records" or "Bring your mail in", and opens the page on the questions or the last step.
+- **Settings → Email** has no form for typing a website name any more. With none yet, **Use your own
+  website name** has **Set it up**. With one, **Your website name** has two rows, **Mail coming in**
+  and **Records** (folded once they're all found), **Open the steps** while something is left, and
+  **Run the guided setup again** under it. The Assistant still adds a name without the questions
+  (`manage_email_settings` add_domain), and does Set it up itself (`do_email_setup_apply`).
+- **Addresses in the page's address:** `?from=settings` (Finish later goes back to Settings),
+  `?at=records` (the last step), `&d=<website name's id>` (which one, with more than one),
+  `?again=1` (the questions, whatever is left) and `?done=1` (Done).
+- **Not built yet:** "Send a test" on Done and in Settings.
+
+**The guided questions: the phone's screens (Chris, 2026-11-22).**
+
+- **The same setup, one question a screen.** Home's card opens it full screen
+  (`app/w/<business>/email-setup`): the questions and Check it over in
+  `apps/mobile/src/components/email-setup/guided-flow.tsx`, the last step and Done in
+  `guided-last.tsx`. It reads the same rules and words as the web
+  (`messaging/email-guided.ts`) and saves the same answers (`guided_setup.save_draft`), so answers
+  begun on the web carry on here, and the other way round. `?at=records`, `&d=` and `?again=1` mean
+  what they do on the web.
+- **The phone's frame for guided setups** is `apps/mobile/src/components/guided-setup/frame.tsx`,
+  with the web frame's names (`GuidedPage`, `ChoiceTile`, `GuidedFooter`, `WelcomeBack`,
+  `useGuidedDraft`): the question's number and Saved in the top bar beside **Finish later**, how far
+  along under it, Back and Next pinned at the bottom. The other guided setups use it too.
+- **What only the phone says** is in `apps/mobile/src/email-setup/words.ts`: "tap" where the web
+  says "click", and that Settings → Email is on the web. The phone has no Settings → Email, so
+  Done's **Email settings** opens it in the browser.
+- **The last step leads with "Easier on a computer"**: **Email me the steps**, or send them to
+  whoever looks after the website (`email_domain.send_steps`). The records are there too, to read
+  off, hold to copy, or **Share**.
+- **No live updates for email on the phone.** The setup asks again after **Check now**, every minute
+  while something is left, and when the app comes back to the front. It needs signal.
+- **`email_setup.save` has no screen now.** The older three-part flow from Home's card is gone, on
+  the web and the phone. The command stays for phones that haven't updated, and the Assistant sets
+  email up with `do_email_setup_apply` instead of `do_email_setup_save`.
+- **"Saved" only once it is.** In both frames the tick dims the moment an answer changes and comes
+  back once that answer is kept, and what was just answered is sent at once when the page or screen
+  is left: a reload, a closed tab, Back, the app put away. Before, a reload inside the 700 ms wait
+  came back a question behind.
 
 ### Step 5 — HandsFreeOS's own business (done, 2026-09-30)
 

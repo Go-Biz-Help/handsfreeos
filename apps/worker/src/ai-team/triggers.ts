@@ -13,6 +13,8 @@
  * - `lead.created`: a first message to the new lead, after the Respond skill's delay (outreach.ts).
  * - `conversation.handed_off`: the team's email, the urgent alert, M3's unanswered alert and the budget notice
  *   (escalation.ts).
+ * - `email.filed` for someone's own mail, when their address lets the teammate read it: a draft answer only they
+ *   see, never sent (own-mail.ts).
  * A website chat gets replies only when its widget names the teammate (gates.ts widgetAnswers).
  */
 import { eq } from 'drizzle-orm';
@@ -56,6 +58,7 @@ import { onHandedOff } from './escalation';
 import { isAutomaticEmail, loopReason, repliesToday, widgetAnswers, workingNow } from './gates';
 import { handOffAsSystem } from './handoff';
 import { onLeadCreated } from './outreach';
+import { onOwnMailFiled } from './own-mail';
 import { originOf } from './run';
 
 type Conversation = typeof conversations.$inferSelect;
@@ -453,6 +456,8 @@ const TEAMMATE_HANDLERS: Readonly<Record<string, EventHandler>> = {
   'ai_teammate.draft_decided': onDraftDecided,
   'lead.created': onLeadCreated,
   'conversation.handed_off': onHandedOff,
+  // Someone's own mail, when their address lets the teammate read it: a draft only they see (own-mail.ts).
+  'email.filed': onOwnMailFiled,
 };
 
 /** The handler map with the teammate's handlers after each event's own (and before withWorkflows adds its own). */

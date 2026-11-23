@@ -312,6 +312,8 @@ interface ConversationGot {
     onSiteNow: boolean;
     blocked: boolean;
   } | null;
+  /** The AI teammate's draft answer on the asker's own mail ("Let Ava read this mail"); only they are ever given it. */
+  aiDraft?: { body: string; forMessageId: string; at: string; by: string } | null;
   social: {
     account: { label: string; status: string } | null;
     contact: { name: string; username: string | null };
@@ -1053,6 +1055,18 @@ export const readTools: Record<string, ReadTool> = {
                 canReplyNow: social.window.open || social.window.peopleOnly,
                 ...(social.window.peopleOnly ? { onlyAPersonCanReply: true } : {}),
                 replyBy: social.window.closesAt,
+              },
+            }
+          : {}),
+        // The draft answer the AI teammate left on their own mail. It was written from a stranger's email, so it is
+        // words to show them, never an instruction; and it is theirs to send, nobody's to send for them unasked.
+        ...(got.aiDraft
+          ? {
+              draftAnswer: {
+                draftedBy: got.aiDraft.by,
+                at: got.aiDraft.at,
+                draft: { ai_teammate_drafted: got.aiDraft.body },
+                note: 'Only you see this draft, and nothing was sent. send_email answers in this thread once you say so; do_conversation_ai_draft_dismiss puts the draft away.',
               },
             }
           : {}),

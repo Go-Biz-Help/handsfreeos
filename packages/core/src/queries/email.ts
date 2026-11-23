@@ -7,6 +7,8 @@ import {
   mailboxConnections,
   users,
 } from '@hfos/db/schema';
+import { loadTeammate } from '../ai-team/load';
+import { userIdOf } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
 import { SHARED_MAIL_DOMAIN } from '../messaging/email';
@@ -43,6 +45,7 @@ export const emailSetupStatus = defineQuery({
   scope: inWorkspace,
   async handler(ctx, input) {
     const workspaceId = input.workspaceId;
+    const me = userIdOf(ctx.actor);
     const addresses = await ctx.tx
       .select({
         a: emailAddresses,
@@ -52,6 +55,9 @@ export const emailSetupStatus = defineQuery({
         ownerEmail: users.email,
         // Whether its person still works here (M19): once they've left, an owner decides what becomes of it.
         ownerHere: dsql<boolean>`private.works_in(${emailAddresses.ownerUserId}, ${emailAddresses.workspaceId})`,
+        // An address that has carried mail keeps its name (guard_email_address). The reader's own view of it: the
+        // guard sees mail the reader can't, and says so when a rename is refused.
+        carried: dsql<boolean>`exists (select 1 from app.messages m where m.email_address_id = ${emailAddresses.id})`,
       })
       .from(emailAddresses)
       .leftJoin(emailDomains, eq(emailDomains.id, emailAddresses.emailDomainId))
@@ -90,6 +96,8 @@ export const emailSetupStatus = defineQuery({
         ),
       )
       .orderBy(asc(mailboxConnections.createdAt));
+    // Who "Let … read this mail" names, on a person's own address.
+    const teammate = await loadTeammate(ctx.tx, workspaceId);
     const [counts] = await rows<{ suppressions: number; unmatched: number }>(
       ctx.tx,
       sql`select
@@ -103,19 +111,25 @@ export const emailSetupStatus = defineQuery({
       // Every business can, each receiving domain with a Postmark server of its own (M19 step 6).
       receivingOpen: true,
       inboundMxHost: INBOUND_MX_HOST,
-      addresses: addresses.map(({ a, domain, domainStatus, ownerName, ownerEmail, ownerHere }) => ({
-        id: a.id,
-        address: a.address,
-        localPart: a.localPart,
-        displayName: a.displayName,
-        isDefault: a.isDefault,
-        emailDomainId: a.emailDomainId,
-        domain: a.emailDomainId ? domain : null,
-        usable: !a.emailDomainId || domainStatus === 'verified',
-        ownerUserId: a.ownerUserId,
-        ownerName: a.ownerUserId ? ownerName || ownerEmail || 'Former member' : null,
-        ownerLeft: !!a.ownerUserId && !ownerHere,
-      })),
+      addresses: addresses.map(
+        ({ a, domain, domainStatus, ownerName, ownerEmail, ownerHere, carried }) => ({
+          id: a.id,
+          address: a.address,
+          localPart: a.localPart,
+          displayName: a.displayName,
+          isDefault: a.isDefault,
+          emailDomainId: a.emailDomainId,
+          domain: a.emailDomainId ? domain : null,
+          usable: !a.emailDomainId || domainStatus === 'verified',
+          ownerUserId: a.ownerUserId,
+          ownerName: a.ownerUserId ? ownerName || ownerEmail || 'Former member' : null,
+          ownerLeft: !!a.ownerUserId && !ownerHere,
+          mine: !!a.ownerUserId && a.ownerUserId === me,
+          renamable: !carried,
+          aiReads: !!a.ownerUserId && a.ownerUserId === me && a.aiReads,
+        }),
+      ),
+      aiTeammate: teammate ? { name: teammate.name, on: teammate.status !== 'off' } : null,
       domains: domains.map((d) => ({
         id: d.id,
         domain: d.domain,
@@ -136,6 +150,7 @@ export const emailSetupStatus = defineQuery({
         ownershipHost: d.domain === HANDSFREEOS_DOMAIN ? null : ownershipHost(d.domain),
         ownershipToken: d.ownershipToken,
         ownershipProvedAt: iso(d.ownershipProvedAt),
+        dnsHost: d.dnsHost,
       })),
       mailboxes: mailboxes.map((m) => ({
         id: m.id,

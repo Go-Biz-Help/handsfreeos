@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { createTeammate, runDue } from './ai-team';
 import { emailFromCustomer, mailDetail, pdfAttachment, pdfFile } from './email';
-import { leadIntakeOff, signInOwner } from './booking-helpers';
+import { api, leadIntakeOff, signInOwner } from './booking-helpers';
 import { createBusiness, signUpAndConfirm, uniqueEmail, waitForMail } from './helpers';
 
 const BUSINESS = 'Lone Star HVAC & Roofing';
@@ -57,7 +58,7 @@ test('email: send from the workspace address, the reply lands in the thread, ans
 
   // Every workspace starts with an address on the shared subdomain. Gmail is coming soon.
   const shared = await sharedAddress(page, workspaceId);
-  await expect(page.getByTestId('email-addresses')).toContainText('Default');
+  await expect(page.getByTestId('email-addresses')).toContainText('Customers hear from this one');
   await expect(page.getByTestId('connect-gmail')).toBeDisabled();
   await expect(page.getByText('Coming soon', { exact: true })).toBeVisible();
   await expect(page.getByTestId('blocked-addresses')).toContainText('Nothing blocked.');
@@ -229,21 +230,25 @@ test('email: an own domain shows its DNS records, verifies, and becomes the send
   page,
 }) => {
   test.setTimeout(180_000);
-  await signUpAndConfirm(page, 'email-domain');
+  const { email } = await signUpAndConfirm(page, 'email-domain');
   const workspaceId = await createBusiness(page, { name: BUSINESS });
   const shared = await sharedAddress(page, workspaceId);
   const domain = `lonestarhvac-${Date.now().toString(36)}.com`;
 
-  await page.getByTestId('domain-input').fill(domain);
-  await page.getByRole('button', { name: 'Add domain' }).click();
-  await expect(page.getByText('Domain added. Now add the records it shows.')).toBeVisible();
+  // With no website name yet, Settings → Email offers the guided setup (its questions have a test of their own,
+  // below). Here the name is added for it, and the card shows what it needs.
+  await expect(page.getByTestId('email-guided-open')).toBeVisible();
+  const { token } = await signInOwner(email);
+  await api(token, 'commands', 'email_domain.add', { workspaceId, domain });
+  await page.reload();
   await expect(page.getByTestId('domain-name')).toHaveText(domain);
-  await expect(page.getByText('Waiting for DNS')).toBeVisible();
-  // The worker asks the mail service for the records; they show a moment later.
+  await expect(page.getByText('Waiting for its records').first()).toBeVisible();
+  // The worker asks the mail service for the records; they show a moment later, unfolded while any is missing.
   await expect(async () => {
     await page.reload();
     await expect(page.getByTestId('dns-TXT')).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 20_000 });
+  await expect(page.getByTestId('domain-records')).toContainText('of 3 found');
   await expect(page.getByTestId('dns-TXT')).toContainText('pm._domainkey');
   await expect(page.getByTestId('dns-CNAME')).toContainText('pm-bounces');
   // And the one that says this business set the domain up (M19).
@@ -251,14 +256,59 @@ test('email: an own domain shows its DNS records, verifies, and becomes the send
 
   // The (local) mail service finds both records.
   await page.getByTestId('domain-check').click();
+  // Once its records are found, Your addresses offers Add an address on it.
+  const addresses = page.getByTestId('email-addresses');
+  const office = page.getByTestId('email-address-office');
   await expect(async () => {
-    await expect(page.getByLabel('Address name')).toBeVisible({ timeout: 2000 });
+    await expect(page.getByTestId('address-add')).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 20_000 });
+  await page.getByTestId('address-add').click();
   await page.getByLabel('Address name').fill('office');
+  // The first team address on the business's own name is the one customers hear from.
+  await expect(page.getByTestId('address-add-default')).toBeChecked();
   await page.getByRole('button', { name: 'Add address' }).click();
-  await expect(page.getByText(`office@${domain} is now the default address`)).toBeVisible();
-  await expect(page.getByTestId('email-address-office')).toContainText('Default');
+  await expect(page.getByText(`Customers now hear from office@${domain}`)).toBeVisible();
+  await expect(office).toContainText('Customers hear from this one');
   await expect(page.getByTestId(`email-address-${shared.split('@')[0]}`)).toContainText('Backup');
+
+  // What Burroughs Digital got stuck on (2026-11-22): the address customers hear from should be one person's own.
+  // Change asks which address takes over, and both happen in one go.
+  await page.getByTestId('address-add').click();
+  await page.getByLabel('Address name').fill('billing');
+  await expect(page.getByTestId('address-add-default')).not.toBeChecked();
+  await page.getByRole('button', { name: 'Add address' }).click();
+  await expect(page.getByText(`billing@${domain} added`)).toBeVisible();
+  await page.getByTestId('address-change-office').click();
+  await page.getByTestId('reader-me').click();
+  await expect(page.getByTestId('address-takeover')).toContainText(
+    'Customers hear from office@ today.',
+  );
+  await page.getByTestId('takeover-billing').click();
+  await expect(page.getByTestId('address-summary')).toContainText(
+    'office@ becomes yours alone and booking emails go out from billing@',
+  );
+  await page.getByTestId('address-save').click();
+  await expect(office).toContainText('Only you read it');
+  await expect(page.getByTestId('email-address-billing')).toContainText(
+    'Customers hear from this one',
+  );
+  // Its own person hands it back to the team, and customers hear from it again.
+  await page.getByTestId('address-change-office').click();
+  await page.getByTestId('reader-team').click();
+  await page.getByTestId('address-make-default').check();
+  await page.getByTestId('address-save').click();
+  await expect(office).toContainText('The team reads it');
+  await expect(office).toContainText('Customers hear from this one');
+  // One address is removed on its own; the one customers hear from, and the free backup, can't be.
+  await page.getByTestId('address-change-office').click();
+  await expect(page.getByTestId('address-remove')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByTestId('address-change-billing').click();
+  await page.getByTestId('address-remove').click();
+  await expect(page.getByTestId('address-remove-what')).toContainText('goes to the team’s Inbox');
+  await page.getByTestId('address-remove-confirm').click();
+  await expect(page.getByText(`billing@${domain} is removed`)).toBeVisible();
+  await expect(addresses.getByTestId('email-address-billing')).toHaveCount(0);
 
   // The next email goes out from the new address; replies still come back through the shared subdomain.
   const sarah = uniqueEmail('sarah');
@@ -277,4 +327,108 @@ test('email: an own domain shows its DNS records, verifies, and becomes the send
   );
   expect(detail.from.Address).toBe(`office@${domain}`);
   expect(detail.replyTo[0]!.Address).toMatch(/@mail\.handsfreeos\.com$/);
+});
+
+/**
+ * "Let Ava read this mail" (owner, 2026-11-22): the AI teammate leaves a person's own mail alone until they turn the
+ * switch on under their address. Then new mail gets a draft answer only they see; they use it, change what they like
+ * and send it as themselves. Nothing is ever sent for them.
+ */
+test('email: Ava drafts an answer to my own mail once I let her, and I send it', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const { email } = await signUpAndConfirm(page, 'email-ava');
+  const workspaceId = await createBusiness(page, { name: BUSINESS });
+  const { token } = await signInOwner(email);
+  await createTeammate(token, workspaceId);
+  const domain = `lonestarhvac-${Date.now().toString(36)}.com`;
+  await api(token, 'commands', 'email_domain.add', { workspaceId, domain });
+  await page.goto(`/app/w/${workspaceId}/settings/email`);
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByTestId('dns-TXT')).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
+  // The (local) mail service finds its records. Asked again if the first click came before the page was ready.
+  await expect(async () => {
+    const check = page.getByTestId('domain-check');
+    if (await check.isVisible()) await check.click();
+    await expect(page.getByTestId('address-add')).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 30_000 });
+  // Mail to the domain comes here (the local mail service says its MX record points here).
+  await page.getByRole('button', { name: 'Receive mail here' }).click();
+  await expect(async () => {
+    await page.reload();
+    const check = page.getByRole('button', { name: 'Check now' });
+    if (await check.isVisible()) await check.click();
+    await expect(page.getByTestId('domain-receiving')).toContainText('Lands in HandsFreeOS', {
+      timeout: 3000,
+    });
+  }).toPass({ timeout: 60_000 });
+
+  // My own address: the switch is there from the start, and off until I say so.
+  await page.getByTestId('address-add').click();
+  await page.getByLabel('Address name').fill('dale');
+  await page.getByTestId('reader-me').click();
+  await expect(page.getByTestId('address-add-ai-reads')).toHaveAttribute('aria-checked', 'false');
+  await page.getByRole('button', { name: 'Add address' }).click();
+  await expect(page.getByTestId('email-address-dale')).toContainText('Only you read it');
+  const letAva = page.getByTestId('address-ai-reads-dale');
+  await expect(letAva).toHaveAttribute('aria-checked', 'false');
+  await letAva.click();
+  await expect(
+    page.getByText(`Ava now reads mail sent to dale@${domain} and drafts answers for you`),
+  ).toBeVisible();
+  await expect(letAva).toHaveAttribute('aria-checked', 'true');
+
+  // Someone writes to it. Ava's draft shows in the thread, which is still only mine.
+  const kim = uniqueEmail('kim');
+  await emailFromCustomer({
+    from: kim,
+    fromName: 'Kim Lee',
+    to: `dale@${domain}`,
+    subject: 'A quote for the patio',
+    text: 'Could you send me a quote for the patio?',
+  });
+  await page.goto(`/app/w/${workspaceId}/inbox`);
+  const list = page.getByTestId('conversation-list');
+  await expect(list).toContainText(kim, { timeout: 20_000 });
+  await list.getByText(kim).first().click();
+  const conversation = page.getByTestId('conversation');
+  const draft = conversation.getByTestId('own-mail-draft');
+  // Ava waits a little before she writes; the test runs her now, and the open thread shows the draft by itself.
+  await expect(async () => {
+    await runDue(workspaceId, true);
+    await expect(draft).toBeVisible({ timeout: 4000 });
+  }).toPass({ timeout: 60_000 });
+  await expect(draft).toContainText('Ava’s draft');
+  await expect(draft).toContainText('Only you see this');
+  await expect(draft.getByTestId('own-mail-draft-body')).toContainText('Hi Kim,');
+  await expect(
+    conversation.getByTestId('message-log').locator('[data-direction="outbound"]'),
+  ).toHaveCount(0);
+
+  // Use this draft puts her words in my message box; I finish them and send as myself.
+  await draft.getByTestId('own-mail-draft-use').click();
+  await expect(conversation.getByTestId('own-mail-draft-used')).toBeVisible();
+  const composer = conversation.getByTestId('composer');
+  await expect(composer.getByTestId('composer-from')).toHaveText(`From dale@${domain}`);
+  const box = composer.getByRole('textbox', { name: 'Message', exact: true });
+  await expect(box).toHaveValue(/Hi Kim,/);
+  await box.fill('Hi Kim,\n\nHappy to. The quote is on its way today.\n\nDale');
+  const started = Date.now();
+  await composer.getByTestId('composer-send').click();
+  const answer = conversation
+    .getByTestId('message-log')
+    .locator('[data-kind="email"][data-direction="outbound"]')
+    .last();
+  await expect(answer).toContainText('The quote is on its way today.');
+  await expect(answer).toHaveAttribute('data-status', 'delivered', { timeout: 20_000 });
+  const sent = await mailDetail(
+    (await waitForMail(kim, 'Re: A quote for the patio', { after: started })).id,
+  );
+  expect(sent.from.Address).toBe(`dale@${domain}`);
+  // The draft went with my answer.
+  await expect(draft).toHaveCount(0);
+  await expect(conversation.getByTestId('own-mail-draft-used')).toHaveCount(0);
 });

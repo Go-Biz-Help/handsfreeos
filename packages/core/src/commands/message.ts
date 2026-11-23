@@ -970,6 +970,8 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
         ? { emailAddressId: from.emailAddressId }
         : {}),
       ...(claim && ai ? { handledBy: 'ai' as const, aiTeammateId: ai.teammateId } : {}),
+      // They answered: the draft the AI teammate left on their own mail has done its work, used or not.
+      ...(sealed && conv.aiDraft ? { aiDraft: null } : {}),
     })
     .where(eq(conversations.id, conv.id));
   // A person's own email puts the customer in their hands (messaging/hands.ts), a sealed thread of theirs included.

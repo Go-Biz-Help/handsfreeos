@@ -1,18 +1,19 @@
 'use client';
 /**
  * Home's "Set up your business email" (the owner's 7a): for someone who can change the business's email, while it
- * still sends from the address it was made with, or "Finish your email records" while its domain's records are on
- * their way (emailSetupHomeOf). Set it up opens the email screens on a page of their own; Not now sets the card
- * aside on this browser for a week.
+ * still sends from the address it was made with; "Finish your email records" while a website name's records are on
+ * their way; "Bring your mail in" once it sends and its mail record still has to change (emailGuidedHomeOf, which
+ * also words each one). The button opens the guided setup on a page of its own, on its last step when that is
+ * what's left; Not now sets the card aside on this browser for a week.
  */
-import { EMAIL_SETUP_WORDS as W, type EmailSetupHome } from '@hfos/core';
+import { EMAIL_SETUP_WORDS as W, type EmailGuidedHome } from '@hfos/core';
 import { Mail } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
 const REST_MS = 7 * 24 * 60 * 60 * 1000;
-const keyOf = (workspaceId: string, kind: EmailSetupHome['kind']) =>
+const keyOf = (workspaceId: string, kind: EmailGuidedHome['kind']) =>
   `hfos.email-setup.not-now.${workspaceId}.${kind}`;
 
 export function EmailSetupCard({
@@ -20,7 +21,7 @@ export function EmailSetupCard({
   home,
 }: {
   workspaceId: string;
-  home: EmailSetupHome;
+  home: EmailGuidedHome;
 }) {
   // Hidden until the browser says whether it was set aside, so it never flashes.
   const [hidden, setHidden] = useState(true);
@@ -43,7 +44,6 @@ export function EmailSetupCard({
     }
     setHidden(true);
   };
-  const records = home.kind === 'records';
   const titleId = `email-setup-card-${home.kind}`;
 
   return (
@@ -63,23 +63,19 @@ export function EmailSetupCard({
         </span>
         <div className="min-w-0 flex-1">
           <h3 id={titleId} className="text-[15px] font-semibold tracking-tight">
-            {records ? W.homeRecordsTitle : W.homeStartTitle}
+            {home.title}
           </h3>
-          <p className="mt-0.5 break-words text-[13px] text-text-2">
-            {home.kind === 'records'
-              ? W.homeRecordsBody(home.found, home.of, home.host, home.from, home.to)
-              : W.homeStartBody(home.address)}
-          </p>
+          <p className="mt-0.5 break-words text-[13px] text-text-2">{home.body}</p>
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         <ButtonLink
-          href={`/onboarding/${workspaceId}/email${records ? '?at=records' : ''}`}
+          href={`/onboarding/${workspaceId}/email${home.last ? '?at=records' : ''}`}
           variant="primary"
           size="sm"
           data-testid="email-setup-card-open"
         >
-          {records ? W.homeRecords : W.homeStart}
+          {home.open}
         </ButtonLink>
         <Button variant="ghost" size="sm" onClick={notNow} data-testid="email-setup-card-not-now">
           {W.notNow}

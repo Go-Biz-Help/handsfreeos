@@ -257,6 +257,21 @@ export const ConversationGetOutput = z.object({
       customer: z.object({ id: uuid, fullName: z.string() }).nullable(),
     })
     .nullable(),
+  /**
+   * Someone's own mail only: the answer the AI teammate drafted for the newest mail, when their address lets it read
+   * ("Let Ava read this mail"). Only they see it, and nothing is sent until they send it. Null otherwise.
+   */
+  aiDraft: z
+    .object({
+      body: z.string(),
+      /** The mail it answers. */
+      forMessageId: uuid,
+      at: isoDateTime,
+      /** The AI teammate's name, for "Ava drafted a reply". */
+      by: z.string(),
+    })
+    .nullable()
+    .optional(),
   canText: z.object({ ok: z.boolean(), reason: canTextReason.nullable() }),
   /**
    * Messenger and Instagram threads only: the Page or account it's on and whether it still works, who the customer
@@ -313,6 +328,27 @@ export const ConversationOpenInput = z.object({
 });
 export const ConversationOpenOutput = z.object({ conversationId: uuid, created: z.boolean() });
 export const ConversationRefInput = z.object(conversationRef);
+/** The AI teammate's draft answer on a person's own mail ("Let Ava read this mail"). */
+export const ConversationAiDraftSaveInput = z.object({
+  ...conversationRef,
+  /** The mail it answers: saved only while that is still the newest thing in the thread. */
+  forMessageId: uuid,
+  body: z.string().trim().min(1).max(20_000),
+});
+export const ConversationAiDraftSaveOutput = z.object({
+  conversationId: uuid,
+  saved: z.boolean(),
+  /**
+   * Why it wasn't kept: the thread isn't a person's own mail in their Inbox, their address no longer lets the AI
+   * teammate read, or something newer has come or gone since.
+   */
+  skipped: z.enum(['not_own_mail', 'switched_off', 'not_newest']).nullable(),
+});
+export const ConversationAiDraftDismissOutput = z.object({
+  conversationId: uuid,
+  /** False when there was no draft to put away. */
+  dismissed: z.boolean(),
+});
 export const ConversationRefOutput = z.object({
   conversationId: uuid,
   /**
