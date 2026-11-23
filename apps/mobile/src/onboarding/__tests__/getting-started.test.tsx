@@ -219,6 +219,44 @@ it('sets up the AI teammate on the phone itself, and asks again once there is on
   expect(screen.queryByTestId('getting-started-ai-setup')).toBeNull();
 });
 
+it('sets the business number up on the phone itself until there is one', async () => {
+  await show({
+    ...OWNER,
+    steps: OWNER.steps.map((s) =>
+      s.key === 'number' ? step('number', 'basics', 'todo', { phase: 'buy_number' }) : s,
+    ),
+    done: 2,
+    next: 'number',
+  });
+  const next = await screen.findByTestId('getting-started-next');
+  // The guided phone number setup runs here as on the web: not one to email a link for.
+  expect(next).not.toHaveTextContent(LINK_WORDS.easierDetail, { exact: false });
+  expect(screen.queryByTestId('getting-started-number-link')).toBeNull();
+  expect(screen.getByTestId('getting-started-number-setup')).toHaveTextContent('Get a number');
+  await fireEvent.press(screen.getByTestId('getting-started-number-setup'));
+  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/phone-setup`);
+});
+
+it('emails a link to send the texting details, a long form, once the number is theirs', async () => {
+  await show({
+    ...OWNER,
+    steps: OWNER.steps.map((s) =>
+      s.key === 'number'
+        ? step('number', 'basics', 'todo', {
+            phase: 'submit_registration',
+            number: '(512) 555-0148',
+          })
+        : s,
+    ),
+    done: 2,
+    next: 'number',
+  });
+  const next = await screen.findByTestId('getting-started-next');
+  expect(next).toHaveTextContent(LINK_WORDS.easierDetail, { exact: false });
+  expect(screen.queryByTestId('getting-started-number-setup')).toBeNull();
+  expect(screen.getByTestId('getting-started-number-link')).toBeTruthy();
+});
+
 it('points whoever sets the business up at the guided setup until it’s finished', async () => {
   const mark = { at: '2026-10-06T12:00:00.000Z', by: DALE };
   /** The business's settings in the phone's copy, with the guided setup as given. */
