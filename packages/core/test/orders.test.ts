@@ -144,8 +144,20 @@ describe('taking an order by hand', () => {
         workspaceId: t.wsId,
         personId: ben,
         lines: [
-          { productId: randomUUID(), choiceIds: ['v_zzzzzzzz'], name: 'Pin', quantity: 3, unitPriceCents: 300 },
-          { productId: mug, choiceIds: [shirt.black], name: 'Mug', quantity: 1, unitPriceCents: 1500 },
+          {
+            productId: randomUUID(),
+            choiceIds: ['v_zzzzzzzz'],
+            name: 'Pin',
+            quantity: 3,
+            unitPriceCents: 300,
+          },
+          {
+            productId: mug,
+            choiceIds: [shirt.black],
+            name: 'Mug',
+            quantity: 1,
+            unitPriceCents: 1500,
+          },
         ],
       },
       t.owner,
@@ -208,7 +220,9 @@ describe('changing one and moving it along', () => {
     );
     expect(again.changed).toBe(false);
     const [updated] = await eventsFor('order.updated', orderId);
-    expect(updated!.payload).toMatchObject({ changed: ['lines', 'totalCents', 'fulfilment', 'dueOn'] });
+    expect(updated!.payload).toMatchObject({
+      changed: ['lines', 'totalCents', 'fulfilment', 'dueOn'],
+    });
   });
 
   it('moves through the steps, back a step, and keeps what was on it once it’s handed over', async () => {
@@ -219,13 +233,21 @@ describe('changing one and moving it along', () => {
       expect(out).toMatchObject({ status, changed: true });
     }
     expect((await get(orderId)).open).toBe(false);
-    const same = await run(orderSetStatus, { workspaceId: t.wsId, orderId, status: 'done' }, t.owner);
+    const same = await run(
+      orderSetStatus,
+      { workspaceId: t.wsId, orderId, status: 'done' },
+      t.owner,
+    );
     expect(same.changed).toBe(false);
     const refused = await expectHfos(
       () =>
         run(
           orderUpdate,
-          { workspaceId: t.wsId, orderId, lines: [{ name: 'Pin', quantity: 1, unitPriceCents: 1 }] },
+          {
+            workspaceId: t.wsId,
+            orderId,
+            lines: [{ name: 'Pin', quantity: 1, unitPriceCents: 1 }],
+          },
           t.owner,
         ),
       'order_closed',
@@ -234,9 +256,14 @@ describe('changing one and moving it along', () => {
     expect(refused.message).toContain('picked up');
     // Notes still change.
     expect(
-      (await run(orderUpdate, { workspaceId: t.wsId, orderId, notes: 'Paid cash' }, t.owner)).changed,
+      (await run(orderUpdate, { workspaceId: t.wsId, orderId, notes: 'Paid cash' }, t.owner))
+        .changed,
     ).toBe(true);
-    const back = await run(orderSetStatus, { workspaceId: t.wsId, orderId, status: 'ready' }, t.owner);
+    const back = await run(
+      orderSetStatus,
+      { workspaceId: t.wsId, orderId, status: 'ready' },
+      t.owner,
+    );
     expect(back.changed).toBe(true);
     const moves = await eventsFor('order.status_changed', orderId);
     expect(moves.map((e) => (e.payload as { status: string }).status).sort()).toEqual(
@@ -251,7 +278,11 @@ describe('making the invoice', () => {
     const { orderId } = await take(gus);
     const made = await run(orderMakeInvoice, { workspaceId: t.wsId, orderId }, t.owner);
     const [inv] = await admin().select().from(invoices).where(eq(invoices.id, made.invoiceId));
-    expect(inv).toMatchObject({ personId: gus, status: 'draft', title: 'Order #' + (await get(orderId)).number });
+    expect(inv).toMatchObject({
+      personId: gus,
+      status: 'draft',
+      title: 'Order #' + (await get(orderId)).number,
+    });
     const lines = await admin()
       .select()
       .from(invoiceLines)
@@ -308,11 +339,17 @@ describe('the list', () => {
     const b = await take(ida, { dueOn: '2027-01-09' });
     const c = await take(ida);
     await run(orderSetStatus, { workspaceId: t.wsId, orderId: b.orderId, status: 'done' }, t.owner);
-    await run(orderSetStatus, { workspaceId: t.wsId, orderId: c.orderId, status: 'cancelled' }, t.owner);
+    await run(
+      orderSetStatus,
+      { workspaceId: t.wsId, orderId: c.orderId, status: 'cancelled' },
+      t.owner,
+    );
     const mine = (show?: string, extra: Record<string, unknown> = {}) =>
-      ask(orderList, { workspaceId: t.wsId, personId: ida, ...(show ? { show } : {}), ...extra }, t.member).then(
-        (r) => r.orders.map((o) => o.id),
-      );
+      ask(
+        orderList,
+        { workspaceId: t.wsId, personId: ida, ...(show ? { show } : {}), ...extra },
+        t.member,
+      ).then((r) => r.orders.map((o) => o.id));
     expect(await mine()).toEqual([a.orderId]);
     expect(await mine('done')).toEqual([b.orderId]);
     expect(await mine('cancelled')).toEqual([c.orderId]);
@@ -326,9 +363,17 @@ describe('the list', () => {
       t.owner,
     );
     expect(byNumber.orders.map((o) => o.id)).toEqual([b.orderId]);
-    const byName = await ask(orderList, { workspaceId: t.wsId, show: 'all', search: 'ida cust' }, t.owner);
+    const byName = await ask(
+      orderList,
+      { workspaceId: t.wsId, show: 'all', search: 'ida cust' },
+      t.owner,
+    );
     expect(byName.orders.map((o) => o.id).sort()).toEqual([a.orderId, b.orderId, c.orderId].sort());
-    const byLine = await ask(orderList, { workspaceId: t.wsId, show: 'all', search: 'keychain' }, t.owner);
+    const byLine = await ask(
+      orderList,
+      { workspaceId: t.wsId, show: 'all', search: 'keychain' },
+      t.owner,
+    );
     expect(byLine.orders.length).toBeGreaterThan(0);
     expect(byLine.orders.every((o) => o.lines.some((l) => /keychain/i.test(l.name)))).toBe(true);
     expect(byNumber.openCount).toBeGreaterThan(0);
@@ -413,7 +458,13 @@ async function orderForm(name: string, quantities: Record<string, unknown> = {})
       formId: created.formId,
       baseRevision: 1,
       ops: [
-        add({ id: qid('name'), type: 'short_text', title: 'Your name', required: true, mapTo: 'person.first_name' }),
+        add({
+          id: qid('name'),
+          type: 'short_text',
+          title: 'Your name',
+          required: true,
+          mapTo: 'person.first_name',
+        }),
         add({ id: qid('phone'), type: 'phone', title: 'Your phone', mapTo: 'person.phone' }),
         add({
           id: qid('shirts'),
@@ -496,7 +547,9 @@ describe('a sent order form', () => {
       fulfilment: 'delivery',
       totalCents: 3 * 1200 + 2 * 1400,
     });
-    expect(order.lines.map((l) => [l.name, l.quantity, l.unitPriceCents, l.productId, l.choiceIds])).toEqual([
+    expect(
+      order.lines.map((l) => [l.name, l.quantity, l.unitPriceCents, l.productId, l.choiceIds]),
+    ).toEqual([
       ['T-shirts (Adult M)', 3, 1200, null, []],
       ['T-shirt (Adult 2XL)', 2, 1400, shirt.id, [shirt.adult2xl]],
       ['T-shirts (Youth S)', 1, 0, null, []],

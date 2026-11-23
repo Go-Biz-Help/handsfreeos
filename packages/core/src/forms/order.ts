@@ -5,7 +5,12 @@
  *
  * Browser-safe: the server makes the order with it, and a test reads the same answers the page sent.
  */
-import { orderTotalCents, fulfilmentFromWords, type OrderFulfilment, type OrderLine } from '../money/orders';
+import {
+  orderTotalCents,
+  fulfilmentFromWords,
+  type OrderFulfilment,
+  type OrderLine,
+} from '../money/orders';
 import { findChoice, nameWithChoices } from '../money/options';
 import { allQuestions, type FormDefinition } from './definition';
 import type { AnswerSheet } from './logic';

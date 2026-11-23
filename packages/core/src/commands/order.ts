@@ -177,7 +177,9 @@ export async function insertOrder(
       order: orderNumberWords(row.number),
       items: orderSummary(lines, 3),
       total: money(totalCents),
-      ...(input.fulfilment ? { [fulfilmentWords(input.fulfilment)]: input.dueOn ?? 'No day yet' } : {}),
+      ...(input.fulfilment
+        ? { [fulfilmentWords(input.fulfilment)]: input.dueOn ?? 'No day yet' }
+        : {}),
     },
   });
   return { id: row.id, number: row.number, status: 'new' as const, total_cents: totalCents };

@@ -9,6 +9,7 @@
  * Browser-safe: the web, the server and the Assistant read an order the same way.
  */
 import { z } from 'zod';
+import { intlTimeZone } from '../intl/engine-zones';
 import { money } from './format';
 
 /** Money → Orders, on the web. */
@@ -158,7 +159,7 @@ export function orderDayWords(dueOn: string): string {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-    timeZone: 'UTC',
+    timeZone: intlTimeZone('UTC'),
   });
 }
 

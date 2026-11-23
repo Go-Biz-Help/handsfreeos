@@ -4575,7 +4575,13 @@ export const invoiceLines = app.table('invoice_lines', {
 });
 
 /** Where an order is (product sellers, 20261027034500): New, Making it, Ready, then done, or Cancelled. */
-export const orderStatus = app.enum('order_status', ['new', 'making', 'ready', 'done', 'cancelled']);
+export const orderStatus = app.enum('order_status', [
+  'new',
+  'making',
+  'ready',
+  'done',
+  'cancelled',
+]);
 
 /**
  * What a customer ordered (product sellers, 20261027034500; docs/selling-products.md): its lines as a copy, checked

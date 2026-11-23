@@ -475,7 +475,9 @@ async function orderProducts(
     sql`select id, name, taxable, options from app.products
         where workspace_id = ${ctx.scope.workspaceId!} and id = any(${uuidArray(ids)})`,
   );
-  return new Map(found.map((p) => [p.id, { name: p.name, taxable: p.taxable, options: p.options }]));
+  return new Map(
+    found.map((p) => [p.id, { name: p.name, taxable: p.taxable, options: p.options }]),
+  );
 }
 
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

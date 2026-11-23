@@ -63,9 +63,13 @@ describe('an order’s words', () => {
   });
 
   it('turns away a half, a line with no name and a price below $0', () => {
-    expect(OrderLine.safeParse({ name: 'Mug', quantity: 1.5, unitPriceCents: 1 }).success).toBe(false);
+    expect(OrderLine.safeParse({ name: 'Mug', quantity: 1.5, unitPriceCents: 1 }).success).toBe(
+      false,
+    );
     expect(OrderLine.safeParse({ name: ' ', quantity: 1, unitPriceCents: 1 }).success).toBe(false);
-    expect(OrderLine.safeParse({ name: 'Mug', quantity: 1, unitPriceCents: -1 }).success).toBe(false);
+    expect(OrderLine.safeParse({ name: 'Mug', quantity: 1, unitPriceCents: -1 }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -78,7 +82,13 @@ describe('the order a form makes', () => {
       choices: [
         { id: cid('adultm'), label: 'Adult M', price: 12 },
         { id: cid('youth'), label: 'Youth S' },
-        { id: cid('product'), label: 'Adult 2XL', price: 14, productId: '00000000-0000-4000-8000-000000000001', optionChoiceId: 'v_aaaaaaaa' },
+        {
+          id: cid('product'),
+          label: 'Adult 2XL',
+          price: 14,
+          productId: '00000000-0000-4000-8000-000000000001',
+          optionChoiceId: 'v_aaaaaaaa',
+        },
       ],
       ...config,
     },
@@ -94,7 +104,12 @@ describe('the order a form makes', () => {
             id: qid('how'),
             type: 'choice',
             title: 'Pickup or delivery?',
-            config: { choices: [{ id: cid('pick'), label: 'Pickup' }, { id: cid('ship'), label: 'Delivery' }] },
+            config: {
+              choices: [
+                { id: cid('pick'), label: 'Pickup' },
+                { id: cid('ship'), label: 'Delivery' },
+              ],
+            },
           },
         ]),
       ],
@@ -107,7 +122,13 @@ describe('the order a form makes', () => {
         {
           name: 'T-shirt',
           taxable: false,
-          options: [{ id: 'o_aaaaaaaa', name: 'Size', choices: [{ id: 'v_aaaaaaaa', label: 'Adult 2XL', priceCents: 200 }] }],
+          options: [
+            {
+              id: 'o_aaaaaaaa',
+              name: 'Size',
+              choices: [{ id: 'v_aaaaaaaa', label: 'Adult 2XL', priceCents: 200 }],
+            },
+          ],
         },
       ],
     ]);
@@ -120,8 +141,14 @@ describe('the order a form makes', () => {
       },
       products,
     );
-    expect(made).toMatchObject({ dueOn: '2027-03-01', fulfilment: 'pickup', totalCents: 2 * 1200 + 3 * 1400 });
-    expect(made!.lines.map((l) => [l.name, l.quantity, l.unitPriceCents, l.taxable, l.choiceIds])).toEqual([
+    expect(made).toMatchObject({
+      dueOn: '2027-03-01',
+      fulfilment: 'pickup',
+      totalCents: 2 * 1200 + 3 * 1400,
+    });
+    expect(
+      made!.lines.map((l) => [l.name, l.quantity, l.unitPriceCents, l.taxable, l.choiceIds]),
+    ).toEqual([
       ['T-shirts (Adult M)', 2, 1200, true, []],
       ['T-shirts (Youth S)', 1, 0, true, []],
       ['T-shirt (Adult 2XL)', 3, 1400, false, ['v_aaaaaaaa']],
@@ -130,22 +157,36 @@ describe('the order a form makes', () => {
 
   it('keeps a row as typed when its product is gone', () => {
     const made = orderFromAnswers(form(), { [qid('shirts')]: { [cid('product')]: 1 } });
-    expect(made!.lines[0]).toMatchObject({ name: 'T-shirts (Adult 2XL)', productId: null, choiceIds: [] });
+    expect(made!.lines[0]).toMatchObject({
+      name: 'T-shirts (Adult 2XL)',
+      productId: null,
+      choiceIds: [],
+    });
   });
 
   it('makes none when nothing was ordered, or the question doesn’t make orders', () => {
     expect(orderFromAnswers(form(), { [qid('shirts')]: { [cid('adultm')]: 0 } })).toBeNull();
-    expect(orderFromAnswers(form({ makesOrder: false }), { [qid('shirts')]: { [cid('adultm')]: 2 } })).toBeNull();
+    expect(
+      orderFromAnswers(form({ makesOrder: false }), { [qid('shirts')]: { [cid('adultm')]: 2 } }),
+    ).toBeNull();
   });
 
   it('names a row by what the question is about', () => {
     const q = { title: 'How many?', config: { unit: 'mugs' } };
-    expect(orderLineName(q, { label: '11 oz', productId: null, optionChoiceId: null })).toBe('Mugs (11 oz)');
-    expect(orderLineName({ title: 'Extras' }, { label: 'Keychains', productId: null, optionChoiceId: null })).toBe(
-      'Keychains',
+    expect(orderLineName(q, { label: '11 oz', productId: null, optionChoiceId: null })).toBe(
+      'Mugs (11 oz)',
     );
     expect(
-      orderLineName({ title: 'Keychains: how many?' }, { label: 'Keychains', productId: null, optionChoiceId: null }),
+      orderLineName(
+        { title: 'Extras' },
+        { label: 'Keychains', productId: null, optionChoiceId: null },
+      ),
+    ).toBe('Keychains');
+    expect(
+      orderLineName(
+        { title: 'Keychains: how many?' },
+        { label: 'Keychains', productId: null, optionChoiceId: null },
+      ),
     ).toBe('Keychains');
   });
 });

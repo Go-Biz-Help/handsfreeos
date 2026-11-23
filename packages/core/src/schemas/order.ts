@@ -18,7 +18,10 @@ const day = z.iso.date({ error: 'Pick a day.' });
 const notes = z
   .string()
   .trim()
-  .max(MAX_ORDER_NOTES, `Keep the notes under ${MAX_ORDER_NOTES.toLocaleString('en-US')} characters.`);
+  .max(
+    MAX_ORDER_NOTES,
+    `Keep the notes under ${MAX_ORDER_NOTES.toLocaleString('en-US')} characters.`,
+  );
 const lines = OrderLines.min(1, 'Add at least one thing to the order.');
 
 export const OrderCreateInput = z.object({
