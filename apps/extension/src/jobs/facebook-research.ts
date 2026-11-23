@@ -46,10 +46,12 @@ export const FACEBOOK_RESEARCH: ResearchReader = {
     const warned = await warnedOn(job, page);
     if (warned) return warned;
     if (page.kind !== 'post') return null;
-    const writer = page.posts?.[0]?.author?.profile ?? null;
     // Its comments alone: the box of who reacted is never opened.
     const read = await job.tab.ask({ type: 'hfos-engaged', reactions: false });
     if (!read.ok || !('comments' in read)) return null;
+    // Who wrote it, as the page said when the comments were read: Facebook draws a post over the page a moment
+    // after it opens.
+    const writer = read.writer ?? page.posts?.[0]?.author?.profile ?? null;
     // What other people commented (the reader leaves out the person): never the post's writer.
     return read.comments
       .filter((c) => !writer || profileKey(c.profile) !== profileKey(writer))

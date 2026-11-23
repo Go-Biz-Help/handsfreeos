@@ -471,6 +471,53 @@ describe('drafts for Today', () => {
     expect((await draft(member, { kind: 'group_reply', postId: asked!.id })).statusCode).toBe(404);
   });
 
+  it('writes a reply the way people write on its network, once a note is in use there (decision 191)', async () => {
+    const db = testDbs().admin.db;
+    const [asked] = await db
+      .insert(posts)
+      .values({
+        workspaceId: ws,
+        userId: owner.id,
+        profileId,
+        url: 'https://www.facebook.com/groups/323456789/posts/100009/',
+        body: 'What time does the farmers market open on Saturdays?',
+        found: 'active',
+        checkState: 'not',
+        reasons: ['Asks something'],
+        seenAt: new Date(),
+        replyAt: new Date(),
+      })
+      .returning({ id: posts.id });
+    const reply = async () => {
+      const res = await draft(owner, { kind: 'group_reply', postId: asked!.id });
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json().drafts as string[];
+    };
+    const before = ['Good question, Dana! It opens at eight on Saturdays.'];
+    const use = (platform: string) =>
+      db.execute(
+        sql`insert into platform.writing_notes (platform, note, comments)
+            values (${platform}, 'About 2 in 10 end with a full stop.', 985)`,
+      );
+    const stop = () =>
+      db.execute(
+        sql`update platform.writing_notes set stopped_at = now() where stopped_at is null`,
+      );
+    await stop();
+    // With no note in use, it's written as before.
+    expect(await reply()).toEqual(before);
+    try {
+      // Another network's note is that network's alone.
+      await use('x');
+      expect(await reply()).toEqual(before);
+      await use('facebook');
+      expect(await reply()).toEqual(['Good question Dana, it opens at eight on Saturdays']);
+    } finally {
+      await stop();
+    }
+    expect(await reply()).toEqual(before);
+  });
+
   it('drafts from the person’s own chats only', async () => {
     expect((await draft(owner, { kind: 'reply', chatId })).statusCode).toBe(200);
     expect((await draft(member, { kind: 'reply', chatId })).statusCode).toBe(404);

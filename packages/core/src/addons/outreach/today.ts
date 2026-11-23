@@ -108,7 +108,7 @@ import {
   postSeen,
   type PostLookKind,
 } from './comment-says';
-import { commentGuideBlock } from './comment-research';
+import { commentGuideBlock, writingNoteBlock } from './comment-research';
 import { DraftOpener, type Opener, wayOfKind } from './openers';
 import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
@@ -1655,6 +1655,12 @@ export function todayDraftPrompt(input: {
   readonly lists?: MainOfferLists | null;
   /** The person's own voice (./voice.ts): plain words and no long dashes always, the rest as they pick. */
   readonly voice?: Voice;
+  /**
+   * How people write on the network, for everything but a comment, which has its own guide (decision 191): the note in
+   * use there from HandsFreeOS's comment research (./comment-research.ts `writingNote`). It shapes how the writing
+   * sounds, never what it says, and the playbook and the person's voice win over it. Left out, none.
+   */
+  readonly writing?: string | null;
   /** When the last message between them was, either way, for a greeting after a gap. */
   readonly lastAt?: Date | string | null;
   /** Now, for the gap. */
@@ -1902,6 +1908,9 @@ export function todayDraftPrompt(input: {
       : input.kind === 'pitch' && input.opened === 'permission'
         ? 'The owner’s first message asked if they could send a quick video. When their yes is to that, send the one video under <videos> that fits them best first, with its link, then the ask.'
         : null;
+  // The playbook's words are the message for a first message, Reconnect and the ask after a yes (decision 164).
+  const playbooksWords =
+    requests || input.kind === 'opener' || input.kind === 'reconnect' || input.kind === 'pitch';
   return [
     `<business>${quoteData(input.business)}</business>`,
     // The owner's name, for an introduction's [your first name] (decision 168).
@@ -1981,12 +1990,14 @@ export function todayDraftPrompt(input: {
     (input.kind === 'pitch' && input.opened === 'permission' && !declined)
       ? videoLines(input.videos)
       : []),
-    // The playbook's words are the message for a first message, Reconnect and the ask after a yes (decision 164): what
-    // the person wrote of those in Your messages before isn't kept close to; their notes still are.
-    ...ownLines(
-      input.own ?? null,
-      requests || input.kind === 'opener' || input.kind === 'reconnect' || input.kind === 'pitch',
-    ),
+    // Where the playbook's words are the message, what the person wrote of those in Your messages before isn't kept
+    // close to; their notes still are.
+    ...ownLines(input.own ?? null, playbooksWords),
+    // How people write on the network (decision 191), for how it sounds only: told just before the person's own voice,
+    // which wins over it. A comment has its own guide.
+    input.kind !== 'comment' && input.writing?.trim()
+      ? writingNoteBlock(input.writing.trim(), playbooksWords)
+      : null,
     voiceLines(voice, texts || introTwo, twoTexts || introTwo),
     texts
       ? gapLine(input.lastAt ?? lastOf(input.recent), input.now ?? Date.now(), {

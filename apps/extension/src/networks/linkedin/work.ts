@@ -71,6 +71,7 @@ import { stepOnPage } from '../facebook/fetch';
 import { openChat, scrollChats, scrollList } from './browse';
 import {
   commentPartsOf,
+  commentsOnceDrawn,
   likeTheirComment,
   postPeopleOn,
   theirComment,
@@ -278,8 +279,12 @@ async function postStep(
     return { ok: true, ...(await postPeopleOn(document, location.href, ask.writer)) };
   return {
     ok: true,
-    comments: readComments(document, location.href),
-    // The comment research reads the comments alone, pressing nothing (decision 172).
+    // The comment research reads a post the moment its page opens: its comments are waited on till they're drawn,
+    // and it reads them alone, pressing nothing (decision 172).
+    comments:
+      ask.reactions === false
+        ? await commentsOnceDrawn(document, location.href)
+        : readComments(document, location.href),
     reactions: ask.reactions === false ? [] : await readReactions(document, location.href),
   };
 }

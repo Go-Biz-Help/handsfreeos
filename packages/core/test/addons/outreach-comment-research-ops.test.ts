@@ -3,12 +3,14 @@
  * change what the AI is told start one, read one or use what it found, and the database holds the same; only the
  * browser of whoever started it reads for it; what's kept of a comment is its words alone; and its guide goes in every
  * business's comments only once staff press Use it. On every network from decision 172: one Start begins all six, each
- * network its own research, its own searches and its own guide.
+ * network its own research, its own searches and its own guide. And its short note on how people write there goes in
+ * every business's messages only once staff press its own Use it, apart from the guide (decision 191).
  */
 import { asUser, rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
-import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import { asService, closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { writingNoteFor } from '../../src/addons/outreach/ops/comment-research';
 import {
   checkedFindings,
   commentStats,
@@ -22,7 +24,7 @@ import {
   type ResearchPlatform,
   type CommentSample,
 } from '../../src/addons/outreach/comment-research';
-import { outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
+import { outreachBusiness, refused, runAs, runAsSystem, runWith } from './outreach-fixture';
 
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
@@ -80,10 +82,14 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  // No guide stays in use for the tests after this one.
+  // No guide or note stays in use for the tests after this one.
   await rows(
     admin(),
     sql`update platform.comment_guides set stopped_at = now() where stopped_at is null`,
+  );
+  await rows(
+    admin(),
+    sql`update platform.writing_notes set stopped_at = now() where stopped_at is null`,
   );
   await closeTestDbs();
 });
@@ -154,6 +160,24 @@ describe('the comment research', () => {
       );
   });
 
+  it('hands an extension from before a network’s reader was right nothing to read there (decision 191)', async () => {
+    const from = (appVersion: string, platform: ResearchPlatform) =>
+      runWith(
+        staff,
+        ws,
+        'outreach.comment_research.next',
+        { platform },
+        { channel: 'extension', appVersion },
+      );
+    // Facebook's reader read the comments under another post before 0.151.1, and LinkedIn's found none.
+    for (const platform of ['facebook', 'linkedin'] as const) {
+      expect(await from('0.151.0', platform)).toEqual({ research: null });
+      expect((await from('0.151.1', platform)).research.tags).toHaveLength(2);
+    }
+    // The other networks read on with the build they always could.
+    expect((await from('0.144.0', 'x')).research.tags).toHaveLength(2);
+  });
+
   it('is kept from everyone but that staff in the database itself', async () => {
     const mine = sql`select id from addon_outreach.comment_research where workspace_id = ${ws}`;
     const seen = await as(staff)<{ id: string }>(mine);
@@ -168,6 +192,18 @@ describe('the comment research', () => {
         as(member)(sql`select private.use_comment_guide('instagram', 'Be brief.', 1, null)`),
       ),
     ).toBe('42501');
+    // The note for messages is kept the same way (decision 191).
+    expect(await refusal(as(staff)(sql`select id from platform.writing_notes`))).toBe('42501');
+    for (const call of [
+      sql`select private.use_writing_note('instagram', 'Be relaxed.', 1, null)`,
+      sql`select private.stop_writing_note('instagram')`,
+    ]) {
+      expect(await refusal(as(member)(call))).toBe('42501');
+      expect(await refusal(as(lead)(call))).toBe('42501');
+    }
+    expect(await as(member)(sql`select id from private.writing_note_in_use('instagram')`)).toEqual(
+      [],
+    );
   });
 
   it('keeps a comment’s words alone, once, and leaves out a bot’s', async () => {
@@ -312,6 +348,10 @@ describe('the comment research', () => {
     expect(card.findings).toEqual(findings);
     expect(card.guide).toContain('From 5 real comments under Instagram posts');
     expect(card.guide).toContain('- Most are two or three plain words.');
+    // The note for messages is made from the counts alone: no pattern, no comment.
+    expect(card.note).toContain('From 5 real comments people wrote on Instagram:');
+    expect(card.note).not.toContain('Most are two or three plain words');
+    expect(card.note).not.toContain('clean build');
     // Summed up once: a second answer changes nothing.
     expect(await runAsSystem(ws, 'outreach.comment_research.sum', { id, findings: null })).toEqual({
       id,
@@ -350,5 +390,56 @@ describe('the comment research', () => {
       use: false,
     });
     expect(on(out).inUse).toBeNull();
+  });
+
+  it('goes in every business’s messages on its own, only once staff say so, and comes out again', async () => {
+    const use = (u: TestUser, on_: boolean): Promise<CommentResearchOutput> =>
+      runAs(u, ws, 'outreach.comment_research.use', { id, use: on_, where: 'messages' });
+    const noteNow = () => asUser(api(), staff.claims, (tx) => writingNoteFor(tx, 'instagram'));
+    const worker = (platform: string) =>
+      asService({ workspaceId: ws })((tx) => writingNoteFor(tx, platform));
+    expect(await refused(use(lead, true))).toBe('outreach_research_staff');
+    // Nothing in use yet: no message is told anything.
+    expect(await worker('instagram')).toBeNull();
+    const used = await use(staff, true);
+    expect(on(used).inMessages).toMatchObject({ comments: 5, thisOne: true });
+    expect(on(used).inMessages!.note).toBe(ig(used)!.note);
+    // Apart from the comment guide, which is still out, and Instagram's alone.
+    expect(on(used).inUse).toBeNull();
+    expect(on(used, 'x').inMessages).toBeNull();
+    // The worker reads it as it writes a message there; nobody signed in reads the table.
+    expect(await worker('instagram')).toBe(ig(used)!.note);
+    expect(await worker('x')).toBeNull();
+    expect(await refusal(noteNow())).toBe('42501');
+    const [live] = await rows<{ research_id: string; used_by: string }>(
+      admin(),
+      sql`select research_id, used_by from platform.writing_notes
+          where platform = 'instagram' and stopped_at is null`,
+    );
+    expect(live).toEqual({ research_id: id, used_by: staff.id });
+    // Used again, it takes its own place: one in use a network. And the guide can go in without touching it.
+    await use(staff, true);
+    await runAs(staff, ws, 'outreach.comment_research.use', { id, use: true });
+    const [inUse] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from platform.writing_notes
+          where platform = 'instagram' and stopped_at is null`,
+    );
+    expect(inUse!.n).toBe(1);
+    // Taking the guide out of comments leaves the note in messages, and the other way round.
+    const guideOut: CommentResearchOutput = await runAs(
+      staff,
+      ws,
+      'outreach.comment_research.use',
+      {
+        id,
+        use: false,
+      },
+    );
+    expect(on(guideOut).inUse).toBeNull();
+    expect(on(guideOut).inMessages).toMatchObject({ thisOne: true });
+    const out = await use(staff, false);
+    expect(on(out).inMessages).toBeNull();
+    expect(await worker('instagram')).toBeNull();
   });
 });

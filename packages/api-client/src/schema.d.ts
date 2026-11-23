@@ -8707,7 +8707,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * HandsFreeOS staff only: put a finished comment research’s guide in every business’s comments on its network (how real comments sound there: their length, words and punctuation), in place of the guide in use on that network; or take the guide in use there out again.
+         * HandsFreeOS staff only: put a finished comment research’s guide in every business’s comments on its network (how real comments sound there: their length, words and punctuation), in place of the guide in use on that network; or take the guide in use there out again. With where set to messages, the same for its short note on how people write there (emoji, how a line ends, lower case, everyday words), which goes in every business’s first messages, replies, follow-ups and answers to comments on that network and changes only how they sound.
          * @description Risk level 2. Requires outreach.use. Emits outreach.comment_research.changed.
          */
         post: operations["command_outreach_comment_research_use"];
@@ -22947,7 +22947,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the person’s computer reads next on a network for the comment research they started there, if they started one: the next hashtags or search words (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one.
+         * What the person’s computer reads next on a network for the comment research they started there, if they started one: the next hashtags or search words (none once today’s share of the comments is read, so it spreads over its days). Nothing for anyone who didn’t start one, or for an extension older than the network’s reader needs.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_comment_research_next"];
@@ -48812,6 +48812,12 @@ export interface operations {
                 content: {
                     "application/json": {
                         networks: {
+                            inMessages: {
+                                comments: number;
+                                note: string;
+                                thisOne: boolean;
+                                usedAt: string;
+                            } | null;
                             inUse: {
                                 comments: number;
                                 guide: string;
@@ -48860,6 +48866,7 @@ export interface operations {
                                 id: string;
                                 kept: number;
                                 mine: boolean;
+                                note: string | null;
                                 /** @enum {string} */
                                 platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
                                 posts: number;
@@ -48900,6 +48907,12 @@ export interface operations {
                 content: {
                     "application/json": {
                         networks: {
+                            inMessages: {
+                                comments: number;
+                                note: string;
+                                thisOne: boolean;
+                                usedAt: string;
+                            } | null;
                             inUse: {
                                 comments: number;
                                 guide: string;
@@ -48948,6 +48961,7 @@ export interface operations {
                                 id: string;
                                 kept: number;
                                 mine: boolean;
+                                note: string | null;
                                 /** @enum {string} */
                                 platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
                                 posts: number;
@@ -48975,6 +48989,11 @@ export interface operations {
                     /** Format: uuid */
                     id: string;
                     use: boolean;
+                    /**
+                     * @default comments
+                     * @enum {string}
+                     */
+                    where?: "comments" | "messages";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -48989,6 +49008,12 @@ export interface operations {
                 content: {
                     "application/json": {
                         networks: {
+                            inMessages: {
+                                comments: number;
+                                note: string;
+                                thisOne: boolean;
+                                usedAt: string;
+                            } | null;
                             inUse: {
                                 comments: number;
                                 guide: string;
@@ -49037,6 +49062,7 @@ export interface operations {
                                 id: string;
                                 kept: number;
                                 mine: boolean;
+                                note: string | null;
                                 /** @enum {string} */
                                 platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
                                 posts: number;
@@ -90734,6 +90760,12 @@ export interface operations {
                 content: {
                     "application/json": {
                         networks: {
+                            inMessages: {
+                                comments: number;
+                                note: string;
+                                thisOne: boolean;
+                                usedAt: string;
+                            } | null;
                             inUse: {
                                 comments: number;
                                 guide: string;
@@ -90782,6 +90814,7 @@ export interface operations {
                                 id: string;
                                 kept: number;
                                 mine: boolean;
+                                note: string | null;
                                 /** @enum {string} */
                                 platform: "instagram" | "facebook" | "linkedin" | "alignable" | "threads" | "x";
                                 posts: number;

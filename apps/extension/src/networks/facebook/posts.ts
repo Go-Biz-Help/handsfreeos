@@ -2,9 +2,11 @@
  * Posts: in a group, on a profile, in the News Feed, or one on its own page. A feed's posts are the children of its
  * `role="feed"`; elsewhere a post is a top-level `role="article"`; and where posts are neither, as on 2026 profiles
  * and the 2026 News Feed, each is found by its "Actions for this post" button. Comments are articles inside a post,
- * labelled "Comment by …" or "Reply by …", and are left out of what the post says.
+ * labelled "Comment by …" or "Reply by …", and are left out of what the post says. A post on its own page is often
+ * drawn in a box over the page, with a feed of other posts hidden behind it: `pagePost` says which one the page shows.
  */
 import { clean, inTopBar, isAfter, isBefore, mainOf, outermost, textLines } from './dom';
+import { visible } from './fetch';
 import { bestName } from './people';
 import type { Named, Post } from './types';
 import { facebookUrl, postUrlFrom, profileFromUrl } from './urls';
@@ -124,6 +126,29 @@ export function holdsPost(element: Element): boolean {
     const label = clean(e.getAttribute('aria-label'));
     return ACTIONS.test(label) || POST_END.test(label) || LIKE.test(label);
   });
+}
+
+/**
+ * The post Facebook opened in a box over the page, when it did. On a post's own address it draws the post and its
+ * comments in a dialog and keeps a feed behind it, hidden, with other people's posts and THEIR comments (the owner's
+ * page outline of 22 Nov 2026). Until 0.151.1 the comment research read that feed: the same few comments under
+ * somebody else's post, on every post it opened. The innermost dialog in sight that holds a post's own controls; the
+ * box of who reacted and Facebook's own warnings hold none.
+ */
+export function postOver(doc: Document): Element | null {
+  return (
+    [...doc.querySelectorAll('[role="dialog"]')]
+      .filter((dialog) => visible(dialog) && holdsPost(dialog))
+      .at(-1) ?? null
+  );
+}
+
+/**
+ * The post a post's own page shows: the one in the box over the page when there is one (`postOver`), which is that
+ * post's box, comments and all; else the first on the page itself.
+ */
+export function pagePost(doc: Document): Element | null {
+  return postOver(doc) ?? postBoxes(mainOf(doc))[0] ?? null;
 }
 
 /** The box of the post something on the page is in, when it's in one: a button, a comment, the box to comment in. */

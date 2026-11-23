@@ -7,7 +7,8 @@
  * that menu to the end of the bar at its foot (Like, Comment, Repost, Send). An article inside a post is a comment or
  * a link's preview: a comment is never read as a post, and nothing in one (its words, links, time or counts) is the
  * post's. In the newer layout comments aren't articles: they come after the post's bar, which is where the post's own
- * words and links end.
+ * words and links end. On a post's own page there, LinkedIn draws them beside the post's box, not in it
+ * (`commentsPlaceOf`).
  *
  * Inside a post, page order says what's what. Its header is what comes before its time ("3h •"), or before its words
  * where it shows no time. When someone else is named at its top ("Sam Lee likes this", "LoneStar reposted this"),
@@ -288,9 +289,33 @@ export function reactionChange(
 // ------------------------------------------------------------------------------------------------ comments
 
 /**
+ * Where a post's comments are in LinkedIn's newer layout: the post's own box in a feed; on the post's own page, the
+ * part of the page around it that holds no other post. LinkedIn draws a post's comments there beside the post, not in
+ * it: the list it names for them holds the post, then the faces of who reacted, then each comment (the owner's page
+ * outlines of 31 Oct and 4 Nov 2026). Reading only inside the post's box found none of them, so a comment research
+ * read 109 posts and kept no comment (22 Nov 2026). Never past the page's main part, and never around another post,
+ * whose comments are its own.
+ */
+export function commentsPlaceOf(box: Element): Element {
+  const post = postIn(box);
+  const root = post.closest('main, [role="main"]') ?? post.ownerDocument.body;
+  if (!root || root === post || !root.contains(post)) return post;
+  const others = [...root.querySelectorAll(CONTROLS)].filter(
+    (control) =>
+      !post.contains(control) && !inTopBar(control) && !control.closest(NESTED) && isMenu(control),
+  );
+  let place = post;
+  for (let up = post.parentElement; up && up !== root && root.contains(up); up = up.parentElement) {
+    if (others.some((menu) => up.contains(menu))) break;
+    place = up;
+  }
+  return place;
+}
+
+/**
  * In LinkedIn's newer layout, the comment something is in: comments aren't articles there, and come after the post's
- * bar. The nearest box around it, after the bar, that links to a member (outside a box to write in): its writer is
- * the first of them.
+ * bar, in the post's box or beside it on its own page (`commentsPlaceOf`). The nearest box around it, after the bar,
+ * that links to a member (outside a box to write in): its writer is the first of them.
  */
 export function newerCommentOf(
   element: Element,
@@ -299,9 +324,10 @@ export function newerCommentOf(
 ): Element | null {
   const post = postIn(box);
   if (!bar) return null;
+  const place = commentsPlaceOf(post);
   for (
     let up = element.parentElement;
-    up && up !== post && post.contains(up);
+    up && up !== place && place.contains(up);
     up = up.parentElement
   ) {
     if (up.contains(bar.box) || !isAfter(up, bar.box)) return null;
@@ -318,13 +344,13 @@ export function commentWriter(comment: Element, base: string): LinkedPerson | nu
 
 /**
  * The comments (and replies) on a post in LinkedIn's newer layout, in page order: the box of each Reply after the
- * post's bar, as `newerCommentOf` finds it.
+ * post's bar, in the post's box or beside it on its own page (`commentsPlaceOf`), as `newerCommentOf` finds it.
  */
 export function newerComments(box: Element): Element[] {
   const post = postIn(box);
   const bar = barOf(post);
   if (!bar) return [];
-  const replies = [...post.querySelectorAll(CONTROLS)].filter(
+  const replies = [...commentsPlaceOf(post).querySelectorAll(CONTROLS)].filter(
     (control) => !nestedIn(control, post) && isAfter(control, bar.box) && says(control, REPLY),
   );
   const comments = replies
