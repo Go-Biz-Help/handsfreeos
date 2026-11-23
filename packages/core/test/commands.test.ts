@@ -525,6 +525,7 @@ describe('registry', () => {
       'indeed_applicant.receive',
       'chat_widget.create',
       'chat_widget.update',
+      'chat_setup.save',
       'chat_widget.pause',
       'chat_widget.resume',
       'chat_widget.hide_until_texting',

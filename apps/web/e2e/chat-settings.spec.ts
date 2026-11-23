@@ -35,6 +35,9 @@ test('Website chat settings: sites, the snippet, the install check and a new key
   expect(tabs.indexOf('Website chat')).toBe(tabs.indexOf('Email') + 1);
   await nav.getByRole('link', { name: 'Website chat' }).click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/settings/website-chat$`));
+  // The simple card (W3 a) with every setting from before under All settings.
+  await expect(page.getByTestId('chat-set-up')).toHaveText('Start');
+  await page.getByTestId('chat-all-settings-toggle').click();
 
   // Sites are checked as they're typed, and refused in plain words.
   const setup = page.getByTestId('chat-setup');
@@ -92,15 +95,20 @@ test('Website chat settings: sites, the snippet, the install check and a new key
   const off = await page.request.get(`/chat/${key}?o=${encodeURIComponent(OTHER_SITE)}`);
   expect(off.headers()['content-security-policy']).toBe(`frame-ancestors 'self'`);
 
-  // The install check: not seen until the chat opens on the site, then "Seen on 127.0.0.1:4191 just now".
-  await expect(page.getByTestId('chat-install')).toContainText('Not seen yet.');
+  // The install check: not seen until the chat opens on the site, then "Seen on 127.0.0.1:4191 just now". The simple
+  // card above All settings shows it too.
+  const status = page.getByTestId('chat-status-card');
+  await expect(status.getByTestId('chat-install')).toContainText('Not seen yet.');
+  await expect(page.getByTestId('chat-overview-status').getByTestId('chat-install')).toContainText(
+    'Not seen yet.',
+  );
   const visitor = await browser.newContext();
   const site = await visitor.newPage();
   await site.goto(sitePage(CHAT_SITE, key, '/services/ac-tune-up', '#hfos-chat'));
   const chat = await chatFrame(site);
   await expect(chat.getByTestId('chat-window')).toHaveAttribute('data-phase', 'ready');
-  await page.getByTestId('chat-install-recheck').click();
-  await expect(page.getByTestId('chat-install')).toContainText('Seen on 127.0.0.1:4191 just now');
+  await status.getByTestId('chat-install-recheck').click();
+  await expect(status.getByTestId('chat-install')).toContainText('Seen on 127.0.0.1:4191 just now');
   await expect(sites.filter({ hasText: '127.0.0.1:4191' })).toContainText('Installed');
   await visitor.close();
 
@@ -132,7 +140,7 @@ test('Website chat settings: sites, the snippet, the install check and a new key
   await expect(page.getByTestId('website-chat-row')).toContainText('on phones');
   await page.getByTestId('website-chat-row').click();
   await expect(page.getByTestId('chat-label')).toHaveValue('Ask us anything');
-  await page.goto(`/app/w/${workspaceId}/settings/website-chat`);
+  await page.goto(`/app/w/${workspaceId}/settings/website-chat?all=1`);
 
   // The daily limit saves on Enter.
   await page.getByTestId('chat-daily-cap').fill('150');
@@ -182,7 +190,7 @@ test('Try it: the preview answers through the test console and creates nothing',
   const biz = await businessWithChat(page, 'chat-preview');
   await automaticTeammate(biz.token, biz.workspaceId, biz.widgetId);
 
-  await page.goto(`/app/w/${biz.workspaceId}/settings/website-chat`);
+  await page.goto(`/app/w/${biz.workspaceId}/settings/website-chat?all=1`);
   await expect(page.getByTestId('chat-who')).toHaveValue(/[0-9a-f-]{36}/);
   const [preview] = await Promise.all([
     page.context().waitForEvent('page'),
