@@ -283,6 +283,7 @@ describe('registry', () => {
       'calendar.set_status',
       'calendar.set_slug',
       'calendar.set_embed_sites',
+      'calendar_setup.save',
       'service.create',
       'service.update',
       'service.archive',

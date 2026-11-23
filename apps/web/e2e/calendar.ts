@@ -61,8 +61,9 @@ export async function createCalendar(
   await page.getByTestId(`preset-${opts.preset ?? 'personal'}`).click();
   await page.getByLabel('Name', { exact: true }).fill(opts.name);
   await page.getByTestId('calendar-create').click();
-  await expect(page).toHaveURL(/\/settings\/calendars\/[0-9a-f-]{36}$/);
-  const id = /calendars\/([0-9a-f-]{36})$/.exec(page.url())![1]!;
+  // A new calendar opens at All settings, behind its card.
+  await expect(page).toHaveURL(/\/settings\/calendars\/[0-9a-f-]{36}\/all$/);
+  const id = /calendars\/([0-9a-f-]{36})\/all$/.exec(page.url())![1]!;
   if (opts.turnOn ?? true) {
     await page.getByTestId('calendar-turn-on').click();
     await expect(page.getByTestId('calendar-status')).toHaveText('Active');
