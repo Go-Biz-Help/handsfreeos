@@ -196,24 +196,24 @@ describe('the reminder when the check-in changes somewhere else', () => {
     expect(scheduled()[0]?.trigger.date).toEqual(new Date('2026-10-01T21:55:00.000Z'));
 
     // Ask HandsFreeOS added half an hour on the web: the reminder follows the new planned end.
-    await reconcileReminders(p.db, p.heard({ planned_end_at: '2026-10-01T22:20:00.000Z' }));
+    await reconcileReminders(p.heard({ planned_end_at: '2026-10-01T22:20:00.000Z' }), p.db);
     expect(scheduled()).toHaveLength(1);
     expect(scheduled()[0]?.trigger.date).toEqual(new Date('2026-10-01T22:25:00.000Z'));
     expect(scheduled()[0]?.content.body).toMatch(/check out at 5:20 PM/);
 
     // Heard again with nothing new: left as it is.
     const before = scheduled()[0];
-    await reconcileReminders(p.db, p.heard({}));
+    await reconcileReminders(p.heard({}), p.db);
     expect(scheduled()[0]).toBe(before);
 
     // Checked out on the web: the reminder goes.
-    await reconcileReminders(p.db, p.heard({ state: 'out' }));
+    await reconcileReminders(p.heard({ state: 'out' }), p.db);
     expect(scheduled()).toHaveLength(0);
   });
 
   it('sets none for a check-in this phone has no reminder for', async () => {
     const p = phone({});
-    await reconcileReminders(p.db, p.heard({ planned_end_at: '2026-10-01T22:20:00.000Z' }));
+    await reconcileReminders(p.heard({ planned_end_at: '2026-10-01T22:20:00.000Z' }), p.db);
     expect(scheduled()).toHaveLength(0);
   });
 });

@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import {
   change,
+  changes,
   newId,
   type ChangeOptions,
   type ChangeResult,
@@ -154,8 +155,8 @@ export interface CheckInNow {
  * already fits is left alone, and a check-in made somewhere else gets none here: HandsFreeOS's own push asks about it.
  */
 export async function reconcileReminders(
-  db: SqlReader,
   checkIns: readonly CheckInNow[],
+  db: SqlReader | null = changes?.open?.db ?? null,
 ): Promise<void> {
   const set = await Notifications.getAllScheduledNotificationsAsync().catch(() => []);
   for (const c of checkIns) {
@@ -168,6 +169,8 @@ export async function reconcileReminders(
     const data = reminder.content.data as { sentAt?: unknown } | null;
     const end = typeof data?.sentAt === 'string' ? Date.parse(data.sentAt) : NaN;
     if (end === Date.parse(c.planned_end_at)) continue;
+    // Moving one reads the business's times and contacts from the copy; with no copy open it waits for the next time.
+    if (!db) continue;
     const now = await reminderOf(db, c.id);
     if (now) await setReminder(now);
     else await clearReminder(c.id);

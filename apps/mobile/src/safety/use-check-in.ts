@@ -1,4 +1,4 @@
-import { usePowerSync, useQuery } from '@powersync/react-native';
+import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
 
 import { deviceStore } from '@/lib/device-store';
@@ -43,7 +43,6 @@ export function useFollowedCheckIn(): string | null {
  * stops nothing.
  */
 export function useFollowEnds(workspaceId: string, userId: string): void {
-  const db = usePowerSync();
   const { data, isLoading } = useQuery<CheckInRow>(MY_CHECK_INS_SQL, [workspaceId, userId]);
   const open = isLoading
     ? null
@@ -59,6 +58,6 @@ export function useFollowEnds(workspaceId: string, userId: string): void {
     if (open !== null) void reconcileFollowing(workspaceId, open ? open.split(',') : []);
   }, [workspaceId, open]);
   React.useEffect(() => {
-    if (ends !== null) void reconcileReminders(db, JSON.parse(ends) as CheckInNow[]);
-  }, [db, ends]);
+    if (ends !== null) reconcileReminders(JSON.parse(ends) as CheckInNow[]).catch(() => {});
+  }, [ends]);
 }
