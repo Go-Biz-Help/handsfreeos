@@ -293,6 +293,14 @@ export interface SubscriptionInput {
   readonly metadata: Readonly<Record<string, string>>;
 }
 
+/** One cycle's invoice at the provider, as its event names it. */
+export interface CycleInvoiceRef {
+  /** Stripe's `in_…`, Square's `inv:…`. */
+  readonly invoiceId: string;
+  /** Square's order the invoice billed, which is what names its payment. */
+  readonly orderId: string | null;
+}
+
 export interface SubscriptionResult {
   readonly providerSubscriptionId: string;
   readonly status: SubscriptionState;
@@ -425,6 +433,12 @@ export interface PaymentProvider {
       account: PaymentAccount,
       input: { providerSubscriptionId: string },
     ): Promise<SubscriptionResult>;
+    /**
+     * The payment that paid one cycle's invoice at the provider, when its event doesn't name it: Stripe's
+     * invoices stopped carrying their payment in 2025 (the payment is on the invoice's payments since
+     * `2025-03-31.basil`), and Square's say only which order they billed. Null when none has paid it yet.
+     */
+    cyclePaymentId?(account: PaymentAccount, input: CycleInvoiceRef): Promise<string | null>;
   };
 
   /** What the provider kept. Not known until the money has settled, so it comes back null until then. */

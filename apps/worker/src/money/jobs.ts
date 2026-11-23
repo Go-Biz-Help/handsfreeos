@@ -929,6 +929,7 @@ interface SubscriptionRow extends Record<string, unknown> {
   external_subscription_id: string | null;
   external_account_id: string | null;
   current_period_start: string | null;
+  current_period_end: string | null;
   next_billing_on: string | null;
 }
 
@@ -950,6 +951,7 @@ export const subscriptionCycleJob: JobHandler = async (ctx) => {
       sql`select s.id, s.status::text as status, s.provider::text as provider,
             s.external_subscription_id, pc.external_account_id,
             s.current_period_start::text as current_period_start,
+            s.current_period_end::text as current_period_end,
             s.next_billing_on::text as next_billing_on
           from app.subscriptions s
           left join app.payment_connections pc on pc.id = s.connection_id
@@ -1016,11 +1018,12 @@ export const subscriptionCycleJob: JobHandler = async (ctx) => {
   if (!outcome) return later(DAY);
   const periodStart = asDate(state.currentPeriodStart);
   const periodEnd = asDate(state.currentPeriodEnd);
-  // A period that has moved on since we last looked is a cycle the provider billed without telling us.
+  // A period that has moved on since we last looked is a cycle the provider billed without telling us. Square's
+  // plan keeps the day it began as its start, so there it is the paid-up-to day moving on that says so.
   const billed =
     outcome === 'activated' &&
-    !!periodStart &&
-    (!plan.current_period_start || periodStart > plan.current_period_start);
+    ((!!periodStart && (!plan.current_period_start || periodStart > plan.current_period_start)) ||
+      (!!periodEnd && !!plan.current_period_end && periodEnd > plan.current_period_end));
   await executeCommand(
     ctx.db,
     subscriptionRecordCycle,

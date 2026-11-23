@@ -423,6 +423,8 @@ export const planJobs: JobMap = {
 
 export interface CycleFacts {
   readonly providerPaymentId: string | null;
+  /** The cycle's invoice at the provider: what names the cycle when its payment couldn't be found. */
+  readonly providerInvoiceId?: string | null;
   readonly amountPaidCents: number | null;
   readonly currentPeriodStart: string | null;
   readonly currentPeriodEnd: string | null;
@@ -453,11 +455,13 @@ export async function recordPlanCycle(
 
   /**
    * One invoice per cycle. A provider retries a webhook for days and replays happen, so the cycle is found by
-   * **the provider's own payment id** — the one thing that is the same on every delivery of the same charge.
-   * Without one (a provider that named no payment), an invoice raised for this plan in the last hour is taken
-   * as the same cycle rather than raising a second.
+   * **the provider's own payment id** — the one thing that is the same on every delivery of the same charge —
+   * or, when its payment couldn't be found, by its invoice at the provider, which the payment's key carries.
+   * With neither, an invoice raised for this plan in the last hour is taken as the same cycle rather than
+   * raising a second.
    */
   const period = facts.currentPeriodStart ?? new Date().toISOString();
+  const cycleKey = `plan-cycle-${subscriptionId}-${facts.providerPaymentId ?? facts.providerInvoiceId ?? period}`;
   const already = await asWorker(db, scope, (tx) =>
     rows<{ id: string }>(
       tx,
@@ -468,7 +472,10 @@ export async function recordPlanCycle(
                 ? sql`exists (select 1 from app.payments p
                        where p.invoice_id = i.id
                          and p.provider_payment_id = ${facts.providerPaymentId})`
-                : sql`i.created_at >= now() - interval '1 hour'`
+                : facts.providerInvoiceId
+                  ? sql`exists (select 1 from app.payments p
+                         where p.invoice_id = i.id and p.idempotency_key = ${cycleKey})`
+                  : sql`i.created_at >= now() - interval '1 hour'`
             }
           order by i.created_at desc
           limit 1`,
@@ -542,7 +549,7 @@ export async function recordPlanCycle(
       providerPaymentId: facts.providerPaymentId,
       status: 'succeeded' as const,
       receivedAt: new Date().toISOString(),
-      idempotencyKey: `plan-cycle-${subscriptionId}-${facts.providerPaymentId ?? period}`,
+      idempotencyKey: cycleKey,
     },
     systemActor(scope),
     workerMeta(),

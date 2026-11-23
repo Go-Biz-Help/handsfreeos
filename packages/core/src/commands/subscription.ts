@@ -22,7 +22,7 @@ import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { money } from '../money/index';
-import { accountForPerson, assertAccountUsable, refusePayPalPlan } from './payment-connection';
+import { accountForPerson, assertAccountUsable, refuseAccountForPlan } from './payment-connection';
 import { requireBillable } from './money-shared';
 import {
   SubscriptionCancelInput,
@@ -34,6 +34,7 @@ import {
   SubscriptionSetConnectionInput,
   SubscriptionStartInput,
   SubscriptionStateOutput,
+  type PlanInterval,
 } from '../schemas/money';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -54,6 +55,8 @@ type SubscriptionLite = {
   connection_id: string | null;
   external_subscription_id: string | null;
   next_billing_on: string | null;
+  interval: PlanInterval;
+  interval_count: number;
 };
 
 async function requireSubscription(
@@ -65,7 +68,7 @@ async function requireSubscription(
     sql`select s.id, s.public_ref, s.pay_version, (s.method_token is not null) as has_card,
           s.status::text as status, s.plan_name, s.price_cents::float8 as price_cents,
           s.person_id, s.lead_id, s.connection_id, s.external_subscription_id,
-          s.next_billing_on::text as next_billing_on
+          s.next_billing_on::text as next_billing_on, s.interval::text as interval, s.interval_count
         from app.subscriptions s
         where s.workspace_id = ${ctx.scope.workspaceId!} and s.id = ${subscriptionId}::uuid
         for no key update of s`,
@@ -125,11 +128,18 @@ export async function startSubscription(
     throw HfosError.validation([{ path: 'planName', message: 'Name the plan being sold.' }]);
   // A person sells a plan into an account they may bill into (0105): the one named, or theirs to use. One the
   // AI teammate offered waits for its card and takes the business's default then, as before.
+  const every = {
+    interval: input.interval ?? catalogue?.interval ?? 'month',
+    intervalCount: input.intervalCount ?? catalogue?.intervalCount ?? 1,
+  };
   let connectionId = input.connectionId ?? null;
-  if (connectionId) await refusePayPalPlan(ctx, connectionId);
+  if (connectionId) await refuseAccountForPlan(ctx, connectionId, every);
   if (ctx.actor.type === 'human') {
     if (connectionId) await assertAccountUsable(ctx, ctx.actor.userId, connectionId);
-    else connectionId = await accountForPerson(ctx, ctx.actor.userId, { plans: true });
+    else {
+      connectionId = await accountForPerson(ctx, ctx.actor.userId, { plans: true });
+      if (connectionId) await refuseAccountForPlan(ctx, connectionId, every);
+    }
   }
   const [row] = await ctx.tx
     .insert(subscriptions)
@@ -139,8 +149,8 @@ export async function startSubscription(
       planId: catalogue?.id ?? null,
       planName,
       priceCents: input.priceCents ?? Number(catalogue?.priceCents ?? 0),
-      interval: input.interval ?? catalogue?.interval ?? 'month',
-      intervalCount: input.intervalCount ?? catalogue?.intervalCount ?? 1,
+      interval: every.interval,
+      intervalCount: every.intervalCount,
       taxable: input.taxable ?? catalogue?.taxable ?? true,
       includes: input.includes ?? catalogue?.includes ?? [],
       personId: input.personId,
@@ -443,7 +453,10 @@ export const subscriptionSetConnection = defineCommand({
         );
       // Pointing a plan back at the account it already uses is not a new choice, whoever makes it.
       if (input.connectionId !== before.connection_id) {
-        await refusePayPalPlan(ctx, input.connectionId);
+        await refuseAccountForPlan(ctx, input.connectionId, {
+          interval: before.interval,
+          intervalCount: Number(before.interval_count),
+        });
         await assertAccountUsable(ctx, requireHuman(ctx).userId, input.connectionId);
       }
     }

@@ -597,6 +597,112 @@ describe('what the routes do with an event they take', () => {
     await taxed(0);
   });
 
+  it('records a Square plan’s cycle from Square’s own invoice event, and hears a refused card', async () => {
+    const account = {
+      provider: 'square' as const,
+      externalAccountId: w.square.accountId,
+      locationId: 'L_TEST',
+      accessToken: null,
+      environment: 'test' as const,
+    };
+    // Two plans at Square: one on a card that pays, one on a card refused when nobody is there.
+    const live = async (name: string, card: string) => {
+      const started = (await run(w, subscriptionStart, {
+        workspaceId: w.workspaceId,
+        personId: w.person.id,
+        planName: name,
+        priceCents: 4_500,
+        interval: 'quarter',
+        connectionId: w.square.connectionId,
+      })) as { subscriptionId: string };
+      const plan = await w.s.payments.fake.providers.square.subscriptions.create(account, {
+        customerRef: `cust_${randomUUID().slice(0, 8)}`,
+        methodToken: w.s.payments.fake.page.tokenise({ instrument: card, method: 'card' }),
+        amountCents: 4_500,
+        interval: 'month',
+        intervalCount: 3,
+        name,
+        startAt: null,
+        idempotencyKey: randomUUID(),
+        metadata: {},
+      });
+      await sys(subscriptionRecordCycle, {
+        workspaceId: w.workspaceId,
+        subscriptionId: started.subscriptionId,
+        outcome: 'activated',
+        externalSubscriptionId: plan.providerSubscriptionId,
+      });
+      await drain(w);
+      return { id: started.subscriptionId, providerId: plan.providerSubscriptionId };
+    };
+    const paying = await live('Square Quarterly', FAKE_CARDS.succeeds);
+    const refused = await live('Square Refused', FAKE_CARDS.failsOffSession);
+    // A rhythm Square has no name for is refused before it's sold, rather than billed monthly as it once was.
+    await expect(
+      run(w, subscriptionStart, {
+        workspaceId: w.workspaceId,
+        personId: w.person.id,
+        planName: 'Every Five Months',
+        priceCents: 4_500,
+        interval: 'month',
+        intervalCount: 5,
+        connectionId: w.square.connectionId,
+      }),
+    ).rejects.toMatchObject({ rule: 'square_plan_cadence' });
+
+    // `invoice.payment_made`, nested under `invoice` as Square sends it: the cycle is an invoice and a payment here,
+    // under the payment Square's order names, so a refund made at Square finds it.
+    const billed = await post(w, '/test/money/provider-event', {
+      workspaceId: w.workspaceId,
+      subscriptionId: paying.providerId,
+      event: 'cycle',
+    });
+    expect(billed.statusCode, billed.body).toBe(200);
+    const { payment, webhooks } = billed.json() as {
+      payment: { id: string };
+      webhooks: { type: string; ok: boolean }[];
+    };
+    expect(webhooks.map((x) => x.type)).toContain('invoice.payment_made');
+    await drain(w);
+    const cycles = await rows<{ status: string; total: number; paid_by: string | null }>(
+      admin(),
+      sql`select i.status::text as status, i.total_cents::float8 as total,
+            (select p.provider_payment_id from app.payments p where p.invoice_id = i.id) as paid_by
+          from app.invoices i where i.subscription_id = ${paying.id}::uuid`,
+    );
+    expect(cycles).toEqual([{ status: 'paid', total: 4_500, paid_by: payment.id }]);
+    // Square's event again (it retries for days): still one cycle.
+    const [delivery] = w.s.payments.fake
+      .webhooks()
+      .filter((x) => x.type === 'invoice.payment_made')
+      .slice(-1);
+    await hook('square', delivery!.body, delivery!.headers);
+    await drain(w);
+    const again = await rows(
+      admin(),
+      sql`select 1 from app.invoices where subscription_id = ${paying.id}::uuid`,
+    );
+    expect(again).toHaveLength(1);
+
+    // `invoice.scheduled_charge_failed`: the plan is past due, and nothing is recorded as paid.
+    const failed = await post(w, '/test/money/provider-event', {
+      workspaceId: w.workspaceId,
+      subscriptionId: refused.providerId,
+      event: 'cycle',
+    });
+    expect(
+      (failed.json() as { webhooks: { type: string }[] }).webhooks.map((x) => x.type),
+    ).toContain('invoice.scheduled_charge_failed');
+    await drain(w);
+    const [state] = await rows<{ status: string; failed_cycles: number; invoices: number }>(
+      admin(),
+      sql`select s.status::text as status, s.failed_cycles,
+            (select count(*)::int from app.invoices i where i.subscription_id = s.id) as invoices
+          from app.subscriptions s where s.id = ${refused.id}::uuid`,
+    );
+    expect(state).toEqual({ status: 'past_due', failed_cycles: 1, invoices: 0 });
+  });
+
   it('disconnects the account when the seller revokes us at the provider', async () => {
     const account = `acct_${randomUUID().slice(0, 8)}`;
     const extra = await connect(w, 'stripe', account);
