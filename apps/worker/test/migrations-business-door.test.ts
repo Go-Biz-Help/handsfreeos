@@ -432,15 +432,14 @@ describe('a business moves itself in', () => {
     expect(everything).toContain('invoices');
     type Chosen = { added: { category: string }[]; selectedCategories: string[] };
 
-    // Only invoices. They need their customers and products, and those need the business itself. The
-    // customers bring their custom fields, so their custom values have somewhere to land.
+    // Only invoices. They need their customers and products, and those need the business itself. Nothing
+    // else: custom fields come only when ticked (the owner, 2026-11-23).
     const first = await as<Chosen>(migrationSelect, {
       ...door,
       choices: everything.map((category) => ({ category, selected: category === 'invoices' })),
     });
     expect([...first.selectedCategories].sort()).toEqual([
       'contacts',
-      'custom_fields',
       'invoices',
       'locations',
       'products',
@@ -477,6 +476,58 @@ describe('a business moves itself in', () => {
     );
     expect(queued.map((q) => q.category)).toEqual(['locations', 'tags']);
   }, 120_000);
+
+  it('brings only the customers and products on the invoices when only invoices are ticked', async () => {
+    // The owner, 2026-11-23: "if i choose only invoices then it should only bring the customers that had
+    // invoices", "as well as only the products and services that were in the invoices".
+    const someone = await createTestUser('business-door-invoices', { fullName: 'Ivy Invoices' });
+    const { output: theirs } = await executeCommand(
+      api(),
+      organizationCreate,
+      { businessName: 'Cibolo Creek Cooling', timezone: 'America/Chicago' },
+      actorOf(someone),
+      meta(),
+    );
+    const { as, door } = await upToChoosing(someone, theirs);
+    await as(migrationSelect, { ...door, choices: [{ category: 'invoices', selected: true }] });
+    await as(migrationStart, { ...door, acknowledgedFindingIds: [] });
+    await drain(200, door.migrationId);
+
+    const people = await rows<{ name: string }>(
+      admin(),
+      sql`select x.first_name as name from app.migration_change_journal j
+          join app.people x on x.id = j.target_id
+          where j.migration_id = ${door.migrationId} and j.action = 'create' and j.target_type = 'person'
+          order by 1`,
+    );
+    const products = await rows<{ name: string }>(
+      admin(),
+      sql`select x.name from app.migration_change_journal j
+          join app.products x on x.id = j.target_id
+          where j.migration_id = ${door.migrationId} and j.action = 'create' and j.target_type = 'product'
+          order by 1`,
+    );
+    // Austin's three bills are Dave's, Maria's and Priya's (hers is in Canadian dollars, so the bill itself
+    // stays behind, but she had one). Tom, Sam and the others had none.
+    expect(people.map((p) => p.name)).toEqual(['Dave', 'Maria', 'Priya']);
+    // Only Dave's bill has a line that is a product, the Service call. The Replacement coil is on none.
+    expect(products.map((p) => p.name)).toEqual(['Service call']);
+
+    // Counted as what came, and the checks say where the rest are.
+    const [customers] = await rows<{ found: number; imported: number }>(
+      admin(),
+      sql`select (counts ->> 'found')::int as found, (counts ->> 'imported')::int as imported
+          from app.migration_checkpoints where migration_id = ${door.migrationId} and category = 'contacts'`,
+    );
+    expect(customers).toEqual({ found: 3, imported: 3 });
+    const [check] = await rows<{ result: string; summary: string }>(
+      admin(),
+      sql`select result::text as result, summary from app.migration_verifications
+          where migration_id = ${door.migrationId} and kind = 'counts' and category = 'contacts'`,
+    );
+    expect(check?.result).toBe('passed');
+    expect(check?.summary).toContain('stayed in the old system, because Contacts wasn’t ticked');
+  }, 180_000);
 
   it('stops a batch that is already reading when the move is taken back, so nothing is left behind', async () => {
     // 2026-11-23, Burroughs Digital: taking a move back left records in the business. A batch the worker was

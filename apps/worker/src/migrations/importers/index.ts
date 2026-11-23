@@ -797,9 +797,10 @@ export const importContact: Importer = async (tx, scope, envelope) => {
   }
 
   // Custom-field values. Since M15 these have a real home: `people.custom`, keyed by the id of the field the
-  // custom-field importer made earlier in the same import. What is left over — a value whose field never came
-  // across, because its shape was not readable or it lived on something we have no fields for — still goes
-  // into the notes named as it was named over there, rather than being dropped.
+  // custom-field importer made earlier in the same import. A value whose field wasn't brought never gets this
+  // far: the adapter leaves it out (the owner, 2026-11-23: custom info comes only with Custom fields). What is
+  // left over — a value its field can't hold, or one whose field was refused here — goes into the notes named
+  // as it was named over there, rather than being dropped.
   const values = Object.entries(d.customFields ?? {}).filter(
     ([, v]) => v !== null && v !== undefined && v !== '',
   );

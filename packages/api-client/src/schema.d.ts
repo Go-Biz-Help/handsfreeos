@@ -7847,7 +7847,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Choose what to bring across. Anything a choice needs is added automatically and locked, with a line saying which choice asked for it.
+         * Choose what to bring across. Anything a choice needs is added automatically, with a line saying which choice asked for it. Customers and products added that way bring only the ones that choice uses; choose them to bring all of them.
          * @description Risk level 1. Emits migration.selection_changed.
          */
         post: operations["command_migration_select"];

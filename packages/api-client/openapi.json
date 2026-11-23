@@ -54593,7 +54593,7 @@
     "/v1/commands/migration.select": {
       "post": {
         "operationId": "command_migration_select",
-        "summary": "Choose what to bring across. Anything a choice needs is added automatically and locked, with a line saying which choice asked for it.",
+        "summary": "Choose what to bring across. Anything a choice needs is added automatically, with a line saying which choice asked for it. Customers and products added that way bring only the ones that choice uses; choose them to bring all of them.",
         "tags": [
           "commands"
         ],

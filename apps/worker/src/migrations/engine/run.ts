@@ -27,6 +27,7 @@ import {
   type CanonicalEnvelope,
   type CrmSourceAdapter,
   type MappingContext,
+  type SourceRecord,
   type SourceScope,
 } from '@hfos/core/server';
 import type { Logger } from 'pino';
@@ -536,6 +537,8 @@ async function fetchCategory(
     await requeueJob(deps, job, job.input, 1_000);
     return 'again';
   }
+  // Here only because a choice needs it (migration.start): read it all, bring only what gets used.
+  const onlyUsed = job.input['onlyUsed'] === true && cat.onlyWhatsUsed === true;
 
   const migration = await loadMigration(deps, job.migration_id, job.organization_id);
   const opened = await openConnection(
@@ -631,88 +634,28 @@ async function fetchCategory(
         );
         if (!held?.same) return null;
 
-        const context = await mappingContext(tx, importScope, opened.adapter);
         let totals = emptyCounts();
-        for (const record of page.records) {
-          totals = addCounts(totals, { found: 1 });
-          await stage(tx, importScope, job.category, record, opened.adapter.adapterVersion);
-          let envelopes: readonly CanonicalEnvelope[] = [];
-          try {
-            envelopes = opened.adapter.normalize(record, context);
-          } catch (e) {
-            await quarantine(tx, importScope, {
-              category: job.category,
-              sourceObjectType: record.objectType,
-              sourceObjectId: record.objectId,
-              kind: 'mapping',
-              code: 'normalize_failed',
-              message: (e as Error).message,
-              retryable: false,
-            });
-            totals = addCounts(totals, { failed: 1 });
-            continue;
-          }
-          for (const envelope of envelopes) {
-            const checked = parseCanonical(envelope);
-            if (!checked.ok) {
-              await quarantine(tx, importScope, {
-                category: job.category,
-                sourceObjectType: envelope.source.objectType,
-                sourceObjectId: envelope.source.objectId,
-                kind: 'mapping',
-                code: 'shape_not_understood',
-                message: checked.issues.join('; '),
-                retryable: false,
-                detail: { issues: checked.issues },
-              });
-              totals = addCounts(totals, { failed: 1 });
-              continue;
-            }
-            const importer = IMPORTERS[envelope.canonicalType];
-            if (!importer) {
-              totals = addCounts(totals, { skipped: 1 });
-              continue;
-            }
-            /**
-             * One record at a time, each behind its own savepoint. A record the database refuses — a customer
-             * with no name at all, a value too long for its column — used to take the whole transaction with
-             * it, so the page of a hundred failed, was tried again, failed the same way, and the category never
-             * finished. Now that one record is set aside with the database's reason on it, and the other
-             * ninety-nine come across.
-             */
-            try {
-              const result = await tx.transaction(async (one) => {
-                // Whatever the adapter could not map is recorded beside the record; it is never dropped.
-                for (const w of envelope.warnings)
-                  await finding(one, importScope, {
-                    code: w.code,
-                    category: job.category,
-                    capability: 'needs_review',
-                    severity: 'info',
-                    summary: w.message,
-                    sourceCapability: w.field ?? null,
-                    affected: 1,
-                  });
-                return importer(one, importScope, { ...envelope, data: checked.data });
-              });
-              totals = addCounts(totals, result.counts);
-            } catch (e) {
-              const err = e as Error & { cause?: { message?: string } };
-              await quarantine(tx, importScope, {
-                category: job.category,
-                sourceObjectType: envelope.source.objectType,
-                sourceObjectId: envelope.source.objectId,
-                kind: 'target',
-                code: 'import_refused',
-                // The database's own reason, not the statement: the statement carries the record's values.
-                message: (err.cause?.message ?? err.message.split('\n')[0] ?? 'refused').slice(
-                  0,
-                  500,
-                ),
-                retryable: false,
-              });
-              totals = addCounts(totals, { failed: 1 });
-            }
+        if (onlyUsed) {
+          // Kept waiting, not brought: each comes when a record that uses it does (bringWhatItUses). Nothing
+          // is counted yet, so "40 of 40" on the screen is the ones that came, not 40 of the whole book.
+          for (const record of page.records)
+            await stage(
+              tx,
+              importScope,
+              job.category,
+              record,
+              opened.adapter.adapterVersion,
+              'waiting',
+            );
+        } else {
+          const context = await mappingContext(tx, importScope, opened.adapter);
+          for (const record of page.records) {
+            totals = addCounts(totals, { found: 1 });
+            await stage(tx, importScope, job.category, record, opened.adapter.adapterVersion);
+            totals = addCounts(
+              totals,
+              await importRecord(tx, importScope, job.category, opened.adapter, context, record),
+            );
           }
         }
         await checkpoint(tx, importScope, job.category, {
@@ -741,6 +684,151 @@ async function fetchCategory(
     }
     if (await finishJob(deps, job, { ...counts })) await afterCategory(deps, job);
     return 'done';
+  }
+}
+
+/**
+ * One record read from the old system, turned into HandsFreeOS's shape and written. Inside the page's
+ * transaction; what it returns is added to the category's counts by whoever called it (the record itself is
+ * counted as found there too).
+ */
+async function importRecord(
+  tx: Tx,
+  importScope: ImportScope,
+  category: string,
+  adapter: CrmSourceAdapter,
+  context: MappingContext,
+  record: SourceRecord,
+): Promise<ImportCounts> {
+  let totals = emptyCounts();
+  let envelopes: readonly CanonicalEnvelope[] = [];
+  try {
+    envelopes = adapter.normalize(record, context);
+  } catch (e) {
+    await quarantine(tx, importScope, {
+      category,
+      sourceObjectType: record.objectType,
+      sourceObjectId: record.objectId,
+      kind: 'mapping',
+      code: 'normalize_failed',
+      message: (e as Error).message,
+      retryable: false,
+    });
+    return addCounts(totals, { failed: 1 });
+  }
+  for (const envelope of envelopes) {
+    const checked = parseCanonical(envelope);
+    if (!checked.ok) {
+      await quarantine(tx, importScope, {
+        category,
+        sourceObjectType: envelope.source.objectType,
+        sourceObjectId: envelope.source.objectId,
+        kind: 'mapping',
+        code: 'shape_not_understood',
+        message: checked.issues.join('; '),
+        retryable: false,
+        detail: { issues: checked.issues },
+      });
+      totals = addCounts(totals, { failed: 1 });
+      continue;
+    }
+    const importer = IMPORTERS[envelope.canonicalType];
+    if (!importer) {
+      totals = addCounts(totals, { skipped: 1 });
+      continue;
+    }
+    // The customer or product it points at, when that was kept waiting for a record like this one.
+    await bringWhatItUses(tx, importScope, adapter, context, envelope);
+    /**
+     * One record at a time, each behind its own savepoint. A record the database refuses — a customer
+     * with no name at all, a value too long for its column — used to take the whole transaction with
+     * it, so the page of a hundred failed, was tried again, failed the same way, and the category never
+     * finished. Now that one record is set aside with the database's reason on it, and the other
+     * ninety-nine come across.
+     */
+    try {
+      const result = await tx.transaction(async (one) => {
+        // Whatever the adapter could not map is recorded beside the record; it is never dropped.
+        for (const w of envelope.warnings)
+          await finding(one, importScope, {
+            code: w.code,
+            category,
+            capability: 'needs_review',
+            severity: 'info',
+            summary: w.message,
+            sourceCapability: w.field ?? null,
+            affected: 1,
+          });
+        return importer(one, importScope, { ...envelope, data: checked.data });
+      });
+      totals = addCounts(totals, result.counts);
+    } catch (e) {
+      const err = e as Error & { cause?: { message?: string } };
+      await quarantine(tx, importScope, {
+        category,
+        sourceObjectType: envelope.source.objectType,
+        sourceObjectId: envelope.source.objectId,
+        kind: 'target',
+        code: 'import_refused',
+        // The database's own reason, not the statement: the statement carries the record's values.
+        message: (err.cause?.message ?? err.message.split('\n')[0] ?? 'refused').slice(0, 500),
+        retryable: false,
+      });
+      totals = addCounts(totals, { failed: 1 });
+    }
+  }
+  return totals;
+}
+
+/**
+ * What a record points at that was read only to be brought if something used it: the customers and products
+ * on the invoices of a move that ticked only invoices (the owner, 2026-11-23). Brought just before the record
+ * that needs them, and counted with their own category. Each comes once: it stops waiting as it is taken, so
+ * the next invoice for the same customer finds it here already.
+ */
+async function bringWhatItUses(
+  tx: Tx,
+  importScope: ImportScope,
+  adapter: CrmSourceAdapter,
+  context: MappingContext,
+  envelope: CanonicalEnvelope,
+): Promise<void> {
+  const refs = envelope.relationships.filter(
+    (r) => r.objectId && migrationCategory(r.category)?.onlyWhatsUsed,
+  );
+  if (refs.length === 0) return;
+  const taken = await rows<{
+    category: string;
+    source_object_type: string;
+    source_object_id: string;
+    source_parent_object_id: string | null;
+    source_created_at: string | Date | null;
+    source_updated_at: string | Date | null;
+    source_deleted_at: string | Date | null;
+    payload: Record<string, unknown>;
+  }>(
+    tx,
+    sql`update app.migration_source_objects set state = 'staged'
+        where scope_id = ${importScope.scopeId} and state = 'waiting'
+          and (source_object_type, source_object_id) in (${sql.join(
+            refs.map((r) => sql`(${r.objectType}, ${r.objectId})`),
+            sql`, `,
+          )})
+        returning category, source_object_type, source_object_id, source_parent_object_id,
+          source_created_at, source_updated_at, source_deleted_at, payload`,
+  );
+  const asAt = (v: string | Date | null) => (v ? new Date(v) : null);
+  for (const staged of taken) {
+    const counts = await importRecord(tx, importScope, staged.category, adapter, context, {
+      objectType: staged.source_object_type,
+      objectId: staged.source_object_id,
+      parentObjectId: staged.source_parent_object_id,
+      sourceCreatedAt: asAt(staged.source_created_at),
+      sourceUpdatedAt: asAt(staged.source_updated_at),
+      sourceDeletedAt: asAt(staged.source_deleted_at),
+      payload: staged.payload,
+    });
+    await adjustCounts(tx, importScope, staged.category, addCounts(counts, { found: 1 }));
   }
 }
 
@@ -965,6 +1053,8 @@ async function stage(
     payload: Record<string, unknown>;
   },
   adapterVersion: string,
+  /** `waiting`: kept until a record that uses it comes (bringWhatItUses). Read again, it keeps its state. */
+  state: 'staged' | 'waiting' = 'staged',
 ): Promise<void> {
   const payload = JSON.stringify(record.payload);
   await tx.execute(sql`
@@ -976,7 +1066,7 @@ async function stage(
       ${record.objectType}, ${record.objectId}, ${record.parentObjectId ?? null}, ${category},
       ${record.sourceCreatedAt?.toISOString() ?? null}, ${record.sourceUpdatedAt?.toISOString() ?? null},
       ${record.sourceDeletedAt?.toISOString() ?? null},
-      ${payload}::jsonb, md5(${payload}), ${adapterVersion}, 'staged')
+      ${payload}::jsonb, md5(${payload}), ${adapterVersion}, ${state}::app.migration_item_state)
     on conflict (scope_id, source_object_type, source_object_id)
     do update set payload = excluded.payload, payload_checksum = excluded.payload_checksum,
       source_updated_at = excluded.source_updated_at, retrieved_at = now(),
@@ -1447,30 +1537,47 @@ async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
           summary = excluded.summary, ran_at = now()`);
       };
 
-      // What arrived against what the old system said it had.
+      /**
+       * What arrived against what the old system said it had.
+       *
+       * Customers or products that were here only because a choice needed them came only where something
+       * used them (bringWhatItUses), and the rest are still waiting. For those, what should have arrived is
+       * what was taken — the checkpoint's found — not the whole of the old system's list.
+       */
       const perCategory = await rows<{
         category: string;
         expected: number;
         actual: number;
         failed: number;
+        left: number;
       }>(
         tx,
-        sql`select c.category,
-            sum(coalesce((c.counts ->> 'failed')::bigint, 0))::bigint as failed,
-            coalesce((select sum(i.found_count) from app.migration_inventory i
-                      where i.migration_id = c.migration_id and i.category = c.category
-                        and i.resource_id is null), 0)::bigint as expected,
-            sum(coalesce((c.counts ->> 'imported')::bigint, 0)
-              + coalesce((c.counts ->> 'merged')::bigint, 0)
-              + coalesce((c.counts ->> 'skipped')::bigint, 0))::bigint as actual
-          from app.migration_checkpoints c
-          where c.migration_id = ${job.migration_id}
-          group by c.category, c.migration_id`,
+        sql`select category, sum(failed)::bigint as failed, sum(actual)::bigint as actual,
+            sum(left_waiting)::bigint as left,
+            sum(case when left_waiting > 0 then found else listed end)::bigint as expected
+          from (
+            select c.category,
+              coalesce((c.counts ->> 'failed')::bigint, 0) as failed,
+              coalesce((c.counts ->> 'found')::bigint, 0) as found,
+              coalesce((c.counts ->> 'imported')::bigint, 0)
+                + coalesce((c.counts ->> 'merged')::bigint, 0)
+                + coalesce((c.counts ->> 'skipped')::bigint, 0) as actual,
+              coalesce((select sum(i.found_count) from app.migration_inventory i
+                        where i.migration_id = c.migration_id and i.scope_id = c.scope_id
+                          and i.category = c.category and i.resource_id is null), 0) as listed,
+              (select count(*) from app.migration_source_objects o
+                where o.scope_id = c.scope_id and o.category = c.category
+                  and o.state = 'waiting') as left_waiting
+            from app.migration_checkpoints c
+            where c.migration_id = ${job.migration_id}
+          ) per_scope
+          group by category`,
       );
       for (const row of perCategory) {
         const expected = Number(row.expected);
         const actual = Number(row.actual);
         const failed = Number(row.failed);
+        const left = Number(row.left);
         const label = migrationCategory(row.category)?.label ?? row.category;
         // The ones set aside with a reason are known, not a mystery: saying they "may have been added or
         // removed while we read" sent people looking for a problem that was already written down.
@@ -1483,7 +1590,9 @@ async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
           expected,
           actual,
           actual >= expected
-            ? `${label}: everything the old system listed is here.`
+            ? left > 0
+              ? `${label}: the ${actual} the rest of this move uses are here. The other ${left} stayed in the old system, because ${label} wasn’t ticked.`
+              : `${label}: everything the old system listed is here.`
             : explained === short
               ? `${label}: ${short} could not be brought across, each listed with the reason.`
               : `${label}: ${short} fewer than the old system listed${

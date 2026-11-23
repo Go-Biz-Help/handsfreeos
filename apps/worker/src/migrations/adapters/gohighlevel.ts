@@ -2166,16 +2166,18 @@ function contactEnvelope(record: SourceRecord, context: MappingContext): Canonic
     if (!id) continue;
     const known = context.customFields.get(id);
     if (!known) {
+      /**
+       * Left out. Its field didn't come across, almost always because Custom fields wasn't ticked: the owner's
+       * decision (2026-11-23) is that custom info comes only with Custom fields. Until then it went to the
+       * customer's notes under the old system's id for the field ("• 7HkQ2…: Roofing"), which nobody asked
+       * for. Said once for the move rather than once a field: `field` is what findings are grouped by.
+       */
       warnings.push({
         code: 'mapping.unknown_custom_field',
-        field: id,
-        // Custom fields come with customers whenever the sign-in can read them (catalog.ts), so this is a
-        // field it can't read, or one deleted over there that still has values on its customers. The
-        // importer puts the value in the notes, where it can still be seen.
+        field: 'customFields',
         message:
-          'A custom field whose setup we couldn’t read. Its value is kept in the customer’s notes.',
+          'Customers’ custom info was left out, because Custom fields wasn’t ticked. Tick it on your next move to bring it.',
       });
-      customFields[id] = f.value;
       continue;
     }
     customFields[known.key] = f.value;
@@ -2503,6 +2505,24 @@ const INVOICE_STATUS: Readonly<Record<string, 'draft' | 'sent' | 'partly_paid' |
     cancelled: 'void',
   };
 
+/**
+ * The products a bill's lines are for. Nothing here links a line to a product, so these are only read when a
+ * move brings just the products its bills use (catalog.ts `onlyWhatsUsed`). A line typed by hand has no
+ * product and names none.
+ */
+const productsOn = (
+  items: readonly Record<string, unknown>[],
+): CanonicalEnvelope['relationships'] =>
+  [...new Set(items.map((it) => asString(it['productId'])).filter((id): id is string => !!id))]
+    .slice(0, 100)
+    .map((id) => ({
+      category: 'products',
+      objectType: 'product',
+      objectId: id,
+      role: 'product',
+      required: false,
+    }));
+
 function invoiceEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
   const p = record.payload;
   const rawStatus = (asString(p['status']) ?? '').toLowerCase();
@@ -2589,17 +2609,20 @@ function invoiceEnvelope(record: SourceRecord, context: MappingContext): Canonic
       'updatedAt',
     ]),
     [],
-    contactId
-      ? [
-          {
-            category: 'contacts',
-            objectType: 'contact',
-            objectId: contactId,
-            role: 'contact',
-            required: true,
-          },
-        ]
-      : [],
+    [
+      ...(contactId
+        ? [
+            {
+              category: 'contacts',
+              objectType: 'contact',
+              objectId: contactId,
+              role: 'contact',
+              required: true,
+            },
+          ]
+        : []),
+      ...productsOn(items),
+    ],
   );
 }
 
@@ -2789,17 +2812,20 @@ function estimateEnvelope(record: SourceRecord, context: MappingContext): Canoni
       'updatedAt',
     ]),
     [],
-    contactId
-      ? [
-          {
-            category: 'contacts',
-            objectType: 'contact',
-            objectId: contactId,
-            role: 'contact',
-            required: true,
-          },
-        ]
-      : [],
+    [
+      ...(contactId
+        ? [
+            {
+              category: 'contacts',
+              objectType: 'contact',
+              objectId: contactId,
+              role: 'contact',
+              required: true,
+            },
+          ]
+        : []),
+      ...productsOn(items),
+    ],
   );
 }
 
@@ -2925,17 +2951,21 @@ function subscriptionEnvelope(record: SourceRecord, context: MappingContext): Ca
       'subscriptionStartDate',
     ]),
     planWarnings,
-    contactId
-      ? [
-          {
-            category: 'contacts',
-            objectType: 'contact',
-            objectId: contactId,
-            role: 'contact',
-            required: true,
-          },
-        ]
-      : [],
+    [
+      ...(contactId
+        ? [
+            {
+              category: 'contacts',
+              objectType: 'contact',
+              objectId: contactId,
+              role: 'contact',
+              required: true,
+            },
+          ]
+        : []),
+      // The product the plan is for, for a move that brings only the products in use.
+      ...productsOn(recurring['product'] ? [{ productId: recurring['product']['_id'] }] : []),
+    ],
   );
 }
 

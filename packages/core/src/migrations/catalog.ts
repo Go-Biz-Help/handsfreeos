@@ -59,11 +59,12 @@ export interface MigrationCategory {
   /** Categories this would like but can live without; attached in the links pass when they are there. */
   readonly prefers?: readonly string[];
   /**
-   * Categories added with this one whenever the source can give them, but never needed: one the source can't
-   * read is left out and this still runs. Customers bring their custom fields, so a customer's custom values
-   * have fields to land in.
+   * When this is here only because something chosen needs it, only the records those point at come across:
+   * ticking only invoices brings the customers and products on them, not the whole book (the owner,
+   * 2026-11-23). The rest are read and kept waiting, and each comes when a record that uses it does
+   * (migrations/engine/run.ts). Ticking it brings them all.
    */
-  readonly bringsAlong?: readonly string[];
+  readonly onlyWhatsUsed?: boolean;
   /** What it becomes here, for the report and for the source mapping. Empty when nothing is written. */
   readonly targetType: string | null;
   /** Whether a person can pick through the pieces inside (one calendar, one pipeline) or only take the lot. */
@@ -136,9 +137,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     pass: MIGRATION_PASSES.contacts,
     dependsOn: ['locations'],
     prefers: ['users', 'custom_fields', 'tags', 'companies'],
-    // Since 2026-11-23. Without them every custom value went to the customer's notes under the old system's
-    // id for its field ("• 7HkQ2…: Roofing"): a move that chose only invoices did that to 103 customers.
-    bringsAlong: ['custom_fields'],
+    onlyWhatsUsed: true,
     targetType: 'person',
     selection: 'category',
     release: 'ready',
@@ -181,6 +180,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     blurb: 'What you sell and what you charge, before any invoice can point at it.',
     pass: MIGRATION_PASSES.structure,
     dependsOn: ['locations'],
+    onlyWhatsUsed: true,
     targetType: 'product',
     selection: 'category',
     release: 'ready',

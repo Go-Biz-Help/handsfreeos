@@ -21,7 +21,7 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/payments/products/page.tsx": "d04f5eac8abc",
     "apps/web/src/app/onboarding/[workspaceId]/payments/page.tsx": "000fab092932",
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
-    "apps/web/src/components/migrations/wizard.tsx": "1a917322a89b",
+    "apps/web/src/components/migrations/wizard.tsx": "24c12fc9297a",
     "apps/web/src/components/money/product-stock-editor.tsx": "549412bdbeea",
     "apps/web/src/components/money/products-page.tsx": "056818b11378",
     "apps/web/src/components/partners/partner-card.tsx": "b27e21964bf3",
@@ -1520,14 +1520,14 @@
       "by": "do_migration_map_scopes"
     },
     {
-      "path": "Settings → Migrations → a migration → What’s in the old system / What to bring → each category: name, count words, capability badge, Added because X need it / blurb, notes",
+      "path": "Settings → Migrations → a migration → What’s in the old system / What to bring → each category: name, count words, capability badge, Added because X need it / Only the ones your X use come, tick it to bring all of them / blurb, notes",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:463",
       "covered": "yes",
       "by": "read_migration_get → inventory"
     },
     {
-      "path": "Settings → Migrations → a migration → What to bring → Bring {category} box (padlock when locked)",
+      "path": "Settings → Migrations → a migration → What to bring → Bring {category} box (padlock when locked; still a box for customers and products another choice needs)",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:453",
       "covered": "yes",

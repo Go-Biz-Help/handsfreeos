@@ -377,7 +377,11 @@ function planOf(rows: readonly Inventory[], picked: Record<string, boolean>) {
   );
   const bringing = resolved.categories.map((c) => ({
     label: c.label,
-    countLabel: rows.find((i) => i.category === c.id)?.countLabel ?? null,
+    // Here only for another choice, it brings just the ones that choice uses (catalog.ts), not the count.
+    countLabel:
+      c.onlyWhatsUsed && neededBy.has(c.id)
+        ? 'only the ones used'
+        : (rows.find((i) => i.category === c.id)?.countLabel ?? null),
   }));
   return { neededBy, bringing };
 }
@@ -485,7 +489,7 @@ function ChooseWhat({
       <p className="mt-1 text-[13px] text-text-2">
         {readOnly
           ? 'Counted, not moved. Say where each business lands and you can choose what comes across.'
-          : 'Everything we can bring is ticked. Untick what you don’t want. Anything a choice needs is added for you and locked, with a line saying which choice asked for it.'}
+          : 'Everything we can bring is ticked. Untick what you don’t want. Anything a choice needs is added for you, with a line saying which choice asked for it. Customers and products added that way bring only the ones used.'}
       </p>
       <div className="mt-4 flex flex-col divide-y divide-border">
         {rows.map((i) => (
@@ -530,7 +534,10 @@ function InventoryRow({
   onChange: (value: boolean) => void;
 }) {
   const bringable = row.capability === 'ready' || row.capability === 'needs_review';
-  const locked = neededBy !== null || !isImportable(row.category);
+  // Customers and products another choice needs come anyway, but only the ones it uses: the box stays, so
+  // they can still be ticked to bring them all (the owner, 2026-11-23).
+  const onlyUsed = neededBy !== null && migrationCategory(row.category)?.onlyWhatsUsed === true;
+  const locked = (neededBy !== null && !onlyUsed) || !isImportable(row.category);
   return (
     <div className="flex items-start gap-3 py-3" data-testid={`migration-row-${row.category}`}>
       <div className="pt-0.5">
@@ -561,7 +568,12 @@ function InventoryRow({
             </Badge>
           ) : null}
         </div>
-        {neededBy && neededBy.length > 0 ? (
+        {onlyUsed ? (
+          <p className="mt-0.5 text-xs text-text-3">
+            Only the ones your {neededBy!.join(' and ').toLowerCase()} use come. Tick it to bring
+            all of them.
+          </p>
+        ) : neededBy && neededBy.length > 0 ? (
           <p className="mt-0.5 text-xs text-text-3">
             Added because {neededBy.join(' and ')} need it.
           </p>

@@ -166,7 +166,7 @@ const billed = (
   total: number,
   paid: number,
   issued: string,
-  items: readonly { name: string; qty: number; amount: number }[],
+  items: readonly { name: string; qty: number; amount: number; productId?: string }[],
   extra: Record<string, unknown> = {},
 ): FakeRecord => ({
   objectType: 'invoice',
@@ -185,7 +185,12 @@ const billed = (
     issueDate: issued,
     dueDate: new Date(new Date(issued).getTime() + 15 * 24 * 60 * 60 * 1000).toISOString(),
     contactDetails: { id: contactId },
-    invoiceItems: items.map((it) => ({ name: it.name, qty: it.qty, amount: it.amount })),
+    invoiceItems: items.map((it) => ({
+      name: it.name,
+      qty: it.qty,
+      amount: it.amount,
+      ...(it.productId ? { productId: it.productId } : {}),
+    })),
     ...extra,
   },
 });
@@ -611,8 +616,9 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
   // Two prices over there: one product here, with a choice for each (2026-11-23).
   sells('prd_coil', 'Replacement coil', 850, [{ name: 'Installed', dollars: 1100 }]),
   // Paid in full, years ago: the payment must not look like one anybody here could refund.
+  // Its line is the Service call product, so a move that brings only the products in use brings that one.
   billed('inv_a1', 'con_a1', 'INV-1041', 'paid', 129, 129, '2019-06-05T10:00:00.000Z', [
-    { name: 'Service call', qty: 1, amount: 129 },
+    { name: 'Service call', qty: 1, amount: 129, productId: 'prd_service' },
   ]),
   // Half paid, and still owed: the one that must never be chased from here.
   billed('inv_a2', 'con_a2', 'INV-1120', 'partially_paid', 420.5, 200, '2021-05-02T10:00:00.000Z', [
@@ -1461,6 +1467,15 @@ export function createFakeSourceAdapter(): FakeSource {
                   role: 'contact',
                   required: true,
                 },
+                ...[...new Set(items.map((it) => str(it['productId'])).filter(Boolean))].map(
+                  (id) => ({
+                    category: 'products',
+                    objectType: 'product',
+                    objectId: id!,
+                    role: 'product',
+                    required: false,
+                  }),
+                ),
               ],
               data: {
                 number: str(p['invoiceNumber']),
@@ -1956,12 +1971,29 @@ export function createFakeSourceAdapter(): FakeSource {
               required: false,
             });
           const dnd = p['dnd'] === true;
+          // A value whose field didn't come across is left out and said once, as the real adapter does.
+          const fields = (
+            Array.isArray(p['customFields'])
+              ? (p['customFields'] as { id?: string; value?: unknown }[])
+              : []
+          ).filter((f) => f.id);
+          const leftOut = fields.some((f) => !context.customFields.has(f.id!));
           return [
             {
               ...base,
               canonicalType: 'contact',
               category: 'contacts',
               relationships,
+              warnings: leftOut
+                ? [
+                    {
+                      code: 'mapping.unknown_custom_field',
+                      field: 'customFields',
+                      message:
+                        'Customers’ custom info was left out, because Custom fields wasn’t ticked. Tick it on your next move to bring it.',
+                    },
+                  ]
+                : [],
               data: {
                 firstName: str(p['firstName']),
                 lastName: str(p['lastName']),
@@ -1982,12 +2014,10 @@ export function createFakeSourceAdapter(): FakeSource {
                 source: str(p['source']),
                 tags: (Array.isArray(p['tags']) ? p['tags'] : []).map(String),
                 customFields: Object.fromEntries(
-                  (Array.isArray(p['customFields'])
-                    ? (p['customFields'] as { id?: string; value?: unknown }[])
-                    : []
-                  )
-                    .filter((f) => f.id)
-                    .map((f) => [context.customFields.get(f.id!)?.key ?? f.id!, f.value]),
+                  fields.flatMap((f) => {
+                    const known = context.customFields.get(f.id!);
+                    return known ? [[known.key, f.value]] : [];
+                  }),
                 ),
                 consent: [
                   { channel: 'sms', state: dnd ? 'opted_out' : 'unknown' },

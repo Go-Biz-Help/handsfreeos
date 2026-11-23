@@ -809,7 +809,7 @@ export const migrationMapScopes = defineCommand({
 export const migrationSelect = defineCommand({
   name: 'migration.select',
   description:
-    'Choose what to bring across. Anything a choice needs is added automatically and locked, with a line saying which choice asked for it.',
+    'Choose what to bring across. Anything a choice needs is added automatically, with a line saying which choice asked for it. Customers and products added that way bring only the ones that choice uses; choose them to bring all of them.',
   risk: 1,
   input: MigrationSelectInput,
   output: MigrationSelectOutput,
@@ -1030,16 +1030,6 @@ export const migrationStart = defineCommand({
         'Say where each business from the old system lands first.',
       );
 
-    const unreadable = await ctx.tx
-      .selectDistinct({ category: migrationInventory.category })
-      .from(migrationInventory)
-      .where(
-        and(
-          eq(migrationInventory.migrationId, m.id),
-          inArray(migrationInventory.capability, ['not_available']),
-        ),
-      );
-
     let queued = 0;
     // Something was already chosen and read, or is still being read: pressing again is carrying on.
     let carryingOn = false;
@@ -1063,9 +1053,6 @@ export const migrationStart = defineCommand({
         );
       const resolved = resolveSelection({
         chosen: [...new Set(chosen.map((c) => c.category))].filter(isImportable),
-        // So what a category only brings along (customers' custom fields) is never queued where the old
-        // system won't give it.
-        unavailable: unreadable.map((r) => r.category),
       });
       /**
        * Pressing it again carries on; it never starts over. Until now every press on a stopped move queued a
@@ -1110,6 +1097,14 @@ export const migrationStart = defineCommand({
           .update(migrationJobs)
           .set({ state: 'cancelled', finishedAt: new Date(), leasedBy: null, leasedUntil: null })
           .where(inArray(migrationJobs.id, extras));
+      // Customers and products that are here only because a choice needs them: just the ones it uses come
+      // (catalog.ts `onlyWhatsUsed`, the owner's decision of 2026-11-23). The batch reads them all and keeps
+      // them waiting; each comes across when a record that points at it does.
+      const onlyUsed = new Set(
+        resolved.added
+          .filter((a) => migrationCategory(a.category)?.onlyWhatsUsed)
+          .map((a) => a.category),
+      );
       for (const cat of resolved.categories) {
         if (finished.has(cat.id) || working.has(cat.id)) continue;
         await ctx.tx.insert(migrationJobs).values({
@@ -1122,7 +1117,7 @@ export const migrationStart = defineCommand({
           pass: cat.pass,
           // A millisecond apart, in name order, so the batches are claimed in that order too.
           runAt: new Date(Date.now() + position),
-          input: {},
+          input: onlyUsed.has(cat.id) ? { onlyUsed: true } : {},
         });
         queued += 1;
       }

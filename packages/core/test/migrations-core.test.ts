@@ -75,9 +75,23 @@ describe('choosing what to bring', () => {
     expect(ids).toContain('locations');
     const added = r.added.find((a) => a.category === 'conversations');
     expect(added?.requiredBy).toEqual(['messages']);
-    expect(dependencyReason('contacts', ['conversations'])).toBe(
-      'Conversations need their contacts, so contacts were added to this migration.',
+    expect(dependencyReason('conversations', ['messages'])).toBe(
+      'Messages need their conversations, so conversations were added to this migration.',
     );
+  });
+
+  it('says only the customers and products a choice uses come, and how to bring them all', () => {
+    // The owner, 2026-11-23: ticking only invoices should bring the customers and products on them, not the
+    // whole book.
+    const r = resolveSelection({ chosen: ['invoices'] });
+    expect(r.added.map((a) => a.category).sort()).toEqual(['contacts', 'locations', 'products']);
+    expect(dependencyReason('contacts', ['conversations'])).toBe(
+      'Conversations need their contacts, so the contacts on them come too. Tick Contacts to bring all of them.',
+    );
+    expect(dependencyReason('products', ['invoices'])).toContain('Tick Products and prices');
+    // Ticked, it is a choice of its own and comes whole.
+    const both = resolveSelection({ chosen: ['invoices', 'contacts'] });
+    expect(both.added.map((a) => a.category)).not.toContain('contacts');
   });
 
   it('names both askers when two things need the same thing', () => {
@@ -92,21 +106,6 @@ describe('choosing what to bring', () => {
     const r = resolveSelection({ chosen: ['opportunities'], unavailable: ['pipelines'] });
     expect(r.categories.map((c) => c.id)).not.toContain('opportunities');
     expect(r.blocked).toEqual([{ category: 'opportunities', missing: ['pipelines'] }]);
-  });
-
-  it('brings customers’ custom fields along when the old system has them, and never blocks on them', () => {
-    // 2026-11-23: a move that chose only invoices brought their customers without their custom fields, and
-    // every custom value went to the customer's notes under the old system's id for the field.
-    const r = resolveSelection({ chosen: ['invoices'] });
-    expect(r.categories.map((c) => c.id)).toContain('custom_fields');
-    expect(r.added.find((a) => a.category === 'custom_fields')?.requiredBy).toEqual(['contacts']);
-
-    const without = resolveSelection({ chosen: ['invoices'], unavailable: ['custom_fields'] });
-    expect(without.categories.map((c) => c.id)).toEqual(
-      expect.arrayContaining(['invoices', 'contacts']),
-    );
-    expect(without.categories.map((c) => c.id)).not.toContain('custom_fields');
-    expect(without.blocked).toEqual([]);
   });
 
   it('will not run a category before what it needs has finished', () => {
