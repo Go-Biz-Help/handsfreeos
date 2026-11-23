@@ -1,7 +1,7 @@
 {
   "area": "agency",
   "title": "The agency side: businesses, AI setups, packs, templates and migrations for an organization",
-  "checkedOn": "2026-11-20",
+  "checkedOn": "2026-11-23",
   "files": {
     "apps/web/src/app/app/org/[orgId]/ai-setups/page.tsx": "7efa22a9b2ba",
     "apps/web/src/app/app/org/[orgId]/businesses/page.tsx": "959e700302ba",
@@ -24,7 +24,7 @@
     "apps/web/src/components/agency/template-list.tsx": "70cbce82a184",
     "apps/web/src/components/agency/template-update.tsx": "9ec0941a3b39",
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
-    "apps/web/src/components/migrations/wizard.tsx": "65ae1c100765",
+    "apps/web/src/components/migrations/wizard.tsx": "ded0c53789b3",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
     "apps/web/src/components/shell/workspace-switcher.tsx": "a94cb85f3c21",
     "apps/web/src/components/workflows/add-step-menu.tsx": "8b4a3810e05f",
@@ -1636,11 +1636,11 @@
       "by": "do_migration_start warning says nothing goes out; what stays behind isn’t told"
     },
     {
-      "path": "A migration → The plan → Bring it across",
+      "path": "A migration → The plan → Bring it across (saves ticks not saved yet first)",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:556",
       "covered": "yes",
-      "by": "do_migration_start acknowledgedFindingIds (wholeAgency)"
+      "by": "do_migration_select (the ticks on screen) then do_migration_start acknowledgedFindingIds (wholeAgency)"
     },
     {
       "path": "A migration → Bringing it across → each category: N of N, N need another go / Starting…",

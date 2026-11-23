@@ -13,7 +13,9 @@
  *   - connect a source as that business, start a migration on it, and look at it — the three in a row;
  *   - the business can read its own migration before anything has been discovered;
  *   - the discovery pass then finds the sub-account, and the counts follow;
- *   - an owner who is in the business but not in the organization above it can do all of that too;
+ *   - an owner who is in the business but not in the organization above it can do all of that too, and so
+ *     can the founder working in a customer's business as its owner;
+ *   - only what was ticked comes across, with what that needs, and a need nobody has any more is let go;
  *   - a business still cannot reach a migration that is nobody's business but the agency's.
  *
  * The private-token door is used because that is what Chris connected with first, but nothing here is about
@@ -23,6 +25,7 @@ import { randomUUID } from 'node:crypto';
 import {
   executeCommand,
   executeQuery,
+  isImportable,
   migrationConnect,
   migrationCreate,
   migrationGet,
@@ -31,6 +34,8 @@ import {
   migrationSelect,
   migrationStart,
   organizationCreate,
+  platformViewAsEnd,
+  platformViewAsStart,
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -96,6 +101,85 @@ async function drain(limit = 200, id = migrationId): Promise<void> {
     if ((mine?.count ?? 0) === 0) return;
     await processMigrationJobs(deps as never);
   }
+}
+
+/**
+ * The whole move through a business's own door, as somebody who runs the business but not the account above it:
+ * connect with a pasted token, start, look, be told a new business isn't theirs to make, map the sub-account to
+ * this business, choose the customers, bring them across. The same GoHighLevel sub-account
+ * as the first business, so it is also a second business being moved in from one sub-account.
+ */
+async function walkTheWholeMove(
+  who: TestUser,
+  theirs: { organizationId: string; workspaceId: string },
+): Promise<{ connectionId: string; migrationId: string }> {
+  const { as, door, connectionId } = await upToChoosing(who, theirs);
+  await as(migrationSelect, { ...door, choices: [{ category: 'contacts', selected: true }] });
+  await as(migrationStart, { ...door, acknowledgedFindingIds: [] });
+  await drain(200, door.migrationId);
+
+  const [people] = await rows<{ count: number }>(
+    admin(),
+    sql`select count(*)::int as count from app.people where workspace_id = ${theirs.workspaceId}::uuid`,
+  );
+  expect(people!.count).toBeGreaterThan(0);
+  return { connectionId, migrationId: door.migrationId };
+}
+
+/** Connect, start, look, and land the sub-account in this business: everything before choosing what comes. */
+async function upToChoosing(
+  who: TestUser,
+  theirs: { organizationId: string; workspaceId: string },
+) {
+  const as = <T>(cmd: unknown, input: unknown): Promise<T> =>
+    executeCommand(api(), cmd as never, input, actorOf(who), meta()).then((r) => r.output as T);
+  const business = { organizationId: theirs.organizationId, workspaceId: theirs.workspaceId };
+
+  const started = await as<{ connectionId: string; state: string }>(migrationConnect, {
+    ...business,
+    source: 'gohighlevel',
+    authKind: 'private_token',
+  });
+  const pasted = await app.inject({
+    method: 'POST',
+    url: '/migrations/token',
+    payload: { state: started.state, token: 'pit-not-a-real-token', accountId: 'loc_austin' },
+  });
+  expect(pasted.statusCode, pasted.body).toBe(200);
+
+  const created = await as<{ migrationId: string }>(migrationCreate, {
+    ...business,
+    connectionId: started.connectionId,
+    name: 'GoHighLevel',
+  });
+  const door = { ...business, migrationId: created.migrationId };
+  const scan = await as<{ scanId: string }>(migrationScan, door);
+  expect(scan.scanId).toBeTruthy();
+  await drain(200, created.migrationId);
+
+  const found = (await executeQuery(api(), migrationGet as never, door, actorOf(who), meta())) as {
+    scopes: { id: string; externalScopeId: string }[];
+  };
+  const austin = found.scopes.find((s) => s.externalScopeId === 'loc_austin')!;
+  // Nobody here runs the account, so a new business isn't theirs to make: said in words, naming this one.
+  const [named] = await rows<{ name: string }>(
+    admin(),
+    sql`select name from app.workspaces where id = ${theirs.workspaceId}::uuid`,
+  );
+  await expect(
+    as(migrationMapScopes, {
+      ...door,
+      scopes: [{ scopeId: austin.id, createWorkspace: { name: 'A second copy' } }],
+    }),
+  ).rejects.toMatchObject({
+    rule: 'migration_new_business_needs_account_owner',
+    message: expect.stringContaining(`Pick ${named!.name} under Where each one lands`),
+  });
+  await as(migrationMapScopes, {
+    ...door,
+    scopes: [{ scopeId: austin.id, workspaceId: theirs.workspaceId }],
+  });
+  return { as, door, connectionId: started.connectionId };
 }
 
 beforeAll(async () => {
@@ -287,72 +371,12 @@ describe('a business moves itself in', () => {
       sql`insert into app.workspace_memberships (workspace_id, user_id, role)
           values (${theirs.workspaceId}, ${client.id}, 'owner')`,
     );
-    const asClient = <T>(cmd: unknown, input: unknown): Promise<T> =>
-      executeCommand(api(), cmd as never, input, actorOf(client), meta()).then(
-        (r) => r.output as T,
-      );
-
-    const started = await asClient<{ connectionId: string; state: string }>(migrationConnect, {
-      organizationId: theirs.organizationId,
-      workspaceId: theirs.workspaceId,
-      source: 'gohighlevel',
-      authKind: 'private_token',
-    });
-    const pasted = await app.inject({
-      method: 'POST',
-      url: '/migrations/token',
-      payload: { state: started.state, token: 'pit-not-a-real-token', accountId: 'loc_austin' },
-    });
-    expect(pasted.statusCode, pasted.body).toBe(200);
-
-    const created = await asClient<{ migrationId: string }>(migrationCreate, {
-      organizationId: theirs.organizationId,
-      workspaceId: theirs.workspaceId,
-      connectionId: started.connectionId,
-      name: 'GoHighLevel',
-    });
-    const scan = await asClient<{ scanId: string }>(migrationScan, {
-      organizationId: theirs.organizationId,
-      workspaceId: theirs.workspaceId,
-      migrationId: created.migrationId,
-    });
-    expect(scan.scanId).toBeTruthy();
+    const { connectionId, migrationId: theirMigration } = await walkTheWholeMove(client, theirs);
     const [made] = await rows<{ created_by: string }>(
       admin(),
-      sql`select created_by::text as created_by from app.migrations where id = ${created.migrationId}`,
+      sql`select created_by::text as created_by from app.migrations where id = ${theirMigration}`,
     );
     expect(made?.created_by).toBe(client.id);
-
-    // And the rest of the way, the same GoHighLevel sub-account as the first business, into this one.
-    await drain(200, created.migrationId);
-    const door = {
-      organizationId: theirs.organizationId,
-      workspaceId: theirs.workspaceId,
-      migrationId: created.migrationId,
-    };
-    const found = await executeQuery(
-      api(),
-      migrationGet as never,
-      door,
-      actorOf(client),
-      meta(),
-    ).then((r) => r as { scopes: { id: string; externalScopeId: string }[] });
-    const austin = found.scopes.find((s) => s.externalScopeId === 'loc_austin')!;
-    await asClient(migrationMapScopes, {
-      ...door,
-      scopes: [{ scopeId: austin.id, workspaceId: theirs.workspaceId }],
-    });
-    await asClient(migrationSelect, {
-      ...door,
-      choices: [{ category: 'contacts', selected: true }],
-    });
-    await asClient(migrationStart, { ...door, acknowledgedFindingIds: [] });
-    await drain(200, created.migrationId);
-    const [people] = await rows<{ count: number }>(
-      admin(),
-      sql`select count(*)::int as count from app.people where workspace_id = ${theirs.workspaceId}::uuid`,
-    );
-    expect(people!.count).toBeGreaterThan(0);
 
     // Still not somebody who manages nothing here: a stranger naming this business's connection is refused.
     const stranger = await createTestUser('business-door-nobody', { fullName: 'Nora Nobody' });
@@ -363,13 +387,121 @@ describe('a business moves itself in', () => {
         {
           organizationId: theirs.organizationId,
           workspaceId: theirs.workspaceId,
-          connectionId: started.connectionId,
+          connectionId,
           name: 'Not mine',
         },
         actorOf(stranger),
         meta(),
       ),
     ).rejects.toThrow();
+  }, 240_000);
+
+  it('brings only what was ticked, plus what that needs, and lets go of a need nobody has any more', async () => {
+    // Ticking only invoices and pressing Bring it across brought far more (2026-11-23). The screen's half was
+    // that its ticks weren't saved until Save what to bring; this is the server's half. Something added
+    // because a choice needed it was then read back as a choice of its own, so it stayed ticked and locked
+    // after that choice was taken back, and came across anyway.
+    const picky = await createTestUser('business-door-picky', { fullName: 'Pia Picky' });
+    const { output: theirs } = await executeCommand(
+      api(),
+      organizationCreate,
+      { businessName: 'Guadalupe Plumbing', timezone: 'America/Chicago' },
+      actorOf(picky),
+      meta(),
+    );
+    const { as, door } = await upToChoosing(picky, theirs);
+    const got = (await executeQuery(
+      api(),
+      migrationGet as never,
+      door,
+      actorOf(picky),
+      meta(),
+    )) as {
+      inventory: { category: string; resourceId: string | null }[];
+    };
+    const everything = got.inventory
+      .filter((i) => i.resourceId === null && isImportable(i.category))
+      .map((i) => i.category);
+    expect(everything).toContain('invoices');
+    type Chosen = { added: { category: string }[]; selectedCategories: string[] };
+
+    // Only invoices. They need their customers and products, and those need the business itself.
+    const first = await as<Chosen>(migrationSelect, {
+      ...door,
+      choices: everything.map((category) => ({ category, selected: category === 'invoices' })),
+    });
+    expect([...first.selectedCategories].sort()).toEqual([
+      'contacts',
+      'invoices',
+      'locations',
+      'products',
+    ]);
+
+    // Then tags instead, sent the way the old screen sent it: without the locked rows. The customers and
+    // products were there only for the invoices, so they go with them.
+    const locked = new Set(first.added.map((a) => a.category));
+    const second = await as<Chosen>(migrationSelect, {
+      ...door,
+      choices: everything
+        .filter((category) => !locked.has(category))
+        .map((category) => ({ category, selected: category === 'tags' })),
+    });
+    expect([...second.selectedCategories].sort()).toEqual(['locations', 'tags']);
+    const [customers] = await rows<{ selected: boolean; auto_added: boolean }>(
+      admin(),
+      sql`select selected, auto_added from app.migration_selections
+          where migration_id = ${door.migrationId} and category = 'contacts' and resource_id is null`,
+    );
+    expect(customers).toMatchObject({ selected: false, auto_added: false });
+
+    // A lock left behind before this was fixed is not a choice either. Bring it across queues the tags and
+    // the business they belong to, and nothing else.
+    await admin().execute(
+      sql`update app.migration_selections set selected = true, auto_added = true, required_by = '{invoices}'
+          where migration_id = ${door.migrationId} and category = 'contacts'`,
+    );
+    await as(migrationStart, { ...door, acknowledgedFindingIds: [] });
+    const queued = await rows<{ category: string }>(
+      admin(),
+      sql`select distinct category from app.migration_jobs
+          where migration_id = ${door.migrationId} and kind = 'fetch' order by category`,
+    );
+    expect(queued.map((q) => q.category)).toEqual(['locations', 'tags']);
+  }, 120_000);
+
+  it('lets the founder, working in a business as its owner, move it in', async () => {
+    // The founder opens a customer's business as its owner (20261013002100) without ever joining it or its
+    // organization. Starting the move was fixed beside the case above; "Save and choose what to bring" then
+    // said "You don't have permission to do that" (2026-11-23, in a real customer's business).
+    const customer = await createTestUser('business-door-customer', { fullName: 'Bea Customer' });
+    const { output: theirs } = await executeCommand(
+      api(),
+      organizationCreate,
+      { businessName: 'Pecan Street Digital', timezone: 'America/Chicago' },
+      actorOf(customer),
+      meta(),
+    );
+    const founder = await createTestUser('business-door-founder', { fullName: 'Fran Founder' });
+    // There is only ever one, marked at the database's console.
+    await admin().execute(sql`update platform.staff set founder = false where founder`);
+    await admin().execute(
+      sql`insert into platform.staff (user_id, role, founder) values (${founder.id}, 'agent', true)`,
+    );
+    try {
+      await executeCommand(
+        api(),
+        platformViewAsStart,
+        { workspaceId: theirs.workspaceId },
+        actorOf(founder),
+        meta(),
+      );
+      await walkTheWholeMove(founder, theirs);
+    } finally {
+      await executeCommand(api(), platformViewAsEnd, {}, actorOf(founder), meta()).catch(
+        () => undefined,
+      );
+      await admin().execute(sql`delete from platform.staff where user_id = ${founder.id}`);
+    }
   }, 240_000);
 
   it('still keeps somebody else’s migration out of reach', async () => {
