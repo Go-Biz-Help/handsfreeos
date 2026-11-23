@@ -81,9 +81,23 @@ export function nextNumberProblem(current: number, next: number): string | null 
 export function numberingAtCounter(n: DocumentNumbering, preview: string): DocumentNumbering {
   const rest = preview.startsWith(n.prefix)
     ? preview.slice(n.prefix.length)
-    : (/(\d+)$/.exec(preview)?.[1] ?? '');
+    : trailingDigits(preview);
   const at = Number(rest);
   return Number.isInteger(at) && at > n.next ? { ...n, next: at } : n;
+}
+
+/**
+ * The digits at the end of a document number ("INV-1005" → "1005", "" when it ends in none). Walked by hand: a
+ * pattern that looks for digits at the end can be tried once for every place in a long string.
+ */
+function trailingDigits(text: string): string {
+  let start = text.length;
+  while (start > 0) {
+    const c = text.charCodeAt(start - 1);
+    if (c < 48 || c > 57) break;
+    start -= 1;
+  }
+  return text.slice(start);
 }
 
 /** Why a change to a counter can't be saved, or null: the prefix is free, the number only climbs. */
