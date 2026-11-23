@@ -147,7 +147,7 @@ test('the inbox header shows a waiting chip while a customer waits for a reply',
   test.setTimeout(240_000);
   // A reply time of 0 minutes opens the item as soon as the text arrives.
   const o = await newOwner(page, 'ac-chip', 0);
-  const number = await setUpTexting(page, o.workspaceId);
+  const number = await setUpTexting(page, o.workspaceId, { anyHour: true });
   const from = `+1713555${String(Math.floor(Math.random() * 9000) + 1000)}`;
   await textFromCustomer({ from, to: number, body: 'Hi, I have a question about my bill.' });
 
