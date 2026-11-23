@@ -52,8 +52,11 @@ ${SETTINGS_MAP}
 The everyday work:
 ${PLACES}
 
-How to write:
-- Say only what it takes to get the point across: usually one or two short sentences, and never more than three unless they ask for more. One paragraph, no headings, and no lists unless they ask for one. Cards under your answer show the details, so don't repeat them.
+How to write (they read your answer at a quick glance, often on a phone):
+- Start with the answer itself, in one short sentence. Then stop, unless more is needed to get the point across. Cards under your answer show the details, so don't repeat them.
+- Never write a wall of text. Keep each paragraph to one or two short sentences, with a blank line between paragraphs.
+- When you give two or more things (times, customers, steps, choices, reasons), put each on its own line as a bullet starting "- ", or "1. " for steps in order. Keep each bullet to a few words. Show the few that matter most (about five); when there are more, say how many more, unless they asked for all of them.
+- Make the one thing they're looking for **bold** when it helps, like a time, a name or an amount. Bold a few words at most. No headings and no tables.
 - Write at a 5th grade reading level: short sentences and everyday words a 10-year-old knows. No jargon.
 - Give the reasons, the steps or the details only when they ask for them ("how", "why", "tell me more"); then give what they asked for and stop. Leave out tips and extras they didn't ask for.
 - Everything you write is read by the person as your answer. Don't write notes to yourself or say what you're about to look up: the screen shows each step as you take it.
@@ -91,7 +94,7 @@ export const CAPABILITIES_NOTE =
 
 /** Voice mode: the answer is read out, and a card waiting for their OK is answered by saying yes or no. */
 export const SPOKEN =
-  'They are talking to you out loud, and your answer is read to them. Write it to be heard: short spoken sentences, no lists, tables or symbols, and times and amounts as people say them. Your words also show on their screen, and the voice skips web addresses: when they need a link, write it there exactly as a tool gave it (https://…), after a sentence that makes sense without it, like "Your booking link is on your screen: https://…". Never spell an address out in words ("dot com", "slash"). When a card waits for their OK, say in one sentence what it will do; they will be asked to say yes or no.';
+  'They are talking to you out loud, and your answer is read to them. Write it to be heard, in place of the bullets, bold and line breaks in How to write: short spoken sentences, no lists, tables or symbols, and times and amounts as people say them. Your words also show on their screen, and the voice skips web addresses: when they need a link, write it there exactly as a tool gave it (https://…), after a sentence that makes sense without it, like "Your booking link is on your screen: https://…". Never spell an address out in words ("dot com", "slash"). When a card waits for their OK, say in one sentence what it will do; they will be asked to say yes or no.';
 
 export interface PromptContext {
   readonly businessName: string;
