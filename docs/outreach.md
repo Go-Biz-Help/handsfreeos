@@ -3478,9 +3478,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       currently m-f", answered "1a 2a 3a"; extension **0.119.0**, with decision 138). No migration.
       - **Keep working on other days** (`WorkingHours.everyDay`, `worksEveryDay`, `workHours` in `automation.ts`), a
         switch under Working hours, on the web and the phone, on to start (a setting saved before has none, which counts
-        as on). On, each network works every day in the same start and end hours: `workHours` gives all seven days to
-        `workWindow`, `nextInHours`, `networkDay`, `nextStart` and the waiting words. Off, it's the ticked days only, as
-        before.
+        as on). Kept in `automation.every_day` since migration `20261027034100_outreach_keep_working_on_other_days` (22
+        Nov 2026: until then a save dropped it, so turning it off didn't stick); the settings read it back only when
+        it's off, and hours sent without it keep the kept one. On, each network works every day in the same start and
+        end hours: `workHours` gives all seven days to `workWindow`, `nextInHours`, `networkDay`, `nextStart` and the
+        waiting words. Off, it's the ticked days only, as before.
       - **New messages wait for a ticked day** (`WORK_DAY_KINDS`, `newMessagesWait` in `automation.ts`): first
         messages, Reconnect, follow-ups, check-ins and partner asks and their follow-ups. Today says so on a day off
         (`newMessagesWait`, `W.newMessagesWait`) and `workLeft` in `src/auto/plan.ts` leaves those drafts and sends for
