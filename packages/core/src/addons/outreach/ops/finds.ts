@@ -75,6 +75,8 @@ import {
   keptProfile,
   once,
   type Ctx,
+  ruledOut,
+  LOOKED_UP,
 } from './common';
 import { tally } from './tallies';
 import { latestDownload, playbooksInUse } from './friends';
@@ -129,7 +131,7 @@ export async function keepFind(
   const ws = ctx.scope.workspaceId!;
   const [seen] = await rows<{ out: boolean; had: boolean; answered: boolean }>(
     ctx.tx,
-    sql`select (not ${stillToReach(find.me)} or ${countryFateSql(rule, 'p')} = 'skip') as out,
+    sql`select (not ${stillToReach(LOOKED_UP, find.me)} or ${countryFateSql(rule, 'p')} = 'skip') as out,
           exists (select 1 from addon_outreach.finds f
             where f.workspace_id = p.workspace_id and f.user_id = ${find.me} and f.profile_id = p.id) as had,
           exists (select 1 from addon_outreach.checks ch
@@ -429,6 +431,7 @@ export const findsNext = defineAddonQuery(outreachAddon, {
     const room = Math.min(input.most, day.room);
     if (!room || (await likesBehind(ctx, me, input.platform, now)))
       return { people: [], today, perDay };
+    const ruled = await ruledOut(ctx);
     const found = await rows<{
       id: string;
       name: string;
@@ -444,7 +447,7 @@ export const findsNext = defineAddonQuery(outreachAddon, {
           left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
           left join addon_outreach.posts po on po.id = f.post_id
           where f.workspace_id = ${ws}
-            and ${findToCheck(me, input.platform, await countryRuleOf(ctx), now)}
+            and ${findToCheck(ruled, me, input.platform, await countryRuleOf(ctx), now)}
           order by array_position(${HOW_ORDER}::text[], f.how), coalesce(po.strong, false) desc,
             f.found_at desc, f.id
           limit ${room}`,

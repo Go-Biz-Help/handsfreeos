@@ -28,7 +28,17 @@ import type { ClientCause } from '../person-menu';
 import { profiles, stages } from '../tables';
 import { OUTREACH_WORDS } from '../words';
 import { knownCheck } from './checks';
-import { clientCauseOf, inWorkspace, isClient, pitchable, warmUpEnded, type Ctx } from './common';
+import {
+  clientCauseOf,
+  inWorkspace,
+  isClient,
+  pitchable,
+  warmUpEnded,
+  type Ctx,
+  ruledOut,
+  type RuledOut,
+  LOOKED_UP,
+} from './common';
 import { clearWarmUpEnd } from './keep-warm';
 import { noAnswerWhy } from '../keep-warm';
 import { noteSent, offerVersionFor, restartConversation } from './conversation';
@@ -109,11 +119,11 @@ export async function noteChatRead(
  * Everyone the person reached among the profiles `which` picks (`p`), each with their stage worked out: a query to
  * select from, as the pipeline, a customer's Social panel and a group's page (../journey.ts) do.
  */
-export function staged(ctx: Ctx, me: string, which: SQL) {
+export function staged(ctx: Ctx, ruled: RuledOut, me: string, which: SQL) {
   const ws = ctx.scope.workspaceId!;
   return sql`with reached as (
       select p.id from addon_outreach.profiles p
-      where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')} and ${which}
+      where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable(ruled, 'p')} and ${which}
         and (exists (select 1 from addon_outreach.touches t where t.profile_id = p.id and t.user_id = ${me})
           or exists (select 1 from addon_outreach.file_chats c
             where c.profile_id = p.id and c.user_id = ${me} and c.read_state <> 'none')
@@ -142,7 +152,7 @@ export function staged(ctx: Ctx, me: string, which: SQL) {
         exists (select 1 from addon_outreach.demos d where d.profile_id = p.id and d.user_id = ${me}
           and d.how = 'marked' and d.undone_at is null) as marked_booked,
         ${warmUpEnded(me, 'p')} as no_answer,
-        ${isClient('p')} as client
+        ${isClient(ruled, 'p')} as client
       from reached x
       join addon_outreach.profiles p on p.id = x.id
       left join app.people pp on pp.id = p.person_id
@@ -281,6 +291,7 @@ export async function stagesOf(
     ctx.tx,
     sql`select s.profile_id, s.stage from (${staged(
       ctx,
+      LOOKED_UP,
       me,
       sql`p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
     )}) s`,
@@ -381,8 +392,14 @@ export const stagesList = defineAddonQuery(outreachAddon, {
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const now = Date.now();
+    const ruled = await ruledOut(ctx);
     // One network's people, counts too, when asked: every network's otherwise.
-    const all = staged(ctx, me, input.platform ? sql`p.platform = ${input.platform}` : sql`true`);
+    const all = staged(
+      ctx,
+      ruled,
+      me,
+      input.platform ? sql`p.platform = ${input.platform}` : sql`true`,
+    );
     const counted = await rows<{ stage: Stage; n: number }>(
       ctx.tx,
       sql`select s.stage, count(*)::int as n from (${all}) s group by s.stage`,

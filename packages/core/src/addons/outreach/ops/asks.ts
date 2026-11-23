@@ -83,6 +83,8 @@ import {
   pitchable,
   saveProfile,
   type Ctx,
+  LOOKED_UP,
+  rulesReadOnce,
 } from './common';
 import { automationOf } from './automation';
 import { playbooksInUse } from './friends';
@@ -289,8 +291,8 @@ async function taskOf(
         verdict: string | null;
       }>(
         ctx.tx,
-        sql`select p.name, p.url, (p.friendship = 'self' or not ${pitchable('p')}) as never,
-              not ${contactable('p')} as off, (${notNever('p')} and ${partnered('p')}) as partner, ch.verdict
+        sql`select p.name, p.url, (p.friendship = 'self' or not ${pitchable(LOOKED_UP, 'p')}) as never,
+              not ${contactable(LOOKED_UP, 'p')} as off, (${notNever(LOOKED_UP, 'p')} and ${partnered(LOOKED_UP, 'p')}) as partner, ch.verdict
             from addon_outreach.profiles p
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
             where p.workspace_id = ${ctx.scope.workspaceId!} and p.id = ${ask.profileId}`,
@@ -491,7 +493,7 @@ export const askMake = defineAddonCommand(outreachAddon, {
     // Research counts toward the day's checks (decision 46a): with none left, it ends at once, and they go first in
     // tomorrow's checks (`outreach.checks.next` finds this ask).
     if (task.kind === 'research') {
-      const { checks: day } = await perDayFor(ctx, me, now, platform);
+      const { checks: day } = await rulesReadOnce(ctx, () => perDayFor(ctx, me, now, platform));
       if (!day.room) {
         const [row] = await ctx.tx
           .insert(asks)

@@ -26,7 +26,7 @@ import type { TouchStep } from '../limits';
 import { outreachAddon } from '../manifest';
 import type { Platform } from '../networks';
 import { STAGE_KEYS, type Stage } from '../stages';
-import { inWorkspace, seesEveryone, type Ctx } from './common';
+import { inWorkspace, seesEveryone, type Ctx, ruledOut, LOOKED_UP } from './common';
 import { moveTargets, ownersOf } from './owners';
 import { staged, standingOf, type StagedRow } from './stages';
 
@@ -49,7 +49,7 @@ export async function journeysOf(
   const now = Date.now();
   const standing = await rows<StagedRow>(
     ctx.tx,
-    sql`select s.* from (${staged(ctx, me, sql`p.id = any (${list}::uuid[])`)}) s`,
+    sql`select s.* from (${staged(ctx, LOOKED_UP, me, sql`p.id = any (${list}::uuid[])`)}) s`,
   );
   const groups = await rows<{
     profile_id: string;
@@ -232,6 +232,7 @@ export const groupPeople = defineAddonQuery(outreachAddon, {
       );
     const inGroup = sql`exists (select 1 from addon_outreach.group_people gp
       where gp.profile_id = p.id and gp.group_id = ${group.id})`;
+    const ruled = await ruledOut(ctx);
     // Everyone found there, each with where they stand for the person when they've been reached.
     const everyone = sql`select s.*, gp.profile_id as member_id, gp.runs_group, gp.part,
         p.person_id as profile_person_id, p.url as profile_url,
@@ -240,7 +241,7 @@ export const groupPeople = defineAddonQuery(outreachAddon, {
       from addon_outreach.group_people gp
       join addon_outreach.profiles p on p.id = gp.profile_id
       left join app.people pp on pp.id = p.person_id
-      left join (${staged(ctx, me, inGroup)}) s on s.profile_id = gp.profile_id
+      left join (${staged(ctx, ruled, me, inGroup)}) s on s.profile_id = gp.profile_id
       where gp.group_id = ${group.id} and p.friendship <> 'self'`;
     const counted = await rows<{ outcome: Stage | 'not_reached'; n: number }>(
       ctx.tx,

@@ -5871,6 +5871,18 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   requests to decide, a reply's push, a reply or a partner's message drafted or waiting, and Contacts from a chat. A new place that reaches
   people, or tells the person about someone, filters with `contactable` when Don't pitch alone would let them
   through.
+- **A statement is told these rules one of two ways** (`ops/common.ts`: `notNever`, `partnered`, `pitchable`,
+  `contactable`, `isClient`, `notOthers` and `inPlay` each take which). One that goes through many profiles (Today's
+  lists, the checks, the pipeline, Groups, Friends) takes them as lists of profiles read once for the request
+  (`ruledOut`). Written into such a statement the rules are sub-selects Postgres can't count: it expected one profile
+  where thousands passed and joined the rest row by row, which was half of everything the database did (the speed
+  audit, Nov 2026). One about a single profile or a handful looks them up in place (`LOOKED_UP`), which costs less
+  than reading every list; so does a command that has just kept or marked someone, so its answer is never a moment
+  old. A read that a big operation and a small one share takes whatever the request has (`rulesAtHand`), and a
+  command that only reads, like planning a day, holds one read for all of it (`rulesReadOnce`). Both ways say the same
+  of everyone, and `test/addons/outreach-rules-read-once.test.ts` holds them to it: change a rule in both, and there.
+  A statement that takes the lists is always tied to the business (`workspace_id`), since they hold only its own
+  profiles.
 - **Don't pitch refuses the step, not the person.** A step the extension notes to someone on the list is refused
   (`outreach_dont_pitch`) with what to change, so it's never counted as outreach. Saving their profile or a chat
   still works.

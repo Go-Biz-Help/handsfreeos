@@ -56,6 +56,7 @@ import {
   pitchable,
   requestable,
   type Ctx,
+  ruledOut,
 } from './common';
 import { localTowns } from './local';
 import { tally } from './tallies';
@@ -125,6 +126,7 @@ export async function peopleLeft(
   const byCheck = groupsByCheck(platform);
   // Anyone the business's country setting skips isn't left to reach (decision 61).
   const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
+  const ruled = await ruledOut(ctx);
   const found = await rows<
     CheckedGroupRow & {
       id: string;
@@ -157,8 +159,8 @@ export async function peopleLeft(
                   where m.group_id = g.id and m.user_id = ${me} and m.joined)`
               : sql`true`
           }
-          and not gp.runs_group and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')}
-          and ${notOthers(me, 'g')} and ${lets}
+          and not gp.runs_group and p.person_id is null and ${pitchable(ruled, 'p')} and ${inPlay(ruled, me, 'p')}
+          and ${notOthers(ruled, me, 'g')} and ${lets}
           and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
           and ${requestable('p')}
           and not exists (select 1 from addon_outreach.group_people x
@@ -502,6 +504,7 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
     const playbooks = withLocalArea(inUse, towns);
     const words = groupSearchWords(inUse, platform, towns);
     const room = Math.max(0, Math.min(input.most, perDay - today));
+    const ruled = await ruledOut(ctx);
     const found = room
       ? await rows<CheckedGroupRow & { id: string; url: string }>(
           ctx.tx,
@@ -516,7 +519,7 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
                   where j.group_id = g.id and j.user_id = ${me} and (j.state <> 'failed'
                     or ${input.groupIds ? sql`false` : sql`j.asked_at >= ${ago(now, GROUP_CHECK_RETRY_DAYS)}::timestamptz`}))
                 and g.check_state is distinct from 'not'
-                ${input.groupIds ? sql`` : sql`and ${notOthers(me, 'g')}`}
+                ${input.groupIds ? sql`` : sql`and ${notOthers(ruled, me, 'g')}`}
               limit 500`,
         )
       : [];

@@ -58,6 +58,7 @@ import {
   skipOutreachTo,
   type Profile,
   type ProfileKey,
+  ruledOut,
 } from './common';
 import { automationOf } from './automation';
 import { checksSummary, knownCheck } from './checks';
@@ -666,6 +667,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
     // One network's people, counts too, when asked: every network's otherwise.
     const onNetwork = input.platform ? sql`p.platform = ${input.platform}` : sql`true`;
 
+    const ruled = await ruledOut(ctx);
     // Checks of people the person knows, decided now (decision 92): someone found by topic shows once they're a
     // friend or have chatted, never before.
     const [fits] = await rows<{ fits: number }>(
@@ -673,7 +675,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
       sql`select count(*)::int as fits from addon_outreach.checks ch
           join addon_outreach.profiles p on p.id = ch.profile_id
           where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict in ('good', 'maybe')
-            and ${knownCheck(me)} and ${pitchable('p')} and ${lets('p')} and ${onNetwork}`,
+            and ${knownCheck(me)} and ${pitchable(ruled, 'p')} and ${lets('p')} and ${onNetwork}`,
     );
     const [mine] = await rows<{ friends: number; requests: number; sent: number; keep: number }>(
       ctx.tx,

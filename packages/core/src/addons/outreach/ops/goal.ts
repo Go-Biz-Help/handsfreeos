@@ -9,7 +9,7 @@ import { networksOn } from '../network-words';
 import { isLooking, type Platform } from '../networks';
 import { automationOf, limitsFor } from './automation';
 import { goalStock, knownToMe } from './checks';
-import type { Ctx } from './common';
+import { ruledOut, type Ctx } from './common';
 import { readinessFor } from './readiness';
 import { slowsNow, warningOf } from './tidy';
 
@@ -30,6 +30,7 @@ export async function goalFacts(
   const today = todayStart.toISOString();
   const week = new Date(now - 7 * DAY).toISOString();
   const lately = new Date(now - FEW_ACCEPTS.days * DAY).toISOString();
+  const ruled = await ruledOut(ctx);
   const [counted] = await rows<GoalFacts>(
     ctx.tx,
     sql`select
@@ -51,7 +52,7 @@ export async function goalFacts(
               and ch.verdict in ('good', 'maybe') and ch.checked_at >= ${week}::timestamptz) as "weekFit",
           (select count(*)::int from addon_outreach.profiles p
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
-            where p.workspace_id = ${ws} and p.platform = ${platform} and ${knownToMe(me)}
+            where p.workspace_id = ${ws} and p.platform = ${platform} and ${knownToMe(ruled, me)}
               and (ch.id is null or ch.verdict = 'waiting' or ch.again)) as unchecked,
           (select count(distinct t.profile_id)::int from addon_outreach.touches t
             join addon_outreach.profiles p on p.id = t.profile_id

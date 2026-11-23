@@ -31,7 +31,7 @@ import { nameKey } from '../download';
 import { outreachAddon } from '../manifest';
 import type { Platform } from '../networks';
 import { replies, sends } from '../tables';
-import { contactable, inWorkspace, nameKeyOf, profilesFor } from './common';
+import { LOOKED_UP, contactable, inWorkspace, nameKeyOf, profilesFor } from './common';
 
 /** How long after the person's step a chat still showing theirs last isn't counted as an answer. */
 const CATCH_UP_MS = 30_000;
@@ -196,7 +196,7 @@ async function whoWrote(
       ctx.tx,
       sql`select p.id, p.name from addon_outreach.profiles p
           where p.workspace_id = ${ws} and p.platform = ${platform} and ${by}
-            and ${contactable('p')} and ${startedWith(me, 'p')}
+            and ${contactable(LOOKED_UP, 'p')} and ${startedWith(me, 'p')}
           order by (select max(t.at) from addon_outreach.touches t
             where t.profile_id = p.id and t.user_id = ${me} and t.kind in (${starts})) desc, p.id
           limit 2`,

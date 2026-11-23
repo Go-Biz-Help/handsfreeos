@@ -76,6 +76,7 @@ import {
   pitchable,
   requestAnswerColumns,
   type Ctx,
+  LOOKED_UP,
 } from './common';
 import { endedWarmUp } from './keep-warm';
 import { tally } from './tallies';
@@ -291,7 +292,7 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
                 from addon_outreach.friends f
                 join addon_outreach.profiles p on p.id = f.profile_id
                 where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
-                  and f.state = 'friends' and not f.keep and p.person_id is null and ${pitchable('p')}
+                  and f.state = 'friends' and not f.keep and p.person_id is null and ${pitchable(LOOKED_UP, 'p')}
                   and not exists (select 1 from addon_outreach.file_chats c
                     where c.profile_id = p.id and c.user_id = ${me} and c.prospect)
               ) l
@@ -317,13 +318,13 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
           ctx.tx,
           sql`select * from (
                 select p.id, p.name, p.url, p.platform_id, p.username, f.since, null as last_contact, p.intro,
-                  p.mutual_friends, g.name as group_name, ${requestAnswerColumns}, ${neverDeleted(me)} as kept
+                  p.mutual_friends, g.name as group_name, ${requestAnswerColumns}, ${neverDeleted(LOOKED_UP, me)} as kept
                 from addon_outreach.friends f
                 join addon_outreach.profiles p on p.id = f.profile_id
                 left join addon_outreach.groups g on g.id = p.group_id
                 left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
                 where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
-                  and f.state = 'request_received' and ${contactable('p')}
+                  and f.state = 'request_received' and ${contactable(LOOKED_UP, 'p')}
               ) r
               where r.pressed = 'delete'
                 or ${deletesRequests(answering) ? sql`(r.pressed is null and not r.kept)` : sql`false`}

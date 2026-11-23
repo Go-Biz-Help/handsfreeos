@@ -112,6 +112,7 @@ import {
   requestable,
   requestAnswerColumns,
   type Ctx,
+  ruledOut,
 } from './common';
 import { leadPathOf, localOf } from './local';
 import { milesBetweenTowns } from './towns';
@@ -254,18 +255,19 @@ export async function requestsToConfirm(
   // The business's country setting skips some (decision 61): they're on the Skipped for country list instead. One the
   // person pressed Confirm on goes whatever it says. Only the network's own requests are its to confirm.
   const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
+  const ruled = await ruledOut(ctx);
   const asked = await rows<RequestAnswered & { pitched: boolean }>(
     ctx.tx,
     sql`select * from (
           select p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name, f.since,
-            ${requestAnswerColumns}, (${notNever('p')}) as pitched,
+            ${requestAnswerColumns}, (${notNever(ruled, 'p')}) as pitched,
             (${openToMe(me, 'p')} and ${lets}) as open
           from addon_outreach.friends f
           join addon_outreach.profiles p on p.id = f.profile_id
           left join addon_outreach.groups g on g.id = p.group_id
           left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
           where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me}
-            and f.state = 'request_received' and p.platform = ${platform} and ${contactable('p')}
+            and f.state = 'request_received' and p.platform = ${platform} and ${contactable(ruled, 'p')}
         ) r
         where r.pressed = 'confirm' or (r.open and r.pressed is null)
         order by (r.pressed = 'confirm') desc nulls last, r.since desc
@@ -339,6 +341,8 @@ export async function todayFor(
   if (!me) throw HfosError.forbidden('Only a person has a list for today.');
   const ws = ctx.scope.workspaceId!;
   const now = Date.now();
+  // Who the rules leave out, read once for every list below: building the day changes nobody's marks.
+  const ruled = await ruledOut(ctx);
   const todayStart = await startOfToday(ctx, now);
   const todayFrom = todayStart.toISOString();
   // The network's own warning and steps: another network's never slow this one or use up its limits.
@@ -561,7 +565,7 @@ export async function todayFor(
             exists (select 1 from addon_outreach.touches t
               where t.user_id = ${me} and t.kind = 'comment' and h.post_url is not null
                 and t.post_url = h.post_url and t.at >= e.seen_at) as answered,
-            ${notOthers(me, 'p')} as free
+            ${notOthers(ruled, me, 'p')} as free
           from addon_outreach.engagements e
           join addon_outreach.profiles p on p.id = e.profile_id
           left join addon_outreach.helpful h on h.id = e.helpful_id
@@ -569,7 +573,7 @@ export async function todayFor(
           left join addon_outreach.playbooks pb on pb.id = h.playbook_id
           where e.workspace_id = ${ws} and e.user_id = ${me}
             and e.seen_at >= ${ago(WARM_LEAD_DAYS)}::timestamptz
-            and p.friendship <> 'self' and ${pitchable('p')} and ${inPlayAnyOwner(me, 'p')} and ${lets}
+            and p.friendship <> 'self' and ${pitchable(ruled, 'p')} and ${inPlayAnyOwner(ruled, me, 'p')} and ${lets}
             and not exists (select 1 from addon_outreach.group_people x
               where x.profile_id = p.id and x.runs_group)
           order by e.profile_id, e.kind, e.seen_at desc`,
@@ -643,7 +647,7 @@ export async function todayFor(
           weeks: visitWeeks,
           now,
           todayFrom: todayStart,
-          allowed: sql`(${pitchable('p')} and ${contactable('p')} and ${inPlay(me, 'p')} and ${reach})`,
+          allowed: sql`(${pitchable(ruled, 'p')} and ${contactable(ruled, 'p')} and ${inPlay(ruled, me, 'p')} and ${reach})`,
           most: Math.floor(likeRoom / VISIT_LIKES.least),
         })
       : [];
@@ -778,7 +782,7 @@ export async function todayFor(
             left join addon_outreach.playbooks pb on pb.id = po.playbook_id
             where po.workspace_id = ${ws} and po.group_id is null and po.check_state = 'good'
               and po.seen_at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz
-            and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach}
+            and p.person_id is null and ${pitchable(ruled, 'p')} and ${inPlay(ruled, me, 'p')} and ${reach}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
               and ${requestable('p')} and not ${myOwnProfile(me)}
               and not exists (select 1 from addon_outreach.group_people x
@@ -1027,7 +1031,7 @@ export async function todayFor(
                 order by ep.host desc, ep.seen_at desc limit 1
               ) ev on true
               where p.platform = 'facebook'
-              and not ${knowsThem(me)} and ${stillToReach(me)} and ${reach}
+              and not ${knowsThem(me)} and ${stillToReach(ruled, me)} and ${reach}
                 and not exists (select 1 from addon_outreach.friends fr
                   where fr.profile_id = p.id and fr.user_id = ${me})
                 and not exists (select 1 from addon_outreach.touches t
@@ -1160,8 +1164,8 @@ export async function todayFor(
                       where m.group_id = g.id and m.user_id = ${me} and m.joined)`
                   : sql`true`
               }
-              and ${notOthers(me, 'g')}
-            and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach}
+              and ${notOthers(ruled, me, 'g')}
+            and p.person_id is null and ${pitchable(ruled, 'p')} and ${inPlay(ruled, me, 'p')} and ${reach}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
               and ${requestable('p')} and not ${myOwnProfile(me)}
               and not exists (select 1 from addon_outreach.group_people x
@@ -1328,7 +1332,7 @@ export async function todayFor(
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
             left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
             where f.workspace_id = ${ws} and f.since <= ${ago(pace.messageAfterDays)}::timestamptz
-              and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), reach, intro)}
+              and ${sayHiReady(ruled, me, ago(TODAY_WINDOW_DAYS.opener), reach, intro)}
               and ${warmedUp}
             order by ${fresh} desc, (ch.verdict = 'good') desc nulls last, f.since desc, p.id
             limit ${openersLeft}`,
@@ -1359,7 +1363,7 @@ export async function todayFor(
                 cross join lateral (select (select max(t.at) from addon_outreach.touches t
                     where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like') as visited) lv
                 where f.workspace_id = ${ws}
-                  and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), reach, intro)}
+                  and ${sayHiReady(ruled, me, ago(TODAY_WINDOW_DAYS.opener), reach, intro)}
                   and not ${warmedUp}
                   and (lv.visited is null
                     or lv.visited < ${todayStart.toISOString()}::timestamptz - make_interval(days =>
@@ -1462,7 +1466,7 @@ export async function todayFor(
             join app.appointment_attendees aa on aa.appointment_id = a.id and aa.person_id = d.person_id
             ${latestChat('p')}
             where d.workspace_id = ${ws} and d.user_id = ${me} and d.how = 'link' and d.undone_at is null
-            and ${pitchable('p')} and ${inPlayAnyOwner(me, 'p')} and ${reach}
+            and ${pitchable(ruled, 'p')} and ${inPlayAnyOwner(ruled, me, 'p')} and ${reach}
               and ((a.status = 'scheduled' and aa.status = 'booked'
                   and (a.starts_at at time zone ${zone})::date
                     = (${nowAt}::timestamptz at time zone ${zone})::date + 1
@@ -1529,7 +1533,7 @@ export async function todayFor(
             join app.appointments a on a.id = k.appointment_id and a.bin_item_id is null
             ${latestChat('p')}
             where k.workspace_id = ${ws} and k.user_id = ${me}
-              and p.platform = ${input.platform} and ${contactable('p')} and not ${isClient('p')}
+              and p.platform = ${input.platform} and ${contactable(ruled, 'p')} and not ${isClient(ruled, 'p')}
               and a.status in ('scheduled', 'completed')
               and a.ends_at <= ${nowAt}::timestamptz
               and a.ends_at >= ${ago(CALL_THANKS_DAYS)}::timestamptz
@@ -1599,7 +1603,7 @@ export async function todayFor(
             ) o
             join addon_outreach.profiles p on p.id = o.profile_id
             ${latestChat('p')}
-          where p.friendship <> 'self' and ${notNever('p')} and ${inPlay(me, 'p')} and ${reach}
+          where p.friendship <> 'self' and ${notNever(ruled, 'p')} and ${inPlay(ruled, me, 'p')} and ${reach}
               and (c.id is not null or exists (select 1 from addon_outreach.checks ch
                 where ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict = 'good'))
               and not exists (select 1 from addon_outreach.touches t
@@ -1659,8 +1663,8 @@ export async function todayFor(
             left join addon_outreach.stages s on s.profile_id = p.id and s.user_id = ${me}
             left join addon_outreach.follow_ups f on f.profile_id = p.id and f.user_id = ${me}
             ${latestChat('p')}
-            where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')}
-            and not ${isClient('p')} and ${notLater(me, 'p')} and ${reach}
+            where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable(ruled, 'p')}
+            and not ${isClient(ruled, 'p')} and ${notLater(me, 'p')} and ${reach}
               and (c.pitch = 'ready' or s.mark = 'ready'
                 or (f.answer = 'yes' and f.stopped_at is null
                   and f.step in ('first', 'video')))
@@ -1731,7 +1735,7 @@ export async function todayFor(
             ${latestChat('p')}
             where f.workspace_id = ${ws} and f.user_id = ${me} and f.stopped_at is null
               and f.due_at <= ${nowAt}::timestamptz
-            and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach} and ${notBooked('p')}
+            and ${pitchable(ruled, 'p')} and ${inPlay(ruled, me, 'p')} and ${reach} and ${notBooked('p')}
               and not exists (select 1 from addon_outreach.replies r
                 where r.profile_id = f.profile_id and r.user_id = ${me} and r.seen_at > f.last_at)
               and (c.id is null or c.last_from_me or c.last_at <= f.last_at)
@@ -1812,8 +1816,8 @@ export async function todayFor(
                 )})
                 and t.at < c.last_at + interval '1 minute')))
             and c.platform = ${input.platform}
-            and (p.id is null or (${pitchable('p')} and ${openToMe(me, 'p')}
-              and (not c.last_from_me or (${reach} and not ${isClient('p')}))))
+            and (p.id is null or (${pitchable(ruled, 'p')} and ${openToMe(me, 'p')}
+              and (not c.last_from_me or (${reach} and not ${isClient(ruled, 'p')}))))
             and ((c.last_from_me and c.last_at between ${ago(TODAY_WINDOW_DAYS.follow_up)}::timestamptz
                   and ${ago(pace.firstGap)}::timestamptz
                   and c.pitch is distinct from 'not_interested'
@@ -1873,7 +1877,7 @@ export async function todayFor(
             r.seen_at
           from addon_outreach.replies r join addon_outreach.profiles p on p.id = r.profile_id
           where r.workspace_id = ${ws} and r.user_id = ${me} and p.platform = ${input.platform}
-            and r.seen_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz and ${pitchable('p')}
+            and r.seen_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz and ${pitchable(ruled, 'p')}
             and not exists (select 1 from addon_outreach.touches t
               where t.profile_id = r.profile_id and t.user_id = ${me} and t.kind = 'message'
                 and t.at > r.seen_at)
@@ -1929,7 +1933,7 @@ export async function todayFor(
               select c.id, c.thread_key, c.last_at from addon_outreach.file_chats c
               where c.profile_id = p.id and c.user_id = ${me} order by c.last_at desc limit 1
             ) c on true
-            where ch.workspace_id = ${ws} and ${reconnectReady(me, ago(RECONNECT_QUIET_DAYS), lets)}
+            where ch.workspace_id = ${ws} and ${reconnectReady(ruled, me, ago(RECONNECT_QUIET_DAYS), lets)}
             order by (ch.verdict = 'good') desc, ch.checked_at desc, p.id
             limit ${reconnectLeft + items.length}`,
     );
@@ -2005,7 +2009,7 @@ export async function todayFor(
                 sql`and (po.checked_at is null or po.checked_at >= ${FIELD_CHECK_SINCE}::timestamptz)`
               }
               and p.friendship <> 'self' and not ${myOwnProfile(me)}
-            and ${pitchable('p')} and ${inPlay(me, 'p')} and ${notOthers(me, 'g')}
+            and ${pitchable(ruled, 'p')} and ${inPlay(ruled, me, 'p')} and ${notOthers(ruled, me, 'g')}
               -- A reply to the person's comment (decision 163) is an answer to them: Autopilot's list never holds it.
               and (po.found = 'reply' or ${reach})
               and not exists (select 1 from addon_outreach.group_people x
@@ -2067,7 +2071,7 @@ export async function todayFor(
               and po.reply_at >= ${ago(REPLY_KEPT_DAYS)}::timestamptz
               and po.skipped_at is null and po.check_state <> 'good'
               and p.friendship <> 'self' and not ${myOwnProfile(me)}
-            and ${contactable('p')} and ${notOthers(me, 'p')} and ${notOthers(me, 'g')} and ${reach}
+            and ${contactable(ruled, 'p')} and ${notOthers(ruled, me, 'p')} and ${notOthers(ruled, me, 'g')} and ${reach}
               and not exists (select 1 from addon_outreach.touches t
                 where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url)
             order by po.reply_at desc limit ${repliesLeft}`,
@@ -2108,7 +2112,7 @@ export async function todayFor(
           ctx.tx,
           sql`select p.id, p.name, p.url, ${partnerOf} as partner
                 from addon_outreach.profiles p
-                where p.workspace_id = ${ws} and ${notNever('p')} and ${lets}
+                where p.workspace_id = ${ws} and ${notNever(ruled, 'p')} and ${lets}
                   and (${partnerOf} or (p.person_id is not null and (
                     exists (select 1 from app.invoices i
                       where i.person_id = p.person_id and i.status = 'paid')
@@ -2163,7 +2167,7 @@ export async function todayFor(
               sql`, `,
             )})
             and (n.step <> 'comment' or po.id is not null)
-            and (n.step = 'confirm' or ${pitchable('p')})
+            and (n.step = 'confirm' or ${pitchable(ruled, 'p')})
           order by n.retry_at, n.seen_at, n.id
           limit ${TODAY_MOST}`,
   );
@@ -2485,6 +2489,7 @@ async function foundGood(
   onlyMine = false,
 ): Promise<FoundGood[]> {
   const ago = (days: number) => new Date(now - days * DAY).toISOString();
+  const ruled = await ruledOut(ctx);
   return rows<FoundGood>(
     ctx.tx,
     sql`select p.id, p.name, p.url, f.how, f.words, f.place, g.name as group_name, ch.why as check_why,
@@ -2504,7 +2509,7 @@ async function foundGood(
         left join addon_outreach.posts po on po.id = f.post_id and f.how in ('posted', 'commented')
         where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me} and f.platform = ${platform}
           and f.found_at >= ${ago(FIND_FRESH_DAYS)}::timestamptz
-          and ${stillToReach(me)} and ${lets}
+          and ${stillToReach(ruled, me)} and ${lets}
           and not exists (select 1 from addon_outreach.friends fr
             where fr.profile_id = p.id and fr.user_id = ${me})
           and not exists (select 1 from addon_outreach.touches t
