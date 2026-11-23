@@ -15,7 +15,7 @@ import { MainOfferParts } from '../../../main-offer/parts';
 import type { CommandContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
-import { dayList } from '../automation';
+import { dayList, worksEveryDay } from '../automation';
 import { outreachAddon } from '../manifest';
 import {
   messageNotesOf,
@@ -309,6 +309,7 @@ export const readinessNumbers = defineAddonCommand(outreachAddon, {
           hoursStart: s.hours.start,
           hoursEnd: s.hours.end,
           days,
+          everyDay: worksEveryDay(s.hours),
           noting: s.noting,
           readChats: s.readChats,
           markPosts: s.markPosts,
