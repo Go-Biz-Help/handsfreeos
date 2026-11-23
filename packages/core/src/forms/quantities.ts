@@ -29,10 +29,15 @@ interface QuantitiesConfig {
   readonly maxTotal?: number | null;
   readonly unit?: string;
   readonly showPrices?: boolean;
+  readonly makesOrder?: boolean;
 }
 
 const configOf = (question: QuantitiesQuestion): QuantitiesConfig =>
   (question.config ?? {}) as QuantitiesConfig;
+
+/** Whether a sent answer to this question makes an order (on unless the business turned it off). */
+export const quantitiesMakeOrder = (question: QuantitiesQuestion): boolean =>
+  question.type === 'quantities' && configOf(question).makesOrder !== false;
 
 /** The rows of a "How many of each" question, in order. */
 export function quantityRowsOf(question: QuantitiesQuestion): readonly QuantityRow[] {

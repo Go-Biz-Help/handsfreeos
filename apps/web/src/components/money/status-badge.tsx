@@ -94,12 +94,21 @@ const REFUND_FACES: Readonly<Record<string, Face & { word: string }>> = {
   failed: { look: 'late', icon: AlertTriangle, word: REFUND_WORDS.failed! },
 };
 
+/** Orders (product sellers): new wants a look, being made is on its way, ready is green, handed over is quiet. */
+const ORDER_FACES: Readonly<Record<string, Face>> = {
+  new: { look: 'sent', icon: null },
+  making: { look: 'waiting', icon: Hourglass },
+  ready: { look: 'paid', icon: Check },
+  done: { look: 'quiet', icon: Check },
+  cancelled: { look: 'void', icon: null },
+};
+
 const UNKNOWN: Face = { look: 'quiet', icon: null };
 
-function faceOf(
-  kind: 'estimate' | 'invoice' | 'payment' | 'subscription' | 'refund',
-  state: string,
-): Face & { word: string } {
+type BadgeKind = 'estimate' | 'invoice' | 'payment' | 'subscription' | 'refund' | 'order';
+
+function faceOf(kind: BadgeKind, state: string): Face & { word: string } {
+  if (kind === 'order') return { ...(ORDER_FACES[state] ?? UNKNOWN), word: state };
   if (kind === 'estimate') {
     const face = ESTIMATE_FACES[state as EstimateState] ?? UNKNOWN;
     return { ...face, word: ESTIMATE_WORDS[state as EstimateState] ?? state };
@@ -124,15 +133,19 @@ function faceOf(
 export function StatusBadge({
   kind,
   state,
+  words,
   className,
   testId,
 }: {
-  kind: 'estimate' | 'invoice' | 'payment' | 'subscription' | 'refund';
+  kind: BadgeKind;
   state: string;
+  /** What it says, when that isn't the state's own word: an order's Ready reads Ready for pickup. */
+  words?: string;
   className?: string;
   testId?: string;
 }) {
-  const { look, icon: Icon, word } = faceOf(kind, state);
+  const { look, icon: Icon, word: own } = faceOf(kind, state);
+  const word = words ?? own;
   return (
     <span
       data-testid={testId}

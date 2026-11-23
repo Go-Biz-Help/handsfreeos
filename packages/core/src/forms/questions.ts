@@ -271,6 +271,11 @@ export const QUESTION_CONFIGS = {
     unit: z.string().trim().max(24).default(''),
     /** Show each row's price beside it and what it comes to under the boxes. */
     showPrices: z.boolean().default(true),
+    /**
+     * Each sent answer makes an order on Money → Orders (docs/selling-products.md), with a line per row ordered.
+     * Off for a question that only counts (how many of each age are coming).
+     */
+    makesOrder: z.boolean().default(true),
   }),
 } as const satisfies Record<QuestionType, z.ZodType>;
 
