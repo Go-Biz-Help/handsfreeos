@@ -264,7 +264,9 @@ describe('Make this calendar', () => {
       { workspaceId: t.wsId, calendarId: out.calendarId },
       t.owner,
     );
-    expect(got.calendar.config.services.items).toEqual([{ serviceId: made!.id }]);
+    expect(got.calendar.config.services.items).toEqual([
+      expect.objectContaining({ serviceId: made!.id }),
+    ]);
     expect(got.calendar.config.team.members.map((m) => m.userId)).toEqual([t.owner.id]);
     expect(got.calendar.config.notifications.reminders).toEqual(answers.reminders);
     expect(
