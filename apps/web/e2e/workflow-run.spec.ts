@@ -356,7 +356,7 @@ test('workflow runs: test, publish, a real run, pause, retry and skip, add to wo
     name: 'AC tune-up',
     preset: 'scratch',
   });
-  await page.goto(`/app/w/${workspaceId}/settings/calendars/${calendarId}`);
+  await page.goto(`/app/w/${workspaceId}/settings/calendars/${calendarId}/all`);
   await page.getByTestId('module-automations').click();
   const automations = page.getByTestId('calendar-automations');
   await expect(automations).toContainText('No workflows start from this calendar yet.');
@@ -373,7 +373,7 @@ test('workflow runs: test, publish, a real run, pause, retry and skip, add to wo
   await page.getByTestId('workflow-create').click();
   await expect(page).toHaveURL(/\/workflows\/[0-9a-f-]{36}$/);
   const review = /workflows\/([0-9a-f-]{36})$/.exec(page.url())![1]!;
-  await page.goto(`/app/w/${workspaceId}/settings/calendars/${calendarId}`);
+  await page.goto(`/app/w/${workspaceId}/settings/calendars/${calendarId}/all`);
   await page.getByTestId('module-automations').click();
   const listed = page.getByTestId(`automation-${review}`);
   await expect(listed).toContainText('Appointment follow-up + review');

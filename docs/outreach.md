@@ -3478,9 +3478,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       currently m-f", answered "1a 2a 3a"; extension **0.119.0**, with decision 138). No migration.
       - **Keep working on other days** (`WorkingHours.everyDay`, `worksEveryDay`, `workHours` in `automation.ts`), a
         switch under Working hours, on the web and the phone, on to start (a setting saved before has none, which counts
-        as on). On, each network works every day in the same start and end hours: `workHours` gives all seven days to
-        `workWindow`, `nextInHours`, `networkDay`, `nextStart` and the waiting words. Off, it's the ticked days only, as
-        before.
+        as on). Kept in `automation.every_day` since migration `20261027034100_outreach_keep_working_on_other_days` (22
+        Nov 2026: until then a save dropped it, so turning it off didn't stick); the settings read it back only when
+        it's off, and hours sent without it keep the kept one. On, each network works every day in the same start and
+        end hours: `workHours` gives all seven days to `workWindow`, `nextInHours`, `networkDay`, `nextStart` and the
+        waiting words. Off, it's the ticked days only, as before.
       - **New messages wait for a ticked day** (`WORK_DAY_KINDS`, `newMessagesWait` in `automation.ts`): first
         messages, Reconnect, follow-ups, check-ins and partner asks and their follow-ups. Today says so on a day off
         (`newMessagesWait`, `W.newMessagesWait`) and `workLeft` in `src/auto/plan.ts` leaves those drafts and sends for
@@ -4526,8 +4528,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         go, `levelsAllowed`, and Where a new person starts, each behind Change); **For the whole business** as short
         picks (countries and the extension's link behind Change); and More settings, folded, for people found by topic
         checked a day. **Your computer**: one card for the computer that works (working, offline or signed out, a chip,
-        the extension's version and when it was seen, Rename, Download the extension), the others standing by folded
-        under it; **Run a job now** folded by network, one open at a time; and **Asked lately**, where asks that ended
+        the extension's version and when it was seen, Rename, then the one blue download button of decision 189 with
+        How to install it folded), the others standing by folded under it; **Run a job now** folded by network, one open at a time; and **Asked lately**, where asks that ended
         the same way (the network, the kind, what about, how it ended and its line) fold under the newest as "The same,
         3 more times since 9:12 AM" (`foldAsks`). One still going never folds, so its Stop and Carry on stay to hand.
 
@@ -5163,6 +5165,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **The extension's panel** (0.151.0, `src/panel/version.ts`) says "Version 0.151.0" in its top bar, under its
         name and after the business it works for, signed in or not, in the same words as beside the download, so the
         two can be held side by side. A long business name is cut short, never the version.
+      - **Shown, never behind a button** (Chris, 23 Nov 2026: "the social outreach download button isn't like the
+        content creator download button. they both should look like the blue one from the content creator one").
+        Settings → Your computer's card had a grey **Download the extension** that only opened the blue one; the blue
+        one now sits on the card itself, under Rename, with How to install it folded under it.
 
 190.  **The introduction says who you are, not what you do** (Chris, 22 Nov 2026: "for my introduction message I don’t
       want it to say what I do right away. i want it to say I’m the founder of HandsFreeOS and then ask them the

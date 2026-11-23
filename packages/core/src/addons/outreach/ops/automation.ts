@@ -48,6 +48,7 @@ import {
   wheelsOn,
   wheelsState,
   withinRules,
+  worksEveryDay,
   type AutomationChanges,
   type AutomationSettings,
   type BusinessRules,
@@ -91,7 +92,13 @@ const ownOf = (row: Row | undefined, rules: BusinessRules): AutomationSettings =
         joinGroups: row.joinGroups,
         watchPosts: row.watchPosts,
         posting: row.posting,
-        hours: { start: row.hoursStart, end: row.hoursEnd, days: [...row.days] },
+        hours: {
+          start: row.hoursStart,
+          end: row.hoursEnd,
+          days: [...row.days],
+          // Keep working on other days (decision 139): said only once turned off, as left out counts as on.
+          ...(row.everyDay ? {} : { everyDay: false }),
+        },
         noting: row.noting,
         readChats: row.readChats,
         markPosts: row.markPosts,
@@ -605,6 +612,9 @@ export const automationSave = defineAddonCommand(outreachAddon, {
       hoursStart: s.hours.start,
       hoursEnd: s.hours.end,
       days: dayList(s.hours.days),
+      // Hours sent without it (a screen from before decision 139, or the Assistant changing only the times): the kept
+      // one stays.
+      everyDay: s.hours.everyDay ?? worksEveryDay(own.hours),
       noting: s.noting,
       readChats: s.readChats,
       markPosts: s.markPosts,

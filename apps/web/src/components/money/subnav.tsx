@@ -1,5 +1,5 @@
 'use client';
-import { MONEY_TAB_LABELS, MONEY_TABS, type MoneyTab } from '@hfos/core';
+import { MONEY_TAB_LABELS, MONEY_TABS, ORDERS_TAB_LABEL, type MoneyTab } from '@hfos/core';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -7,6 +7,11 @@ import type { ReactNode } from 'react';
 import { ButtonLink } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+/**
+ * The web's tabs: the phone's, and Orders (product sellers, 20261027034500), which only the web has for now. An
+ * order is the customer's, so anyone who sees Money sees it.
+ */
+export type WebMoneyTab = MoneyTab | 'orders';
 export type { MoneyTab };
 
 export function moneyBase(workspaceId: string): string {
@@ -14,21 +19,24 @@ export function moneyBase(workspaceId: string): string {
 }
 
 /** Invoices is the section's front door, so it has no path of its own. */
-export function moneyTabHref(workspaceId: string, tab: MoneyTab): string {
+export function moneyTabHref(workspaceId: string, tab: WebMoneyTab): string {
   const base = moneyBase(workspaceId);
   return tab === 'invoices' ? base : `${base}/${tab}`;
 }
 
-const TABS = MONEY_TABS.map((key) => ({ key, label: MONEY_TAB_LABELS[key] }));
+const TABS: readonly { key: WebMoneyTab; label: string }[] = MONEY_TABS.flatMap((key) => [
+  { key, label: MONEY_TAB_LABELS[key] },
+  ...(key === 'invoices' ? [{ key: 'orders' as const, label: ORDERS_TAB_LABEL }] : []),
+]);
 
-/** The four chips from the canvas, with each list's own filters sitting at the end of the same row. */
+/** The chips from the canvas, with each list's own filters sitting at the end of the same row. */
 export function MoneySubnav({
   workspaceId,
   tab,
   children,
 }: {
   workspaceId: string;
-  tab: MoneyTab;
+  tab: WebMoneyTab;
   children?: ReactNode;
 }) {
   const pathname = usePathname();
@@ -71,11 +79,18 @@ export function MoneyCrumbs({
   current,
 }: {
   workspaceId: string;
-  tab: MoneyTab;
+  tab: WebMoneyTab;
   current: string;
 }) {
   // Left exactly as it was: Plans' and Payments' crumb reads lowercase today (see the step 16 report).
-  const label = tab === 'invoices' ? 'Invoices' : tab === 'estimates' ? 'Estimates' : tab;
+  const label =
+    tab === 'invoices'
+      ? 'Invoices'
+      : tab === 'estimates'
+        ? 'Estimates'
+        : tab === 'orders'
+          ? ORDERS_TAB_LABEL
+          : tab;
   return (
     <nav
       aria-label="Breadcrumb"

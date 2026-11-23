@@ -29,9 +29,12 @@ test('a preset, then Personal → Round Robin → Service → Group on one calen
   await page.getByTestId('booking-site-save').click();
   await expect(page.getByTestId('booking-site-link')).toContainText(`/book/${site}`);
 
-  // "How do you want this calendar to work?" Presets only prefill: the labels follow the pick.
+  // New calendar opens the guided setup; its skip link opens "How do you want this calendar to work?". Presets
+  // only prefill: the labels follow the pick.
   await page.goto(`/app/w/${workspaceId}/settings/calendars`);
   await page.getByTestId('calendar-new').click();
+  await expect(page).toHaveURL(new RegExp(`/onboarding/${workspaceId}/calendar$`));
+  await page.getByTestId('calendar-setup-skip').click();
   await expect(
     page.getByRole('heading', { name: 'How do you want this calendar to work?' }),
   ).toBeVisible();
@@ -41,7 +44,7 @@ test('a preset, then Personal → Round Robin → Service → Group on one calen
   await expect(page.getByTestId('preset-labels')).toHaveText('Personal');
   await page.getByLabel('Name', { exact: true }).fill('Estimates');
   await page.getByTestId('calendar-create').click();
-  await expect(page).toHaveURL(/\/settings\/calendars\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/settings\/calendars\/[0-9a-f-]{36}\/all$/);
   const builder = page.url();
   const labels = page.getByTestId('builder-labels').locator('span');
   await expect(labels).toHaveText(['Personal']);

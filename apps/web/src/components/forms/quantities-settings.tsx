@@ -67,6 +67,7 @@ export function QuantitiesSettings({
     minTotal: number | null;
     maxTotal: number | null;
     showPrices: boolean;
+    makesOrder?: boolean;
   };
   const patchRow = (id: string, fields: Partial<QuantityRow>) =>
     apply([
@@ -316,6 +317,22 @@ export function QuantitiesSettings({
             disabled={readOnly}
             onChange={(on) => patchConfig({ showPrices: on })}
             testId="question-quantity-prices"
+          />
+        </div>
+        <div className="flex items-center justify-between gap-4 sm:col-span-3">
+          <div>
+            <Label htmlFor="q-quantity-order">Makes an order</Label>
+            <Hint>
+              When it’s sent, what they ordered goes on Money → Orders, with the day and pickup or
+              delivery if the form asks. Turn it off for a head count that isn’t an order.
+            </Hint>
+          </div>
+          <Switch
+            label="Makes an order"
+            checked={config.makesOrder !== false}
+            disabled={readOnly}
+            onChange={(on) => patchConfig({ makesOrder: on })}
+            testId="question-quantity-makes-order"
           />
         </div>
       </Card>
