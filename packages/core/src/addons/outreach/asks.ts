@@ -556,6 +556,11 @@ export type AskVia = (typeof ASK_VIA)[number];
 export const ASK_WAIT_HOURS = 24;
 /** A new line alone goes from the extension, and is told to the app, at most this often. */
 export const ASK_LINE_SECONDS = 20;
+/**
+ * What a new line alone is told as (`outreach.ask.progressed`'s entity type): the ask's own line listens for it. A
+ * screen that follows the asks (`outreach_ask`: made, taken, handed over, a code, ended) isn't drawn again for a line.
+ */
+export const ASK_LINE_CHANGE = 'outreach_ask_line';
 /** A step handed over that nobody carried on with stops after this. */
 export const ASK_STUCK_MINUTES = 30;
 /**

@@ -22,6 +22,7 @@ import {
   profileEditWords,
   hasEveryPart,
   targetOn,
+  ASK_LINE_CHANGE,
   ASK_LINE_SECONDS,
   ASK_LOOKUPS_MOST,
   ASK_STOPPED_EARLY_LINE,
@@ -739,7 +740,9 @@ export const askProgress = defineAddonCommand(outreachAddon, {
     if (due)
       await ctx.emit({
         type: 'outreach.ask.progressed',
-        entityType: 'outreach_ask',
+        // A new line alone goes out as the line's own, as the ticker's does (decision 140): the ask's line hears it
+        // and asks for itself, and the pages that follow the asks aren't all drawn again every `ASK_LINE_SECONDS`.
+        entityType: changed ? 'outreach_ask' : ASK_LINE_CHANGE,
         entityId: row.id,
         payload: { userId: me, kind: row.kind, state: input.state, changed },
       });
