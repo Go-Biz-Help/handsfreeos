@@ -2169,7 +2169,11 @@ function contactEnvelope(record: SourceRecord, context: MappingContext): Canonic
       warnings.push({
         code: 'mapping.unknown_custom_field',
         field: id,
-        message: 'A custom field we have not seen the shape of; its value is kept as it came.',
+        // Custom fields come with customers whenever the sign-in can read them (catalog.ts), so this is a
+        // field it can't read, or one deleted over there that still has values on its customers. The
+        // importer puts the value in the notes, where it can still be seen.
+        message:
+          'A custom field whose setup we couldn’t read. Its value is kept in the customer’s notes.',
       });
       customFields[id] = f.value;
       continue;
@@ -2349,22 +2353,109 @@ const cents = (v: unknown): number => {
   return Number.isFinite(n) ? Math.max(0, Math.round(n * 100)) : 0;
 };
 
+/** How often a recurring price over there charges, in words a choice's name can carry. */
+const EVERY: Readonly<Record<string, readonly [string, string]>> = {
+  day: ['a day', 'days'],
+  week: ['a week', 'weeks'],
+  month: ['a month', 'months'],
+  year: ['a year', 'years'],
+};
+
+/**
+ * One of a product's prices as a choice's name: its own name over there, or its amount when it has none, plus how
+ * often it charges when it charges again and its name doesn't already say so ("Growth (a month)").
+ */
+function priceLabel(price: Record<string, unknown>): string {
+  const own = asString(price['name'])?.trim();
+  const name = own || `$${(cents(price['amount']) / 100).toFixed(2)}`;
+  const recurring = (price['recurring'] ?? null) as {
+    interval?: unknown;
+    intervalCount?: unknown;
+  } | null;
+  const interval = asString(recurring?.interval)?.toLowerCase() ?? '';
+  const words = EVERY[interval];
+  if (asString(price['type'])?.toLowerCase() !== 'recurring' || !words) return name.slice(0, 60);
+  if (/day|week|month|year|annual|quarter/i.test(name)) return name.slice(0, 60);
+  const count = Math.max(1, Math.round(Number(recurring?.intervalCount ?? 1)) || 1);
+  const every = count === 1 ? words[0] : `every ${count} ${words[1]}`;
+  return `${name.slice(0, 60 - every.length - 3)} (${every})`;
+}
+
+/** Choice names that differ, as the option editor insists: a second "Monthly" is "Monthly 2". */
+function distinctLabels(labels: readonly string[]): string[] {
+  const seen = new Set<string>();
+  return labels.map((label) => {
+    let out = label;
+    for (let n = 2; seen.has(out.toLowerCase()); n++) out = `${label.slice(0, 56)} ${n}`;
+    seen.add(out.toLowerCase());
+    return out;
+  });
+}
+
+/** The most a choice may add or take off here, and how many one option holds (core's money/options.ts). */
+const MAX_BUMP_CENTS = 10_000_000;
+const MAX_CHOICES = 40;
+
 function productEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
   const p = record.payload;
-  // A product's prices are a list of their own over there; the first one stands for it here, and the rest are
-  // kept beside it rather than being invented into products nobody made.
+  const label = asString(p['name']) ?? 'This product';
+  // A product's prices are a list of their own over there ("Starter", "Growth" and "Pro", or one a month and
+  // one a year). Here a product has one price and up to three options, each choice adding to it, so the
+  // lowest price is the product's and every price is a choice of one option, at the difference: "Pro" on a
+  // bill costs exactly what Pro cost over there. Until 2026-11-23 only the first price came, and the owner's
+  // "Local SEO Optimization" lost two of its three.
   const prices = Array.isArray(p['prices']) ? (p['prices'] as Record<string, unknown>[]) : [];
-  const first = prices[0];
-  const warnings =
-    prices.length > 1
-      ? [
-          {
-            code: 'mapping.one_price_kept',
-            field: 'prices',
-            message: `"${asString(p['name']) ?? 'This product'}" had ${prices.length} prices over there and one here; the first is used and the others are kept beside it.`,
-          },
-        ]
+  const amounts = prices.map((price) => cents(price['amount']));
+  const base = amounts.length ? Math.min(...amounts) : 0;
+  const warnings: { code: string; field?: string | null; message: string }[] = [];
+  const options: { name: string; choices: { label: string; priceCents: number }[] }[] = [];
+  let otherPrices: Record<string, unknown>[] = [];
+  if (prices.length > 1) {
+    // A product with one kind of variant over there (Size) whose every price is one of its kinds reads best as
+    // that: Size, with Small, Medium and Large. Anything else is the prices under their own names.
+    const variants = Array.isArray(p['variants'])
+      ? (p['variants'] as Record<string, unknown>[])
       : [];
+    const variant = variants.length === 1 ? variants[0]! : null;
+    const variantName = asString(variant?.['name'])?.trim();
+    const kinds = new Map<string, string>();
+    for (const o of Array.isArray(variant?.['options'])
+      ? (variant['options'] as Record<string, unknown>[])
+      : []) {
+      const id = asString(o['id']);
+      const name = asString(o['name'])?.trim();
+      if (id && name) kinds.set(id, name);
+    }
+    const byKind = prices.map((price) => {
+      const ids = Array.isArray(price['variantOptionIds']) ? price['variantOptionIds'] : [];
+      return ids.length === 1 ? kinds.get(String(ids[0])) : undefined;
+    });
+    const asKinds = !!variantName && byKind.every((k) => !!k);
+    const fits = prices.map((price, i) => ({
+      price,
+      label: asKinds ? byKind[i]!.slice(0, 60) : priceLabel(price),
+      priceCents: amounts[i]! - base,
+    }));
+    const usable = fits.filter((c) => c.priceCents <= MAX_BUMP_CENTS).slice(0, MAX_CHOICES);
+    otherPrices = fits.filter((c) => !usable.includes(c)).map((c) => c.price);
+    const labels = distinctLabels(usable.map((c) => c.label));
+    const optionName = asKinds ? variantName!.slice(0, 40) : 'Price';
+    options.push({
+      name: optionName,
+      choices: usable.map((c, i) => ({ label: labels[i]!, priceCents: c.priceCents })),
+    });
+    const left = otherPrices.length;
+    warnings.push({
+      code: 'mapping.prices_as_choices',
+      field: 'prices',
+      message:
+        `"${label}" had ${prices.length} prices over there. Here it’s one product, and each price is a choice ` +
+        `under ${optionName}: ${labels.join(', ')}.` +
+        (left > 0
+          ? ` ${left} more ${left === 1 ? 'price' : 'prices'} couldn’t be a choice, and ${left === 1 ? 'is' : 'are'} kept beside it.`
+          : ''),
+    });
+  }
   return envelopeOf(
     record,
     context,
@@ -2374,15 +2465,27 @@ function productEnvelope(record: SourceRecord, context: MappingContext): Canonic
       name: (asString(p['name']) ?? 'Product').slice(0, 200),
       // Written in HighLevel's editor, so it is HTML; here it is the words on a bill.
       description: plainText(p['description'])?.slice(0, 2000) ?? null,
-      unitPriceCents: first ? cents(first['amount']) : 0,
+      unitPriceCents: base,
       unitLabel: 'each',
       taxable: true,
       // Whether it shows in the online store is not whether it is still sold: 15 of the first real account's 26
       // products were kept out of the store and billed every month, and came across archived.
       active:
         p['deleted'] !== true && (asString(p['status']) ?? 'active').toLowerCase() !== 'archived',
+      options,
     },
-    leftovers(p, ['id', '_id', 'name', 'description', 'prices', 'availableInStore', 'locationId']),
+    {
+      ...leftovers(p, [
+        'id',
+        '_id',
+        'name',
+        'description',
+        'prices',
+        'availableInStore',
+        'locationId',
+      ]),
+      ...(otherPrices.length ? { otherPrices } : {}),
+    },
     warnings,
   );
 }

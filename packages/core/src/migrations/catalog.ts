@@ -58,6 +58,12 @@ export interface MigrationCategory {
   readonly dependsOn: readonly string[];
   /** Categories this would like but can live without; attached in the links pass when they are there. */
   readonly prefers?: readonly string[];
+  /**
+   * Categories added with this one whenever the source can give them, but never needed: one the source can't
+   * read is left out and this still runs. Customers bring their custom fields, so a customer's custom values
+   * have fields to land in.
+   */
+  readonly bringsAlong?: readonly string[];
   /** What it becomes here, for the report and for the source mapping. Empty when nothing is written. */
   readonly targetType: string | null;
   /** Whether a person can pick through the pieces inside (one calendar, one pipeline) or only take the lot. */
@@ -130,6 +136,9 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     pass: MIGRATION_PASSES.contacts,
     dependsOn: ['locations'],
     prefers: ['users', 'custom_fields', 'tags', 'companies'],
+    // Since 2026-11-23. Without them every custom value went to the customer's notes under the old system's
+    // id for its field ("• 7HkQ2…: Roofing"): a move that chose only invoices did that to 103 customers.
+    bringsAlong: ['custom_fields'],
     targetType: 'person',
     selection: 'category',
     release: 'ready',
@@ -403,17 +412,18 @@ export const IMPORTABLE_CATEGORIES: readonly string[] = MIGRATION_CATEGORIES.fil
  * The kinds of record a rollback leaves exactly where they are, and why.
  *
  * Everything else an import creates is taken back — archived where the table has somewhere to put a record
- * that is out of the way but not gone, deleted where it has not (migrations/engine/run.ts). These three are
+ * that is out of the way but not gone, deleted where it has not (migrations/engine/run.ts). These two are
  * not records the import owns:
  *
- *   tag            — the business's own label. By now people here have put "VIP" on customers of their own,
- *                    and taking the tag away would strip it off those too.
  *   user           — never made by an import, only recognised.
  *   pipeline_stage — part of the board it is on, and goes with the board rather than on its own.
  *
+ * Tags were a third until 2026-11-23. The owner's decision then: a tag the move made goes with it, unless it
+ * is on a record of the business's own or a setting names it, and then it stays.
+ *
  * Read by the rollback preview, so the number it shows is the number of records that will really go.
  */
-export const MIGRATION_ROLLBACK_LEAVES: readonly string[] = ['tag', 'user', 'pipeline_stage'];
+export const MIGRATION_ROLLBACK_LEAVES: readonly string[] = ['user', 'pipeline_stage'];
 
 /** Whether choosing this category could ever put a record in the business. */
 export function isImportable(id: string): boolean {

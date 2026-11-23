@@ -1647,10 +1647,10 @@ async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
  * own? When it has, the record stays, its mapping stays with it so a later import still recognises it, and the
  * journal says `depended_on` rather than claiming it was put back.
  *
- * Three kinds are deliberately absent, the three in `MIGRATION_ROLLBACK_LEAVES`. **Tags**, for the reason they
- * have always been absent: a tag is the business's own label, and by now people here have put "VIP" on
- * customers of their own, so taking the tag away would strip it off those too. **Users**, who are never made
- * by an import, only recognised. And the **stages of a board**, which are part of the board and go with it.
+ * Two kinds are deliberately absent, the two in `MIGRATION_ROLLBACK_LEAVES`. **Users**, who are never made by
+ * an import, only recognised. And the **stages of a board**, which are part of the board and go with it.
+ * **Tags** used to be a third, and since 2026-11-23 are taken back last, unless something of the business's
+ * own still uses one (see the plan).
  */
 type TakeBack = {
   /** The table, under `app.`. */
@@ -1814,6 +1814,45 @@ const takeBackPlan = (migrationId: string): ReadonlyArray<readonly [string, Take
   [
     'company',
     { table: 'companies', away: sql`archived_at = now()`, untouched: sql`t.archived_at is null` },
+  ],
+  // The tags the move made, after everything they could be on (the owner's decision, 2026-11-23). A tag
+  // nothing of the business's own uses goes for good, since a tag has nowhere to be put away. One stays when
+  // it is on any record this move did not take back (a customer or a deal somebody here made, one that was
+  // already here, one another move brought), or when a setting names it: a workflow, a form, a campaign
+  // still going or a tidy-up pass still running. Deleting it would quietly change what those do.
+  [
+    'tag',
+    {
+      table: 'tags',
+      away: 'delete',
+      keepWhen: (ws) => {
+        const named = (column: SQL) => sql`strpos(${column}::text, t.id::text) > 0`;
+        return sql`
+          exists (select 1 from app.record_tags rt
+                   where rt.tag_id = t.id and rt.workspace_id = ${ws}
+                     and not exists (select 1 from app.migration_change_journal j
+                                      where j.migration_id = ${migrationId} and j.action = 'create'
+                                        and j.target_type = rt.record_type::text
+                                        and j.target_id = rt.record_id
+                                        and j.reverted_at is not null and j.revert_skipped_reason is null))
+          or exists (select 1 from app.workflows w
+                      where w.workspace_id = ${ws} and w.status <> 'archived'
+                        and (${named(sql`w.definition`)}
+                             or exists (select 1 from app.workflow_versions v
+                                         where v.id = w.active_version_id and ${named(sql`v.definition`)})))
+          or exists (select 1 from app.forms f
+                      where f.workspace_id = ${ws} and f.archived_at is null
+                        and (${named(sql`f.definition`)}
+                             or exists (select 1 from app.form_versions v
+                                         where v.id = f.active_version_id and ${named(sql`v.definition`)})))
+          or exists (select 1 from app.campaigns c
+                      where c.workspace_id = ${ws} and c.status not in ('done', 'cancelled')
+                        and ${named(sql`c.audience`)})
+          or exists (select 1 from app.contact_ai_sweeps s
+                      where s.workspace_id = ${ws} and s.status = 'running'
+                        and (t.id = any (s.tag_ids) or s.only_tag_id = t.id))`;
+      },
+    },
   ],
 ];
 

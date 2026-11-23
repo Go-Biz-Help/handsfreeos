@@ -1384,7 +1384,7 @@
   "apps/web/src/components/members/pending-invitations.tsx": "1195e3b775d1",
   "apps/web/src/components/members/person-permissions-dialog.tsx": "b37bcd82f9f6",
   "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
-  "apps/web/src/components/migrations/wizard.tsx": "c600c329d74f",
+  "apps/web/src/components/migrations/wizard.tsx": "1a917322a89b",
   "apps/web/src/components/money/copy-link.tsx": "c2ae31b0b2a4",
   "apps/web/src/components/money/document-actions.tsx": "cebb1f7b1b8d",
   "apps/web/src/components/money/document-editor.tsx": "6a756153e9eb",

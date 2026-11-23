@@ -129,8 +129,13 @@ const contact = (c: ContactSeed): FakeRecord => ({
   },
 });
 
-/** Something the business sells. Its prices are a list of their own over there. */
-const sells = (id: string, name: string, dollars: number): FakeRecord => ({
+/** Something the business sells. Its prices are a list of their own over there, and may be several. */
+const sells = (
+  id: string,
+  name: string,
+  dollars: number,
+  more: readonly { name: string; dollars: number }[] = [],
+): FakeRecord => ({
   objectType: 'product',
   objectId: id,
   createdAt: '2019-03-01T10:00:00.000Z',
@@ -139,7 +144,15 @@ const sells = (id: string, name: string, dollars: number): FakeRecord => ({
     id,
     name,
     description: null,
-    prices: [{ _id: `${id}_p1`, amount: dollars, currency: 'USD' }],
+    prices: [
+      { _id: `${id}_p1`, name: 'Standard', amount: dollars, currency: 'USD' },
+      ...more.map((m, i) => ({
+        _id: `${id}_p${i + 2}`,
+        name: m.name,
+        amount: m.dollars,
+        currency: 'USD',
+      })),
+    ],
     availableInStore: true,
   },
 });
@@ -595,7 +608,8 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
 
   // ---------- what they sell, and what they billed ----------
   sells('prd_service', 'Service call', 129),
-  sells('prd_coil', 'Replacement coil', 850),
+  // Two prices over there: one product here, with a choice for each (2026-11-23).
+  sells('prd_coil', 'Replacement coil', 850, [{ name: 'Installed', dollars: 1100 }]),
   // Paid in full, years ago: the payment must not look like one anybody here could refund.
   billed('inv_a1', 'con_a1', 'INV-1041', 'paid', 129, 129, '2019-06-05T10:00:00.000Z', [
     { name: 'Service call', qty: 1, amount: 129 },
@@ -1388,6 +1402,8 @@ export function createFakeSourceAdapter(): FakeSource {
           const prices = Array.isArray(p['prices'])
             ? (p['prices'] as Record<string, unknown>[])
             : [];
+          const amounts = prices.map((price) => Math.round(Number(price['amount'] ?? 0) * 100));
+          const lowest = amounts.length ? Math.min(...amounts) : 0;
           return [
             {
               ...base,
@@ -1397,10 +1413,24 @@ export function createFakeSourceAdapter(): FakeSource {
               data: {
                 name: str(p['name']) ?? 'Product',
                 description: str(p['description']),
-                unitPriceCents: Math.round(Number(prices[0]?.['amount'] ?? 0) * 100),
+                // As the real adapter does: the lowest price is the product's, and several prices are a
+                // choice each, at the difference.
+                unitPriceCents: lowest,
                 unitLabel: 'each',
                 taxable: true,
                 active: true,
+                options:
+                  prices.length > 1
+                    ? [
+                        {
+                          name: 'Price',
+                          choices: prices.map((price, i) => ({
+                            label: str(price['name']) ?? `Price ${i + 1}`,
+                            priceCents: amounts[i]! - lowest,
+                          })),
+                        },
+                      ]
+                    : [],
               },
             },
           ];

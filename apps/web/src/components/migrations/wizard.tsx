@@ -989,13 +989,14 @@ function Finished({
           asks rather than stopping quietly.
         </p>
       ) : null}
-      {/* Records that came in after it was taken back: a batch that was already running kept writing until
-          2026-11-23. Taking it back again puts away exactly those. */}
+      {/* Records still here from a move that was taken back: ones a batch that was already running wrote
+          until 2026-11-23, and the tags a take-back left before it took them too. Taking it back again puts
+          away exactly those, and keeps any tag something of the business's own uses. */}
       {leftBehind > 0 ? (
         <p className="mt-4 text-[13px] text-text-2" data-testid="migration-left-behind">
-          {leftBehind.toLocaleString()} {leftBehind === 1 ? 'record' : 'records'} came in after this
-          was taken back, so {leftBehind === 1 ? 'it’s' : 'they’re'} still here. Take{' '}
-          {leftBehind === 1 ? 'it' : 'them'} back too.
+          {leftBehind.toLocaleString()} {leftBehind === 1 ? 'record' : 'records'} from this move{' '}
+          {leftBehind === 1 ? 'is' : 'are'} still here. Take {leftBehind === 1 ? 'it' : 'them'} back
+          too. Any tag that’s on your own customers or used by a setting stays.
         </p>
       ) : null}
       {/* Taking it back is the way out of a finished move; deleting is the card below, on every step. */}
@@ -1142,7 +1143,7 @@ function Discard({
       };
     if (status === 'rolled_back' && detail.migration.leftBehind > 0)
       return {
-        line: `${detail.migration.leftBehind.toLocaleString()} of its records came in after it was taken back. Take those back first, then it can be deleted.`,
+        line: `${detail.migration.leftBehind.toLocaleString()} of its records are still here. Take those back first, then it can be deleted.`,
         button: 'rollback',
       };
     if (status === 'rolled_back')

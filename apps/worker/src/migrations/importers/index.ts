@@ -24,6 +24,7 @@ import {
   isUniqueViolation,
   mergeScalarFields,
   normalizePhone,
+  optionsProblem,
   otherEmailsOf,
   otherPhonesOf,
   stricterConsent,
@@ -31,6 +32,7 @@ import {
   tidyOtherEmails,
   tidyOtherPhones,
   slugify,
+  withOptionIds,
   type CanonicalEnvelope,
   type ExistingContact,
   type MergeDecision,
@@ -70,6 +72,17 @@ const textArray = (values: readonly string[]) =>
         values.map((v) => sql`${v}`),
         sql`, `,
       )}]::text[]`;
+
+/** A customer's field as their notes name it, for a value the old system had that this record already had otherwise. */
+const KEPT_FIELD_WORDS: Readonly<Record<string, string>> = {
+  first_name: 'First name',
+  last_name: 'Last name',
+  address_line1: 'Address',
+  city: 'City',
+  state: 'State',
+  postal_code: 'ZIP code',
+  source: 'Source',
+};
 
 /** HandsFreeOS keeps tags to 40 characters. A longer one is shortened and said out loud, never dropped. */
 const TAG_MAX = 40;
@@ -832,7 +845,7 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     ...homeless.map(([k, v]) => `• ${k}: ${String(v)}`),
     ...unreadable.map((v) => `• Another number: ${v}`),
   ];
-  const notes = noteLines.length ? `From the old system:\n${noteLines.join('\n')}` : null;
+  let notes = noteLines.length ? `From the old system:\n${noteLines.join('\n')}` : null;
 
   if (already) {
     // Seen before: bring anything that has changed since, and never make a second one.
@@ -948,6 +961,24 @@ export const importContact: Importer = async (tx, scope, envelope) => {
           'last_name',
         ],
       );
+      // What the old system said that this customer already had otherwise, and that would go nowhere. Not a
+      // number or an email: those are kept beside the one here, in their other numbers and emails (below).
+      // And not the same thing written another way ("bob" for "Bob"), which used to count as different. The
+      // rest goes in the customer's notes, so "the old value is listed" is true: until 2026-11-23 the finding
+      // said so and nothing kept it.
+      const differs = Object.entries(merged.kept).filter(
+        ([field, { here: a, there: b }]) =>
+          field !== 'email' &&
+          field !== 'phone' &&
+          String(a).trim().toLowerCase() !== String(b).trim().toLowerCase(),
+      );
+      const oldValues = differs.map(
+        ([field, { there: b }]) => `• ${KEPT_FIELD_WORDS[field] ?? field} over there: ${String(b)}`,
+      );
+      if (oldValues.length > 0)
+        notes = notes
+          ? `${notes}\n${oldValues.join('\n')}`
+          : `From the old system:\n${oldValues.join('\n')}`;
       // The stricter agreement wins, from either side. Somebody who told either system to stop has told us.
       const consent = stricterConsent(here.sms_consent, smsConsent);
       const changed: Record<string, { before: unknown; after: unknown }> = {};
@@ -1034,18 +1065,20 @@ export const importContact: Importer = async (tx, scope, envelope) => {
             and exists (select 1 from app.migration_change_journal j
                         where j.migration_id = ${scope.migrationId} and j.action = 'create'
                           and j.target_type = 'person' and j.target_id = ${here.id}::uuid)`);
-      // What the old system said and we did not take, kept so somebody can see the difference and choose.
-      if (Object.keys(merged.kept).length > 0)
+      // What the old system said and we did not take, kept in the notes so somebody can see the difference
+      // and choose.
+      if (differs.length > 0)
         await finding(tx, scope, {
           code: 'merge.kept_what_was_here',
           category: 'contacts',
           capability: 'needs_review',
           severity: 'info',
-          summary: 'Some customers here already had a different value from the old system.',
+          summary:
+            'Some customers here already had a different name, address or source from the old system.',
           whatImports: 'Blank fields were filled in from the old system.',
           whatChanges:
-            'Anything already filled in here was left as it was, and the old value is listed.',
-          recommendedAction: 'Look at the list if you want the old system’s value instead.',
+            'Anything already filled in here was left as it was, and the old system’s value is in that customer’s notes.',
+          recommendedAction: 'Open the customer if you want the old system’s value instead.',
           affected: 1,
         });
       await putMapping(tx, scope, {
@@ -1184,6 +1217,9 @@ async function applyTags(
         )
       )[0];
     if (!tag) continue;
+    // A tag made here is the move's, and the journal is what Take it back reads: without this line a tag
+    // that came only on a customer (its category not chosen) stayed after the move was taken back.
+    if (made) await journal(tx, scope, { action: 'create', targetType: 'tag', targetId: made.id });
     await tx.execute(sql`
       insert into app.record_tags (workspace_id, tag_id, record_type, record_id)
       values (${scope.workspaceId}, ${tag.id}::uuid, ${recordType}::app.record_type, ${recordId}::uuid)
@@ -2581,6 +2617,7 @@ export const importProduct: Importer = async (tx, scope, envelope) => {
     unitLabel?: string;
     taxable?: boolean;
     active?: boolean;
+    options?: { name: string; choices: { label: string; priceCents: number }[] }[];
   };
   const already = await existingMapping(
     tx,
@@ -2591,14 +2628,21 @@ export const importProduct: Importer = async (tx, scope, envelope) => {
   if (already) return { counts: { skipped: 1 } };
 
   const name = (str(d.name) ?? 'Product').slice(0, 160);
+  const price = Math.max(0, Math.round(Number(d.unitPriceCents ?? 0)));
+  // Its several prices, as choices (the adapter's productEnvelope). Checked the way the price list checks
+  // a person's, and left off rather than written when they would not pass there: a product that came across
+  // at one price beats one the price list cannot open.
+  const options = withOptionIds(d.options ?? []);
+  const kept = optionsProblem(price, options) ? [] : options;
   const { createdAt, updatedAt } = sourceTimes(envelope);
   const id = randomUUID();
   await tx.execute(sql`
     insert into app.products (id, workspace_id, name, description, unit_price_cents, unit_label,
-      taxable, archived_at, created_at, updated_at)
+      taxable, options, archived_at, created_at, updated_at)
     values (${id}::uuid, ${scope.workspaceId}, ${name}, ${str(d.description)},
-      ${Math.max(0, Math.round(Number(d.unitPriceCents ?? 0)))},
+      ${price},
       ${(str(d.unitLabel) ?? 'each').slice(0, 40)}, ${d.taxable !== false},
+      ${JSON.stringify(kept)}::jsonb,
       -- Something they had stopped selling stays stopped here, rather than reappearing in the list.
       ${d.active === false ? (updatedAt?.toISOString() ?? new Date().toISOString()) : null}::timestamptz,
       coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),

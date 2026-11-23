@@ -7,6 +7,8 @@
  *   dependsOn — cannot exist without it. A message with no conversation is not a message.
  *   prefers   — better with it, fine without. A customer with no owner is still a customer; the owner is
  *               attached in the links pass if the team came across too.
+ *   bringsAlong — added and locked like a need whenever the source can give it, and left out without a word
+ *               when it can't. Customers bring their custom fields.
  *
  * Nothing here knows what CRM anyone is leaving.
  */
@@ -50,7 +52,10 @@ export function resolveSelection(req: SelectionRequest): ResolvedSelection {
     const id = queue.shift()!;
     const cat = migrationCategory(id);
     if (!cat) continue;
-    for (const need of cat.dependsOn) {
+    // What it brings along is added like a need when the source can give it, and simply left out when it
+    // can't: it never blocks anything (the loop below reads `dependsOn` only).
+    const brings = (cat.bringsAlong ?? []).filter((b) => !unavailable.has(b));
+    for (const need of [...cat.dependsOn, ...brings]) {
       if (!migrationCategory(need)) continue;
       let asked = requiredBy.get(need);
       if (!asked) requiredBy.set(need, (asked = new Set()));

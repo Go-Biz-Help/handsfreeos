@@ -161,7 +161,9 @@ export const migrationList = defineQuery({
 /**
  * What a taken-back move left here: records it made or changed that are neither put back nor kept on purpose.
  * A rollback marks every one it deals with, the ones it keeps included, so after a finished rollback this is
- * zero unless something wrote after it ran — a batch that was already running did, until 2026-11-23.
+ * zero unless something wrote after it ran — a batch that was already running did, until 2026-11-23. A move
+ * taken back before tags went with it (2026-11-23) counts the tags it made here too, so pressing Take back
+ * what's left puts away the ones nothing uses.
  *
  * Minus what a rollback never touches, the same as the preview says: the kinds in `MIGRATION_ROLLBACK_LEAVES`,
  * and changes to anything but a customer or a company, which are the only ones it puts back field by field.
@@ -609,8 +611,8 @@ export const migrationRollbackPreview = defineQuery({
       // else. A customer who was already here was joined, never created, so they can only be put back.
       //
       // Minus the kinds a rollback deliberately leaves where they are, or this would promise to remove
-      // records that are never going anywhere: a tag is the business's own label, a user was recognised and
-      // never made, and a stage belongs to the board it is on rather than being a record of its own.
+      // records that are never going anywhere: a user was recognised and never made, and a stage belongs to
+      // the board it is on rather than being a record of its own.
       sql`select
             (select count(*)::int from app.migration_source_mappings sm
              where sm.first_migration_id = ${input.migrationId} and sm.created_here

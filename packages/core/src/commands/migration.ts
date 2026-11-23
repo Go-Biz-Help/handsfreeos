@@ -1030,6 +1030,16 @@ export const migrationStart = defineCommand({
         'Say where each business from the old system lands first.',
       );
 
+    const unreadable = await ctx.tx
+      .selectDistinct({ category: migrationInventory.category })
+      .from(migrationInventory)
+      .where(
+        and(
+          eq(migrationInventory.migrationId, m.id),
+          inArray(migrationInventory.capability, ['not_available']),
+        ),
+      );
+
     let queued = 0;
     // Something was already chosen and read, or is still being read: pressing again is carrying on.
     let carryingOn = false;
@@ -1053,6 +1063,9 @@ export const migrationStart = defineCommand({
         );
       const resolved = resolveSelection({
         chosen: [...new Set(chosen.map((c) => c.category))].filter(isImportable),
+        // So what a category only brings along (customers' custom fields) is never queued where the old
+        // system won't give it.
+        unavailable: unreadable.map((r) => r.category),
       });
       /**
        * Pressing it again carries on; it never starts over. Until now every press on a stopped move queued a

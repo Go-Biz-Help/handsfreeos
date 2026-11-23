@@ -94,6 +94,21 @@ describe('choosing what to bring', () => {
     expect(r.blocked).toEqual([{ category: 'opportunities', missing: ['pipelines'] }]);
   });
 
+  it('brings customers’ custom fields along when the old system has them, and never blocks on them', () => {
+    // 2026-11-23: a move that chose only invoices brought their customers without their custom fields, and
+    // every custom value went to the customer's notes under the old system's id for the field.
+    const r = resolveSelection({ chosen: ['invoices'] });
+    expect(r.categories.map((c) => c.id)).toContain('custom_fields');
+    expect(r.added.find((a) => a.category === 'custom_fields')?.requiredBy).toEqual(['contacts']);
+
+    const without = resolveSelection({ chosen: ['invoices'], unavailable: ['custom_fields'] });
+    expect(without.categories.map((c) => c.id)).toEqual(
+      expect.arrayContaining(['invoices', 'contacts']),
+    );
+    expect(without.categories.map((c) => c.id)).not.toContain('custom_fields');
+    expect(without.blocked).toEqual([]);
+  });
+
   it('will not run a category before what it needs has finished', () => {
     expect(readyToRun('messages', new Set(['contacts']))).toBe(false);
     expect(readyToRun('messages', new Set(['conversations']))).toBe(true);
