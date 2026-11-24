@@ -302,6 +302,10 @@ describe('looking appointments up', () => {
           attendeeId: expect.any(String),
           personId: mikeId,
           name: 'Mike Johnson',
+          // The line under the name on the sheet: how to reach him, and his yes to texts.
+          phone: expect.stringContaining('713'),
+          email: 'mike.johnson@example.com',
+          texts: 'Texts OK',
           confirmed: 'Not asked yet',
         },
       ],
@@ -309,6 +313,8 @@ describe('looking appointments up', () => {
       series: null,
       waitlist: [],
     });
+    // No street yet, so no Directions.
+    expect(result).not.toHaveProperty('directions');
     expect(card).toMatchObject({ type: 'appointment', appointmentId: visit });
   });
 
@@ -422,6 +428,13 @@ describe('after a visit is booked', () => {
     expect(row.location).toMatchObject({
       address: '9 Elm St, Houston, TX 77008',
       postalCode: '77008',
+    });
+    // Where now has a street, so the sheet's Directions opens it in Google Maps.
+    const { result } = await read('get_appointment', { appointmentId: next });
+    expect(result).toMatchObject({
+      where: '9 Elm St, Houston, TX 77008',
+      directions:
+        'https://www.google.com/maps/dir/?api=1&destination=9%20Elm%20St%2C%20Houston%2C%20TX%2077008',
     });
   });
 

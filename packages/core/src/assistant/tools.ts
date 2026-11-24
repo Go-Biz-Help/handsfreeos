@@ -1988,7 +1988,7 @@ export const assistantTools = [
   define({
     name: 'book_appointment',
     description:
-      'Book a customer on a calendar at a time, optionally for one of their pets, vehicles or properties (customRecordId, from find_records), as a record’s Book does; or, as New appointment allows, hold the time with no customer. Leave out userIds to let the calendar pick who (round robin, first available…). Leave out location for the calendar’s first place (the customer’s address on a calendar that goes to them). The customer gets a confirmation unless the person says not to. The card shows who, where, reminders, how the customer is told and any warnings (outside hours, busy, time off) before the person books it.',
+      'Book a customer on a calendar at a time, optionally for one of their pets, vehicles or properties (customRecordId, from find_records), as a record’s Book does; or, as New appointment allows, hold the time with no customer. Leave out userIds to let the calendar pick who (round robin, first available…). Leave out location for the calendar’s first place (the customer’s address on a calendar that goes to them). The customer gets a confirmation unless the person says not to. The card shows who, where, the equipment it takes, reminders, how the customer is told and any warnings (outside hours, busy, time off) before the person books it.',
     input: z.object({
       calendarId: uuid,
       personId: uuid
@@ -2005,6 +2005,15 @@ export const assistantTools = [
       ),
       durationMinutes: minutes.optional(),
       serviceId: uuid.optional(),
+      title: z
+        .string()
+        .trim()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe(
+          'What it is, in a few words (“AC repair”), as New appointment’s What: for a time with no service',
+        ),
       userIds: z.array(uuid).min(1).max(10).optional().describe('Teammates who work it'),
       leadId: uuid.optional(),
       customRecordId: uuid.optional().describe('The pet, vehicle or property it’s for'),

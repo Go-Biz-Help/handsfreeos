@@ -147,6 +147,7 @@ export async function registerAddonWebhookRoutes(
                 .returning({ id: webhookDeliveries.id }),
             )
           : [];
+        if (kept.length) deps.onDeliveryStored?.();
         return reply.code(200).send({ received: true, kept: kept.length });
       },
     );

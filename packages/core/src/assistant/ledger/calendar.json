@@ -1,7 +1,7 @@
 {
   "area": "calendar",
   "title": "Calendar, appointments, My calendar and booking links",
-  "checkedOn": "2026-11-23",
+  "checkedOn": "2026-11-24",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/calendar.tsx": "bf2926675f7a",
     "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "99f851115c11",
@@ -20,8 +20,8 @@
     "apps/mobile/src/components/calendar/zone-chips.tsx": "df1b3ae5b12a",
     "apps/mobile/src/components/customers/new-contact-form.tsx": "b1ce260018e2",
     "apps/mobile/src/components/safety/check-in-sheet.tsx": "e0da61398345",
-    "apps/web/src/app/app/w/[workspaceId]/calendar/page.tsx": "6713bd1eb1f4",
-    "apps/web/src/app/app/w/[workspaceId]/settings/my-calendar/page.tsx": "c8b1891de1c2",
+    "apps/web/src/app/app/w/[workspaceId]/calendar/page.tsx": "b20c0e261b48",
+    "apps/web/src/app/app/w/[workspaceId]/settings/my-calendar/page.tsx": "173a8af934bd",
     "apps/web/src/components/booking/add-to-calendar.tsx": "b1fe85e88a23",
     "apps/web/src/components/booking/booked-panel.tsx": "ff76fb3f55d0",
     "apps/web/src/components/booking/booking-flow.tsx": "db379d44a61a",
@@ -29,10 +29,10 @@
     "apps/web/src/components/booking/chat-button.tsx": "2eb031ad5c0b",
     "apps/web/src/components/booking/deposit-pay.tsx": "6e313e43ece1",
     "apps/web/src/components/booking/format.ts": "8f0f03320e49",
-    "apps/web/src/components/booking/hold-page.tsx": "03f38595271e",
+    "apps/web/src/components/booking/hold-page.tsx": "9360c3c1c2dd",
     "apps/web/src/components/booking/join-session.tsx": "5106dc9cc988",
     "apps/web/src/components/booking/manage-booking.tsx": "8c2bab34c5e9",
-    "apps/web/src/components/booking/public-shell.tsx": "f984ec968255",
+    "apps/web/src/components/booking/public-shell.tsx": "d13010341740",
     "apps/web/src/components/booking/time-picker.tsx": "5f1a28eaa2f5",
     "apps/web/src/components/booking/turnstile.tsx": "71d6ad4df878",
     "apps/web/src/components/booking/viewer-zone.tsx": "f36a65de3bfa",
@@ -41,7 +41,7 @@
     "apps/web/src/components/calendar/add-attendee-dialog.tsx": "502e321ab7da",
     "apps/web/src/components/calendar/agenda.tsx": "5a875937bc8b",
     "apps/web/src/components/calendar/appointment-dialog.tsx": "203927cbd1b4",
-    "apps/web/src/components/calendar/appointment-sheet.tsx": "18d1db33c373",
+    "apps/web/src/components/calendar/appointment-sheet.tsx": "1651500dbcbd",
     "apps/web/src/components/calendar/appt.ts": "762bf72583c0",
     "apps/web/src/components/calendar/calendar-page.tsx": "a78d17e5678e",
     "apps/web/src/components/calendar/call-review.tsx": "f69afb7ea4c8",
@@ -65,7 +65,7 @@
     "apps/web/src/components/settings/calendar-connection-card.tsx": "fb70eee130ed",
     "apps/web/src/components/settings/day-start.tsx": "6eece1cc5610",
     "apps/web/src/components/settings/meeting-connection-card.tsx": "a7a95b16bd67",
-    "apps/web/src/components/settings/my-calendar.tsx": "a22d9ea4da17",
+    "apps/web/src/components/settings/my-calendar.tsx": "b3a3033240a1",
     "apps/web/src/components/settings/zoom-coach-card.tsx": "53c1cd48f3f4",
     "apps/web/src/components/video-call/call-chat-log.tsx": "f5b02e51b3c9"
   },
@@ -458,9 +458,9 @@
     {
       "path": "New appointment → Uses (equipment)",
       "kind": "see",
-      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:601",
-      "covered": "partly",
-      "by": "server picks it; card doesn’t show it"
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:600",
+      "covered": "yes",
+      "by": "book_appointment’s card Uses row and result uses (“1 Red light bed”); get_appointment equipment"
     },
     {
       "path": "New appointment → With",
@@ -514,9 +514,9 @@
     {
       "path": "New appointment → travel note",
       "kind": "see",
-      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:779",
-      "covered": "no",
-      "by": "travel not returned"
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:780",
+      "covered": "yes",
+      "by": "get_calendar_settings buffers travel; get_appointment around (“30 min travel before and after”)"
     },
     {
       "path": "New appointment → warnings",
@@ -788,8 +788,8 @@
       "path": "Appointment → Customer → phone and email line",
       "kind": "see",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:617",
-      "covered": "partly",
-      "by": "get_customer has it; get_appointment doesn’t"
+      "covered": "yes",
+      "by": "get_appointment customers phone, email, texts (Texts OK or No text consent)"
     },
     {
       "path": "Appointment → Customer → Call",
@@ -1061,8 +1061,8 @@
       "path": "Appointment → Where → Directions (web, phone)",
       "kind": "do",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1003",
-      "covered": "partly",
-      "by": "address given; no map link"
+      "covered": "yes",
+      "by": "get_appointment directions: the address in Google Maps, as the sheet opens it"
     },
     {
       "path": "Appointment → People and equipment → people and roles",
@@ -1215,8 +1215,8 @@
       "path": "Appointment (phone) → Check in",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:365",
-      "covered": "no",
-      "by": "safety.check_in has no tool"
+      "covered": "yes",
+      "by": "my_check_in action start, appointmentId (todays_schedule)"
     },
     {
       "path": "Appointment (phone) → what an add-on puts on a visit (Contractor Operations: Work order, for a visit on a job)",
@@ -1229,8 +1229,8 @@
       "path": "Check in → Where, Check out by, Other time",
       "kind": "do",
       "file": "apps/mobile/src/components/safety/check-in-sheet.tsx:120",
-      "covered": "no",
-      "by": "safety.check_in has no tool"
+      "covered": "yes",
+      "by": "my_check_in action start: place, until (within 12 hours)"
     },
     {
       "path": "Check in → Share where I am",
@@ -1243,8 +1243,8 @@
       "path": "Check in → who gets told",
       "kind": "see",
       "file": "apps/mobile/src/components/safety/check-in-sheet.tsx:179",
-      "covered": "no",
-      "by": "no tool reads safety settings here"
+      "covered": "yes",
+      "by": "read_safety_mine contacts"
     },
     {
       "path": "New appointment (phone) → Who it’s for search and chips",
@@ -1278,8 +1278,8 @@
       "path": "New appointment (phone) → What, as free text",
       "kind": "do",
       "file": "apps/mobile/src/components/calendar/new-appointment.tsx:269",
-      "covered": "partly",
-      "by": "no title input; update_appointment title after"
+      "covered": "yes",
+      "by": "book_appointment title"
     },
     {
       "path": "New appointment (phone) → Day, Time",
@@ -1292,8 +1292,8 @@
       "path": "New appointment (phone) → Time zone chips, Somewhere else",
       "kind": "do",
       "file": "apps/mobile/src/components/calendar/zone-chips.tsx:43",
-      "covered": "partly",
-      "by": "startsAt offset only"
+      "covered": "yes",
+      "by": "book_appointment timeZone (their confirmation and reminders tell the time in it)"
     },
     {
       "path": "New appointment (phone) → With",
@@ -1340,14 +1340,14 @@
     {
       "path": "My calendar → my zone chip",
       "kind": "see",
-      "file": "apps/web/src/components/settings/my-calendar.tsx:190",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:195",
       "covered": "yes",
       "by": "get_settings my_calendar schedules.hoursIn"
     },
     {
       "path": "My calendar → Weekly hours by day",
       "kind": "see",
-      "file": "apps/web/src/components/settings/my-calendar.tsx:200",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:206",
       "covered": "yes",
       "by": "get_settings my_calendar schedules.weeklyHours"
     },
@@ -1361,21 +1361,21 @@
     {
       "path": "My calendar → Time zone",
       "kind": "do",
-      "file": "apps/web/src/components/settings/my-calendar.tsx:208",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:214",
       "covered": "yes",
       "by": "update_my_hours timeZone"
     },
     {
       "path": "My calendar → no hours saved, 9 to 5 apply",
       "kind": "see",
-      "file": "apps/web/src/components/settings/my-calendar.tsx:233",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:239",
       "covered": "yes",
       "by": "get_settings my_calendar schedules.weeklyHours says no hours saved"
     },
     {
       "path": "My calendar → Undo, Save",
       "kind": "do",
-      "file": "apps/web/src/components/settings/my-calendar.tsx:239",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:245",
       "covered": "yes",
       "by": "update_my_hours set_hours"
     },
@@ -1389,14 +1389,14 @@
     {
       "path": "My calendar → Add time off → All day, From, To, times, Note",
       "kind": "do",
-      "file": "apps/web/src/components/settings/my-calendar.tsx:407",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:419",
       "covered": "yes",
       "by": "update_my_hours add_time_off"
     },
     {
       "path": "My calendar → remove time off",
       "kind": "do",
-      "file": "apps/web/src/components/settings/my-calendar.tsx:290",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:299",
       "covered": "yes",
       "by": "get_settings my_calendar timeOff exceptionId; update_my_hours remove_time_off"
     },
@@ -1417,7 +1417,7 @@
     {
       "path": "My calendar → connected or failed notes after signing in",
       "kind": "see",
-      "file": "apps/web/src/components/settings/my-calendar.tsx:36",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:39",
       "covered": "person",
       "by": "comes back from signing in"
     },
@@ -1571,7 +1571,7 @@
     {
       "path": "Booking site → Online booking is off",
       "kind": "see",
-      "file": "apps/web/src/components/booking/public-shell.tsx:169",
+      "file": "apps/web/src/components/booking/public-shell.tsx:174",
       "covered": "yes",
       "by": "get_calendar_settings; update_booking_site"
     },
@@ -1691,8 +1691,8 @@
       "path": "Booking link → intake questions",
       "kind": "do",
       "file": "apps/web/src/components/booking/booking-flow.tsx:397",
-      "covered": "no",
-      "by": "intake answers not readable or settable"
+      "covered": "partly",
+      "by": "get_calendar_settings intake questions and manage_calendar intake set them; the customer answers on their own page, and their answers show on no team screen or tool"
     },
     {
       "path": "Booking link → deposit note",
@@ -1740,8 +1740,8 @@
       "path": "Deposit → summary and amount, card held note",
       "kind": "see",
       "file": "apps/web/src/components/booking/deposit-pay.tsx:114",
-      "covered": "partly",
-      "by": "customer_money; hold not returned"
+      "covered": "yes",
+      "by": "get_calendar_settings deposit; get_appointment held words while it waits (the customer’s own page)"
     },
     {
       "path": "Deposit → How to pay (card, bank), Pay",
@@ -1760,9 +1760,16 @@
     {
       "path": "Held time page → held, expired, paid states",
       "kind": "see",
-      "file": "apps/web/src/components/booking/hold-page.tsx:102",
-      "covered": "no",
-      "by": "heldUntil not returned"
+      "file": "apps/web/src/components/booking/hold-page.tsx:171",
+      "covered": "yes",
+      "by": "get_appointment and list_appointments: Not booked yet, with held (“Waiting on a deposit. Held until 3:10 PM · 12 minutes left to pay it”, or the time is up and the slot goes back), then Scheduled once paid (the customer’s own page; the Assistant reads it from the team’s side)"
+    },
+    {
+      "path": "Held time page → that payment didn’t go through, nothing was charged, the time is still held: try again or pick another way to pay",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/hold-page.tsx:101",
+      "covered": "person",
+      "by": "paying again is the customer’s own, on their page; the team side reads the time still held and unpaid (get_appointment held, money.deposit none)"
     },
     {
       "path": "Booked → What, When, Where, Who, you’re booked",
@@ -1775,8 +1782,8 @@
       "path": "Booked → deposit lines",
       "kind": "see",
       "file": "apps/web/src/components/booking/booked-panel.tsx:34",
-      "covered": "partly",
-      "by": "customer_money; not per visit"
+      "covered": "yes",
+      "by": "get_appointment money.deposit (Deposit paid or on its way, the amount, left to pay after the visit); money_collected says the card it was paid by"
     },
     {
       "path": "Booked → we told you by text or email",
@@ -1803,8 +1810,8 @@
       "path": "Booked → link to change or cancel",
       "kind": "see",
       "file": "apps/web/src/components/booking/booked-panel.tsx:163",
-      "covered": "no",
-      "by": "manage link not returned"
+      "covered": "person",
+      "by": "the customer’s own private link, sent in their confirmation; the team changes or cancels the visit itself (reschedule_appointment, cancel_appointment)"
     },
     {
       "path": "Manage booking → cancelled, passed, can’t change reasons",
@@ -2138,6 +2145,26 @@
       "fix": "Extend manage_calendar.action (tools.ts:373-375) with 'archive', 'back_to_draft' and 'unarchive' (to draft). Map them in tools-settings-calendar.ts:256-300 to calendar.set_status with 'archived' or 'draft'. Give archive the screen's warning, 'It stops taking bookings and leaves the calendar. Its history stays.'",
       "status": "fixed",
       "pr": null
+    },
+    {
+      "id": "cal-25",
+      "severity": "low",
+      "kind": "read",
+      "where": "Visit sheet: the line under the customer’s name (phone or email, Texts OK or No text consent), and Where’s Directions",
+      "gap": "get_appointment returned each customer’s name, how they hear and whether they confirmed, but not the phone, email or text consent the sheet shows under the name (get_customer had them, one more look-up). Where gave the address but not the Directions link the sheet and the phone open.",
+      "fix": "get_appointment customers: phone, email and texts (“Texts OK” or “No text consent”). With an address, directions: core’s directionsUrl, which the web sheet now uses too.",
+      "status": "fixed",
+      "pr": 764
+    },
+    {
+      "id": "cal-26",
+      "severity": "low",
+      "kind": "do",
+      "where": "New appointment: What as free text (the phone, and a calendar with no services), and Uses, the room, truck or chair it takes",
+      "gap": "book_appointment had no title, so a time with no service booked under the calendar’s name and needed update_appointment after. Its card didn’t show the equipment the calendar reserves, though New appointment shows Uses.",
+      "fix": "book_appointment takes title (appointment.create’s). Its card adds a Uses row and its result uses, from the booking’s own resources.",
+      "status": "fixed",
+      "pr": 764
     }
   ]
 }

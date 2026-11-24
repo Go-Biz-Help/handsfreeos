@@ -16,12 +16,22 @@ export const SHOW_AFTER_MS = 150;
 export const SETTLE_MS = 50;
 export const LAND_MS = 300;
 export const GIVE_UP_MS = 20_000;
+/**
+ * How long after a move lands a screen that shows up is still taken to have come with it: a part of the page that
+ * waits a beat before it draws (a media query, something streamed in after the rest).
+ */
+export const CAME_WITH_MS = 5_000;
 
 type Phase = 'idle' | 'waiting' | 'moving' | 'settling' | 'landing';
 
 let phase: Phase = 'idle';
 /** How many moves have started: a landing counts only for the newest. */
 let moves = 0;
+/** When the newest move started; 0 before the first. */
+let startedAt = 0;
+/** The newest move that has landed, and when it first did. */
+let landed = 0;
+let landedAt = 0;
 let timer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
 
@@ -48,6 +58,7 @@ function set(next: Phase): void {
 /** A move to another page has started. One already showing keeps its bar: a second click, or a page that sends on. */
 export function navigationStarted(): void {
   moves += 1;
+  startedAt = Date.now();
   if (phase === 'settling') set('moving');
   else if (phase !== 'moving') set('waiting');
 }
@@ -56,11 +67,30 @@ export function navigationStarted(): void {
 export const navigationMove = (): number => moves;
 
 /**
+ * For a screen that shows up now: when the move that brought it began, or null when it did not come with one (the
+ * page was opened fresh, or the screen opened on a page that was already there). A screen comes with a move while
+ * the move is on its way and for `CAME_WITH_MS` after it lands. The server read the page after the move began and
+ * before the screen was there to listen, so a live change heard since then may be missing from what the screen
+ * shows (lib/realtime/heard.ts).
+ */
+export function navigationCameSince(now = Date.now()): number | null {
+  if (moves === 0) return null;
+  // On its way still, unless it never lands; or landed a moment ago.
+  const came = landed === moves ? now - landedAt < CAME_WITH_MS : now - startedAt < GIVE_UP_MS;
+  return came ? startedAt : null;
+}
+
+/**
  * The page is there. `move` is the newest move as the page landed: when another has started since (a page that sent
  * the person on the moment it landed), this landing is not the end, and the bar stays for that one.
  */
 export function navigationLanded(move: number): void {
   if (move !== moves) return;
+  // The history is written again for a page that is already there (its own address changes); the first is the landing.
+  if (landed !== move) {
+    landed = move;
+    landedAt = Date.now();
+  }
   if (phase === 'waiting') set('idle');
   else if (phase === 'moving') set('settling');
 }

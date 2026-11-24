@@ -1,7 +1,7 @@
 {
   "area": "public-links",
   "title": "Every link a business gives out, and the public pages behind them",
-  "checkedOn": "2026-11-23",
+  "checkedOn": "2026-11-24",
   "files": {
     "apps/web/src/addons/realestate/portal/bits.tsx": "d7b704452b09",
     "apps/web/src/addons/realestate/portal/home-panel.tsx": "94db9d871e1e",
@@ -50,7 +50,7 @@
     "apps/web/src/components/booking/hold-page.tsx": "9360c3c1c2dd",
     "apps/web/src/components/booking/join-session.tsx": "5106dc9cc988",
     "apps/web/src/components/booking/manage-booking.tsx": "8c2bab34c5e9",
-    "apps/web/src/components/booking/public-shell.tsx": "aad974c4e588",
+    "apps/web/src/components/booking/public-shell.tsx": "d13010341740",
     "apps/web/src/components/booking/time-picker.tsx": "5f1a28eaa2f5",
     "apps/web/src/components/booking/viewer-zone.tsx": "f36a65de3bfa",
     "apps/web/src/components/booking/waitlist-offer.tsx": "6d0890441564",

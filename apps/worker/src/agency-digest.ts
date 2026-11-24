@@ -234,10 +234,11 @@ export const sendDigest: JobHandler = async (ctx) => {
     );
     if (!o) return null;
     const day = localDateOf(now, o.timezone);
+    // Asked by time, like the morning summary's (attention/digest.ts): today's marker was written today.
     const sent = await rows(
       tx,
       sql`select 1 from app.events
-          where entity_type = 'organization' and entity_id = ${organizationId}
+          where organization_id = ${organizationId} and created_at > now() - interval '48 hours'
             and event_type = 'organization.digest_sent' and payload ->> 'day' = ${day}
           limit 1`,
     );

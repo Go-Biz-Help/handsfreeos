@@ -36,7 +36,7 @@
     "apps/mobile/src/home/actions.ts": "80e1442f9475",
     "apps/mobile/src/search/recent.ts": "6d3884953cf1",
     "apps/mobile/src/search/rows.tsx": "4c8fee7ac09c",
-    "apps/web/src/app/app/w/[workspaceId]/audit/page.tsx": "260b09810a61",
+    "apps/web/src/app/app/w/[workspaceId]/audit/page.tsx": "5db2ac771c35",
     "apps/web/src/app/app/w/[workspaceId]/page.tsx": "756b080539a0",
     "apps/web/src/app/app/w/[workspaceId]/search/page.tsx": "f23d0369d4f7",
     "apps/web/src/components/assistant/ask-button.tsx": "1189fdcab4d4",
@@ -98,10 +98,10 @@
     "apps/web/src/components/search/search-provider.tsx": "dd35231df622",
     "apps/web/src/components/shell/menu-editor.tsx": "bd19438cf152",
     "apps/web/src/components/shell/missing-page.tsx": "fb8ed3e50256",
-    "apps/web/src/components/shell/mobile-shell.tsx": "2d7ed48b889a",
-    "apps/web/src/components/shell/nav-links.tsx": "d7e6a9250526",
+    "apps/web/src/components/shell/mobile-shell.tsx": "0c40a6d6bdf1",
+    "apps/web/src/components/shell/nav-links.tsx": "fd509f8ebb5b",
     "apps/web/src/components/shell/notifications-bell.tsx": "36256aed833a",
-    "apps/web/src/components/shell/sidebar.tsx": "3cb3b237cb52",
+    "apps/web/src/components/shell/sidebar.tsx": "bc1313c7d5ee",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
     "apps/web/src/components/shell/workspace-switcher.tsx": "a94cb85f3c21",
     "apps/web/src/components/support/get-help.tsx": "a753e0577cbd"
@@ -1083,7 +1083,7 @@
     {
       "path": "Side menu → places in the person’s order",
       "kind": "see",
-      "file": "apps/web/src/components/shell/nav-links.tsx:778",
+      "file": "apps/web/src/components/shell/nav-links.tsx:782",
       "covered": "yes",
       "by": "get_settings my_account (menu); places map"
     },
@@ -1132,21 +1132,21 @@
     {
       "path": "Side menu → Settings",
       "kind": "do",
-      "file": "apps/web/src/components/shell/nav-links.tsx:874",
+      "file": "apps/web/src/components/shell/nav-links.tsx:878",
       "covered": "partly",
       "by": "get_settings, settings_help; no link"
     },
     {
       "path": "Side menu → Ideas with its new dot",
       "kind": "see",
-      "file": "apps/web/src/components/shell/nav-links.tsx:874",
+      "file": "apps/web/src/components/shell/nav-links.tsx:878",
       "covered": "yes",
       "by": "read_whats_new_unseen"
     },
     {
       "path": "Side menu → opening What’s new marks it seen",
       "kind": "do",
-      "file": "apps/web/src/components/shell/nav-links.tsx:874",
+      "file": "apps/web/src/components/shell/nav-links.tsx:878",
       "covered": "never",
       "by": "whats_new.mark_seen NEVER"
     },
