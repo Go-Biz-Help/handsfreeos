@@ -24,7 +24,12 @@ import {
 import { eq } from 'drizzle-orm';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { events } from '@hfos/db/schema';
-import { handlersFor, type EventHandler, type HandlerMap } from '../handlers/types';
+import {
+  handlersFor,
+  type EventHandler,
+  type HandlerContext,
+  type HandlerMap,
+} from '../handlers/types';
 import type { JobHandler, JobMap } from '../jobs';
 import { tenantOf, workerMeta } from '../services';
 import { addonScope } from './context';
@@ -68,6 +73,7 @@ export function addonWorkerModuleIssues(
   for (const {
     manifest: m,
     subscribers = {},
+    wants = {},
     jobs = {},
     dataMigrations = {},
     connectors = {},
@@ -87,6 +93,9 @@ export function addonWorkerModuleIssues(
         issues.push(`${m.id} subscribes to ${t}, which its manifest doesn't consume`);
     for (const t of consumes)
       if (!(t in subscribers)) issues.push(`${m.id} consumes ${t} but has no subscriber for it`);
+    for (const t of Object.keys(wants))
+      if (!(t in subscribers))
+        issues.push(`${m.id} says which ${t} it wants but has no subscriber for it`);
     const declared = new Set(m.jobs ?? []);
     for (const k of Object.keys(jobs))
       if (!declared.has(k)) issues.push(`${m.id} has a job ${k} its manifest doesn't declare`);
@@ -217,8 +226,29 @@ export function addonWorker(catalog: Catalog, modules: readonly AddonWorkerModul
   };
 
   /**
+   * Whether an add-on has anything to do for this event (its module's `wants`). One that says nothing wants every
+   * one, and so does one whose check throws: its subscriber then meets the trouble in a job of its own, where it
+   * holds up nobody else.
+   */
+  const wanted = (ctx: HandlerContext, eventType: string, addonId: string): boolean => {
+    const wants = modules.find((m) => m.manifest.id === addonId)?.wants?.[eventType];
+    if (!wants) return true;
+    try {
+      return wants((ctx.event.payload ?? {}) as Record<string, unknown>);
+    } catch (err) {
+      ctx.log.error(
+        { err, addonId, eventType },
+        'an add-on could not say whether it wants an event',
+      );
+      return true;
+    }
+  };
+
+  /**
    * The add-ons subscribed to an event type that run in the event's business: one delivery job each. An event about
-   * one add-on's own thing (someone acknowledged its alert) goes only to that add-on: no add-on hears another's.
+   * one add-on's own thing (someone acknowledged its alert) goes only to that add-on: no add-on hears another's. And
+   * one an add-on has nothing to do for (`wants`) queues no job for it: most of what Social Outreach's computers
+   * say all day.
    */
   const fanOut =
     (eventType: string, subscribed: readonly string[]): EventHandler =>
@@ -229,7 +259,9 @@ export function addonWorker(catalog: Catalog, modules: readonly AddonWorkerModul
         ? (ctx.event.payload as Record<string, unknown> | null)?.['addonId']
         : undefined;
       if (owner !== undefined && typeof owner !== 'string') return;
-      const addonIds = owner === undefined ? subscribed : subscribed.filter((id) => id === owner);
+      const addonIds = (
+        owner === undefined ? subscribed : subscribed.filter((id) => id === owner)
+      ).filter((id) => wanted(ctx, eventType, id));
       if (addonIds.length === 0) return;
       const running = await rows<{ addon_id: string; generation: number }>(
         ctx.tx,

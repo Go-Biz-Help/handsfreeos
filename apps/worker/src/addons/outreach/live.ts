@@ -95,9 +95,15 @@ export async function armPrune(ctx: AddonScopeContext, now = Date.now()): Promis
  * add-on before it. Every other change (a step, a new state) leaves it be: the job comes back each day by itself.
  */
 export async function liveChanged(ctx: AddonEventContext): Promise<void> {
-  const p = (ctx.event.payload ?? {}) as { made?: unknown };
-  if (p.made === true) await armPrune(ctx);
+  if (liveChangedWanted((ctx.event.payload ?? {}) as Record<string, unknown>)) await armPrune(ctx);
 }
+
+/**
+ * Whether an `outreach.live.changed` is one of those: the module's `wants`, so the thousands a week that aren't
+ * queue no job (3,167 in a week of November 2026, none of them a new computer).
+ */
+export const liveChangedWanted = (payload: Readonly<Record<string, unknown>>): boolean =>
+  payload['made'] === true;
 
 /**
  * `outreach.live_prune`: lines older than a week go, and so do asks of the extension asked a week ago (decision 43),

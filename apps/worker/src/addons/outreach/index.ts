@@ -50,6 +50,7 @@ import {
   oldGoodWanted,
   commentReplied,
   postChecked,
+  postCheckedWanted,
   postsSaved,
   recheckGoodPosts,
 } from './posts';
@@ -81,7 +82,14 @@ import { likeYoursFound, PICK_LIKE_YOURS_JOB, pickLikeYoursJob } from './like-yo
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { TIMES_BOOK_ACTION, timesBook, timesCheck } from './times-check';
 import { askCoded, askProgressed, askSettled } from './asks';
-import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
+import {
+  armPrune,
+  LIVE_PRUNE_JOB,
+  liveChanged,
+  liveChangedWanted,
+  livePruneJob,
+  warningSeen,
+} from './live';
 import { needNoted, sendWaits, WAITING_PUSH_JOB, waitingPushJob } from './waiting';
 import {
   armDayReportFor,
@@ -270,6 +278,13 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // A comment research started, full or stopped is summed up when its days end, or now (./comment-research.ts,
     // decision 166).
     'outreach.comment_research.changed': commentResearchChanged,
+  },
+  // The two events that happen all day and almost never have anything for the worker: a computer saying what it's
+  // doing, and a post checked. Asked before a delivery is queued, so the rest cost no job (the speed audit, Nov 2026:
+  // they were six in ten of every add-on delivery there was).
+  wants: {
+    'outreach.live.changed': liveChangedWanted,
+    'outreach.post.checked': postCheckedWanted,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
