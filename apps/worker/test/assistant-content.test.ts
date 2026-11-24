@@ -933,8 +933,9 @@ describe('forms', () => {
         };
       },
     };
+    // The worker's own connection, as the Assistant's route has: the AI budget it checks runs as the system.
     const formTools = () =>
-      createToolExecutor(api(), null, {
+      createToolExecutor(testDbs().worker.db, null, {
         ai: { provider },
         log: testServices().log,
         wallet: testServices().wallet,
