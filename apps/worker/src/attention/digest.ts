@@ -238,10 +238,12 @@ export const sendAttentionDigest: JobHandler = async (ctx) => {
     const ws = { name: w.name, timezone: w.timezone };
     const timeZone = ws.timezone || 'UTC';
     const day = localDateOf(now, timeZone);
+    // Asked by time: today's marker was written today. Asked by "events about this business", it read every one
+    // the business ever had (20,000 and over a second for the busiest, each morning, growing for good).
     const sent = await rows(
       tx,
       sql`select 1 from app.events
-          where entity_type = 'workspace' and entity_id = ${scope.workspaceId}
+          where workspace_id = ${scope.workspaceId} and created_at > now() - interval '48 hours'
             and event_type = 'workspace.attention_digest_sent' and payload ->> 'day' = ${day}
           limit 1`,
     );

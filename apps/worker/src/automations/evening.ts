@@ -98,10 +98,11 @@ export const eveningBriefJob: JobHandler = async (ctx) => {
     // Armed for 6 PM but the business chose later: wait for its own time today.
     const todayAt = localInstant(window.day, at, timeZone);
     if (now < todayAt - 60_000) return { ...base, wait: new Date(todayAt), send: null };
+    // Asked by time, like the morning summary's (attention/digest.ts): today's marker was written today.
     const [sent] = await rows(
       tx,
       sql`select 1 from app.events
-          where entity_type = 'workspace' and entity_id = ${scope.workspaceId}
+          where workspace_id = ${scope.workspaceId} and created_at > now() - interval '48 hours'
             and event_type = 'workspace.evening_brief_sent' and payload ->> 'day' = ${window.day}
           limit 1`,
     );
