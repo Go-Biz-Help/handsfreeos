@@ -25,7 +25,7 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { OutreachFrame } from './frame';
-import { NeedsSignal, Note, useOutreachAnswer, useOutreachContext } from './kit';
+import { NeedsSignal, Note, pagesOf, useOutreachAnswer, useOutreachContext } from './kit';
 import { NetworkFilter, NetworkName } from './networks';
 import { PersonMenuScope, PersonName } from './person-menu';
 
@@ -65,26 +65,25 @@ export function FriendsScreen({ show, q }: { show?: string; q?: string }) {
   React.useEffect(() => setPages(1), [asked, net]);
   const answer = useOutreachAnswer(
     async () => {
-      const all: FriendsOutput[] = [];
-      for (let page = 1; page <= pages; page++)
-        all.push(
-          unwrap(
-            await api.POST('/v1/queries/outreach.friends', {
-              body: {
-                workspaceId: ws,
-                view,
-                page,
-                ...(asked ? { search: asked } : {}),
-                ...(net ? { platform: net } : {}),
-              },
-            }),
-          ),
-        );
+      const all: FriendsOutput[] = await pagesOf(pages, async (page) =>
+        unwrap(
+          await api.POST('/v1/queries/outreach.friends', {
+            body: {
+              workspaceId: ws,
+              view,
+              page,
+              ...(asked ? { search: asked } : {}),
+              ...(net ? { platform: net } : {}),
+            },
+          }),
+        ),
+      );
       const last = all[all.length - 1]!;
       return { ...last, people: all.flatMap((a) => a.people) };
     },
     `friends:${ws}:${view}:${asked}:${pages}:${net ?? 'all'}`,
     W.rows.friends,
+    { moreOf: `friends:${ws}:${view}:${asked}:${net ?? 'all'}` },
   );
   return (
     <PersonMenuScope

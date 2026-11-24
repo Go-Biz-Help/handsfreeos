@@ -63,6 +63,16 @@ export const RECORD_TAGS_SQL = `
   WHERE rt.workspace_id = ? ORDER BY t.name`;
 
 /**
+ * One record's tags, by name: for a screen that shows one customer and has no use for the whole name book
+ * (`useNames`), which reads every tag on every record of the business. By the record's own index (`record`,
+ * sync/app-schema.ts); the `+` before the business keeps that the way in.
+ */
+export const TAGS_OF_SQL = `
+  SELECT t.id, t.name, t.color FROM record_tags rt
+  JOIN tags t ON t.id = rt.tag_id
+  WHERE +rt.workspace_id = ? AND rt.record_id = ? ORDER BY t.name`;
+
+/**
  * One record's timeline, newest first (the phone holds the last 12 months). A person's goes by the index made for it
  * (`person`, sync/app-schema.ts): before there was one, the phone read every activity the business has to show one
  * customer's. The `+` before the business keeps that index the only way in. A company's and a lead's still go by the

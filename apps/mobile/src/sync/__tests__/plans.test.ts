@@ -2,7 +2,12 @@ import { DatabaseSync } from 'node:sqlite';
 
 import type { Table } from '@powersync/common';
 
-import { COMPANY_PEOPLE_SQL, PERSON_CONVERSATIONS_SQL, TIMELINE_FOR } from '@/customers/queries';
+import {
+  COMPANY_PEOPLE_SQL,
+  PERSON_CONVERSATIONS_SQL,
+  TAGS_OF_SQL,
+  TIMELINE_FOR,
+} from '@/customers/queries';
 import { CALLS_SQL, CONVERSATIONS_SQL, MESSAGES_SQL, NOTES_SQL } from '@/inbox/queries';
 
 import { AppSchema } from '../app-schema';
@@ -158,6 +163,29 @@ describe('a customer’s page', () => {
 
   it('reads a company’s people by the company', () => {
     expectIndex('people', 'company', COMPANY_PEOPLE_SQL, [PERSON]);
+  });
+
+  it('reads one customer’s tags by the customer, never every tag every record wears', () => {
+    expectIndex('record_tags', 'record', TAGS_OF_SQL, [WS, PERSON]);
+    put('tags', 't-vip', { workspace_id: WS, name: 'VIP', color: 'amber' });
+    put('tags', 't-new', { workspace_id: WS, name: 'New', color: 'green' });
+    const worn = (workspace: string, tag: string, record: string) => ({
+      workspace_id: workspace,
+      tag_id: tag,
+      record_type: 'person',
+      record_id: record,
+    });
+    put('record_tags', 'rt1', worn(WS, 't-vip', PERSON));
+    put('record_tags', 'rt2', worn(WS, 't-new', PERSON));
+    put('record_tags', 'rt3', worn(WS, 't-vip', OTHER));
+    // Another business kept on this phone: never among this one's, whatever its record says.
+    put('record_tags', 'rt4', worn(ELSEWHERE, 't-vip', PERSON));
+    const names = (workspace: string, record: string) =>
+      (db.prepare(TAGS_OF_SQL).all(workspace, record) as { name: string }[]).map((t) => t.name);
+    expect(names(WS, PERSON)).toEqual(['New', 'VIP']);
+    expect(names(WS, OTHER)).toEqual(['VIP']);
+    // Nobody chosen yet (a conversation with no customer): asked with no id, it finds nothing.
+    expect(names(WS, '')).toEqual([]);
   });
 
   it('leaves a company’s timeline going by the business, which has an index, and not by every row on the phone', () => {

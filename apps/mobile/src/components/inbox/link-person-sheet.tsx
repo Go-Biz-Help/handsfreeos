@@ -28,7 +28,7 @@ export function LinkPersonSheet({
   counterpart: string;
   onPick: (customer: CustomerChoice) => Promise<boolean>;
 }) {
-  const customers = useCustomers();
+  const customers = useCustomers(open);
   const [typed, setTyped] = React.useState('');
   const [busy, setBusy] = React.useState<string | null>(null);
   React.useEffect(() => {

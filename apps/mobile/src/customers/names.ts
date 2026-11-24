@@ -44,17 +44,22 @@ export function useMembers(): readonly MemberRef[] {
   return React.useMemo(() => data.map((m) => ({ id: m.id, fullName: m.full_name ?? '' })), [data]);
 }
 
-export function useNames(): SyncedNames {
+/**
+ * `when` false is an empty book that reads nobody: for a caller that names things only some of the time (the
+ * Contacts search, until something is typed), so it doesn't keep every name of the business meanwhile.
+ */
+export function useNames(when = true): SyncedNames {
   const { business } = useBusiness();
-  const { data: people } = useQuery<NameRow>(PEOPLE_NAMES_SQL, [business.id]);
-  const { data: companies } = useQuery<NameRow>(COMPANY_NAMES_SQL, [business.id]);
-  const { data: leads } = useQuery<NameRow>(LEAD_NAMES_SQL, [business.id]);
+  const from = when ? business.id : '';
+  const { data: people } = useQuery<NameRow>(PEOPLE_NAMES_SQL, [from]);
+  const { data: companies } = useQuery<NameRow>(COMPANY_NAMES_SQL, [from]);
+  const { data: leads } = useQuery<NameRow>(LEAD_NAMES_SQL, [from]);
   const { data: tagRows } = useQuery<{
     record_id: string;
     id: string;
     name: string;
     color: string;
-  }>(RECORD_TAGS_SQL, [business.id]);
+  }>(RECORD_TAGS_SQL, [from]);
   const members = useMembers();
 
   return React.useMemo(() => {
