@@ -1720,3 +1720,59 @@ describe('a text’s photos and files', () => {
     expect(seen).toHaveLength(0);
   });
 });
+
+describe('how long Twilio has to answer', () => {
+  const text = {
+    from: '+18335551234',
+    messagingServiceSid: 'MGservicetest',
+    to: '+17135550142',
+    body: 'Hi',
+    mediaUrls: [],
+    statusCallbackUrl: urls.smsStatusUrl,
+  };
+
+  /** Each call's own limit, as `fetch` was handed it. */
+  function limits(): (AbortSignal | null | undefined)[] {
+    const seen: (AbortSignal | null | undefined)[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: string | URL, init: RequestInit = {}) => {
+        seen.push(init.signal);
+        return new Response(JSON.stringify({ sid: 'SMtest', status: 'queued' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }),
+    );
+    return seen;
+  }
+
+  it('is limited on every call: a text, a file coming down and a recording', async () => {
+    const seen = limits();
+    const t = createTwilioTelephony({ accountSid: 'ACmaster', authToken: 't' });
+    await t.sendMessage(account, text);
+    await t.fetchMedia(
+      account,
+      'https://api.twilio.com/2010-04-01/Accounts/ACsubtest/Messages/MMx/Media/MEx',
+    );
+    await t.fetchRecording(account, 'REtest');
+    expect(seen).toHaveLength(3);
+    for (const signal of seen) expect(signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('hands on a call that ran out as it would any failure to reach Twilio', async () => {
+    // What `fetch` throws when its limit runs out. Not a ProviderError, so a text's send tries again, and on its
+    // last try says the carrier didn't answer.
+    const ranOut = new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw ranOut;
+      }),
+    );
+    const t = createTwilioTelephony({ accountSid: 'ACmaster', authToken: 't' });
+    const sent = t.sendMessage(account, text);
+    await expect(sent).rejects.toBe(ranOut);
+    await expect(sent).rejects.not.toBeInstanceOf(ProviderError);
+  });
+});
