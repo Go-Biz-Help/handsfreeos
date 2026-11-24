@@ -1,7 +1,7 @@
 /**
  * The public form page's calls to the worker's /public routes. No token: whoever fills a form in is signed
- * out. The form itself is read on the server; starting, saving and sending happen from the customer's own
- * browser, so the worker's per-address limits count per customer rather than per page.
+ * out. The form itself is read on the server; counting the visit, starting, saving and sending happen from the
+ * customer's own browser, so the worker's per-address limits count per customer rather than per page.
  */
 import { uploadTypeOf, type AnswerFile, type AnswerSheet, type FormDefinition } from '@hfos/core';
 import { notFound } from 'next/navigation';
@@ -73,6 +73,15 @@ interface ErrorBody {
   };
 }
 
+/**
+ * The form is the same for everyone who opens it, so the web keeps the worker's answer for half a minute, as the
+ * booking pages do (the speed audit, Nov 2026). Those reads all come from the web server's address, which the worker
+ * limits as one caller: asked afresh on every visit, a form an email had just gone out for could use the whole
+ * allowance, and every form's page failed with it. What's published shows within that half minute. Anything about
+ * one person (their own link, a sheet to finish) is asked fresh.
+ */
+const PAGE_CACHE: RequestInit =
+  process.env.NODE_ENV === 'production' ? { next: { revalidate: 30 } } : { cache: 'no-store' };
 const FRESH: RequestInit = { cache: 'no-store' };
 const seg = encodeURIComponent;
 const formPath = (site: string, slug: string) => `/public/form/${seg(site)}/${seg(slug)}`;
@@ -117,7 +126,11 @@ export async function formPageData<T>(p: Promise<T>): Promise<T> {
 }
 
 export const getPublicForm = (site: string, slug: string) =>
-  call<PublicFormPage>(formPath(site, slug), FRESH);
+  call<PublicFormPage>(formPath(site, slug), PAGE_CACHE);
+
+/** Somebody opened the form: its count of who looked, said from their own browser, since the page is a kept copy. */
+export const countFormView = (site: string, slug: string) =>
+  post<{ counted: boolean }>(`${formPath(site, slug)}/view`, {});
 
 export const startSheet = (
   site: string,

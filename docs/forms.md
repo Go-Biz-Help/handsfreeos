@@ -265,6 +265,20 @@ loads the same script as `/embed/v1/book.js`, with its own sites list on the cal
 snippet pasted before the script existed keeps its fixed height. The sites list takes sites typed any way and adds
 each one's `www` twin, as the website chat's does (`normalizeChatOrigins`).
 
+**The web keeps a copy of the form for 30 seconds** (`getPublicForm`, the speed audit, Nov 2026), as it does for
+booking pages. The form's read comes from the web server's address, which the worker limits as one caller, so asking
+afresh on every visit let one busy form use the allowance for every form. Two things follow:
+
+- **A published change, a closed form or a changed consent box shows within 30 seconds**, not at once. Starting and
+  sending are never from a copy: the commands check the live form.
+- **Reading the form counts nobody.** The page says somebody looked from the visitor's own browser, once, when it
+  opens (`POST /public/form/:site/:slug/view`, `countFormView`), and that's what Results calls **Looked**. A link
+  preview, a scanner or the frame check never draws the page, so none of them is counted. Don't put the count back in
+  the read: the copy would then count one visit in every 30 seconds.
+
+A form that can't be read (the worker's limit, or the worker away) shows "This form didn’t open… Try again in a
+minute." (`error.tsx` beside the page), not the app's own error page.
+
 ## How a form looks
 
 A form's `design` (`forms/design.ts`, the editor's **Design** tab) holds its colours, font, text size, corners, the

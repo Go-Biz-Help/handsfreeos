@@ -2855,6 +2855,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         friends, are checked like friends, last of all, the best fits by the lines under their name first
         (`membersNext`, up to 500 weighed). Today's friend requests from the groups go by what the AI made of them: a
         good fit first, a bad one left out.
+      - **The 500 weighed are the people seen in a group most recently** (Chris's yes to the speed audit's choice 12,
+        24 Nov 2026), in the check and on Today alike, so the people the AI checks are the people Today weighs. It was
+        the first 500 in the database's own order, the same ones each day: with more than 500 to weigh, the rest
+        waited until those were used up, however well they fit.
 117.  **Ready-made playbooks** (Chris, 28 Oct 2026, "all of your picks": 6a). "Ready-made playbooks you pick in the
       playbook builder (questions, openers and search words), real estate agents first, then home services, then
       coaches."

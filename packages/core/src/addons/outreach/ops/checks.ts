@@ -705,7 +705,10 @@ export const checksNext = defineAddonQuery(outreachAddon, {
   },
 });
 
-/** The most group members weighed at once for who to check next. */
+/**
+ * The most group members weighed at once for who to check next: the people seen in a group most recently, the same
+ * ones Today weighs for a friend request (the owner, 24 Nov 2026). They were the first 500 by id, the same every day.
+ */
 const MEMBERS_WEIGHED = 500;
 
 /**
@@ -743,7 +746,8 @@ async function membersNext(
     in_group: boolean;
   }>(
     ctx.tx,
-    sql`select distinct on (p.id) p.id, p.name, p.url, p.intro, p.mutual_friends, gp.lines,
+    sql`select * from (select distinct on (p.id) p.id, p.name, p.url, p.intro, p.mutual_friends, gp.lines,
+          gp.seen_at,
           g.name as group_name, g.detail as group_detail, g.members as group_members,
           g.privacy as group_privacy, g.check_state, g.check_why, g.check_playbook_id,
           exists (select 1 from addon_outreach.my_groups m
@@ -758,7 +762,8 @@ async function membersNext(
           and not exists (select 1 from addon_outreach.touches t
             where t.profile_id = p.id and t.kind = 'friend_request')
           and ${due}
-        order by p.id, gp.seen_at desc
+        order by p.id, gp.seen_at desc) seen
+        order by seen.seen_at desc, seen.id
         limit ${MEMBERS_WEIGHED}`,
   );
   return found

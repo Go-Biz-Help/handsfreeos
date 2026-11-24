@@ -155,3 +155,83 @@ describe('Facebook group members get the AI’s check', () => {
     expect(memberFact(null)).toMatch(/^In one of the owner’s groups/);
   });
 });
+
+/**
+ * At most 500 of a business's group members are weighed at a time, for the AI's check and for Today's friend requests
+ * (`MEMBERS_WEIGHED`, `CANDIDATES_MOST`). They were the first 500 by id, the same ones every day, so in a business
+ * with more than that the rest were never weighed, however well they fit. Now they're the people seen in a group most
+ * recently (the owner's yes to the speed audit's choice 12, 24 Nov 2026).
+ */
+describe('which group members are weighed, when there are more than 500', () => {
+  let owner: TestUser;
+  let ws: string;
+  const group = {
+    id: '423456789',
+    slug: null,
+    url: 'https://www.facebook.com/groups/423456789/',
+    name: 'Houston Small Business Owners',
+  };
+  const person = (username: string, name: string, lines: string[], runsGroup = false) => ({
+    profile: { id: null, username, url: `https://www.facebook.com/${username}` },
+    name,
+    lines,
+    part: runsGroup ? 'Admins and moderators' : 'Members near you',
+    runsGroup,
+  });
+  const NEWEST = ['Avery Stone', 'Blake Young', 'Drew Flores'];
+
+  beforeAll(async () => {
+    owner = await createTestUser('outmem-many', { fullName: 'Pat Owner' });
+    ws = await outreachBusiness(owner, 'Many Members Co');
+    await runAs(owner, ws, 'outreach.automation.save', {
+      settings: { ...AUTOMATION_DEFAULTS, warmUp: false },
+    });
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: crm.name,
+      template: 'crm_demos',
+      details: crm.details,
+    });
+    // 1,500 members who fit a little, seen ten days ago.
+    for (let part = 0; part < 3; part++)
+      await runAs(owner, ws, 'outreach.group.save', {
+        group,
+        members: 12_400,
+        people: Array.from({ length: 500 }, (_, i) => {
+          const n = String(part * 500 + i).padStart(4, '0');
+          return person(`member.${n}`, `Member ${n}`, ['Loves dogs']);
+        }),
+      });
+    await admin().execute(
+      sql`update addon_outreach.group_people set seen_at = now() - interval '10 days'
+          where workspace_id = ${ws}`,
+    );
+    // Its admins read, and three owners seen just now.
+    await runAs(owner, ws, 'outreach.group.save', {
+      group,
+      people: [person('lou.admin.1', 'Lou Admin', [], true)],
+      adminsPage: true,
+    });
+    await runAs(owner, ws, 'outreach.group.save', {
+      group,
+      people: [
+        person('avery.stone.1', 'Avery Stone', ['Owner at Stone Bakery']),
+        person('blake.young.2', 'Blake Young', ['Owner at Young Plumbing']),
+        person('drew.flores.3', 'Drew Flores', ['Owner at Flores Roofing']),
+      ],
+    });
+  }, 180_000);
+
+  it('checks the people seen most recently, the best fit first', async () => {
+    const next = (await runAs(owner, ws, 'outreach.checks.next', {})) as {
+      people: { name: string; reason: string }[];
+    };
+    expect(next.people.slice(0, 3).map((p) => p.name)).toEqual(NEWEST);
+  });
+
+  it('offers their friend requests on Today', async () => {
+    const requests = (
+      (await runAs(owner, ws, 'outreach.today', {})).items as { kind: string; name: string }[]
+    ).filter((i) => i.kind === 'friend_request');
+    expect(requests.slice(0, 3).map((i) => i.name)).toEqual(NEWEST);
+  });
+});

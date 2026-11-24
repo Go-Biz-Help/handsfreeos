@@ -29,8 +29,13 @@ test('designs a form, and the published page and its embed follow the design', a
   await page.getByTestId('form-publish').click();
   await expect(page.getByText('Published version 2.')).toBeVisible();
 
-  // The form's own page, as a customer opens it.
+  // The form's own page, as a customer opens it. Their browser says somebody looked: the page itself is a copy the
+  // web keeps for half a minute, so reading it counts nobody.
+  const looked = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && r.url().endsWith(`/public/form/${site}/${slug}/view`),
+  );
   await page.goto(`/f/${site}/${slug}`);
+  expect((await looked).status()).toBe(200);
   const look = page.locator('.form-look').first();
   await expect(look).toHaveAttribute('data-fields', 'underline');
   const send = page.locator('[data-form-action]').first();

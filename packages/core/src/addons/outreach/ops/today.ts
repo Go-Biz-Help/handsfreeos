@@ -1119,6 +1119,8 @@ export async function todayFor(
     !requestsOff &&
     (requestsLeft || (settings.warmUp && likesLeft))
   ) {
+    // At most 500 are weighed: the people seen in a group most recently (the owner, 24 Nov 2026), as the AI's check
+    // picks them (`membersNext`). They were the first 500 by id, so with more than that the rest were never weighed.
     const found = await rows<{
       id: string;
       name: string;
@@ -1142,7 +1144,8 @@ export async function todayFor(
       verdict_playbook: string | null;
     }>(
       ctx.tx,
-      sql`select distinct on (p.id) p.id, p.name, p.url, p.intro, p.mutual_friends, gp.lines,
+      sql`select * from (select distinct on (p.id) p.id, p.name, p.url, p.intro, p.mutual_friends, gp.lines,
+              gp.seen_at,
               gp.group_id, g.name as group_name, g.detail as group_detail, g.members as group_members,
               g.privacy as group_privacy, p.warm_up_missed_at, g.check_state, g.check_why, g.check_playbook_id,
               exists (select 1 from addon_outreach.my_groups m
@@ -1174,7 +1177,8 @@ export async function todayFor(
                 where f.profile_id = p.id and f.user_id = ${me})
               and not exists (select 1 from addon_outreach.touches t
                 where t.profile_id = p.id and t.kind = 'friend_request')
-            order by p.id, gp.seen_at desc
+            order by p.id, gp.seen_at desc) seen
+            order by seen.seen_at desc, seen.id
             limit ${CANDIDATES_MOST}`,
     );
     const fitted = found.flatMap((p) => {

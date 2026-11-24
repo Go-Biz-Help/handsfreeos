@@ -10,6 +10,10 @@ import { urls } from '@/content/site';
  * The key is Opinly's publishable one. It can only write events — it reads nothing and reaches nothing else — so it
  * is made to sit in public HTML, and it lives here rather than in the environment this site keeps empty. `/privacy`
  * says what it records; keep the two in step.
+ *
+ * Like Matomo and the chat, it loads once the page has finished loading and the browser has a quiet moment
+ * (`lazyOnload`, the speed audit, Nov 2026). A sign-up link pressed before it has an id goes without one, as it
+ * always could (`signup-link-visitor.tsx`).
  */
 const KEY = 'pk-4URAEI_KUurk_6J8t-fX_Hg2OjhEeT1fjYPs4h5'; // gitleaks:allow — publishable, write-only
 const SRC = 'https://static.opinly.ai/p.js';
@@ -17,7 +21,7 @@ const HOST = new URL(urls.site).host;
 
 export function OpinlyPixel() {
   return (
-    <Script id="opinly-pixel" strategy="afterInteractive">
+    <Script id="opinly-pixel" strategy="lazyOnload">
       {`(function() {
   if (location.host !== '${HOST}') return;
   var s = document.createElement('script');
