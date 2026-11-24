@@ -11,6 +11,13 @@
  */
 import { z } from 'zod';
 
+/**
+ * The words a tool's note says when a network didn't take a step and said why in a box of its own over the page
+ * (docs/outreach.md, decision 192: Facebook's box after Add friend). The support desk sorts such a report as the
+ * network's limit (../support/problem-sort.ts), as nothing in HandsFreeOS is there to fix.
+ */
+export const BOX_SAID_NO = 'didn’t take it, and showed a box';
+
 /** The longest outline kept: a LinkedIn feed's is about 130,000 characters. */
 export const PROBLEM_OUTLINE_MOST = 200_000;
 /** How long a report is kept, handled or not (the worker's `problem_reports.clean_up`). */

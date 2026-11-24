@@ -135,8 +135,8 @@
       "path": "Web side menu → Get help → Take the tour",
       "kind": "do",
       "file": "apps/web/src/components/support/get-help.tsx:146",
-      "covered": "no",
-      "by": "no tool runs the screen tour"
+      "covered": "person",
+      "by": "the tour lights up the person’s own menu on their screen, so starting it stays theirs; the Assistant gives the way (places map Home: Get help, then Take the tour, or Take the tour on Getting started) and explains each place in words"
     },
     {
       "path": "Web side menu → Get help → Ask us (subject, what's going on, Send it)",

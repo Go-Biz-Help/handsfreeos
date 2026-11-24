@@ -8,6 +8,7 @@ import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TodayListItem } from '../src/hfos/messages';
 import {
+  freshState,
   gapAfter,
   GAP_MS,
   itemKey,
@@ -18,10 +19,14 @@ import {
   nextWatch,
   REFER_AGAIN_MS,
   referDue,
+  REFUSED_IN_A_ROW,
+  refusedAfter,
   STARTED_GAP_MS,
   watchDue,
+  withoutRequests,
   workKey,
   workLeft,
+  type Work,
 } from '../src/auto/plan';
 import {
   AUTO_PLANS,
@@ -43,7 +48,7 @@ import {
 } from '../src/networks/facebook/auto';
 import { doPath, doStep, findStep, type FetchStep } from '../src/networks/facebook/fetch';
 import { likeStateOf } from '../src/networks/facebook/posts';
-import { readPage } from '../src/networks/facebook/page';
+import { boxesOver, readPage } from '../src/networks/facebook/page';
 import { boxEverything, load } from './load';
 
 const FB = 'https://www.facebook.com';
@@ -1836,5 +1841,54 @@ describe('writing a message', () => {
     const before = await press();
     expect(before.names).toContain('Riley Quinn');
     expect(before.boxes.size).toBeGreaterThan(0);
+  });
+});
+
+describe('friend requests Facebook says no to in a box (decision 192)', () => {
+  const request: Work = { do: 'step', item: item({}) };
+  const like: Work = { do: 'step', item: item({ kind: 'warm_up', name: 'Ana Ruiz' }) };
+  const draft: Work = { do: 'draft', item: item({ kind: 'opener', name: 'Jo Hill' }) };
+  const no = { done: false, refused: true } as const;
+
+  it('counts the requests in a row it said no to, back to none once one goes', () => {
+    expect(REFUSED_IN_A_ROW).toBe(2);
+    expect(refusedAfter(0, request, no)).toBe(1);
+    expect(refusedAfter(1, request, no)).toBe(2);
+    expect(refusedAfter(1, request, { done: true })).toBe(0);
+    // A request passed over (friends already, no Add friend) or not taken without a box leaves the count.
+    expect(refusedAfter(1, request, { done: false })).toBe(1);
+    // A like, a message or a stop between two of them doesn't break the row.
+    expect(refusedAfter(1, like, { done: true })).toBe(1);
+    expect(refusedAfter(1, like, no)).toBe(1);
+    expect(refusedAfter(1, draft, { done: true })).toBe(1);
+    expect(refusedAfter(1, request, { stop: 'Stopped: Facebook says …' })).toBe(1);
+  });
+
+  it('leaves friend requests out of what’s left once they’re off today, and nothing else', () => {
+    const left = [request, like, draft];
+    expect(withoutRequests(left, false)).toEqual(left);
+    expect(withoutRequests(left, undefined)).toEqual(left);
+    expect(withoutRequests(left, true)).toEqual([like, draft]);
+    expect(withoutRequests([{ do: 'step', item: item({ kind: 'confirm' }) }], true)).toHaveLength(
+      1,
+    );
+  });
+
+  it('starts each day with none in a row and requests on', () => {
+    expect(freshState('2026-11-23')).toMatchObject({ refusedInRow: 0, requestsOff: false });
+  });
+
+  it('reads the boxes over a profile by their heading in Facebook’s words, or their label, never a hidden one', () => {
+    const doc = load('profile-2026.html', URL);
+    expect(readPage(doc, URL).boxes).toBeUndefined();
+    doc.body.insertAdjacentHTML(
+      'beforeend',
+      '<div role="dialog"><h2><span>Request not sent</span></h2><div role="button" aria-label="OK">OK</div></div>' +
+        '<div role="alertdialog" aria-label="Try again later"><div role="button" aria-label="OK">OK</div></div>' +
+        '<div role="dialog" aria-hidden="true"><h2>Chats</h2></div>' +
+        '<div role="dialog" style="display: none"><h2>Notifications</h2></div>',
+    );
+    expect(boxesOver(doc)).toEqual(['Request not sent', 'Try again later']);
+    expect(readPage(doc, URL).boxes).toEqual(['Request not sent', 'Try again later']);
   });
 });
