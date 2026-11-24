@@ -54,6 +54,7 @@ import {
   type PublicInvoiceView,
   type RecordedPay,
 } from '@/lib/api/public-money';
+import { connectToProvider } from '@/lib/payments/provider-scripts';
 import { cn } from '@/lib/utils';
 import {
   canShowProviderFields,
@@ -327,6 +328,7 @@ export function PublicInvoice({ token }: { token: string }) {
     setOutcome(null);
     const press: Press = { clientId: newClientId(), method };
     rememberPress(token, press);
+    connectToProvider(view?.pay.session);
     try {
       const answer = await payInvoice(token, {
         clientId: press.clientId,

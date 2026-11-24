@@ -257,6 +257,9 @@ export const repliesNote = defineAddonCommand(outreachAddon, {
   output: RepliesNoteOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
+  // Sent after every look at a network's chats, about a thousand times a day. A reply is kept once whatever is sent
+  // (`keepReply`), so a repeat does no harm, and it leaves no receipt: each one went to every phone of the person's.
+  receipt: false,
   emits: ['outreach.reply.seen'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;

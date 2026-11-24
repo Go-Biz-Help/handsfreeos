@@ -88,6 +88,13 @@ export const LANES_SQL = `${CONVERSATION_BASE} AND (c.id = ? OR c.archived_at IS
  * A conversation's messages from the last 12 months on the phone, with who sent and approved them, and for texts
  * how each went, when an RCS one was read, what it carried and which button a reply came from (0103). The
  * conversations come as a JSON array: one lane, or every lane of the customer for "All lines" (0089).
+ *
+ * The `+` before the business is on purpose, here and in `CALLS_SQL`. The phone's SQLite has no statistics, and
+ * between "this business" and "one of these conversations" it took the business: it read every message the business
+ * ever had and sorted them, each time a conversation opened and each time any message came in. A `+` keeps the check
+ * and takes it out of the choice, so the index made for this (`conversation`, sync/app-schema.ts) is the one used:
+ * 21 ms down to 0.2 for a business with 20,000 messages, on a model of the phone's copy. __tests__/plans.test.ts
+ * holds it.
  */
 export const MESSAGES_SQL = `
   SELECT m.id, m.conversation_id, m.channel, m.direction, m.status, m.from_address, m.to_addresses, m.cc_addresses,
@@ -98,7 +105,7 @@ export const MESSAGES_SQL = `
   LEFT JOIN users su ON su.id = m.sent_by
   LEFT JOIN ai_teammates t ON t.id = m.sent_by_teammate_id
   LEFT JOIN users ab ON ab.id = m.approved_by
-  WHERE m.workspace_id = ? AND m.conversation_id IN (SELECT value FROM json_each(?))
+  WHERE +m.workspace_id = ? AND m.conversation_id IN (SELECT value FROM json_each(?))
   ORDER BY m.occurred_at`;
 
 /** A conversation's calls, with who placed and answered them; the conversations as `MESSAGES_SQL` takes them. */
@@ -109,7 +116,7 @@ export const CALLS_SQL = `
   FROM calls k
   LEFT JOIN users au ON au.id = k.answered_by_user_id
   LEFT JOIN users pu ON pu.id = k.placed_by
-  WHERE k.workspace_id = ? AND k.conversation_id IN (SELECT value FROM json_each(?))
+  WHERE +k.workspace_id = ? AND k.conversation_id IN (SELECT value FROM json_each(?))
   ORDER BY k.started_at`;
 
 /** The customer beside a conversation: contact details, texting consent, when they became a customer. */
@@ -148,10 +155,13 @@ export const INBOX_OUTBOX_SQL = `
     AND (state != 'sent' OR sent_at >= ?)
   ORDER BY seq`;
 
-/** The notes the business wrote about a customer (the last 12 months on the phone), with who wrote them. */
+/**
+ * The notes the business wrote about a customer (the last 12 months on the phone), with who wrote them. By the
+ * customer's index, as `MESSAGES_SQL` goes by the conversation's: the `+` before the business keeps it so.
+ */
 export const NOTES_SQL = `
   SELECT a.id, a.body, a.occurred_at, a.created_at, ${userName('u')} AS author_name
   FROM activities a
   LEFT JOIN users u ON u.id = a.author_user_id
-  WHERE a.workspace_id = ? AND a.person_id = ? AND a.kind = 'note'
+  WHERE +a.workspace_id = ? AND a.person_id = ? AND a.kind = 'note'
   ORDER BY a.occurred_at`;

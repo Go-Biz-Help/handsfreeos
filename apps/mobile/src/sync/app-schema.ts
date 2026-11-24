@@ -6,14 +6,22 @@ import { syncedTables } from './schema';
 
 /**
  * Indexes the screens need beyond the generated `workspace` one, keyed by table: a conversation's messages and calls in
- * order, a customer's open lead, a conversation's drafts. PowerSync makes them on the phone's own views of the synced
- * rows, so adding one never changes what syncs.
+ * order, a customer's open lead, a conversation's drafts; and for a customer's page, their timeline and notes in
+ * order, their conversations, and a company's people. PowerSync makes them on the phone's own views of the synced
+ * rows, so adding one never changes what syncs: a phone builds a new one the next time the app starts.
+ *
+ * An index is used only if the query lets it be. Where a query also says `workspace_id = ?`, the phone's SQLite, which
+ * has no statistics, may go by the business and read every row of it: write that check `+x.workspace_id = ?`, which
+ * keeps it and takes it out of the choice. __tests__/plans.test.ts asks each such query for its plan.
  */
 export const EXTRA_INDEXES: Readonly<Record<string, IndexShorthand>> = {
   messages: { conversation: ['conversation_id', 'occurred_at'] },
   calls: { conversation: ['conversation_id', 'started_at'] },
   leads: { person: ['person_id', 'status'] },
   ai_teammate_drafts: { conversation: ['conversation_id', 'status'] },
+  activities: { person: ['person_id', 'occurred_at'] },
+  conversations: { person: ['person_id'] },
+  people: { company: ['company_id'] },
 };
 
 /** A synced table with more indexes: the same columns and indexes, plus the extra ones. */

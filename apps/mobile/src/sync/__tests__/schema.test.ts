@@ -130,8 +130,10 @@ describe('the phone’s schema', () => {
     // Generated columns never sync, so the phone works them out (compute.ts).
     expect(people).not.toHaveProperty('search_text');
     expect(typesOf('invoices')).not.toHaveProperty('balance_cents');
+    // The generated index, and the one a company's people are read by (EXTRA_INDEXES).
     expect(AppSchema.tables.find((t) => t.name === 'people')!.indexes.map((i) => i.name)).toEqual([
       'workspace',
+      'company',
     ]);
   });
 });

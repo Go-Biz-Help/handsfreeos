@@ -1,4 +1,5 @@
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
+import type { SQL } from 'drizzle-orm';
 import { claimableDeliveries } from './deliveries';
 import { claimableJobs } from './jobs';
 import { runLoop, type Loop, type LoopDeps } from './loop';
@@ -22,17 +23,30 @@ type Pass = () => Promise<{ claimed: number }>;
 /** A loop that was told of nothing still makes its own claim this often. */
 export const SAFETY_MS = 30_000;
 
-/** Which queues have something this worker may claim now. One statement over the queues' indexes of waiting rows. */
+/**
+ * Whether a queue has a row to claim, asked as "the oldest one" and never as a bare `exists`.
+ *
+ * The worker reads these tables through row-level security, where Postgres won't use what it knows about `status`
+ * (an enum's `=` isn't leakproof), so it reckons a half or a third of each table is waiting. For an `exists` it
+ * then expects the first rows of the table itself to do, and reads the whole table to find there is none: live,
+ * every row of the outbox and the webhooks on every look, 325 blocks and 1.6 ms, where the same statement read 9
+ * blocks for a role row-level security doesn't apply to. Asked for the first by the column the queue's index of
+ * waiting rows is sorted on, that index costs least whatever Postgres reckons: one block with nothing waiting.
+ * Writing the order and the limit inside an `exists` won't do, because Postgres drops both there.
+ */
+const oldest = (table: SQL, claimable: SQL, due: SQL) =>
+  sql`coalesce((select true from ${table} where ${claimable} order by ${due} limit 1), false)`;
+
+/** The look's one statement: each queue's oldest claimable row, through its index of waiting rows. */
+export const waitingStatement = (workerId: string) =>
+  sql`select
+        ${oldest(sql`app.outbox`, claimableEvents(workerId), sql`next_attempt_at`)} as outbox,
+        ${oldest(sql`app.webhook_deliveries`, claimableDeliveries(workerId), sql`next_attempt_at`)} as webhook,
+        ${oldest(sql`app.scheduled_jobs`, claimableJobs(workerId), sql`run_at`)} as jobs`;
+
+/** Which queues have something this worker may claim now. */
 export async function queuesWaiting(db: Db, workerId: string): Promise<QueuesWaiting> {
-  const [row] = await asWorker(db, {}, (tx) =>
-    rows<QueuesWaiting>(
-      tx,
-      sql`select
-            exists(select 1 from app.outbox where ${claimableEvents(workerId)}) as outbox,
-            exists(select 1 from app.webhook_deliveries where ${claimableDeliveries(workerId)}) as webhook,
-            exists(select 1 from app.scheduled_jobs where ${claimableJobs(workerId)}) as jobs`,
-    ),
-  );
+  const [row] = await asWorker(db, {}, (tx) => rows<QueuesWaiting>(tx, waitingStatement(workerId)));
   return row ?? { outbox: false, webhook: false, jobs: false };
 }
 

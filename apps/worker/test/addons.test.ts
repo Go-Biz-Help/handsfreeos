@@ -179,6 +179,8 @@ const rentModule: AddonWorkerModule = {
       said('fxrent saw a payment');
     },
   },
+  // A payment it has nothing to do for: no delivery is queued for it.
+  wants: { 'invoice.paid': (payload) => payload['quiet'] !== true },
   // What it makes at a provider as it arrives: a bank feed, to let go of when it leaves.
   onInstall: async (ctx) => {
     await asWorker(ctx.db, ctx.scope, (tx) =>
@@ -502,6 +504,36 @@ describe('what happens in a business, delivered to the add-ons that subscribe', 
     ).toEqual({ status: 'failed', attempts: 5, last_error: 'rent subscriber broke' });
     // Property Management heard about the person all the same.
     expect(calls).toEqual([`fxprop saw ${personId}`]);
+  });
+
+  it('queues no job for an event an add-on says it has nothing to do for', async () => {
+    calls.length = 0;
+    const eventId = randomUUID();
+    await rows(
+      admin(),
+      sql`insert into app.events (id, organization_id, workspace_id, event_type, actor_type, entity_type, payload,
+            correlation_id)
+          values (${eventId}, ${orgId}, ${wsB}, 'invoice.paid', 'system', 'invoice', '{"quiet": true}',
+            ${randomUUID()})`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.outbox (event_id, organization_id, workspace_id, event_type)
+          values (${eventId}, ${orgId}, ${wsB}, 'invoice.paid')`,
+    );
+    await drain(wsB);
+    // The event is finished with, and Rent Collection never had a delivery to claim, read and leave.
+    expect(await one(sql`select status from app.outbox where event_id = ${eventId}`)).toEqual({
+      status: 'done',
+    });
+    expect(
+      await rows(
+        admin(),
+        sql`select id from app.scheduled_jobs
+            where kind = 'addon.deliver' and payload ->> 'eventId' = ${eventId}`,
+      ),
+    ).toEqual([]);
+    expect(calls).toEqual([]);
   });
 });
 

@@ -50,6 +50,9 @@ export const ownNext = defineAddonCommand(socialcontentAddon, {
   output: OwnNextOutput,
   permission: 'socialcontent.use',
   scope: inWorkspace,
+  // Asked every minute. A read handed out and never answered is asked again half an hour later, so a repeat does no
+  // harm, and it leaves no receipt: each one went to every phone of the person's.
+  receipt: false,
   emits: [],
   async handler(ctx, input) {
     await needReader(ctx);

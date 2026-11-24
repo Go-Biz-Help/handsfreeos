@@ -9,7 +9,7 @@ import { ExtensionSignInPrompt } from '@/components/account/extension-sign-in-pr
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
 import { AssistantProvider } from '@/components/assistant/assistant-provider';
 import { CallOverlays } from '@/components/calls/call-overlays';
-import { DemoDirector } from '@/components/demo/demo-director';
+import { LazyDemoDirector } from '@/components/demo/lazy-demo-director';
 import { Tour } from '@/components/onboarding/tour';
 import { SearchProvider } from '@/components/search/search-provider';
 import { PracticeBanner } from '@/components/practice/practice-banner';
@@ -176,7 +176,7 @@ export default async function WorkspaceLayout({
                         opened as its owner (Admin → Demo player opens Bright Path Home Services). `?demo` opens it;
                         never in support's read-only look or a view as a teammate. */}
                     {staff && (!viewingAs || viewingAs.acting) && !teammateView ? (
-                      <DemoDirector
+                      <LazyDemoDirector
                         workspaceId={workspaceId}
                         businessName={current.name}
                         timeZone={current.timezone}

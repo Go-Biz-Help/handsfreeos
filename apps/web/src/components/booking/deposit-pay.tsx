@@ -38,6 +38,7 @@ import {
   type PublicSlot,
   type RecordedPay,
 } from '@/lib/api/public-booking';
+import { connectToProvider } from '@/lib/payments/provider-scripts';
 import { cn } from '@/lib/utils';
 import { useEmbedded } from './embedded';
 import { dayShort, lengthLabel, money, timeOf, timeRange, joinNames, dayLong } from './format';
@@ -305,6 +306,7 @@ export function DepositStep({
     setError(null);
     const press = { clientId: newClientId(), method };
     rememberPress(hold.holdToken, press);
+    connectToProvider(hold.pay.session);
     try {
       const answer = await payDeposit(hold.holdToken, { ...press, website: '' });
       if (answer.stage === 'prepared') {

@@ -7,11 +7,20 @@
  * page is the call itself (video-call/customer-call.tsx), and joining counts once they're really in it.
  */
 import { CalendarClock, CalendarOff, LinkIcon, Video } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import { CustomerCall } from '@/components/video-call/customer-call';
 import { ApiError } from '@/lib/api/errors';
 import { joinSession, type JoinAnswer } from '@/lib/api/public-booking';
 import { PublicFrame, PublicState } from './public-shell';
+
+/**
+ * The call, fetched once the answer says this link is one. A link to a meeting somewhere else, or one that is early,
+ * over or cancelled, only asks and says so: it used to download the whole video room first, before it could ask.
+ */
+const CustomerCall = dynamic(
+  () => import('@/components/video-call/customer-call').then((m) => m.CustomerCall),
+  { ssr: false, loading: () => <Joining /> },
+);
 
 type Shown =
   | { readonly kind: 'joining' }
@@ -53,6 +62,15 @@ export function JoinSession({ token }: { token: string }) {
   return (
     <PublicFrame business={null} byline="Sessions by HandsFreeOS">
       <JoinState shown={shown} />
+    </PublicFrame>
+  );
+}
+
+/** What the page says until it knows, and until a call's own screen has arrived. */
+function Joining() {
+  return (
+    <PublicFrame business={null} byline="Sessions by HandsFreeOS">
+      <JoinState shown={{ kind: 'joining' }} />
     </PublicFrame>
   );
 }

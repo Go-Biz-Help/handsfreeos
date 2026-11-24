@@ -22,7 +22,7 @@ import {
   type WebinarDoor,
   type WebinarDoorAnswer,
 } from '@/lib/api/public-booking';
-import { Honeypot, OffersConsent, SmsConsent } from './booking-flow';
+import { Honeypot, OffersConsent, SmsConsent } from './consent-boxes';
 import { PublicFrame, PublicState } from './public-shell';
 import { Turnstile } from './turnstile';
 

@@ -29,11 +29,7 @@ export interface DemoPerson {
   readonly email?: string;
 }
 
-/**
- * Photos a scene's customers send are files in the web app's own `public/demo/`, never in Storage: a thread's media
- * in this bucket is shown from `objectPath` as it is (`useSignedUrl`).
- */
-export const DEMO_MEDIA_BUCKET = 'hfos-demo';
+export { DEMO_MEDIA_BUCKET } from './state';
 
 export interface DemoMedia {
   readonly name: string;

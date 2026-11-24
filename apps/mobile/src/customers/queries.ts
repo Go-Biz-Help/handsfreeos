@@ -62,13 +62,17 @@ export const RECORD_TAGS_SQL = `
   JOIN tags t ON t.id = rt.tag_id
   WHERE rt.workspace_id = ? ORDER BY t.name`;
 
-/** One record's timeline, newest first (the phone holds the last 12 months). */
-export const TIMELINE_SQL = `
+/**
+ * One record's timeline, newest first (the phone holds the last 12 months). A person's goes by the index made for it
+ * (`person`, sync/app-schema.ts): before there was one, the phone read every activity the business has to show one
+ * customer's. The `+` before the business keeps that index the only way in. A company's and a lead's still go by the
+ * business: they have no index of their own.
+ */
+export const TIMELINE_FOR = (column: 'person_id' | 'company_id' | 'lead_id') => `
   SELECT a.*, ${userName('u')} AS author_name
   FROM activities a LEFT JOIN users u ON u.id = a.author_user_id
-  WHERE a.workspace_id = ? AND `;
-export const TIMELINE_FOR = (column: 'person_id' | 'company_id' | 'lead_id') =>
-  `${TIMELINE_SQL} a.${column} = ? ORDER BY a.occurred_at DESC, a.id DESC`;
+  WHERE ${column === 'person_id' ? '+' : ''}a.workspace_id = ? AND a.${column} = ?
+  ORDER BY a.occurred_at DESC, a.id DESC`;
 
 /** Every note in the business, for searching by a word someone wrote. */
 export const NOTES_SQL = `
@@ -125,8 +129,11 @@ export const PHOTOS_SQL = `
   SELECT p.*, o.state AS change_state, o.sent_at AS change_sent_at
   FROM photo_uploads p JOIN outbox o ON o.id = p.id`;
 
-/** A customer's conversations, newest first: Text and Email on their page open the right one. */
+/**
+ * A customer's conversations, newest first: Text and Email on their page open the right one. By the customer's index
+ * (`person`, sync/app-schema.ts), which the `+` before the business leaves as the only way in.
+ */
 export const PERSON_CONVERSATIONS_SQL = `
   SELECT id, channel, status, last_message_at FROM conversations
-  WHERE workspace_id = ? AND person_id = ?
+  WHERE +workspace_id = ? AND person_id = ?
   ORDER BY last_message_at DESC`;

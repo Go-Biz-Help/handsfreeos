@@ -8,6 +8,8 @@
  * just the few calls the pay pages make, typed here.
  */
 
+import { preconnect } from 'react-dom';
+
 // ---------- Stripe.js ----------
 
 export interface StripeError {
@@ -163,6 +165,9 @@ const SQUARE_SCRIPT = {
   sandbox: 'https://sandbox.web.squarecdn.com/v1/square.js',
 } as const;
 
+const squareScript = (applicationId: string) =>
+  applicationId.startsWith('sandbox-') ? SQUARE_SCRIPT.sandbox : SQUARE_SCRIPT.live;
+
 const loading = new Map<string, Promise<void>>();
 
 function loadScript(
@@ -191,6 +196,24 @@ function loadScript(
   return next;
 }
 
+/**
+ * A press of Pay: starts connecting to the provider's address while the worker sets the payment up, so the
+ * provider's script, which loads once the worker has answered, doesn't have to find and greet its server first.
+ * It loads no script and sends nothing about the customer or the payment, and it happens on the press, never when
+ * the page is only looked at. Nothing for PayPal: its buttons come with the page, not with a press.
+ */
+export function connectToProvider(
+  session: { readonly provider: string; readonly publishableKey: string } | null | undefined,
+): void {
+  const src =
+    session?.provider === 'stripe'
+      ? STRIPE_SCRIPT
+      : session?.provider === 'square'
+        ? squareScript(session.publishableKey)
+        : null;
+  if (src && !loading.has(src)) preconnect(new URL(src).origin);
+}
+
 /** Stripe.js, signed in as the business's own account so the payment lands in their balance. */
 export async function loadStripe(publishableKey: string, accountId: string): Promise<StripeClient> {
   if (!window.Stripe) await loadScript(STRIPE_SCRIPT);
@@ -203,8 +226,7 @@ export async function loadSquare(
   applicationId: string,
   locationId: string,
 ): Promise<SquarePayments> {
-  const src = applicationId.startsWith('sandbox-') ? SQUARE_SCRIPT.sandbox : SQUARE_SCRIPT.live;
-  if (!window.Square) await loadScript(src);
+  if (!window.Square) await loadScript(squareScript(applicationId));
   if (!window.Square) throw new Error('Square loaded without Square');
   return window.Square.payments(applicationId, locationId);
 }

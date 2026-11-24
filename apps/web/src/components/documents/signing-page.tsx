@@ -56,6 +56,7 @@ import {
   type SigningField,
   type SigningView,
 } from '@/lib/api/public-documents';
+import { loadPdfJs } from '@/lib/documents/pdf';
 import { brandLook } from '@/lib/look';
 import { cn } from '@/lib/utils';
 import { boxStyle, EditView, PdfPages, ValueView } from './pdf-pages';
@@ -193,6 +194,10 @@ export function SigningPage({ token }: { token: string }) {
 
   useEffect(() => {
     let live = true;
+    // The PDF reader is the biggest thing this page fetches, and it used to start only once the worker had answered
+    // and the pages were about to be drawn. Asked for now, it arrives while the worker is still answering. Quiet if
+    // it fails: the pages ask again themselves, and say so.
+    void loadPdfJs().catch(() => undefined);
     getSigning(token)
       .then((v) => live && show(v))
       .catch((e: unknown) => live && setFailure(failureOf(e)));

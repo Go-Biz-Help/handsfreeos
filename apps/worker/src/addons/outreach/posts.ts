@@ -224,10 +224,19 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
 }
 
 /**
+ * Whether a checked post is one the worker does anything for: one that asks people to recommend someone, or a
+ * strong one. The module's `wants`, so the rest queue no job (25 of 1,769 were either, in a week of November 2026).
+ */
+export const postCheckedWanted = (payload: Readonly<Record<string, unknown>>): boolean =>
+  Boolean(payload['postId']) &&
+  (Boolean(payload['asks']) || (payload['check'] === 'good' && Boolean(payload['strong'])));
+
+/**
  * `outreach.post.checked`: a strong post that's fresh pushes to the person who found it, once; one that asks people to
  * recommend someone has the worker look for someone to refer on it (decision 174).
  */
 export async function postChecked(ctx: AddonEventContext): Promise<void> {
+  if (!postCheckedWanted((ctx.event.payload ?? {}) as Record<string, unknown>)) return;
   const p = (ctx.event.payload ?? {}) as {
     postId?: string;
     check?: string;

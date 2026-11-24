@@ -1,6 +1,6 @@
 'use client';
 import { apiBrowser, unwrap } from '@/lib/api/client';
-import { DEMO_MEDIA_BUCKET } from '@/lib/demo/world';
+import { DEMO_MEDIA_BUCKET } from '@/lib/demo/state';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { openPdf, pageSizes } from './pdf';
 

@@ -21,7 +21,7 @@ import { money } from '@hfos/core';
 import { CalendarClock, CircleAlert, CircleCheck, CreditCard, Lock, Repeat } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ApiError } from '@/lib/api/client';
+import { ApiError } from '@/lib/api/errors';
 import { getPlan, savePlanCard, type PublicPlanView, type SavedCard } from '@/lib/api/public-money';
 import {
   Honeypot,

@@ -36,8 +36,10 @@ import { SOCIALCONTENT_WORDS as W, daysAgo } from '../words';
 import { inWorkspace, queueWork, settingsOf, TAKEN_FOR_MS, type Ctx } from './common';
 import type { CommandContext } from '../../../kernel/types';
 
-/** Only the reading computer's person sends these in. */
-export async function needReader(ctx: CommandContext): Promise<string> {
+type Settings = Awaited<ReturnType<typeof settingsOf>>;
+
+/** Only the reading computer's person sends these in: them, and the settings read to tell. */
+export async function readerOf(ctx: CommandContext): Promise<{ me: string; settings: Settings }> {
   const me = requireHuman(ctx).userId;
   const s = await settingsOf(ctx);
   if (s.readerUserId !== me)
@@ -46,7 +48,45 @@ export async function needReader(ctx: CommandContext): Promise<string> {
       409,
       'This computer doesn’t read for AI Social Media Content Creator here. An owner or admin picks whose computer reads in its Settings.',
     );
-  return me;
+  return { me, settings: s };
+}
+
+/** Only the reading computer's person sends these in. */
+export const needReader = async (ctx: CommandContext): Promise<string> => (await readerOf(ctx)).me;
+
+/** How old the page's "checked in 2 minutes ago" may be before the next ask writes it again. */
+export const READER_SEEN_EVERY_MS = 2 * 60_000;
+
+/** Whether the reading computer's ask has anything new to write: none kept, 2 minutes old, or a new version. */
+export const readerSeenDue = (
+  kept: Pick<Settings, 'readerSeenAt' | 'readerVersion'>,
+  version: string | null | undefined,
+  now: number,
+): boolean =>
+  kept.readerSeenAt === null ||
+  now - new Date(kept.readerSeenAt).getTime() >= READER_SEEN_EVERY_MS ||
+  (!!version && version !== kept.readerVersion);
+
+/**
+ * The page says when the reading computer last asked, and its extension's version (docs: "What it's doing").
+ *
+ * Written when it's due, not on every ask. The computer asks twice a minute, round the clock, and each ask rewrote
+ * the business's settings row: two thirds of all the add-on's database time, and a row every other read then had to
+ * step over old copies of (the speed audit, Nov 2026). The page calls the computer there for ten minutes after it
+ * last checked in (`READER_THERE_MS`), so two minutes' lag changes only the "2 minutes ago" it shows.
+ */
+export async function readerSeen(
+  ctx: CommandContext,
+  kept: Pick<Settings, 'readerSeenAt' | 'readerVersion'>,
+  version: string | null | undefined,
+): Promise<void> {
+  if (!readerSeenDue(kept, version, Date.now())) return;
+  await rows(
+    ctx.tx,
+    sql`update addon_socialcontent.settings
+        set reader_seen_at = now(), reader_version = coalesce(${version ?? null}, reader_version)
+        where workspace_id = ${ctx.scope.workspaceId!}`,
+  );
 }
 
 type TakenWork = {
@@ -84,18 +124,14 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
   output: WorkNextOutput,
   permission: 'socialcontent.use',
   scope: inWorkspace,
+  // Asked every minute. What this computer has under way comes back first, so a repeat hands out the same work, and
+  // it leaves no receipt: each one went to every phone of the person's.
+  receipt: false,
   emits: ['socialcontent.work.taken'],
   async handler(ctx, input) {
-    const me = await needReader(ctx);
+    const { me, settings: s } = await readerOf(ctx);
     const ws = ctx.scope.workspaceId!;
-    const s = await settingsOf(ctx);
-    // The page says when the reading computer last asked, and its extension's version (docs: "What it's doing").
-    await rows(
-      ctx.tx,
-      sql`update addon_socialcontent.settings
-          set reader_seen_at = now(), reader_version = coalesce(${input.version ?? null}, reader_version)
-          where workspace_id = ${ws}`,
-    );
+    await readerSeen(ctx, s, input.version);
     const reads = input.reads.filter((n) => CONTENT_NETWORK_INFO[n].ready);
     await rows(
       ctx.tx,

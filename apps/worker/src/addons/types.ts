@@ -36,6 +36,8 @@ export interface AddonEventContext extends AddonScopeContext {
   readonly attempt: number;
 }
 export type AddonSubscriber = (ctx: AddonEventContext) => Promise<void>;
+/** Whether a subscriber has anything to do for an event with this payload (`AddonWorkerModule.wants`). */
+export type AddonWants = (payload: Readonly<Record<string, unknown>>) => boolean;
 
 /** One of the add-on's own jobs (its manifest's `jobs`), queued with scheduleAddonJob. */
 export interface AddonJobContext extends AddonScopeContext {
@@ -65,6 +67,13 @@ export interface AddonWorkerModule {
   readonly manifest: AddonManifest;
   /** Event type → what the add-on does when it happens. Each is one its manifest consumes. */
   readonly subscribers?: Readonly<Record<string, AddonSubscriber>>;
+  /**
+   * Event type → whether its subscriber has anything to do for this one, told from the event's payload alone. Asked
+   * before a delivery is queued, so an event the add-on would only look at and leave costs no job. Only for an event
+   * that happens all day and seldom matters; left out, every one is delivered. The subscriber makes the same check
+   * itself: one that throws here is delivered, and so is one queued by a build from before the check.
+   */
+  readonly wants?: Readonly<Record<string, AddonWants>>;
   /** Job kind (`<id>.…`, in its manifest's `jobs`) → what the job does. */
   readonly jobs?: Readonly<Record<string, AddonJobHandler>>;
   /** Data version → the step that brings a business's data up to it (2, 3, … up to the manifest's dataVersion). */

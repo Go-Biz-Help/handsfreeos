@@ -539,7 +539,10 @@ runner sets aside a delivery for an add-on that's off. Core's own jobs pay nothi
 
 **Events reach an add-on in a job of its own.** An event an add-on consumes queues one `addon.deliver` job per add-on
 that runs in the business; each runs on its own with its own retries, as the system acting for that add-on. One
-add-on's failure never holds up core's handlers or another add-on's.
+add-on's failure never holds up core's handlers or another add-on's. An event that happens all day and seldom has
+anything for the add-on can have a check in its worker module's `wants`: a plain function of the event's payload,
+asked before the job is queued, so the ones it would only look at and leave cost nothing. The subscriber makes the
+same check itself (Social Outreach's `liveChangedWanted` and `postCheckedWanted`).
 
 **Core never points into an add-on.** No foreign key from `app` or `platform` into `addon_<id>`; an add-on's tables
 reference core and cascade with the business. The catalogue test checks both.
