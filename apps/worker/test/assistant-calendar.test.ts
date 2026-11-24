@@ -791,6 +791,8 @@ describe('the Assistant on the calendar', () => {
         personId: mikeId,
         startsAt: iso(tomorrowAt(10)),
         userIds: [priya.id],
+        // New appointment's What, in the person's own words.
+        title: 'Red light session',
       },
       randomUUID(),
     );
@@ -799,11 +801,15 @@ describe('the Assistant on the calendar', () => {
       'Customer',
       'What',
       'When',
+      'Uses',
       'Reminders',
       'Tell Mike',
     ]);
+    expect(confirm.fields[1]!.value).toBe('Red light session · 20 minutes');
+    // The bed it takes, as New appointment's Uses shows it.
+    expect(confirm.fields[3]).toEqual({ label: 'Uses', value: '1 Red light bed' });
     expect(confirm.warnings).toEqual([]);
-    expect(result).toMatchObject({ with: [] });
+    expect(result).toMatchObject({ with: [], uses: ['1 Red light bed'] });
   });
 });
 

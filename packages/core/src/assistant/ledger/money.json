@@ -1,7 +1,7 @@
 {
   "area": "money",
   "title": "Money: estimates, invoices, payments and plans",
-  "checkedOn": "2026-11-23",
+  "checkedOn": "2026-11-24",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx": "f903866463b2",
     "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx": "f4b2d1f6ca49",
@@ -20,7 +20,7 @@
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/[invoiceId]/page.tsx": "076b3a40a175",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/new/page.tsx": "e59893d795bb",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/page.tsx": "90f9f3d0801d",
-    "apps/web/src/app/app/w/[workspaceId]/money/load.ts": "815e1c127c77",
+    "apps/web/src/app/app/w/[workspaceId]/money/load.ts": "f958bc0287e9",
     "apps/web/src/app/app/w/[workspaceId]/money/orders/[orderId]/page.tsx": "f8ac35ef1a8c",
     "apps/web/src/app/app/w/[workspaceId]/money/orders/new/page.tsx": "ccb2cf425e0c",
     "apps/web/src/app/app/w/[workspaceId]/money/orders/page.tsx": "39da714bddb8",

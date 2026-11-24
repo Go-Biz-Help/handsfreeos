@@ -1,7 +1,7 @@
 {
   "area": "inbox",
   "title": "Inbox, a conversation, phone calls and video calls",
-  "checkedOn": "2026-11-22",
+  "checkedOn": "2026-11-24",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx": "cac42d727c12",
     "apps/mobile/src/app/app/w/[workspaceId]/call/[callId].tsx": "1113c4963af3",
@@ -32,8 +32,8 @@
     "apps/mobile/src/inbox/use-sender.ts": "201fd753bcd9",
     "apps/mobile/src/video-call/phone-call.tsx": "50f4c5dc00ff",
     "apps/web/src/app/app/w/[workspaceId]/call/[callId]/page.tsx": "8897698aa30f",
-    "apps/web/src/app/app/w/[workspaceId]/inbox/[conversationId]/page.tsx": "16bc42fae91a",
-    "apps/web/src/app/app/w/[workspaceId]/inbox/layout.tsx": "4327d780b481",
+    "apps/web/src/app/app/w/[workspaceId]/inbox/[conversationId]/page.tsx": "e6495778bf20",
+    "apps/web/src/app/app/w/[workspaceId]/inbox/layout.tsx": "728fdb23305c",
     "apps/web/src/app/app/w/[workspaceId]/inbox/page.tsx": "78fca14b2238",
     "apps/web/src/components/ai-team/reply-feedback.tsx": "661ebf8bbc3e",
     "apps/web/src/components/attention/bits.tsx": "782802130a33",

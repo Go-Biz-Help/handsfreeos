@@ -50,10 +50,10 @@
     "apps/web/src/components/settings/profile-form.tsx": "f5a3211463b6",
     "apps/web/src/components/shell/menu-editor.tsx": "bd19438cf152",
     "apps/web/src/components/shell/missing-page.tsx": "fb8ed3e50256",
-    "apps/web/src/components/shell/mobile-shell.tsx": "2d7ed48b889a",
-    "apps/web/src/components/shell/nav-links.tsx": "d7e6a9250526",
+    "apps/web/src/components/shell/mobile-shell.tsx": "0c40a6d6bdf1",
+    "apps/web/src/components/shell/nav-links.tsx": "fd509f8ebb5b",
     "apps/web/src/components/shell/notifications-bell.tsx": "36256aed833a",
-    "apps/web/src/components/shell/sidebar.tsx": "3cb3b237cb52",
+    "apps/web/src/components/shell/sidebar.tsx": "bc1313c7d5ee",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
     "apps/web/src/components/shell/workspace-switcher.tsx": "a94cb85f3c21",
     "apps/web/src/components/support/get-help.tsx": "a753e0577cbd",
@@ -372,14 +372,14 @@
     {
       "path": "Web side menu → add-on rows, their pages and gated rows",
       "kind": "do",
-      "file": "apps/web/src/components/shell/nav-links.tsx:658",
+      "file": "apps/web/src/components/shell/nav-links.tsx:662",
       "covered": "partly",
       "by": "context add-on directory; paths only"
     },
     {
       "path": "Web side menu → groups and the places in them; an add-on in a group is its own row, its pages popping out beside it on hover",
       "kind": "see",
-      "file": "apps/web/src/components/shell/nav-links.tsx:714",
+      "file": "apps/web/src/components/shell/nav-links.tsx:718",
       "covered": "yes",
       "by": "get_settings my_account sideMenu.asDrawn"
     },
@@ -400,7 +400,7 @@
     {
       "path": "Web side menu → foot → Ideas New dot",
       "kind": "see",
-      "file": "apps/web/src/components/shell/nav-links.tsx:898",
+      "file": "apps/web/src/components/shell/nav-links.tsx:902",
       "covered": "yes",
       "by": "read_whats_new_unseen"
     },
@@ -652,14 +652,14 @@
     {
       "path": "Web phone-width header → Search conversations",
       "kind": "do",
-      "file": "apps/web/src/components/shell/mobile-shell.tsx:273",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:275",
       "covered": "yes",
       "by": "find_conversations"
     },
     {
       "path": "Web phone-width header → search sheet → Search everything for X",
       "kind": "do",
-      "file": "apps/web/src/components/shell/mobile-shell.tsx:285",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:287",
       "covered": "yes",
       "by": "read_search_everything"
     },
@@ -673,7 +673,7 @@
     {
       "path": "Web phone-width bottom bar → urgent and unread badges",
       "kind": "see",
-      "file": "apps/web/src/components/shell/mobile-shell.tsx:187",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:189",
       "covered": "yes",
       "by": "read_attention_summary, read_inbox_summary"
     },

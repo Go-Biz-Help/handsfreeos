@@ -84,6 +84,10 @@ export const bookedSeatsOf = <T extends { readonly status: string }>(
   attendees: readonly T[],
 ): readonly T[] => attendees.filter((x) => x.status !== 'cancelled');
 
+/** A visit's Directions: Google Maps from wherever you are to the address (the web's sheet and the Assistant). */
+export const directionsUrl = (address: string): string =>
+  `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+
 /** What a booking reserves, in words: "1 Red light bed", "2 × Truck". */
 export const reservedText = (quantity: number, name: string): string =>
   quantity === 1 ? `1 ${name}` : `${quantity} × ${name}`;

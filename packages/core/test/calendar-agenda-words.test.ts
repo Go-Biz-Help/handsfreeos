@@ -17,6 +17,7 @@ import {
   dayHeadingShort,
   daysWithAppointments,
   dayTime,
+  directionsUrl,
   fmtAt,
   fmtDateLong,
   fmtDateShort,
@@ -233,6 +234,12 @@ describe('one appointment’s lines', () => {
     expect(namesText([])).toBe('');
     expect(reservedText(1, 'Red light bed')).toBe('1 Red light bed');
     expect(reservedText(2, 'Truck')).toBe('2 × Truck');
+  });
+
+  it('points Directions at the address in Google Maps', () => {
+    expect(directionsUrl('12 Oak St, Austin, TX 78701')).toBe(
+      'https://www.google.com/maps/dir/?api=1&destination=12%20Oak%20St%2C%20Austin%2C%20TX%2078701',
+    );
   });
 
   it('gives the time column its two halves', () => {
