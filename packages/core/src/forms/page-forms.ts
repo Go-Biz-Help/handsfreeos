@@ -307,14 +307,68 @@ function boxDetails(tag: string): string {
   return parts.length ? `, ${parts.join(', ')}` : '';
 }
 
+interface Box {
+  /** The whole tag, `<input type="email" name="e">`. */
+  readonly tag: string;
+  /** input, select or textarea. */
+  readonly kind: string;
+  readonly index: number;
+}
+
+/** Each `<input>`, `<select>` and `<textarea>` tag, in one pass. */
+function boxTags(html: string): Box[] {
+  const found: Box[] = [];
+  let next = 0;
+  for (const m of html.matchAll(/<(input|select|textarea)\b/gi)) {
+    if (m.index < next) continue;
+    const gt = html.indexOf('>', m.index);
+    if (gt < 0) break;
+    found.push({ tag: html.slice(m.index, gt + 1), kind: m[1]!.toLowerCase(), index: m.index });
+    next = gt + 1;
+  }
+  return found;
+}
+
+interface Piece {
+  /** A tag as written, or a run of words between tags. */
+  readonly raw: string;
+  /** The tag's name, lower case; null for words. */
+  readonly name: string | null;
+  readonly closing: boolean;
+}
+
+/** The page as tags and the words between them, in one pass. A `<` that starts no tag is left out. */
+function piecesOf(html: string): Piece[] {
+  const pieces: Piece[] = [];
+  const lastGt = html.lastIndexOf('>');
+  let pos = 0;
+  while (pos < html.length) {
+    const lt = html.indexOf('<', pos);
+    const end = lt < 0 ? html.length : lt;
+    if (end > pos) pieces.push({ raw: html.slice(pos, end), name: null, closing: false });
+    if (lt < 0) break;
+    const head = lt < lastGt ? /^<(\/?)([a-zA-Z][\w:-]*)/.exec(html.slice(lt, lt + 64)) : null;
+    if (!head) {
+      pos = lt + 1;
+      continue;
+    }
+    const gt = html.indexOf('>', lt);
+    pieces.push({
+      raw: html.slice(lt, gt + 1),
+      name: head[2]!.toLowerCase(),
+      closing: head[1] === '/',
+    });
+    pos = gt + 1;
+  }
+  return pieces;
+}
+
 /** Counts the boxes a person fills in or picks in. Radio buttons sharing a name count once. */
 export function countFields(html: string): number {
   const clean = cleaned(html);
   let n = 0;
   const radios = new Set<string>();
-  for (const m of clean.matchAll(/<(input|select|textarea)\b[^>]*>/gi)) {
-    const tag = m[0];
-    const kind = m[1]!.toLowerCase();
+  for (const { tag, kind, index } of boxTags(clean)) {
     if (kind !== 'input') {
       n++;
       continue;
@@ -322,7 +376,7 @@ export function countFields(html: string): number {
     const type = (attr(tag, 'type') ?? 'text').toLowerCase();
     if (NOT_FILLED.has(type)) continue;
     if (type === 'radio') {
-      const name = attr(tag, 'name') ?? `#${m.index}`;
+      const name = attr(tag, 'name') ?? `#${index}`;
       if (radios.has(name)) continue;
       radios.add(name);
     }
@@ -363,10 +417,9 @@ export function pageFormOutline(html: string): string {
    */
   let skipping: { name: string; words: string; depth: number; button: boolean } | null = null;
 
-  const tokens = clean.matchAll(/<(\/?)([a-zA-Z][\w:-]*)\b[^>]*>|[^<]+/g);
-  for (const m of tokens) {
-    const raw = m[0];
-    if (!raw.startsWith('<')) {
+  for (const piece of piecesOf(clean)) {
+    const raw = piece.raw;
+    if (piece.name === null) {
       const text = decodeEntities(raw);
       if (select) {
         if (select.option !== null) select.option += text;
@@ -374,8 +427,8 @@ export function pageFormOutline(html: string): string {
       else say(text);
       continue;
     }
-    const closing = m[1] === '/';
-    const name = m[2]!.toLowerCase();
+    const closing = piece.closing;
+    const name = piece.name;
 
     if (select) {
       if (name === 'option' && !closing) {
@@ -556,15 +609,15 @@ function summaryOf(outline: string): string {
 
 /** A form nobody would want built: a site search, or a sign-in. */
 function notWanted(form: Element): boolean {
-  const all = [...cleaned(form.inner).matchAll(/<(input|select|textarea)\b[^>]*>/gi)];
-  if (all.some((m) => /^password/i.test(attr(m[0], 'type') ?? ''))) return true;
-  const boxes = all.filter((m) => {
-    const type = (attr(m[0], 'type') ?? 'text').toLowerCase();
-    return m[1]!.toLowerCase() !== 'input' || !NOT_FILLED.has(type);
+  const all = boxTags(cleaned(form.inner));
+  if (all.some((b) => /^password/i.test(attr(b.tag, 'type') ?? ''))) return true;
+  const boxes = all.filter((b) => {
+    const type = (attr(b.tag, 'type') ?? 'text').toLowerCase();
+    return b.kind !== 'input' || !NOT_FILLED.has(type);
   });
   // A search is one box to type in: a lone dropdown or text area is a question.
-  if (boxes.length !== 1 || boxes[0]![1]!.toLowerCase() !== 'input') return false;
-  const tag = boxes[0]![0];
+  if (boxes.length !== 1 || boxes[0]!.kind !== 'input') return false;
+  const tag = boxes[0]!.tag;
   const type = (attr(tag, 'type') ?? '').toLowerCase();
   const name = (attr(tag, 'name') ?? '').toLowerCase();
   const open = form.open;
