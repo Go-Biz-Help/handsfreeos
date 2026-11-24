@@ -84,6 +84,9 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
   output: WorkNextOutput,
   permission: 'socialcontent.use',
   scope: inWorkspace,
+  // Asked every minute. What this computer has under way comes back first, so a repeat hands out the same work, and
+  // it leaves no receipt: each one went to every phone of the person's.
+  receipt: false,
   emits: ['socialcontent.work.taken'],
   async handler(ctx, input) {
     const me = await needReader(ctx);

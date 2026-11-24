@@ -669,6 +669,11 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - **Only the reading computer takes work and saves what it read** (`socialcontent_not_reader` for anyone else). The
   queue holds one open job of a kind about the same thing at a time (a partial unique index), so asking twice never
   reads twice.
+- **The extension's every-minute asks keep no command receipt** (`receipt: false` on `socialcontent.work.next`,
+  `.own.next` and `.post.look_next`). Each is safe to send twice: work under way comes back first, and a read or a
+  look handed out and never answered is asked again later. A receipt for each one went to every phone of the
+  person's, about 4,000 rows a day that no screen reads. `socialcontent.post.next` keeps its receipt: sent twice
+  without one, it would hand out two posts.
 - **Only networks the extension reads can be picked** (`CONTENT_NETWORK_INFO[n].ready`: Instagram, Facebook and
   LinkedIn). The rest show as coming later (decision 2). LinkedIn's creators are read weekly and monthly on their own,
   like the others (the owner's pick, 8 Nov).

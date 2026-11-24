@@ -499,3 +499,26 @@ describe('stored answers', () => {
       expect(registry.command(name)!.shownOnce, name).toEqual(['state']);
   });
 });
+
+describe('receipts', () => {
+  const keepsNone = (name: string) => registry.command(name)!.receipt === false;
+
+  it('are not kept for what the extension asks and notes all day', () => {
+    // Each of these carried a fresh id, so its receipt was never found again, and every one of them went to every
+    // phone of the person's: about 5,000 rows a day for one person, which no screen reads (Nov 2026). Each is safe
+    // to run twice.
+    for (const name of [
+      'outreach.replies.note',
+      'socialcontent.work.next',
+      'socialcontent.own.next',
+      'socialcontent.post.look_next',
+    ])
+      expect(keepsNone(name), name).toBe(true);
+  });
+
+  it('are kept where a second run would do a thing twice', () => {
+    // A post handed out twice, a profile counted twice against the day, a step noted twice.
+    for (const name of ['socialcontent.post.next', 'outreach.check.look', 'outreach.touch.save'])
+      expect(keepsNone(name), name).toBe(false);
+  });
+});

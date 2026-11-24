@@ -482,6 +482,9 @@ export const postLookNext = defineAddonCommand(socialcontentAddon, {
   output: PostLookNextOutput,
   permission: 'socialcontent.use',
   scope: inWorkspace,
+  // Asked every minute. A look handed out and never answered is asked again later, so a repeat does no harm, and it
+  // leaves no receipt: each one went to every phone of the person's.
+  receipt: false,
   emits: [],
   async handler(ctx, input) {
     await needReader(ctx);
