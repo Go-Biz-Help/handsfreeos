@@ -4,7 +4,7 @@
   "checkedOn": "2026-11-24",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "d3145ae0d259",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "4f114178dc72",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/usage.tsx": "721acb308191",
     "apps/mobile/src/bin/calls.ts": "e1814b870b95",
     "apps/mobile/src/components/billing/fix-on-web.tsx": "5f8501ee1a12",

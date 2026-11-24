@@ -107,6 +107,7 @@ import { phoneSetupStatus } from './phone';
 import { brandedDomainGet } from './branded-domain';
 import { numberPortList } from './port';
 import { guidedSetupGetDraft } from './guided-setup';
+import { myCalendarSetupGet } from './my-calendar-setup';
 import {
   registrationGetDraft,
   registrationGetPolicies,
@@ -199,6 +200,7 @@ export {
   phoneSetupStatus,
   numberPortList,
   guidedSetupGetDraft,
+  myCalendarSetupGet,
   registrationGetDraft,
   registrationGetPolicies,
   registrationReviewGet,
@@ -350,6 +352,7 @@ export const queries: readonly QueryDef[] = [
   phoneSetupStatus,
   numberPortList,
   guidedSetupGetDraft,
+  myCalendarSetupGet,
   registrationGetDraft,
   registrationGetPolicies,
   registrationReviewGet,

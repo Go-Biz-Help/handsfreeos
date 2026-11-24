@@ -8,7 +8,7 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx": "17139d859bdb",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx": "54f26bd0b071",
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "d3145ae0d259",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "4f114178dc72",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell.tsx": "717ec190b6de",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx": "68b409d36fcc",
     "apps/mobile/src/components/inbox/my-cell-card.tsx": "292ae0ecad2a",
@@ -2055,6 +2055,13 @@
       "file": "apps/mobile/src/components/links/link-gate.tsx:93",
       "covered": "person",
       "by": "the phone's own lock; device-only"
+    },
+    {
+      "path": "Phone Settings → You → My calendar (for whoever takes appointments; opens the guided My calendar setup, or your answers once it’s set up)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:294",
+      "covered": "yes",
+      "by": "read_my_calendar_setup_get; do_my_calendar_setup_save"
     }
   ],
   "gaps": [

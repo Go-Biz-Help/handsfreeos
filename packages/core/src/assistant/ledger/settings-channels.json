@@ -3,7 +3,7 @@
   "title": "Settings: texting, email, website chat, Facebook and Instagram, templates and lead intake",
   "checkedOn": "2026-11-24",
   "files": {
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "d3145ae0d259",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "4f114178dc72",
     "apps/mobile/src/app/app/w/[workspaceId]/chat-setup.tsx": "4a2af3014be3",
     "apps/mobile/src/app/app/w/[workspaceId]/facebook-setup.tsx": "6a21e9c79859",
     "apps/mobile/src/app/app/w/[workspaceId]/phone-setup.tsx": "71dd2300c14b",
@@ -25,7 +25,7 @@
     "apps/web/src/app/onboarding/[workspaceId]/texting/page.tsx": "83bf6bc1b4cb",
     "apps/web/src/components/chat-setup/chat-setup-flow.tsx": "84f9cbb5ffd8",
     "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx": "f286e3d815b7",
-    "apps/web/src/components/guided-setup/frame.tsx": "9222ba772a3c",
+    "apps/web/src/components/guided-setup/frame.tsx": "1a40339296da",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/phone-setup/editors.tsx": "ef212390d4d3",
     "apps/web/src/components/phone-setup/number-picker.tsx": "0c548fbb78a8",

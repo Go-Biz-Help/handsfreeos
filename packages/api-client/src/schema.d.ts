@@ -7957,6 +7957,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/my_calendar_setup.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Carry out your own guided My calendar setup’s answers, as its Check it over does before Google’s or Microsoft’s sign-in: your weekly hours (the business’s open hours or weekdays 9 to 5, either with a lunch break, or your own days and times) and their time zone, time off removed and added, and where your day starts (only when a calendar you’re on leaves time to drive). It never signs in to Google, Outlook or Zoom; only the person can, and connect says which calendar to sign in to next. Nothing changes when an answer is wrong.
+         * @description Risk level 1. Requires appointments.write. Emits .
+         */
+        post: operations["command_my_calendar_setup_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/notification.read": {
         parameters: {
             query?: never;
@@ -22007,7 +22027,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * A guided setup’s answers as they were left (setup: phone or email), and when they were last saved. Null when nothing is saved: the setup isn’t started, or it was finished.
+         * A guided setup’s answers as they were left (setup: phone, email, calendar, payments, chat, facebook, or my_calendar, which is your own), and when they were last saved. Null when nothing is saved: the setup isn’t started, or it was finished.
          * @description Any signed-in user.
          */
         post: operations["query_guided_setup_get_draft"];
@@ -22851,6 +22871,26 @@ export interface paths {
          * @description Requires money.manage.
          */
         post: operations["query_money_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/my_calendar_setup.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your own calendar as the guided My calendar setup reads it: your hours (null while the usual weekdays 9 to 5 apply), their time zone, time off still coming up, your Google or Outlook calendar, where your day starts and your Zoom account, with the business’s open hours, zone and address, and whether a calendar you’re on leaves time to drive (drive) or makes Zoom links (zoom).
+         * @description Requires workspace.read.
+         */
+        post: operations["query_my_calendar_setup_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41128,7 +41168,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar" | "payments" | "chat" | "facebook";
+                    setup: "phone" | "email" | "calendar" | "payments" | "chat" | "facebook" | "my_calendar";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -41162,7 +41202,7 @@ export interface operations {
                         [key: string]: unknown;
                     };
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar" | "payments" | "chat" | "facebook";
+                    setup: "phone" | "email" | "calendar" | "payments" | "chat" | "facebook" | "my_calendar";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -45589,6 +45629,65 @@ export interface operations {
                         };
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_my_calendar_setup_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        address: string;
+                        calendar: ("google" | "microsoft" | "none") | null;
+                        /** @enum {string} */
+                        dayStart: "business" | "own";
+                        /** @enum {string} */
+                        hours: "business" | "weekdays" | "own";
+                        lunch: boolean;
+                        lunchEnd: string;
+                        lunchStart: string;
+                        ownHours: {
+                            day: number;
+                            end: string;
+                            start: string;
+                        }[];
+                        removeTimeOff: string[];
+                        timeOff: {
+                            allDay: boolean;
+                            end: string;
+                            endDate: string;
+                            key: string;
+                            note: string;
+                            start: string;
+                            startDate: string;
+                        }[];
+                        timezone: string | null;
+                        zoom: boolean;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                        connect: ("google" | "microsoft") | null;
+                        zoom: boolean;
                     };
                 };
             };
@@ -85568,7 +85667,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar" | "payments" | "chat" | "facebook";
+                    setup: "phone" | "email" | "calendar" | "payments" | "chat" | "facebook" | "my_calendar";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -89206,6 +89305,78 @@ export interface operations {
                         quotedCount: number;
                         refundedCents: number;
                         settlingCents: number;
+                    };
+                };
+            };
+        };
+    };
+    query_my_calendar_setup_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        businessAddress: string | null;
+                        businessHours: {
+                            day: number;
+                            end: string;
+                            start: string;
+                        }[];
+                        businessZone: string;
+                        connection: {
+                            accountEmail: string | null;
+                            busySyncedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            provider: "google" | "microsoft";
+                            /** @enum {string} */
+                            status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                        } | null;
+                        dayStart: string | null;
+                        drive: boolean;
+                        fullName: string;
+                        meeting: {
+                            accountEmail: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                        } | null;
+                        ownTimezone: string | null;
+                        timeOff: {
+                            allDay: boolean;
+                            /** Format: date-time */
+                            endsAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            note: string | null;
+                            /** Format: date-time */
+                            startsAt: string;
+                        }[];
+                        /** Format: uuid */
+                        userId: string;
+                        weekly: {
+                            day: number;
+                            end: string;
+                            start: string;
+                        }[] | null;
+                        zoom: boolean;
                     };
                 };
             };

@@ -28,7 +28,7 @@ const RESULT: Record<string, { tone: 'success' | 'info' | 'error'; text: string 
 };
 
 /** Starts connecting your own Zoom account: a one-time state, then Zoom's sign-in. */
-async function connectZoom(workspaceId: string): Promise<void> {
+export async function connectZoom(workspaceId: string): Promise<void> {
   const out = unwrap(
     await apiBrowser().POST('/v1/commands/meeting_connection.connect', {
       body: { workspaceId, provider: 'zoom' },

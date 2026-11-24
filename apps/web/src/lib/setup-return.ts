@@ -2,7 +2,8 @@ import type { WizardStepKey } from '@hfos/core';
 import { setupHref } from './setup';
 
 /**
- * The way back to setup from a sign-in that leaves the app (Stripe, Square, GoHighLevel, Facebook), or from paying
+ * The way back to setup from a sign-in that leaves the app (Stripe, Square, GoHighLevel, Facebook, Google or Outlook
+ * calendars, Zoom), or from paying
  * the carriers' texting fees on Stripe's page. The worker always sends a finished sign-in, and Stripe a payment, to the
  * step's Settings page; a setup screen that starts one keeps a note in this tab first, and the finishing page goes
  * back to the screen instead, with what happened (`?payments=connected`, `?fees=paid`): the setup wizard's step, or
@@ -13,9 +14,10 @@ const KEY = 'hfos:setup-return';
 const LASTS_MS = 30 * 60_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** The setup wizard's steps that leave, and the guided Facebook & Instagram setup (which always says where `to`). */
-type Leaves = Extract<WizardStepKey, 'payments' | 'customers' | 'number'> | 'facebook';
-const LEAVES: readonly string[] = ['payments', 'customers', 'number', 'facebook'];
+/** The setup wizard's steps that leave, and the guided Facebook & Instagram and My calendar setups. */
+type Leaves =
+  Extract<WizardStepKey, 'payments' | 'customers' | 'number'> | 'facebook' | 'my_calendar';
+const LEAVES: readonly string[] = ['payments', 'customers', 'number', 'facebook', 'my_calendar'];
 
 /** Where the worker sends each step's sign-in back to. */
 const PAGES: Record<Leaves, (workspaceId: string) => readonly RegExp[]> = {
@@ -27,6 +29,8 @@ const PAGES: Record<Leaves, (workspaceId: string) => readonly RegExp[]> = {
   // The texting fees' payment page, made by the worker before anyone says where they are.
   number: (ws) => [new RegExp(`^/app/w/${ws}/settings/texting$`)],
   facebook: (ws) => [new RegExp(`^/app/w/${ws}/settings/facebook-instagram$`)],
+  // Google's, Microsoft's and Zoom's sign-ins all come back to My calendar.
+  my_calendar: (ws) => [new RegExp(`^/app/w/${ws}/settings/my-calendar$`)],
 };
 
 /** Notes the way back before leaving; `to` is a page of this business's setup, the wizard's step when left out. */
@@ -74,7 +78,11 @@ export function setupReturnFor(next: string): string {
   const own = (path: string) =>
     path === `/onboarding/${workspaceId}` || path.startsWith(`/onboarding/${workspaceId}/`);
   let back = new URL(
-    leaves === 'facebook' ? `/onboarding/${workspaceId}/facebook` : setupHref(workspaceId, leaves),
+    leaves === 'facebook'
+      ? `/onboarding/${workspaceId}/facebook`
+      : leaves === 'my_calendar'
+        ? `/onboarding/${workspaceId}/my-calendar?step=done`
+        : setupHref(workspaceId, leaves),
     window.location.origin,
   );
   if (typeof to === 'string') {

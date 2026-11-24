@@ -49,7 +49,6 @@ export const ONBOARDING_SETUP_PHONE_WORDS = {
 
   // Booking
   share: 'Share the link',
-  calendarOnComputer: 'Connecting Google or Outlook is easier on a computer.',
 
   // Payments
   payOnComputer: 'Connecting payments isn’t in this build of the app. It’s easier on a computer.',

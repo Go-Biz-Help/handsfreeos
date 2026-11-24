@@ -4,6 +4,7 @@ import {
   aiSetupProblemAt,
   CUSTOMER_SOURCES,
   LINK_WORDS,
+  MY_CALENDAR_SETUP_WORDS,
   ONBOARDING_GOALS,
   ONBOARDING_SETUP_HAND_OVER_WORDS as HW,
   ONBOARDING_KIND_INFO,
@@ -28,6 +29,7 @@ import {
   type Permission,
 } from '@hfos/core';
 import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
@@ -43,6 +45,7 @@ import {
 } from '@/components/ai-setup/fields';
 import { HoursField } from '@/components/ai-setup/hours';
 import {
+  CalendarDays,
   Check,
   CircleAlert,
   Clock,
@@ -55,6 +58,7 @@ import {
   TriangleAlert,
   UserPlus,
 } from '@/components/icons';
+import { businessHref } from '@/components/shell/business-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -615,12 +619,19 @@ export function BookingScreen({
       <View className="gap-2 rounded-menu border border-border p-4">
         <View className="gap-0.5">
           <Text className="text-[15px] font-semibold">{W.connectCalendar}</Text>
-          <Text className="text-[13px] leading-[18px] text-text-2">
-            {`${W.connectCalendarHint} ${P.calendarOnComputer}`}
-          </Text>
+          <Text className="text-[13px] leading-[18px] text-text-2">{W.connectCalendarHint}</Text>
         </View>
+        {/* Your own calendar's guided setup, on the phone too (the owner, 24 Nov 2026, M4 a). */}
         <View className="flex-row">
-          <EmailMeALink workspaceId={workspaceId} step="my_calendar" testID="setup-calendar-link" />
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={CalendarDays}
+            onPress={() => router.push(businessHref(workspaceId, 'my-calendar-setup'))}
+            testID="setup-calendar-open"
+          >
+            {MY_CALENDAR_SETUP_WORDS.summary.setUp}
+          </Button>
         </View>
       </View>
     </>

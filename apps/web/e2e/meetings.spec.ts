@@ -43,7 +43,7 @@ test('a recorded Zoom call becomes a transcript and a task the AI adds on its ow
   // Connect Zoom through the stand-in sign-in.
   // Right after sign-up the new business can take a moment to show to the server-rendered page.
   await expect(async () => {
-    await page.goto(`/app/w/${owner.workspaceId}/settings/my-calendar`);
+    await page.goto(`/app/w/${owner.workspaceId}/settings/my-calendar?all=1`);
     await expect(page.getByTestId('connect-zoom')).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 30_000 });
   await page.getByTestId('connect-zoom').click();

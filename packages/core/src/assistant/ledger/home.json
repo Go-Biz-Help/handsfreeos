@@ -32,7 +32,7 @@
     "apps/mobile/src/components/home/item-sheets.tsx": "1e0fc20a6146",
     "apps/mobile/src/components/home/let-handle-sheet.tsx": "aec9005368fb",
     "apps/mobile/src/components/home/waiting-changes.tsx": "5969f5a3aff5",
-    "apps/mobile/src/components/onboarding/getting-started-card.tsx": "3c732c78eb6f",
+    "apps/mobile/src/components/onboarding/getting-started-card.tsx": "5e284b7a3225",
     "apps/mobile/src/home/actions.ts": "80e1442f9475",
     "apps/mobile/src/search/recent.ts": "6d3884953cf1",
     "apps/mobile/src/search/rows.tsx": "4c8fee7ac09c",
@@ -2612,6 +2612,13 @@
       "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:257",
       "covered": "yes",
       "by": "do_facebook_setup_save; read_guided_setup_get_draft setup facebook reads where they left off; read_onboarding_status says where the step stands. Connecting Facebook is the person’s own sign-in"
+    },
+    {
+      "path": "Phone → Home → Getting started → Connect your calendar → Connect (opens the guided My calendar setup while the step is to do)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:275",
+      "covered": "yes",
+      "by": "do_my_calendar_setup_save; read_guided_setup_get_draft setup my_calendar reads where they left off; read_onboarding_status says where the step stands. Connecting Google or Outlook is the person’s own sign-in"
     }
   ],
   "gaps": [

@@ -11,6 +11,7 @@ import { WORKER_URL } from './telephony';
 test('hours, time off, a Google busy block, services and resources', async ({ page }) => {
   await signUpAndConfirm(page, 'cal-settings');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
+  const all = `/app/w/${workspaceId}/settings/my-calendar?all=1`;
 
   await page.goto(`/app/w/${workspaceId}/settings`);
   await page
@@ -18,6 +19,8 @@ test('hours, time off, a Google busy block, services and resources', async ({ pa
     .getByRole('link', { name: 'My calendar' })
     .click();
   await expect(page).toHaveURL(/\/settings\/my-calendar$/);
+  // Until it's set up, the page is the guided setup's Start card, with today's page under All settings.
+  await page.getByTestId('my-calendar-all-settings-toggle').click();
   const mine = page.getByTestId('my-calendar');
   await expect(mine).toContainText('No hours saved yet, so weekdays 9 to 5 apply.');
   await expect(mine.getByTestId('zone-chip')).toHaveText('Central Time');
@@ -32,7 +35,7 @@ test('hours, time off, a Google busy block, services and resources', async ({ pa
   await page.getByLabel('Saturday end', { exact: true }).selectOption('780');
   await page.getByTestId('hours-save').click();
   await expect(page.getByText('Your hours are saved.')).toBeVisible();
-  await page.reload();
+  await page.goto(all);
   await expect(page.getByLabel('Monday end', { exact: true })).toHaveValue('720');
   await expect(page.getByLabel('Monday end 2')).toHaveValue('1080');
   await expect(page.getByLabel('Saturday start', { exact: true })).toHaveValue('540');
@@ -43,13 +46,13 @@ test('hours, time off, a Google busy block, services and resources', async ({ pa
   await mine.getByLabel('Time zone').selectOption('America/Denver');
   await page.getByTestId('hours-save').click();
   await expect(page.getByTestId('hours-save')).toBeHidden();
-  await page.reload();
+  await page.goto(all);
   await expect(mine.getByTestId('zone-chip')).toHaveText('Mountain Time');
   await expect(mine.getByLabel('Time zone')).toHaveValue('America/Denver');
   await mine.getByLabel('Time zone').selectOption('');
   await page.getByTestId('hours-save').click();
   await expect(page.getByTestId('hours-save')).toBeHidden();
-  await page.reload();
+  await page.goto(all);
   await expect(mine.getByTestId('zone-chip')).toHaveText('Central Time');
 
   // Time off, all day for three days, then taken away again.

@@ -101,6 +101,7 @@ function Business({ userId }: { userId: string }) {
             <Stack.Screen name="payments-setup" options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen name="chat-setup" options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen name="facebook-setup" options={{ presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="my-calendar-setup" options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen name="changes" options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen name="phone-copy" options={{ presentation: 'fullScreenModal' }} />
             {/* A pushed screen rather than a modal, so notes about the call show over it; nothing swipes it away. */}

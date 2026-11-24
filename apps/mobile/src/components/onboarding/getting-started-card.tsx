@@ -1,6 +1,7 @@
 import {
   CHAT_SETUP_WORDS,
   FACEBOOK_SETUP_WORDS,
+  MY_CALENDAR_SETUP_WORDS,
   GUIDE_WORDS,
   holds,
   LINK_WORDS,
@@ -111,6 +112,10 @@ function Steps({
   // Page is connected; a sign-in Facebook stopped is put right on the web.
   const setsUpFacebook = (step: OnboardingStep) =>
     step.key === 'facebook' && step.state === 'todo' && holds(grants, 'channels.manage');
+  // And your own calendar's (the owner, 24 Nov 2026, M1 a and M4 a): Google's or Microsoft's sign-in opens in the
+  // phone's browser and comes back.
+  const setsUpMyCalendar = (step: OnboardingStep) =>
+    step.key === 'my_calendar' && step.state === 'todo' && holds(grants, 'appointments.write');
   // The teammate quick setup saves reaches the phone's copy: the guide asks again.
   const hadTeammate = React.useRef<boolean | null>(null);
   React.useEffect(() => {
@@ -152,7 +157,8 @@ function Steps({
     setsUpNumber(step) ||
     setsUpPayments(step) ||
     setsUpChat(step) ||
-    setsUpFacebook(step);
+    setsUpFacebook(step) ||
+    setsUpMyCalendar(step);
 
   /** One command at a time, with signal; the guide asks again when it's done. */
   const act = async (key: string, run: () => Promise<string | null>) => {
@@ -258,6 +264,17 @@ function Steps({
           testID="getting-started-facebook-setup"
         >
           {stepWords(step).action ?? FACEBOOK_SETUP_WORDS.summary.start}
+        </Button>
+      );
+    if (setsUpMyCalendar(step))
+      return (
+        <Button
+          size="sm"
+          variant={primary ? 'primary' : 'secondary'}
+          onPress={() => router.push(businessHref(business.id, 'my-calendar-setup'))}
+          testID="getting-started-my-calendar-setup"
+        >
+          {stepWords(step).action ?? MY_CALENDAR_SETUP_WORDS.summary.start}
         </Button>
       );
     if (step.key === 'notifications')
