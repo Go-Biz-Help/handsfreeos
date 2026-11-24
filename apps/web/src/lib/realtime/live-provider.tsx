@@ -11,8 +11,10 @@ import {
   type ReactNode,
 } from 'react';
 import { isOwnRequest } from '@/lib/api/own-requests';
+import { navigationCameSince } from '@/lib/navigation-progress';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { browserAccessToken } from '@/lib/supabase/token';
+import { heardLog } from './heard';
 import { redrawLine, type RedrawLine, type Redraws } from './redraws';
 
 /**
@@ -31,11 +33,17 @@ export interface LiveChange {
   readonly at: string;
 }
 
-type Listener = (change: LiveChange | { entityType: '*'; type: 'resync' }) => void;
+type Heard = LiveChange | { entityType: '*'; type: 'resync' };
+type Listener = (change: Heard) => void;
 
 interface LiveContextValue {
   /** `whileHidden` listeners still hear changes in a background tab (the unread count in the tab title). */
   subscribe(listener: Listener, whileHidden?: boolean): () => void;
+  /**
+   * For a screen that starts to listen now: when the newest change `wanted` says yes to was heard while the screen
+   * was on its way here with a move to another page, or null when none was (./heard.ts).
+   */
+  missed(wanted: (change: Heard) => boolean): number | null;
   /** Where a screen asks for the page to be drawn again: one at a time for them all (./redraws.ts). */
   redraws: Redraws;
   connected: boolean;
@@ -43,6 +51,7 @@ interface LiveContextValue {
 
 const LiveContext = createContext<LiveContextValue>({
   subscribe: () => () => {},
+  missed: () => null,
   redraws: { ask: () => {}, forget: () => {} },
   connected: false,
 });
@@ -68,10 +77,15 @@ export function LiveProvider({
   const listeners = useRef(new Map<Listener, boolean>());
   const [connected, setConnected] = useState(false);
   const [line] = useState(redrawLine);
+  const [lately] = useState(() => heardLog<Heard>());
   const value = useRef<LiveContextValue>({
     subscribe(listener, whileHidden = false) {
       listeners.current.set(listener, whileHidden);
       return () => listeners.current.delete(listener);
+    },
+    missed(wanted) {
+      const since = navigationCameSince();
+      return since === null ? null : lately.newest(since, wanted);
     },
     redraws: line,
     connected: false,
@@ -90,6 +104,8 @@ export function LiveProvider({
     let missed = false;
 
     const notify: Listener = (change) => {
+      // Kept a minute, for a screen that is still on its way here (./heard.ts).
+      lately.add(change, Date.now());
       const hidden = document.visibilityState !== 'visible';
       if (hidden) missed = true;
       for (const [l, whileHidden] of listeners.current) if (!hidden || whileHidden) l(change);
@@ -186,7 +202,7 @@ export function LiveProvider({
       stopPolling();
       teardown();
     };
-  }, [workspaceId]);
+  }, [workspaceId, lately]);
 
   return (
     <LiveContext.Provider value={value.current}>
@@ -247,7 +263,7 @@ export const DELIVERY_RECEIPTS: readonly string[] = [
 const SELDOM_WAIT_MS = 4_000;
 
 function matches(
-  change: Parameters<Listener>[0],
+  change: Heard,
   entityTypes: readonly string[] | undefined,
   only: LiveOptions['only'],
 ): boolean {
@@ -322,13 +338,16 @@ function typesKey(entityTypes: readonly string[] | undefined): string | undefine
  * Refreshes the server-rendered page (debounced) when a teammate changes one of these entity types. Paused while
  * the tab is hidden; it refreshes once when shown again. The page is drawn once for every screen on it that asks,
  * and never again before the one ahead has landed (./redraws.ts).
+ *
+ * A screen that comes with a move to another page also asks for what was heard while that move was on its way: the
+ * server read the page before the screen was there to listen (./heard.ts).
  */
 export function useLiveRefresh(
   entityTypes?: readonly string[],
   debounceMs = 300,
   options?: LiveOptions,
 ): void {
-  const { subscribe, redraws } = useContext(LiveContext);
+  const { subscribe, missed, redraws } = useContext(LiveContext);
   const [me] = useState(() => ({}));
   const key = typesKey(entityTypes);
   const onlyKey = options?.only ? JSON.stringify(options.only) : undefined;
@@ -337,19 +356,28 @@ export function useLiveRefresh(
     if (key === '') return;
     const types = key === undefined ? undefined : key.split(',');
     const only = onlyKey === undefined ? undefined : (JSON.parse(onlyKey) as LiveOptions['only']);
+    const mine = (change: Heard) => matches(change, types, only);
     let heard = 0;
     const trigger = debounced(() => redraws.ask(me, heard), debounceMs);
     const unsubscribe = subscribe((change) => {
-      if (!matches(change, types, only)) return;
+      if (!mine(change)) return;
       heard = Date.now();
       trigger();
     }, whileHidden);
+    // The page this screen came with was read while the move to it was on its way, before anything here listened,
+    // so a change heard since that move began may be missing from it. Asked for with the time it was heard: a page
+    // drawn again since then has it, and the line does not draw it once more for this.
+    const before = missed(mine);
+    if (before !== null) {
+      heard = before;
+      trigger();
+    }
     return () => {
       unsubscribe();
       // What was heard is still wanted when only what is listened for has changed.
       trigger.flush();
     };
-  }, [subscribe, redraws, me, key, onlyKey, debounceMs, whileHidden]);
+  }, [subscribe, missed, redraws, me, key, onlyKey, debounceMs, whileHidden]);
   // After the effect above, so a screen that goes takes back what it has just asked for.
   useEffect(() => () => redraws.forget(me), [redraws, me]);
 }
@@ -357,35 +385,47 @@ export function useLiveRefresh(
 /**
  * A counter that bumps (debounced) on matching changes, for components that fetch their own data. Paused while
  * the tab is hidden (one resync on return) unless `whileHidden`.
+ *
+ * It bumps once, too, for a screen that comes with a move to another page when a matching change was heard while
+ * the move was on its way: many of these start from what the server read for the page (a conversation's thread),
+ * and fetch only when the counter moves (./heard.ts).
  */
 export function useLiveVersion(
   entityTypes?: readonly string[],
   debounceMs = 300,
   options?: LiveOptions,
 ): number {
-  const { subscribe } = useContext(LiveContext);
+  const { subscribe, missed } = useContext(LiveContext);
   const [version, setVersion] = useState(0);
   const key = typesKey(entityTypes);
   const onlyKey = options?.only ? JSON.stringify(options.only) : undefined;
   const seldomKey = options?.seldom?.join(',');
   const whileHidden = options?.whileHidden ?? false;
+  /** What was heard on the way here is asked about once, not again each time what is listened for changes. */
+  const caughtUp = useRef(false);
   useEffect(() => {
     if (key === '') return;
     const types = key === undefined ? undefined : key.split(',');
     const only = onlyKey === undefined ? undefined : (JSON.parse(onlyKey) as LiveOptions['only']);
     const seldom = seldomKey?.split(',');
+    const mine = (change: Heard) => matches(change, types, only);
     const later = gathered(() => setVersion((v) => v + 1), SELDOM_WAIT_MS);
     const trigger = debounced(() => {
       // What the gathered ones wanted is asked for now.
       later.cancel();
       setVersion((v) => v + 1);
     }, debounceMs);
-    return subscribe((change) => {
-      if (!matches(change, types, only)) return;
+    const unsubscribe = subscribe((change) => {
+      if (!mine(change)) return;
       if (seldom?.includes(change.type)) later();
       else trigger();
     }, whileHidden);
-  }, [subscribe, key, onlyKey, seldomKey, debounceMs, whileHidden]);
+    if (!caughtUp.current) {
+      caughtUp.current = true;
+      if (missed(mine) !== null) trigger();
+    }
+    return unsubscribe;
+  }, [subscribe, missed, key, onlyKey, seldomKey, debounceMs, whileHidden]);
   return version;
 }
 
