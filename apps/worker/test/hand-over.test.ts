@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { executeCommand, organizationCreate, type HumanActor } from '@hfos/core/server';
+import {
+  executeCommand,
+  organizationCreate,
+  personCreate,
+  type HumanActor,
+} from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -100,15 +105,23 @@ type HeldEvent = {
   tenant: boolean;
 };
 
-/** A new business's events, held for `ME`. */
+/** A new business's events and its first contact's, held for `ME`: events of two types at least. */
 async function heldEvents(): Promise<HeldEvent[]> {
-  const correlationId = randomUUID();
-  await executeCommand(
+  const meta = { correlationId: randomUUID(), channel: 'test' as const };
+  const { correlationId } = meta;
+  const { output } = await executeCommand(
     testDbs().api.db,
     organizationCreate,
     { businessName: 'Hand-over Plumbing' },
     actor(owner),
-    { correlationId, channel: 'test' as const },
+    meta,
+  );
+  await executeCommand(
+    testDbs().api.db,
+    personCreate,
+    { workspaceId: output.workspaceId, firstName: 'Hana', lastName: 'Hand-over' },
+    actor(owner),
+    meta,
   );
   return rows<HeldEvent>(
     admin(),
@@ -189,6 +202,17 @@ describe('a hand-over between the worker’s queues', () => {
     });
     expect(stats).toMatchObject({ claimed: mine.length, done: mine.length, failed: 0 });
     expect(told).toBe(withHandler);
+    // The ones with nothing to do were closed together, and none is left held or waiting.
+    expect(mine.length).toBeGreaterThan(withHandler);
+    expect(
+      await countOf(
+        sql`select count(*)::int as count from app.outbox
+            where event_id in (${sql.join(
+              mine.map((e) => sql`${e.event_id}`),
+              sql`, `,
+            )}) and (status <> 'done' or locked_by is not null)`,
+      ),
+    ).toBe(0);
   });
 });
 

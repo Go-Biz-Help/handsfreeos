@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { events, outbox } from '@hfos/db/schema';
 import { handlersFor, type HandlerMap } from './handlers/types';
@@ -84,28 +84,44 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
   const ours = (eventId: string) =>
     and(eq(outbox.eventId, eventId), eq(outbox.lockedBy, deps.workerId));
 
-  for (const row of claimed) {
-    // A person's own account events (no organization, no business: a profile saved, the Assistant's OK, deleting an
-    // account that belongs to no business) have no tenant for a handler to act in, and the worker can't read them.
-    // The support desk's events (M13) also have no tenant, on purpose — they belong to HandsFreeOS itself —
-    // and the worker does read those.
-    const platformEvent =
-      row.event_type.startsWith('support') || row.event_type.startsWith('platform.');
-    const list =
-      row.organization_id || row.workspace_id || platformEvent
-        ? handlersFor(deps.handlers, row.event_type)
-        : [];
+  // A person's own account events (no organization, no business: a profile saved, the Assistant's OK, deleting an
+  // account that belongs to no business) have no tenant for a handler to act in, and the worker can't read them.
+  // The support desk's events (M13) also have no tenant, on purpose — they belong to HandsFreeOS itself —
+  // and the worker does read those.
+  const handlersOf = (row: Claimed) =>
+    row.organization_id ||
+    row.workspace_id ||
+    row.event_type.startsWith('support') ||
+    row.event_type.startsWith('platform.')
+      ? handlersFor(deps.handlers, row.event_type)
+      : [];
+
+  // A third of all events have nothing to do. They are closed together, first: each one used to take the queue
+  // for a transaction of its own, in turn with the events a customer is waiting on.
+  const idle = claimed.filter((row) => handlersOf(row).length === 0).map((row) => row.event_id);
+  if (idle.length > 0) {
     try {
-      if (list.length === 0) {
-        await asWorker(deps.db, {}, (tx) =>
-          tx
-            .update(outbox)
-            .set({ status: 'done', lockedAt: null, lockedBy: null })
-            .where(ours(row.event_id)),
-        );
-        stats.done++;
-        continue;
-      }
+      const closed = await asWorker(deps.db, {}, (tx) =>
+        tx
+          .update(outbox)
+          .set({ status: 'done', lockedAt: null, lockedBy: null })
+          .where(and(inArray(outbox.eventId, idle), eq(outbox.lockedBy, deps.workerId)))
+          .returning({ eventId: outbox.eventId }),
+      );
+      stats.done += closed.length;
+    } catch (e) {
+      // Still held by this worker, so its next pass claims them again; the events with work to do go ahead.
+      deps.log.warn(
+        { events: idle.length, err: errorMessage(e) },
+        'outbox: could not close events',
+      );
+    }
+  }
+
+  for (const row of claimed) {
+    const list = handlersOf(row);
+    if (list.length === 0) continue;
+    try {
       const scope = { organizationId: row.organization_id, workspaceId: row.workspace_id };
       // A practice business's events are handled with its stand-ins (practice/kit.ts): nothing goes outside.
       const run = await practiceRunFor(deps.db, scope);
