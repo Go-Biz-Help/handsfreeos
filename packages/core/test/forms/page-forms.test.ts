@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { countFields, pageFormOutline, formsOnPage, googleForm } from '../../src/forms/page-forms';
+import {
+  countFields,
+  decodeEntities,
+  formsOnPage,
+  googleForm,
+  pageFormOutline,
+} from '../../src/forms/page-forms';
 
 const ORDER_PAGE = `<html><head><title>Sherri’s Crafts</title><script>var x = "<form><input name=a></form>";</script></head><body>
 <nav><form role="search" action="/search"><input type="search" name="s"><button>Go</button></form></nav>
@@ -111,6 +117,12 @@ describe('the forms on a web page', () => {
       formsOnPage(unit.repeat(Math.ceil(1_000_000 / unit.length)), 'https://slow.test');
       expect(performance.now() - started, unit).toBeLessThan(3000);
     }
+  });
+
+  it('reads each entity once, so one never makes another', () => {
+    expect(
+      decodeEntities('Tom &amp; Jerry &#8217; &#x2019; &lt;b&gt; &#38;lt; &amp;lt; &bogus;'),
+    ).toBe('Tom & Jerry ’ ’ <b> &lt; &lt; &bogus;');
   });
 
   it('says a list that takes more than one choice is one', () => {

@@ -100,22 +100,37 @@ const INPUT_WORDS: Readonly<Record<string, string>> = {
   password: 'password box',
 };
 
-/** The few entities a page's words are written with, and numbered ones. */
+/** The named entities a page's words are usually written with. */
+const ENTITIES: Readonly<Record<string, string>> = {
+  nbsp: ' ',
+  quot: '"',
+  apos: "'",
+  lt: '<',
+  gt: '>',
+  rsquo: '’',
+  lsquo: '’',
+  rdquo: '"',
+  ldquo: '"',
+  ndash: '–',
+  mdash: '—',
+  hellip: '…',
+  amp: '&',
+};
+
+/**
+ * The few entities a page's words are written with, and numbered ones, in one pass: one at a time would read
+ * "&#38;lt;" as "<", the "&" the first made being read again by the next.
+ */
 export function decodeEntities(text: string): string {
-  return text
-    .replace(/&#x([0-9a-f]{1,6});/gi, (_, hex: string) => safeChar(parseInt(hex, 16)))
-    .replace(/&#(\d{1,7});/g, (_, dec: string) => safeChar(Number(dec)))
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&quot;/gi, '"')
-    .replace(/&apos;/gi, "'")
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&rsquo;|&lsquo;/gi, '’')
-    .replace(/&rdquo;|&ldquo;/gi, '"')
-    .replace(/&ndash;/gi, '–')
-    .replace(/&mdash;/gi, '—')
-    .replace(/&hellip;/gi, '…')
-    .replace(/&amp;/gi, '&');
+  return text.replace(
+    /&(?:#x([0-9a-f]{1,6})|#(\d{1,7})|([a-z]{2,6}));/gi,
+    (whole, hex: string | undefined, dec: string | undefined, name: string | undefined) =>
+      hex
+        ? safeChar(parseInt(hex, 16))
+        : dec
+          ? safeChar(Number(dec))
+          : (ENTITIES[name!.toLowerCase()] ?? whole),
+  );
 }
 
 function safeChar(code: number): string {
