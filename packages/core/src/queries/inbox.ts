@@ -679,26 +679,45 @@ export const inboxSummary = defineQuery({
     const me = requireHuman(ctx).userId;
     const m = await workspaceMessaging(ctx.tx, input.workspaceId);
     const threshold = m.settings.unansweredReminderMinutes || 10;
+    const mine = sql`(c.assignee_user_id = ${me} or c.private_to = ${me})`;
+    const nobodys = sql`(c.assignee_user_id is null and c.private_to is null)`;
     const [s] = await rows<Record<string, number>>(
       ctx.tx,
       // Customers, not threads (0089): the list beside these badges shows each customer once, and a badge
       // that counts their lanes says "3" over a list with one row in it.
       // The person's own mail is in the list beside the team's (M19), so it is in Mine and All here too, and never in
       // Unassigned. Who is waiting too long, and the AI teammate's boxes, are the team's customers only.
+      //
+      // Each customer's open threads are put together once, noting what any of them is (unread, mine, waiting), and
+      // the customers are then counted. Nine `count(distinct …) filter (…)` said the same, but each put the business's
+      // every thread in order by a long piece of text of its own: four fifths of the time this took on a business
+      // with 20,000 threads (speed audit, Nov 2026).
       sql`select
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open')::int as open_all,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and (c.assignee_user_id = ${me} or c.private_to = ${me}))::int as open_mine,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.assignee_user_id is null and c.private_to is null)::int as open_unassigned,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.unread_count > 0)::int as unread_all,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.unread_count > 0 and (c.assignee_user_id = ${me} or c.private_to = ${me}))::int as unread_mine,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.unread_count > 0 and c.assignee_user_id is null and c.private_to is null)::int as unread_unassigned,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.private_to is null and c.awaiting_reply_since is not null
-              and c.awaiting_reply_since <= now() - make_interval(mins => ${threshold}))::int as waiting,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.private_to is null and c.needs_person_since is not null)::int as needs_person,
-            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.private_to is null and c.handled_by = 'ai')::int as ai
-          from app.conversations c
-          where c.workspace_id = ${input.workspaceId} and c.last_message_at is not null
-            and c.archived_at is null and c.folder = 'inbox' and (c.private_to is null or c.private_to = ${me})`,
+            count(*)::int as open_all,
+            count(*) filter (where g.mine)::int as open_mine,
+            count(*) filter (where g.nobodys)::int as open_unassigned,
+            count(*) filter (where g.unread)::int as unread_all,
+            count(*) filter (where g.unread_mine)::int as unread_mine,
+            count(*) filter (where g.unread_nobodys)::int as unread_unassigned,
+            count(*) filter (where g.waiting)::int as waiting,
+            count(*) filter (where g.needs_person)::int as needs_person,
+            count(*) filter (where g.ai)::int as ai
+          from (
+            select
+              bool_or(${mine}) as mine,
+              bool_or(${nobodys}) as nobodys,
+              bool_or(c.unread_count > 0) as unread,
+              bool_or(c.unread_count > 0 and ${mine}) as unread_mine,
+              bool_or(c.unread_count > 0 and ${nobodys}) as unread_nobodys,
+              bool_or(c.private_to is null and c.awaiting_reply_since is not null
+                and c.awaiting_reply_since <= now() - make_interval(mins => ${threshold})) as waiting,
+              bool_or(c.private_to is null and c.needs_person_since is not null) as needs_person,
+              bool_or(c.private_to is null and c.handled_by = 'ai') as ai
+            from app.conversations c
+            where c.workspace_id = ${input.workspaceId} and c.status = 'open' and c.last_message_at is not null
+              and c.archived_at is null and c.folder = 'inbox' and (c.private_to is null or c.private_to = ${me})
+            group by ${GROUP_KEY}
+          ) g`,
     );
     const n = (k: string) => Number(s?.[k] ?? 0);
     // Beside the team's Inbox (M19): the viewer's own mail (the My mail filter), and Other mail and Spam, which hold

@@ -561,7 +561,9 @@ The owner's design (15 Nov), on the web and the phone. The Calendar has three lo
 weeks, with Lately; the default), **Week** and **Month**; weeks start Monday. Each person's last look is kept (a
 cookie on the web, the phone's own store), and the address carries `?look=&day=` on the web. `calendar.get` takes
 `from` and `days` (1 to 42), so a week asks 7 days and a month the 6 weeks it shows; `recent` is the 30 days before
-`from`. The looks, ranges, filters and what's picked are worked out once, in `calendar-looks.ts`.
+`from`. With no day picked, a week or month is asked for as `look` alone, and the server finds the one with today in
+it (the business's time zone is its to know), so the screen asks once (speed audit, Nov 2026). The looks, ranges,
+filters and what's picked are worked out once, in `calendar-looks.ts`.
 
 - **Filters**: All, Waiting for your OK, OK'd, Posted, Didn't post and Hidden, each with its count (`shows`,
   `filterCounts`). A hidden post shows only under Hidden, with a Hidden badge and a dashed edge.

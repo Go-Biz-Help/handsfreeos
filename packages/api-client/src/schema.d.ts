@@ -106031,6 +106031,8 @@ export interface operations {
                     /** @default 15 */
                     days?: number;
                     from?: string;
+                    /** @enum {string} */
+                    look?: "week" | "month";
                     /** Format: uuid */
                     workspaceId: string;
                 };

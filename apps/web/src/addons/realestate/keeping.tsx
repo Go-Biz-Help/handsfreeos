@@ -32,6 +32,7 @@ import { CardHead, dealHref } from './bits';
 import { ReasonDialog } from './deal-dialogs';
 import type { DealExport, Hold } from './types';
 import { useAct } from './use-act';
+import { useLookAgain } from './use-look-again';
 
 /** Deal settings → Keeping records: the years closed deals are kept, and every deal on legal hold. */
 export function KeepingRecords({
@@ -343,15 +344,10 @@ export function ExportsCard({
   exports: readonly DealExport[];
   fileOf: (fileId: string | null) => ExportFile | null;
 }) {
-  const router = useRouter();
   const [asking, setAsking] = useState(false);
   // The worker builds it in a minute or so: look again until it has.
   const making = exports.some((x) => x.state === 'building');
-  useEffect(() => {
-    if (!making) return;
-    const t = setInterval(() => router.refresh(), 3000);
-    return () => clearInterval(t);
-  }, [making, router]);
+  useLookAgain(making, 3000);
   return (
     <Card className="mt-4 p-4 md:p-5" data-testid="deal-exports">
       <CardHead

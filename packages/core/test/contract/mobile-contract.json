@@ -19539,6 +19539,10 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 42
+          },
+          "look": {
+            "type": "string",
+            "enum": ["week", "month"]
           }
         },
         "required": ["workspaceId"]

@@ -36,6 +36,7 @@ import { DealCrumb } from './buyer-bits';
 import { Marked } from './listing-bits';
 import type { DealDocument, ListingView, Marketing } from './types';
 import { useAct } from './use-act';
+import { useLookAgain } from './use-look-again';
 import { useQueryState } from './use-query-state';
 
 const thisYear = () => new Date().getFullYear();
@@ -82,7 +83,6 @@ export function MarketingPage({
   brandedOrigin: string | null;
   live: boolean;
 }) {
-  const router = useRouter();
   useLiveRefresh(['custom_record']);
   const [marking, setMarking] = useQueryState('live');
   const street = l.street ?? dealName;
@@ -95,11 +95,7 @@ export function MarketingPage({
   const postsBusy =
     m.posts.state === 'drafting' ||
     m.posts.items.some((p) => !(p.checked.words && p.checked.model));
-  useEffect(() => {
-    if (!postsBusy) return;
-    const t = setInterval(() => router.refresh(), 2500);
-    return () => clearInterval(t);
-  }, [postsBusy, router]);
+  useLookAgain(postsBusy, 2500);
 
   return (
     <div data-testid="realestate-marketing">

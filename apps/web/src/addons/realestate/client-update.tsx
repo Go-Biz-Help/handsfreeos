@@ -10,7 +10,7 @@ import { MILESTONE_WORDS } from '@hfos/core/addons/realestate/prompts';
 import { ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Callout } from '@/components/crm/chips';
 import { PageHeader } from '@/components/shell/page-header';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import { dealHref } from './bits';
 import { ReasonDialog } from './deal-dialogs';
 import type { DraftGet } from './types';
 import { useAct } from './use-act';
+import { useLookAgain } from './use-look-again';
 
 export function ClientUpdate({
   workspaceId,
@@ -58,11 +59,7 @@ export function ClientUpdate({
 
   // While it's being written or read, look again every few seconds besides the live channel.
   const waiting = draft.status === 'drafting' || checking;
-  useEffect(() => {
-    if (!waiting) return;
-    const t = setInterval(() => router.refresh(), 4000);
-    return () => clearInterval(t);
-  }, [waiting, router]);
+  useLookAgain(waiting, 4000);
 
   const select = useCallback(
     (phrase: string) => {

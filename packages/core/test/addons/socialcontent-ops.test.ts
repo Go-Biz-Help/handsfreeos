@@ -12,10 +12,12 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { CALENDAR } from '../../src/addons/socialcontent/calendar';
+import { monthGridFrom, weekStartOf } from '../../src/addons/socialcontent/calendar-looks';
 import { socialcontentAddon } from '../../src/addons/socialcontent/manifest';
 import { socialcontentAddonServer } from '../../src/addons/socialcontent/server';
 import { SOCIALCONTENT_TABLES } from '../../src/addons/socialcontent/tables';
 import { clockOf } from '../../src/addons/socialcontent/words';
+import { addDays } from '../../src/calendar/engine/zoned';
 import {
   addonRef,
   executeCommand,
@@ -1295,6 +1297,61 @@ describe('the business’s own posts', () => {
       went: [{ place: 'feed', posted: true }],
     });
     expect(said.state).toBe('posted');
+  });
+
+  it('shows a week or a month by its look: the one with today in it, or with the day named (speed audit, Nov 2026)', async () => {
+    const make = async (title: string, set: ReturnType<typeof sql>) => {
+      const { postId } = await worker('socialcontent.content.put', {
+        network: 'linkedin',
+        post: written({ title, words: `${title}: a tip.` }),
+      });
+      await rows(
+        admin(),
+        sql`update addon_socialcontent.content set ${set} where record_id = ${postId as string}`,
+      );
+      return postId as string;
+    };
+    const { today } = await as(member, 'socialcontent.calendar.get');
+    // One in this week, one with no day yet, and one that went up before the month shown.
+    const thisWeek = await make('In this week', sql`post_at = now()`);
+    const noDay = await make('No day yet', sql`post_at = null`);
+    const wentUp = await make(
+      'Went up two weeks back',
+      sql`state = 'posted', post_at = now() - interval '14 days', posted_at = now() - interval '14 days',
+          approved_at = now() - interval '15 days',
+          posted_to = jsonb_build_array(jsonb_build_object('place', 'feed', 'link', null, 'at', now()))`,
+    );
+    const ids = (list: Any[]) => list.map((p) => p.id);
+
+    // A week is 7 days from Monday; a month is the 6 weeks it shows. Neither needs today asked for first.
+    const week = await as(member, 'socialcontent.calendar.get', { look: 'week' });
+    expect(week).toMatchObject({ today, from: weekStartOf(today), days: 7 });
+    expect(ids(week.posts)).toContain(thisWeek);
+    expect(ids(week.undated)).toContain(noDay);
+    expect(ids(week.recent)).toContain(wentUp);
+    const month = await as(member, 'socialcontent.calendar.get', { look: 'month' });
+    expect(month).toMatchObject({ today, from: monthGridFrom(today), days: 42 });
+
+    // It answers what asking for those days does, each post in its own list.
+    for (const byLook of [week, month]) {
+      const byDays = await as(member, 'socialcontent.calendar.get', {
+        from: byLook.from,
+        days: byLook.days,
+      });
+      expect(byLook.posts).toEqual(byDays.posts);
+      expect(byLook.undated).toEqual(byDays.undated);
+      expect(byLook.recent).toEqual(byDays.recent);
+    }
+
+    // With a day named, it's the week or month with that day in it.
+    const later = addDays(today, 40);
+    expect(
+      await as(member, 'socialcontent.calendar.get', { look: 'week', from: later }),
+    ).toMatchObject({ today, from: weekStartOf(later), days: 7 });
+    expect(
+      await as(member, 'socialcontent.calendar.get', { look: 'month', from: later }),
+    ).toMatchObject({ today, from: monthGridFrom(later), days: 42 });
+    await as(owner, 'socialcontent.content.remove_many', { postIds: [thisWeek, noDay, wentUp] });
   });
 
   it('acts on many picked posts: OKs, hides and shows, deletes, and redoes any number (the owner, 15 Nov)', async () => {

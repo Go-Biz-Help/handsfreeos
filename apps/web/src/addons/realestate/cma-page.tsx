@@ -35,6 +35,7 @@ import { ReasonDialog } from './deal-dialogs';
 import { MlsNotice } from './mls-bits';
 import type { Cma, CmaComp } from './types';
 import { useAct } from './use-act';
+import { useLookAgain } from './use-look-again';
 
 const thisYear = () => new Date().getFullYear();
 const n = (x: number) => x.toLocaleString('en-US');
@@ -71,11 +72,7 @@ export function CmaPage({
     (cma.summary.state === 'ready' && !cma.fairHousing.checked) ||
     cma.findComps.state === 'finding';
   // The worker drafts and checks a moment later: look again until it has.
-  useEffect(() => {
-    if (!waitingOnChecks) return;
-    const t = setInterval(() => router.refresh(), 2500);
-    return () => clearInterval(t);
-  }, [waitingOnChecks, router]);
+  useLookAgain(waitingOnChecks, 2500);
   const run = (
     key: string,
     path:

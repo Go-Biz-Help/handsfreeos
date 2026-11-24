@@ -136,7 +136,7 @@ export function CalendarScreen() {
   });
   // A day in the week or month shown; the one with today in it when null.
   const [day, setDay] = React.useState<string | null>(null);
-  const get = async (range?: { from?: string; days: number }) =>
+  const get = async (range?: { from?: string; days?: number; look?: 'week' | 'month' }) =>
     unwrap(
       await api.POST('/v1/queries/socialcontent.calendar.get', {
         body: { workspaceId: ws, ...range },
@@ -146,9 +146,12 @@ export function CalendarScreen() {
     async () => {
       if (look === 'list') return get();
       if (day) return get(lookRange(look, day, day));
-      // Today in the business's time zone first.
-      const first = await get({ days: 1 });
-      return get(lookRange(look, first.today, first.today));
+      // The week or month with today in it, in the business's time zone, which the server knows: one ask, every 20
+      // seconds, where a one-day ask used to find today first (speed audit, Nov 2026).
+      const first = await get({ look });
+      // An API from before it took `look` answers with today's list: ask for the days then.
+      const want = lookRange(look, first.today, first.today);
+      return first.from === want.from && first.days === want.days ? first : get(want);
     },
     `socialcontent-calendar:${ws}:${look}:${day ?? ''}`,
     W.calendar.title,

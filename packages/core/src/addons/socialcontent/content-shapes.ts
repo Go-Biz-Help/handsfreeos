@@ -161,6 +161,11 @@ export const CalendarGetInput = z.object({
     .min(1)
     .max(42)
     .default(CALENDAR.days + 1),
+  /**
+   * A whole week (from Monday) or month (the 6 weeks it shows) in place of `days`: the one with `from` in it, or with
+   * today in it when that's left out, so a screen needn't ask what today is first.
+   */
+  look: z.enum(['week', 'month']).optional(),
 });
 export const CalendarGetOutput = z.object({
   timeZone: z.string(),
