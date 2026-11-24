@@ -5245,6 +5245,30 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `outreach.comment_research.next`), so it can't keep another post's comments again. Neither has a note or a
         guide until its research is run again and finishes.
 
+192.  **Two friend requests Facebook says no to in a row, and no more that day** (Chris's pick on 22 Nov 2026: "Yes,
+      stop after 2 refusals"; extension 0.151.2). From 20 Nov 2026 Facebook answered Add friend with a box of its own
+      over the profile (a heading of a few words, a line and one button that isn't Confirm), and the request didn't
+      go: none of 8 on 22 Nov. Its words aren't a warning's, so the day went on and every request after met the same
+      box.
+      - **The box is read** (`boxesOver` in `src/networks/facebook/page.ts`): a profile's read says the heading of
+        each box over the page, in Facebook's words, or its label when it has none. One there after Add friend that
+        wasn't before is Facebook's answer.
+      - **The step says so** (`onProfile` in `src/auto/run.ts`): "Facebook didn’t take it, and showed a box:
+        “(its heading)”". It's still handed to the person and looked at by the AI helper, as before (decisions 42 and
+        142). Not taken with no new box, it still says "Facebook didn’t take it" and is one to fix.
+      - **Two in a row, and no more friend requests today** (`REFUSED_IN_A_ROW`, `refusedAfter`, `withoutRequests` in
+        `src/auto/plan.ts`): a request that goes starts the count again; a like, a message or a request passed over
+        between them doesn't. At two, the panel and the day's feed say "Facebook said no to 2 friend requests in a
+        row, each in a box of its own, so no more friend requests today. Likes, comments and messages go on, and your
+        limits stay as they are." Confirming their requests goes on too. A new day starts again with requests on.
+      - **It isn't a warning** (decision 25): the day doesn't stop, and no limit is halved. A box whose words are a
+        warning's still stops the day and halves the limits, as before.
+      - **The support desk sorts it as Facebook's limit** (`BOX_SAID_NO` in `packages/core/src/schemas/problem-report.ts`,
+        read by `problemKind`), whatever the AI helper saw, as nothing in HandsFreeOS is there to fix. The reports of
+        "Facebook didn’t take it" from before clear as fixed once 0.151.2 is out (`PROBLEM_FIXES`).
+      - **How it's built** (no migration, no server change): the count and the switch live in the runner's state for
+        the day on that computer (`refusedInRow`, `requestsOff`), as its tries do.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -5454,7 +5478,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   passes them; it checks each profile is the one listed and where things stand before pressing and after, passes
   over anything that isn't as expected for the rest of the day rather than retrying, and notes each step marked as
   its own (`auto`). It stops for the day on any warning, its own or the panel's
-  (`src/hfos/warned.ts`), and keeps its state in the extension's storage, so a restart carries on where it was. The
+  (`src/hfos/warned.ts`), and on Facebook sends no more friend requests that day after 2 in a row that Facebook said no
+  to in a box of its own (decision 192), and keeps its state in the extension's storage, so a restart carries on where it was. The
   day's start and stop follow HandsFreeOS's (decision 41): a press here goes to `outreach.day.*`, and one in the app
   reaches it within seconds.
 - **Under Autopilot, nobody new is reached without the day's OK** (decision 151). `outreach.today` gates every kind

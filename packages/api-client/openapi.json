@@ -4483,7 +4483,7 @@
     "/v1/commands/person.merge": {
       "post": {
         "operationId": "command_person_merge",
-        "summary": "Merge a duplicate customer into the one kept: their leads, tasks, timeline, conversations, calls, bookings, bills, quotes, plans, files, tags and relationships move to the one kept, the details it is missing are filled in, and the duplicate is archived.",
+        "summary": "Merge a duplicate customer into the one kept: their leads, tasks, timeline, conversations, calls, bookings, bills, quotes, plans, documents, form links, files, tags and relationships move to the one kept, the details it is missing are filled in, and the duplicate is archived.",
         "tags": [
           "commands"
         ],
@@ -54809,7 +54809,7 @@
     "/v1/commands/migration.select": {
       "post": {
         "operationId": "command_migration_select",
-        "summary": "Choose what to bring across. Anything a choice needs is added automatically and locked, with a line saying which choice asked for it.",
+        "summary": "Choose what to bring across. Anything a choice needs is added automatically, with a line saying which choice asked for it. Customers and products added that way bring only the ones that choice uses; choose them to bring all of them.",
         "tags": [
           "commands"
         ],

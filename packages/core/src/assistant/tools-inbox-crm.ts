@@ -120,7 +120,7 @@ export const inboxCrmTools: readonly AssistantTool[] = [
   define({
     name: 'merge_customers',
     description:
-      'Merge two records for the same customer into one. Everything that was the duplicate’s moves to the one kept: leads, tasks, notes and the timeline, conversations, calls, bookings, bills, quotes, plans, files, tags and relationships. The one kept keeps its own details and takes the ones it is missing from the duplicate (the duplicate’s email, number and address join its other ones); the duplicate is archived and can’t be brought back. Ids come from search_customers or get_customer: search by the shared name, phone or email to find both. When the person hasn’t said which to keep, ask, or keep the one with more history.',
+      'Merge two records for the same customer into one. Everything that was the duplicate’s moves to the one kept: leads, tasks, notes and the timeline, conversations, calls, bookings, bills, quotes, plans, documents to sign, form links, funnels, files, tags and relationships. The one kept keeps its own details and takes the ones it is missing from the duplicate (the duplicate’s email, number and address join its other ones); the duplicate is archived and can’t be brought back. Ids come from search_customers or get_customer: search by the shared name, phone or email to find both. When the person hasn’t said which to keep, ask, or keep the one with more history.',
     input: z.object({
       keepId: uuid.describe('The customer kept'),
       duplicateId: uuid.describe('The duplicate merged into it, which is archived'),

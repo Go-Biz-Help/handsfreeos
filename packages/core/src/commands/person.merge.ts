@@ -32,7 +32,7 @@ const KINDS: Readonly<Record<string, MergeKind>> = {
 export const personMerge = defineCommand({
   name: 'person.merge',
   description:
-    'Merge a duplicate customer into the one kept: their leads, tasks, timeline, conversations, calls, bookings, bills, quotes, plans, files, tags and relationships move to the one kept, the details it is missing are filled in, and the duplicate is archived.',
+    'Merge a duplicate customer into the one kept: their leads, tasks, timeline, conversations, calls, bookings, bills, quotes, plans, documents, form links, files, tags and relationships move to the one kept, the details it is missing are filled in, and the duplicate is archived.',
   risk: 3,
   input: PersonMergeInput,
   output: PersonMergeOutput,

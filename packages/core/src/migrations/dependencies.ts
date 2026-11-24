@@ -109,6 +109,9 @@ export function dependencyReason(category: string, requiredBy: readonly string[]
         ? `${names[0]} and ${names[1]}`
         : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
   const self = (cat?.label ?? category).toLowerCase();
+  // Only the ones they use come, so that is what it says, and how to bring the rest (catalog.ts).
+  if (cat?.onlyWhatsUsed)
+    return `${list} need their ${self}, so the ${self} on them come too. Tick ${cat.label} to bring all of them.`;
   return `${list} need their ${self}, so ${self} were added to this migration.`;
 }
 

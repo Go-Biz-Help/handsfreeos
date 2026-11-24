@@ -638,6 +638,125 @@ describe('what a GoHighLevel thread is made of', () => {
     ]);
   });
 
+  it('brings every price of a product as a choice, priced at the difference', () => {
+    // 2026-11-23: "Local SEO Optimization" had 3 prices over there and came across with the first one only.
+    type Product = {
+      unitPriceCents: number;
+      options: { name: string; choices: { label: string; priceCents: number }[] }[];
+    };
+    const [seo] = adapter.normalize(
+      {
+        objectType: 'product',
+        objectId: 'prd_seo',
+        parentObjectId: null,
+        sourceCreatedAt: null,
+        sourceUpdatedAt: null,
+        sourceDeletedAt: null,
+        payload: {
+          _id: 'prd_seo',
+          name: 'Local SEO Optimization',
+          prices: [
+            {
+              _id: 'p1',
+              name: 'Growth',
+              amount: 997,
+              type: 'recurring',
+              recurring: { interval: 'month' },
+            },
+            {
+              _id: 'p2',
+              name: 'Starter',
+              amount: 497,
+              type: 'recurring',
+              recurring: { interval: 'month' },
+            },
+            { _id: 'p3', name: 'Setup', amount: 1500, type: 'one_time' },
+            { _id: 'p4', amount: 1500, type: 'one_time' },
+            { _id: 'p5', name: 'setup', amount: 2000, type: 'one_time' },
+          ],
+        },
+      },
+      context,
+    );
+    const data = seo!.data as Product;
+    // The cheapest is the product's price, and every price is a choice that adds what it costs more.
+    expect(data.unitPriceCents).toBe(49_700);
+    expect(data.options).toEqual([
+      {
+        name: 'Price',
+        choices: [
+          { label: 'Growth (a month)', priceCents: 50_000 },
+          { label: 'Starter (a month)', priceCents: 0 },
+          { label: 'Setup', priceCents: 100_300 },
+          { label: '$1500.00', priceCents: 100_300 },
+          { label: 'setup 2', priceCents: 150_300 },
+        ],
+      },
+    ]);
+    expect(seo!.warnings.map((w) => w.code)).toEqual(['mapping.prices_as_choices']);
+    expect(seo!.warnings[0]!.message).toContain('each price is a choice under Price');
+
+    // One kind of variant over there, a price for each: it reads as that kind, by its own names.
+    const [shirt] = adapter.normalize(
+      {
+        objectType: 'product',
+        objectId: 'prd_shirt',
+        parentObjectId: null,
+        sourceCreatedAt: null,
+        sourceUpdatedAt: null,
+        sourceDeletedAt: null,
+        payload: {
+          _id: 'prd_shirt',
+          name: 'T-shirt',
+          variants: [
+            {
+              id: 'v1',
+              name: 'Size',
+              options: [
+                { id: 's', name: 'Small' },
+                { id: 'l', name: 'Large' },
+              ],
+            },
+          ],
+          prices: [
+            { _id: 'p1', name: 'T-shirt / Small', amount: 12, variantOptionIds: ['s'] },
+            { _id: 'p2', name: 'T-shirt / Large', amount: 14, variantOptionIds: ['l'] },
+          ],
+        },
+      },
+      context,
+    );
+    expect((shirt!.data as Product).options).toEqual([
+      {
+        name: 'Size',
+        choices: [
+          { label: 'Small', priceCents: 0 },
+          { label: 'Large', priceCents: 200 },
+        ],
+      },
+    ]);
+
+    // One price is the product's price, with no choices.
+    const [one] = adapter.normalize(
+      {
+        objectType: 'product',
+        objectId: 'prd_one',
+        parentObjectId: null,
+        sourceCreatedAt: null,
+        sourceUpdatedAt: null,
+        sourceDeletedAt: null,
+        payload: {
+          _id: 'prd_one',
+          name: 'Audit',
+          prices: [{ _id: 'p1', name: 'Audit', amount: 250 }],
+        },
+      },
+      context,
+    );
+    expect(one!.data).toMatchObject({ unitPriceCents: 25_000, options: [] });
+    expect(one!.warnings).toEqual([]);
+  });
+
   it('names a plan and its billing from its recurring product, and says so when it bills weekly', () => {
     const plan = (every: Record<string, unknown>) =>
       adapter.normalize(

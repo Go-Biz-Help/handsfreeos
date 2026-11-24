@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import {
   as,
@@ -323,6 +323,167 @@ describe('person.merge', () => {
       'rule_violation',
       'person_merge_into_archived',
     );
+  });
+
+  it('brings their documents, form links, funnel places, calls and partner rows (owner, 23 Nov 2026)', async () => {
+    const keep = await addPerson({ firstName: 'Rosa', lastName: 'Diaz' });
+    const dup = await addPerson({ firstName: 'Rosa', lastName: 'D' });
+    const partner = await addPerson({ firstName: 'Paul', lastName: 'Partner' });
+    const one = async <T extends Record<string, unknown>>(q: ReturnType<typeof sql>) =>
+      (await rows<T>(admin(), q))[0]!;
+    const id = async (q: ReturnType<typeof sql>) => (await one<{ id: string }>(q)).id;
+    const personOf = async (table: string, rowId: string) =>
+      (
+        await one<{ person_id: string }>(
+          sql`select person_id from ${sql.raw(`app.${table}`)} where id = ${rowId}`,
+        )
+      ).person_id;
+
+    // A contract out to the duplicate, with them as its signer.
+    const doc = await id(
+      sql`insert into app.documents (workspace_id, name, definition, person_id, expires_at)
+          values (${wsId}, 'Service agreement', '{}'::jsonb, ${dup}, now() + interval '30 days') returning id`,
+    );
+    const signer = await id(
+      sql`insert into app.document_signers (workspace_id, document_id, role_key, person_id, name, status, sent_at)
+          values (${wsId}, ${doc}, 'customer', ${dup}, 'Rosa D', 'sent', now()) returning id`,
+    );
+
+    // A personal form link texted to the duplicate.
+    const form = await id(
+      sql`insert into app.forms (workspace_id, name, slug) values (${wsId}, 'Quote', ${`quote-${randomUUID().slice(0, 8)}`})
+          returning id`,
+    );
+    const link = await id(
+      sql`insert into app.form_links (workspace_id, form_id, person_id, key_hash, expires_at)
+          values (${wsId}, ${form}, ${dup}, ${createHash('sha256').update(randomUUID()).digest()}, now() + interval '7 days') returning id`,
+    );
+
+    // Funnels: the record kept is running in one; the duplicate in another, and is suggested for the first.
+    // Each funnel follows a pipeline of its own.
+    const funnel = async (name: string) => {
+      const pipelineId = await id(
+        sql`insert into app.pipelines (workspace_id, name, position) values (${wsId}, ${name}, 9) returning id`,
+      );
+      const stageId = await id(
+        sql`insert into app.pipeline_stages (workspace_id, pipeline_id, name, kind, position)
+            values (${wsId}, ${pipelineId}, 'New', 'open', 1) returning id`,
+      );
+      const funnelId = await id(
+        sql`insert into app.funnels (workspace_id, pipeline_id, name, created_by, updated_by)
+            values (${wsId}, ${pipelineId}, ${name}, ${owner.id}, ${owner.id}) returning id`,
+      );
+      return { funnelId, pipelineId, stageId };
+    };
+    const [tuneUps, newUnits] = [await funnel('Tune-ups'), await funnel('New units')];
+    const place = async (
+      f: Awaited<ReturnType<typeof funnel>>,
+      person: string,
+      status: 'active' | 'suggested',
+    ) => {
+      const lead =
+        status === 'active'
+          ? await id(
+              sql`insert into app.leads (workspace_id, title, person_id, pipeline_id, stage_id)
+                  values (${wsId}, 'Rosa', ${person}, ${f.pipelineId}, ${f.stageId}) returning id`,
+            )
+          : null;
+      return id(
+        sql`insert into app.funnel_people (workspace_id, funnel_id, person_id, lead_id, stage_id, status)
+            values (${wsId}, ${f.funnelId}, ${person}, ${lead}, ${lead ? f.stageId : null}, ${status})
+            returning id`,
+      );
+    };
+    const keptPlace = await place(tuneUps, keep, 'active');
+    const dupPlace = await place(newUnits, dup, 'active');
+    const dupSuggestion = await place(tuneUps, dup, 'suggested');
+
+    // A video call with them, the seat they took and the webinar lead it made; one more a teammate who has since
+    // left hosted; and a Zoom claim, ended.
+    const call = await id(
+      sql`insert into app.video_calls (workspace_id, person_id, host_user_id, state, ended_at)
+          values (${wsId}, ${dup}, ${owner.id}, 'ended', now()) returning id`,
+    );
+    const seat = await id(
+      sql`insert into app.video_call_people (workspace_id, video_call_id, kind, person_id, name)
+          values (${wsId}, ${call}, 'customer', ${dup}, 'Rosa D') returning id`,
+    );
+    const webinarLead = await id(
+      sql`insert into app.video_call_leads (workspace_id, video_call_id, person_id, label)
+          values (${wsId}, ${call}, ${dup}, 'warm') returning id`,
+    );
+    const gone = await createTestUser('merge-gone');
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${wsId}, ${gone.id}, 'member')`,
+    );
+    const oldCall = await id(
+      sql`insert into app.video_calls (workspace_id, person_id, host_user_id, state, ended_at)
+          values (${wsId}, ${dup}, ${gone.id}, 'ended', now()) returning id`,
+    );
+    const meeting = await id(
+      sql`insert into app.live_meetings (workspace_id, user_id, meeting_uuid, person_id, state, ended_at)
+          values (${wsId}, ${owner.id}, ${randomUUID()}, ${dup}, 'ended', now()) returning id`,
+    );
+    await rows(
+      admin(),
+      sql`delete from app.workspace_memberships where workspace_id = ${wsId} and user_id = ${gone.id}`,
+    );
+
+    // The duplicate is a partner, and was referred by one. Partner codes are unique across businesses.
+    const code = () => randomUUID().replace(/-/g, '').slice(0, 10);
+    const theirs = await id(
+      sql`insert into app.partners (workspace_id, person_id, code) values (${wsId}, ${dup}, ${code()}) returning id`,
+    );
+    const paul = await id(
+      sql`insert into app.partners (workspace_id, person_id, code) values (${wsId}, ${partner}, ${code()}) returning id`,
+    );
+    const referral = await id(
+      sql`insert into app.partner_referrals (workspace_id, partner_id, person_id, how, referred_at)
+          values (${wsId}, ${paul}, ${dup}, 'by_hand', now()) returning id`,
+    );
+
+    await run(personMerge, { workspaceId: wsId, personId: dup, intoPersonId: keep }, owner);
+
+    expect(await personOf('documents', doc)).toBe(keep);
+    expect(await personOf('document_signers', signer)).toBe(keep);
+    expect(await personOf('form_links', link)).toBe(keep);
+    expect(await personOf('video_calls', call)).toBe(keep);
+    expect(await personOf('video_call_people', seat)).toBe(keep);
+    expect(await personOf('video_call_leads', webinarLead)).toBe(keep);
+    expect(await personOf('live_meetings', meeting)).toBe(keep);
+    expect(await personOf('partners', theirs)).toBe(keep);
+    expect(await personOf('partner_referrals', referral)).toBe(keep);
+    // The call a former teammate hosted stays with the duplicate, as it was, rather than stopping the merge.
+    expect(await personOf('video_calls', oldCall)).toBe(dup);
+
+    // One funnel at a time: the kept record's place runs on; the duplicate's ended, and its suggestion of the funnel
+    // they're already in is gone.
+    const places = await rows<{
+      id: string;
+      person_id: string;
+      status: string;
+      left_reason: string | null;
+    }>(
+      admin(),
+      sql`select id, person_id, status, left_reason from app.funnel_people where id in (${keptPlace}, ${dupPlace}, ${dupSuggestion})`,
+    );
+    expect(places.find((p) => p.id === keptPlace)).toMatchObject({
+      person_id: keep,
+      status: 'active',
+    });
+    expect(places.find((p) => p.id === dupPlace)).toMatchObject({
+      person_id: keep,
+      status: 'left',
+      left_reason: 'other_funnel',
+    });
+    expect(places.some((p) => p.id === dupSuggestion)).toBe(false);
+
+    // Outside a merge, who a document is for stays fixed.
+    const err = await expectPgError(() =>
+      rows(admin(), sql`update app.documents set person_id = ${dup} where id = ${doc}`),
+    );
+    expect(err.code).toBe('23514');
   });
 
   it('carries over answers to fields the business still has, and the duplicate’s owner', async () => {

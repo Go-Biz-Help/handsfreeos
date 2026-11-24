@@ -363,6 +363,27 @@ export const CanonicalProduct = z.object({
   unitLabel: z.string().max(40).default('each'),
   taxable: z.boolean().default(true),
   active: z.boolean().default(true),
+  /**
+   * Sizes, colors, or the several prices the old system kept for one product ("Starter", "Growth", "Pro"), as
+   * options of choices, each adding to `unitPriceCents` or taking off it (core's money/options.ts).
+   */
+  options: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(40),
+        choices: z
+          .array(
+            z.object({
+              label: z.string().trim().min(1).max(60),
+              priceCents: z.number().int().min(-10_000_000).max(10_000_000),
+            }),
+          )
+          .min(1)
+          .max(40),
+      }),
+    )
+    .max(3)
+    .default([]),
 });
 export type CanonicalProduct = z.infer<typeof CanonicalProduct>;
 

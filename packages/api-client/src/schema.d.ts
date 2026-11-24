@@ -7867,7 +7867,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Choose what to bring across. Anything a choice needs is added automatically and locked, with a line saying which choice asked for it.
+         * Choose what to bring across. Anything a choice needs is added automatically, with a line saying which choice asked for it. Customers and products added that way bring only the ones that choice uses; choose them to bring all of them.
          * @description Risk level 1. Emits migration.selection_changed.
          */
         post: operations["command_migration_select"];
@@ -11107,7 +11107,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Merge a duplicate customer into the one kept: their leads, tasks, timeline, conversations, calls, bookings, bills, quotes, plans, files, tags and relationships move to the one kept, the details it is missing are filled in, and the duplicate is archived.
+         * Merge a duplicate customer into the one kept: their leads, tasks, timeline, conversations, calls, bookings, bills, quotes, plans, documents, form links, files, tags and relationships move to the one kept, the details it is missing are filled in, and the duplicate is archived.
          * @description Risk level 3. Requires records.archive. Emits person.merged.
          */
         post: operations["command_person_merge"];

@@ -923,8 +923,8 @@
       "path": "Home → Getting started → Take the tour",
       "kind": "do",
       "file": "apps/web/src/components/home/getting-started.tsx:255",
-      "covered": "no",
-      "by": "no tool starts the tour"
+      "covered": "person",
+      "by": "the tour lights up the person’s own menu on their screen, so starting it stays theirs; the Assistant gives the way (places map Home: Get help, then Take the tour, or Take the tour on Getting started) and explains each place in words"
     },
     {
       "path": "Home → Getting started → Show all N / Show fewer",
@@ -1378,8 +1378,8 @@
       "path": "Get help → Take the tour",
       "kind": "do",
       "file": "apps/web/src/components/support/get-help.tsx:33",
-      "covered": "no",
-      "by": "no tool starts the tour"
+      "covered": "person",
+      "by": "the tour lights up the person’s own menu on their screen, so starting it stays theirs; the Assistant gives the way (places map Home: Get help, then Take the tour, or Take the tour on Getting started) and explains each place in words"
     },
     {
       "path": "Get help → Ask us → In a few words",
@@ -2365,8 +2365,8 @@
       "path": "Phone Home → Getting started → phone tour",
       "kind": "do",
       "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:84",
-      "covered": "no",
-      "by": "no tool starts the tour"
+      "covered": "person",
+      "by": "the tour lights up the person’s own menu on their screen, so starting it stays theirs; the Assistant gives the way (places map Home: Get help, then Take the tour, or Take the tour on Getting started) and explains each place in words"
     },
     {
       "path": "Changes → head: Up to date, N waiting, no signal, can’t be reached",

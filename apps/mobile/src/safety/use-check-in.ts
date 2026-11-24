@@ -3,6 +3,7 @@ import * as React from 'react';
 
 import { deviceStore } from '@/lib/device-store';
 
+import { reconcileReminders, type CheckInNow } from './actions';
 import { activeCheckIn, OPEN_STATES, type ActiveCheckIn, type CheckInRow } from './check-in';
 import { following, reconcileFollowing } from './follow';
 
@@ -36,8 +37,10 @@ export function useFollowedCheckIn(): string | null {
 }
 
 /**
- * Stops sharing where the phone is when the phone's copy says the check-in ended somewhere else: checked out on
- * another phone, or answered by the business. Only once the copy has been read, so an empty first answer stops nothing.
+ * Keeps this phone in step when the phone's copy says a check-in changed somewhere else: checked out or given more
+ * time on the web, by Ask HandsFreeOS or on another phone, or answered by the business. Sharing where the phone is
+ * stops once it ends, and the reminder moves or goes. Only once the copy has been read, so an empty first answer
+ * stops nothing.
  */
 export function useFollowEnds(workspaceId: string, userId: string): void {
   const { data, isLoading } = useQuery<CheckInRow>(MY_CHECK_INS_SQL, [workspaceId, userId]);
@@ -47,7 +50,14 @@ export function useFollowEnds(workspaceId: string, userId: string): void {
         .filter((r) => OPEN_STATES.includes(r.state))
         .map((r) => r.id)
         .join(',');
+  // What each reminder depends on, as one string, so the effect runs only when one of them changes.
+  const ends = isLoading
+    ? null
+    : JSON.stringify(data.map(({ id, state, planned_end_at }) => ({ id, state, planned_end_at })));
   React.useEffect(() => {
     if (open !== null) void reconcileFollowing(workspaceId, open ? open.split(',') : []);
   }, [workspaceId, open]);
+  React.useEffect(() => {
+    if (ends !== null) reconcileReminders(JSON.parse(ends) as CheckInNow[]).catch(() => {});
+  }, [ends]);
 }

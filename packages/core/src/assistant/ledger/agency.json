@@ -24,7 +24,7 @@
     "apps/web/src/components/agency/template-list.tsx": "70cbce82a184",
     "apps/web/src/components/agency/template-update.tsx": "9ec0941a3b39",
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
-    "apps/web/src/components/migrations/wizard.tsx": "c600c329d74f",
+    "apps/web/src/components/migrations/wizard.tsx": "24c12fc9297a",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
     "apps/web/src/components/shell/workspace-switcher.tsx": "a94cb85f3c21",
     "apps/web/src/components/workflows/add-step-menu.tsx": "8b4a3810e05f",
@@ -1601,14 +1601,14 @@
       "by": "do_migration_select description"
     },
     {
-      "path": "A migration → each category: name, count words, capability badge, Added because X need it / blurb, notes",
+      "path": "A migration → each category: name, count words, capability badge, Added because X need it / Only the ones your X use come, tick it to bring all of them / blurb, notes",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:465",
       "covered": "yes",
       "by": "read_migration_get inventory (wholeAgency)"
     },
     {
-      "path": "A migration → What to bring → Bring {category} box (padlock when locked)",
+      "path": "A migration → What to bring → Bring {category} box (padlock when locked; still a box for customers and products another choice needs)",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:453",
       "covered": "yes",
@@ -1727,7 +1727,7 @@
       "by": "migration.rollback NEVER: takes back the whole move, putting away what it brought; the person presses Take it back"
     },
     {
-      "path": "A migration → Taken back → n records came in after this was taken back, so they’re still here",
+      "path": "A migration → Taken back → n records from this move are still here",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx",
       "covered": "yes",

@@ -63,6 +63,10 @@ phone** (24b): sending and following documents, the templates and their editor, 
 **A sent document is never edited (answer 15a).** To fix one, void it and send it again: the Send screen starts from
 it (`?from=`), and the new one says which it replaces. The old links answer "taken back".
 
+**Merging two customers moves their documents (the owner, 23 Nov 2026).** Who a document is for changes only when a
+merge moves it to the customer kept, its signers with it, so a signature lands on the kept customer's timeline and
+files. The move is a trigger on `app.people` (migration `20261027034800`), beside the one that moves orders.
+
 **The template's PDF never changes under a sent document.** A document keeps its source file id; swapping a
 template's PDF uploads a new file. `document_template.set_source` takes off fields and word changes on pages the new
 PDF doesn't have, and says how many.
