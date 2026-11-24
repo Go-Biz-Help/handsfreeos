@@ -1,5 +1,12 @@
+import { PgDialect } from 'drizzle-orm/pg-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { runQueues, SAFETY_MS, type QueueName, type QueuesWaiting } from '../src/queues';
+import {
+  runQueues,
+  SAFETY_MS,
+  waitingStatement,
+  type QueueName,
+  type QueuesWaiting,
+} from '../src/queues';
 
 /**
  * The one look a second that paces the outbox, the webhooks and the jobs (src/queues.ts). Each loop made its own
@@ -133,5 +140,30 @@ describe('the worker’s queues', () => {
     const before = { ...t.passes };
     await t.stop();
     expect(t.passes).toEqual(before);
+  });
+});
+
+describe('the look’s statement', () => {
+  // Why this shape: `oldest` in src/queues.ts. As a bare `exists`, the worker's role read the whole outbox and
+  // every stored webhook on each look, once a second in every worker process. Its answers are held against the
+  // claims' own in hand-over.test.ts.
+  it('asks each queue for its oldest waiting row, by the column its index of waiting rows is sorted on', () => {
+    const { sql: text, params } = new PgDialect().sqlToQuery(waitingStatement('worker-1'));
+    const flat = text.replace(/\s+/g, ' ');
+    expect(flat).not.toMatch(/exists\s*\(/i);
+    const asks = flat.split('coalesce(').slice(1);
+    expect(asks).toHaveLength(3);
+    const queues = [
+      ['app.outbox', 'next_attempt_at', 'outbox'],
+      ['app.webhook_deliveries', 'next_attempt_at', 'webhook'],
+      ['app.scheduled_jobs', 'run_at', 'jobs'],
+    ] as const;
+    queues.forEach(([table, due, name], i) => {
+      expect(asks[i]).toContain(
+        `(select true from ${table} where status = 'pending' and ${due} <= now() and (`,
+      );
+      expect(asks[i]).toContain(`order by ${due} limit 1), false) as ${name}`);
+    });
+    expect(params).toEqual(['worker-1', 'worker-1', 'worker-1']);
   });
 });
