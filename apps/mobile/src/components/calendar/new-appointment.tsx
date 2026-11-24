@@ -80,7 +80,8 @@ export function NewAppointmentSheet({
   const calendars = useCalendars();
   const members = useCalendarMembers();
   const services = useCalendarServices();
-  const customers = useCustomers();
+  // Only while it is asking who the visit is for: closed, or opened for someone, it needs no list.
+  const customers = useCustomers(open && !person);
   const [chosen, setChosen] = React.useState<CustomerChoice | null>(null);
   const [typed, setTyped] = React.useState('');
   /** The New contact form, open, with what's in its boxes. */

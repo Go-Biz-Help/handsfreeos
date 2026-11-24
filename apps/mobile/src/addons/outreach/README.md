@@ -98,7 +98,10 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
   playbook's help writes is only offered, and saved with the part.
 - **Everything else** asks HandsFreeOS (`useOutreachAnswer`, on `@/lib/live-answer`), and with no signal says
   "… needs signal. Try again when you're back online." The Live screen asks again every minute
-  (`LIVE_REFETCH_SECONDS`) and keeps the last answer, "As of 2:14 PM".
+  (`LIVE_REFETCH_SECONDS`) and keeps the last answer, "As of 2:14 PM". Asking again waits its turn: a round is passed
+  over while the one before it is still out, and none is asked with the app in the background.
+- **A list with Show more** asks for its pages together (`pagesOf`) and says what it is more of (`moreOf`, its key
+  without the page count), so the rows on screen stay there while the longer list comes.
 
 ## Changing it
 

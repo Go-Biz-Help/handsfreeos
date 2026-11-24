@@ -482,4 +482,34 @@ describe('A list’s own screen', () => {
     );
     expect(toast.show).toHaveBeenLastCalledWith('Sam Example 2 is back under the country setting.');
   });
+
+  it('keeps the rows on screen while Show more is out, and asks for the pages together', async () => {
+    const got = COUNTS({ people: [person(1), person(2)], pages: 3 });
+    const post = api.POST as unknown as jest.Mock;
+    const answer = (page: number) => ({
+      data: { ...got, page, people: page === 1 ? got.people : [person(page + 1)] },
+      response: { ok: true, status: 200 },
+    });
+    // The first ask answers at once; the ones Show more makes wait until they're let go.
+    const held: (() => void)[] = [];
+    let hold = false;
+    post.mockReset();
+    post.mockImplementation((_path: string, { body }: { body: { page: number } }) =>
+      hold
+        ? new Promise((done) => held.push(() => done(answer(body.page))))
+        : Promise.resolve(answer(body.page)),
+    );
+    await render(<CountriesScreen show="skipped" />);
+    await waitFor(() => expect(screen.getAllByTestId('country-row')).toHaveLength(2));
+    expect(post).toHaveBeenCalledTimes(1);
+
+    hold = true;
+    await fireEvent.press(screen.getByTestId('countries-more'));
+    // Both pages asked for before either has answered, and the list still there meanwhile.
+    await waitFor(() => expect(held).toHaveLength(2));
+    expect(post.mock.calls.slice(1).map(([, { body }]) => body.page)).toEqual([1, 2]);
+    expect(screen.getAllByTestId('country-row')).toHaveLength(2);
+    await act(async () => held.splice(0).forEach((go) => go()));
+    await waitFor(() => expect(screen.getAllByTestId('country-row')).toHaveLength(3));
+  });
 });

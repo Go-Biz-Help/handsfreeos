@@ -193,17 +193,26 @@ export function useInboxList(filter: InboxFilter): {
   const { telephony } = useBusinessSettings();
   const ownAddress = useOwnAddress();
   const now = useNow();
-  return React.useMemo(() => {
-    const all = items.map((i) => i.conversation);
+  // The rows and their order don't read the clock, so they're worked out when a conversation or the filter changes
+  // and not on every tick: only who has waited too long, among the counts, moves with the time.
+  const rows = React.useMemo(() => {
     const order = inboxOrder(filter.box);
-    return {
-      items: groupByCustomer(items, filter, me.user.id).sort((a, b) =>
-        order(a.conversation, b.conversation),
+    return groupByCustomer(items, filter, me.user.id).sort((a, b) =>
+      order(a.conversation, b.conversation),
+    );
+  }, [items, filter, me.user.id]);
+  const counts = React.useMemo(
+    () =>
+      inboxCounts(
+        items.map((i) => i.conversation),
+        me.user.id,
+        telephony.unansweredReminderMinutes,
+        now,
+        ownAddress,
       ),
-      counts: inboxCounts(all, me.user.id, telephony.unansweredReminderMinutes, now, ownAddress),
-      loading,
-    };
-  }, [items, filter, me.user.id, telephony.unansweredReminderMinutes, now, ownAddress, loading]);
+    [items, me.user.id, telephony.unansweredReminderMinutes, now, ownAddress],
+  );
+  return React.useMemo(() => ({ items: rows, counts, loading }), [rows, counts, loading]);
 }
 
 /**
