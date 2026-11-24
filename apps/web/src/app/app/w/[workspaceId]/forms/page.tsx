@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/shell/page-header';
 import { FormList } from '@/components/forms/form-list';
 import { WebsiteChats } from '@/components/forms/website-chats';
 import { NewFormButton } from '@/components/forms/new-form-button';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Forms' };
 
@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: 'Forms' };
 export default async function FormsPage({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const canManage = can(got.workspace.permissions, 'forms.manage');
   const canChat = can(got.workspace.permissions, 'channels.manage');
   const [listRes, siteRes, chatsRes] = await Promise.all([

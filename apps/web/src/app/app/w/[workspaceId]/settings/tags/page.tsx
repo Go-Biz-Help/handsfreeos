@@ -2,7 +2,7 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { AiTagging } from '@/components/settings/ai-tagging';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Tags' };
 
@@ -17,7 +17,7 @@ export default async function TagsSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'tags.manage')) notFound();
   const [{ tags }, status, reviews] = await Promise.all([
     api.POST('/v1/queries/tag.list', { body: { workspaceId } }).then(unwrapPage),

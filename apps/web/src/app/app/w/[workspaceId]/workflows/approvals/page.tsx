@@ -8,7 +8,7 @@ import {
 import type { Approval } from '@/components/workflows/approvals/types';
 import { WorkflowsSubnav } from '@/components/workflows/subnav';
 import type { TeammateDraft } from '@/lib/ai-team/inbox-types';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Approvals' };
 
@@ -56,7 +56,7 @@ export default async function ApprovalsPage({
       }),
     ).items;
   const [got, pending, approved, rejected, expired, profile] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     list('pending'),
     list('approved'),
     list('rejected'),

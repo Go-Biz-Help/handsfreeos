@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { ItemCostsPage } from '@/addons/contractor/item-costs-page';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Item costs' };
 
@@ -18,7 +18,7 @@ export default async function ContractorItemCostsRoute({
   return addonPage(workspaceId, 'contractor', 'contractor.costs', async () => {
     const { api } = await apiServer();
     const [got, list, overview] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       api.POST('/v1/queries/contractor.item_cost.list', { body: { workspaceId } }).then(unwrapPage),
       api.POST('/v1/queries/contractor.overview', { body: { workspaceId } }).then(unwrapPage),
     ]);

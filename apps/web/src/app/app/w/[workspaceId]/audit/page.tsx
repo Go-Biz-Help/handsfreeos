@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 import { AuditLog } from '@/components/audit/audit-log';
 import { PageHeader } from '@/components/shell/page-header';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Audit log' };
 
 export default async function AuditPage({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
   const [initial, teammateName] = await Promise.all([
     api

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CalendarsList } from '@/components/calendars/calendars-list';
 import { CalendarsSubnav } from '@/components/calendars/subnav';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
 export const metadata: Metadata = { title: 'Calendars' };
@@ -16,7 +16,7 @@ export default async function CalendarsSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const [list, brandedOrigin] = await Promise.all([
     api

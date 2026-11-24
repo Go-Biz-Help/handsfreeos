@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CalendarCard } from '@/components/calendars/calendar-card';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { buildCatalogs } from '@/lib/calendar/catalogs';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
@@ -23,7 +23,7 @@ export default async function CalendarCardPage({
   const { workspaceId, calendarId } = await params;
   if (!ID.test(calendarId)) notFound();
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const [cal, members, services, resources, territories, brandedOrigin] = await Promise.all([
     api.POST('/v1/queries/calendar.get', { body: { workspaceId, calendarId } }).then(unwrapPage),

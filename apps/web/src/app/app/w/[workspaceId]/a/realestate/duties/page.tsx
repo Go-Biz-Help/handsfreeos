@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { MyDuties } from '@/addons/realestate/my-duties';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'My duties' };
 
@@ -18,9 +18,7 @@ export default async function RealestateDutiesPage({
   const sp = await searchParams;
   return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
     const { api } = await apiServer();
-    const got = await api
-      .POST('/v1/queries/workspace.get', { body: { workspaceId } })
-      .then(unwrapPage);
+    const got = await getWorkspace(workspaceId);
     const canSeeAll = got.workspace.permissions.includes('realestate.all_deals');
     const scope = sp.scope === 'all' && canSeeAll ? 'all' : 'mine';
     const mine = scope === 'mine';

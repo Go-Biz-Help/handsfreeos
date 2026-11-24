@@ -13,7 +13,7 @@ import { notFound } from 'next/navigation';
 import { PaymentsOverview } from '@/components/settings/payments-overview';
 import { PaymentsSettings } from '@/components/settings/payments-page';
 import type { TeamMember } from '@/components/settings/payment-access-dialog';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { publicEnv } from '@/lib/env';
 import type { Members } from '@/lib/api/types';
 
@@ -36,7 +36,7 @@ export default async function PaymentsSettingsPage({
   const { workspaceId } = await params;
   const { payments, all } = await searchParams;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'money.manage')) notFound();
   // The address the onboarding setup asked for: documents carry it while none is typed here.
   const asked = businessAddressOf(got.workspace.settings as Record<string, unknown>);

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { PipelineBoard } from '@/components/pipeline/board';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Pipeline' };
 
@@ -21,7 +21,7 @@ export default async function PipelinePage({
   const view = one(sp.view) === 'list' ? 'list' : one(sp.view) === 'board' ? 'board' : null;
   const { api, userId } = await apiServer();
   const [got, board, pipelines, members, tags] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     api
       .POST('/v1/queries/lead.board', {
         body: { workspaceId, ...(pipelineId ? { pipelineId } : {}) },

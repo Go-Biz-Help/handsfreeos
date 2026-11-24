@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { ConversationView } from '@/components/inbox/conversation-view';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Inbox' };
 
@@ -25,7 +25,7 @@ export default async function ConversationPage({
         body: { workspaceId, conversationId, limit: 30, ...(allLanes ? { allLanes } : {}) },
       })
       .then(unwrapPage),
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     api.POST('/v1/queries/tag.list', { body: { workspaceId } }).then(unwrapPage),
     api.POST('/v1/queries/pipeline.list', { body: { workspaceId } }).then(unwrapPage),
   ]);

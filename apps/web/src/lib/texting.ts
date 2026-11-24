@@ -2,7 +2,7 @@ import { businessAddressOf, can } from '@hfos/core';
 import type { ApiClient } from '@hfos/api-client';
 import type { ComponentProps } from 'react';
 import type { TextingPage } from '@/components/settings/texting-page';
-import { getMe, unwrapPage } from '@/lib/api/server';
+import { getMe, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 import { requestOrigin } from '@/lib/hosting/request-origin';
 
@@ -30,7 +30,7 @@ export async function loadTexting(
     brandedOrigin,
     origin,
   ] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     api.POST('/v1/queries/phone.setup_status', { body: { workspaceId } }).then(unwrapPage),
     getMe(),
     api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),

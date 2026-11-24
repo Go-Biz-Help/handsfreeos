@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { JobPage } from '@/addons/contractor/job-page';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Job' };
 
@@ -21,7 +21,7 @@ export default async function ContractorJobPage({
     const { api, userId } = await apiServer();
     const [got, overview, job, members, estimates, materials, time, notes, reports] =
       await Promise.all([
-        api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+        getWorkspace(workspaceId),
         api.POST('/v1/queries/contractor.overview', { body: { workspaceId } }).then(unwrapPage),
         api
           .POST('/v1/queries/contractor.job.get', { body: { workspaceId, jobId } })

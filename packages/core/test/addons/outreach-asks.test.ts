@@ -311,6 +311,18 @@ describe('asking the extension', () => {
     });
     expect(await events('outreach.ask.progressed')).toBe(before + 1);
     expect((await row(taken.askId)).line).toBe('Pressing Download…');
+    // A line alone is the line's own change: the ask's line asks for itself, and no page that follows the asks
+    // (`outreach_ask`) is drawn again for it.
+    const toldAs = async () =>
+      (
+        await rows<{ entity_type: string; entity_id: string }>(
+          admin(),
+          sql`select entity_type, entity_id::text from app.events
+              where workspace_id = ${ws} and event_type = 'outreach.ask.progressed'
+              order by created_at desc limit 1`,
+        )
+      )[0];
+    expect(await toldAs()).toEqual({ entity_type: 'outreach_ask_line', entity_id: taken.askId });
 
     // A step handed over tells at once, and waits for the person's reply.
     expect(
@@ -327,6 +339,8 @@ describe('asking the extension', () => {
           order by created_at desc limit 1`,
     );
     expect(changed!.payload).toMatchObject({ state: 'stuck', changed: true, userId: riley.id });
+    // More than a line is the ask's change, which draws its pages again.
+    expect(await toldAs()).toEqual({ entity_type: 'outreach_ask', entity_id: taken.askId });
 
     // Only a reply its kind allows: a file's step goes on, it isn't skipped.
     expect(

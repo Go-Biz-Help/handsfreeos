@@ -12,7 +12,14 @@ import { netCookie, readOutreachAddress, type OutreachView } from '@/addons/outr
 import { OutreachHome } from '@/addons/outreach/home';
 import { BOARD_STAGES, boardOf } from '@/addons/outreach/board';
 import type { PlaybookList, Setup } from '@/addons/outreach/types';
-import { apiServer, errorMessage, getWorkspaceShell, unwrap, unwrapPage } from '@/lib/api/server';
+import {
+  apiServer,
+  errorMessage,
+  getWorkspace,
+  getWorkspaceShell,
+  unwrap,
+  unwrapPage,
+} from '@/lib/api/server';
 
 /** What a page's route hands on: its business, its query, and Settings' part from its path. */
 export interface OutreachPageProps {
@@ -59,9 +66,7 @@ export async function showOutreach(
   // (`getWorkspaceShell`, kept for the request), so a page never asks `workspace.get` again or waits on it: only
   // someone from HandsFreeOS looking in does, whose shell says more than the API will let them do.
   const workspace = getWorkspaceShell(workspaceId).then((shell) =>
-    shell.viewingAs
-      ? api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage)
-      : { workspace: shell.current },
+    shell.viewingAs ? getWorkspace(workspaceId) : { workspace: shell.current },
   );
   // What the person asked their computer to do from here: each page its own kinds, Your computer all of them.
   const asksOf = (tab?: keyof typeof ASK_KINDS_FOR) =>

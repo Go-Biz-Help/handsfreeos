@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CalendarBuilder } from '@/components/calendars/builder';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrap, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 import { logoSrc } from '@/lib/look';
 
@@ -31,7 +31,7 @@ export default async function CalendarBuilderPage({
   const initialModule =
     CALENDAR_SECTIONS.find((s) => s.key === part)?.key ?? ('team' satisfies CalendarSectionKey);
   const { api, userId } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const now = Date.now();
   const [cal, members, team, services, resources, territories, pipelines] = await Promise.all([

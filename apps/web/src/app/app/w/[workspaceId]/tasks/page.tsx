@@ -2,7 +2,7 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { TasksPage } from '@/components/tasks/tasks-page';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Tasks' };
 
@@ -23,7 +23,7 @@ export default async function WorkspaceTasksPage({
   const taskId = typeof sp.task === 'string' && UUID.test(sp.task) ? sp.task : null;
   const { api, userId } = await apiServer();
   const [got, open, done, members, opened] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     api
       .POST('/v1/queries/task.list', {
         body: { workspaceId, scope, status: 'open', limit: 100 },

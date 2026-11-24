@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/shell/page-header';
 import { ButtonLink } from '@/components/ui/button';
 import { WorkflowList } from '@/components/workflows/workflow-list';
 import { WorkflowsSubnav } from '@/components/workflows/subnav';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Workflows' };
 
@@ -17,7 +17,7 @@ export default async function WorkflowsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const canManage = can(got.workspace.permissions, 'workflows.manage');
   const [listRes, statsRes] = await Promise.all([
     api.POST('/v1/queries/workflow.list', { body: { workspaceId } }),

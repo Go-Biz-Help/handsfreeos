@@ -2,7 +2,7 @@ import { BIN_WORDS, can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { DeletedBin } from '@/components/bin/deleted-bin';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: BIN_WORDS.title };
 
@@ -18,7 +18,7 @@ export default async function DeletedBinPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'records.delete')) notFound();
   const list = unwrapPage(
     await api.POST('/v1/queries/bin.list', { body: { workspaceId, limit: 50 } }),

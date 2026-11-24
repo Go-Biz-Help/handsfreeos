@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { BookingSiteForm } from '@/components/calendars/booking-site-form';
 import { CalendarsSubnav } from '@/components/calendars/subnav';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
 export const metadata: Metadata = { title: 'Booking site' };
@@ -16,7 +16,7 @@ export default async function BookingSiteSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const [site, brandedOrigin] = await Promise.all([
     api.POST('/v1/queries/booking_site.get', { body: { workspaceId } }).then(unwrapPage),

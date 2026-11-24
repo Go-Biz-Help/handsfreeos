@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { LeadIntakeSettings } from '@/components/settings/lead-intake-page';
 import { PageHeader } from '@/components/shell/page-header';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Lead intake' };
 
@@ -20,7 +20,7 @@ export default async function LeadIntakeSettingsPage({
   const { api } = await apiServer();
   const body = { body: { workspaceId } };
   const [got, intake] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', body).then(unwrapPage),
+    getWorkspace(workspaceId),
     api.POST('/v1/queries/intake.list', body).then(unwrapPage),
   ]);
   if (!can(got.workspace.permissions, 'channels.manage')) notFound();

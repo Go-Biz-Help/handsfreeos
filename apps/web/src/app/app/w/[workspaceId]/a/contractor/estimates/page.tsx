@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { EstimatesHome } from '@/addons/contractor/estimates-home';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Estimates' };
 
@@ -21,7 +21,7 @@ export default async function ContractorEstimatesPage({
   return addonPage(workspaceId, 'contractor', 'contractor.costs', async () => {
     const { api } = await apiServer();
     const [got, list] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       api
         .POST('/v1/queries/contractor.estimate.list', {
           body: { workspaceId, waitingOk: waiting },

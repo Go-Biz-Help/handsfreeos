@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ImportProgress } from '@/components/import/import-progress';
 import { PageHeader } from '@/components/shell/page-header';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { formatDate } from '@/lib/format';
 
 export const metadata: Metadata = { title: 'Import' };
@@ -16,7 +16,7 @@ export default async function ImportPage({
 }) {
   const { workspaceId, importId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'records.import')) notFound();
   const initial = unwrapPage(
     await api.POST('/v1/queries/import.get', { body: { workspaceId, importId } }),

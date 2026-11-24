@@ -14,7 +14,7 @@ import {
   PaymentsSetupDone,
   PaymentsSetupFlow,
 } from '@/components/payments-setup/payments-setup-flow';
-import { apiServer, getMe, getSetupWorkspace, unwrapPage } from '@/lib/api/server';
+import { apiServer, getMe, getSetupWorkspace, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { publicEnv } from '@/lib/env';
 
 export const metadata: Metadata = { title: PAYMENTS_SETUP_WORDS.pageTitle };
@@ -43,7 +43,7 @@ export default async function PaymentsSetupPage({
   const query = await searchParams;
   const from = query['from'] === 'setup' ? 'setup' : 'settings';
   const [got, money, connections, me] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     api.POST('/v1/queries/money.settings', { body: { workspaceId } }).then(unwrapPage),
     api
       .POST('/v1/queries/payment_connection.list', { body: { workspaceId } })

@@ -122,6 +122,21 @@ export const getPlatformMe = cache(async () => {
     .catch(() => null);
 });
 
+/**
+ * The business as `workspace.get` answers it: its settings, its counts and what the person can do there. Asked once
+ * per request, like `getMe`: the layout reads its settings for the search box and the page reads the very same
+ * answer, where each used to ask for it, on every load and every live refresh. Each caller reads the answer its own
+ * way: a page with `getWorkspace`, the layout as a hint that may be missing.
+ */
+export const workspaceGet = cache(async (workspaceId: string) => {
+  const { api } = await apiServer();
+  return api.POST('/v1/queries/workspace.get', { body: { workspaceId } });
+});
+
+/** `workspaceGet` for a page: the 404 page when the business isn't theirs to see (`unwrapPage`). */
+export const getWorkspace = (workspaceId: string): Promise<WorkspaceGet> =>
+  workspaceGet(workspaceId).then(unwrapPage);
+
 /** The business a page is in, as its shell draws it: the sidebar, the menu, and the gate on add-ons' pages. */
 export interface WorkspaceShell {
   /** Its name, the person's role and permissions there, and the add-ons running there (0108). */
@@ -175,7 +190,7 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
   // behave like the API (404), never confirm it exists. /app sends workspace-less users to onboarding.
   let workspace: WorkspaceGet | null = null;
   try {
-    workspace = unwrap(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+    workspace = unwrap(await workspaceGet(workspaceId));
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;

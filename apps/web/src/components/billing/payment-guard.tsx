@@ -2,8 +2,8 @@
 import { paymentBlockOf } from '@hfos/core';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { apiBrowser, unwrap } from '@/lib/api/client';
 import { readPaymentSkip } from '@/lib/payment-skip';
+import { billingStatusNow } from './status-now';
 
 /**
  * The failed-payment page in front of the CRM (20261027023600, the owner's call of 2026-11-08): on every screen opened
@@ -19,9 +19,7 @@ export function PaymentGuard({ workspaceId }: { workspaceId: string }) {
   useEffect(() => {
     if (pathname.endsWith('/settings/usage')) return;
     let gone = false;
-    void apiBrowser()
-      .POST('/v1/queries/billing.status', { body: { workspaceId } })
-      .then(unwrap)
+    void billingStatusNow(workspaceId)
       .then((status) => {
         if (gone) return;
         const block = paymentBlockOf(status.owed, new Date(), readPaymentSkip(workspaceId));

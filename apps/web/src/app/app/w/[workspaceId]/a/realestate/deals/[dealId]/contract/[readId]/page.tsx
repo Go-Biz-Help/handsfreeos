@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { addonPage } from '@/addons/gate';
 import { ContractPage } from '@/addons/realestate/contract-page';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Contract' };
 
@@ -19,7 +19,7 @@ export default async function RealestateContractPage({
   return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
     const { api } = await apiServer();
     const [got, read, files] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       api
         .POST('/v1/queries/realestate.contract.read', { body: { workspaceId, readId } })
         .then(unwrapPage),

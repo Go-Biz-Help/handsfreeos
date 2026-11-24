@@ -10,7 +10,8 @@ import type {
   ConversationThread,
   ThreadItem,
 } from '@/lib/api/types';
-import { useLiveVersion } from '@/lib/realtime/live-provider';
+import { useInTurn } from '@/lib/realtime/in-turn';
+import { DELIVERY_RECEIPTS, useLiveVersion } from '@/lib/realtime/live-provider';
 import { useUnread } from '@/lib/realtime/unread-provider';
 
 export interface InboxFilters {
@@ -38,14 +39,17 @@ const RING_MS = 4000;
 
 /**
  * The conversation list. The first page loads on every filter change; teammates' and customers' changes
- * refetch as many rows as are showing (so "Show more" pages survive a live refresh).
+ * refetch as many rows as are showing (so "Show more" pages survive a live refresh), one request at a time.
  */
 export function useInboxList(workspaceId: string, filters: InboxFilters) {
-  // Drafts: a row says when the teammate's reply waits for an OK.
+  // Drafts: a row says when the teammate's reply waits for an OK. A row says nothing of how a message that went
+  // out fared, so a run of delivery receipts asks once, not once each (the open thread hears each: useThread).
   const live = useLiveVersion(
     ['conversation', 'message', 'call', 'person', 'ai_teammate_draft'],
     300,
+    { seldom: DELIVERY_RECEIPTS },
   );
+  const inTurn = useInTurn();
   const mailbox = filters.mailbox ?? 'team';
   const key = `${mailbox}|${filters.box}|${filters.status}|${filters.channel ?? ''}|${filters.q ?? ''}|${filters.unread ? 'unread' : ''}`;
   const [state, setState] = useState<{
@@ -73,22 +77,25 @@ export function useInboxList(workspaceId: string, filters: InboxFilters) {
   );
 
   useEffect(() => {
-    let cancelled = false;
-    const limit = Math.min(100, Math.max(PAGE, showing.current));
-    apiBrowser()
-      .POST('/v1/queries/inbox.list', { body: { ...body, limit } })
-      .then((r) => {
-        if (cancelled) return;
-        const out = unwrap(r);
-        setState({ key, items: out.items, cursor: out.nextCursor, loaded: true, error: null });
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setState((s) => ({ ...s, key, loaded: true, error: errorMessage(e) }));
-      });
+    let replaced = false;
+    inTurn(key, async () => {
+      // Replaced while it waited its turn: the one behind it asks for what both wanted.
+      if (replaced) return;
+      const limit = Math.min(100, Math.max(PAGE, showing.current));
+      try {
+        const out = unwrap(
+          await apiBrowser().POST('/v1/queries/inbox.list', { body: { ...body, limit } }),
+        );
+        if (!replaced)
+          setState({ key, items: out.items, cursor: out.nextCursor, loaded: true, error: null });
+      } catch (e) {
+        if (!replaced) setState((s) => ({ ...s, key, loaded: true, error: errorMessage(e) }));
+      }
+    });
     return () => {
-      cancelled = true;
+      replaced = true;
     };
-  }, [body, key, live, nonce]);
+  }, [body, key, live, nonce, inTurn]);
 
   // A new filter starts from one page again.
   useEffect(() => {
@@ -469,11 +476,15 @@ export function useCustomerNotes(workspaceId: string, personId: string | null): 
 /**
  * Conversation actions. Each takes the confirmation the design words for it; `after` refreshes whatever is
  * showing. They resolve to whether the change went through.
+ *
+ * Reading has its own `afterRead`: it changes nothing the open conversation shows (its count is cleared on the
+ * page as it opens), so opening an unread one need not draw the whole page a second time.
  */
 export function useConversationActions(
   workspaceId: string,
   conversationId: string,
   after: () => void,
+  afterRead: () => void = after,
 ) {
   const { refresh: refreshUnread } = useUnread();
   const ref = { workspaceId, conversationId };
@@ -494,7 +505,7 @@ export function useConversationActions(
       try {
         unwrap(await apiBrowser().POST('/v1/commands/conversation.mark_read', { body: ref }));
         refreshUnread();
-        after();
+        afterRead();
       } catch {
         // Reading is best effort; the badge catches up on the next change.
       }

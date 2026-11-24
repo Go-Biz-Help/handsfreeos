@@ -2,7 +2,7 @@ import { can, RECIPE_KEYS, type RecipeKey } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { NewWorkflow } from '@/components/workflows/new-workflow';
-import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrap, unwrapPage } from '@/lib/api/server';
 import type { WorkflowProposal } from '@/lib/api/types';
 
 const ID = /^[0-9a-f-]{36}$/i;
@@ -20,7 +20,7 @@ export default async function NewWorkflowPage({
   const { workspaceId } = await params;
   const query = await searchParams;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'workflows.manage')) notFound();
   const [catalogs, list] = await Promise.all([
     api.POST('/v1/queries/workflow.catalogs', { body: { workspaceId } }).then(unwrapPage),

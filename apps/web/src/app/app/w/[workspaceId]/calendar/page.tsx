@@ -1,7 +1,7 @@
 import { localInstant, monthGridOf, weekOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { CalendarPage } from '@/components/calendar/calendar-page';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { todayIn } from '@/lib/calendar/time';
 import { parseCalendarQuery } from '@/lib/calendar/url';
 
@@ -22,7 +22,7 @@ export default async function CalendarRoute({
   const { workspaceId } = await params;
   const sp = await searchParams;
   const { api, userId } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const timeZone = got.workspace.timezone;
   const today = todayIn(timeZone);
   const query = parseCalendarQuery(sp, today);

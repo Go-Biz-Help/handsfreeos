@@ -2,7 +2,7 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { ItemEditor } from '@/components/knowledge/item-editor';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { getWorkspace } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'New knowledge item' };
 
@@ -20,10 +20,7 @@ export default async function NewKnowledgeItemPage({
   const { workspaceId } = await params;
   const asked = one((await searchParams).kind);
   const kind = asked === 'article' || asked === 'fact' ? asked : 'faq';
-  const { api } = await apiServer();
-  const { workspace } = unwrapPage(
-    await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
-  );
+  const { workspace } = await getWorkspace(workspaceId);
   if (!can(workspace.permissions, 'knowledge.manage'))
     redirect(`/app/w/${workspaceId}/knowledge/items`);
   return <ItemEditor workspaceId={workspaceId} canManage item={null} newKind={kind} />;

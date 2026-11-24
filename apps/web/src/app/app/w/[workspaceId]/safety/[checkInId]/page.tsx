@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { SafetyAlertPage } from '@/components/safety/safety-alert';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Safety alert' };
 
@@ -21,7 +21,7 @@ export default async function SafetyAlert({
   if (!UUID.test(checkInId)) notFound();
   const { api } = await apiServer();
   const [got, alert] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     api.POST('/v1/queries/safety.alert', { body: { workspaceId, checkInId } }).then(unwrapPage),
   ]);
   return (

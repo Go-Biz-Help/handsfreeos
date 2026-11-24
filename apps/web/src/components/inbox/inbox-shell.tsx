@@ -191,9 +191,12 @@ export function InboxShell({
       p.delete('new');
       p.delete('mail');
       const s = p.toString();
-      router.replace(`${pathname}${s ? `?${s}` : ''}`, { scroll: false });
+      // Only the address changes: the list is the browser's own and reads it (useInboxList), and Next's router hears
+      // of it too. Asked to go there, the router had the server draw the open conversation's page again for every
+      // box, switch and pause in typing: five look-ups for a page that had not changed.
+      window.history.replaceState(null, '', `${pathname}${s ? `?${s}` : ''}`);
     },
-    [params, pathname, router],
+    [params, pathname],
   );
   const pickShow = (key: InboxShowKey) => {
     const next = inboxShowPick(key, archivedView ? 'archived' : box, home);

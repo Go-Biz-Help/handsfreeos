@@ -10,7 +10,8 @@ import {
 } from 'react';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { InboxSummary } from '@/lib/api/types';
-import { useLiveVersion } from './live-provider';
+import { useInTurn } from './in-turn';
+import { DELIVERY_RECEIPTS, useLiveVersion } from './live-provider';
 
 interface UnreadValue {
   readonly summary: InboxSummary | null;
@@ -35,24 +36,32 @@ export function UnreadProvider({
 }) {
   const [summary, setSummary] = useState<InboxSummary | null>(null);
   const [nonce, setNonce] = useState(0);
-  // Kept live in a background tab: the count in its title is how a hidden tab says something came in.
-  const live = useLiveVersion(['conversation', 'message'], 400, { whileHidden: true });
+  // Kept live in a background tab: the count in its title is how a hidden tab says something came in. Every open
+  // tab asks, so a run of delivery receipts (no count is made of one) asks once, and one request at a time.
+  const live = useLiveVersion(['conversation', 'message'], 400, {
+    whileHidden: true,
+    seldom: DELIVERY_RECEIPTS,
+  });
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
-
+  const inTurn = useInTurn();
   useEffect(() => {
-    let cancelled = false;
-    apiBrowser()
-      .POST('/v1/queries/inbox.summary', { body: { workspaceId } })
-      .then((r) => {
-        if (!cancelled) setSummary(unwrap(r));
-      })
-      .catch(() => {
+    let replaced = false;
+    inTurn(workspaceId, async () => {
+      // Replaced while it waited its turn: the one behind it asks for what both wanted.
+      if (replaced) return;
+      try {
+        const got = unwrap(
+          await apiBrowser().POST('/v1/queries/inbox.summary', { body: { workspaceId } }),
+        );
+        if (!replaced) setSummary(got);
+      } catch {
         // Badges are a convenience; the inbox itself shows errors.
-      });
+      }
+    });
     return () => {
-      cancelled = true;
+      replaced = true;
     };
-  }, [workspaceId, live, nonce]);
+  }, [workspaceId, live, nonce, inTurn]);
 
   useEffect(() => {
     const onVisible = () => {
