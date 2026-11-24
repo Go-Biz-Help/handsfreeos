@@ -548,7 +548,8 @@ that runs in the business; each runs on its own with its own retries, as the sys
 add-on's failure never holds up core's handlers or another add-on's. An event that happens all day and seldom has
 anything for the add-on can have a check in its worker module's `wants`: a plain function of the event's payload,
 asked before the job is queued, so the ones it would only look at and leave cost nothing. The subscriber makes the
-same check itself (Social Outreach's `liveChangedWanted` and `postCheckedWanted`).
+same check itself (Social Outreach's `liveChangedWanted` and `postCheckedWanted`). A delivery that went well keeps its
+job row 2 days; one that failed keeps it 30, as any failed job does (the worker's daily sweep, `sweepDeliveries`).
 
 **Core never points into an add-on.** No foreign key from `app` or `platform` into `addon_<id>`; an add-on's tables
 reference core and cascade with the business. The catalogue test checks both.
