@@ -7416,6 +7416,7 @@ Each business sets its own daily AI limit: the most its AI may be charged in a d
 - **The AI teammate** may use at most its share of the limit: 60% unless its **Limits** say otherwise ("The AI teammate and website chat").
 - **When it's reached,** every AI feature pauses until midnight and says why: "This business reached the $10 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Billing & Usage." Ask HandsFreeOS's panel says "{business} reached its daily AI limit". Everything else in HandsFreeOS still works.
 - **A business on "Paid by the agency"** has a limit too, set the same way. Its AI is HandsFreeOS's own cost.
+- **Per address, too.** Apart from the daily limit, one address may ask the Assistant 30 questions a minute (`ASKS_PER_MINUTE` in `apps/worker/src/assistant/routes.ts`) and have it read ahead 12 times (`WARMS_PER_MINUTE`). That only stops a script: a person has one answer going at a time. Past it, the panel says "That’s a lot of requests in a row. Wait a minute and try again." (rule `rate_limited`).
 
 This replaced `ASSISTANT_DAILY_TOKENS`, a single number of tokens for every business, which counted a cheap cache read the same as an expensive answer. Neither app reads it any more. If either still has it, remove it:
 

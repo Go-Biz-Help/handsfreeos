@@ -21,7 +21,7 @@ import {
 } from '@hfos/core/server';
 import { asUser } from '@hfos/db/client';
 import { users } from '@hfos/db/schema';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { authenticate, parseBody, requirePermission, type HttpDeps } from '../http/common';
 import { openStream } from '../http/sse';
 import { ADDON_WORKER_MODULES } from '../addons/modules';
@@ -87,6 +87,11 @@ const warmed = new Map<string, number>();
 const WARM_EVERY_MS = 4 * 60_000;
 /** Warm-ups one address may ask for a minute: it spends AI, like the worker's other AI routes. */
 export const WARMS_PER_MINUTE = 12;
+/**
+ * Questions one address may ask a minute. Each spends AI and may carry pictures to open and links to fetch; a person
+ * has one answer going at a time, so this only stops a script, and leaves room for a busy office on one address.
+ */
+export const ASKS_PER_MINUTE = 30;
 
 /** The most a question may weigh: its pictures, and room for the words and everything else it carries. */
 export const ASK_BODY_LIMIT = ASSISTANT_PICTURES_MAX * ASSISTANT_PICTURE_MAX_BASE64 + 256 * 1024;
@@ -167,7 +172,7 @@ export function registerAssistantRoutes(
       'The Assistant hasn’t been set up for HandsFreeOS yet, so it can’t answer. Everything else works as usual.',
     );
 
-  app.post('/v1/assistant/messages', { bodyLimit: ASK_BODY_LIMIT }, async (req, reply) => {
+  async function askRoute(req: FastifyRequest, reply: FastifyReply) {
     const receivedAt = Date.now();
     const actor = await authenticate(deps, req);
     const input = parseBody(AssistantAskInput, req.body);
@@ -265,13 +270,15 @@ export function registerAssistantRoutes(
     } finally {
       answering.delete(entry);
     }
-  });
+  }
 
   /**
+   * A question, and the panel opening. Both spend AI, so each address is held to a number a minute (ASKS_PER_MINUTE,
+   * WARMS_PER_MINUTE), on top of each business's daily AI limit.
+   *
    * The panel opened: while the person types, the AI reads the instructions, their tools and the business ahead of
    * the question, so the answer starts sooner (runtime.ts, warmUp). Best effort and quiet: without their OK to use
    * the AI service, or within four minutes of the last one, nothing is sent; anything that goes wrong is only logged.
-   * It spends AI, so each address is held to WARMS_PER_MINUTE, on top of the four minutes per person.
    */
   void app.register(async (scoped) => {
     await scoped.register(rateLimit, {
@@ -285,6 +292,14 @@ export function registerAssistantRoutes(
           'rate_limited',
         ),
     });
+    scoped.post(
+      '/v1/assistant/messages',
+      {
+        bodyLimit: ASK_BODY_LIMIT,
+        config: { rateLimit: { max: ASKS_PER_MINUTE, timeWindow: 60_000 } },
+      },
+      (req, reply) => askRoute(req, reply),
+    );
     scoped.post(
       '/v1/assistant/warm',
       { config: { rateLimit: { max: WARMS_PER_MINUTE, timeWindow: 60_000 } } },
