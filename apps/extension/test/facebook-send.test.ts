@@ -883,6 +883,67 @@ describe('a friend request on Facebook', () => {
     });
     expect(world.posted.filter((p) => p.path === CLOSED)).toEqual([]);
   });
+
+  /**
+   * A step that presses Add friend, its waits gone by. The tab looks for Facebook's Confirm by the clock (Date), so the
+   * clock is stood in for too, or a wait goes by in real time.
+   */
+  async function pressing(item: TodayListItem) {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] });
+    try {
+      const going = doWork({ do: 'step', item }, ME.businessId, false);
+      await vi.advanceTimersByTimeAsync(60_000);
+      return await going;
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  /** Dana's profile with Add friend under her name, and what Facebook does when it's pressed. */
+  function addFriend(pressed: (doc: Document) => void): Document {
+    const doc = load('profile-2026.html', DANA);
+    const button = doc.querySelector<HTMLElement>(
+      '[role="main"] [role="button"][aria-label="Friends"]',
+    )!;
+    button.setAttribute('aria-label', 'Add Friend Dana Reyes');
+    [...button.querySelectorAll('span')].at(-1)!.textContent = 'Add friend';
+    button.addEventListener('click', () => pressed(doc));
+    return doc;
+  }
+
+  /**
+   * A box over the page with its heading, a line and one button, as on the owner's problem reports of 22 Nov 2026
+   * (their words were hidden there: these are made up, and say nothing a warning says).
+   */
+  const box = (heading: string) =>
+    `<div role="dialog"><div><h2 dir="auto"><span dir="auto">${heading}</span></h2>` +
+    '<div role="button" aria-label="Close"></div></div><hr>' +
+    '<div><span dir="auto"><div>Requests go to people you may know. This one wasn’t sent.</div></span></div>' +
+    '<div role="button" aria-label="OK"><span>OK</span></div></div>';
+
+  it('says Facebook didn’t take it and showed a box, in Facebook’s words, when a box opens after Add friend (decision 192)', async () => {
+    world.pages = (url) =>
+      url === DANA
+        ? addFriend((doc) => doc.body.insertAdjacentHTML('beforeend', box('Request not sent')))
+        : null;
+    const outcome = await pressing(request);
+    expect(outcome).toEqual({
+      done: false,
+      line: 'Dana Reyes: Facebook didn’t take it, and showed a box: “Request not sent”',
+      need: true,
+      refused: true,
+    });
+    expect(world.noted).toEqual([]);
+  });
+
+  it('says only that Facebook didn’t take it when no box opened, for the AI helper to look at', async () => {
+    world.pages = (url) => (url === DANA ? addFriend(() => undefined) : null);
+    expect(await pressing(request)).toEqual({
+      done: false,
+      line: 'Dana Reyes: Facebook didn’t take it',
+      need: true,
+    });
+  });
 });
 
 describe('a warm-up on Facebook', () => {

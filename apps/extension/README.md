@@ -1283,6 +1283,26 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Two friend requests Facebook says no to in a row, and no more that day (0.151.2)
+
+From 20 Nov 2026 Facebook answered Add friend with a box of its own over the profile: a heading of a few words, a line
+and one button that isn't Confirm, and the request didn't go (none of 8 on 22 Nov, the owner's problem reports). Its
+words aren't a warning's, so the day went on, every request after met the same box, and each went to the problem
+reports as "Facebook didn’t take it", with the box's words hidden from them.
+
+From 0.151.2 (decision 192, the owner's pick of 22 Nov 2026):
+
+- A profile's read says the heading of each box over the page, in Facebook's words (`boxesOver` in
+  `src/networks/facebook/page.ts`). A box there after Add friend that wasn't before is Facebook's answer, and the step
+  says so: "Facebook didn’t take it, and showed a box: “(its heading)”". The support desk sorts that report as
+  Facebook's limit, as nothing in HandsFreeOS is there to fix.
+- After 2 friend requests in a row that Facebook said no to that way, no more friend requests go that day
+  (`REFUSED_IN_A_ROW`, `refusedAfter` and `withoutRequests` in `src/auto/plan.ts`), and the panel and the day's feed
+  say so. A request that goes starts the count again. Likes, comments, messages and confirming their requests go on,
+  no limit is halved, and the next day starts with requests on.
+- Not taken with no new box, it still says "Facebook didn’t take it" for the AI helper to look at, and a box with a
+  warning's words still stops the day, as before.
+
 ### The comments under the post itself, on Facebook and LinkedIn (0.151.1)
 
 The first comment research on every network (decision 172) ended with 44 comments kept on Facebook, 6 of them

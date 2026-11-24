@@ -177,6 +177,12 @@ export interface AutoState {
    * in a state kept before: due now.
    */
   readonly referAt?: number | null;
+  /**
+   * Friend requests in a row Facebook said no to today in a box of its own (decision 192, `refusedAfter`), and whether
+   * that made it stop sending them till tomorrow. Missing in a state kept before 0.151.2: none.
+   */
+  readonly refusedInRow?: number;
+  readonly requestsOff?: boolean;
   /** What it's doing, or last did, in words for the person, and when. */
   readonly line: string | null;
   readonly lineAt: number | null;
@@ -212,6 +218,8 @@ export function freshState(day: string | null, tabId: number | null = null): Aut
     helpfulAt: null,
     helpfulUp: false,
     referAt: null,
+    refusedInRow: 0,
+    requestsOff: false,
     line: null,
     lineAt: null,
     nextAt: null,
@@ -476,6 +484,34 @@ export type Work =
   | { readonly do: 'step'; readonly item: TodayListItem }
   | { readonly do: 'draft'; readonly item: TodayListItem }
   | { readonly do: 'send'; readonly item: TodayListItem };
+
+/**
+ * How many friend requests in a row Facebook may say no to in a box of its own before it sends no more that day
+ * (decision 192, the owner's pick of 22 Nov 2026). Likes, comments and messages go on, and no limit is halved: a
+ * warning does that (decision 25), and a box like this isn't one.
+ */
+export const REFUSED_IN_A_ROW = 2;
+
+/**
+ * Friend requests in a row Facebook said no to, after a step (decision 192): one more for a request it said no to in a
+ * box of its own, none once a request goes, and as it was after anything else (a like, or a request passed over).
+ */
+export function refusedAfter(
+  inRow: number,
+  work: Work,
+  outcome: { readonly done?: boolean; readonly refused?: true } | { readonly stop: string },
+): number {
+  if (work.do !== 'step' || work.item.kind !== 'friend_request') return inRow;
+  if ('refused' in outcome && outcome.refused) return inRow + 1;
+  if ('done' in outcome && outcome.done) return 0;
+  return inRow;
+}
+
+/** What's left today, without friend requests once Facebook's said no to them too often (decision 192). */
+export const withoutRequests = (left: readonly Work[], off: boolean | undefined): Work[] =>
+  off
+    ? left.filter((work) => !(work.do === 'step' && work.item.kind === 'friend_request'))
+    : [...left];
 
 /** A piece of work by what it is, so none is tried twice in a day: a send by its own id. */
 export const workKey = (work: Work): string =>
