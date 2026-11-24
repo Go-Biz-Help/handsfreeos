@@ -8,10 +8,14 @@ import { parseTheme, THEME_COOKIE, themeAttr } from '@/lib/theme';
 import './globals.css';
 
 const hanken = Hanken_Grotesk({ subsets: ['latin'], variable: '--font-hanken', display: 'swap' });
+// Not preloaded: a root layout's font is preloaded on every page, and 40 KB of it went to every booking page, form
+// and invoice, which have nothing in it. A screen that shows a number or a code in it fetches it then (once: it's
+// kept after), and `swap` shows the fallback meanwhile.
 const jetbrains = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-jetbrains',
   display: 'swap',
+  preload: false,
 });
 
 export const metadata: Metadata = {
