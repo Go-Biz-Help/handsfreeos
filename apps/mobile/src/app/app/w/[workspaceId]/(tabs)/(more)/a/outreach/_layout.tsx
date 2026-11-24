@@ -4,13 +4,15 @@ import { View } from 'react-native';
 import { AddonGate } from '@/addons/gate';
 import { OutreachTicker } from '@/addons/outreach/ticker';
 import { opensFirst } from '@/components/shell/first-screen';
+import { RouteInView } from '@/lib/in-view';
 import { colors, useThemeName } from '@/theme';
 
 /**
  * Social Outreach's screens on the phone (decision 44), at the web's own addresses (/app/w/<business>/a/outreach?view=…
  * and a playbook's) and inside More, so the tab bar stays. Each is listed in `src/links/addon-screens.ts`. Only for
  * someone holding `outreach.use`, which they hold only while it runs here. The ticker of what the person's computer is
- * doing sits under every one (decision 140). Its first screen, the list of its pages, stays under them, so Back from a
+ * doing sits under every one (decision 140), and asks only while Social Outreach is what's in view: not from under
+ * another of More's screens, nor from another tab. Its first screen, the list of its pages, stays under them, so Back from a
  * page opened from a link (the bell's "33 things wait for you", a notification) comes to the list, as it does from one
  * opened there (decision 127).
  */
@@ -33,7 +35,9 @@ export default function OutreachLayout() {
           }}
           screenListeners={PAGES_FIRST}
         />
-        <OutreachTicker />
+        <RouteInView>
+          <OutreachTicker />
+        </RouteInView>
       </View>
     </AddonGate>
   );

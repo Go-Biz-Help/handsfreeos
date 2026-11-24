@@ -3,11 +3,11 @@ import {
   COUNT_PERIOD_KEYS,
   COUNT_PERIODS,
   COUNTER_WORDS as CW,
+  COUNTS_ASK_SECONDS,
   countedSinceWords,
   countWords,
   tallyNetworks,
   tallyView,
-  TICKER_ASK_SECONDS,
   type CountPeriod,
   type CountsOutput,
   type TallyGroup,
@@ -30,8 +30,8 @@ import { Note, useOutreachAnswer, useOutreachContext } from './kit';
  * The counters at the top of Today on the phone (docs/outreach.md, decision 140), as the web's: everything the
  * person's extension did on its own today, this week (from Monday) or this month (from the 1st), on each network and
  * all together (`outreach.counts`), each group opening to show its lines; owners and admins can switch to the whole
- * team's, all together and person by person. The phone hears nothing live, so it asks again every few seconds while
- * Today is open (`TICKER_ASK_SECONDS`).
+ * team's, all together and person by person. The phone hears nothing live, so it asks again every 15 seconds while
+ * Today is the screen in view (`COUNTS_ASK_SECONDS`; every 5 until the speed audit, Nov 2026).
  */
 
 type Whose = 'me' | 'team';
@@ -52,7 +52,7 @@ export function OutreachCounters({ working }: { working: readonly Platform[] }) 
       ),
     `counts:${ws}:${period}:${everyone}`,
     CW.title,
-    { everySeconds: TICKER_ASK_SECONDS },
+    { everySeconds: COUNTS_ASK_SECONDS },
   );
   return (
     <CountersBody
