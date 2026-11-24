@@ -149,6 +149,7 @@ export * from './guided-setup/calendar';
 export * from './guided-setup/payments';
 export * from './guided-setup/chat';
 export * from './guided-setup/facebook';
+export * from './guided-setup/my-calendar';
 // A computer whose clock is wrong: sign-ins judged by the server's clock, and what the web app says about it.
 export * from './auth/clock';
 // The business's logo and colour, on its booking page, website chat, invoices and emails.

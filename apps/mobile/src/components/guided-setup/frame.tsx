@@ -1,4 +1,4 @@
-import { GUIDED_SETUP_WORDS as W, type GuidedSetupKey } from '@hfos/core';
+import { GUIDED_SETUP_WORDS as W, type GuidedDraftKey } from '@hfos/core';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { AppState, Platform, Pressable, ScrollView, View } from 'react-native';
@@ -31,7 +31,7 @@ export type SavedState = 'idle' | 'saving' | 'saved' | 'error';
  */
 export function useGuidedDraft(
   workspaceId: string,
-  setup: GuidedSetupKey,
+  setup: GuidedDraftKey,
   answers: Record<string, unknown> | null,
   opts: { readonly hadDraft: boolean },
 ) {

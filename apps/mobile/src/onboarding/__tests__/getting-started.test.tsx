@@ -417,6 +417,17 @@ it('turns on a teammate’s notifications on the phone itself, and takes them ro
   });
 });
 
+it('sets a teammate’s own calendar up on the phone itself', async () => {
+  await show({ ...TEAMMATE, next: 'my_calendar' });
+  const next = await screen.findByTestId('getting-started-next');
+  // The guided My calendar setup runs here as on the web (the owner, 24 Nov 2026, M1 a and M4 a): no link to email.
+  expect(next).not.toHaveTextContent(LINK_WORDS.easierDetail, { exact: false });
+  expect(screen.queryByTestId('getting-started-my_calendar-link')).toBeNull();
+  expect(screen.getByTestId('getting-started-my-calendar-setup')).toHaveTextContent('Connect');
+  await fireEvent.press(screen.getByTestId('getting-started-my-calendar-setup'));
+  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/my-calendar-setup`);
+});
+
 it('says “You’re set up” once, and Done finishes it', async () => {
   await show({
     ...TEAMMATE,

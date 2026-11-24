@@ -63,8 +63,12 @@ test('a teammate gets set up: their own four steps, the tour, then done', async 
     .getByTestId('getting-started-my_calendar')
     .getByRole('link', { name: 'Connect' })
     .click();
-  // The dev server builds a page the first time it's opened, which takes a while.
-  await expect(mem).toHaveURL(new RegExp(`/app/w/${workspaceId}/settings/my-calendar$`), {
+  // Their own calendar's guided setup (the owner, 24 Nov 2026, M1 a). The dev server builds a page the first time
+  // it's opened, which takes a while.
+  await expect(mem).toHaveURL(new RegExp(`/onboarding/${workspaceId}/my-calendar\\?from=home$`), {
+    timeout: 60_000,
+  });
+  await expect(mem.getByTestId('my-calendar-setup')).toHaveAttribute('data-screen', 'calendar', {
     timeout: 60_000,
   });
   await mem.goto(`/app/w/${workspaceId}`);

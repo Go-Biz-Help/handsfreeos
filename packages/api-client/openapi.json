@@ -8615,7 +8615,8 @@
                       "calendar",
                       "payments",
                       "chat",
-                      "facebook"
+                      "facebook",
+                      "my_calendar"
                     ]
                   },
                   "answers": {
@@ -8688,7 +8689,8 @@
                       "calendar",
                       "payments",
                       "chat",
-                      "facebook"
+                      "facebook",
+                      "my_calendar"
                     ]
                   }
                 },
@@ -35361,6 +35363,233 @@
                     }
                   },
                   "required": [
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/my_calendar_setup.save": {
+      "post": {
+        "operationId": "command_my_calendar_setup_save",
+        "summary": "Carry out your own guided My calendar setup’s answers, as its Check it over does before Google’s or Microsoft’s sign-in: your weekly hours (the business’s open hours or weekdays 9 to 5, either with a lunch break, or your own days and times) and their time zone, time off removed and added, and where your day starts (only when a calendar you’re on leaves time to drive). It never signs in to Google, Outlook or Zoom; only the person can, and connect says which calendar to sign in to next. Nothing changes when an answer is wrong.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires appointments.write. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "answers": {
+                    "type": "object",
+                    "properties": {
+                      "calendar": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "google",
+                              "microsoft",
+                              "none"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "hours": {
+                        "type": "string",
+                        "enum": [
+                          "business",
+                          "weekdays",
+                          "own"
+                        ]
+                      },
+                      "ownHours": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "day": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 6
+                            },
+                            "start": {
+                              "type": "string"
+                            },
+                            "end": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "day",
+                            "start",
+                            "end"
+                          ]
+                        }
+                      },
+                      "lunch": {
+                        "type": "boolean"
+                      },
+                      "lunchStart": {
+                        "type": "string"
+                      },
+                      "lunchEnd": {
+                        "type": "string"
+                      },
+                      "timezone": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "timeOff": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 40
+                            },
+                            "allDay": {
+                              "type": "boolean"
+                            },
+                            "startDate": {
+                              "type": "string"
+                            },
+                            "endDate": {
+                              "type": "string"
+                            },
+                            "start": {
+                              "type": "string"
+                            },
+                            "end": {
+                              "type": "string"
+                            },
+                            "note": {
+                              "type": "string",
+                              "maxLength": 500
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "allDay",
+                            "startDate",
+                            "endDate",
+                            "start",
+                            "end",
+                            "note"
+                          ]
+                        }
+                      },
+                      "removeTimeOff": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "dayStart": {
+                        "type": "string",
+                        "enum": [
+                          "business",
+                          "own"
+                        ]
+                      },
+                      "address": {
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "zoom": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "calendar",
+                      "hours",
+                      "ownHours",
+                      "lunch",
+                      "lunchStart",
+                      "lunchEnd",
+                      "timezone",
+                      "timeOff",
+                      "removeTimeOff",
+                      "dayStart",
+                      "address",
+                      "zoom"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "answers"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connect": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "google",
+                            "microsoft"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "zoom": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "connect",
+                    "zoom",
                     "changed"
                   ],
                   "additionalProperties": false
@@ -161835,7 +162064,7 @@
     "/v1/queries/guided_setup.get_draft": {
       "post": {
         "operationId": "query_guided_setup_get_draft",
-        "summary": "A guided setup’s answers as they were left (setup: phone or email), and when they were last saved. Null when nothing is saved: the setup isn’t started, or it was finished.",
+        "summary": "A guided setup’s answers as they were left (setup: phone, email, calendar, payments, chat, facebook, or my_calendar, which is your own), and when they were last saved. Null when nothing is saved: the setup isn’t started, or it was finished.",
         "tags": [
           "queries"
         ],
@@ -161860,7 +162089,8 @@
                       "calendar",
                       "payments",
                       "chat",
-                      "facebook"
+                      "facebook",
+                      "my_calendar"
                     ]
                   }
                 },
@@ -161910,6 +162140,293 @@
                   "required": [
                     "answers",
                     "savedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/my_calendar_setup.get": {
+      "post": {
+        "operationId": "query_my_calendar_setup_get",
+        "summary": "Your own calendar as the guided My calendar setup reads it: your hours (null while the usual weekdays 9 to 5 apply), their time zone, time off still coming up, your Google or Outlook calendar, where your day starts and your Zoom account, with the business’s open hours, zone and address, and whether a calendar you’re on leaves time to drive (drive) or makes Zoom links (zoom).",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "fullName": {
+                      "type": "string"
+                    },
+                    "businessZone": {
+                      "type": "string"
+                    },
+                    "businessHours": {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "day": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 6
+                          },
+                          "start": {
+                            "type": "string"
+                          },
+                          "end": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "day",
+                          "start",
+                          "end"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "weekly": {
+                      "anyOf": [
+                        {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "day": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 6
+                              },
+                              "start": {
+                                "type": "string"
+                              },
+                              "end": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "day",
+                              "start",
+                              "end"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ownTimezone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "timeOff": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "startsAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "endsAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "allDay": {
+                            "type": "boolean"
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "startsAt",
+                          "endsAt",
+                          "allDay",
+                          "note"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "connection": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "enum": [
+                                "google",
+                                "microsoft"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "pending",
+                                "active",
+                                "reauth_required",
+                                "error",
+                                "disconnected"
+                              ]
+                            },
+                            "accountEmail": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "busySyncedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "provider",
+                            "status",
+                            "accountEmail",
+                            "busySyncedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "drive": {
+                      "type": "boolean"
+                    },
+                    "dayStart": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "businessAddress": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "zoom": {
+                      "type": "boolean"
+                    },
+                    "meeting": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "pending",
+                                "active",
+                                "reauth_required",
+                                "error",
+                                "disconnected"
+                              ]
+                            },
+                            "accountEmail": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "accountEmail"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "fullName",
+                    "businessZone",
+                    "businessHours",
+                    "weekly",
+                    "ownTimezone",
+                    "timeOff",
+                    "connection",
+                    "drive",
+                    "dayStart",
+                    "businessAddress",
+                    "zoom",
+                    "meeting"
                   ],
                   "additionalProperties": false
                 }

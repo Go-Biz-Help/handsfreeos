@@ -8,6 +8,7 @@ import {
   keptBusinessesLine,
   keptDocumentsLine,
   MAIN_OFFER_WORDS,
+  MY_CALENDAR_SETUP_WORDS,
   MY_CELL_WORDS,
   PARTNERS_WORDS,
   PHONE_SETTINGS_WORDS,
@@ -21,6 +22,7 @@ import { View } from 'react-native';
 import { SearchBox } from '@/components/admin/bits';
 import {
   Bell,
+  CalendarDays,
   CloudCheck,
   FileText,
   Fingerprint,
@@ -101,7 +103,10 @@ export default function Settings() {
   // Partners are for whoever holds Manage partners, while an add-on that uses them runs here.
   const partners = usePartnersHere();
   // Facebook & Instagram is for whoever may connect the business's channels (the owner, 24 Nov 2026, F4 a).
-  const channels = holds(useGrants(), 'channels.manage');
+  const grants = useGrants();
+  const channels = holds(grants, 'channels.manage');
+  // Your own calendar's guided setup, for whoever takes appointments (the owner, 24 Nov 2026, M4 a).
+  const takesAppointments = holds(grants, 'appointments.write');
   // Add-ons are for whoever may install them (0108); nobody else sees the row.
   const [info, setInfo] = React.useState<BiometricInfo | null>(null);
   const [lockOn, setLockOn] = React.useState(() => lockEnabledFor(userId));
@@ -280,6 +285,15 @@ export default function Settings() {
               testID="setting-my-safety"
               settingKey="phone.my_safety"
             />
+            {takesAppointments ? (
+              <ListRow
+                icon={CalendarDays}
+                label={MY_CALENDAR_SETUP_WORDS.phone.row}
+                detail={MY_CALENDAR_SETUP_WORDS.phone.rowHint}
+                onPress={() => router.push(businessHref(business.id, 'my-calendar-setup'))}
+                testID="setting-my-calendar"
+              />
+            ) : null}
             <ListRow
               icon={Bell}
               label={PHONE_SETTINGS_WORDS.notifications}

@@ -11,7 +11,7 @@
     "apps/mobile/src/components/email-setup/guided-flow.tsx": "86b4db79d021",
     "apps/mobile/src/components/email-setup/guided-last.tsx": "5cb3684d3242",
     "apps/mobile/src/components/email-setup/screens.tsx": "d611416b7a54",
-    "apps/mobile/src/components/guided-setup/frame.tsx": "aa14663539d7",
+    "apps/mobile/src/components/guided-setup/frame.tsx": "1576e47f6c50",
     "apps/mobile/src/components/onboarding-setup/business.tsx": "c8d4223a317b",
     "apps/mobile/src/components/onboarding-setup/create-business.tsx": "6cbd61109a08",
     "apps/mobile/src/components/onboarding-setup/frame.tsx": "9c4dd3dcf6cb",
@@ -19,11 +19,11 @@
     "apps/mobile/src/components/onboarding-setup/number.tsx": "928071d1d003",
     "apps/mobile/src/components/onboarding-setup/page.tsx": "8bc7baad0367",
     "apps/mobile/src/components/onboarding-setup/quick-setup.tsx": "03350302e17c",
-    "apps/mobile/src/components/onboarding-setup/screens.tsx": "9ad6830ee642",
+    "apps/mobile/src/components/onboarding-setup/screens.tsx": "a3fb4e191251",
     "apps/mobile/src/components/onboarding/phone-tour.tsx": "0bfd1790f091",
     "apps/mobile/src/onboarding-setup/calls.ts": "2c4ac736d210",
     "apps/mobile/src/onboarding-setup/use-onboarding-setup.ts": "9f7b55950621",
-    "apps/mobile/src/onboarding-setup/words.ts": "2f69e31d6d18",
+    "apps/mobile/src/onboarding-setup/words.ts": "b848b29f51e1",
     "apps/mobile/src/onboarding/use-getting-started.ts": "e53c6c94e50d",
     "apps/web/src/app/founding/checkout/[id]/page.tsx": "d69df8611fd2",
     "apps/web/src/app/onboarding/[workspaceId]/email/page.tsx": "13ad4ccb3365",
@@ -48,7 +48,7 @@
     "apps/web/src/components/email-setup/screens.tsx": "8a7246489931",
     "apps/web/src/components/founding/checkout-status.tsx": "4b7a8ee5c68e",
     "apps/web/src/components/founding/pick-plan.tsx": "5d5233afe8e5",
-    "apps/web/src/components/guided-setup/frame.tsx": "9222ba772a3c",
+    "apps/web/src/components/guided-setup/frame.tsx": "1a40339296da",
     "apps/web/src/components/home/phone-app-dialog.tsx": "7082b1060829",
     "apps/web/src/components/import/import-progress.tsx": "7e4630e2d20c",
     "apps/web/src/components/import/import-wizard.tsx": "e3a7f56dff11",
@@ -1084,11 +1084,11 @@
       "by": "the whole link given in chat"
     },
     {
-      "path": "Set up → Booking page → Connect your calendar",
+      "path": "Set up → Booking page → Connect your calendar (web: opens Settings → My calendar; phone: Set up my calendar opens the guided My calendar setup)",
       "kind": "do",
       "file": "apps/web/src/components/onboarding-setup/screens.tsx:541",
-      "covered": "person",
-      "by": "signing in to Google or Outlook (calendar_connection.connect NEVER)"
+      "covered": "partly",
+      "by": "do_my_calendar_setup_save sets the hours and time off; signing in to Google or Outlook is the person’s own (calendar_connection.connect NEVER)"
     },
     {
       "path": "Set up → Your business number → can’t do it (no permission)",
