@@ -46,6 +46,7 @@ import {
 } from './esign-bits';
 import type { ContractReadRow, DealDocument, DealExport, EsignList } from './types';
 import { useAct } from './use-act';
+import { useLookAgain } from './use-look-again';
 
 export interface DealFile {
   readonly id: string;
@@ -113,11 +114,7 @@ export function DocumentsPage({
   }, [reads]);
   const reading = [...readOf.values()].some((r) => r.state === 'reading');
   // The worker reads it in a minute or so: look again until it has.
-  useEffect(() => {
-    if (!reading) return;
-    const t = setInterval(() => router.refresh(), 3000);
-    return () => clearInterval(t);
-  }, [reading, router]);
+  useLookAgain(reading, 3000);
   const [adding, setAdding] = useState<{ supersedes?: DealDocument; fileId?: string } | null>(null);
   const [signing, setSigning] = useState<DealDocument | null>(null);
   const [panel, setPanel] = useState<string | null>(back);
@@ -132,11 +129,7 @@ export function DocumentsPage({
   const shownEnvelope = envelopes.find((e) => e.id === panel) ?? null;
   // Getting it ready at the service takes a moment: look again until it's ready.
   const preparing = envelopes.some((e) => e.state === 'preparing');
-  useEffect(() => {
-    if (!preparing) return;
-    const t = setInterval(() => router.refresh(), 2000);
-    return () => clearInterval(t);
-  }, [preparing, router]);
+  useLookAgain(preparing, 2000);
   // Back from DocuSign or Dotloop: ask the service where it stands now, then show it.
   const checked = useRef(false);
   useEffect(() => {

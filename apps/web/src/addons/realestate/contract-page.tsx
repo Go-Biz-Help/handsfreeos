@@ -8,7 +8,6 @@
 import { fmtMonthDay, localDayOf } from '@hfos/core';
 import { Check, Circle, ExternalLink, X } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
@@ -25,6 +24,7 @@ import { ReasonDialog } from './deal-dialogs';
 import type { DealFile } from './documents-page';
 import type { ContractRead, ReadValue } from './types';
 import { useAct } from './use-act';
+import { useLookAgain } from './use-look-again';
 
 const thisYear = new Date().getFullYear();
 
@@ -39,7 +39,6 @@ export function ContractPage({
   read: ContractRead;
   file: DealFile | null;
 }) {
-  const router = useRouter();
   const { busy, act } = useAct();
   const [page, setPage] = useState(1);
   const [rejecting, setRejecting] = useState<ReadValue | null>(null);
@@ -50,11 +49,7 @@ export function ContractPage({
   const api = apiBrowser();
 
   // The worker reads it in a minute or so: look again until it has.
-  useEffect(() => {
-    if (!reading) return;
-    const t = setInterval(() => router.refresh(), 3000);
-    return () => clearInterval(t);
-  }, [reading, router]);
+  useLookAgain(reading, 3000);
 
   const confirm = (valueIds?: string[]) =>
     act(

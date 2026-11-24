@@ -8,8 +8,7 @@
 import { fmtMonthDay, localDayOf as dateOf } from '@hfos/core';
 import { Check, Circle, Clock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Callout } from '@/components/crm/chips';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +23,7 @@ import { ReasonDialog } from './deal-dialogs';
 import { Marked } from './listing-bits';
 import type { ListingView } from './types';
 import { useAct } from './use-act';
+import { useLookAgain } from './use-look-again';
 
 const thisYear = () => new Date().getFullYear();
 
@@ -69,7 +69,6 @@ export function DescriptionPage({
   sellers: readonly string[];
   live: boolean;
 }) {
-  const router = useRouter();
   const seller = firstNames(sellers) || 'the seller';
   const { inUse, working: w, history } = l.description;
   const [editing, setEditing] = useState(false);
@@ -80,11 +79,7 @@ export function DescriptionPage({
   const checking = !!w && w.state === 'ready' && !(w.checked.words && w.checked.model);
   const drafting = w?.state === 'drafting';
   // The worker drafts and the model reads a moment later: look again until both have.
-  useEffect(() => {
-    if (!drafting && !checking) return;
-    const t = setInterval(() => router.refresh(), 2500);
-    return () => clearInterval(t);
-  }, [drafting, checking, router]);
+  useLookAgain(drafting || checking, 2500);
   const flags = w?.flags ?? [];
   const clear = !!w && w.checked.words && w.checked.model && (!flags.length || !!w.acknowledged);
   const sent = w?.state === 'sent';

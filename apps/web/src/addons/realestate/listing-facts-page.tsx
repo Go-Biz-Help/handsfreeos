@@ -20,8 +20,7 @@ import {
   type ListingHomeFactKey,
 } from '@hfos/core/addons/realestate/listing';
 import { Clock, Info } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Callout } from '@/components/crm/chips';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +37,7 @@ import { CardHead } from './bits';
 import { DealCrumb, firstNames } from './buyer-bits';
 import type { ListingChoice, ListingView } from './types';
 import { useAct } from './use-act';
+import { useLookAgain } from './use-look-again';
 
 const thisYear = () => new Date().getFullYear();
 
@@ -88,7 +88,6 @@ export function ListingFactsPage({
   sellers: readonly string[];
   live: boolean;
 }) {
-  const router = useRouter();
   const seller = firstNames(sellers) || 'The seller';
   const [rows, setRows] = useState<Rows>(() => rowsFrom(l.choices));
   const [highlights, setHighlights] = useState(l.highlights ?? '');
@@ -112,11 +111,7 @@ export function ListingFactsPage({
 
   // The AI reads the pasted words in the background: look again until it's done.
   const filling = l.pasted.state === 'filling';
-  useEffect(() => {
-    if (!filling) return;
-    const t = setInterval(() => router.refresh(), 2500);
-    return () => clearInterval(t);
-  }, [filling, router]);
+  useLookAgain(filling, 2500);
 
   const choiceOf = (k: ListingHomeFactKey) => l.choices.find((c) => c.key === k);
   const toDecide = l.choices.filter(
