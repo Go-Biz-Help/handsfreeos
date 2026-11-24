@@ -156,6 +156,24 @@ export function useOutreachAnswer<T>(
   return useLiveAnswer(load, key, W.needsSignal(screen), options);
 }
 
+/** How many of a list's pages are asked for at a time: the API has few connections to the database, for everyone. */
+const PAGES_AT_ONCE = 4;
+
+/**
+ * A list's pages so far, asked for together (a few at a time). They were asked one after another, page 1 again on
+ * every Show more: three round trips for page 3, four for the next, and the list off the screen until the last had
+ * come. Give the list's key without its page count as `moreOf` beside it, so the rows on screen stay while the
+ * longer list comes.
+ */
+export async function pagesOf<P>(pages: number, ask: (page: number) => Promise<P>): Promise<P[]> {
+  const all: P[] = [];
+  for (let first = 1; first <= pages; first += PAGES_AT_ONCE) {
+    const count = Math.min(PAGES_AT_ONCE, pages - first + 1);
+    all.push(...(await Promise.all(Array.from({ length: count }, (_, i) => ask(first + i)))));
+  }
+  return all;
+}
+
 /** A screen, or part of one, that needs HandsFreeOS, with no signal or after a failure: what it is, and Try again. */
 export function NeedsSignal({
   words,

@@ -22,7 +22,14 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
-import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import {
+  NeedsSignal,
+  Note,
+  openOutside,
+  pagesOf,
+  useOutreachAnswer,
+  useOutreachContext,
+} from './kit';
 import { PHONE_WORDS } from './phone-words';
 
 /**
@@ -130,20 +137,19 @@ export function CountriesScreen({ show }: { show?: string }) {
   const [pages, setPages] = React.useState(1);
   const answer = useOutreachAnswer(
     async () => {
-      const all: CountriesSkippedOutput[] = [];
-      for (let page = 1; page <= pages; page++)
-        all.push(
-          unwrap(
-            await api.POST('/v1/queries/outreach.countries.skipped', {
-              body: { workspaceId: ws, list, page },
-            }),
-          ),
-        );
+      const all: CountriesSkippedOutput[] = await pagesOf(pages, async (page) =>
+        unwrap(
+          await api.POST('/v1/queries/outreach.countries.skipped', {
+            body: { workspaceId: ws, list, page },
+          }),
+        ),
+      );
       const last = all[all.length - 1]!;
       return { ...last, people: all.flatMap((a) => a.people) };
     },
     `countries:${ws}:${list}:${pages}`,
     countryListTitle(list),
+    { moreOf: `countries:${ws}:${list}` },
   );
   return (
     <CountriesBody

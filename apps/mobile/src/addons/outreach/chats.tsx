@@ -33,7 +33,14 @@ import {
   useDoneReload,
   type AskActions,
 } from './asks';
-import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import {
+  NeedsSignal,
+  Note,
+  openOutside,
+  pagesOf,
+  useOutreachAnswer,
+  useOutreachContext,
+} from './kit';
 import { NetworkFilter, NetworkName } from './networks';
 import { PersonMenuScope, PersonName } from './person-menu';
 
@@ -66,27 +73,26 @@ export function ChatsScreen({ show, tag, q }: { show?: string; tag?: string; q?:
   React.useEffect(() => setPages(1), [view, asked, theTag, net]);
   const answer = useOutreachAnswer(
     async () => {
-      const all: ChatsOutput[] = [];
-      for (let page = 1; page <= pages; page++)
-        all.push(
-          unwrap(
-            await api.POST('/v1/queries/outreach.chats', {
-              body: {
-                workspaceId: ws,
-                view,
-                page,
-                ...(asked ? { search: asked } : {}),
-                ...(theTag ? { tag: theTag } : {}),
-                ...(net ? { platform: net } : {}),
-              },
-            }),
-          ),
-        );
+      const all: ChatsOutput[] = await pagesOf(pages, async (page) =>
+        unwrap(
+          await api.POST('/v1/queries/outreach.chats', {
+            body: {
+              workspaceId: ws,
+              view,
+              page,
+              ...(asked ? { search: asked } : {}),
+              ...(theTag ? { tag: theTag } : {}),
+              ...(net ? { platform: net } : {}),
+            },
+          }),
+        ),
+      );
       const last = all[all.length - 1]!;
       return { ...last, chats: all.flatMap((a) => a.chats) };
     },
     `chats:${ws}:${view}:${theTag}:${asked}:${pages}:${net ?? 'all'}`,
     W.rows.chats,
+    { moreOf: `chats:${ws}:${view}:${theTag}:${asked}:${net ?? 'all'}` },
   );
   const asks = useAsks('chats', W.rows.chats);
   const actions = useAskActions(asks.data, asks.reload);
