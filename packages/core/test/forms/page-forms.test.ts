@@ -93,6 +93,26 @@ describe('the forms on a web page', () => {
     ).toBe(2);
   });
 
+  it('reads a page built to be slow in a moment', () => {
+    // Each of these opens something again and again and never closes it. Looking for the end with a pattern takes
+    // time that grows with the square of the page: minutes for a megabyte of "<!--".
+    for (const unit of [
+      '<!--',
+      '<script',
+      '<form>',
+      '<form',
+      '<input',
+      '<h2>',
+      '<a',
+      '<body>',
+      'FB_PUBLIC_LOAD_DATA_=[',
+    ]) {
+      const started = performance.now();
+      formsOnPage(unit.repeat(Math.ceil(1_000_000 / unit.length)), 'https://slow.test');
+      expect(performance.now() - started, unit).toBeLessThan(3000);
+    }
+  });
+
   it('says a list that takes more than one choice is one', () => {
     expect(
       pageFormOutline(

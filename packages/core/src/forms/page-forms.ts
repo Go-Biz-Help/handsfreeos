@@ -135,12 +135,93 @@ function attr(tag: string, name: string): string | null {
 
 const has = (tag: string, name: string): boolean => attr(tag, name) !== null;
 
+/*
+ * A page someone links can be anything, so nothing here looks for an end with a pattern like `<form[^>]*>[\s\S]*?
+ * </form>`: on a page of a thing opened again and again and never closed, its time grows with the square of the page
+ * (3 MB of "<!--" took hours). Elements and comments are found in one pass instead, and a `<` with no `>` after it is
+ * taken out, so every tag pattern finds its end straight away.
+ */
+
+/** A `<` that no `>` follows can't start a tag: made a space, so a tag pattern never searches to the end for one. */
+function closedTags(html: string): string {
+  const last = html.lastIndexOf('>');
+  return last < 0
+    ? html.replaceAll('<', ' ')
+    : html.slice(0, last + 1) + html.slice(last + 1).replaceAll('<', ' ');
+}
+
+/** Comments taken out, in one pass. */
+function withoutComments(html: string): string {
+  let out = '';
+  let pos = 0;
+  for (;;) {
+    const open = html.indexOf('<!--', pos);
+    const close = open < 0 ? -1 : html.indexOf('-->', open + 4);
+    if (close < 0) return out + html.slice(pos);
+    out += `${html.slice(pos, open)} `;
+    pos = close + 3;
+  }
+}
+
+interface Element {
+  /** Where its open tag starts in the page. */
+  readonly start: number;
+  /** Just after its close tag. */
+  readonly end: number;
+  /** Its open tag, `<form class="x">`. */
+  readonly open: string;
+  /** What's between its tags. */
+  readonly inner: string;
+}
+
+/**
+ * Each `<name …>…</name>` on the page, in order and never one inside another, found in one pass. `names` is a pattern
+ * of tag names ("form", "h[1-4]"). A name never closed after one opens is never looked for again.
+ */
+function elements(html: string, names: string, limit = Infinity): Element[] {
+  const opens = new RegExp(`<(${names})\\b`, 'gi');
+  const unclosed = new Set<string>();
+  const found: Element[] = [];
+  let m: RegExpExecArray | null;
+  while (found.length < limit && (m = opens.exec(html))) {
+    const name = m[1]!.toLowerCase();
+    if (unclosed.has(name)) continue;
+    const gt = html.indexOf('>', m.index);
+    if (gt < 0) break;
+    const closes = new RegExp(`</${name}\\s*>`, 'gi');
+    closes.lastIndex = gt + 1;
+    const close = closes.exec(html);
+    if (!close) {
+      unclosed.add(name);
+      continue;
+    }
+    const end = close.index + close[0].length;
+    found.push({
+      start: m.index,
+      end,
+      open: html.slice(m.index, gt + 1),
+      inner: html.slice(gt + 1, close.index),
+    });
+    opens.lastIndex = end;
+  }
+  return found;
+}
+
 /** Comments, scripts, styles, pictures drawn in code and the page's head, taken out. */
 function cleaned(html: string): string {
-  return html
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<(script|style|noscript|svg|template|head|iframe)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ');
+  const page = withoutComments(html);
+  let out = '';
+  let pos = 0;
+  for (const e of elements(page, 'script|style|noscript|svg|template|head|iframe')) {
+    out += `${page.slice(pos, e.start)} `;
+    pos = e.end;
+  }
+  // Last, since what was taken out may have held the `>` a `<` before it was waiting for.
+  return closedTags(out + page.slice(pos));
 }
+
+/** The words of a piece of a page, its tags taken out. */
+const wordsOf = (html: string): string => squash(closedTags(html).replace(/<[^>]+>/g, ' '));
 
 const squash = (text: string): string => decodeEntities(text).replace(/\s+/g, ' ').trim();
 
@@ -412,31 +493,29 @@ const checked = (tag: string): string => (has(tag, 'checked') ? ', already ticke
 
 /** The words of the last heading before `at`, within a stretch of page, or null. */
 function headingBefore(html: string, at: number): string | null {
-  const before = html.slice(Math.max(0, at - 3000), at);
-  const all = [...before.matchAll(/<h([1-4])\b[^>]*>([\s\S]*?)<\/h\1\s*>/gi)];
-  const last = all[all.length - 1];
-  const words = last ? squash(last[2]!.replace(/<[^>]+>/g, ' ')) : '';
+  const last = elements(html.slice(Math.max(0, at - 3000), at), 'h[1-4]').at(-1);
+  const words = last ? wordsOf(last.inner) : '';
   return words && words.length <= 120 ? words : null;
 }
 
-function formTitle(page: string, at: number, block: string): string | null {
-  const open = /^<form\b[^>]*>/i.exec(block)?.[0] ?? '';
-  const own = attr(open, 'aria-label') || attr(open, 'title') || attr(open, 'data-form-name');
+function formTitle(page: string, form: Element): string | null {
+  const own =
+    attr(form.open, 'aria-label') || attr(form.open, 'title') || attr(form.open, 'data-form-name');
   if (own) return own.slice(0, 120);
   // A heading inside it, then the one above it; a legend only names one group of its questions, so it comes last.
-  const inside = /<h([1-4])\b[^>]*>([\s\S]*?)<\/h\1\s*>/i.exec(block);
-  const words = squash((inside?.[2] ?? '').replace(/<[^>]+>/g, ' '));
+  const inside = elements(form.inner, 'h[1-4]', 1)[0];
+  const words = inside ? wordsOf(inside.inner) : '';
   if (words && words.length <= 120) return words;
-  const above = headingBefore(page, at);
+  const above = headingBefore(page, form.start);
   if (above) return above;
-  const legend = /<legend\b[^>]*>([\s\S]*?)<\/legend\s*>/i.exec(block);
-  const named = squash((legend?.[1] ?? '').replace(/<[^>]+>/g, ' '));
+  const legend = elements(form.inner, 'legend', 1)[0];
+  const named = legend ? wordsOf(legend.inner) : '';
   return named && named.length <= 120 ? named : null;
 }
 
 function pageTitle(html: string): string | null {
-  const m = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(html);
-  const words = m ? squash(m[1]!) : '';
+  const title = elements(html, 'title', 1)[0];
+  const words = title ? squash(title.inner) : '';
   return words ? words.slice(0, 120) : null;
 }
 
@@ -457,10 +536,10 @@ function summaryOf(outline: string): string {
 }
 
 /** A form nobody would want built: a site search, or a sign-in. */
-function notWanted(block: string): boolean {
-  const clean = cleaned(block);
-  if (/<input\b[^>]*type\s*=\s*["']?password/i.test(clean)) return true;
-  const boxes = [...clean.matchAll(/<(input|select|textarea)\b[^>]*>/gi)].filter((m) => {
+function notWanted(form: Element): boolean {
+  const all = [...cleaned(form.inner).matchAll(/<(input|select|textarea)\b[^>]*>/gi)];
+  if (all.some((m) => /^password/i.test(attr(m[0], 'type') ?? ''))) return true;
+  const boxes = all.filter((m) => {
     const type = (attr(m[0], 'type') ?? 'text').toLowerCase();
     return m[1]!.toLowerCase() !== 'input' || !NOT_FILLED.has(type);
   });
@@ -469,13 +548,21 @@ function notWanted(block: string): boolean {
   const tag = boxes[0]![0];
   const type = (attr(tag, 'type') ?? '').toLowerCase();
   const name = (attr(tag, 'name') ?? '').toLowerCase();
-  const open = /^<form\b[^>]*>/i.exec(block)?.[0] ?? '';
+  const open = form.open;
   return (
     type === 'search' ||
     ['s', 'q', 'search', 'query', 'keyword', 'keywords'].includes(name) ||
     /search/i.test(attr(open, 'role') ?? '') ||
     /search/i.test(attr(open, 'action') ?? '')
   );
+}
+
+/** What's inside `<body>`, from its open tag to its last close; the whole page when it has none. */
+function bodyOf(html: string): string {
+  const open = /<body\b/i.exec(html);
+  const gt = open ? html.indexOf('>', open.index) : -1;
+  const close = [...html.matchAll(/<\/body/gi)].at(-1)?.index ?? -1;
+  return gt >= 0 && close > gt ? html.slice(gt + 1, close) : html;
 }
 
 /**
@@ -488,15 +575,15 @@ export function formsOnPage(html: string, url: string, first = 1): PageForm[] {
   if (google) return [google];
   const clean = cleaned(html);
   const found: PageForm[] = [];
-  for (const m of clean.matchAll(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi)) {
-    const block = m[0];
+  for (const form of elements(clean, 'form')) {
+    const block = clean.slice(form.start, form.end);
     const fields = countFields(block);
-    if (!fields || notWanted(block)) continue;
+    if (!fields || notWanted(form)) continue;
     const outline = pageFormOutline(block);
     if (!outline) continue;
     found.push({
       number: first + found.length,
-      title: formTitle(clean, m.index ?? 0, block),
+      title: formTitle(clean, form),
       fields,
       summary: summaryOf(outline),
       outline,
@@ -506,7 +593,7 @@ export function formsOnPage(html: string, url: string, first = 1): PageForm[] {
   }
   if (found.length) return found;
   // No <form>: boxes a page builder laid out on their own still make a form, when there are a few of them.
-  const body = /<body\b[^>]*>([\s\S]*)<\/body\s*>/i.exec(clean)?.[1] ?? clean;
+  const body = bodyOf(clean);
   const fields = countFields(body);
   if (fields < 2) return [];
   const outline = pageFormOutline(body);
@@ -540,17 +627,33 @@ const GOOGLE_KINDS: Readonly<Record<number, string>> = {
   13: 'file upload',
 };
 
+/** The text of `FB_PUBLIC_LOAD_DATA_ = [ … ];` up to its `</script>`, found in one pass. Null when there's none. */
+function googleFormData(html: string): string | null {
+  const NAME = 'FB_PUBLIC_LOAD_DATA_';
+  for (let at = html.indexOf(NAME); at >= 0; at = html.indexOf(NAME, at + NAME.length)) {
+    const start = /^\s*=\s*\[/.exec(html.slice(at + NAME.length, at + NAME.length + 200));
+    if (!start) continue;
+    const from = at + NAME.length + start[0].length - 1;
+    const end = html.indexOf('</script>', from);
+    if (end < 0) return null;
+    const text = html.slice(from, end).trimEnd();
+    const json = text.endsWith(';') ? text.slice(0, -1).trimEnd() : text;
+    return json.endsWith(']') ? json : null;
+  }
+  return null;
+}
+
 /**
  * A Google Form, from the data its page carries (`FB_PUBLIC_LOAD_DATA_`): every question with its kind, choices and
  * whether it must be answered, and each section break as a new step. Null when the page isn't one, or its data can't
  * be read (its HTML is read as usual then).
  */
 export function googleForm(html: string, url: string, number = 1): PageForm | null {
-  const m = /FB_PUBLIC_LOAD_DATA_\s*=\s*(\[[\s\S]*?\]);\s*<\/script>/.exec(html);
-  if (!m) return null;
+  const json = googleFormData(html);
+  if (!json) return null;
   let data: unknown;
   try {
-    data = JSON.parse(m[1]!);
+    data = JSON.parse(json);
   } catch {
     return null;
   }
