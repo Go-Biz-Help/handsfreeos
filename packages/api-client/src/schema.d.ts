@@ -46889,7 +46889,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "facebook" | "app" | "sign_in" | "notifications" | "my_calendar";
                         to: string[];
                         /** Format: uuid */
                         workspaceId: string;
@@ -46955,7 +46955,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                    step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "facebook" | "app" | "sign_in" | "notifications" | "my_calendar";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -46972,7 +46972,7 @@ export interface operations {
                         email: string;
                         sent: boolean;
                         /** @enum {string} */
-                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "facebook" | "app" | "sign_in" | "notifications" | "my_calendar";
                         /** Format: uuid */
                         workspaceId: string;
                     };
@@ -47060,7 +47060,7 @@ export interface operations {
                     /** @default true */
                     skipped?: boolean;
                     /** @enum {string} */
-                    step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                    step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "facebook" | "app" | "sign_in" | "notifications" | "my_calendar";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -47077,7 +47077,7 @@ export interface operations {
                         changed: boolean;
                         skipped: boolean;
                         /** @enum {string} */
-                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "facebook" | "app" | "sign_in" | "notifications" | "my_calendar";
                         /** Format: uuid */
                         workspaceId: string;
                     };
@@ -90516,7 +90516,7 @@ export interface operations {
                                 /** @enum {string} */
                                 group: "basics" | "later" | "yours";
                                 /** @enum {string} */
-                                key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                                key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "facebook" | "app" | "sign_in" | "notifications" | "my_calendar";
                                 mustDo: boolean;
                                 note: {
                                     count?: number;
@@ -90590,13 +90590,13 @@ export interface operations {
                         complete: boolean;
                         done: number;
                         enabled: boolean;
-                        next: ("number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar") | null;
+                        next: ("number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "facebook" | "app" | "sign_in" | "notifications" | "my_calendar") | null;
                         skipped: number;
                         steps: {
                             /** @enum {string} */
                             group: "basics" | "later" | "yours";
                             /** @enum {string} */
-                            key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                            key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "facebook" | "app" | "sign_in" | "notifications" | "my_calendar";
                             mustDo: boolean;
                             note: {
                                 count?: number;
@@ -99251,7 +99251,7 @@ export interface operations {
                             /** @enum {string} */
                             for: "business" | "person";
                             /** @enum {string} */
-                            key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                            key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "facebook" | "app" | "sign_in" | "notifications" | "my_calendar";
                             skipped: number;
                         }[];
                         turnedOff: number;

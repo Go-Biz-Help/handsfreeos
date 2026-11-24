@@ -110,7 +110,7 @@ describe('onboarding.status', () => {
     // Marco is a member, so the team step is already done; nothing else is.
     expect(stateOf(s, 'team')).toBe('done');
     expect(s.steps.filter((x) => x.key !== 'team').every((x) => x.state === 'todo')).toBe(true);
-    expect(s).toMatchObject({ done: 1, total: 9 });
+    expect(s).toMatchObject({ done: 1, total: 10 });
     expect(s).toMatchObject({ next: 'number', complete: false, answers: null });
     expect(s.view).toEqual({ hidden: false, tourDoneAt: null, finishedAt: null, show: true });
   });

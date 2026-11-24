@@ -20,11 +20,11 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/texting/page.tsx": "eb4ca86349a1",
     "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx": "b09994efe770",
     "apps/web/src/app/onboarding/[workspaceId]/chat/page.tsx": "bc80c1f7bddb",
-    "apps/web/src/app/onboarding/[workspaceId]/facebook/page.tsx": "36cf16a1ae60",
+    "apps/web/src/app/onboarding/[workspaceId]/facebook/page.tsx": "58d14f95e4b3",
     "apps/web/src/app/onboarding/[workspaceId]/phone/page.tsx": "12d793e8b905",
     "apps/web/src/app/onboarding/[workspaceId]/texting/page.tsx": "83bf6bc1b4cb",
     "apps/web/src/components/chat-setup/chat-setup-flow.tsx": "84f9cbb5ffd8",
-    "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx": "d71fdc56e1b4",
+    "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx": "f286e3d815b7",
     "apps/web/src/components/guided-setup/frame.tsx": "9222ba772a3c",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/phone-setup/editors.tsx": "ef212390d4d3",
@@ -2876,70 +2876,77 @@
     {
       "path": "Facebook & Instagram → Guided setup → 1. What should land in your inbox?: Messenger (always on), Instagram direct messages, the Instagram-still-comes-along note, You’ll need",
       "kind": "do",
-      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:445",
+      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:455",
       "covered": "yes",
       "by": "do_facebook_setup_save instagram; Messenger always comes with the Page"
     },
     {
       "path": "Facebook & Instagram → Guided setup → 2. Get your Instagram ready: the three steps to tick (professional account, linked to the Page, Allow access to messages)",
       "kind": "do",
-      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:486",
+      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:496",
       "covered": "yes",
       "by": "do_facebook_setup_save igProfessional, igLinked, igAccess (the person’s own ticks); settings_help facebook_instagram says the three steps"
     },
     {
       "path": "Facebook & Instagram → Guided setup → 3. When someone new messages you: a customer and a lead (Leads land in, Stage) / a customer only",
       "kind": "do",
-      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:516",
+      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:526",
       "covered": "yes",
       "by": "do_facebook_setup_save createLead, pipelineId, stageId; read_intake_list lists the pipelines and stages"
     },
     {
       "path": "Facebook & Instagram → Guided setup → 4. Do you run ads?: Ads that start a chat, Lead ads with a form (Once Meta approves it), No ads right now",
       "kind": "do",
-      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:582",
+      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:592",
       "covered": "yes",
       "by": "do_facebook_setup_save adsChat, leadAds (only once a sign-in reads leads: read_meta_account_list readsLeads)"
     },
     {
       "path": "Facebook & Instagram → Guided setup → Saved, Finish later, Welcome back, Start over, the answers so far beside the question",
       "kind": "do",
-      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:137",
+      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:147",
       "covered": "yes",
       "by": "read_guided_setup_get_draft setup facebook reads where they left off; the Assistant saves the answers straight away with do_facebook_setup_save, so it keeps no draft"
     },
     {
+      "path": "Home → Getting started → Facebook & Instagram → Set up: the guided setup opened from Home, whose Finish later, Save and Done go back Home (Reconnect opens Settings → Facebook & Instagram when Facebook stopped a sign-in)",
+      "kind": "do",
+      "file": "apps/web/src/app/onboarding/[workspaceId]/facebook/page.tsx:42",
+      "covered": "yes",
+      "by": "read_onboarding_status gives the facebook step and its phase; do_facebook_setup_save carries the answers out; connecting Facebook is the person’s own sign-in"
+    },
+    {
       "path": "Facebook & Instagram → Guided setup → Check it over: each answer with Change, On Facebook’s screens",
       "kind": "do",
-      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:381",
+      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:391",
       "covered": "yes",
       "by": "do_facebook_setup_save takes the same answers, on a Confirm card; settings_help facebook_instagram says what Facebook’s screens ask"
     },
     {
       "path": "Facebook & Instagram → Guided setup → Check it over: Connect with Facebook (saves, then Facebook’s sign-in)",
       "kind": "do",
-      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:371",
+      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:381",
       "covered": "partly",
       "by": "do_facebook_setup_save saves the answers, on a Confirm card; the sign-in that follows is the person’s own (signing in to Facebook (meta_connection.connect is NEVER))"
     },
     {
       "path": "Facebook & Instagram → Guided setup → Check it over with a Page connected: Save my answers, Save and connect with Facebook",
       "kind": "do",
-      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:412",
+      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:422",
       "covered": "partly",
       "by": "do_facebook_setup_save for Save my answers; signing in again is the person’s own"
     },
     {
       "path": "Facebook & Instagram → Send yourself a test message: Connected banner, each Page and Instagram account Got it / Waiting for a message, the 2-minute hints, No Instagram came along",
       "kind": "see",
-      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:830",
+      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:843",
       "covered": "yes",
       "by": "read_meta_account_test_messages with a since; settings_help facebook_instagram says what to check"
     },
     {
       "path": "Facebook & Instagram → Send yourself a test message: Connect with Facebook again, I’ll test it later, Open the inbox, Done",
       "kind": "do",
-      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:812",
+      "file": "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx:825",
       "covered": "person",
       "by": "signing in to Facebook (meta_connection.connect is NEVER); the rest only leave the page"
     },

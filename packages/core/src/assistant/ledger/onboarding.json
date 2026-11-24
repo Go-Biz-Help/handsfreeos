@@ -68,7 +68,7 @@
     "apps/web/src/components/onboarding/step-live.tsx": "7da173b70178",
     "apps/web/src/components/onboarding/tour.tsx": "ed01fb35dc0e",
     "apps/web/src/components/onboarding/wizard-footer.tsx": "2ac05b5860c6",
-    "apps/web/src/components/onboarding/wizard-frame.tsx": "8b19dc4eac8c",
+    "apps/web/src/components/onboarding/wizard-frame.tsx": "403eca1176fd",
     "apps/web/src/components/settings/a2p-wizard.tsx": "45ac1acabcce",
     "apps/web/src/components/settings/industry-picker.tsx": "3f2b1832961c",
     "apps/web/src/components/settings/my-cell-section.tsx": "bcce54a8161d",
@@ -2759,63 +2759,63 @@
     {
       "path": "Setup wizard → header: Home link",
       "kind": "do",
-      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:99",
+      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:101",
       "covered": "yes",
       "by": "places map: Home"
     },
     {
       "path": "Setup wizard → header: Setting up X",
       "kind": "see",
-      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:103",
+      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:105",
       "covered": "yes",
       "by": "get_settings business name"
     },
     {
       "path": "Setup wizard → header: Finish later",
       "kind": "do",
-      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:105",
+      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:107",
       "covered": "yes",
       "by": "the places map: A setup step, with Finish later (onb-7)"
     },
     {
       "path": "Setup wizard → rail: The basics title and intro",
       "kind": "see",
-      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:115",
+      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:117",
       "covered": "yes",
       "by": "the places map: A setup step names The basics and its line; read_onboarding_status group (onb-7, onb-16)"
     },
     {
       "path": "Setup wizard → rail: each step: number, state, title, line",
       "kind": "see",
-      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:214",
+      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:216",
       "covered": "yes",
       "by": "read_onboarding_status: each step’s title, line, state, in order (onb-16)"
     },
     {
       "path": "Setup wizard → rail: go to a step",
       "kind": "do",
-      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:214",
+      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:216",
       "covered": "yes",
       "by": "read_onboarding_status goesTo for each step’s button (onb-16)"
     },
     {
       "path": "Setup wizard → Later list",
       "kind": "see",
-      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:132",
+      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:134",
       "covered": "yes",
       "by": "read_onboarding_status group later, with titles and lines (onb-16)"
     },
     {
       "path": "Setup wizard → position, title, intro",
       "kind": "see",
-      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:164",
+      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:166",
       "covered": "partly",
       "by": "step key known; words not returned (onb-16)"
     },
     {
       "path": "Setup wizard → This one’s done banner",
       "kind": "see",
-      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:174",
+      "file": "apps/web/src/components/onboarding/wizard-frame.tsx:176",
       "covered": "yes",
       "by": "read_onboarding_status state"
     },
