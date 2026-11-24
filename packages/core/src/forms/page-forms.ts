@@ -174,21 +174,25 @@ interface Element {
   readonly inner: string;
 }
 
+const HEADINGS = ['h1', 'h2', 'h3', 'h4'] as const;
+const NOT_READ = ['script', 'style', 'noscript', 'svg', 'template', 'head', 'iframe'] as const;
+
 /**
- * Each `<name …>…</name>` on the page, in order and never one inside another, found in one pass. `names` is a pattern
- * of tag names ("form", "h[1-4]"). A name never closed after one opens is never looked for again.
+ * Each `<name …>…</name>` on the page, in order and never one inside another, found in one pass. A name never closed
+ * after one opens is never looked for again. Every pattern is made from `names`, never from the page.
  */
-function elements(html: string, names: string, limit = Infinity): Element[] {
-  const opens = new RegExp(`<(${names})\\b`, 'gi');
+function elements(html: string, names: readonly string[], limit = Infinity): Element[] {
+  const opens = new RegExp(`<(${names.join('|')})\\b`, 'gi');
+  const closers = new Map(names.map((n) => [n, new RegExp(`</${n}\\s*>`, 'gi')]));
   const unclosed = new Set<string>();
   const found: Element[] = [];
   let m: RegExpExecArray | null;
   while (found.length < limit && (m = opens.exec(html))) {
     const name = m[1]!.toLowerCase();
-    if (unclosed.has(name)) continue;
+    const closes = closers.get(name);
+    if (!closes || unclosed.has(name)) continue;
     const gt = html.indexOf('>', m.index);
     if (gt < 0) break;
-    const closes = new RegExp(`</${name}\\s*>`, 'gi');
     closes.lastIndex = gt + 1;
     const close = closes.exec(html);
     if (!close) {
@@ -212,7 +216,7 @@ function cleaned(html: string): string {
   const page = withoutComments(html);
   let out = '';
   let pos = 0;
-  for (const e of elements(page, 'script|style|noscript|svg|template|head|iframe')) {
+  for (const e of elements(page, NOT_READ)) {
     out += `${page.slice(pos, e.start)} `;
     pos = e.end;
   }
@@ -493,7 +497,7 @@ const checked = (tag: string): string => (has(tag, 'checked') ? ', already ticke
 
 /** The words of the last heading before `at`, within a stretch of page, or null. */
 function headingBefore(html: string, at: number): string | null {
-  const last = elements(html.slice(Math.max(0, at - 3000), at), 'h[1-4]').at(-1);
+  const last = elements(html.slice(Math.max(0, at - 3000), at), HEADINGS).at(-1);
   const words = last ? wordsOf(last.inner) : '';
   return words && words.length <= 120 ? words : null;
 }
@@ -503,18 +507,18 @@ function formTitle(page: string, form: Element): string | null {
     attr(form.open, 'aria-label') || attr(form.open, 'title') || attr(form.open, 'data-form-name');
   if (own) return own.slice(0, 120);
   // A heading inside it, then the one above it; a legend only names one group of its questions, so it comes last.
-  const inside = elements(form.inner, 'h[1-4]', 1)[0];
+  const inside = elements(form.inner, HEADINGS, 1)[0];
   const words = inside ? wordsOf(inside.inner) : '';
   if (words && words.length <= 120) return words;
   const above = headingBefore(page, form.start);
   if (above) return above;
-  const legend = elements(form.inner, 'legend', 1)[0];
+  const legend = elements(form.inner, ['legend'], 1)[0];
   const named = legend ? wordsOf(legend.inner) : '';
   return named && named.length <= 120 ? named : null;
 }
 
 function pageTitle(html: string): string | null {
-  const title = elements(html, 'title', 1)[0];
+  const title = elements(html, ['title'], 1)[0];
   const words = title ? squash(title.inner) : '';
   return words ? words.slice(0, 120) : null;
 }
@@ -575,7 +579,7 @@ export function formsOnPage(html: string, url: string, first = 1): PageForm[] {
   if (google) return [google];
   const clean = cleaned(html);
   const found: PageForm[] = [];
-  for (const form of elements(clean, 'form')) {
+  for (const form of elements(clean, ['form'])) {
     const block = clean.slice(form.start, form.end);
     const fields = countFields(block);
     if (!fields || notWanted(form)) continue;
