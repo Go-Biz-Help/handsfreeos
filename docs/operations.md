@@ -430,7 +430,7 @@ Never give an app the `postgres` user (`postgres.ybupfghakoszfcxhyrby`). The app
 
 Each open app connection is one pooler client. On the transaction pooler, a client borrows a database connection only while a transaction runs, and each role (`hfos_api` and `hfos_worker`) has a pool of up to **Pool Size** database connections to borrow from. The API opens up to 6 connections per machine. The worker opens up to 19 per machine: 13 for its loops and the jobs it runs side by side (7, and one for each of the `WORKER_JOB_SLOTS` jobs it runs at once, 6 unless you change it), and 6 for its web server. Both close a connection once it has sat unused for 10 minutes (an idle one holds no database connection, only one of the 200 clients). Micro compute allows 60 database connections and 200 pooler clients. When every database connection in a pool is busy, the next transaction waits for one. When there are 200 clients, the next connection is refused with `Max client connections reached`.
 
-Fly usually starts two machines per app on the first deploy (the worker starts with one if you follow Fly Part 7). After that deploy, count them:
+Fly usually starts two machines per app on the first deploy (the worker starts with one if you follow Fly Part 7, and gets its second in that part's last step). HandsFreeOS runs two of each. Count them:
 
 ```bash
 fly scale show --app handsfreeos-api
@@ -2152,7 +2152,7 @@ Add the feature secrets later, as their own sections describe: `TWILIO_PRIMARY_P
 
 ### Fly Part 7: The first deploy, by hand
 
-Do the first deploy by hand. You can watch it, keep the worker to one machine, and fix a missing secret before GitHub starts deploying on every push. The commands match what `.github/workflows/deploy.yml` runs. The worker goes first, so providers never reach a half-deployed pair. Then the API.
+Do the first deploy by hand. You can watch it, start the worker on one machine, and fix a missing secret before GitHub starts deploying on every push. The worker's second machine is the last step. The commands match what `.github/workflows/deploy.yml` runs. The worker goes first, so providers never reach a half-deployed pair. Then the API.
 
 1. Switch to `main` and bring it up to date.
 
@@ -2216,7 +2216,7 @@ Do the first deploy by hand. You can watch it, keep the worker to one machine, a
    fly status --app handsfreeos-worker
    ```
 
-   You should see one machine in the `started` state.
+   You should see one machine in the `started` state. Its second comes in step 13.
 
 8. Check the API's machines.
 
@@ -2261,6 +2261,14 @@ Do the first deploy by hand. You can watch it, keep the worker to one machine, a
     ```
 
     You should see `{"ok":true}`. The API adds the service name and the time; the worker does not.
+
+13. Give the worker its second machine, so webhooks keep being answered when one machine fails or is being replaced. Fly shows what it will change and asks you to confirm. Type `y` and press Return.
+
+    ```bash
+    fly scale count 2 --app handsfreeos-worker
+    ```
+
+    Then run `fly status --app handsfreeos-worker` again. You should see two machines in the `started` state. "One worker machine or two" in "Scaling, and keeping the apps running" says what two cost and how to go back to one.
 
 Use the `.fly.dev` addresses for checks only. Later deploys keep the number of machines you have now. Fly adds a second machine only on an app's first deploy, or after the app has been scaled to zero.
 
@@ -2775,12 +2783,14 @@ What two machines change, compared with one:
 
 #### One worker machine or two
 
-- **One** (what Fly Part 7 set up). Pro: about $4 a month cheaper, and up to 14 database connections. Con: if that machine fails, webhooks wait until it is back.
-- **Two.** Pro: webhooks keep being answered if one machine fails. Con: about $4 a month more, and up to 28 database connections.
+HandsFreeOS runs two (checked on Fly on 24 November 2026, and Chris's choice in the speed audit that month: keep both).
+
+- **Two** (what Fly Part 7 sets up, in its last step). Pro: webhooks keep being answered if one machine fails, while Fly restarts a host, and while a deploy replaces one. Con: about $4 a month more, and up to 38 pooler clients.
+- **One.** Pro: about $4 a month cheaper, and up to 19 pooler clients. Con: if that machine fails, webhooks wait until it is back.
 
 Running two is safe. Each loop locks the rows it claims, and the other machine skips locked rows. The recurring cleanup job is kept to one copy. Rows held by a machine that died are picked up again after 5 minutes. Before you add a machine to either app, check the database pool size (see "How many connections the apps use" in "The database: Supabase (hosted)").
 
-To run two worker machines:
+To run two worker machines, when you see one:
 
 ```bash
 fly scale count 2 --app handsfreeos-worker
@@ -3059,7 +3069,7 @@ Fly sends each organization one bill a month. Running machines are billed by the
 | Dedicated IPv4 address                                      | $2 per app. Not needed.                                              |
 | Outbound traffic                                            | $0.02 per GB in North America. Inbound traffic is free.              |
 
-Total for Fly in `dfw`: about $8 a month with one worker machine, or about $12 with two. In `iad`, about $6.40 or $9.60.
+Total for Fly in `dfw`: about $12 a month with two worker machines, as HandsFreeOS runs, or about $8 with one. In `iad`, about $9.60 or $6.40.
 
 The sync service for the phone app adds about $13 to $15 a month on Fly (see "Rough cost of the sync service" in "Sync service: PowerSync on Fly").
 
