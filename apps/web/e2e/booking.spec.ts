@@ -34,6 +34,12 @@ test('a signed-out customer books, reschedules and cancels', async ({ page, brow
 
   const customer = await browser.newContext({ viewport: { width: 1280, height: 832 } });
   const c = await customer.newPage();
+  // Every script of the app's that the page loads, to look through below.
+  const scripts: Promise<string>[] = [];
+  c.on('response', (r) => {
+    if (r.request().resourceType() === 'script' && r.url().includes('/_next/'))
+      scripts.push(r.text().catch(() => ''));
+  });
   // The permanent link sends customers to the current address.
   await c.goto(`/book/c/${cal.id}`);
   await expect(c).toHaveURL(new RegExp(`${cal.path}$`));
@@ -42,6 +48,11 @@ test('a signed-out customer books, reschedules and cancels', async ({ page, brow
 
   const first = c.getByTestId('slot').first();
   await expect(first).toBeVisible();
+  // A customer's page doesn't download the sign-in client: nobody signs in here, and it was a third again on top of
+  // the page's own code (components/signed-in-extras.tsx).
+  const loaded = await Promise.all(scripts);
+  expect(loaded.length).toBeGreaterThan(0);
+  expect(loaded.some((script) => script.includes('GoTrueClient'))).toBe(false);
   const picked = (await first.textContent())!.trim();
   await first.click();
   await c.getByRole('button', { name: `Continue with ${picked}` }).click();
