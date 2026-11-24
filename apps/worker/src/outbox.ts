@@ -50,6 +50,14 @@ export interface OutboxStats {
   failed: number;
 }
 
+/**
+ * An event this worker may claim now: due, and not inside another worker's five-minute lease. The claim below and
+ * the one look a second that paces the loops (queues.ts) ask with these same words, so they can't disagree.
+ */
+export const claimableEvents = (workerId: string) =>
+  sql`status = 'pending' and next_attempt_at <= now()
+      and (locked_at is null or locked_at < now() - interval '5 minutes' or locked_by = ${workerId})`;
+
 /** One pass: claim a batch of pending rows, run each handler in a tenant-scoped transaction, record the outcome. */
 export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
   const stats: OutboxStats = { claimed: 0, done: 0, retried: 0, failed: 0 };
@@ -59,8 +67,7 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
       sql`with claimed as (update app.outbox o set locked_at = now(), locked_by = ${deps.workerId}
           where o.event_id in (
             select event_id from app.outbox
-            where status = 'pending' and next_attempt_at <= now()
-              and (locked_at is null or locked_at < now() - interval '5 minutes' or locked_by = ${deps.workerId})
+            where ${claimableEvents(deps.workerId)}
               ${deps.reservedOnly ? sql`and locked_by = ${deps.workerId}` : sql``}
             order by created_at
             limit ${deps.batchSize}

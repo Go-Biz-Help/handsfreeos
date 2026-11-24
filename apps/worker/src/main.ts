@@ -15,6 +15,7 @@ import { handlers } from './handlers/index';
 import { createMigrationAdapters } from './migrations/adapters/registry';
 import { processMigrationJobs } from './migrations/engine/run';
 import { PAYMENT_NAME, WEBHOOK_SECRET_SETTING } from './payments/index';
+import { queuesWaiting, runQueues } from './queues';
 import { buildHttpServer } from './http/server';
 import { processJobs } from './jobs';
 import { runLoop } from './loop';
@@ -32,7 +33,7 @@ const log = pino(
     : { level: env.logLevel, transport: { target: 'pino-pretty', options: { colorize: true } } },
 );
 
-// The four loops below run side by side, and a handler inside a transaction can take a second connection.
+// The loops below run side by side, and a handler inside a transaction can take a second connection.
 const handle = createDb(env.databaseUrl, { max: 8, applicationName: 'hfos-worker' });
 // Webhooks, sign-ins and the Assistant's questions; each question holds a connection only per step.
 const httpHandle = createDb(env.databaseUrl, { max: 6, applicationName: 'hfos-worker-http' });
@@ -235,36 +236,29 @@ const migrationLoop = runLoop(
   { drain: false, idle: { afterMs: 60_000, everyMs: 30_000 } },
   pace,
 );
-const outboxLoop = runLoop(
-  'outbox',
-  () =>
-    processOnce({
-      ...loopDeps,
-      handlers,
-      onEvent: (type) => {
-        if (type.startsWith('migration.')) migrationLoop.wake();
-      },
-      onHandled: handedOver,
-    }),
-  { drain: true },
+// The outbox, the webhooks and the jobs: one look a second for all three, and a claim only when there is one to
+// make (queues.ts).
+const queues = runQueues(
+  {
+    outbox: () =>
+      processOnce({
+        ...loopDeps,
+        handlers,
+        onEvent: (type) => {
+          if (type.startsWith('migration.')) migrationLoop.wake();
+        },
+        onHandled: handedOver,
+      }),
+    webhook: () => processDeliveries({ ...loopDeps, processors, onProcessed: handedOver }),
+    jobs: () => processJobs({ ...loopDeps, jobs, onRan: handedOver }),
+  },
+  () => queuesWaiting(handle.db, workerId),
   pace,
 );
-const webhookLoop = runLoop(
-  'webhook',
-  () => processDeliveries({ ...loopDeps, processors, onProcessed: handedOver }),
-  { drain: true },
-  pace,
-);
-const jobsLoop = runLoop(
-  'jobs',
-  () => processJobs({ ...loopDeps, jobs, onRan: handedOver }),
-  { drain: true },
-  pace,
-);
-wake.outbox = outboxLoop.wake;
-wake.webhook = webhookLoop.wake;
-wake.jobs = jobsLoop.wake;
-const loops = [outboxLoop, webhookLoop, jobsLoop, migrationLoop];
+wake.outbox = () => queues.wake('outbox');
+wake.webhook = () => queues.wake('webhook');
+wake.jobs = () => queues.wake('jobs');
+const loops = [...queues.loops, migrationLoop];
 
 /**
  * How long a shutdown lets the Assistant's answers finish, inside fly.toml's 30-second kill_timeout: most people

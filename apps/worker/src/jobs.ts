@@ -100,6 +100,14 @@ export async function scheduleDebouncedJob(
 }
 
 /**
+ * A job this worker may claim now: due, and not inside another worker's five-minute lease. The claim below and
+ * the one look a second that paces the loops (queues.ts) ask with these same words, so they can't disagree.
+ */
+export const claimableJobs = (workerId: string) =>
+  sql`status = 'pending' and run_at <= now()
+      and (locked_at is null or locked_at < now() - interval '5 minutes' or locked_by = ${workerId})`;
+
+/**
  * The queue seam: delayed and periodic work lives in app.scheduled_jobs and is claimed like the outbox.
  * pgmq (or another queue) can replace the storage later behind the same two functions.
  */
@@ -118,8 +126,7 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
       sql`with claimed as (update app.scheduled_jobs j set locked_at = now(), locked_by = ${deps.workerId}
           where j.id in (
             select id from app.scheduled_jobs
-            where status = 'pending' and run_at <= now()
-              and (locked_at is null or locked_at < now() - interval '5 minutes' or locked_by = ${deps.workerId})
+            where ${claimableJobs(deps.workerId)}
               ${deps.reservedOnly ? sql`and locked_by = ${deps.workerId}` : sql``}
             order by run_at
             limit ${deps.batchSize}
