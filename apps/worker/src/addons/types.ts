@@ -76,6 +76,12 @@ export interface AddonWorkerModule {
   readonly wants?: Readonly<Record<string, AddonWants>>;
   /** Job kind (`<id>.…`, in its manifest's `jobs`) → what the job does. */
   readonly jobs?: Readonly<Record<string, AddonJobHandler>>;
+  /**
+   * Which of its job kinds do heavy work inside the worker's own process: making or resizing pictures, reading a
+   * big file. The worker runs several jobs at once on one small machine, and of all the heavy kinds only one at a
+   * time (job-runner.ts). A job that only waits on a service (the AI, a provider) is not heavy.
+   */
+  readonly heavyJobs?: readonly string[];
   /** Data version → the step that brings a business's data up to it (2, 3, … up to the manifest's dataVersion). */
   readonly dataMigrations?: Readonly<Record<number, AddonDataMigration>>;
   /** A business's settings saved in an older shape, brought up to the manifest's settings version. */

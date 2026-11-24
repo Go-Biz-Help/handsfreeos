@@ -537,6 +537,12 @@ turning an add-on off takes it from everyone at once. A business can set them pe
 one whose add-on is off or was reinstalled since, before it runs, and one this build has no code for. The webhook
 runner sets aside a delivery for an add-on that's off. Core's own jobs pay nothing for either.
 
+**The worker runs several jobs at once.** An add-on's jobs run beside core's and beside each other, so a job must be
+safe next to another of its own kind for the same business. A kind that does heavy work inside the worker's process
+(making pictures, reading a big file) is named in the worker module's `heavyJobs`: of all heavy kinds one runs at a
+time. A job that only waits on the AI or a provider is not heavy; the worker learns by itself which kinds are slow
+and keeps places free for quick ones (apps/worker/src/job-runner.ts).
+
 **Events reach an add-on in a job of its own.** An event an add-on consumes queues one `addon.deliver` job per add-on
 that runs in the business; each runs on its own with its own retries, as the system acting for that add-on. One
 add-on's failure never holds up core's handlers or another add-on's. An event that happens all day and seldom has
