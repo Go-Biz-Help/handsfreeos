@@ -1,9 +1,9 @@
 /**
  * Search's slot gate (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, How it works, 6): at most 3 searches at once on a
- * machine, so search never holds more than half of the machine's 6 database connections. A fourth waits up to a
+ * machine, so search never holds more than 3 of the machine's 10 database connections. A fourth waits up to a
  * second for a slot, then is refused `search_busy`, which a client retries. Other routes never wait on it.
  *
- * In memory, on each machine: two machines hold at most 6 of the API's 12 connections for search.
+ * In memory, on each machine: two machines hold at most 6 of the API's 20 connections for search.
  */
 
 /** Searches running at once on one machine. */
