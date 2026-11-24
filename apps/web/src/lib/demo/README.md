@@ -48,6 +48,12 @@ moved off. Record that window and crop the panel's 300 points off the left: what
 - **Both sides answer the same way.** Server Components go through `apiServer`'s middleware (`server.ts`). The
   browser goes through a patched `fetch` (`browser.ts`), so the API client and the Assistant's calls to the worker
   both get the answers.
+- **Nobody else downloads it.** `browser.ts` and `state.ts` ride with the API client onto every page, so they stay
+  small and import nothing else from here: the answers (`respond.ts`, and through it every scene) are fetched when a
+  scene's first request asks, and the player itself when the business's layout shows it to staff
+  (`components/demo/lazy-demo-director.tsx`). A screen that needs something of the demo's on every page (the name
+  of the made-up photos' bucket) takes it from `state.ts`, never from `world.ts`. The browser test holds a page of
+  someone who isn't staff to it.
 - **The screens catch up.** After a step changes something, `emitLocalChange` (in `lib/realtime/live-provider.tsx`)
   tells this tab's screens, as a broadcast would, so they fetch again.
 - **What the world can hold** (`world.ts`): texts, calls with a transcript (or missed), website chats from a

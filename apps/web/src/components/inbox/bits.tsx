@@ -10,7 +10,7 @@ import { Clock, Globe, Image as ImageIcon, Moon, Phone, Play } from 'lucide-reac
 import { Fragment, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
-import { DEMO_MEDIA_BUCKET } from '@/lib/demo/world';
+import { DEMO_MEDIA_BUCKET } from '@/lib/demo/state';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { MediaViewer } from './media-viewer';

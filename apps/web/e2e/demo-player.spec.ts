@@ -39,13 +39,42 @@ async function pick(page: Page, scene: string, firstStep: string): Promise<void>
   await expect(page.getByTestId('demo-next')).not.toHaveAttribute('aria-busy', 'true');
 }
 
-async function staffBusiness(page: Page, label: string): Promise<string> {
+/**
+ * None of the player comes with the page of someone who can never open it: its panel, its made-up records and every
+ * scene's steps are fetched when a member of staff's page shows it (components/demo/lazy-demo-director.tsx), and
+ * the answers when a scene first asks (lib/demo/browser.ts). Looked at in a browser with nothing kept, so every
+ * script is fetched again.
+ */
+async function expectNoPlayerScripts(page: Page, workspaceId: string): Promise<void> {
+  const context = await page
+    .context()
+    .browser()!
+    .newContext({ storageState: await page.context().storageState() });
+  const fresh = await context.newPage();
+  const scripts: Promise<string>[] = [];
+  fresh.on('response', (r) => {
+    if (r.request().resourceType() === 'script' && r.url().includes('/_next/'))
+      scripts.push(r.text().catch(() => ''));
+  });
+  await fresh.goto(`/app/w/${workspaceId}/inbox?demo`);
+  await expect(fresh.getByRole('heading', { name: 'Inbox' })).toBeVisible();
+  await expect(director(fresh)).toHaveCount(0);
+  const loaded = await Promise.all(scripts);
+  expect(loaded.length).toBeGreaterThan(0);
+  // The player's panel, and the made-up records' ids (every scene and every answer is built on them).
+  expect(loaded.some((script) => script.includes('demo-director'))).toBe(false);
+  expect(loaded.some((script) => script.includes('de300000-0000-4000-8000-'))).toBe(false);
+  await context.close();
+}
+
+async function staffBusiness(page: Page, label: string, scriptsToo = false): Promise<string> {
   const { email } = await signUpAndConfirm(page, label);
   const workspaceId = await createBusiness(page, { name: 'Summit Plumbing & Drain' });
   // Not staff yet: `?demo` does nothing.
   await page.goto(`/app/w/${workspaceId}/inbox?demo`);
   await expect(page.getByRole('heading', { name: 'Inbox' })).toBeVisible();
   await expect(director(page)).toHaveCount(0);
+  if (scriptsToo) await expectNoPlayerScripts(page, workspaceId);
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
   expect(((await made.json()) as { made: number }).made).toBe(1);
   await consentToAssistant(email);
@@ -56,7 +85,7 @@ test('demo player: a new lead texts, the AI teammate answers and books on your O
   page,
 }) => {
   test.setTimeout(180_000);
-  const workspaceId = await staffBusiness(page, 'demo-lead');
+  const workspaceId = await staffBusiness(page, 'demo-lead', true);
   await page.goto(`/app/w/${workspaceId}/inbox?demo`);
   await expect(director(page)).toBeVisible();
   await page.getByTestId('demo-scene-lead-text').click();

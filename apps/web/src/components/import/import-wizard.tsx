@@ -20,7 +20,7 @@ import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import { DEMO_MEDIA_BUCKET } from '@/lib/demo/world';
+import { DEMO_MEDIA_BUCKET } from '@/lib/demo/state';
 import { formatBytes } from '@/lib/format';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';

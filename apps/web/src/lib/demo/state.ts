@@ -7,6 +7,13 @@
  */
 export const DEMO_COOKIE = 'hfos-demo';
 
+/**
+ * Photos a scene's customers send are files in the web app's own `public/demo/`, never in Storage: a thread's media
+ * in this bucket is shown from `objectPath` as it is (`useSignedUrl`). Kept here, not with the made-up world
+ * (./world), because the Inbox, Documents and the import wizard ask about it on every page: this file is small.
+ */
+export const DEMO_MEDIA_BUCKET = 'hfos-demo';
+
 export interface DemoState {
   /** The scene playing (an id from ./scenes). */
   readonly scene: string;
