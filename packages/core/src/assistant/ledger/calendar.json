@@ -2154,7 +2154,7 @@
       "gap": "get_appointment returned each customer’s name, how they hear and whether they confirmed, but not the phone, email or text consent the sheet shows under the name (get_customer had them, one more look-up). Where gave the address but not the Directions link the sheet and the phone open.",
       "fix": "get_appointment customers: phone, email and texts (“Texts OK” or “No text consent”). With an address, directions: core’s directionsUrl, which the web sheet now uses too.",
       "status": "fixed",
-      "pr": null
+      "pr": 764
     },
     {
       "id": "cal-26",
@@ -2164,7 +2164,7 @@
       "gap": "book_appointment had no title, so a time with no service booked under the calendar’s name and needed update_appointment after. Its card didn’t show the equipment the calendar reserves, though New appointment shows Uses.",
       "fix": "book_appointment takes title (appointment.create’s). Its card adds a Uses row and its result uses, from the booking’s own resources.",
       "status": "fixed",
-      "pr": null
+      "pr": 764
     }
   ]
 }
