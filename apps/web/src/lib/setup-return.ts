@@ -2,8 +2,8 @@ import type { WizardStepKey } from '@hfos/core';
 import { setupHref } from './setup';
 
 /**
- * The way back to setup from a sign-in that leaves the app (Stripe, Square, GoHighLevel), or from paying the
- * carriers' texting fees on Stripe's page. The worker always sends a finished sign-in, and Stripe a payment, to the
+ * The way back to setup from a sign-in that leaves the app (Stripe, Square, GoHighLevel, Facebook), or from paying
+ * the carriers' texting fees on Stripe's page. The worker always sends a finished sign-in, and Stripe a payment, to the
  * step's Settings page; a setup screen that starts one keeps a note in this tab first, and the finishing page goes
  * back to the screen instead, with what happened (`?payments=connected`, `?fees=paid`): the setup wizard's step, or
  * the onboarding quick setup's screen (`to`, `/onboarding/<business>?at=paid`). Only in this tab, only for a while,
@@ -13,7 +13,9 @@ const KEY = 'hfos:setup-return';
 const LASTS_MS = 30 * 60_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-type Leaves = Extract<WizardStepKey, 'payments' | 'customers' | 'number'>;
+/** The setup wizard's steps that leave, and the guided Facebook & Instagram setup (which always says where `to`). */
+type Leaves = Extract<WizardStepKey, 'payments' | 'customers' | 'number'> | 'facebook';
+const LEAVES: readonly string[] = ['payments', 'customers', 'number', 'facebook'];
 
 /** Where the worker sends each step's sign-in back to. */
 const PAGES: Record<Leaves, (workspaceId: string) => readonly RegExp[]> = {
@@ -24,6 +26,7 @@ const PAGES: Record<Leaves, (workspaceId: string) => readonly RegExp[]> = {
   ],
   // The texting fees' payment page, made by the worker before anyone says where they are.
   number: (ws) => [new RegExp(`^/app/w/${ws}/settings/texting$`)],
+  facebook: (ws) => [new RegExp(`^/app/w/${ws}/settings/facebook-instagram$`)],
 };
 
 /** Notes the way back before leaving; `to` is a page of this business's setup, the wizard's step when left out. */
@@ -52,7 +55,8 @@ export function setupReturnFor(next: string): string {
   if (
     typeof workspaceId !== 'string' ||
     !UUID.test(workspaceId) ||
-    (step !== 'payments' && step !== 'customers' && step !== 'number') ||
+    typeof step !== 'string' ||
+    !LEAVES.includes(step) ||
     typeof at !== 'number' ||
     Date.now() - at > LASTS_MS
   )
@@ -64,11 +68,15 @@ export function setupReturnFor(next: string): string {
     return next;
   }
   if (url.origin !== window.location.origin) return next;
-  if (!PAGES[step](workspaceId).some((p) => p.test(url.pathname))) return next;
+  const leaves = step as Leaves;
+  if (!PAGES[leaves](workspaceId).some((p) => p.test(url.pathname))) return next;
   // Only ever a page of this business's own setup.
   const own = (path: string) =>
     path === `/onboarding/${workspaceId}` || path.startsWith(`/onboarding/${workspaceId}/`);
-  let back = new URL(setupHref(workspaceId, step), window.location.origin);
+  let back = new URL(
+    leaves === 'facebook' ? `/onboarding/${workspaceId}/facebook` : setupHref(workspaceId, leaves),
+    window.location.origin,
+  );
   if (typeof to === 'string') {
     try {
       const asked = new URL(to, window.location.origin);

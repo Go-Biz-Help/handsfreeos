@@ -114,7 +114,7 @@ import {
   registrationReviewGet,
 } from './registration';
 import { numberImportList, twilioConnectionList } from './number-import';
-import { attributionList, metaAccountList } from './social';
+import { attributionList, metaAccountList, metaAccountTestMessages } from './social';
 import { leadBoard, leadGet, leadList } from './lead';
 import { me } from './me';
 import { extensionSignInPending } from './extension-sign-in';
@@ -365,6 +365,7 @@ export const queries: readonly QueryDef[] = [
   messageGet,
   // Facebook Messenger and Instagram: the Pages and accounts, and where customers came from (20261025000200).
   metaAccountList,
+  metaAccountTestMessages,
   attributionList,
   emailSetupStatus,
   emailSetupGet,

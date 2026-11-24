@@ -2,7 +2,9 @@ import {
   ABOUT_YOU_WORDS,
   APPEARANCE_WORDS,
   BALANCE_WORDS,
+  FACEBOOK_SETUP_WORDS,
   formatPhone,
+  holds,
   keptBusinessesLine,
   keptDocumentsLine,
   MAIN_OFFER_WORDS,
@@ -35,6 +37,7 @@ import {
   UserX,
   Wallet,
 } from '@/components/icons';
+import { Messenger } from '@/components/inbox/social-icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { List, ListLabel, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
@@ -48,6 +51,7 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { APPEARANCE_LABELS, setAppearance, useAppearance, type Appearance } from '@/lib/appearance';
 import { biometrics, unlockLabel, type BiometricInfo } from '@/lib/biometrics';
+import { useGrants } from '@/lib/grants';
 import { useMyCell } from '@/inbox/cell';
 import { isKept, useKeepChoices } from '@/lib/businesses';
 import { testToolsEnabled } from '@/lib/config';
@@ -76,7 +80,7 @@ import { useWorksOffline } from '@/sync/hooks';
  * nor do its add-ons, which owners and admins manage on the phone too (the owner's decision, 2026-09-28). The main
  * offer is the third exception (2026-10-16): reviewing it, steering the AI and putting it live work here too. Partners
  * are the fourth (stage 2d of the partners plan): each partner's page works here, and how partners are paid is shown
- * to read, set up on the web.
+ * to read, set up on the web. Facebook & Instagram is the fifth (2026-11-24, F4 a): its guided setup and live test.
  *
  * Search settings at the top finds any setting, the web's included ("Opens on the web"), with no signal needed; a row
  * here that it finds is scrolled to and flashed.
@@ -96,6 +100,8 @@ export default function Settings() {
   const offer = useMainOfferRow(business.id);
   // Partners are for whoever holds Manage partners, while an add-on that uses them runs here.
   const partners = usePartnersHere();
+  // Facebook & Instagram is for whoever may connect the business's channels (the owner, 24 Nov 2026, F4 a).
+  const channels = holds(useGrants(), 'channels.manage');
   // Add-ons are for whoever may install them (0108); nobody else sees the row.
   const [info, setInfo] = React.useState<BiometricInfo | null>(null);
   const [lockOn, setLockOn] = React.useState(() => lockEnabledFor(userId));
@@ -220,7 +226,7 @@ export default function Settings() {
             />
           </List>
 
-          {whole || offer.here || partners ? (
+          {whole || offer.here || partners || channels ? (
             <>
               <ListLabel>{PHONE_SETTINGS_WORDS.thisBusiness}</ListLabel>
               <List>
@@ -240,6 +246,15 @@ export default function Settings() {
                     detail={offer.line}
                     onPress={() => router.push(businessHref(business.id, 'settings/main-offer'))}
                     testID="setting-main-offer"
+                  />
+                ) : null}
+                {channels ? (
+                  <ListRow
+                    icon={Messenger}
+                    label={FACEBOOK_SETUP_WORDS.phone.row}
+                    detail={FACEBOOK_SETUP_WORDS.phone.rowHint}
+                    onPress={() => router.push(businessHref(business.id, 'facebook-setup'))}
+                    testID="setting-facebook"
                   />
                 ) : null}
                 {partners ? (

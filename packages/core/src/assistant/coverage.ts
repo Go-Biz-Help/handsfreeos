@@ -376,6 +376,14 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
     warning:
       'This makes or changes the website chat now. With who ai, it also turns on the AI teammate’s Website chat for this chat. Nothing shows on a site until its code is pasted there.',
   },
+  // The guided Facebook & Instagram setup's Connect with Facebook and Save my answers (24 Nov 2026, the owner's picks
+  // F1 a to F4 a). Signing in to Facebook afterwards is the person's own.
+  'facebook_setup.save': {
+    about:
+      'answers is the whole setup, as read_guided_setup_get_draft with setup facebook gives it while the person is part way through: instagram (Instagram DMs come in too; Messenger always does), igProfessional, igLinked and igAccess (the person’s own ticks for the three Instagram steps; they change nothing), createLead (someone new becomes a customer and a lead, or a customer only), pipelineId and stageId (where those leads land; null is the first pipeline and its first open stage), adsChat (they run ads that start a chat; it changes nothing, Facebook decides what its screens ask) and leadAds (lead ads’ forms come in; only once a sign-in may read leads, as read_meta_account_list says with readsLeads). A refusal names the answer that is wrong.',
+    warning:
+      'This changes what happens when someone new messages the business’s Page or Instagram account, and with lead ads read, whether their forms come in. It never connects Facebook: only the person can sign in, from Settings → Facebook & Instagram.',
+  },
   // Disconnecting is a click; connecting again is signing in to Facebook, which only the person can do.
   'meta_account.disconnect': {
     warning:

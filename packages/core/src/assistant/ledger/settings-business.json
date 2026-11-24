@@ -1,10 +1,10 @@
 {
   "area": "settings-business",
   "title": "Settings: the business, branded domain, pipelines, tags, fields, relationships, Deleted bin, usage, action center and automations",
-  "checkedOn": "2026-11-17",
+  "checkedOn": "2026-11-24",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "d3145ae0d259",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/usage.tsx": "721acb308191",
     "apps/mobile/src/bin/calls.ts": "e1814b870b95",
     "apps/mobile/src/components/billing/fix-on-web.tsx": "5f8501ee1a12",
@@ -1944,7 +1944,7 @@
     {
       "path": "Phone Settings → search box",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:141",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:147",
       "covered": "partly",
       "by": "settings map + get_settings; no search tool"
     },
@@ -1965,21 +1965,21 @@
     {
       "path": "Phone Settings → This phone → My cell row",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:158",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:164",
       "covered": "yes",
       "by": "read_user_phone_get"
     },
     {
       "path": "Phone Settings → This phone → Face ID / passcode lock",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:172",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:178",
       "covered": "never",
       "by": "SETTINGS_NEVER phone.lock"
     },
     {
       "path": "Phone Settings → This phone → Businesses on this phone",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:191",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:197",
       "covered": "never",
       "by": "SETTINGS_NEVER phone.businesses"
     },
@@ -1993,84 +1993,84 @@
     {
       "path": "Phone Settings → This phone → Documents on mobile data",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:200",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:206",
       "covered": "never",
       "by": "SETTINGS_NEVER phone.documents_mobile_data"
     },
     {
       "path": "Phone Settings → This phone → Changes waiting to send",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:215",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:221",
       "covered": "never",
       "by": "SETTINGS_NEVER phone.changes"
     },
     {
       "path": "Phone Settings → This business → Balance row",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:230",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:236",
       "covered": "yes",
       "by": "get_settings usage"
     },
     {
       "path": "Phone Settings → This business → Main offer row",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:239",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:245",
       "covered": "yes",
       "by": "manage_main_offer / edit_main_offer (own area)"
     },
     {
       "path": "Phone Settings → This business → Partners row",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:248",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:263",
       "covered": "yes",
       "by": "get_settings partners; manage_partner (own area)"
     },
     {
       "path": "Phone Settings → You → My safety",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:262",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:277",
       "covered": "never",
       "by": "SETTINGS_NEVER phone.my_safety"
     },
     {
       "path": "Phone Settings → You → Notifications",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:270",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:285",
       "covered": "yes",
       "by": "update_my_alerts"
     },
     {
       "path": "Phone Settings → You → Profile (opens web)",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:277",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:292",
       "covered": "yes",
       "by": "update_my_account fullName"
     },
     {
       "path": "Phone Settings → You → Appearance sheet",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:326",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:341",
       "covered": "partly",
       "by": "phone keeps its own; update_my_account sets the account's"
     },
     {
       "path": "Phone Settings → You → Sign out",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:305",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:320",
       "covered": "person",
       "by": "signing in and out is the person's"
     },
     {
       "path": "Phone Settings → You → Delete account",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:311",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:326",
       "covered": "never",
       "by": "NEVER account.delete"
     },
     {
       "path": "Phone Settings → footnote (rest is on the web)",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:319",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:334",
       "covered": "yes",
       "by": "prompt: phone Settings holds only own things"
     },

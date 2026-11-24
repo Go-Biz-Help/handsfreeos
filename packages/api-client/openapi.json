@@ -8614,7 +8614,8 @@
                       "email",
                       "calendar",
                       "payments",
-                      "chat"
+                      "chat",
+                      "facebook"
                     ]
                   },
                   "answers": {
@@ -8686,7 +8687,8 @@
                       "email",
                       "calendar",
                       "payments",
-                      "chat"
+                      "chat",
+                      "facebook"
                     ]
                   }
                 },
@@ -35235,6 +35237,131 @@
                     "publicKey",
                     "created",
                     "teammateChat"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/facebook_setup.save": {
+      "post": {
+        "operationId": "command_facebook_setup_save",
+        "summary": "Carry out the guided Facebook & Instagram setup’s answers, as its Connect with Facebook (or Save my answers) does before Facebook’s sign-in: whether someone new who messages the Page or the Instagram account becomes a customer and a lead, and in which pipeline and stage, and whether lead ads’ forms come in once a sign-in may read them. It never signs in to Facebook; only the person can. Nothing changes when an answer is wrong.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires channels.manage. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "answers": {
+                    "type": "object",
+                    "properties": {
+                      "instagram": {
+                        "type": "boolean"
+                      },
+                      "igProfessional": {
+                        "type": "boolean"
+                      },
+                      "igLinked": {
+                        "type": "boolean"
+                      },
+                      "igAccess": {
+                        "type": "boolean"
+                      },
+                      "createLead": {
+                        "type": "boolean"
+                      },
+                      "pipelineId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "stageId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "adsChat": {
+                        "type": "boolean"
+                      },
+                      "leadAds": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "instagram",
+                      "igProfessional",
+                      "igLinked",
+                      "igAccess",
+                      "createLead",
+                      "pipelineId",
+                      "stageId",
+                      "adsChat",
+                      "leadAds"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "answers"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "text",
+                          "call",
+                          "email",
+                          "messenger",
+                          "instagram",
+                          "facebook_lead_ad",
+                          "indeed"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "changed"
                   ],
                   "additionalProperties": false
                 }
@@ -161727,7 +161854,8 @@
                       "email",
                       "calendar",
                       "payments",
-                      "chat"
+                      "chat",
+                      "facebook"
                     ]
                   }
                 },
@@ -167392,6 +167520,116 @@
                   "required": [
                     "accounts",
                     "connections"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/meta_account.test_messages": {
+      "post": {
+        "operationId": "query_meta_account_test_messages",
+        "summary": "For each connected Facebook Page and Instagram account, the newest message someone sent it since a moment, with its first words: the Facebook & Instagram setup’s Send yourself a test message, which shows whether messages arrive.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires channels.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "since": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "since"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accountId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "instagram"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "username": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "gotAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "preview": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "accountId",
+                          "platform",
+                          "name",
+                          "username",
+                          "gotAt",
+                          "preview"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "accounts"
                   ],
                   "additionalProperties": false
                 }

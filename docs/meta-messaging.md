@@ -11,24 +11,26 @@ messages: Meta" in `docs/operations.md`.
 
 ## Where things are
 
-| What                                      | Where                                                                                                           |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Tables                                    | `supabase/migrations/20261025000200_facebook_and_instagram_messaging.sql`                                       |
-| Rules and words both apps share           | `packages/core/src/messaging/social.ts`, `inbox/composer.ts` (`socialNote`), `inbox/thread.ts`                  |
-| Commands                                  | `packages/core/src/commands/social.ts`; replies are `message.send` and `message.retry` in `commands/message.ts` |
-| Reads                                     | `packages/core/src/queries/social.ts` (`meta_account.list`, `attribution.list`), `conversation.get`'s `social`  |
-| Where somebody came from, in words        | `packages/core/src/crm/attribution-words.ts`                                                                    |
-| Meta's Graph API, and the stand-in        | `apps/worker/src/social/graph.ts`, `fake.ts`                                                                    |
-| Signing in and picking Pages              | `apps/worker/src/social/connect.ts`, through `apps/worker/src/http/oauth.ts`                                    |
-| Webhooks, deauthorize and data deletion   | `apps/worker/src/social/routes.ts`; each event read by `events.ts`, and acted on by `receive.ts`                |
-| Sending                                   | `apps/worker/src/social/send.ts`                                                                                |
-| Ad look-ups and the daily check           | `apps/worker/src/social/jobs.ts`                                                                                |
-| Lead ads: filing a lead, and its words    | `packages/core/src/commands/meta-lead.ts`, `messaging/lead-ads.ts`; the forms table is `20261027011200`         |
-| Lead ads: reading leads, and the catch-up | `apps/worker/src/social/leads.ts`                                                                               |
-| Settings → Facebook & Instagram           | `apps/web/src/components/settings/facebook-instagram-page.tsx`                                                  |
-| The inbox, the composer and the thread    | `apps/web/src/components/inbox/` (`social-bits.tsx` has the two marks)                                          |
-| "Where they came from"                    | `apps/web/src/components/crm/attribution-card.tsx`, `apps/mobile/src/components/customers/attribution.tsx`      |
-| The phone's threads, replies and the mark | `apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx`, `components/inbox/social-icons.tsx`       |
+| What                                      | Where                                                                                                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tables                                    | `supabase/migrations/20261025000200_facebook_and_instagram_messaging.sql`                                                                        |
+| Rules and words both apps share           | `packages/core/src/messaging/social.ts`, `inbox/composer.ts` (`socialNote`), `inbox/thread.ts`                                                   |
+| Commands                                  | `packages/core/src/commands/social.ts`; replies are `message.send` and `message.retry` in `commands/message.ts`                                  |
+| Reads                                     | `packages/core/src/queries/social.ts` (`meta_account.list`, `attribution.list`), `conversation.get`'s `social`                                   |
+| Where somebody came from, in words        | `packages/core/src/crm/attribution-words.ts`                                                                                                     |
+| Meta's Graph API, and the stand-in        | `apps/worker/src/social/graph.ts`, `fake.ts`                                                                                                     |
+| Signing in and picking Pages              | `apps/worker/src/social/connect.ts`, through `apps/worker/src/http/oauth.ts`                                                                     |
+| Webhooks, deauthorize and data deletion   | `apps/worker/src/social/routes.ts`; each event read by `events.ts`, and acted on by `receive.ts`                                                 |
+| Sending                                   | `apps/worker/src/social/send.ts`                                                                                                                 |
+| Ad look-ups and the daily check           | `apps/worker/src/social/jobs.ts`                                                                                                                 |
+| Lead ads: filing a lead, and its words    | `packages/core/src/commands/meta-lead.ts`, `messaging/lead-ads.ts`; the forms table is `20261027011200`                                          |
+| Lead ads: reading leads, and the catch-up | `apps/worker/src/social/leads.ts`                                                                                                                |
+| Settings → Facebook & Instagram           | `apps/web/src/components/settings/facebook-instagram-overview.tsx` (the simple card), `facebook-instagram-page.tsx` (All settings)               |
+| The guided setup and its live test        | `packages/core/src/guided-setup/facebook.ts`, `commands/facebook-setup.ts`; web `components/facebook-setup/`, phone `components/facebook-setup/` |
+| Connecting, from either page              | `apps/web/src/lib/meta-connect.ts`; the way back to the setup is `lib/setup-return.ts`                                                           |
+| The inbox, the composer and the thread    | `apps/web/src/components/inbox/` (`social-bits.tsx` has the two marks)                                                                           |
+| "Where they came from"                    | `apps/web/src/components/crm/attribution-card.tsx`, `apps/mobile/src/components/customers/attribution.tsx`                                       |
+| The phone's threads, replies and the mark | `apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx`, `components/inbox/social-icons.tsx`                                        |
 
 ## How it works
 
@@ -72,6 +74,23 @@ their data (`/meta/data-deletion`) also forgets who they were. A sign-in nobody 
 it ends, or at the daily look once its ten minutes are long gone. `meta.plan` runs daily and queues `meta.check` for
 each business with a Page connected, which notices a sign-in that stopped working and asks Meta again for a Page's
 messages when Meta stopped sending them.
+
+**The guided setup (the owner, 24 Nov 2026: F1 a to F4 a).** Settings → Facebook & Instagram is one simple card:
+what's connected, with **Send a test message** and **Connect more**, and the setup's answers, each with **Change**.
+While nothing is connected, **Start** opens the guided setup at `/onboarding/<business>/facebook` (on the phone,
+Settings → This business → Facebook & Instagram). Every setting from before is under **All settings**, which opens by
+itself for `?all=1`, on the way back from Facebook (`?meta=`) and while something needs fixing. Four questions, one at
+a time, saved as they're given (`guided_setup.save_draft` under `facebook`): what lands in the inbox (Messenger always,
+Instagram if ticked), getting Instagram ready (three ticks, asked only with Instagram, which never stop Next), what
+happens when someone new writes (a customer and a lead in a pipeline and stage, or a customer only), and ads. **Check
+it over**'s **Connect with Facebook** runs `facebook_setup.save`, which sets Messenger's (and Instagram's) rules for
+someone new through `intake_source.update`, and lead ads on or off once a sign-in reads leads, then starts the usual
+sign-in. Facebook comes back to **Send yourself a test message** (`?step=test`, through `setup-return.ts`), where
+`meta_account.test_messages` turns each Page and account green once a message lands; after two minutes a row still
+waiting says what to check. With a Page already connected, the same questions end in **Save my answers**, and the
+sign-in stays as it is. What the setup can't change is said, not hidden: Messenger comes with the Page, an Instagram
+account linked to the Page comes along with it, and Facebook decides which permissions its screens ask for, so the ads
+answer changes only what they're said to ask. The Getting started step waits until Meta's approval is confirmed (F1).
 
 ## Rules worth knowing before changing anything
 

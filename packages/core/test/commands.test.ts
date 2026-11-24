@@ -526,6 +526,7 @@ describe('registry', () => {
       'chat_widget.create',
       'chat_widget.update',
       'chat_setup.save',
+      'facebook_setup.save',
       'chat_widget.pause',
       'chat_widget.resume',
       'chat_widget.hide_until_texting',

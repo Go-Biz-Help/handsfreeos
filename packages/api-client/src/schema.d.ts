@@ -5017,6 +5017,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/facebook_setup.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Carry out the guided Facebook & Instagram setup’s answers, as its Connect with Facebook (or Save my answers) does before Facebook’s sign-in: whether someone new who messages the Page or the Instagram account becomes a customer and a lead, and in which pipeline and stage, and whether lead ads’ forms come in once a sign-in may read them. It never signs in to Facebook; only the person can. Nothing changes when an answer is wrong.
+         * @description Risk level 2. Requires channels.manage. Emits .
+         */
+        post: operations["command_facebook_setup_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/file.begin_upload": {
         parameters: {
             query?: never;
@@ -22657,6 +22677,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/meta_account.test_messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * For each connected Facebook Page and Instagram account, the newest message someone sent it since a moment, with its first words: the Facebook & Instagram setup’s Send yourself a test message, which shows whether messages arrive.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_meta_account_test_messages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/migration.get": {
         parameters: {
             query?: never;
@@ -39101,6 +39141,46 @@ export interface operations {
             };
         };
     };
+    command_facebook_setup_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        adsChat: boolean;
+                        createLead: boolean;
+                        igAccess: boolean;
+                        igLinked: boolean;
+                        igProfessional: boolean;
+                        instagram: boolean;
+                        leadAds: boolean;
+                        pipelineId: string | null;
+                        stageId: string | null;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: ("text" | "call" | "email" | "messenger" | "instagram" | "facebook_lead_ad" | "indeed")[];
+                    };
+                };
+            };
+        };
+    };
     command_file_begin_upload: {
         parameters: {
             query?: never;
@@ -41048,7 +41128,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar" | "payments" | "chat";
+                    setup: "phone" | "email" | "calendar" | "payments" | "chat" | "facebook";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -41082,7 +41162,7 @@ export interface operations {
                         [key: string]: unknown;
                     };
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar" | "payments" | "chat";
+                    setup: "phone" | "email" | "calendar" | "payments" | "chat" | "facebook";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -85488,7 +85568,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    setup: "phone" | "email" | "calendar" | "payments" | "chat";
+                    setup: "phone" | "email" | "calendar" | "payments" | "chat" | "facebook";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -88364,6 +88444,46 @@ export interface operations {
                             /** @enum {string} */
                             status: "pending" | "connected" | "needs_attention" | "disconnected";
                             tokenExpiresAt: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_meta_account_test_messages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    since: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accounts: {
+                            /** Format: uuid */
+                            accountId: string;
+                            gotAt: string | null;
+                            name: string;
+                            /** @enum {string} */
+                            platform: "facebook" | "instagram";
+                            preview: string | null;
+                            username: string | null;
                         }[];
                     };
                 };
