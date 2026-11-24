@@ -11,6 +11,7 @@ import {
 import { WATCHED_LINE_SECONDS } from '@hfos/core/addons/outreach/tallies';
 import { freshState, type AutoState } from '../src/auto/plan';
 import {
+  beatNews,
   beatWait,
   dayChange,
   liveEventFor,
@@ -250,5 +251,63 @@ describe('how often it tells', () => {
     );
     expect(beatWait(counting, now({ state: 'working', doing: 'requests' }), none, at)).toBe(0);
     expect(beatWait(counting, now({ state: 'working' }), none, at)).toBe(0);
+  });
+});
+
+describe('whether a beat’s answer says something new, for the panel (0.152.0)', () => {
+  const day = {
+    date: DAY,
+    state: 'started',
+    why: null,
+    via: 'web',
+    at: '2026-10-27T15:00:00.000Z',
+  };
+  const kept = (more: Record<string, unknown> = {}) => ({
+    computerId: '00000000-0000-4000-8000-000000000001',
+    name: 'Chrome on Windows',
+    working: true,
+    workingName: null,
+    day,
+    days: { linkedin: { ...day, state: 'none', via: null, at: null } },
+    stepsKept: [] as string[],
+    asks: 0,
+    watched: false,
+    ...ME,
+    at: 1_000,
+    ...more,
+  });
+
+  it('says nothing new when only the moment it was kept moved, whatever order its parts come back in', () => {
+    expect(beatNews(kept(), kept({ at: 61_000 }))).toBe(false);
+    const { day: d, at, ...rest } = kept({ at: 61_000 });
+    const backwards = {
+      at,
+      ...Object.fromEntries(Object.entries(rest).reverse()),
+      day: Object.fromEntries(Object.entries(d).reverse()),
+    };
+    expect(beatNews(kept(), backwards)).toBe(false);
+  });
+
+  it('is new when there was none before, or none now', () => {
+    expect(beatNews(undefined, kept())).toBe(true);
+    expect(beatNews(kept(), undefined)).toBe(true);
+  });
+
+  it('is new when HandsFreeOS took a step, and not when the one before had', () => {
+    expect(beatNews(kept(), kept({ stepsKept: ['a'] }))).toBe(true);
+    expect(beatNews(kept({ stepsKept: ['a'] }), kept())).toBe(false);
+  });
+
+  it('is new when another computer works, a day moved, an ask waits, a ticker came on, or it’s someone else’s', () => {
+    for (const more of [
+      { working: false, workingName: 'Chrome on Mac' },
+      { day: { ...day, state: 'stopped', why: 'person' } },
+      { days: { linkedin: { ...day, state: 'started' } } },
+      { asks: 1 },
+      { watched: true },
+      { name: 'The shop’s computer' },
+      { businessId: 'b-two' },
+    ])
+      expect(beatNews(kept(), kept(more)), JSON.stringify(more)).toBe(true);
   });
 });

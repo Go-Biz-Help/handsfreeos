@@ -7,7 +7,6 @@
  */
 import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
-import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -60,7 +59,15 @@ import {
 } from '../waiting';
 import { asksNeedingYou } from './ask-rows';
 import { automationOf, everyoneAutomation } from './automation';
-import { contactable, inWorkspace, neverDeleted, type Ctx } from './common';
+import {
+  contactable,
+  inWorkspace,
+  neverDeleted,
+  type Ctx,
+  LOOKED_UP,
+  rulesAtHand,
+  zoneOf,
+} from './common';
 import { playbooksInUse } from './friends';
 import { openNeed, retrySince } from './needs';
 import { commentHoldOf, draftedNow, listed, mine, notHeldNow, sendsAgain } from './sends';
@@ -161,6 +168,8 @@ export async function requestsToDecide(
   const out = new Map<string, WaitingRequest[]>(userIds.map((id) => [id, []]));
   if (!userIds.length) return out;
   const modeOf = await requestModes(ctx);
+  // Today has read the rules' lists already; Needs you on its own looks these few up.
+  const ruled = await rulesAtHand(ctx);
   const found = await rows<
     RequestAnswered & {
       user_id: string;
@@ -174,7 +183,7 @@ export async function requestsToDecide(
     ctx.tx,
     sql`select * from (
           select f.user_id, p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name, f.since,
-            p.platform, (${notNever('p')}) as pitched, ${neverDeleted(sql`f.user_id`)} as kept,
+            p.platform, (${notNever(ruled, 'p')}) as pitched, ${neverDeleted(ruled, sql`f.user_id`)} as kept,
             case when f.answer_at >= f.since then f.answer end as pressed, rr.answer as said,
             ch.request_why as said_why, rr.verdict,
             row_number() over (partition by f.user_id order by f.since desc) as nth
@@ -187,7 +196,7 @@ export async function requestsToDecide(
             on rr.profile_id = p.id and rr.user_id = f.user_id
           left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = f.user_id
           where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = any (${ids(userIds)}::uuid[])
-            and f.state = 'request_received' and ${contactable('p')}
+            and f.state = 'request_received' and ${contactable(ruled, 'p')}
             and f.since >= ${new Date(now - REQUEST_SHOWN_DAYS * DAY).toISOString()}::timestamptz
             and not (f.set_aside_at is not null and f.set_aside_at >= f.since)
             and not (f.answer_at is not null and f.answer_at >= f.since)
@@ -386,7 +395,7 @@ export const waiting = defineAddonQuery(outreachAddon, {
     const [{ kinds, requests }, auto, timezone] = await Promise.all([
       kindsFor(ctx, [me], now, playbooks),
       automationOf(ctx, me, now),
-      workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
+      zoneOf(ctx),
     ]);
     // Someone in the person's hands who wrote back, or whom the AI would have followed up (decision 182): the ask.
     const handsAsked = await handsAsks(ctx, me, now, auto.settings.hours, timezone);
@@ -677,7 +686,7 @@ export const requestAnswer = defineAddonCommand(outreachAddon, {
     const at = changeMoment(ctx.meta).toISOString();
     const [asked] = await rows<{ name: string; platform: Platform; open: boolean }>(
       ctx.tx,
-      sql`select p.name, p.platform, ${contactable('p')} as open
+      sql`select p.name, p.platform, ${contactable(LOOKED_UP, 'p')} as open
           from addon_outreach.friends f join addon_outreach.profiles p on p.id = f.profile_id
           where f.workspace_id = ${ws} and f.user_id = ${me} and f.profile_id = ${input.profileId}
             and f.state = 'request_received'`,

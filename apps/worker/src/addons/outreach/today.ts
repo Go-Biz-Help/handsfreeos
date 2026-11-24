@@ -47,7 +47,7 @@ import {
   videoFits,
   type DraftVideos,
 } from '@hfos/core/addons/outreach/video-library';
-import { FOR_CUSTOMERS, isClient } from '@hfos/core/addons/outreach/ops/common';
+import { FOR_CUSTOMERS, LOOKED_UP, isClient } from '@hfos/core/addons/outreach/ops/common';
 import { demoLink, demoRef } from '@hfos/core/addons/outreach/demos';
 import { bestFit } from '@hfos/core/addons/outreach/fit';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
@@ -249,7 +249,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           }>(
             tx,
             // A client in Contacts (decision 91) gets replies only: no link, no video, and a yes isn't a pitch.
-            sql`select p.name, p.platform, p.intro, p.mutual_friends, g.name as group, ${isClient('p')} as client,
+            sql`select p.name, p.platform, p.intro, p.mutual_friends, g.name as group, ${isClient(LOOKED_UP, 'p')} as client,
                   p.country, p.work, p.area, p.town, p.reach, p.area_how
                 from addon_outreach.profiles p left join addon_outreach.groups g on g.id = p.group_id
                 where p.workspace_id = ${ws} and p.id = ${profileId}`,

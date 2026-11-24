@@ -10,9 +10,9 @@ import { isNetworkPart } from '@hfos/core/addons/outreach/settings-parts';
 import { cookies } from 'next/headers';
 import { netCookie, readOutreachAddress, type OutreachView } from '@/addons/outreach/address';
 import { OutreachHome } from '@/addons/outreach/home';
-import { BOARD_STAGES, type Board } from '@/addons/outreach/board';
+import { BOARD_STAGES, boardOf } from '@/addons/outreach/board';
 import type { PlaybookList, Setup } from '@/addons/outreach/types';
-import { apiServer, errorMessage, unwrap, unwrapPage } from '@/lib/api/server';
+import { apiServer, errorMessage, getWorkspaceShell, unwrap, unwrapPage } from '@/lib/api/server';
 
 /** What a page's route hands on: its business, its query, and Settings' part from its path. */
 export interface OutreachPageProps {
@@ -55,9 +55,14 @@ export async function showOutreach(
   const remembered = (await cookies()).get(netCookie(workspaceId))?.value ?? null;
   const shown = readOutreachAddress(view, sp, { part, remembered });
   const { api, userId } = await apiServer();
-  const workspace = api
-    .POST('/v1/queries/workspace.get', { body: { workspaceId } })
-    .then(unwrapPage);
+  // The business's name and what the person may do here. The gate this page opens through has already asked
+  // (`getWorkspaceShell`, kept for the request), so a page never asks `workspace.get` again or waits on it: only
+  // someone from HandsFreeOS looking in does, whose shell says more than the API will let them do.
+  const workspace = getWorkspaceShell(workspaceId).then((shell) =>
+    shell.viewingAs
+      ? api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage)
+      : { workspace: shell.current },
+  );
   // What the person asked their computer to do from here: each page its own kinds, Your computer all of them.
   const asksOf = (tab?: keyof typeof ASK_KINDS_FOR) =>
     api
@@ -268,30 +273,27 @@ export async function showOutreach(
     );
   }
   if (shown.view === 'pipeline') {
-    const stageOf = (view: (typeof BOARD_STAGES)[number] | typeof shown.stages) =>
+    // Everyone in play is a board: each column's first people come with the page, in the one answer.
+    const onBoard = shown.stages === 'all' && !shown.search && shown.page === 1;
+    const [got, pipeline, asks] = await Promise.all([
+      workspace,
       api
         .POST('/v1/queries/outreach.stages', {
           body: {
             workspaceId,
-            view,
+            view: shown.stages,
             ...(shown.search ? { search: shown.search } : {}),
-            page: view === shown.stages ? shown.page : 1,
+            page: shown.page,
+            ...(onBoard ? { columns: [...BOARD_STAGES] } : {}),
             ...onNetwork,
           },
         })
-        .then(unwrapPage);
-    // Everyone in play is a board: each column's first page, asked one stage at a time.
-    const onBoard = shown.stages === 'all' && !shown.search && shown.page === 1;
-    const [got, pipeline, columns, asks] = await Promise.all([
-      workspace,
-      stageOf(shown.stages),
-      onBoard ? Promise.all(BOARD_STAGES.map((stage) => stageOf(stage))) : null,
+        .then(unwrapPage),
       // Research on the rows, and Run now (decision 129): left out (the buttons wait) when it can't be had.
       asksOf('pipeline').catch(() => null),
     ]);
-    const board = columns
-      ? (Object.fromEntries(BOARD_STAGES.map((stage, i) => [stage, columns[i]!])) as Board)
-      : null;
+    // An API a deploy behind answers without the columns: the page is then the list, until it catches up.
+    const board = onBoard && pipeline.columns ? boardOf(pipeline.columns) : null;
     return (
       <OutreachHome
         workspaceId={workspaceId}
@@ -546,23 +548,20 @@ export async function showOutreach(
         })
         .then((r) => r.data ?? null)
         .catch(() => null);
-    // Everyone's steps only once it's known they may see them.
-    const [got, own, ownNumbers] = await Promise.all([
-      workspace,
-      shown.everyone ? null : activityOf(false),
-      shown.everyone ? null : trackingOf(false),
-    ]);
+    // Everyone's steps only for someone who may see them: anyone else asking sees their own.
+    const got = await workspace;
     const canManage = got.workspace.permissions.includes('outreach.manage');
+    const everyone = shown.everyone && canManage;
     // Which openers work (decision 129: it was under the playbooks): owners and admins see everyone's, anyone else
     // their own. Left out when it can't be had.
-    const openersOf = (everyone: boolean) =>
+    const openersOf = (all: boolean) =>
       api
-        .POST('/v1/queries/outreach.openers', { body: { workspaceId, everyone } })
+        .POST('/v1/queries/outreach.openers', { body: { workspaceId, everyone: all } })
         .then((r) => r.data ?? null)
         .catch(() => null);
     const [activity, tracking, openers] = await Promise.all([
-      own ?? activityOf(canManage),
-      own ? ownNumbers : trackingOf(canManage),
+      activityOf(everyone),
+      trackingOf(everyone),
       openersOf(canManage),
     ]);
     return (
@@ -601,7 +600,8 @@ export async function showOutreach(
       .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform } })
       .then((r) => r.data ?? null)
       .catch(() => null);
-  const [today, lives, helpful, readies, refer] = await Promise.all([
+  const canManage = got.workspace.permissions.includes('outreach.manage');
+  const [today, lives, helpful, readies, refer, team] = await Promise.all([
     api
       .POST('/v1/queries/outreach.today', { body: { workspaceId, platform: net } })
       .then(unwrapPage),
@@ -617,6 +617,14 @@ export async function showOutreach(
       .POST('/v1/queries/outreach.referrals', { body: { workspaceId, platform: net } })
       .then((r) => ({ referrals: r.data?.referrals ?? [], asks: r.data?.asks ?? [] }))
       .catch(() => ({ referrals: [], asks: [] })),
+    // Owners and admins see how each person's extension is doing on the network shown, never their lines or
+    // messages (who's on training wheels is on Settings → Team, decision 129).
+    canManage
+      ? api
+          .POST('/v1/queries/outreach.live.team', { body: { workspaceId, platform: net } })
+          .then((r) => r.data ?? null)
+          .catch(() => null)
+      : null,
   ]);
   const networks = nets.flatMap((platform, i) => {
     const live = lives[i];
@@ -626,26 +634,17 @@ export async function showOutreach(
       ? [{ platform, live, ready, held: ready === false && r ? notReadyWords(r) : null }]
       : [];
   });
-  const canManage = got.workspace.permissions.includes('outreach.manage');
-  // Owners and admins see how each person's extension is doing on the network shown, never their lines or messages
-  // (who's on training wheels is on Settings → Team, decision 129). Until the person is ready on the network shown, its Get ready
-  // shows in place of the day's list (decision 63); once they are, it shows only while the profile there is left, as
-  // advice beside the list.
-  const shownReadiness = readies[nets.indexOf(net)] ?? null;
-  const [team, readiness] = await Promise.all([
-    canManage
-      ? api
-          .POST('/v1/queries/outreach.live.team', { body: { workspaceId, platform: net } })
-          .then((r) => r.data ?? null)
-          .catch(() => null)
-      : null,
-    shownReadiness ??
-      (today.ready
-        ? null
-        : api
-            .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform: net } })
-            .then(unwrapPage)),
-  ]);
+  // Until the person is ready on the network shown, its Get ready shows in place of the day's list (decision 63);
+  // once they are, it shows only while the profile there is left, as advice beside the list. Asked again only when
+  // the first ask for it couldn't be had.
+  const readiness =
+    readies[nets.indexOf(net)] ??
+    (today.ready
+      ? null
+      : await api
+          .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform: net } })
+          .then(unwrapPage)) ??
+    null;
   return (
     <OutreachHome
       workspaceId={workspaceId}

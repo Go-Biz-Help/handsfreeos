@@ -110,6 +110,7 @@ import { AskButton, AskLine, latestAskOn, targetOf } from './asks';
 import { CancelAllButtons } from './cancel-all';
 import { ChatSoFar } from './chat-bubbles';
 import { Drafted } from './drafted';
+import { Gone, GONE_ROW } from './gone';
 import { HelpfulCard } from './helpful-card';
 import { EventsCard } from './events-card';
 import { ReferralCards } from './referral-card';
@@ -117,7 +118,7 @@ import { PersonName } from './person-menu';
 import { PostQuote } from './post-quote';
 import { GoalNote, goalNoteOn } from './goal-note';
 import { OutreachCounters } from './counters';
-import { TeamCard } from './live-view';
+import { TeamCard, TODAY_CHANGES, useRedrawOnChange } from './live-view';
 import { StatusStrip, type NetworkLive } from './status-strip';
 import type {
   Asks,
@@ -201,6 +202,8 @@ export function TodayView({
 }) {
   // A look-up's drafts, and a group's members saved, show once its ask ends.
   useLiveRefresh(['outreach_ask'], 800);
+  // Anything else the list shows changing draws it again, at most once a minute; the cards keep their own time.
+  useRedrawOnChange(TODAY_CHANGES);
   const router = useRouter();
   // The extension's Needs you link and its pop-ups open Today at `#needs-you`: Needs you is its own page now.
   useEffect(() => {
@@ -509,7 +512,7 @@ export function TodayView({
           ) : null}
         </aside>
       </div>
-      {team ? <TeamCard team={team} className="mt-5" /> : null}
+      {team ? <TeamCard workspaceId={workspaceId} team={team} className="mt-5" /> : null}
       <HowItWorks />
     </div>
   );
@@ -713,7 +716,10 @@ function TodayRow({
   const openAt = todayOpenOf(item, platform);
   const draftKind = DRAFT_KINDS.find((k) => k === item.kind);
   return (
-    <li className={cn('px-5 py-4', !first && 'border-t border-border')} data-testid="today-item">
+    <li
+      className={cn('px-5 py-4', !first && 'border-t border-border', GONE_ROW)}
+      data-testid="today-item"
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0 text-[13.5px]">
           {partner ? (
@@ -963,6 +969,8 @@ function Drafts({
           }),
         ),
       W.notForMeDone,
+      undefined,
+      true,
     );
   const ask = async () => {
     setBusy(true);
@@ -1065,7 +1073,11 @@ function Drafts({
           }),
         ),
       W.checkInsStopped(item.name),
+      undefined,
+      true,
     );
+  // Not for me, or no more check-ins: the row goes at once, before the page has drawn again.
+  if (skipping.gone || stopping.gone) return <Gone />;
   return (
     <div className="mt-2">
       {!online && drafted.length ? (

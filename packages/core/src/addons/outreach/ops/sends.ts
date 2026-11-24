@@ -73,6 +73,7 @@ import {
   talkedWith,
   type ChatRef,
   type Ctx,
+  LOOKED_UP,
 } from './common';
 import { tally } from './tallies';
 import { workingBuild } from './live';
@@ -429,9 +430,9 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       client_cause: ClientCause | null;
     }>(
       ctx.tx,
-      sql`select p.id, p.name, p.platform, not ${contactable('p')} as off,
+      sql`select p.id, p.name, p.platform, not ${contactable(LOOKED_UP, 'p')} as off,
             ${notFollowingBack(me)} as not_following,
-            ${outreach ? isClient('p') : sql`false`} as client,
+            ${outreach ? isClient(LOOKED_UP, 'p') : sql`false`} as client,
             ${outreach ? clientCauseOf('p') : sql`null`} as client_cause
           from addon_outreach.profiles p
           where p.workspace_id = ${ws} and p.id = ${input.profileId}`,

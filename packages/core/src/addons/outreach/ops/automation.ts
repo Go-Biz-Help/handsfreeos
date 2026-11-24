@@ -7,7 +7,6 @@
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { rows, type Tx } from '@hfos/db/client';
 import { users } from '@hfos/db/schema';
-import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { scopeCan } from '../../../kernel/execute';
@@ -66,7 +65,7 @@ import { outreachAddon } from '../manifest';
 import { networkLimitsNow, PLATFORM_KEYS, type Platform } from '../networks';
 import { networksOn } from '../network-words';
 import { automation, networkStarts, profiles, setup, type NetworkWheelKept } from '../tables';
-import { inWorkspace, type Ctx } from './common';
+import { inWorkspace, outreachSettingsOf, zoneOf, type Ctx } from './common';
 
 type Row = typeof automation.$inferSelect;
 
@@ -124,12 +123,7 @@ const settingsOf = (row: Row | undefined, rules: BusinessRules): AutomationSetti
 
 /** The business's rules for everyone's choices (decision 38), kept with its Social Outreach settings. */
 export async function rulesOf(ctx: Ctx): Promise<BusinessRules> {
-  const [installed] = await rows<{ settings: unknown }>(
-    ctx.tx,
-    sql`select settings from app.addon_installations
-        where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
-  );
-  return outreachSettings(installed?.settings).rules;
+  return (await outreachSettingsOf(ctx)).rules;
 }
 
 /** A person's training wheels on a network, as kept: Facebook's in the wheels columns, any other's in `network_wheels`. */
@@ -450,7 +444,7 @@ async function shown(ctx: Ctx, whose: string, row: Row | undefined, rules: Busin
     fresh: Object.fromEntries(
       PLATFORM_KEYS.map((p) => [p, freshOn(steps, whose, settings, now, p)]),
     ) as Record<Platform, FreshState>,
-    timezone: await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
+    timezone: await zoneOf(ctx),
     startedAt: installed ? new Date(installed.at).toISOString() : null,
     userId: whose,
     name: nameOf(whose),

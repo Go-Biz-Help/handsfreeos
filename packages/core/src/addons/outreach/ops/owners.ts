@@ -17,7 +17,7 @@ import { SEND_KINDS } from '../automation';
 import { outreachAddon } from '../manifest';
 import { heldForOthers, OwnerMoveInput, OwnerMoveOutput, type TeamOwner } from '../owners';
 import { groups, profiles } from '../tables';
-import { inWorkspace, notOthers, skipOutreachTo, type Ctx } from './common';
+import { inWorkspace, notOthers, skipOutreachTo, type Ctx, LOOKED_UP } from './common';
 
 /**
  * A person reached by `me`: theirs, unless another teammate who uses Social Outreach reached them first. The first
@@ -32,7 +32,7 @@ export async function claimProfile(
   await ctx.tx.execute(
     sql`update addon_outreach.profiles p set owner_user_id = ${me}, owned_at = ${at.toISOString()}::timestamptz
         where p.workspace_id = ${ctx.scope.workspaceId!} and p.id = ${profileId}
-          and p.owner_user_id is distinct from ${me} and ${notOthers(me, 'p')}`,
+          and p.owner_user_id is distinct from ${me} and ${notOthers(LOOKED_UP, me, 'p')}`,
   );
 }
 
@@ -47,7 +47,7 @@ export async function claimGroup(
   await ctx.tx.execute(
     sql`update addon_outreach.groups g set owner_user_id = ${me}, owned_at = ${at.toISOString()}::timestamptz
         where g.workspace_id = ${ctx.scope.workspaceId!} and g.id = ${groupId}
-          and g.owner_user_id is distinct from ${me} and ${notOthers(me, 'g')}`,
+          and g.owner_user_id is distinct from ${me} and ${notOthers(LOOKED_UP, me, 'g')}`,
   );
 }
 

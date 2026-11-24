@@ -41,13 +41,17 @@ export interface CreateDbOptions {
 }
 
 /**
- * Seconds an unused connection stays open. Behind Supavisor's session mode every open connection holds one of
- * the pool's slots (15 by default) whether or not it is doing anything, and postgres.js keeps them for ever
- * unless told otherwise. Two API machines that had each been busy once held every slot between them, idle, and
- * every new connection was refused with `max clients reached in session mode`. Letting go of idle ones gives
- * the slots back; the next request that needs one opens a fresh connection.
+ * Seconds an unused connection stays open. The apps connect through Supavisor's transaction pooler (since 26 Sep
+ * 2026), where an open connection that is doing nothing holds no database connection: only the pooler's 200
+ * clients are counted, and every app together opens a few dozen. So a connection is kept ten minutes.
+ *
+ * It was 20 seconds, from the days on the session pooler, where each open connection held one of 15 slots and two
+ * idle API machines once filled them all. On the transaction pooler that only cost: the driver hands out the
+ * connection that has waited longest, so at a request every few seconds nearly every one had just timed out, and
+ * one request in seven opened a new connection first (TLS, the password exchange and the driver's 900-row type
+ * look-up) before it could start.
  */
-const IDLE_TIMEOUT_SECONDS = 20;
+const IDLE_TIMEOUT_SECONDS = 600;
 
 /**
  * Bounds on a person's transaction. The API has only a handful of pooled connections, and a request holds one for
@@ -79,10 +83,12 @@ export async function asUser<T>(
 ): Promise<T> {
   const payload = JSON.stringify({ role: 'authenticated', aud: 'authenticated', ...claims });
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select set_config('request.jwt.claims', ${payload}, true)`);
-    await tx.execute(sql`set local role authenticated`);
+    // One round trip, where it was three on every request: `set_config('role', …, true)` is `set local role`,
+    // with the same membership check. None of the four depends on another.
     await tx.execute(
-      sql`select set_config('statement_timeout', ${USER_STATEMENT_TIMEOUT}, true),
+      sql`select set_config('request.jwt.claims', ${payload}, true),
+            set_config('role', 'authenticated', true),
+            set_config('statement_timeout', ${USER_STATEMENT_TIMEOUT}, true),
             set_config('idle_in_transaction_session_timeout', ${USER_IDLE_IN_TRANSACTION_TIMEOUT}, true)`,
     );
     return fn(tx);

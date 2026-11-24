@@ -49,8 +49,17 @@ export type SessionAsk = Exclude<
 >;
 
 const SESSION_KEY = 'hfos.session';
-/** How long the person's businesses are taken as they were, before HandsFreeOS is asked again. */
-const ME_FOR_MS = 60_000;
+/**
+ * How long the person's businesses are taken as they were, before HandsFreeOS is asked again (`account.me`): ten
+ * minutes for the background's own work, since a business that's gone refuses the next call, and that asks again
+ * (`doubt`).
+ */
+export const ME_FOR_MS = 10 * 60_000;
+/**
+ * And a minute for the panel, where the person is looking, and while they have nowhere to save, so a business that
+ * turns Social Outreach on is there within the minute.
+ */
+export const ME_SHOWN_MS = 60_000;
 
 const NO_CONNECTION = 'Couldn’t reach HandsFreeOS. Check your internet connection, then try again.';
 
@@ -190,13 +199,29 @@ export async function call<T>(
       recheck: true,
     });
   }
-  if (rule === 'addon_inactive')
-    throw refuse(
-      `Social Outreach is off for ${workspaceId ? businessName(workspaceId) : 'this business'}. An owner can turn it on in Add-ons.`,
-      { status, rule, recheck: true },
-    );
-  if (said) throw refuse(said.message, { status, rule, recheck: status === 403 });
+  if (rule === 'addon_inactive') {
+    const name = workspaceId ? businessName(workspaceId) : 'this business';
+    doubt();
+    throw refuse(`Social Outreach is off for ${name}. An owner can turn it on in Add-ons.`, {
+      status,
+      rule,
+      recheck: true,
+    });
+  }
+  if (said) {
+    if (status === 403) doubt();
+    throw refuse(said.message, { status, rule, recheck: status === 403 });
+  }
   throw refuse('Something went wrong in HandsFreeOS. Try again in a minute.', { status });
+}
+
+/**
+ * HandsFreeOS refused a call in a way that says the person's businesses may have changed (Social Outreach turned off,
+ * or out of their reach): the next look asks who they are again, rather than going by what's kept for ten minutes.
+ * At most once a minute, as before 0.152.0.
+ */
+function doubt(): void {
+  if (me && Date.now() - me.at > ME_SHOWN_MS) me = { ...me, at: 0 };
 }
 
 async function signOutHere(): Promise<void> {
@@ -207,7 +232,11 @@ async function signOutHere(): Promise<void> {
     .catch(() => undefined);
 }
 
-export async function account(fresh = false): Promise<Account> {
+/**
+ * Who's signed in and where they can save. HandsFreeOS is asked when `fresh`, or when what it last said is older than
+ * `within` (a minute at most while they have nowhere to save).
+ */
+export async function account(fresh = false, within = ME_FOR_MS): Promise<Account> {
   if (!canSignIn()) return { signedIn: false, canSignIn: false, webUrl: config.webUrl };
   const { data, error } = await auth().getSession();
   // A sign-in that needed refreshing and couldn't be is still a sign-in: HandsFreeOS is only out of reach.
@@ -218,7 +247,8 @@ export async function account(fresh = false): Promise<Account> {
     await keepPlace(null);
     return { signedIn: false, canSignIn: true, webUrl: config.webUrl };
   }
-  const stale = !me || me.userId !== session.user.id || Date.now() - me.at > ME_FOR_MS;
+  const goodFor = me?.businesses.length ? within : Math.min(within, ME_SHOWN_MS);
+  const stale = !me || me.userId !== session.user.id || Date.now() - me.at > goodFor;
   if (fresh || stale) {
     const found = await call(api().POST('/v1/queries/account.me', { body: {} }));
     me = {
@@ -327,7 +357,8 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     throw refuse('This build of the extension can’t sign in to HandsFreeOS.');
   switch (ask.type) {
     case 'hfos-account':
-      return account(ask.fresh);
+      // The panel's look, when it opens or the person comes back to it: never older than a minute.
+      return account(ask.fresh, ME_SHOWN_MS);
     case 'hfos-send-code': {
       const { error } = await auth().signInWithOtp({
         email: ask.email,

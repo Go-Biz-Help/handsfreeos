@@ -27,7 +27,7 @@ import { posts } from '../tables';
 import { keepGroup } from './activity';
 import { automationOf, limitsFor } from './automation';
 import { myOwnProfile } from './checks';
-import { inWorkspace, keptProfile, notOthers, once } from './common';
+import { inWorkspace, keptProfile, notOthers, once, LOOKED_UP } from './common';
 import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
@@ -98,7 +98,7 @@ export const activeNext = defineAddonQuery(outreachAddon, {
       sql`select g.id, g.name, g.url, g.detail, g.members, g.privacy, g.check_state, g.check_why, g.check_playbook_id
           from addon_outreach.groups g
           join addon_outreach.my_groups m on m.group_id = g.id and m.user_id = ${me} and m.joined
-          where g.workspace_id = ${ws} and g.platform = ${input.platform} and ${notOthers(me, 'g')}
+          where g.workspace_id = ${ws} and g.platform = ${input.platform} and ${notOthers(LOOKED_UP, me, 'g')}
           order by md5(g.id::text || ${todayFrom})`,
     );
     const playbooks = await playbooksInUse(ctx, input.platform);

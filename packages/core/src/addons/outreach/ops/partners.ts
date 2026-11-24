@@ -93,6 +93,8 @@ import {
   saveProfile,
   skipOutreachTo,
   type Ctx,
+  ruledOut,
+  LOOKED_UP,
 } from './common';
 import { tally } from './tallies';
 import { partnerPlaybooksInUse } from './friends';
@@ -134,6 +136,7 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
     const { today, perDay, room: left } = await partnerPerDayFor(ctx, me, now, input.platform);
     const room = Math.min(input.most, left);
     if (!room) return { people: [], today, perDay };
+    const ruled = await ruledOut(ctx);
     // Anyone the person marked as a potential partner (decision 130) and not read since goes first, playbook or not:
     // the read is for what kind of partner they are, so the messages fit.
     const marked = await rows<{ id: string; name: string; url: string; kind: PartnerKind }>(
@@ -142,7 +145,7 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
           join addon_outreach.profiles p on p.id = pa.profile_id
           where pa.workspace_id = ${ws} and pa.user_id = ${me} and p.platform = ${input.platform}
             and pa.marked_at is not null and pa.stage is not null and pa.looked_at <= pa.marked_at
-            and p.friendship <> 'self' and ${notNever('p')}
+            and p.friendship <> 'self' and ${notNever(ruled, 'p')}
           order by pa.marked_at, pa.id
           limit ${room}`,
     );
@@ -194,7 +197,7 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
                 and g.check_state is distinct from 'not'
             ) gr on true
             where p.workspace_id = ${ws} and p.platform = ${input.platform} and p.friendship <> 'self'
-              and ${notNever('p')} and not ${partnered('p')} and ${countryFateSql(rule, 'p')} <> 'skip'
+              and ${notNever(ruled, 'p')} and not ${partnered(ruled, 'p')} and ${countryFateSql(rule, 'p')} <> 'skip'
               and (pa.id is null
                 or (pa.fit = 'not' and pa.checked_at < ${ago(PARTNER_AGAIN_DAYS)}::timestamptz)
                 or (pa.fit = 'failed' and pa.looked_at < ${ago(PARTNER_RETRY_DAYS)}::timestamptz))
@@ -339,7 +342,7 @@ export const partnerLeadsSave = defineAddonCommand(outreachAddon, {
         // The person themselves, anyone left alone, and anyone on the Partners list or checked lately.
         const [left] = await rows<{ out: boolean }>(
           ctx.tx,
-          sql`select (p.friendship = 'self' or not ${notNever('p')}
+          sql`select (p.friendship = 'self' or not ${notNever(LOOKED_UP, 'p')}
                 or exists (select 1 from addon_outreach.partners pa
                   where pa.workspace_id = p.workspace_id and pa.user_id = ${me} and pa.profile_id = p.id
                     and (pa.stage is not null or pa.fit = 'waiting'
@@ -409,7 +412,7 @@ export const partnerLook = defineAddonCommand(outreachAddon, {
     const at = changeMoment(ctx.meta);
     const [profile] = await rows<{ id: string; name: string; platform: Platform; never: boolean }>(
       ctx.tx,
-      sql`select p.id, p.name, p.platform, not ${notNever('p')} as never from addon_outreach.profiles p
+      sql`select p.id, p.name, p.platform, not ${notNever(LOOKED_UP, 'p')} as never from addon_outreach.profiles p
           where p.workspace_id = ${ws} and p.id = ${input.profileId}`,
     );
     if (!profile)
@@ -860,7 +863,7 @@ export const partnerPotential = defineAddonCommand(outreachAddon, {
     }>(
       ctx.tx,
       sql`select p.id, coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name,
-            p.friendship = 'self' as self, not ${notNever('p')} as never, ${MARKED_KIND} as kind
+            p.friendship = 'self' as self, not ${notNever(LOOKED_UP, 'p')} as never, ${MARKED_KIND} as kind
           from addon_outreach.profiles p left join app.people pp on pp.id = p.person_id
           where p.workspace_id = ${ws} and p.id = ${input.profileId}`,
     );
@@ -1260,8 +1263,9 @@ export async function partnerToday(
       .sort((a, b) => a.name.localeCompare(b.name))[0]?.link ?? null;
   const select = sql`select pa.id, pa.stage, pa.marked_at is not null as marked, pa.details_at, pa.profile_id, p.name,
       p.url, p.platform_id, pa.kind, pa.audience, pa.why, pa.next_step, pa.playbook_id, p.person_id`;
+  const ruled = await ruledOut(ctx);
   const from = sql`from addon_outreach.partners pa join addon_outreach.profiles p on p.id = pa.profile_id
-      where pa.workspace_id = ${ws} and pa.user_id = ${me} and p.platform = ${o.platform} and ${notNever('p')}`;
+      where pa.workspace_id = ${ws} and pa.user_id = ${me} and p.platform = ${o.platform} and ${notNever(ruled, 'p')}`;
   // Those the person marked go before the AI's finds (answer 6a), then the best fits with the biggest audiences.
   const best = sql`pa.marked_at is null, pa.fit = 'maybe', coalesce(pa.audience_size, p.followers) desc nulls last,
       pa.id`;
@@ -1273,7 +1277,7 @@ export async function partnerToday(
       ? rows<TodayRow>(
           ctx.tx,
           sql`${select}, null::text as thread_key, null::uuid as chat_id ${from} and ${where}
-                and ${notLater(me, 'p')} and ${notOthers(me, 'p')} and (${!reach}::boolean or ${lets})
+                and ${notLater(me, 'p')} and ${notOthers(ruled, me, 'p')} and (${!reach}::boolean or ${lets})
               order by ${best} limit ${most}`,
         )
       : Promise.resolve([] as TodayRow[]);

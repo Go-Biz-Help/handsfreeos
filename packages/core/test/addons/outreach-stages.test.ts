@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { checkedChatRead, chatReadPrompt } from '../../src/addons/outreach/chat-read';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { outreachAddonServer } from '../../src/addons/outreach/server';
-import { marksFor } from '../../src/addons/outreach/stages';
+import { marksFor, STAGE_COLUMN_MOST } from '../../src/addons/outreach/stages';
 import { todayDraftPrompt } from '../../src/addons/outreach/today';
 import { executeCommand, type CommandDef } from '../../src/server';
 import { outreachBusiness, refused, runAs } from './outreach-fixture';
@@ -289,6 +289,38 @@ describe('stages and the pitch', () => {
     // Off the list again, they're back.
     await runAs(owner, ws, 'outreach.friend.set', { ...twin, dontPitch: false });
     expect(await stageOf('Casey Moreno')).toBe('ready');
+  });
+
+  it('has the web’s board in one answer: each column is how that stage’s own page starts', async () => {
+    // Nine more people write, so one stage has more than a column holds.
+    const more = Array.from({ length: 9 }, (_, i) =>
+      chat(
+        person(`board.person.${i}`, `Board Person ${i}`),
+        `30001${i}0`,
+        'Hello there',
+        daysAgo(i + 3),
+      ),
+    );
+    await runAs(owner, ws, 'outreach.chats.collect', { chats: more });
+    const board = ['friends', 'talking', 'ready', 'pitched', 'booked'];
+    const plain = await runAs(owner, ws, 'outreach.stages', {});
+    const got = await runAs(owner, ws, 'outreach.stages', { columns: board });
+    expect(plain.columns).toBeUndefined();
+    // The page and the counts are what they are without the columns.
+    expect({ ...got, columns: undefined }).toEqual({ ...plain, columns: undefined });
+    expect(got.columns.map((column: { stage: string }) => column.stage)).toEqual(board);
+    expect(got.counts.talking).toBeGreaterThan(STAGE_COLUMN_MOST);
+    for (const column of got.columns as { stage: string; people: unknown[] }[]) {
+      const page = await runAs(owner, ws, 'outreach.stages', { view: column.stage });
+      expect(column.people).toEqual(page.people.slice(0, STAGE_COLUMN_MOST));
+    }
+    // A page with nobody on it still has the counts.
+    const empty = await runAs(owner, ws, 'outreach.stages', {
+      view: 'booked',
+      search: 'nobody by this name',
+    });
+    expect(empty).toMatchObject({ people: [], page: 1, pages: 1, total: 0 });
+    expect(empty.counts).toEqual(plain.counts);
   });
 
   it('keeps each person’s own: a teammate sees none of it', async () => {

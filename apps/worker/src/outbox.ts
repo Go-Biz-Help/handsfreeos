@@ -13,6 +13,8 @@ export interface OutboxDeps extends WorkerServices {
   readonly batchSize: number;
   /** Only claim rows this worker id already reserved (tests and the seed, which share a database with other pollers). */
   readonly reservedOnly?: boolean;
+  /** Told the type of each event this pass claimed, before it is handled: how one loop wakes another (main.ts). */
+  readonly onEvent?: (eventType: string) => void;
 }
 
 export const MAX_ATTEMPTS = 5;
@@ -64,6 +66,7 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
     ),
   );
   stats.claimed = claimed.length;
+  for (const row of claimed) deps.onEvent?.(row.event_type);
   // Ours only while the lease holds: an event still waiting its turn after the ones before it ran for five
   // minutes can be claimed by another worker, and its handlers must then run there, not twice.
   const ours = (eventId: string) =>

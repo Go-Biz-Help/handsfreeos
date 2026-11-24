@@ -78,6 +78,7 @@ import { Card } from '@/components/ui/card';
 import { copyText } from '@/components/ui/copy-field';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskLine } from './asks';
 import { AutopilotList } from './autopilot-list';
@@ -88,6 +89,7 @@ import { NetworkName } from './network-ui';
 import { PersonName } from './person-menu';
 import { PostQuote } from './post-quote';
 import { Drafted } from './drafted';
+import { Gone, GONE_ROW } from './gone';
 import type { Autopilot, Waiting, WaitingItem } from './types';
 import { useAct } from './use-act';
 
@@ -170,7 +172,7 @@ export function NeedsYou({
  * would have followed up by now. Let the AI take it gives them back; Keep it mine keeps them till the next time.
  */
 function HandsAsks({ workspaceId, asks }: { workspaceId: string; asks: readonly HandsAsk[] }) {
-  const { busy, act } = useAct();
+  const { busy, gone, act } = useAct();
   if (!asks.length) return null;
   const letAi = (a: HandsAsk) =>
     void act(
@@ -182,6 +184,8 @@ function HandsAsks({ workspaceId, asks }: { workspaceId: string; asks: readonly 
           }),
         ),
       HW.gaveBack(1),
+      undefined,
+      true,
     );
   const keep = (a: HandsAsk) =>
     void act(
@@ -193,7 +197,12 @@ function HandsAsks({ workspaceId, asks }: { workspaceId: string; asks: readonly 
           }),
         ),
       HW.kept(a.name),
+      undefined,
+      true,
     );
+  // The one just answered is off the list at once, before the page has drawn again.
+  const answered = (a: HandsAsk) =>
+    gone && (busy === `let-${a.profileId}` || busy === `keep-${a.profileId}`);
   return (
     <Card className="p-0" data-testid="waiting-hands">
       <div className="px-5 pt-4">
@@ -203,7 +212,12 @@ function HandsAsks({ workspaceId, asks }: { workspaceId: string; asks: readonly 
       </div>
       <ul className="divide-y divide-border">
         {asks.map((a) => (
-          <li key={a.profileId} className="space-y-2 px-5 py-3.5" data-testid="waiting-hands-ask">
+          <li
+            key={a.profileId}
+            className="space-y-2 px-5 py-3.5"
+            hidden={answered(a)}
+            data-testid="waiting-hands-ask"
+          >
             <p className="text-[14px] font-medium">
               <PersonName
                 workspaceId={workspaceId}
@@ -318,7 +332,7 @@ function Group({
                     ? item.request.profileId
                     : item.send.sendId
             }
-            className="border-t border-border px-5 py-3.5"
+            className={cn('border-t border-border px-5 py-3.5', GONE_ROW)}
             data-testid="waiting-item"
           >
             {item.kind === 'ask' ? (
@@ -469,7 +483,7 @@ function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem })
         ) : null}
       </div>
       <ChatSoFar recent={send.recent} />
-      <Drafted workspaceId={workspaceId} name={send.name} send={send} />
+      <Drafted workspaceId={workspaceId} name={send.name} send={send} sentLeaves />
       {/* The chat it answers, onto their card in Contacts. */}
       {item.kind === 'reply' && send.chatId ? (
         <div className="mt-1.5">
@@ -525,7 +539,13 @@ function CommentRow({ workspaceId, item }: { workspaceId: string; item: SendItem
       {send.post ? (
         <PostQuote post={send.post} whole={send.postWhole} testId="waiting-comment-post" />
       ) : null}
-      <Drafted workspaceId={workspaceId} name={send.name} send={send} comment={platform} />
+      <Drafted
+        workspaceId={workspaceId}
+        name={send.name}
+        send={send}
+        comment={platform}
+        sentLeaves
+      />
     </div>
   );
 }
@@ -540,24 +560,34 @@ function NeedRow({
   timeZone: string;
 }) {
   const need = item.need;
-  const { busy, act } = useAct();
+  const { busy, gone, act } = useAct();
   const staffSees = useStaffCan('platform.health.read');
   const clear = (how: NeedClear) =>
-    act(how, async () => {
-      const { state } = unwrap(
-        await apiBrowser().POST('/v1/commands/outreach.need.clear', {
-          body: { workspaceId, needId: need.needId, how },
-        }),
-      );
-      const said = needClearedWords(how, state);
-      if (state === 'open') toast.info(said);
-      else toast.success(said);
-    });
+    act(
+      how,
+      async () => {
+        const { state } = unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.need.clear', {
+            body: { workspaceId, needId: need.needId, how },
+          }),
+        );
+        const said = needClearedWords(how, state);
+        if (state === 'open') toast.info(said);
+        else toast.success(said);
+        return state;
+      },
+      undefined,
+      undefined,
+      // Still open (the step is tried again first): it stays on the list. Else it's off at once.
+      (state) => state !== 'open',
+    );
   const platform = networkOfWaiting(item);
   const messenger = need.step === 'message' ? chatUrlOn(platform, need.threadKey) : null;
   // Only an address on a network the add-on knows is linked: their page there, the post, or the chat.
   const page = need.url && networkOfLink(need.url) ? need.url : null;
   const [before, after] = needTitleAround(need.step, platform);
+  // Done, let go or tried again: it's off the list at once, before the page has drawn again.
+  if (gone) return <Gone />;
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
@@ -630,7 +660,9 @@ function NeedRow({
             size="sm"
             variant="secondary"
             disabled={busy !== null}
-            onClick={() => void act('retry', () => retry(workspaceId, [need.needId]))}
+            onClick={() =>
+              void act('retry', () => retry(workspaceId, [need.needId]), undefined, undefined, true)
+            }
             data-testid="waiting-need-retry"
           >
             <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -674,7 +706,9 @@ function RequestRow({
   const platform = networkOfWaiting(item);
   // Confirm and Delete where the extension answers requests (decision 136): Facebook, LinkedIn and Alignable.
   const answers = answersRequests(platform);
-  const { busy, act } = useAct();
+  const { busy, gone, act } = useAct();
+  // Answered or left: it's off the list at once, before the page has drawn again.
+  if (gone) return <Gone />;
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
@@ -726,6 +760,8 @@ function RequestRow({
                         }),
                       ),
                     answer === 'confirm' ? W.confirming(request.name) : W.deleting(request.name),
+                    undefined,
+                    true,
                   )
                 }
                 data-testid={`waiting-request-${answer}`}
@@ -753,6 +789,8 @@ function RequestRow({
                   }),
                 ),
               W.left(request.name),
+              undefined,
+              true,
             )
           }
           data-testid="waiting-request-leave"

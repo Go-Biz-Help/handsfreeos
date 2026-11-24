@@ -38,7 +38,7 @@ import { outreachPath, type OutreachTab } from '@hfos/core/addons/outreach/setup
 import { AUTO_STATE_KEY, isState } from '../auto/plan';
 import { askKeyOf, type KeptAsk } from '../hfos/asks';
 import { SETTINGS_KEY } from '../hfos/follow';
-import { LIVE_KEY, reportedStatus } from '../hfos/live';
+import { beatNews, LIVE_ACTIVE_KEY, LIVE_KEY, reportedStatus } from '../hfos/live';
 import type { AutoStatus } from '../hfos/messages';
 import { carryOnWords, NEEDS_YOU_LINK, needsYouUrl } from '../hfos/needs-you';
 import { WARNED_KEY } from '../hfos/warned';
@@ -61,8 +61,24 @@ let unders: KeptAsk[] = [];
 /** Where each network's ask under way is kept. */
 const ASK_KEYS = PLATFORM_KEYS.map(askKeyOf);
 
+/**
+ * How long what HandsFreeOS last said of the day (its steps against the limits, Done today, the settings, Get ready)
+ * is shown while the beats' answers say nothing new: five minutes, for what another computer or the app did.
+ */
+export const STATUS_FOR_MS = 5 * 60_000;
+/**
+ * And until the minute's next beat while Get ready still holds the day or an ask is under way here: what those change
+ * is kept only in HandsFreeOS. Under the minute, so the beat a minute on always asks.
+ */
+export const STATUS_SOON_MS = 45_000;
+/** When the background was last asked, and whether this computer was used since (a step of their own, the panel). */
+let askedAt = 0;
+let used = false;
+
 /** Asks the background for the person's choices and where the runner is. */
 export async function refreshStatus(): Promise<void> {
+  askedAt = Date.now();
+  used = false;
   const answer = await ask({ type: 'hfos-auto' });
   if (answer.ok) [status, problem] = [answer.value, null];
   else problem = answer.problem.message;
@@ -456,6 +472,20 @@ function draw(): void {
 }
 
 /**
+ * Whether a beat's answer has the panel ask HandsFreeOS for the day again (0.152.0). Before, every answer did, and
+ * with the panel open that was three requests a beat: every minute, every 20 seconds while a line moved, every 4
+ * while a ticker was on screen. Now only one that can have moved what's shown: it says something new or took a step
+ * (`beatNews`), the person used this computer since the last look (a step of their own counts against the limits),
+ * the last look failed, or the last look is old (`STATUS_FOR_MS`, `STATUS_SOON_MS`).
+ */
+function beatAsks(change: { readonly oldValue?: unknown; readonly newValue?: unknown }): boolean {
+  if (used || beatNews(change.oldValue, change.newValue)) return true;
+  if (problem !== null || !status || status.trouble || !status.today || !status.ready) return true;
+  const soon = !status.ready.ready || unders.length > 0;
+  return Date.now() - askedAt >= (soon ? STATUS_SOON_MS : STATUS_FOR_MS);
+}
+
+/**
  * Draws Next up into `into`, Done today into `done`, how it's doing into the top bar's `chip`, and the settings line
  * into `settingsLine`, and again whenever what they show changes.
  */
@@ -471,9 +501,16 @@ export function startStatus(
     if (area !== 'local') return;
     // An ask's line changes every few seconds: drawn from what's kept, without asking the background.
     if (ASK_KEYS.some((key) => key in changes)) void readAsk();
-    // Changed in HandsFreeOS, a new beat's answer, or a warning: the background has them already.
-    if (SETTINGS_KEY in changes || LIVE_KEY in changes || WARNED_KEY in changes)
-      return void refreshStatus();
+    // The person used this computer: the beat that says so is answered next.
+    if (LIVE_ACTIVE_KEY in changes) used = true;
+    // Changed in HandsFreeOS, a warning, an ask that ended, or a beat's answer that can have moved what's shown: the
+    // background has them already. A panel nobody can see asks nothing: it asks when it's shown again (./panel.ts).
+    const news =
+      SETTINGS_KEY in changes ||
+      WARNED_KEY in changes ||
+      ASK_KEYS.some((key) => key in changes && changes[key]!.newValue === undefined) ||
+      (LIVE_KEY in changes && beatAsks(changes[LIVE_KEY]!));
+    if (news && document.visibilityState !== 'hidden') return void refreshStatus();
     const next: unknown = changes[AUTO_STATE_KEY]?.newValue;
     if (!status || !isState(next)) return;
     status = { ...status, state: next };

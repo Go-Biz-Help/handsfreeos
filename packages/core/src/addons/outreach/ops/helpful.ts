@@ -48,7 +48,7 @@ import { PLAYBOOK_STEPS, takesStep } from '../playbooks';
 import { OUTREACH_WORDS } from '../words';
 import { engagements, helpful } from '../tables';
 import { automationOf } from './automation';
-import { inWorkspace, keptProfile, notOthers, once, type Ctx } from './common';
+import { inWorkspace, keptProfile, notOthers, once, type Ctx, LOOKED_UP } from './common';
 import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
@@ -278,7 +278,7 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
                   and h.asked_at >= ${weekAgo}::timestamptz) as posted_lately,
               (select count(*)::int from addon_outreach.posts po
                 where po.group_id = g.id and po.user_id = ${me}) as asked,
-              ${notOthers(me, 'g')} as free
+              ${notOthers(LOOKED_UP, me, 'g')} as free
             from addon_outreach.groups g
             join addon_outreach.my_groups m on m.group_id = g.id and m.user_id = ${me} and m.joined
             where g.workspace_id = ${ws} and g.platform = 'facebook'

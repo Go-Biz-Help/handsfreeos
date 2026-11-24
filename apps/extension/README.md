@@ -589,6 +589,30 @@ From top to bottom:
   **Something look wrong on this page? Tell us**, folded away, with **Copy page outline** and **Save page outline**
   (below, "When it reads a page wrong").
 
+**How often it asks HandsFreeOS** (0.152.0; the owner's yes of 23 Nov 2026 to "Change the outreach browser extension
+so it asks the server less?", from the speed audit). Next up's bars, Get ready, Done today and the settings line come
+from three look-ups (`outreach.live`, `outreach.readiness`, `outreach.automation`), which the background makes when
+the panel asks (`hfos-auto`). Until 0.152.0 the panel asked after every beat's answer: every minute, every 20 seconds
+while the runner's line moved, every 4 while a ticker was on screen or a step before the first day ran. Nothing looks
+different now, and it asks:
+
+- when it opens or you come back to it, when your settings change, when a warning is seen, and when something you
+  asked of it ends, as before;
+- after a beat's answer that can have moved what it shows (`beatAsks` in `src/panel/status.ts`, `beatNews` in
+  `src/hfos/live.ts`): HandsFreeOS took a step, another computer works now, a day started or stopped, an ask waits,
+  or you used this computer since the last look (a step of your own counts against the limits);
+- otherwise every five minutes (`STATUS_FOR_MS`), for what another computer or the app did; with the minute's beat
+  while Get ready still holds your day or an ask is under way here (`STATUS_SOON_MS`); and after every answer while
+  the last look failed;
+- never while nobody can see the panel (Chrome minimized or covered): it asks the moment it's shown again.
+
+What the runner is doing, its line and an ask's line never came from those look-ups: they're drawn from the
+extension's own storage as they change. **Who's signed in** (`account.me`, `src/hfos/session.ts`) is asked every ten
+minutes for the background's own work (`ME_FOR_MS`; every minute before 0.152.0), and within the minute when the panel
+opens or you come back to it, or while you have nowhere to save (`ME_SHOWN_MS`). A call HandsFreeOS refuses because
+Social Outreach is off there, or out of your reach, has the next look ask again (`doubt`), so a business that's gone
+isn't worked for ten minutes more. `test/panel.test.ts`, `test/live.test.ts` and `test/account.test.ts` hold these.
+
 **Signing in with a prompt** (20261027002910). The person types their email and presses **Send me a prompt**; the
 panel shows a 2-digit number. Their phone gets a push (`extension_sign_in`), and any HandsFreeOS tab open in front of
 them asks "Signing in to the extension on Chrome? Type the number the extension shows." The right number signs the

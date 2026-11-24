@@ -5,7 +5,6 @@
  */
 import { and, eq, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
-import { workspaceTimezone } from '../../../crm/records';
 import { businessDay } from '../automation';
 import {
   clipLine,
@@ -17,14 +16,14 @@ import {
 } from '../live';
 import type { Platform } from '../playbooks';
 import { days, liveSteps } from '../tables';
-import type { Ctx } from './common';
+import { type Ctx, zoneOf } from './common';
 
 /** The business's day now, and its time zone. */
 export async function businessToday(
   ctx: Ctx,
   now = Date.now(),
 ): Promise<{ today: string; timezone: string }> {
-  const timezone = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
+  const timezone = await zoneOf(ctx);
   return { today: businessDay(now, timezone), timezone };
 }
 
@@ -48,6 +47,23 @@ export async function dayOf(
       ),
     );
   return dayShown(row, today);
+}
+
+/**
+ * The person's day on every network, from one read. The extension's heartbeat answers with all of them, every
+ * minute round the clock, and asked once per network: six reads where one does.
+ */
+export async function daysOf(
+  ctx: Ctx,
+  userId: string,
+  today: string,
+): Promise<(platform: Platform) => LiveDay> {
+  const kept = await ctx.tx
+    .select()
+    .from(days)
+    .where(and(eq(days.workspaceId, ctx.scope.workspaceId!), eq(days.userId, userId)));
+  const by = new Map(kept.map((row) => [row.platform, row] as const));
+  return (platform) => dayShown(by.get(platform), today);
 }
 
 export function dayShown(row: typeof days.$inferSelect | undefined, today: string): LiveDay {

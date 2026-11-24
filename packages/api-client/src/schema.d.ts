@@ -96005,6 +96005,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    columns?: ("found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost")[];
                     /** @default 1 */
                     page?: number;
                     /** @enum {string} */
@@ -96028,6 +96029,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        columns?: {
+                            people: {
+                                check: {
+                                    playbookName: string | null;
+                                    /** @enum {string} */
+                                    verdict: "waiting" | "good" | "maybe" | "not" | "failed";
+                                    why: string[];
+                                } | null;
+                                demoBooked: boolean;
+                                lastAt: string | null;
+                                marked: boolean;
+                                name: string;
+                                nextStep: string | null;
+                                personId: string | null;
+                                /**
+                                 * @default facebook
+                                 * @enum {string}
+                                 */
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                                /** Format: uuid */
+                                profileId: string;
+                                /** @enum {string} */
+                                stage: "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost";
+                                threadKey: string | null;
+                                url: string;
+                                why: string[];
+                            }[];
+                            /** @enum {string} */
+                            stage: "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost";
+                        }[];
                         counts: {
                             all: number;
                             booked: number;

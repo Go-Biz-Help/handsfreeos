@@ -48,6 +48,7 @@ import {
   tagIdsFor,
   type Ctx,
   type Profile,
+  LOOKED_UP,
 } from './common';
 import { journeysOf } from './journey';
 import { moveTargets, ownersOf } from './owners';
@@ -260,7 +261,7 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
     }>(
       ctx.tx,
       sql`select coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name,
-            ${partnered('p')} as partner,
+            ${partnered(LOOKED_UP, 'p')} as partner,
             exists (select 1 from addon_outreach.demos d where d.profile_id = p.id and d.user_id = ${me}
               and d.how = 'marked' and d.undone_at is null) as demo_booked,
             (select st.later_until from addon_outreach.stages st

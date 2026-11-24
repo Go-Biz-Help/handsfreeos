@@ -6,14 +6,16 @@
  * Your computer has the person's computers, renamable and removable, one or every one standing by (decision 85;
  * `ComputersCard`), and what they asked their computer to do (`AskedCard`). Each follows changes live, and works out
  * "offline" itself on a 30-second clock (`useServerNow`), so the note shows with no event at all. A heartbeat tells
- * nobody, so while Today is shown it also asks again every minute (`useRefetchWhileShown`), which keeps "last seen"
- * moving: a computer still beating is never called offline.
+ * nobody, so while Today is shown its cards ask for the live view again every minute (`useAskedAgain`), which keeps
+ * "last seen" and the day's counts moving: a computer still beating is never called offline. The page itself draws
+ * again only when something it shows changed (`useRedrawOnChange`; the owner's pick, 23 Nov 2026).
  */
 import { ASK_WORDS } from '@hfos/core/addons/outreach/asks';
 import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import {
   COMPUTER_NAME_MOST,
   isOffline,
+  LIST_REDRAW,
   LIVE_REFETCH_SECONDS,
   seenWords,
   SHOWN_STATES,
@@ -30,13 +32,14 @@ import {
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { ChevronDown, Monitor } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { startTransition, useEffect, useRef, useState } from 'react';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { AskLine } from './asks';
 import type { Asks, Live, LiveTeam } from './types';
@@ -72,15 +75,88 @@ export function useServerNow(serverNow: string, everyMs = 30_000): number {
   return tick && tick.server === server ? tick.now : server;
 }
 
-/** Asks again on a clock while the tab is shown: what a heartbeat brings (the last-seen time) tells nobody. */
-export function useRefetchWhileShown(everyMs = LIVE_REFETCH_SECONDS * 1000): void {
+/**
+ * Asks `ask` again on a clock while the tab is shown, and at once when `heard` moves (a live change the caller
+ * follows), and gives the latest answer: what a heartbeat brings (the last-seen time, the day's counts) tells nobody.
+ * Only this small ask goes out on the clock, never the whole page. Null until the first answer comes, which is for
+ * `key` (what was asked for); an ask that fails, or answers null, keeps the last one.
+ */
+export function useAskedAgain<T>(
+  key: string,
+  ask: () => Promise<T | null>,
+  heard = 0,
+  everyMs = LIVE_REFETCH_SECONDS * 1000,
+): T | null {
+  const [got, setGot] = useState<{ readonly key: string; readonly answer: T } | null>(null);
+  const asker = useRef(ask);
+  useEffect(() => {
+    asker.current = ask;
+  });
+  useEffect(() => {
+    let gone = false;
+    const again = () => {
+      if (document.visibilityState !== 'visible') return;
+      void asker
+        .current()
+        .then((answer) => {
+          if (!gone && answer !== null) setGot({ key, answer });
+        })
+        .catch(() => undefined);
+    };
+    // The first draw has the page's own answer; a change heard since asks at once.
+    if (heard > 0) again();
+    const t = setInterval(again, everyMs);
+    return () => {
+      gone = true;
+      clearInterval(t);
+    };
+  }, [key, heard, everyMs]);
+  return got && got.key === key ? got.answer : null;
+}
+
+/** What changes Today's list: a step noted or someone saved, what needs the person, a day pressed, and the settings. */
+export const TODAY_CHANGES = [
+  'outreach_profile',
+  'outreach_need',
+  'outreach_day',
+  'outreach_automation',
+  'outreach_setup',
+  'outreach_playbook',
+  'addon',
+  'workspace',
+] as const;
+
+/**
+ * Draws the page again when something it shows changed (the owner's pick, 23 Nov 2026: Today no longer redraws on a
+ * clock every minute), as `LIST_REDRAW` says: at most once a minute however much is heard, and once every ten minutes
+ * with nothing heard, for what only the clock changes. A press redraws at once on its own (`useAct`).
+ */
+export function useRedrawOnChange(entityTypes: readonly string[]): void {
   const router = useRouter();
+  const heard = useLiveVersion(entityTypes, 1500);
+  /** When this drew the page last, on the browser's clock: its first draw to start with. */
+  const drawn = useRef(0);
+  useEffect(() => {
+    drawn.current = Date.now();
+  }, []);
+  useEffect(() => {
+    if (heard === 0) return;
+    const wait = Math.max(0, drawn.current + LIST_REDRAW.everySeconds * 1000 - Date.now());
+    const t = setTimeout(() => {
+      drawn.current = Date.now();
+      startTransition(() => router.refresh());
+    }, wait);
+    return () => clearTimeout(t);
+  }, [heard, router]);
   useEffect(() => {
     const t = setInterval(() => {
-      if (document.visibilityState === 'visible') router.refresh();
-    }, everyMs);
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - drawn.current < LIST_REDRAW.idleSeconds * 1000) return;
+      drawn.current = Date.now();
+      startTransition(() => router.refresh());
+    }, 30_000);
     return () => clearInterval(t);
-  }, [router, everyMs]);
+  }, [router]);
 }
 
 /**
@@ -318,7 +394,23 @@ export function ComputersCard({
  * How each person's extension is doing today on one network, for owners and admins (decision 24): on Today, below the
  * person's own (decision 127). Never their lines or messages.
  */
-export function TeamCard({ team, className }: { team: LiveTeam; className?: string }) {
+export function TeamCard({
+  workspaceId,
+  team: drawn,
+  className,
+}: {
+  workspaceId: string;
+  team: LiveTeam;
+  className?: string;
+}) {
+  // Asked again every minute, so someone whose computer still beats is never called offline between redraws.
+  const asked = useAskedAgain(`${workspaceId}:${drawn.platform}`, async () => {
+    const { data } = await apiBrowser().POST('/v1/queries/outreach.live.team', {
+      body: { workspaceId, platform: drawn.platform },
+    });
+    return data ?? null;
+  });
+  const team = asked && Date.parse(asked.now) > Date.parse(drawn.now) ? asked : drawn;
   const now = useServerNow(team.now);
   const words = teamWordsOn(team.platform);
   return (

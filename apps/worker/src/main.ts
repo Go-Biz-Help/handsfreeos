@@ -17,6 +17,7 @@ import { processMigrationJobs } from './migrations/engine/run';
 import { PAYMENT_NAME, WEBHOOK_SECRET_SETTING } from './payments/index';
 import { buildHttpServer } from './http/server';
 import { processJobs } from './jobs';
+import { runLoop } from './loop';
 import { errorMessage, processOnce } from './outbox';
 import { processors } from './processors/index';
 import { ensureRecurringJobs, jobs } from './scheduled';
@@ -206,40 +207,36 @@ for (const name of ['stripe', 'square'] as const) {
 
 let running = true;
 
+const pace = { pollMs: env.pollMs, batchSize: env.batchSize, running: () => running, log };
 /**
- * One loop per queue, each on its own: a workflow step waiting minutes on the AI, or a slow import, holds up
- * its own queue and nothing else, so a text that came in still gets its reply. A loop that claimed a full batch
- * goes again straight away; one that found less waits for the next poll.
+ * Moving a business here from another CRM: its own leased batches, each pass bounded by its page budget, and a
+ * pause between passes like before. No move is running nearly all the time, so after a quiet minute it looks only
+ * every 30 seconds; the outbox loop wakes it when a move's command comes through (`onEvent` below), so pressing
+ * Scan or Start still begins within the second.
  */
-function runLoop(
-  name: string,
-  pass: () => Promise<{ claimed: number }>,
-  opts: { readonly drain: boolean },
-): Promise<void> {
-  return (async () => {
-    while (running) {
-      let claimed = 0;
-      try {
-        const stats = await pass();
-        claimed = stats.claimed;
-        if (claimed > 0) log.info(stats, `${name} pass`);
-      } catch (e) {
-        log.error({ err: e, loop: name }, 'worker pass crashed');
-      }
-      if (running && !(opts.drain && claimed >= env.batchSize))
-        await new Promise((r) => setTimeout(r, env.pollMs));
-    }
-  })();
-}
+const migrationLoop = runLoop(
+  'migration',
+  () => processMigrationJobs({ ...loopDeps, adapters: migrationAdapters }),
+  { drain: false, idle: { afterMs: 60_000, everyMs: 30_000 } },
+  pace,
+);
 const loops = [
-  runLoop('outbox', () => processOnce({ ...loopDeps, handlers }), { drain: true }),
-  runLoop('webhook', () => processDeliveries({ ...loopDeps, processors }), { drain: true }),
-  runLoop('jobs', () => processJobs({ ...loopDeps, jobs }), { drain: true }),
-  // Moving a business here from another CRM: its own leased batches, each pass bounded by its page budget, and
-  // a pause between passes like before.
-  runLoop('migration', () => processMigrationJobs({ ...loopDeps, adapters: migrationAdapters }), {
-    drain: false,
-  }),
+  runLoop(
+    'outbox',
+    () =>
+      processOnce({
+        ...loopDeps,
+        handlers,
+        onEvent: (type) => {
+          if (type.startsWith('migration.')) migrationLoop.wake();
+        },
+      }),
+    { drain: true },
+    pace,
+  ),
+  runLoop('webhook', () => processDeliveries({ ...loopDeps, processors }), { drain: true }, pace),
+  runLoop('jobs', () => processJobs({ ...loopDeps, jobs }), { drain: true }, pace),
+  migrationLoop,
 ];
 
 /**
@@ -251,12 +248,14 @@ const ANSWERS_GRACE_MS = 20_000;
 
 const shutdown = async (signal: string) => {
   running = false;
+  // No loop sits out a wait first: the migration one may be half a minute into its own.
+  for (const loop of loops) loop.wake();
   aiSwitch?.stop();
   log.info({ signal }, 'worker stopping: closing the listener, then finishing the current passes');
   // The listener closes at once; answers streaming to someone hold it open until they end, so both go together.
   const [, answers] = await Promise.all([app.close(), settleAssistantRuns(ANSWERS_GRACE_MS)]);
   if (answers) log.info({ answers }, 'the Assistant’s answers in progress were let finish');
-  await Promise.all(loops);
+  await Promise.all(loops.map((loop) => loop.done));
   await Promise.all([handle.close(), httpHandle.close()]);
   process.exit(0);
 };

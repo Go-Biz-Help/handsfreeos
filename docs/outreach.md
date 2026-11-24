@@ -5289,6 +5289,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `rules`, set on the Settings tab; the extension reads it from `outreach.automation` and keeps no copy but the one
   `src/hfos/follow.ts` writes. Saving the person's settings is what tells the extension (`outreach.automation.saved`
   and `addon.settings_saved` on the live channel), so nothing else needs to.
+- **The extension asks HandsFreeOS only when something can have changed** (the owner's pick on 23 Nov 2026: "Yes,
+  change the extension", on the speed audit's card "Change the outreach browser extension so it asks the server
+  less?"; extension 0.152.0, no migration). Its side panel asked for the day, Get ready and the settings after every
+  beat's answer, and its background asked who's signed in every minute, all day, with nothing changed. Now the panel
+  asks after a beat's answer only when that answer can have moved what it shows, every five minutes otherwise, and
+  never while it's hidden; and who's signed in is asked every ten minutes, or at once after a call refused because
+  Social Outreach is off or out of reach. Nothing a person sees changes. A new thing the panel shows from HandsFreeOS
+  says what moves it (`beatAsks`, `beatNews`), rather than asking on every beat again; the rules and their tests are
+  "How often it asks HandsFreeOS" in `apps/extension/README.md`.
 - **What the AI writes for the person goes through `voice.ts`** (decisions 53 to 55). Every prompt that writes for
   them carries `PLAIN_WRITING` (everyday words, short sentences, relaxed, no long dash), and what comes back is cleaned
   with `noDashes` (a dash between words becomes a comma, between numbers a hyphen) whatever the prompt said. A message
@@ -5701,6 +5710,21 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **Offline is worked out by whoever shows it:** no beat for 3 minutes (`OFFLINE_MINUTES`), on the server's clock
   (`live.now`), so the note shows with no event. A heartbeat tells nobody, so the Live tab asks again every minute
   while it's shown (`LIVE_REFETCH_SECONDS`) to keep the last-seen time moving.
+- **The web's Today draws its whole page again only when something happens** (the owner's pick on 23 Nov 2026; it
+  redrew every minute, 12 to 21 requests each time, whether or not anything had changed). On the minute's clock only
+  the live view is asked for, by the cards that show it: each network's status card (`outreach.live`) and the team's
+  (`outreach.live.team`), so last seen and the limit bars still move every minute (`useAskedAgain`). The list draws
+  again when something it shows changed (`TODAY_CHANGES`: a step noted or someone saved, what needs the person, a day
+  pressed, the settings), at most once a minute however much is heard, and once every ten minutes with nothing heard,
+  for what only the clock changes (`LIST_REDRAW`, `useRedrawOnChange`). A press still redraws at once. A card that
+  works out "offline" from a last-seen time asks for that time on the minute itself: it never waits for a redraw.
+  With the live connection down the page hears a "something may have changed" every minute, so it redraws every
+  minute as it did before.
+- **A press that ends its row takes the row away at once** (speed audit, Nov 2026): Send, Skip, OK, Confirm, Delete,
+  "I did it". `useAct` stays busy from the press until the page has drawn again, so nothing on the row can be pressed
+  twice, and a press that says its row `leaves` has the row draw nothing for that while (`Gone`, and `GONE_ROW` on its
+  list item). The redraw has the last word: a row the answer still lists shows again. A new press that ends a row
+  passes `leaves`; one that changes the row in place doesn't.
 - **Owners and admins see status, counts and how many wait; never lines, feeds or messages** (`outreach.live.team`).
   The feed's lines name the people reached, so they stay the person's own, and the database holds it too: beside the
   add-on's usual policies, restrictive ones let a person read and write only their own `computers`, `days`,
@@ -5896,6 +5920,29 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   requests to decide, a reply's push, a reply or a partner's message drafted or waiting, and Contacts from a chat. A new place that reaches
   people, or tells the person about someone, filters with `contactable` when Don't pitch alone would let them
   through.
+- **A statement is told these rules one of two ways** (`ops/common.ts`: `notNever`, `partnered`, `pitchable`,
+  `contactable`, `isClient`, `notOthers` and `inPlay` each take which). One that goes through many profiles (Today's
+  lists, the checks, the pipeline, Groups, Friends) takes them as lists of profiles read once for the request
+  (`ruledOut`). Written into such a statement the rules are sub-selects Postgres can't count: it expected one profile
+  where thousands passed and joined the rest row by row, which was half of everything the database did (the speed
+  audit, Nov 2026). One about a single profile or a handful looks them up in place (`LOOKED_UP`), which costs less
+  than reading every list; so does a command that has just kept or marked someone, so its answer is never a moment
+  old. A read that a big operation and a small one share takes whatever the request has (`rulesAtHand`), and a
+  command that only reads, like planning a day, holds one read for all of it (`rulesReadOnce`). Both ways say the same
+  of everyone, and `test/addons/outreach-rules-read-once.test.ts` holds them to it: change a rule in both, and there.
+  A statement that takes the lists is always tied to the business (`workspace_id`), since they hold only its own
+  profiles.
+- **A query reads the business's small facts once** (`ops/common.ts`). The add-on's settings (`outreachSettingsOf`,
+  and the rules through it) and the playbooks in use (`playbooksInUse`) are read once for a query however many of its
+  parts ask (`readOnce`), and the time zone once a transaction (`zoneOf`): one Today read the settings seven times,
+  the zone six and the playbooks four (the speed audit, Nov 2026). A command reads the settings and the playbooks
+  each time it asks, since it may have just changed them. What comes back is shared, so nothing changes it in place;
+  a new small fact that many parts want goes through `readOnce` too.
+- **Where everyone stands is worked out once for an answer** (`outreach.stages`, `ops/stages.ts`). One statement
+  works out every person's stage, and the counts, the page asked for and the board's columns all read that. The
+  web's board asks once, with `columns`, and each column is how that stage's own page starts (its first
+  `STAGE_COLUMN_MOST`); it used to ask once for each column, and each ask worked everyone out three times (the speed
+  audit, Nov 2026). Something new on the People page reads the same statement rather than working everyone out again.
 - **Don't pitch refuses the step, not the person.** A step the extension notes to someone on the list is refused
   (`outreach_dont_pitch`) with what to change, so it's never counted as outreach. Saving their profile or a chat
   still works.

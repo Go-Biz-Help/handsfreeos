@@ -33,7 +33,15 @@ import {
 import { outreachAddon } from '../manifest';
 import { PLATFORMS } from '../networks';
 import { demos, profiles } from '../tables';
-import { contactable, inWorkspace, isClient, pitchable, saveProfile, type Ctx } from './common';
+import {
+  contactable,
+  inWorkspace,
+  isClient,
+  pitchable,
+  saveProfile,
+  type Ctx,
+  LOOKED_UP,
+} from './common';
 import { keepMarks } from './stages';
 
 /**
@@ -139,7 +147,7 @@ export const leadOpen = defineAddonCommand(outreachAddon, {
     if (!member) return skip('gone');
     const [standing] = await rows<{ open: boolean; wants: boolean; group_name: string | null }>(
       ctx.tx,
-      sql`select (${contactable('p')} and ${pitchable('p')} and not ${isClient('p')}) as open,
+      sql`select (${contactable(LOOKED_UP, 'p')} and ${pitchable(LOOKED_UP, 'p')} and not ${isClient(LOOKED_UP, 'p')}) as open,
             ${wantsTheOffer(input.userId, 'p')} as wants,
             coalesce(g.name, (select g2.name from addon_outreach.group_people gp
               join addon_outreach.groups g2 on g2.id = gp.group_id

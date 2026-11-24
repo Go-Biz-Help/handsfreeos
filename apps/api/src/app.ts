@@ -47,8 +47,9 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
     void reply.status(404).send(HfosError.noSuchRoute().toBody());
   });
 
-  // Six per machine: Fly runs the API on two, and even on Supavisor's session mode, where every open connection
-  // holds one of the role's pool slots (15 by default), two machines at their busiest (12) fit with room to spare.
+  // Six per machine: Fly runs the API on two, so at their busiest twelve transactions run at once, inside the
+  // role's pool of 20 database connections on the transaction pooler (docs/operations.md, "How many connections
+  // the apps use").
   const db = opts.db ?? createDb(opts.env.databaseUrl, { max: 6, applicationName: 'hfos-api' });
   if (!opts.db) app.addHook('onClose', async () => db.close());
   const verifyToken = opts.verifyToken ?? createTokenVerifier(opts.env);
@@ -66,6 +67,10 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
       VIEW_AS_HEADER,
     ],
     exposedHeaders: ['x-correlation-id', 'x-hfos-events'],
+    // A day, or as long as the browser allows (Chrome two hours, Safari ten minutes). With none, a browser
+    // remembers the answer for five seconds, and separately for each operation's address, so nearly every call the
+    // web made was two requests: the question "may I?" and then the call.
+    maxAge: 86_400,
   });
   await app.register(rateLimit, { global: false });
   await app.register(swagger, {

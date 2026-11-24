@@ -7,7 +7,6 @@
 import { and, between, desc, eq, lte, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { addDays, localDateOf, startOfLocalDay } from '../../../calendar/engine/zoned';
-import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -48,6 +47,7 @@ import {
   seesEveryone,
   type Profile,
   type ProfileKey,
+  zoneOf,
 } from './common';
 import { limitsFor } from './automation';
 import { clearNeeds } from './needs';
@@ -206,7 +206,7 @@ async function messageStep(
     .orderBy(desc(touches.at))
     .limit(1);
   if (before) {
-    const timezone = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
+    const timezone = await zoneOf(ctx);
     return localDateOf(before.at.getTime(), timezone) < localDateOf(at.getTime(), timezone)
       ? 'follow_up'
       : null;
@@ -637,7 +637,7 @@ export async function periodStart(
   days: number,
   timezone?: string,
 ): Promise<string> {
-  const tz = timezone ?? (await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!));
+  const tz = timezone ?? (await zoneOf(ctx));
   return new Date(
     startOfLocalDay(addDays(localDateOf(Date.now(), tz), 1 - days), tz),
   ).toISOString();
@@ -684,7 +684,7 @@ export const activity = defineAddonQuery(outreachAddon, {
         'Only owners and admins (Run Social Outreach) see the whole team’s outreach. Yours is under You.',
         'outreach_activity_everyone',
       );
-    const timezone = await workspaceTimezone(ctx.tx, ws);
+    const timezone = await zoneOf(ctx);
     const today = localDateOf(Date.now(), timezone);
     const from = await periodStart(ctx, ACTIVITY_PERIODS[input.period].days, timezone);
     const todayFrom = new Date(startOfLocalDay(today, timezone)).toISOString();

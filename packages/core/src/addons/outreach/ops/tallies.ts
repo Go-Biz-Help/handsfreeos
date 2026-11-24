@@ -15,7 +15,6 @@ import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
-import { workspaceTimezone } from '../../../crm/records';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { businessDay } from '../automation';
 import { outreachAddon } from '../manifest';
@@ -34,21 +33,10 @@ import {
   type TallyKind,
 } from '../tallies';
 import { computers, liveSteps, tallies } from '../tables';
-import { inWorkspace, seesEveryone, type Ctx } from './common';
+import { inWorkspace, seesEveryone, type Ctx, zoneOf } from './common';
 import { businessToday } from './day';
 import { myComputers, shown, workingOf } from './live';
 import { startOfToday } from './tidy';
-
-/** The business's time zone, looked up once a transaction: a save may count more than one thing. */
-const zones = new WeakMap<object, Promise<string>>();
-function zoneOf(ctx: Ctx): Promise<string> {
-  let zone = zones.get(ctx.tx);
-  if (!zone) {
-    zone = workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
-    zones.set(ctx.tx, zone);
-  }
-  return zone;
-}
 
 /**
  * Adds `n` to the person's count of a kind on a network, for the business's day the thing was done on (`at`, the

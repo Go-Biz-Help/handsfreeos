@@ -10,7 +10,6 @@
  */
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { localDateOf, localInstant } from '../../../calendar/engine/zoned';
-import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -26,7 +25,7 @@ import {
   RequestsPauseOutput,
 } from '../request-pause';
 import { requestPauses } from '../tables';
-import { inWorkspace, type Ctx } from './common';
+import { inWorkspace, type Ctx, zoneOf } from './common';
 
 /** A pause on now: till when, the business day it ends on ("2026-12-01"), and the network's words. */
 export interface RequestsPause {
@@ -60,7 +59,7 @@ export async function requestsPauseOf(
     )
     .limit(1);
   if (!kept || kept.endedAt !== null || kept.until.getTime() <= now) return null;
-  const timeZone = await workspaceTimezone(ctx.tx, ws);
+  const timeZone = await zoneOf(ctx);
   return { until: kept.until, day: localDateOf(kept.until.getTime(), timeZone), words: kept.words };
 }
 
@@ -87,7 +86,7 @@ export const requestsPause = defineAddonCommand(outreachAddon, {
       );
     const at = changeMoment(ctx.meta);
     const now = at.getTime();
-    const timeZone = await workspaceTimezone(ctx.tx, ws);
+    const timeZone = await zoneOf(ctx);
     const mine = and(
       eq(requestPauses.workspaceId, ws),
       eq(requestPauses.userId, me),

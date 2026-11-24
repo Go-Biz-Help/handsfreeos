@@ -13,7 +13,6 @@
  */
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
-import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -39,7 +38,7 @@ import { automation, autopilotPeople } from '../tables';
 import type { TodayKind } from '../today';
 import type { Platform } from '../networks';
 import { automationOf } from './automation';
-import { inWorkspace, type Ctx } from './common';
+import { inWorkspace, type Ctx, rulesReadOnce, zoneOf } from './common';
 import { todayFor } from './today';
 
 /** How many on a day's list still wait for the OK. */
@@ -55,7 +54,7 @@ async function waitingOn(ctx: Ctx, me: string, day: string): Promise<number> {
 
 /** The business's day at `now`, and its time zone. */
 async function dayOf(ctx: Ctx, now: number) {
-  const timeZone = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
+  const timeZone = await zoneOf(ctx);
   return { timeZone, day: businessDay(now, timeZone) };
 }
 
@@ -99,10 +98,9 @@ export const autopilotPlan = defineAddonCommand(outreachAddon, {
     for (const platform of networksShown(settings, rules.networksAllowed).filter((p) =>
       piloted.includes(p),
     )) {
-      const { list, most } = await todayFor(
-        ctx,
-        { workspaceId: input.workspaceId, platform },
-        true,
+      // Building a day keeps nobody and marks nobody: the rules are read once for each network's.
+      const { list, most } = await rulesReadOnce(ctx, () =>
+        todayFor(ctx, { workspaceId: input.workspaceId, platform }, true),
       );
       const used = Object.fromEntries(DAILY_STEPS.map((s) => [s, 0])) as Record<DailyStep, number>;
       for (const i of [...list.items, ...(list.partners ?? [])]) {

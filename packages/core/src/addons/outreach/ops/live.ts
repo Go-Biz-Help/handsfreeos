@@ -60,7 +60,7 @@ import { asksWaiting } from './ask-rows';
 import { inWorkspace, type Ctx } from './common';
 import { listsOf } from './lists';
 import { readinessFor } from './readiness';
-import { businessToday, dayOf, dayShown, keepDay, writeLine } from './day';
+import { businessToday, dayOf, daysOf, dayShown, keepDay, writeLine } from './day';
 import { dayCounts } from './today';
 import { waitingFor } from './waiting';
 import { slowsNow, startOfToday, warningOf } from './tidy';
@@ -310,18 +310,15 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
         payload: { userId: me, state, working: isWorking, made: isNew },
       });
     const { today } = await businessToday(ctx, now.getTime());
+    const dayOn = await daysOf(ctx, me, today);
     return {
       computerId: kept!.id,
       name: kept!.name,
       working: isWorking,
       workingName: isWorking ? null : (working?.name ?? null),
       // Facebook's day, as every build follows it; each other network's beside it, for its own runner.
-      day: await dayOf(ctx, me, 'facebook', today),
-      days: Object.fromEntries(
-        await Promise.all(
-          OTHER_PLATFORMS.map(async (p) => [p, await dayOf(ctx, me, p, today)] as const),
-        ),
-      ),
+      day: dayOn('facebook'),
+      days: Object.fromEntries(OTHER_PLATFORMS.map((p) => [p, dayOn(p)] as const)),
       stepsKept: input.steps.map((s) => s.id),
       asks: isWorking ? await asksWaiting(ctx, me, now.getTime()) : 0,
       watched: isWorking && watched,

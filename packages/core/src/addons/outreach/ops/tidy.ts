@@ -10,7 +10,6 @@
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { localDateOf, startOfLocalDay } from '../../../calendar/engine/zoned';
-import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -76,6 +75,8 @@ import {
   pitchable,
   requestAnswerColumns,
   type Ctx,
+  LOOKED_UP,
+  zoneOf,
 } from './common';
 import { endedWarmUp } from './keep-warm';
 import { tally } from './tallies';
@@ -87,7 +88,7 @@ const DAY = 24 * HOUR;
 
 /** Midnight today in the business's time zone. */
 export async function startOfToday(ctx: Ctx, now = Date.now()): Promise<Date> {
-  const timezone = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
+  const timezone = await zoneOf(ctx);
   return new Date(startOfLocalDay(localDateOf(now, timezone), timezone));
 }
 
@@ -291,7 +292,7 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
                 from addon_outreach.friends f
                 join addon_outreach.profiles p on p.id = f.profile_id
                 where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
-                  and f.state = 'friends' and not f.keep and p.person_id is null and ${pitchable('p')}
+                  and f.state = 'friends' and not f.keep and p.person_id is null and ${pitchable(LOOKED_UP, 'p')}
                   and not exists (select 1 from addon_outreach.file_chats c
                     where c.profile_id = p.id and c.user_id = ${me} and c.prospect)
               ) l
@@ -317,13 +318,13 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
           ctx.tx,
           sql`select * from (
                 select p.id, p.name, p.url, p.platform_id, p.username, f.since, null as last_contact, p.intro,
-                  p.mutual_friends, g.name as group_name, ${requestAnswerColumns}, ${neverDeleted(me)} as kept
+                  p.mutual_friends, g.name as group_name, ${requestAnswerColumns}, ${neverDeleted(LOOKED_UP, me)} as kept
                 from addon_outreach.friends f
                 join addon_outreach.profiles p on p.id = f.profile_id
                 left join addon_outreach.groups g on g.id = p.group_id
                 left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
                 where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
-                  and f.state = 'request_received' and ${contactable('p')}
+                  and f.state = 'request_received' and ${contactable(LOOKED_UP, 'p')}
               ) r
               where r.pressed = 'delete'
                 or ${deletesRequests(answering) ? sql`(r.pressed is null and not r.kept)` : sql`false`}
@@ -571,7 +572,7 @@ export const warningNote = defineAddonCommand(outreachAddon, {
     await wheelsBackOn(ctx, me, input.platform);
     // The network's day stops in HandsFreeOS too, whatever was pressed (decision 41): every computer of theirs
     // follows it. The person's other networks go on.
-    await warnDay(ctx, me, input.platform, at, words[0]!, await workspaceTimezone(ctx.tx, ws));
+    await warnDay(ctx, me, input.platform, at, words[0]!, await zoneOf(ctx));
     await ctx.emit({
       type: 'outreach.warning.seen',
       entityType: 'workspace',

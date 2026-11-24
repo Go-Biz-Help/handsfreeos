@@ -4,11 +4,11 @@
  * security decides what a request sees.
  */
 import { and, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
-import { rows } from '@hfos/db/client';
+import { rows, type Tx } from '@hfos/db/client';
 import { people, recordTags, tags } from '@hfos/db/schema';
 import { personClientCause, personIsClient } from '../../../crm/clients';
 import { CLIENT_CAUSES, type ClientCause } from '../../../crm/record-words';
-import { fullName, requirePerson, userRef } from '../../../crm/records';
+import { fullName, requirePerson, userRef, workspaceTimezone } from '../../../crm/records';
 import { personCreate } from '../../../commands/person.create';
 import { tagCreate } from '../../../commands/tag.create';
 import { splitName } from '../../../inbox/contact';
@@ -57,6 +57,15 @@ type ProfileRow = typeof profiles.$inferInsert;
 export const nameKeyOf = (p: string) =>
   sql`lower(regexp_replace(btrim(${sql.raw(p)}.name), '[[:space:]]+', ' ', 'g'))`;
 
+/**
+ * The same key, the quick way where it can be: a name with nothing to tidy (no space at either end, no two in a row,
+ * and none but a plain space) is its own key but for capitals, and looking for something to tidy costs a fraction
+ * of tidying. For `ruledOutIn`, which keys every profile of the business.
+ */
+const quickNameKeyOf = (p: string) =>
+  sql`(case when ${sql.raw(p)}.name ~ '^ | $|[[:space:]]{2}|(?! )[[:space:]]' then ${nameKeyOf(p)}
+    else lower(${sql.raw(p)}.name) end)`;
+
 /** A profile marked never pitched itself: on Don't pitch, or a customer tagged Friend or family. `p` is its alias. */
 export const markedNever = (p: string) => sql`(${sql.raw(p)}.dont_pitch or exists (
   select 1 from app.record_tags rt join app.tags tg on tg.id = rt.tag_id
@@ -102,12 +111,195 @@ const customerNever = (p: string) =>
   sql`(${sql.raw(p)}.person_id is not null and ${sql.raw(p)}.person_id in (${neverPeople}))`;
 
 /**
+ * Who the business's rules take out of outreach, each as a list of this business's profiles, read once (`ruledOut`) and
+ * handed to every statement that asks.
+ *
+ * Written into a statement, each rule is sub-selects over every profile. Postgres can't tell how many rows such a test
+ * keeps, so a dozen of them made it expect one profile where thousands passed, and it joined the rest row by row: half
+ * of everything the database did (the speed audit, Nov 2026). A list of ids it can count, and the names are compared
+ * once a request, not once a statement.
+ *
+ * The rules themselves are as they were, and as `LOOKED_UP` still writes them:
+ * - never pitched: on Don't pitch, their customer tagged Friend or family, or on Never contact; and their twins, a
+ *   profile kept under the same name on the same network, or another profile on the same customer, on any network
+ *   (`neverTwins`: across networks only the customer counts, never the name);
+ * - a partner: found as one (decision 81), and their twins the same way;
+ * - never contacted: on Never contact, and their twins the same way;
+ * - a client: their customer is one (`OUTREACH_CLIENT_CAUSES`, decision 91), or they're kept under a client's name on
+ *   the same network.
+ */
+export interface RuleLists {
+  /** Everyone `notNever` leaves out. */
+  readonly never: string;
+  /** Everyone `partnered` takes in. */
+  readonly partner: string;
+  /** Everyone `pitchable` leaves out: `never` and `partner` together. */
+  readonly unpitched: string;
+  /** Everyone `contactable` leaves out. */
+  readonly off: string;
+  /** Everyone `isClient` takes in. */
+  readonly client: string;
+  /** Everyone here who uses Social Outreach: `notOthers` leaves the person themselves out. */
+  readonly working: readonly string[];
+}
+
+/**
+ * The rules looked up inside the statement itself, profile by profile, with nothing read first: for a statement about
+ * one profile or a handful (a person's menu, a step noted, a request answered), where reading every list first would
+ * cost more than it saves. A command that has just kept or marked someone asks this way too, so the answer is never a
+ * moment old.
+ */
+export const LOOKED_UP = 'looked-up';
+
+/**
+ * How a statement is told the rules: the lists read once (`ruledOut`), for one that goes through many profiles, or
+ * `LOOKED_UP`. Both say the same of everyone: test/addons/outreach-rules-read-once.test.ts holds them to it.
+ */
+export type RuledOut = RuleLists | typeof LOOKED_UP;
+
+/**
+ * No profile's id. It stands in every list, so that a profile that isn't there (the empty side of a left join) is
+ * neither in nor out, as the rules looked up say of it: against an empty list it would be plainly out of the list.
+ */
+const NOBODY = '00000000-0000-0000-0000-000000000000';
+
+/**
+ * Who the rules of the business `ws` take out of outreach, read now through `tx`. Operations ask `ruledOut`, which
+ * knows what the request has read already; this is the read itself, and what the rules' test asks.
+ */
+export async function ruledOutIn(tx: Tx, ws: string): Promise<RuleLists> {
+  const [found] = await rows<{
+    never: string;
+    partner: string;
+    unpitched: string;
+    off: string;
+    client: string;
+    working: string[];
+  }>(
+    tx,
+    sql`with tagged as materialized (
+          select rt.record_id as person_id from app.record_tags rt join app.tags tg on tg.id = rt.tag_id
+          where rt.record_type = 'person' and lower(tg.name::text) = lower(${DONT_PITCH_TAG})),
+        -- The profiles that carry a mark themselves, or stand for a customer who does.
+        marked as materialized (
+          select m.platform, m.person_id, ${quickNameKeyOf('m')} as name_key, m.dont_pitch, m.never_contact,
+            m.partner_found_at is not null as partner,
+            (m.person_id is not null and m.person_id in (select t.person_id from tagged t)) as tagged,
+            (m.person_id is not null and exists (select 1 from app.people cp
+              where cp.id = m.person_id and ${personIsClient('cp', OUTREACH_CLIENT_CAUSES)})) as client
+          from addon_outreach.profiles m
+          where m.workspace_id = ${ws}
+            and (m.dont_pitch or m.never_contact or m.partner_found_at is not null or m.person_id is not null)),
+        covered as (
+          -- Kept under a marked profile's name on its network: itself, and anyone kept twice.
+          select a.id, (m.dont_pitch or m.never_contact or m.tagged) as never, m.partner, m.never_contact as off,
+            m.client
+          from addon_outreach.profiles a
+          join marked m on m.platform = a.platform and m.name_key = ${quickNameKeyOf('a')}
+          where a.workspace_id = ${ws}
+            and (m.dont_pitch or m.never_contact or m.tagged or m.partner or m.client)
+          union all
+          -- Another profile on a marked profile's customer, on any network. (A client's own customer is the same
+          -- customer, so their other profiles are in by the name's half above: each is marked itself.)
+          select a.id, (m.dont_pitch or m.never_contact) as never, m.partner, m.never_contact as off, false as client
+          from addon_outreach.profiles a
+          join marked m on m.person_id = a.person_id
+          where a.workspace_id = ${ws} and (m.dont_pitch or m.never_contact or m.partner))
+        select
+          (array_agg(distinct c.id) filter (where c.never) || ${NOBODY}::uuid)::text as never,
+          (array_agg(distinct c.id) filter (where c.partner) || ${NOBODY}::uuid)::text as partner,
+          (array_agg(distinct c.id) filter (where c.never or c.partner) || ${NOBODY}::uuid)::text as unpitched,
+          (array_agg(distinct c.id) filter (where c.off) || ${NOBODY}::uuid)::text as off,
+          (array_agg(distinct c.id) filter (where c.client) || ${NOBODY}::uuid)::text as client,
+          (select coalesce(array_agg(w.user_id), '{}') from app.workspace_memberships w
+            where w.workspace_id = ${ws}
+              and 'outreach.use' = any (private.user_permissions(w.user_id, w.workspace_id))) as working
+        from covered c`,
+  );
+  return found!;
+}
+
+/**
+ * The business's time zone, looked up once a transaction: one day's list asked for it six times, and a save may
+ * count more than one thing (speed audit, Nov 2026). Nothing Social Outreach does changes it, so in a command too.
+ */
+const zones = new WeakMap<object, Map<string, Promise<string>>>();
+export function zoneOf(ctx: Ctx): Promise<string> {
+  const ws = ctx.scope.workspaceId!;
+  let had = zones.get(ctx.tx);
+  if (!had) zones.set(ctx.tx, (had = new Map()));
+  let zone = had.get(ws);
+  if (!zone) had.set(ws, (zone = workspaceTimezone(ctx.tx, ws)));
+  return zone;
+}
+
+/** The business's small facts a query has read already, by name: its settings, its playbooks. */
+const factsRead = new WeakMap<object, Map<string, Promise<unknown>>>();
+
+/**
+ * Reads one of the business's small facts once for a query, however many of its parts ask: one day's list read the
+ * add-on's settings seven times and the playbooks four (speed audit, Nov 2026). A command reads it each time it
+ * asks, since it may have just changed it. What comes back is shared, so nobody changes it in place.
+ */
+export function readOnce<T>(ctx: Ctx, fact: string, read: () => Promise<T>): Promise<T> {
+  if ('emit' in ctx) return read();
+  let had = factsRead.get(ctx);
+  if (!had) factsRead.set(ctx, (had = new Map()));
+  let found = had.get(fact) as Promise<T> | undefined;
+  if (!found) had.set(fact, (found = read()));
+  return found;
+}
+
+/** The rules as a request has read them already: a query's, or a command's while `rulesReadOnce` holds them. */
+const readAlready = new WeakMap<object, Promise<RuleLists>>();
+
+/**
+ * Who the business's rules take out of outreach, as lists (`RuleLists`), as things stand now: for a statement that
+ * goes through many profiles. A query reads them once however many lists it builds. A command reads them each time it
+ * asks, since it may have just changed a mark, unless `rulesReadOnce` holds them for it.
+ */
+export function ruledOut(ctx: Ctx): Promise<RuleLists> {
+  const held = readAlready.get(ctx);
+  if (held) return held;
+  const read = ruledOutIn(ctx.tx, ctx.scope.workspaceId!);
+  if (!('emit' in ctx)) readAlready.set(ctx, read);
+  return read;
+}
+
+/**
+ * The lists when the request has read them already, else `LOOKED_UP`: for a statement about a few profiles that a
+ * big read (Today) and a small one (Needs you) both run. It never reads them itself.
+ */
+export async function rulesAtHand(ctx: Ctx): Promise<RuledOut> {
+  return (await readAlready.get(ctx)) ?? LOOKED_UP;
+}
+
+/**
+ * Runs `read` with the rules read once for all it asks, in a command too: for a read that changes nobody's marks and
+ * keeps nobody new, like building someone's day to plan it.
+ */
+export async function rulesReadOnce<T>(ctx: Ctx, read: () => Promise<T>): Promise<T> {
+  if (readAlready.has(ctx)) return read();
+  readAlready.set(ctx, ruledOutIn(ctx.tx, ctx.scope.workspaceId!));
+  try {
+    return await read();
+  } finally {
+    if ('emit' in ctx) readAlready.delete(ctx);
+  }
+}
+
+/** A list of ids as a statement takes it. */
+const idList = (list: string) => sql`${list}::uuid[]`;
+
+/**
  * A profile that may be reached at all as Don't pitch allows: neither it nor a twin of it (`neverTwins`) is marked
  * never pitched, nor on Never contact. Once it isn't marked itself, any profile marked never pitched under its name, or
  * on its customer, is a twin. A partner (`partnered`) is one, and is asked to partner, never pitched. `p` is its alias.
  */
-export const notNever = (p: string) =>
-  sql`(not ${markedNever(p)} and not ${namedNever(p)} and not ${customerNever(p)})`;
+export const notNever = (r: RuledOut, p: string) =>
+  r === LOOKED_UP
+    ? sql`(not ${markedNever(p)} and not ${namedNever(p)} and not ${customerNever(p)})`
+    : sql`(${sql.raw(p)}.id <> all (${idList(r.never)}))`;
 
 /**
  * Every profile found as a partner (decision 81), as its workspace, network and name, and every customer with one,
@@ -123,16 +315,21 @@ const partnerPeople = sql`select m.person_id from addon_outreach.profiles m
  * network, or another profile on its customer, on any network, as Don't pitch's twins are (`neverTwins`). `p` is its
  * alias.
  */
-export const partnered = (p: string) =>
-  sql`(${sql.raw(p)}.partner_found_at is not null
+export const partnered = (r: RuledOut, p: string) =>
+  r === LOOKED_UP
+    ? sql`(${sql.raw(p)}.partner_found_at is not null
     or (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) in (${partnerNames})
-    or (${sql.raw(p)}.person_id is not null and ${sql.raw(p)}.person_id in (${partnerPeople})))`;
+    or (${sql.raw(p)}.person_id is not null and ${sql.raw(p)}.person_id in (${partnerPeople})))`
+    : sql`(${sql.raw(p)}.id = any (${idList(r.partner)}))`;
 
 /**
  * A profile that's pitched as a customer: one that may be reached (`notNever`), and neither it nor a twin was found as
  * a partner, who's asked to partner instead (decision 81). `p` is its alias.
  */
-export const pitchable = (p: string) => sql`(${notNever(p)} and not ${partnered(p)})`;
+export const pitchable = (r: RuledOut, p: string) =>
+  r === LOOKED_UP
+    ? sql`(${notNever(r, p)} and not ${partnered(r, p)})`
+    : sql`(${sql.raw(p)}.id <> all (${idList(r.unpitched)}))`;
 
 /**
  * A profile someone can still send a friend request (decision 156): not one whose page the extension found with no
@@ -166,8 +363,8 @@ export const requestAnswerColumns = sql`case when f.answer_at >= f.since then f.
  * Someone whose friend request is never deleted but by the person (decisions 121 and 136): kept, in Contacts, chatted
  * with, a partner, or on Don't pitch. `f` is the request, `p` its profile, and `me` the person (an id or a column).
  */
-export const neverDeleted = (me: string | SQL, p = 'p', f = 'f') =>
-  sql`(${sql.raw(f)}.keep or ${sql.raw(p)}.person_id is not null or not ${pitchable(p)} or ${chattedWith(me, p)})`;
+export const neverDeleted = (r: RuledOut, me: string | SQL, p = 'p', f = 'f') =>
+  sql`(${sql.raw(f)}.keep or ${sql.raw(p)}.person_id is not null or not ${pitchable(r, p)} or ${chattedWith(me, p)})`;
 
 /**
  * A playbook that's after customers: any but a partner playbook (decision 81), whose audience is reached through
@@ -191,9 +388,11 @@ const offPeople = sql`select m.person_id from addon_outreach.profiles m
  * profile on its customer, is on Never contact. Stronger than `pitchable`, which leaves them out too: this is for what
  * Don't pitch still allows, like a friend request to decide, a reply's push or a message drafted. `p` is its alias.
  */
-export const contactable = (p: string) =>
-  sql`(not ${sql.raw(p)}.never_contact and (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) not in (${offNames})
-    and (${sql.raw(p)}.person_id is null or ${sql.raw(p)}.person_id not in (${offPeople})))`;
+export const contactable = (r: RuledOut, p: string) =>
+  r === LOOKED_UP
+    ? sql`(not ${sql.raw(p)}.never_contact and (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) not in (${offNames})
+    and (${sql.raw(p)}.person_id is null or ${sql.raw(p)}.person_id not in (${offPeople})))`
+    : sql`(${sql.raw(p)}.id <> all (${idList(r.off)}))`;
 
 /**
  * Whether a profile has a twin marked never pitched (`neverTwins`): for one not marked itself, any profile marked
@@ -244,9 +443,11 @@ const clientNames = sql`select m.workspace_id, m.platform, ${nameKeyOf('m')} fro
  * A client (decision 91): the profile's customer is one, on any network, or a profile kept under its name on its
  * network is on one. A client gets no outreach (`inPlay`, `outreach_client`), only replies. `p` is its alias.
  */
-export const isClient = (p: string) =>
-  sql`((${sql.raw(p)}.person_id is not null and ${sql.raw(p)}.person_id in (${clientPeople}))
-    or (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) in (${clientNames}))`;
+export const isClient = (r: RuledOut, p: string) =>
+  r === LOOKED_UP
+    ? sql`((${sql.raw(p)}.person_id is not null and ${sql.raw(p)}.person_id in (${clientPeople}))
+    or (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) in (${clientNames}))`
+    : sql`(${sql.raw(p)}.id = any (${idList(r.client)}))`;
 
 /**
  * Someone whose warm-up ended with no answer (decision 161): their request was withdrawn after it
@@ -301,25 +502,30 @@ const othersWorking = (
  * `me`'s, or theirs who no longer uses Social Outreach. A group is whoever worked it first; a person whoever reached
  * them first; an owner or admin moves either (`outreach.owner.move`). `x` is its alias.
  */
-export const notOthers = (me: string, x: string) =>
-  sql`(${sql.raw(x)}.owner_user_id is null
+export const notOthers = (r: RuledOut, me: string, x: string) => {
+  if (r === LOOKED_UP)
+    return sql`(${sql.raw(x)}.owner_user_id is null
     or (${sql.raw(x)}.workspace_id, ${sql.raw(x)}.owner_user_id) not in (${othersWorking(me)}))`;
+  const others = r.working.filter((userId) => userId !== me);
+  return sql`(${sql.raw(x)}.owner_user_id is null
+    or ${sql.raw(x)}.owner_user_id <> all (${idList(`{${others.join(',')}}`)}))`;
+};
 
 /**
  * A profile still in play for the person `me`, whoever reached them first: open to them (`openToMe`), not a client
  * (`isClient`, decision 91), who gets no outreach, and not on their Later (`notLater`, decision 100). For what answers
  * their own move (a follow back) or a demo they booked through the person's link. `p` is its alias.
  */
-export const inPlayAnyOwner = (me: string, p: string) =>
-  sql`(${openToMe(me, p)} and not ${isClient(p)} and ${notLater(me, p)})`;
+export const inPlayAnyOwner = (r: RuledOut, me: string, p: string) =>
+  sql`(${openToMe(me, p)} and not ${isClient(r, p)} and ${notLater(me, p)})`;
 
 /**
  * A profile still in play for the person `me` (`inPlayAnyOwner`) that isn't another teammate's (`notOthers`, decision
  * 107). Every pick on Today but a reply they're owed, their friend request to confirm, a follow back and a booked
  * demo's messages goes by it. `p` is its alias.
  */
-export const inPlay = (me: string, p: string) =>
-  sql`(${inPlayAnyOwner(me, p)} and ${notOthers(me, p)})`;
+export const inPlay = (r: RuledOut, me: string, p: string) =>
+  sql`(${inPlayAnyOwner(r, me, p)} and ${notOthers(r, me, p)})`;
 
 /**
  * The profiles the client rule covers for one customer (`isClient`): every profile on them, on any network, and any
@@ -345,7 +551,7 @@ export async function clientProfiles(ctx: CommandContext, personId: string): Pro
 export async function clientOf(ctx: Ctx, profileId: string): Promise<ClientStanding> {
   const [found] = await rows<{ is_client: boolean; tagged: boolean; because: ClientCause | null }>(
     ctx.tx,
-    sql`select ${isClient('p')} as is_client,
+    sql`select ${isClient(LOOKED_UP, 'p')} as is_client,
           (cp.id is not null and ${personIsClient('cp', ['tagged'])}) as tagged,
           ${personClientCause('cp', OTHER_CAUSES)} as because
         from addon_outreach.profiles p
@@ -437,13 +643,15 @@ export async function tagIdsFor(ctx: CommandContext, names: readonly string[]): 
 }
 
 /** The business's Social Outreach settings, as they're read: the defaults where they aren't set. */
-export async function outreachSettingsOf(ctx: Ctx): Promise<OutreachSettings> {
-  const [installed] = await rows<{ settings: unknown }>(
-    ctx.tx,
-    sql`select settings from app.addon_installations
-        where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
-  );
-  return outreachSettings(installed?.settings);
+export function outreachSettingsOf(ctx: Ctx): Promise<OutreachSettings> {
+  return readOnce(ctx, 'settings', async () => {
+    const [installed] = await rows<{ settings: unknown }>(
+      ctx.tx,
+      sql`select settings from app.addon_installations
+          where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
+    );
+    return outreachSettings(installed?.settings);
+  });
 }
 
 /**
