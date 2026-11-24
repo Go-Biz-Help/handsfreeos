@@ -621,7 +621,7 @@ describe('skipping people for country', () => {
   });
 
   it('refuses a business setting it can’t use', async () => {
-    const problem = outreachAddonServer.manifest.settings!.workspace!.safeParse({
+    const problem = outreachAddonServer.settings!.workspace!.safeParse({
       countries: { mode: 'only', codes: [] },
     });
     expect(problem.success).toBe(false);

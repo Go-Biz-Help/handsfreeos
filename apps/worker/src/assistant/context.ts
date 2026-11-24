@@ -451,7 +451,11 @@ export async function questionContext(
   return {
     organizationId: workspace.organizationId,
     timezone: workspace.timezone,
-    places: addonPlaces(addons.catalog ?? ADDON_CATALOG, workspace.addons, workspace.permissions),
+    places: addonPlaces(
+      addons.modules ?? ADDON_SERVER_MODULES,
+      workspace.addons,
+      workspace.permissions,
+    ),
     tools: [
       ...toolsFor(can),
       // What the person's screens show that the tools above don't read: each screen's query, as a look-up.
@@ -517,7 +521,7 @@ export async function questionContext(
       attention: attentionFor(attention),
       addons: addonDirectory(addons.catalog ?? ADDON_CATALOG, workspace.addons),
       addonPlaces: addonPlacesText(
-        addons.catalog ?? ADDON_CATALOG,
+        addons.modules ?? ADDON_SERVER_MODULES,
         workspace.addons,
         workspace.permissions,
       ),

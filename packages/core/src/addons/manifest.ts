@@ -9,8 +9,6 @@
  * carries its id as a prefix (`pm.lease.create`, `pm_property`, `addon_pm`), so what it owns is always mechanical to
  * find, check and remove.
  */
-import type { z } from 'zod';
-import type { AppPlace } from '../assistant/places-map';
 import { RECORD_ICONS } from '../relationships/words';
 
 /**
@@ -278,11 +276,12 @@ export interface AddonPublicPage {
   readonly query: string;
 }
 
+/**
+ * What an add-on says of its settings. Their shapes (the business's, and each person's own) are in its server half
+ * (`AddonServerModule.settings`), never here: every signed-in page loads the manifests, and a schema brings the
+ * add-on's words and rules with it (the speed audit, Nov 2026).
+ */
 export interface AddonSettingsDeclaration {
-  /** The business's settings, checked on every save. Stored in `app.addon_installations.settings`. */
-  readonly workspace?: z.ZodType;
-  /** Each person's own settings, stored in `app.addon_user_settings`. */
-  readonly user?: z.ZodType;
   /** The settings' shape; the worker upgrades stored settings from older versions when the add-on comes back. */
   readonly version: number;
   /** Who may change the business's settings. Defaults to `addons.manage`. */
@@ -531,14 +530,12 @@ export interface AddonManifest {
   };
   /**
    * What the AI reads while the add-on is on, in a business it runs in (never the fixed instructions): one line on what
-   * its tools cover ("properties, units, leases, rent"); its pages, each the way there from the side menu in the
-   * screens' own words, paths under its own (`/a/<id>`), so the Assistant names them and knows the one a question is
-   * asked from; and the words it shares with core's pages, said outright.
+   * its tools cover ("properties, units, leases, rent"). Where its pages are, and the words it shares with core's
+   * pages, are in its server half (`AddonServerModule.ai`): they are written from the add-on's own words, which the
+   * manifest keeps out of every signed-in page.
    */
   readonly ai?: {
     readonly directory: string;
-    readonly places?: readonly AppPlace[];
-    readonly lookAlikes?: readonly string[];
   };
   /** What the AI teammate may look up and ask for in a customer's conversation (round seven). */
   readonly teammate?: AddonTeammate;
@@ -933,9 +930,8 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
       if (!/^[A-Za-z][A-Za-z0-9_]{0,62}$/.test(k))
         say(`offline setting "${k}" isn't a settings key`);
       if (SECRET_COLUMN.test(k)) say(`offline setting "${k}" looks like a secret`);
-      const shape = (m.settings?.workspace as { shape?: Record<string, unknown> } | undefined)
-        ?.shape;
-      if (!shape || !(k in shape)) say(`offline setting "${k}" isn't one of its settings`);
+      // That it is one of its settings is `addonModuleIssues`': the shape is in its server half.
+      if (!m.settings) say(`offline setting "${k}" is named, and it declares no settings`);
     }
     unique('offline setting', m.offline.settings ?? []);
     for (const f of m.offline.files ?? []) {

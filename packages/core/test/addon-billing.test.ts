@@ -24,7 +24,7 @@ import {
   type HumanActor,
   type SystemActor,
 } from '../src/server';
-import { FIXTURE_CATALOG } from './addons/fixtures';
+import { FIXTURE_CATALOG, FIXTURE_MODULES } from './addons/fixtures';
 
 const api = () => testDbs().api.db;
 const worker = () => testDbs().worker.db;
@@ -37,7 +37,7 @@ const human = (u: TestUser): HumanActor => ({
   claims: u.claims,
 });
 
-const lifecycle = addonLifecycleCommands(FIXTURE_CATALOG);
+const lifecycle = addonLifecycleCommands(FIXTURE_CATALOG, FIXTURE_MODULES);
 const billing = addonBillingCommands(FIXTURE_CATALOG);
 const grants = addonGrantCommands(FIXTURE_CATALOG);
 const queries = addonQueries(FIXTURE_CATALOG);

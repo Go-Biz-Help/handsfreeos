@@ -516,9 +516,13 @@ import { migrationCommands } from './migration';
 
 import { addonLifecycleCommands } from './addon';
 import { ADDON_CATALOG } from '../addons/catalog';
+import { ADDON_SERVER_MODULES } from '../addons/modules';
 
-/** Installing, turning on and off, uninstalling and deleting add-ons' data, over the real catalogue (0108). */
-const addonCommands = addonLifecycleCommands(ADDON_CATALOG);
+/**
+ * Installing, turning on and off, uninstalling and deleting add-ons' data, over the real catalogue (0108). The
+ * modules are for the shapes of their settings, which a save is checked against.
+ */
+const addonCommands = addonLifecycleCommands(ADDON_CATALOG, ADDON_SERVER_MODULES);
 export const {
   install: addonInstall,
   enable: addonEnable,

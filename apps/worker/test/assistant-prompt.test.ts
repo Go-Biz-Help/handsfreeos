@@ -1,6 +1,5 @@
 import type { AiToolDefinition } from '@hfos/ai';
 import {
-  ADDON_CATALOG,
   ADDON_SERVER_MODULES,
   addonPlaces,
   addonPlacesText,
@@ -266,12 +265,12 @@ describe('Assistant context (PERF-M20)', () => {
     const may = ['outreach.use'];
     const lasting = lastingText({
       ...PROMPT,
-      addonPlaces: addonPlacesText(ADDON_CATALOG, ['outreach'], may),
+      addonPlaces: addonPlacesText(ADDON_SERVER_MODULES, ['outreach'], may),
     });
     expect(lasting).toContain('Social Outreach’s pages, from its row in the side menu:');
     expect(lasting).toContain('- Team is at Social Outreach → Settings → Team:');
     expect(lastingText(PROMPT)).not.toContain('Social Outreach → Settings → Team');
-    const places = addonPlaces(ADDON_CATALOG, ['outreach'], may);
+    const places = addonPlaces(ADDON_SERVER_MODULES, ['outreach'], may);
     const on = turnText({
       ...PROMPT,
       place: screenPlace(`/a/outreach/settings/team?for=${ID}`, places),
@@ -285,11 +284,11 @@ describe('Assistant context (PERF-M20)', () => {
     const may = ['salescoach.use'];
     const lasting = lastingText({
       ...PROMPT,
-      addonPlaces: addonPlacesText(ADDON_CATALOG, ['salescoach'], may),
+      addonPlaces: addonPlacesText(ADDON_SERVER_MODULES, ['salescoach'], may),
     });
     expect(lasting).toContain('- Playbooks is at AI Sales Coach → Playbooks:');
     expect(lasting).toContain('Make it the usual one');
-    const places = addonPlaces(ADDON_CATALOG, ['salescoach'], may);
+    const places = addonPlaces(ADDON_SERVER_MODULES, ['salescoach'], may);
     const on = (path: string) => turnText({ ...PROMPT, place: screenPlace(path, places) });
     expect(on(`/a/salescoach?view=calls&call=${ID}`)).toContain(
       `On screen now: Coached (AI Sales Coach → Coached), showing coached call id ${ID}.`,

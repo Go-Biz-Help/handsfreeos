@@ -1,5 +1,5 @@
 /**
- * Where the Real Estate Agent's pages are, for the Assistant (its manifest's `ai.places`): each the way there from the
+ * Where the Real Estate Agent's pages are, for the Assistant (server half, `ai.places`): each the way there from the
  * side menu, a click at a time, in the screens' own words, then what is on it and how to do what people ask about
  * there, above all what only the person does (uploading photos and signed forms, a lockbox's code). Said only to
  * people in a business it runs in (the worker's per-business context), never in the fixed instructions.

@@ -258,26 +258,35 @@ export function addonDirectory(catalog: Catalog, active: readonly string[]): str
   });
 }
 
-/** The add-ons running here whose pages the person may open: they hold any of the add-on's permissions. */
-const openable = (catalog: Catalog, active: readonly string[], permissions: readonly string[]) => {
+/**
+ * The add-ons running here whose pages the person may open: they hold any of the add-on's permissions. From their
+ * server halves, where the pages are said (`AddonServerModule.ai`).
+ */
+const openable = (
+  modules: readonly AddonServerModule[],
+  active: readonly string[],
+  permissions: readonly string[],
+) => {
   const running = new Set(active);
   const may = new Set(permissions);
-  return catalog.filter(
-    (m) => running.has(m.id) && m.permissions.some((p) => may.has(p.key)) && m.ai?.places?.length,
+  return modules.filter(
+    ({ manifest: m, ai }) =>
+      running.has(m.id) && m.permissions.some((p) => may.has(p.key)) && ai?.places?.length,
   );
 };
 
 /**
- * The pages of the add-ons running here that the person may open (their manifests' `ai.places`), each path made whole
- * inside the business (`/a/<id>/<path>`), so `screenPlace` names the one a question is asked from. Catalogue order.
+ * The pages of the add-ons running here that the person may open (their server halves' `ai.places`), each path made
+ * whole inside the business (`/a/<id>/<path>`), so `screenPlace` names the one a question is asked from. The modules'
+ * order, which is the catalogue's.
  */
 export function addonPlaces(
-  catalog: Catalog,
+  modules: readonly AddonServerModule[],
   active: readonly string[],
   permissions: readonly string[],
 ): AppPlace[] {
-  return openable(catalog, active, permissions).flatMap((m) =>
-    (m.ai?.places ?? []).map((p) => ({
+  return openable(modules, active, permissions).flatMap(({ manifest: m, ai }) =>
+    (ai?.places ?? []).map((p) => ({
       ...p,
       path: `/a/${m.id}${p.path ? `/${p.path.replace(/^\/+/, '')}` : ''}`,
     })),
@@ -289,14 +298,14 @@ export function addonPlaces(
  * each add-on's words that are core's too; none when no add-on the person may open has any.
  */
 export function addonPlacesText(
-  catalog: Catalog,
+  modules: readonly AddonServerModule[],
   active: readonly string[],
   permissions: readonly string[],
 ): string[] {
-  return openable(catalog, active, permissions).flatMap((m) => [
+  return openable(modules, active, permissions).flatMap(({ manifest: m, ai }) => [
     `${m.name}’s pages, from its row in the side menu:`,
-    ...(m.ai?.places ?? []).map(placeLine),
-    ...(m.ai?.lookAlikes ?? []).map((l) => `- ${l}`),
+    ...(ai?.places ?? []).map(placeLine),
+    ...(ai?.lookAlikes ?? []).map((l) => `- ${l}`),
   ]);
 }
 

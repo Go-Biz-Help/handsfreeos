@@ -1,5 +1,5 @@
 /**
- * Where the Real Estate Agent's pages are, as the Assistant says them (its manifest's `ai.places`): every way it gives
+ * Where the Real Estate Agent's pages are, as the Assistant says them (its server half's `ai.places`): every way it gives
  * is the side menu's Real Estate Agent row, then one of its pages, then a tab on that page, in the screens' own words,
  * and every page's address is one the web opens. It once had none of them, and couldn't say where a deal's More menu,
  * its photos or a lockbox's code were.
@@ -8,10 +8,11 @@ import { readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { addonPlaces, addonPlacesText } from '../../src/addons/ai';
-import { ADDON_CATALOG } from '../../src/addons/catalog';
+import { ADDON_SERVER_MODULES } from '../../src/addons/modules';
 import { REALESTATE_LOOK_ALIKES, REALESTATE_PLACES } from '../../src/addons/realestate/ai-places';
 import { KEEPING_WORDS } from '../../src/addons/realestate/keeping-words';
 import { realestateAddon } from '../../src/addons/realestate/manifest';
+import { realestateAddonServer } from '../../src/addons/realestate/server';
 import { screenPlace } from '../../src/assistant/screen-place';
 
 const NAME = 'Real Estate Agent';
@@ -85,7 +86,7 @@ function expectRealWay(way: readonly string[], name: string) {
 
 describe('the Real Estate Agent’s places', () => {
   it('gives each page a way there that is really in its menus, and an address the web opens', () => {
-    expect(realestateAddon.ai?.places).toBe(REALESTATE_PLACES);
+    expect(realestateAddonServer.ai?.places).toBe(REALESTATE_PLACES);
     for (const p of REALESTATE_PLACES) {
       expectRealWay(p.where, p.label);
       expect(WEB_PATHS, `${p.label}: no page at ${p.path}`).toContain(p.path);
@@ -129,7 +130,9 @@ describe('the Real Estate Agent’s places', () => {
   });
 
   it('says what only the person does, and never offers a lockbox’s code', () => {
-    const text = addonPlacesText(ADDON_CATALOG, ['realestate'], ['realestate.use']).join('\n');
+    const text = addonPlacesText(ADDON_SERVER_MODULES, ['realestate'], ['realestate.use']).join(
+      '\n',
+    );
     // Uploading photos and signed forms is the person's, from their own device.
     expect(text).toContain('Upload photos');
     expect(text).toContain('Add a document');
@@ -143,20 +146,20 @@ describe('the Real Estate Agent’s places', () => {
 
   it('is said only where the Real Estate Agent runs, to people who may open it, under its own address', () => {
     const may = ['realestate.use'];
-    const places = addonPlaces(ADDON_CATALOG, ['realestate'], may);
+    const places = addonPlaces(ADDON_SERVER_MODULES, ['realestate'], may);
     expect(places).toHaveLength(REALESTATE_PLACES.length);
     expect(places.every((p) => p.path.startsWith('/a/realestate'))).toBe(true);
-    expect(addonPlaces(ADDON_CATALOG, [], may)).toEqual([]);
-    expect(addonPlaces(ADDON_CATALOG, ['realestate'], ['inbox.use'])).toEqual([]);
+    expect(addonPlaces(ADDON_SERVER_MODULES, [], may)).toEqual([]);
+    expect(addonPlaces(ADDON_SERVER_MODULES, ['realestate'], ['inbox.use'])).toEqual([]);
 
-    const text = addonPlacesText(ADDON_CATALOG, ['realestate'], may).join('\n');
+    const text = addonPlacesText(ADDON_SERVER_MODULES, ['realestate'], may).join('\n');
     expect(text).toContain('Real Estate Agent’s pages');
     for (const l of REALESTATE_LOOK_ALIKES) expect(text).toContain(l);
-    expect(addonPlacesText(ADDON_CATALOG, ['realestate'], [])).toEqual([]);
+    expect(addonPlacesText(ADDON_SERVER_MODULES, ['realestate'], [])).toEqual([]);
   });
 
   it('names the deal page a question is asked from, with the deal’s id', () => {
-    const places = addonPlaces(ADDON_CATALOG, ['realestate'], ['realestate.use']);
+    const places = addonPlaces(ADDON_SERVER_MODULES, ['realestate'], ['realestate.use']);
     const deal = '7c1f6a52-3b0e-4f8e-9d4b-1a2b3c4d5e6f';
     const offer = '0d6b2f1e-8a4c-4e2b-9f3a-5c6d7e8f9a0b';
     expect(screenPlace(`/a/realestate/deals/${deal}`, places)).toMatchObject({

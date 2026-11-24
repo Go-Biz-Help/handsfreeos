@@ -18,6 +18,7 @@ import {
   type BinContents,
   type BinKind,
 } from '@hfos/core';
+import { ADDON_SERVER_MODULES, addonSettingsShapes } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
 import { toolCallDrawnAt } from './store';
@@ -355,7 +356,8 @@ async function addonSettingsPlan(db: Db, ctx: ToolContext, args: Args) {
     throw HfosError.forbidden(
       `You don’t have permission to change ${m.name}’s settings. An owner of this business can give it to you in Settings → Permissions.`,
     );
-  const schema = m.settings?.workspace;
+  // The settings' shape is in the add-on's server half, where a save checks it too.
+  const schema = addonSettingsShapes(ADDON_SERVER_MODULES, m.id).workspace;
   const shape =
     (schema as { shape?: Record<string, { description?: string }> } | undefined)?.shape ?? {};
   const known = Object.keys(shape);

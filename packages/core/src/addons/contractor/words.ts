@@ -15,19 +15,13 @@ import {
 } from './materials';
 import type { ProfitGroup, ProfitPeriod } from './job-costing';
 import type { JobKind, JobStatus, PhaseStatus } from './progress';
+import { CONTRACTOR_PAGES } from './pages';
 import { durationWords, MAX_FIXED_HOURS, MAX_RUNNING_HOURS, type TimeKind } from './time';
 
 export const CONTRACTOR_NAME = 'Contractor Operations';
 
-/** Its pages in the side menu, which pop out of its one row. */
-export const CONTRACTOR_PAGES = {
-  jobs: 'Jobs',
-  dispatch: 'Dispatch',
-  estimates: 'Estimates',
-  costs: 'Item costs',
-  profit: 'Profit',
-  gear: 'Settings',
-} as const;
+// Its pages' names are in ./pages.ts, which the manifest reads alone: every signed-in page loads the manifest.
+export { CONTRACTOR_PAGES };
 
 export const COST_KIND_WORDS: Readonly<Record<CostKind, string>> = {
   labor: 'Labor',

@@ -37,7 +37,7 @@ import {
   type SystemActor,
   type WorkflowActor,
 } from '../src/server';
-import { FIXTURE_CATALOG, TWELVE, fxprop, fxsocial } from './addons/fixtures';
+import { FIXTURE_CATALOG, FIXTURE_MODULES, TWELVE, fxprop, fxsocial } from './addons/fixtures';
 
 /** People go through the API's connection; the system, workflows and the AI teammate through the worker's. */
 const dbFor = (actor: Actor) => (actor.type === 'human' ? testDbs().api.db : testDbs().worker.db);
@@ -50,7 +50,7 @@ const human = (u: TestUser): HumanActor => ({
   claims: u.claims,
 });
 
-const cmds = addonLifecycleCommands(FIXTURE_CATALOG);
+const cmds = addonLifecycleCommands(FIXTURE_CATALOG, FIXTURE_MODULES);
 const queries = addonQueries(FIXTURE_CATALOG);
 
 const run = <I extends z.ZodType, O extends z.ZodType>(
@@ -612,7 +612,7 @@ describe('the add-on check, for every kind of actor', () => {
       ],
     });
     const catalog: Catalog = [solo];
-    const soloCmds = addonLifecycleCommands(catalog);
+    const soloCmds = addonLifecycleCommands(catalog, FIXTURE_MODULES);
     await rows(
       admin(),
       sql`select private.register_addon_permissions(${id}, ${JSON.stringify(solo.permissions)}::jsonb)`,
@@ -888,7 +888,7 @@ describe('uninstalling, deleting its data, and installing again', () => {
       m.id === fxsocial.id ? { ...m, version: '1.1.0', dataVersion: 2 } : m,
     );
     await run(
-      addonLifecycleCommands(newer).install,
+      addonLifecycleCommands(newer, FIXTURE_MODULES).install,
       { workspaceId: wsB, addonId: 'fxsocial' },
       human(owner),
     );
@@ -904,7 +904,7 @@ describe('uninstalling, deleting its data, and installing again', () => {
   it('lets an add-on HandsFreeOS no longer has be uninstalled, and an owner delete its data', async () => {
     // SEO Tools' code is gone from this version of HandsFreeOS (retired), while D still has it on.
     const without: Catalog = FIXTURE_CATALOG.filter((m) => m.id !== 'fxseo');
-    const gone = addonLifecycleCommands(without);
+    const gone = addonLifecycleCommands(without, FIXTURE_MODULES);
     const goneQueries = addonQueries(without);
     const listed = await ask(goneQueries.list, { workspaceId: wsD }, human(owner));
     expect(listed.installed.find((i) => i.addonId === 'fxseo')).toMatchObject({

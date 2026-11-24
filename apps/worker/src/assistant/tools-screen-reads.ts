@@ -5,6 +5,8 @@
  */
 import {
   ADDON_CATALOG,
+  ADDON_SERVER_MODULES,
+  addonSettingsShapes,
   addonGiftRows,
   type AddonGiftRecord,
   type AddonSubscriptionRecord,
@@ -248,7 +250,10 @@ function withDefaults(got: unknown): unknown {
   if (typeof got !== 'object' || got === null) return got;
   const { addonId, settings } = got as { addonId?: unknown; settings?: unknown };
   if (settings === null || settings === undefined) return got;
-  const schema = ADDON_CATALOG.find((m) => m.id === addonId)?.settings?.workspace;
+  const schema =
+    typeof addonId === 'string'
+      ? addonSettingsShapes(ADDON_SERVER_MODULES, addonId).workspace
+      : undefined;
   const read = schema?.safeParse(settings);
   return read?.success ? { ...got, settings: read.data, ...labelsOf(schema) } : got;
 }

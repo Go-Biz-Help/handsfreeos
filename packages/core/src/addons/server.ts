@@ -8,6 +8,7 @@
  * all reach an add-on's business logic the one way they reach core's: through the kernel.
  */
 import type { z } from 'zod';
+import type { AppPlace } from '../assistant/places-map';
 import { logSystemActivity } from '../crm/activities';
 import type { AddonLineTone } from '../crm/timeline-words';
 import { defineCommand, defineQuery } from '../kernel/define';
@@ -69,11 +70,37 @@ export function defineAddonQuery<I extends z.ZodType, O extends z.ZodType>(
   });
 }
 
-/** An add-on's server half: its manifest, and the operations that are its business logic. */
+/**
+ * The shapes of an add-on's settings, checked on every save: the business's (`app.addon_installations.settings`) and
+ * each person's own (`app.addon_user_settings`).
+ */
+export interface AddonSettingsShapes {
+  readonly workspace?: z.ZodType;
+  readonly user?: z.ZodType;
+}
+
+/**
+ * An add-on's server half: its manifest, the operations that are its business logic, and what of the add-on only a
+ * server reads. The manifest is in every signed-in page (the catalogue), so anything written from the add-on's own
+ * words or rules goes here and not there: the speed audit (Nov 2026) found the settings' shapes and the Assistant's
+ * places bringing 168 KB of every add-on's words to pages that never read them.
+ */
 export interface AddonServerModule {
   readonly manifest: AddonManifest;
   readonly commands?: readonly CommandDef[];
   readonly queries?: readonly QueryDef[];
+  /** The shapes of its settings. Its manifest's `settings` says the rest: version, permission, switches. */
+  readonly settings?: AddonSettingsShapes;
+  /**
+   * What the Assistant is told of its pages, where it runs and to people who may open it, beside the manifest's one
+   * line (`ai.directory`): each page the way there from the side menu in the screens' own words, paths under its own
+   * (`/a/<id>`), so the Assistant names them and knows the one a question is asked from; and the words it shares
+   * with core's pages, said outright.
+   */
+  readonly ai?: {
+    readonly places?: readonly AppPlace[];
+    readonly lookAlikes?: readonly string[];
+  };
   /**
    * A person's operations the Assistant never runs, by name, and why: what the add-on's browser extension sends in,
    * a code that never goes through the AI, deleting for good. Every other operation a person runs declares `ai`
@@ -81,6 +108,12 @@ export interface AddonServerModule {
    */
   readonly notForTheAssistant?: Readonly<Record<string, string>>;
 }
+
+/** The shapes of one add-on's settings, from its server half; none when it has none, or no code yet. */
+export const addonSettingsShapes = (
+  modules: readonly Pick<AddonServerModule, 'manifest' | 'settings'>[],
+  addonId: string,
+): AddonSettingsShapes => modules.find((m) => m.manifest.id === addonId)?.settings ?? {};
 
 /**
  * Everything wrong with how a set of add-on modules would join core's operations: an operation that doesn't carry
@@ -94,8 +127,16 @@ export function addonModuleIssues(
   const taken = new Set([...core.commands, ...core.queries].map((op) => op.name));
   const tools = new Set<string>();
   const corePermissions = new Set<string>(ROLE_PERMISSIONS.owner);
-  for (const { manifest: m, commands = [], queries = [] } of modules) {
+  for (const { manifest: m, commands = [], queries = [], settings, ai } of modules) {
     const own = new Set(m.permissions.map((p) => p.key));
+    if (settings && !m.settings)
+      issues.push(`${m.id} has settings' shapes, and its manifest declares no settings`);
+    if (ai && !m.ai)
+      issues.push(`${m.id} tells the AI its pages, and its manifest has no line for the AI`);
+    const shape = (settings?.workspace as { shape?: Record<string, unknown> } | undefined)?.shape;
+    for (const k of m.offline?.settings ?? [])
+      if (!shape || !(k in shape))
+        issues.push(`${m.id}: offline setting "${k}" isn't one of its settings`);
     for (const op of [...commands, ...queries]) {
       if (op.addon?.id !== m.id) issues.push(`${op.name} isn't stamped with "${m.id}"`);
       if (!op.name.startsWith(`${m.id}.`)) issues.push(`${op.name} must start with "${m.id}."`);

@@ -27,9 +27,7 @@
  */
 import { defineAddon } from '../manifest';
 import { ADDON_TRIAL_DAYS } from '../billing';
-import { CONTRACTOR_LOOK_ALIKES, CONTRACTOR_PLACES } from './ai-places';
-import { ContractorSettingsSchema } from './schemas';
-import { CONTRACTOR_PAGES } from './words';
+import { CONTRACTOR_PAGES } from './pages';
 
 export const contractorAddon = defineAddon({
   id: 'contractor',
@@ -547,7 +545,8 @@ export const contractorAddon = defineAddon({
   },
   // $67 a month for the whole business, after 14 days free (the owner's pick, 2026-11-17).
   billing: { model: 'paid', monthlyCents: 6700, trialDays: ADDON_TRIAL_DAYS },
-  settings: { version: 1, permission: 'contractor.manage', workspace: ContractorSettingsSchema },
+  // Their shape (ContractorSettingsSchema) is in the server half: ./server.ts.
+  settings: { version: 1, permission: 'contractor.manage' },
   ui: {
     // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09).
     nav: [
@@ -602,7 +601,5 @@ export const contractorAddon = defineAddon({
   ai: {
     directory:
       'contractor and home service jobs: every job and project with its customer, the property it’s at, its trade, status (new, scheduled, in progress, on hold, done, cancelled), deadline, job lead and team, phases with their dates and % done, its visits, and its price and budget for people who may see job costs; starting jobs, making a service call a project, moving jobs and phases along, adding properties, and its settings (the business’s trades and the phases a new project starts with); estimates with costs: an estimate builder with labor by the hour, materials at cost, markup, profit and margin, good, better and best options, what each price list item costs the business, the lowest margin an estimate may go out at, asking for and giving an owner’s or admin’s OK on one under it, and sending it; crews (named groups of team members and subcontractors), a work order on every visit (instructions, what to bring, the crew and who’s going, subcontractors and texting them the job’s details, and a checklist of boxes to tick and photos to add, some required), a job that can’t be marked done while a required item is left unless an owner or admin says why, and dispatch (a day’s visits by person, the ones nobody is on, where each stands, and jobs with nothing booked); a job’s materials (what it needs, and how much of each is ordered, delivered, used, wasted and returned, the visit each is for, its supplier and the day it’s expected, what’s still missing for a visit, materials filled in from an approved estimate, what each costs for people who may see job costs, and the alert before a visit that’s still missing something); time on jobs (travel and work time started and stopped by a visit’s On the way, Started, Waiting on parts and Done buttons, breaks, each stretch with whose it is and how long, time stopped on its own after 12 hours, and fixing, adding and removing time with a reason for people who may); job costing for people who may see job costs (what an hour of each person costs, a job’s labor, materials and other costs planned, so far and heading for, its other costs like permits and fees, the profit it’s heading for, and profit by job, customer, crew and service); notes from the field on a job or one of its visits (typed, a voice note with its words, or photos), counting how much more of a material was used, wasted or sent back, and the phone’s pages (Jobs, a job and a visit’s work order), which work with no signal; and the AI helpers: an estimate the AI drafts for a job from its notes, photos and what someone types, kept as a draft that a person opens in the builder, checks and saves (the AI never writes or sends an estimate on its own), where a job’s budget stands (heading over its planned cost, under the lowest margin or for a loss) with what’s driving it and what the business could do, and each job’s daily report (what got done, what needs a look, materials, what’s next, the crew’s hours and the day’s photos), with an update for the customer that goes only when a person sends it',
-    places: CONTRACTOR_PLACES,
-    lookAlikes: CONTRACTOR_LOOK_ALIKES,
   },
 });

@@ -121,11 +121,11 @@ export interface AddonSettingsProps {
   /** This person's own settings for the add-on. */
   readonly mySettings: Readonly<Record<string, unknown>>;
   /**
-   * Saves the business's settings (`addon.save_settings`), checked against the manifest's `settings.workspace`.
+   * Saves the business's settings (`addon.save_settings`), checked against the shape in its server half (`settings.workspace`).
    * A refusal is thrown as the API's error, field by field (`fieldErrors` in lib/api/field-errors.ts).
    */
   readonly saveSettings: (settings: Record<string, unknown>) => Promise<void>;
-  /** Saves this person's own settings (`addon.save_my_settings`), checked against `settings.user`. */
+  /** Saves this person's own settings (`addon.save_my_settings`), checked against its server half's `settings.user`. */
   readonly saveMySettings: (settings: Record<string, unknown>) => Promise<void>;
 }
 

@@ -5,6 +5,7 @@
  * screens, never in a prompt.
  */
 import type { AddonServerModule } from '../server';
+import { SALESCOACH_LOOK_ALIKES, SALESCOACH_PLACES } from './ai-places';
 import { salescoachAddon } from './manifest';
 import { callCommands, callQueries } from './ops/calls';
 import { learningCommands, learningQueries } from './ops/learning';
@@ -14,6 +15,7 @@ import { trendQueries } from './ops/trends';
 
 export const salescoachAddonServer: AddonServerModule = {
   manifest: salescoachAddon,
+  ai: { places: SALESCOACH_PLACES, lookAlikes: SALESCOACH_LOOK_ALIKES },
   commands: [...playbookCommands, ...callCommands, ...suggestionCommands, ...learningCommands],
   queries: [
     ...playbookQueries,

@@ -34,6 +34,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   FIXTURE_CATALOG,
+  FIXTURE_MODULES,
   TWELVE,
   fxprop,
   fxrent,
@@ -53,7 +54,7 @@ const human = (u: TestUser): HumanActor => ({
   email: u.email,
   claims: u.claims,
 });
-const cmds = addonLifecycleCommands(FIXTURE_CATALOG);
+const cmds = addonLifecycleCommands(FIXTURE_CATALOG, FIXTURE_MODULES);
 const run = <T>(cmd: Parameters<typeof executeCommand>[1], input: unknown, u: TestUser) =>
   executeCommand(api(), cmd, input, human(u), meta()).then((r) => r.output as T);
 const one = async <T extends Record<string, unknown>>(q: ReturnType<typeof sql>) =>
@@ -207,7 +208,7 @@ const rentModule: AddonWorkerModule = {
 /** A version on: its data changed shape, and a step brings each business's up. */
 const fxpropV2: AddonManifest = { ...fxprop, version: '1.1.0', dataVersion: 2 };
 const catalogV2: Catalog = FIXTURE_CATALOG.map((m) => (m.id === fxprop.id ? fxpropV2 : m));
-const cmdsV2 = addonLifecycleCommands(catalogV2);
+const cmdsV2 = addonLifecycleCommands(catalogV2, FIXTURE_MODULES);
 
 const v1 = addonWorker(FIXTURE_CATALOG, [propModule(fxprop), rentModule]);
 const v2 = addonWorker(catalogV2, [
@@ -892,7 +893,7 @@ describe('thirteen add-ons (C)', () => {
   it('lets an add-on whose code is gone leave, and deletes its data, all proved', async () => {
     // SEO Tools is retired: this version of HandsFreeOS has no code for it, and the business still has it on.
     const without: Catalog = FIXTURE_CATALOG.filter((m) => m.id !== 'fxseo');
-    const gone = addonLifecycleCommands(without);
+    const gone = addonLifecycleCommands(without, FIXTURE_MODULES);
     const v3 = addonWorker(without, [propModule(fxprop), rentModule]);
     const W3: Worker = { handlers: v3.withAddons({}), jobs: v3.jobs };
     await run(gone.uninstall, { workspaceId: wsC, addonId: 'fxseo' }, owner);

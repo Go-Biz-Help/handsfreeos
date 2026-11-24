@@ -10,6 +10,7 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { realestateAddon } from '../src/addons/realestate/manifest';
+import { realestateAddonServer } from '../src/addons/realestate/server';
 import { SIGN_UP_EVENTS, signUpFromPage } from '../src/crm/signup';
 import {
   composeOperations,
@@ -353,8 +354,12 @@ describe('what visitors may run', () => {
     expect(() => composeOperations({ commands: [], queries: [] }, [{ manifest: m }])).toThrow(
       /public page ":slug" shows realestate.public.test_page, which isn't one of its public queries/,
     );
+    // With its settings' shape too, as its own server half has: the phone keeps one of those settings.
+    const { settings } = realestateAddonServer;
     expect(() =>
-      composeOperations({ commands: [], queries: [] }, [{ manifest: m, queries: [showPage] }]),
+      composeOperations({ commands: [], queries: [] }, [
+        { manifest: m, settings, queries: [showPage] },
+      ]),
     ).not.toThrow();
     const wrong = {
       ...m,

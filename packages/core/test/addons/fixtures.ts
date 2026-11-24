@@ -8,6 +8,7 @@
  * the real catalogue. Nothing here is imported by anything but tests.
  */
 import { z } from 'zod';
+import type { AddonServerModule } from '../../src/addons/server';
 import { defineAddon, type AddonManifest, type Catalog } from '../../src/index';
 
 const base = {
@@ -162,11 +163,6 @@ export const fxacct = simple('fxacct', 'Accounting', ['books', 'ledger', 'expens
   settings: {
     version: 1,
     permission: 'fxacct.use',
-    workspace: z.object({
-      currency: z.enum(['usd', 'eur']).default('usd'),
-      closeDay: z.number().int().min(1).max(28).default(1),
-    }),
-    user: z.object({ digest: z.boolean().default(false) }),
     flags: { beta_reports: { label: 'Try the new reports', default: false } },
   },
 });
@@ -228,6 +224,23 @@ export const fxpaid = simple('fxpaid', 'Premium Payroll', ['payroll', 'wages', '
 export const fxold = simple('fxold', 'Old Newsletter', ['newsletter', 'mailing'], {
   catalog: { status: 'deprecated', keywords: ['newsletter', 'mailing'], replacedBy: 'fxsocial' },
 });
+
+/**
+ * The shapes of the fixtures' settings, as an add-on's server half holds them (`AddonServerModule.settings`):
+ * Accounting's alone has any. What the lifecycle commands check a save against.
+ */
+export const FIXTURE_MODULES: readonly Pick<AddonServerModule, 'manifest' | 'settings'>[] = [
+  {
+    manifest: fxacct,
+    settings: {
+      workspace: z.object({
+        currency: z.enum(['usd', 'eur']).default('usd'),
+        closeDay: z.number().int().min(1).max(28).default(1),
+      }),
+      user: z.object({ digest: z.boolean().default(false) }),
+    },
+  },
+];
 
 /** Every fixture, in a stable order. */
 export const FIXTURE_CATALOG: Catalog = [

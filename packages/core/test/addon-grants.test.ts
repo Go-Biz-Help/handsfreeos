@@ -18,7 +18,7 @@ import {
   platformBusinessGet,
   type HumanActor,
 } from '../src/server';
-import { FIXTURE_CATALOG } from './addons/fixtures';
+import { FIXTURE_CATALOG, FIXTURE_MODULES } from './addons/fixtures';
 
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
@@ -31,7 +31,7 @@ const human = (u: TestUser): HumanActor => ({
 });
 
 const grants = addonGrantCommands(FIXTURE_CATALOG);
-const lifecycle = addonLifecycleCommands(FIXTURE_CATALOG);
+const lifecycle = addonLifecycleCommands(FIXTURE_CATALOG, FIXTURE_MODULES);
 const queries = addonQueries(FIXTURE_CATALOG);
 
 let staffAdmin: TestUser;

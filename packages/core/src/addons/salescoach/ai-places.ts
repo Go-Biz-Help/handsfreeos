@@ -1,5 +1,5 @@
 /**
- * Where AI Sales Coach's tabs are, for the Assistant (its manifest's `ai.places`): each the way there from the side
+ * Where AI Sales Coach's tabs are, for the Assistant (its server half's `ai.places`): each the way there from the side
  * menu, a click at a time, in the screens' own words (./words.ts), then what is on it and how to do what people ask
  * about there, above all what only the person does (deleting a coached call, linking Zoom and starting its stream).
  * Said only to people in a business it runs in (the worker's per-business context), never in the fixed instructions.
