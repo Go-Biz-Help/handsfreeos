@@ -241,7 +241,8 @@ its words (`modelMessages` in `assistant/runtime.ts`), and with `fromPictures` t
 question with pictures is never read as a yes or no to a card waiting for an OK.
 
 **A link.** `fromLink` reads the page in `apps/worker/src/forms/page-forms.ts` through the worker's safe fetch (10
-seconds, 3 MB), then opens up to 3 forms framed on it (a JotForm or Google Form pasted into a page). Core's
+seconds, 3 MB), then opens up to 3 forms framed on it (a JotForm or Google Form pasted into a page, or a Typeform put
+there with Typeform's embed code, found by its `data-tf-…` id or a `typeform.com/to/…` link). Core's
 `formsOnPage` (`packages/core/src/forms/page-forms.ts`) turns each into a plain outline the builder reads:
 
 - every box, its kind, its name and whether it's required, in brackets: `[dropdown, name "color", required: Black |
@@ -249,16 +250,22 @@ White & Gray | Neon: Pink]`, with every choice of a dropdown, even the ones only
 - choices to pick one of as `(pick one)`, and tick boxes as `[tick box]`;
 - steps as `--- Step 2 (shows after Next is pressed) ---`, and parts that show later as `{Shows only when an earlier
 answer fits: …}` or `{Hidden until something on the form shows it: …}`;
-- a Google Form from its own data (`FB_PUBLIC_LOAD_DATA_`), sections as steps.
+- a Google Form from its own data (`FB_PUBLIC_LOAD_DATA_`), sections as steps;
+- a Typeform from its own data (`window.rendererData`'s `form`, Typeform's form definition; the owner chose this on
+  2026-11-24 over a screenshot or a headless browser, since it gets every question and choice at once and costs
+  nothing): every question with its kind and choices, the groups they sit in (`Your name:` with its parts indented
+  under it), a grid's rows and columns, and its skip rules in words under a "Which question comes next" heading
+  ("After “Service”: if the answer is “Ducts” or “Tile”, it goes to “How many vents?”."), since Typeform shows one
+  question at a time and no screenshot shows them all.
 
 A site search, a sign-in, hidden fields and robot traps are left out, and boxes with no form tag around them are read
 as one form when there are two or more. When a page has several forms and no `formNumber` was given, `build_form`
 lists them and builds nothing, so the Assistant asks which (or builds each one asked for).
 
 **What a link can't read says so, and asks for a screenshot instead** (`link_unreadable`): a robot check, a page that
-won't open or isn't there, an address that isn't public, and a form drawn by code after the page loads (Typeform,
-Wix), since the worker reads the page's HTML and runs none of its code. The screenshot advice says to open each
-dropdown first, so every choice is in the picture.
+won't open or isn't there, an address that isn't public, and a form drawn by code after the page loads (Wix, say),
+since the worker reads the page's HTML and runs none of its code. A Typeform is the exception: its page carries the
+whole form as data. The screenshot advice says to open each dropdown first, so every choice is in the picture.
 
 ## Files on a public form (designs and photos)
 

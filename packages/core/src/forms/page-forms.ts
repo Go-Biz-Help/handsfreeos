@@ -5,9 +5,10 @@
  *
  * **Read from the page's HTML, not a screen.** A dropdown's choices, a later step of a form that goes a step at a
  * time, and a part that shows only once something is picked are all in the HTML before anyone opens them, so the
- * outline has every one of them, marked for what it is. A form a site draws with code after the page loads (Typeform,
- * Wix) has nothing in its HTML to read: `formsOnPage` then finds nothing, and the person is asked for a screenshot.
- * A Google Form keeps every question, its sections included, in the page's data, which is read instead of its HTML.
+ * outline has every one of them, marked for what it is. A Google Form keeps every question, its sections included, in
+ * the page's data, and a Typeform keeps its whole form, skip rules and all, in `window.rendererData`: each is read from
+ * that data instead of its HTML. Any other form a site draws with code after the page loads (Wix) has nothing in its
+ * HTML to read: `formsOnPage` then finds nothing, and the person is asked for a screenshot.
  *
  * **An outline, not markup.** Each form becomes lines of its words and its boxes ("[dropdown, required: Lawn |
  * Snow]"), which reads well to a model and survives being quoted as data. Split like `messaging/site-forms.ts`: the
@@ -639,12 +640,14 @@ function bodyOf(html: string): string {
 
 /**
  * The forms on a page. Each `<form>` with a box to fill in (a site search and a sign-in left out); with none, a page
- * whose boxes sit outside any `<form>` (as page builders often write them) is read as one form. A Google Form is read
- * from its data, sections and all. Numbered from `first`.
+ * whose boxes sit outside any `<form>` (as page builders often write them) is read as one form. A Google Form and a
+ * Typeform are read from their data, sections, groups and skip rules and all. Numbered from `first`.
  */
 export function formsOnPage(html: string, url: string, first = 1): PageForm[] {
   const google = googleForm(html, url, first);
   if (google) return [google];
+  const typeform = typeformForm(html, url, first);
+  if (typeform) return [typeform];
   const clean = cleaned(html);
   const found: PageForm[] = [];
   for (const form of elements(clean, ['form'])) {
@@ -785,4 +788,301 @@ export function googleForm(html: string, url: string, number = 1): PageForm | nu
   if (!fields) return null;
   const outline = lines.join('\n').slice(0, PAGE_FORM_OUTLINE_MAX);
   return { number, title, fields, summary: summaryOf(outline), outline, url };
+}
+
+/** What each kind of Typeform question is, in the outline's words. */
+const TYPEFORM_KINDS: Readonly<Record<string, string>> = {
+  short_text: 'short answer box',
+  long_text: 'long answer box',
+  email: 'email box',
+  phone_number: 'phone box',
+  number: 'number box',
+  website: 'website box',
+  date: 'date box',
+  file_upload: 'file upload',
+  dropdown: 'dropdown',
+  yes_no: 'yes or no',
+  legal: 'tick box to accept',
+  ranking: 'put in order',
+  payment: 'card payment',
+  multi_format: 'answer by video, voice or text',
+  calendly: 'book a time (Calendly)',
+};
+
+type Loose = Record<string, unknown>;
+const loose = (v: unknown): Loose =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Loose) : {};
+const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+/** Where the JSON object or list starting at `start` ends (just after it), counting brackets outside strings. */
+function jsonEnd(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (inString) {
+      if (c === 92) i++;
+      else if (c === 34) inString = false;
+    } else if (c === 34) inString = true;
+    else if (c === 123 || c === 91) depth++;
+    else if (c === 125 || c === 93) {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+/** The form a Typeform page carries in `window.rendererData = { …, form: {…}, … }`. Null when there's none. */
+function typeformData(html: string): Loose | null {
+  const start = /window\.rendererData\s*=\s*\{/.exec(html);
+  if (!start) return null;
+  const at = start.index;
+  const end = html.indexOf('</script>', at);
+  const script = html.slice(at, end < 0 ? undefined : end);
+  const key = /[\s{,]form\s*:\s*(?=\{)/.exec(script);
+  if (!key) return null;
+  const from = key.index + key[0].length;
+  const to = jsonEnd(script, from);
+  if (to < 0) return null;
+  try {
+    const form = loose(JSON.parse(script.slice(from, to)));
+    return Array.isArray(form['fields']) ? form : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A Typeform's words: its markdown taken out (a link keeps its words), and an earlier answer it repeats said as one. */
+function typeformText(v: unknown): string {
+  if (typeof v !== 'string') return '';
+  return v
+    .slice(0, 2_000)
+    .replace(/\{\{field:[^{}]*\}\}/g, '(their earlier answer)')
+    .replace(/\{\{[^{}]*\}\}/g, '…')
+    .replace(/\[([^[\]]*)\]\([^()]*\)/g, '$1')
+    .replace(/\*/g, '')
+    .replace(/(?<!\w)_+|(?<!_)_+(?!\w)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Typeform's tests in its skip rules, in the outline's words. */
+const TYPEFORM_TESTS: Readonly<Record<string, string>> = {
+  is: 'is',
+  equal: 'is',
+  is_not: 'isn’t',
+  not_equal: 'isn’t',
+  lower_than: 'is under',
+  lower_equal_than: 'is at most',
+  greater_than: 'is over',
+  greater_equal_than: 'is at least',
+  contains: 'has',
+  not_contains: 'doesn’t have',
+  begins_with: 'starts with',
+  ends_with: 'ends with',
+  on: 'is on',
+  not_on: 'isn’t on',
+  earlier_than: 'is before',
+  later_than: 'is after',
+};
+/** The skip rules kept, and the longest one. */
+const TYPEFORM_RULES = 40;
+const TYPEFORM_RULE_MAX = 600;
+
+/** "“A”", "“A” or “B”", "“A”, “B” or “C”". */
+const eitherOf = (values: readonly string[]): string =>
+  values.length < 2
+    ? (values[0] ?? '')
+    : `${values.slice(0, -1).join(', ')} or ${values[values.length - 1]}`;
+
+/**
+ * A Typeform, from the data its page carries (`window.rendererData`), as Typeform's own form definition: every
+ * question with its kind, choices and whether it must be answered, the groups they sit in, and its skip rules
+ * (Typeform shows one question at a time and jumps on answers, so a screen never shows them all). Null when the page
+ * isn't one, or its data can't be read (its HTML is read as usual then, which finds nothing).
+ */
+export function typeformForm(html: string, url: string, number = 1): PageForm | null {
+  const form = typeformData(html);
+  if (!form) return null;
+  const title = typeformText(form['title']) || null;
+  const lines: string[] = [];
+  /** A line, unless it says just what the one before it does (a form's eight booking steps, say). */
+  const line = (text: string): void => {
+    if (text !== lines[lines.length - 1]) lines.push(text);
+  };
+  if (title) line(title);
+  for (const screen of list(form['welcome_screens'])) {
+    const words = typeformText(loose(screen)['title']);
+    if (words && words !== title) line(words);
+  }
+  /** Each question by its ref, for the skip rules, and each choice by its ref. */
+  const titles = new Map<string, string>();
+  const choices = new Map<string, string>();
+  let fields = 0;
+
+  const read = (raw: unknown, depth: number): void => {
+    const field = loose(raw);
+    const type = typeof field['type'] === 'string' ? field['type'] : '';
+    const props = loose(field['properties']);
+    const question = typeformText(field['title']) || 'Untitled question';
+    const help = typeformText(props['description']);
+    const helpNote = help ? ` (${help})` : '';
+    const ref = typeof field['ref'] === 'string' ? field['ref'] : '';
+    if (ref) titles.set(ref, question);
+    const labels = list(props['choices']).flatMap((c) => {
+      const choice = loose(c);
+      const label = typeformText(choice['label']);
+      if (label && typeof choice['ref'] === 'string') choices.set(choice['ref'], label);
+      return label ? [label] : [];
+    });
+    const indent = '  '.repeat(depth);
+    if (type === 'statement') {
+      line(`${indent}${question}${helpNote}`);
+      return;
+    }
+    const inner = list(props['fields']);
+    if (type === 'matrix') {
+      const rows = inner.map((r) => typeformText(loose(r)['title'])).filter(Boolean);
+      const columns = list(loose(loose(inner[0])['properties'])['choices'])
+        .map((c) => typeformText(loose(c)['label']))
+        .filter(Boolean);
+      fields++;
+      line(
+        `${indent}${question} [grid${rows.length ? `, rows: ${rows.join(' | ')}` : ''}${columns.length ? `, columns: ${columns.join(' | ')}` : ''}]${helpNote}`,
+      );
+      return;
+    }
+    if (inner.length) {
+      // A group of questions shown together (a name's two parts, an address, contact details).
+      line(`${indent}${question}:${helpNote}`);
+      for (const f of inner) read(f, depth + 1);
+      return;
+    }
+    const required = loose(field['validations'])['required'] === true;
+    let kind = TYPEFORM_KINDS[type];
+    if (type === 'multiple_choice' || type === 'checkbox' || type === 'picture_choice') {
+      kind = props['allow_multiple_selection'] === true ? 'pick any (checkboxes)' : 'pick one';
+      if (type === 'picture_choice') kind += ', with pictures';
+    } else if (type === 'opinion_scale' || type === 'nps') {
+      const steps = typeof props['steps'] === 'number' ? props['steps'] : 11;
+      const from = props['start_at_one'] === true ? 1 : 0;
+      const ends = loose(props['labels']);
+      const left = typeformText(ends['left']);
+      const right = typeformText(ends['right']);
+      kind = `scale: ${from} to ${from + steps - 1}${left || right ? ` (${left || '…'} to ${right || '…'})` : ''}`;
+    } else if (type === 'rating') {
+      kind = `rating out of ${typeof props['steps'] === 'number' ? props['steps'] : 5}`;
+    }
+    if (!kind) return;
+    const all = [
+      ...labels,
+      ...(props['allow_other_choice'] === true ? ['Other (they type it)'] : []),
+      ...(props['none_of_the_above'] === true ? ['None of the above'] : []),
+    ];
+    if (type !== 'calendly') fields++;
+    line(
+      `${indent}${question} [${kind}${required ? ', required' : ''}${all.length ? `: ${all.join(' | ')}` : ''}]${helpNote}`,
+    );
+  };
+  for (const f of list(form['fields'])) read(f, 0);
+  if (!fields) return null;
+
+  // Typeform skips questions on answers: said in words, so the builder can make the same rules.
+  const said = (ref: unknown): string => {
+    const name = typeof ref === 'string' ? titles.get(ref) : undefined;
+    return name ? `“${name}”` : 'an earlier answer';
+  };
+  interface Test {
+    readonly subject: string;
+    readonly verb: string;
+    readonly value: string;
+  }
+  /** One test of one answer; null for a test that isn't one (an "and" or "or" of others). */
+  const testOf = (c: Loose, own: string): Test | null => {
+    const op = typeof c['op'] === 'string' ? c['op'] : '';
+    const vars = list(c['vars']).map(loose);
+    const answer = vars.find((v) => v['type'] === 'field');
+    const against = vars.find((v) => v['type'] !== 'field');
+    if (!answer || op === 'and' || op === 'or') return null;
+    const raw = against?.['value'];
+    const value =
+      against?.['type'] === 'choice' && typeof raw === 'string'
+        ? `“${choices.get(raw) ?? 'a choice'}”`
+        : typeof raw === 'boolean'
+          ? `“${raw ? 'yes' : 'no'}”`
+          : typeof raw === 'string' || typeof raw === 'number'
+            ? `“${typeformText(String(raw))}”`
+            : 'something';
+    const ref = answer['value'];
+    return {
+      subject: ref && ref === own ? 'the answer' : said(ref),
+      verb: TYPEFORM_TESTS[op] ?? 'fits a rule about',
+      value,
+    };
+  };
+  /** A rule's condition in words, tests of one answer run together ("the answer is “A”, “B” or “C”"). */
+  const condition = (raw: unknown, own: string, top: boolean): string => {
+    const c = loose(raw);
+    const op = typeof c['op'] === 'string' ? c['op'] : '';
+    if (op === 'always' || !op) return '';
+    if (op !== 'and' && op !== 'or') {
+      const test = testOf(c, own);
+      return test ? `${test.subject} ${test.verb} ${test.value}` : '';
+    }
+    const parts: string[] = [];
+    let run: { subject: string; verb: string; values: string[] } | null = null;
+    for (const v of list(c['vars'])) {
+      const test = op === 'or' ? testOf(loose(v), own) : null;
+      if (test && run && run.subject === test.subject && run.verb === test.verb) {
+        run.values.push(test.value);
+        continue;
+      }
+      if (run) parts.push(`${run.subject} ${run.verb} ${eitherOf(run.values)}`);
+      run = test ? { subject: test.subject, verb: test.verb, values: [test.value] } : null;
+      if (!test) {
+        const words = condition(v, own, false);
+        if (words) parts.push(words);
+      }
+    }
+    if (run) parts.push(`${run.subject} ${run.verb} ${eitherOf(run.values)}`);
+    const words = parts.join(op === 'and' ? ' and ' : ' or ');
+    return !top && parts.length > 1 ? `(${words})` : words;
+  };
+  const rules: string[] = [];
+  for (const raw of list(form['logic'])) {
+    const block = loose(raw);
+    const own = typeof block['ref'] === 'string' ? block['ref'] : '';
+    for (const a of list(block['actions'])) {
+      const action = loose(a);
+      if (action['action'] !== 'jump' || rules.length >= TYPEFORM_RULES) continue;
+      const to = loose(loose(action['details'])['to']);
+      const target = to['type'] === 'thankyou' ? 'the end' : said(to['value']);
+      const when = condition(action['condition'], own, true);
+      const rule = `After ${said(own)}: ${when ? `if ${when}, it` : 'otherwise it'} goes to ${target}.`;
+      rules.push(
+        rule.length > TYPEFORM_RULE_MAX ? `${rule.slice(0, TYPEFORM_RULE_MAX - 1)}…` : rule,
+      );
+    }
+  }
+  if (rules.length) lines.push('--- Which question comes next (Typeform’s logic) ---', ...rules);
+  const outline = lines.join('\n').slice(0, PAGE_FORM_OUTLINE_MAX);
+  return { number, title, fields, summary: summaryOf(outline), outline, url };
+}
+
+/**
+ * The Typeforms a page puts on it with Typeform's embed code (`data-tf-widget="abc123"` and the like) or links to,
+ * as the addresses that open them, since its embed draws the frame with code after the page loads.
+ */
+export function typeformAddresses(html: string, limit = 3): string[] {
+  const ids = new Set<string>();
+  for (const m of html.matchAll(
+    /data-tf-(?:widget|popup|slider|popover|sidetab|live)\s*=\s*["']([A-Za-z0-9]{4,32})["']/g,
+  ))
+    ids.add(m[1]!);
+  for (const m of html.matchAll(
+    /https:\/\/(?:[a-z0-9-]{1,63}\.)?typeform\.com\/to\/([A-Za-z0-9]{4,32})(?![A-Za-z0-9])/gi,
+  ))
+    ids.add(m[1]!);
+  return [...ids].slice(0, limit).map((id) => `https://form.typeform.com/to/${id}`);
 }

@@ -2,7 +2,8 @@
  * Reading the forms on a page someone linked, so the form builder can make them (the Assistant's build_form with
  * fromLink; core's `forms/page-forms.ts` reads, this only fetches). The page is fetched as a visitor's browser would
  * ask for it, through the worker's safe fetch (never a private address), and the forms framed on it are opened too,
- * since a visitor sees those (a JotForm or a Google Form pasted into a page lands in a frame).
+ * since a visitor sees those (a JotForm or a Google Form pasted into a page lands in a frame), and so are the Typeforms
+ * its embed code puts on it.
  *
  * What can't be read says why and what to do instead: a robot check, a page that wouldn't open, or a form the site
  * draws with code after the page loads, which a screenshot shows where a link can't.
@@ -13,6 +14,7 @@ import {
   HfosError,
   PAGE_FORMS_MAX,
   robotCheck,
+  typeformAddresses,
   type PageForm,
 } from '@hfos/core';
 import { SafeFetchError, type SafeFetch } from '../http/safe-fetch';
@@ -100,7 +102,16 @@ export async function readPageForms(fetchUrl: SafeFetch, typed: string): Promise
   const page = await open(fetchUrl, address);
   if (!page.ok) throw HfosError.rule('link_unreadable', 422, page.why);
   const forms = formsOnPage(page.html, page.url);
-  const frames = framedAddresses(page.html, page.url, FRAMES);
+  // Typeform's embed code draws its frame after the page loads, so its forms are found by their ids instead (on a
+  // page that isn't a Typeform itself, whose own links go to Typeform's privacy policy and the like).
+  const typeform = (url: string): string => typeformAddresses(url, 1)[0] ?? url;
+  const onTypeform = /(^|\.)typeform\.com$/i.test(new URL(page.url).hostname);
+  const frames = [
+    ...new Set([
+      ...framedAddresses(page.html, page.url, FRAMES).map(typeform),
+      ...(onTypeform ? [] : typeformAddresses(page.html, FRAMES)),
+    ]),
+  ].slice(0, FRAMES);
   const framed = await Promise.all(frames.map((url) => open(fetchUrl, url)));
   for (const frame of framed) {
     if (!frame.ok || forms.length >= PAGE_FORMS_MAX) continue;

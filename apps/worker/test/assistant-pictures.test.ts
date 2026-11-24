@@ -134,11 +134,40 @@ describe('the forms on a linked page', () => {
     expect(read.forms[1]!.outline).toContain('[dropdown, name "s": S | M]');
   });
 
+  it('opens a Typeform the page embeds with Typeform’s code, which draws its frame later', async () => {
+    const outer = `<h1>Book us</h1><div data-tf-live="abc123"></div><script src="//embed.typeform.com/next/embed.js"></script>`;
+    const typeform = `<div id="root"></div><script>window.rendererData = {
+      rootDomNode: 'root',
+      form: ${JSON.stringify({
+        title: 'Book a cleaning',
+        fields: [
+          {
+            ref: 'what',
+            type: 'dropdown',
+            title: 'What needs cleaning?',
+            properties: { choices: [{ label: 'Carpet' }, { label: 'Ducts' }] },
+          },
+        ],
+      })},
+    };</script>`;
+    const opened: string[] = [];
+    const fetchUrl = (async (url: string) => {
+      opened.push(url);
+      return page(url.includes('typeform.com') ? typeform : outer)(url);
+    }) as SafeFetch;
+    const read = await readPageForms(fetchUrl, 'https://sherris.test/book');
+    expect(opened).toEqual(['https://sherris.test/book', 'https://form.typeform.com/to/abc123']);
+    expect(read.forms).toMatchObject([
+      { number: 1, title: 'Book a cleaning', url: 'https://form.typeform.com/to/abc123' },
+    ]);
+    expect(read.forms[0]!.outline).toContain('What needs cleaning? [dropdown: Carpet | Ducts]');
+  });
+
   it('says what to send instead when a page has no form it can read', async () => {
     await expect(
       readPageForms(
         page('<div id="root"></div><script src="/app.js"></script>'),
-        'https://typeform.test',
+        'https://wix.test',
       ),
     ).rejects.toMatchObject({
       rule: 'link_unreadable',

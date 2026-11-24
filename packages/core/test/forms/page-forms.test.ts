@@ -5,6 +5,8 @@ import {
   formsOnPage,
   googleForm,
   pageFormOutline,
+  typeformAddresses,
+  typeformForm,
 } from '../../src/forms/page-forms';
 
 const ORDER_PAGE = `<html><head><title>Sherri’s Crafts</title><script>var x = "<form><input name=a></form>";</script></head><body>
@@ -112,9 +114,16 @@ describe('the forms on a web page', () => {
       '<a',
       '<body>',
       'FB_PUBLIC_LOAD_DATA_=[',
+      'window.rendererData={form:{',
+      'window.rendererData = ',
     ]) {
       const started = performance.now();
       formsOnPage(unit.repeat(Math.ceil(1_000_000 / unit.length)), 'https://slow.test');
+      expect(performance.now() - started, unit).toBeLessThan(3000);
+    }
+    for (const unit of ['https://a.typeform.com/to/', 'data-tf-widget="']) {
+      const started = performance.now();
+      typeformAddresses(unit.repeat(Math.ceil(1_000_000 / unit.length)));
       expect(performance.now() - started, unit).toBeLessThan(3000);
     }
   });
@@ -179,5 +188,211 @@ describe('a Google Form', () => {
     expect(
       googleForm('<script>var FB_PUBLIC_LOAD_DATA_ = [nope];</script>', 'https://g.test'),
     ).toBeNull();
+  });
+});
+
+describe('a Typeform', () => {
+  // Typeform's own form definition, as its page carries it in window.rendererData (an object whose keys aren't quoted).
+  const form = {
+    id: 'abc123',
+    title: 'Book a *cleaning*',
+    welcome_screens: [{ title: 'Two minutes and you’re booked' }],
+    fields: [
+      {
+        ref: 'name',
+        type: 'inline_group',
+        title: 'Your name',
+        properties: {
+          fields: [
+            {
+              ref: 'first',
+              type: 'short_text',
+              title: 'First name',
+              validations: { required: true },
+            },
+            { ref: 'last', type: 'short_text', title: 'Last name' },
+          ],
+        },
+      },
+      {
+        ref: 'service',
+        type: 'multiple_choice',
+        title: 'What needs cleaning, {{field:first}}?',
+        properties: {
+          description: 'See [our prices](https://example.test/prices)',
+          allow_other_choice: true,
+          choices: [
+            { ref: 'c-carpet', label: 'Carpet' },
+            { ref: 'c-duct', label: 'Ducts' },
+            { ref: 'c-tile', label: 'Tile' },
+          ],
+        },
+        validations: { required: true },
+      },
+      {
+        ref: 'rooms',
+        type: 'dropdown',
+        title: 'How many rooms?',
+        properties: { choices: [{ label: '1-2' }, { label: '3-4' }, { label: '5+' }] },
+      },
+      {
+        ref: 'vents',
+        type: 'number',
+        title: 'How many vents?',
+      },
+      {
+        ref: 'rate',
+        type: 'matrix',
+        title: 'How clean is each room now?',
+        properties: {
+          fields: [
+            {
+              type: 'multiple_choice',
+              title: 'Kitchen',
+              properties: { choices: [{ label: 'Fine' }, { label: 'Bad' }] },
+            },
+            {
+              type: 'multiple_choice',
+              title: 'Bedroom',
+              properties: { choices: [{ label: 'Fine' }, { label: 'Bad' }] },
+            },
+          ],
+        },
+      },
+      {
+        ref: 'likely',
+        type: 'opinion_scale',
+        title: 'How likely are you to book again?',
+        properties: {
+          steps: 10,
+          start_at_one: true,
+          labels: { left: 'Not at all', right: 'Very' },
+        },
+      },
+      { ref: 'thanks', type: 'statement', title: 'Thanks! We’ll text you a time.' },
+    ],
+    logic: [
+      {
+        type: 'field',
+        ref: 'service',
+        actions: [
+          {
+            action: 'jump',
+            details: { to: { type: 'field', value: 'vents' } },
+            condition: {
+              op: 'or',
+              vars: [
+                {
+                  op: 'is',
+                  vars: [
+                    { type: 'field', value: 'service' },
+                    { type: 'choice', value: 'c-duct' },
+                  ],
+                },
+                {
+                  op: 'is',
+                  vars: [
+                    { type: 'field', value: 'service' },
+                    { type: 'choice', value: 'c-tile' },
+                  ],
+                },
+              ],
+            },
+          },
+          {
+            action: 'jump',
+            details: { to: { type: 'field', value: 'rooms' } },
+            condition: { op: 'always', vars: [] },
+          },
+        ],
+      },
+      {
+        type: 'field',
+        ref: 'vents',
+        actions: [
+          {
+            action: 'jump',
+            details: { to: { type: 'thankyou', value: 'end' } },
+            condition: {
+              op: 'and',
+              vars: [
+                {
+                  op: 'greater_than',
+                  vars: [
+                    { type: 'field', value: 'vents' },
+                    { type: 'constant', value: 20 },
+                  ],
+                },
+                {
+                  op: 'is',
+                  vars: [
+                    { type: 'field', value: 'service' },
+                    { type: 'choice', value: 'c-duct' },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  };
+  const page = (
+    data: string,
+  ) => `<!DOCTYPE html><html><head><title>Book a cleaning</title></head><body>
+    <div id="root"></div>
+    <script>
+      window.rendererData = {
+        accessScheduling: {"closeScreenData":{},"isFormClosed":false},
+        featureFlags: {"form":{"x":1}},
+        form: ${data},
+        rootDomNode: 'root',
+        showBranding: true,
+      };
+    </script><script src="https://renderer-assets.typeform.com/renderer.js"></script></body></html>`;
+  const html = page(JSON.stringify(form));
+  const url = 'https://form.typeform.com/to/abc123';
+
+  it('is read from its data: every question, its choices, its groups and its skip rules', () => {
+    const read = typeformForm(html, url);
+    expect(read).toMatchObject({ number: 1, title: 'Book a cleaning', fields: 7, url });
+    expect(read!.outline.split('\n')).toEqual([
+      'Book a cleaning',
+      'Two minutes and you’re booked',
+      'Your name:',
+      '  First name [short answer box, required]',
+      '  Last name [short answer box]',
+      'What needs cleaning, (their earlier answer)? [pick one, required: Carpet | Ducts | Tile | Other (they type it)] (See our prices)',
+      'How many rooms? [dropdown: 1-2 | 3-4 | 5+]',
+      'How many vents? [number box]',
+      'How clean is each room now? [grid, rows: Kitchen | Bedroom, columns: Fine | Bad]',
+      'How likely are you to book again? [scale: 1 to 10 (Not at all to Very)]',
+      'Thanks! We’ll text you a time.',
+      '--- Which question comes next (Typeform’s logic) ---',
+      'After “What needs cleaning, (their earlier answer)?”: if the answer is “Ducts” or “Tile”, it goes to “How many vents?”.',
+      'After “What needs cleaning, (their earlier answer)?”: otherwise it goes to “How many rooms?”.',
+      'After “How many vents?”: if the answer is over “20” and “What needs cleaning, (their earlier answer)?” is “Ducts”, it goes to the end.',
+    ]);
+    expect(formsOnPage(html, url)).toEqual([read]);
+  });
+
+  it('falls back to the HTML when the page carries no Typeform it can read', () => {
+    expect(typeformForm(page('{"fields": [nope]}'), url)).toBeNull();
+    expect(typeformForm(page('{"title": "No questions"}'), url)).toBeNull();
+    expect(typeformForm('<div id="root"></div>', url)).toBeNull();
+    expect(formsOnPage(page('{"fields": [nope]}'), url)).toEqual([]);
+  });
+
+  it('is found on a page that embeds it or links to it', () => {
+    expect(
+      typeformAddresses(`<div data-tf-live="01JABC"></div><button data-tf-popup='xyz789'>Book</button>
+        <a href="https://acme.typeform.com/to/Link42?utm=x">Quote</a><a href="https://form.typeform.com/to/xyz789">Again</a>
+        <a href="https://typeform.com/to/TooLong1234567890123456789012345678">Odd</a>`),
+    ).toEqual([
+      'https://form.typeform.com/to/01JABC',
+      'https://form.typeform.com/to/xyz789',
+      'https://form.typeform.com/to/Link42',
+    ]);
+    expect(typeformAddresses('<p>No forms here</p>')).toEqual([]);
   });
 });
