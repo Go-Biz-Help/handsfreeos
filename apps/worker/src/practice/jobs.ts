@@ -9,7 +9,7 @@
  *   of it is left (`private.purge_practice_organization`). Queued by the business's deletion job and by the sweep.
  */
 import { scheduleJob } from '@hfos/core/server';
-import { asWorker, rows, sql } from '@hfos/db/client';
+import { asWorker, noStatementLimit, rows, sql } from '@hfos/db/client';
 import type { JobHandler } from '../jobs';
 import { WORKSPACE_JOBS, workspaceDeleteJobKey } from '../workspace/delete';
 import { PRACTICE_JOBS, queuePracticePurge } from './queue';
@@ -55,12 +55,14 @@ export const practiceSweep: JobHandler = async (ctx) => {
 export const practicePurge: JobHandler = async (ctx) => {
   const organizationId = ctx.job.payload['organizationId'];
   if (typeof organizationId !== 'string') return;
-  const [done] = await asWorker(ctx.db, {}, (tx) =>
-    rows<{ purged: boolean }>(
+  const [done] = await asWorker(ctx.db, {}, async (tx) => {
+    // One statement for the organization and every business in it.
+    await noStatementLimit(tx);
+    return rows<{ purged: boolean }>(
       tx,
       sql`select private.purge_practice_organization(${organizationId}::uuid) as purged`,
-    ),
-  );
+    );
+  });
   if (done?.purged) ctx.log.info({ organizationId }, 'a practice organization is gone');
 };
 

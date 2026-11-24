@@ -449,6 +449,8 @@ You should see a `COUNT` column with each app's number of machines.
 
 Before you add machines to either app, check that the apps' clients (6 per API machine, 19 per worker machine) stay well under 200.
 
+A statement can't hold its connection for ever (`packages/db/src/client.ts`). A person's request gets 15 seconds for a statement, and 30 seconds with its transaction open and nothing running. A worker's statement gets 60 seconds: one that runs over shows in the worker's log as `canceling statement due to statement timeout`, and its event, delivery or job is tried again. Deleting a whole business for good is the one worker statement with no limit. The worker's open transactions have no limit of their own, because a file import honestly leaves the outbox's transaction open for minutes; what ends them is each provider call's own time limit (Twilio 30 seconds, Postmark a minute, a file to or from a provider 2 minutes).
+
 If you see `MaxClientsInSessionMode` or `max clients reached in session mode` in a log, an app's string is on the session pooler, port `5432`. Move both strings to `6543`:
 
 1. Open `.env.hosted` (see "Database connection strings for the API and the worker") and change `:5432/` to `:6543/` on the `DATABASE_URL=` and `DATABASE_URL_WORKER=` lines. Make the same change in your password manager.
