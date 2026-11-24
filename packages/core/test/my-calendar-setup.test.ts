@@ -30,6 +30,7 @@ import {
   myCalendarTimeOffProblem,
   myCalendarToConnect,
   myCalendarWeekly,
+  sameWeeklyHours,
   withLunch,
   type MyCalendarSetupAnswers,
   type MyCalendarSetupContext,
@@ -173,6 +174,16 @@ describe('which questions, and the hours they make', () => {
         meeting: { status: 'error', accountEmail: null },
       }),
     ).toContain('zoom');
+  });
+
+  it('reads saved hours back whatever order their keys come in, as the database gives them', () => {
+    const fromDb = OPEN_8_TO_5.map(({ day, start, end }) => ({ day, end, start })).reverse();
+    expect(sameWeeklyHours(fromDb, OPEN_8_TO_5)).toBe(true);
+    expect(sameWeeklyHours(fromDb.slice(1), OPEN_8_TO_5)).toBe(false);
+    expect(myCalendarSetupStart({ ...NEW, weekly: fromDb })).toMatchObject({
+      hours: 'business',
+      lunch: false,
+    });
   });
 
   it('makes the business’s hours or weekdays 9 to 5, with lunch taken out of every day, or their own', () => {

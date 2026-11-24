@@ -174,9 +174,16 @@ const sortedHours = (h: WeeklyHours) =>
   [...h].sort(
     (a, b) => a.day - b.day || a.start.localeCompare(b.start) || a.end.localeCompare(b.end),
   );
-/** The same hours, in whatever order they're listed. */
-export const sameWeeklyHours = (a: WeeklyHours, b: WeeklyHours) =>
-  JSON.stringify(sortedHours(a)) === JSON.stringify(sortedHours(b));
+/**
+ * The same hours, in whatever order they're listed. Compared stretch by stretch, never as JSON text: hours read back
+ * from the database have their keys in its order (day, end, start), not ours.
+ */
+export const sameWeeklyHours = (a: WeeklyHours, b: WeeklyHours) => {
+  const line = (h: WeeklyHours) => sortedHours(h).map((x) => `${x.day} ${x.start} ${x.end}`);
+  const x = line(a);
+  const y = line(b);
+  return x.length === y.length && x.every((v, i) => v === y[i]);
+};
 const sameHours = sameWeeklyHours;
 
 /** Hours with a lunch break taken out of every stretch it falls in. */
