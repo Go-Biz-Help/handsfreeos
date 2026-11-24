@@ -3510,13 +3510,21 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Today, this week from Monday, this month from the 1st** (`countPeriodStart`), on the business's calendar.
       - **At the top of Today**, on the web and the phone (`counters.tsx` in each), with Today, This week and This
         month, All networks and a tab for each network worked or counted, going up live: the web asks again each time
-        the person's computer says something and every minute; the phone every 5 seconds while Today is open
-        (`TICKER_ASK_SECONDS`).
+        the person's computer says something and every minute; the phone every 15 seconds while Today is the screen in
+        view (`COUNTS_ASK_SECONDS`). It was every 5, as often as the ticker; Chris's yes to the speed audit's choice 7
+        on 24 Nov 2026 ("They refresh every 15 to 30 seconds, not every 5") made it 15. The ticker's own pace stayed.
       - **The ticker along the bottom of every Social Outreach page** (`ticker.tsx` on the web; the route's layout on
         the phone): a Live dot, what the computer is doing now, then today's newest 12 steps going past like a TV's news
         line (`tickerOf`, `outreach.ticker`, a lighter read than `outreach.live`). It holds still while pointed at,
         focused or tapped, has Pause, and stands still for reduced motion, where the steps scroll by hand. The setup's
         own full-screen steps don't have it.
+      - **The phone asks only from the screen in view** (the speed audit, 24 Nov 2026). Its screens stay alive under
+        another screen and on a tab that isn't picked, and from there the ticker, the counters, the live answers and
+        the asks went on asking, about 34 times a minute, and the ticker went on telling the computer it was watched.
+        Now a route says whether it's the one in view (`RouteInView` in the phone's `src/lib/in-view.tsx`), and
+        `useLiveAnswer` passes its rounds over until it is, asking at once on the way back if a round's time went by.
+        The ticker says it's watched only then too, so the computer goes back to its slower pace a minute and a half
+        after the person looks elsewhere.
       - **About 5 seconds while a ticker is on screen, about a minute otherwise.** A ticker says so every minute
         (`outreach.live.watch`, `computers.watched_until` for 90 seconds). Meanwhile each beat's answer says `watched`
         and the extension sends a line alone every 4 seconds (`WATCHED_LINE_SECONDS`) instead of every 20, and the

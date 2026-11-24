@@ -1,12 +1,15 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import * as React from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
+import { InViewProvider } from '../in-view';
 import { useLiveAnswer } from '../live-answer';
 
 /**
  * The phone's one way of asking HandsFreeOS for what it doesn't keep, and asking again every so often (the speed
  * audit, Nov 2026): a round waits while the one before it is still out, none is asked with the app in the
- * background, and a list asked for with one more page stays on screen until the longer one has come.
+ * background or with the screen under another or on a tab that isn't picked, and a list asked for with one more page
+ * stays on screen until the longer one has come.
  */
 
 jest.mock('@/lib/network', () => ({ useNetwork: () => ({ online: true }) }));
@@ -93,6 +96,84 @@ describe('asking again every so often', () => {
     await app.to('background');
     await app.to('active');
     expect(ask).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('a screen that isn’t the one in view', () => {
+  it('asks nothing again from under another screen, and at once when it’s back', async () => {
+    appState();
+    const { ask, answer } = asker<string>();
+    let inView = true;
+    const { result, rerender } = await renderHook(
+      () => useLiveAnswer(ask, 'k', 'No signal.', { everySeconds: 5 }),
+      {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <InViewProvider value={inView}>{children}</InViewProvider>
+        ),
+      },
+    );
+    await answer('first');
+    inView = false;
+    await rerender({});
+    await seconds(60);
+    expect(ask).toHaveBeenCalledTimes(1);
+    // What it had stays on the screen under the other one.
+    expect(result.current.data).toBe('first');
+    inView = true;
+    await rerender({});
+    expect(ask).toHaveBeenCalledTimes(2);
+    await answer('second');
+    expect(result.current.data).toBe('second');
+    // And its rounds go on from there.
+    await seconds(5);
+    expect(ask).toHaveBeenCalledTimes(3);
+  });
+
+  it('asks nothing extra for a look away shorter than a round', async () => {
+    appState();
+    const { ask, answer } = asker<string>();
+    let inView = true;
+    const { rerender } = await renderHook(
+      () => useLiveAnswer(ask, 'k', 'No signal.', { everySeconds: 5 }),
+      {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <InViewProvider value={inView}>{children}</InViewProvider>
+        ),
+      },
+    );
+    await answer('first');
+    inView = false;
+    await rerender({});
+    await seconds(2);
+    inView = true;
+    await rerender({});
+    expect(ask).toHaveBeenCalledTimes(1);
+    await seconds(5);
+    expect(ask).toHaveBeenCalledTimes(2);
+  });
+
+  it('still asks for something new, and when told to', async () => {
+    appState();
+    const { ask, answer } = asker<string>();
+    const inView = false;
+    let key = 'a';
+    const { result, rerender } = await renderHook(
+      () => useLiveAnswer(ask, key, 'No signal.', { everySeconds: 5 }),
+      {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <InViewProvider value={inView}>{children}</InViewProvider>
+        ),
+      },
+    );
+    // Opened out of view: its first answer is still asked for.
+    expect(ask).toHaveBeenCalledTimes(1);
+    await answer('a');
+    key = 'b';
+    await rerender({});
+    expect(ask).toHaveBeenCalledTimes(2);
+    await answer('b');
+    await act(async () => result.current.reload());
+    expect(ask).toHaveBeenCalledTimes(3);
   });
 });
 

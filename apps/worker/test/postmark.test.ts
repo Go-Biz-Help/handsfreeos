@@ -383,3 +383,22 @@ describe('the Reply-To of mail that came in', () => {
     expect(replyToOf('[your-email]')).toBeNull();
   });
 });
+
+describe('how long Postmark has to answer', () => {
+  it('is limited on every call, so a call that hangs is given up and tried again', async () => {
+    const limits: (AbortSignal | null | undefined)[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: string | URL, init: RequestInit = {}) => {
+        limits.push(init.signal);
+        return new Response(JSON.stringify(DOMAIN), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }),
+    );
+    await domains(dns({})).verify(String(DOMAIN.ID));
+    expect(limits.length).toBeGreaterThan(0);
+    for (const limit of limits) expect(limit).toBeInstanceOf(AbortSignal);
+  });
+});

@@ -19,6 +19,13 @@ interface Token {
   readonly value: string;
 }
 
+/**
+ * How long Postmark has to answer: an email goes out from inside the outbox's transaction, as a text does
+ * (telephony/twilio.ts), and Node's own limit is five minutes. A minute, since an email may carry attachments. One
+ * that runs out is thrown as any failure to reach Postmark is, and retried the same.
+ */
+const CALL_MS = 60_000;
+
 /** 4xx answers about the request (a bad address, a stopped recipient) are permanent; auth, throttling and outages retry. */
 async function call<T>(
   token: Token,
@@ -28,6 +35,7 @@ async function call<T>(
 ): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     method,
+    signal: AbortSignal.timeout(CALL_MS),
     headers: {
       Accept: 'application/json',
       [token.header]: token.value,

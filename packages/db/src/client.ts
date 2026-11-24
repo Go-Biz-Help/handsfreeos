@@ -62,6 +62,27 @@ const IDLE_TIMEOUT_SECONDS = 600;
 const USER_STATEMENT_TIMEOUT = '15s';
 const USER_IDLE_IN_TRANSACTION_TIMEOUT = '30s';
 
+/**
+ * The bound on a worker's statement (the speed audit, Nov 2026). It had none: a statement waiting on a lock that its
+ * own outbox transaction held waited for good, and so did every business's texts, emails and pushes on that machine
+ * (handlers/telephony.ts tells of one). The longest statement the live database had on record was 3.3 seconds. One
+ * that runs past a minute fails as any statement does, with its connection as good as before, and its event, delivery
+ * or job is tried again. Deleting a whole business is the one statement that may honestly take longer, and says so
+ * (`noStatementLimit`).
+ *
+ * **An open transaction with nothing running has no limit here, on purpose**, though a person's has one above:
+ *
+ * - The outbox runs its handlers inside one transaction, and honest work leaves it idle for minutes: a file import
+ *   runs from start to end inside its handler (handlers/import-run.ts), in transactions of its own.
+ * - When the database ends an idle transaction, this driver (postgres 3.4.9) rejects the transaction at once, and
+ *   then writes its COMMIT or ROLLBACK to the closed socket when the work at last returns: a TypeError outside any
+ *   promise, which stops the process. `packages/db/test/worker-limits.test.ts` keeps both halves in view.
+ *
+ * What bounds an idle worker transaction is each provider call's own time limit (Twilio, Postmark, Meta and the
+ * rest), so a call made from inside the outbox's transaction always ends.
+ */
+export const WORKER_STATEMENT_TIMEOUT = '60s';
+
 export function createDb(url: string, opts: CreateDbOptions = {}): DbHandle {
   const client = postgres(url, {
     max: opts.max ?? 10,
@@ -106,10 +127,19 @@ export async function asWorker<T>(
     await tx.execute(
       sql`select set_config('role', 'service_actor', true),
             set_config('app.system_scope.workspace_id', ${scope.workspaceId ?? ''}, true),
-            set_config('app.system_scope.organization_id', ${scope.organizationId ?? ''}, true)`,
+            set_config('app.system_scope.organization_id', ${scope.organizationId ?? ''}, true),
+            set_config('statement_timeout', ${WORKER_STATEMENT_TIMEOUT}, true)`,
     );
     return fn(tx);
   });
+}
+
+/**
+ * For the rest of a worker's transaction, a statement may take as long as it needs: for the one statement that
+ * deletes a whole business and everything in it, which grows with the business. Nothing else should ask for it.
+ */
+export async function noStatementLimit(tx: Tx): Promise<void> {
+  await tx.execute(sql`select set_config('statement_timeout', '0', true)`);
 }
 
 /**

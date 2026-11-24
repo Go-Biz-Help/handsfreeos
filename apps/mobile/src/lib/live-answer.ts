@@ -2,6 +2,7 @@ import * as React from 'react';
 import { AppState } from 'react-native';
 
 import { errorMessage } from '@/lib/api';
+import { useInView } from '@/lib/in-view';
 import { useNetwork } from '@/lib/network';
 
 /**
@@ -12,7 +13,9 @@ import { useNetwork } from '@/lib/network';
  * Asking again every so often waits its turn (the speed audit, Nov 2026). A round is passed over while the one before
  * it is still out: starting another threw that answer away, so on a connection slower than the pace nothing ever
  * reached the screen and the requests piled up behind each other. And none is asked while the app is in the
- * background, where nobody reads the answer; it asks once on the way back if a round was passed over meanwhile.
+ * background, or while the screen isn't the one in view (under another screen, or on a tab that isn't picked:
+ * `@/lib/in-view`), where nobody reads the answer; it asks once on the way back if a round was passed over meanwhile.
+ * Only the asking again waits: a new `key` and `reload` ask wherever the screen is.
  */
 export interface LiveAnswer<T> {
   readonly data: T | null;
@@ -62,12 +65,25 @@ export function useLiveAnswer<T>(
   const moreOf = options.moreOf;
   /** The ask now out and when it began (ms), or null with none out. */
   const out = React.useRef<{ readonly began: number } | null>(null);
+  /** When the newest ask began (ms), and whether the screen has been out of view since asking again last ran. */
+  const asked = React.useRef(0);
+  const away = React.useRef(false);
+  const inView = useInView();
 
   React.useEffect(() => {
     if (!asks || !online || !every || every <= 0) return;
+    if (!inView) {
+      away.current = true;
+      return;
+    }
     let passedOver = false;
     const stalledMs = Math.max(every * 1000 * STALLED_ROUNDS, STALLED_MIN_MS);
     const waiting = () => out.current !== null && Date.now() - out.current.began < stalledMs;
+    // Back in view with a round's time gone by since the last ask: asked now, not a round from now.
+    if (away.current && Date.now() - asked.current >= every * 1000 && !waiting()) {
+      setRound((r) => r + 1);
+    }
+    away.current = false;
     const t = setInterval(() => {
       if (AppState.currentState === 'background') passedOver = true;
       else if (!waiting()) setRound((r) => r + 1);
@@ -81,7 +97,7 @@ export function useLiveAnswer<T>(
       clearInterval(t);
       back.remove();
     };
-  }, [asks, online, every]);
+  }, [asks, online, every, inView]);
 
   React.useEffect(() => {
     const ask = latest.current;
@@ -92,6 +108,7 @@ export function useLiveAnswer<T>(
     let cancelled = false;
     const mine = { began: Date.now() };
     out.current = mine;
+    asked.current = mine.began;
     setLoading(true);
     setError(null);
     ask()

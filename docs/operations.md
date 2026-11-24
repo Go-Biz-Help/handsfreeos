@@ -428,9 +428,9 @@ Never give an app the `postgres` user (`postgres.ybupfghakoszfcxhyrby`). The app
 
 #### How many connections the apps use
 
-Each open app connection is one pooler client. On the transaction pooler, a client borrows a database connection only while a transaction runs, and each role (`hfos_api` and `hfos_worker`) has a pool of up to **Pool Size** database connections to borrow from. The API opens up to 6 connections per machine. The worker opens up to 14 per machine: 8 for its four loops, which run side by side, and 6 for its web server. Both close a connection once it has sat unused for 10 minutes (an idle one holds no database connection, only one of the 200 clients). Micro compute allows 60 database connections and 200 pooler clients. When every database connection in a pool is busy, the next transaction waits for one. When there are 200 clients, the next connection is refused with `Max client connections reached`.
+Each open app connection is one pooler client. On the transaction pooler, a client borrows a database connection only while a transaction runs, and each role (`hfos_api` and `hfos_worker`) has a pool of up to **Pool Size** database connections to borrow from. The API opens up to 6 connections per machine. The worker opens up to 19 per machine: 13 for its loops and the jobs it runs side by side (7, and one for each of the `WORKER_JOB_SLOTS` jobs it runs at once, 6 unless you change it), and 6 for its web server. Both close a connection once it has sat unused for 10 minutes (an idle one holds no database connection, only one of the 200 clients). Micro compute allows 60 database connections and 200 pooler clients. When every database connection in a pool is busy, the next transaction waits for one. When there are 200 clients, the next connection is refused with `Max client connections reached`.
 
-Fly usually starts two machines per app on the first deploy (the worker starts with one if you follow Fly Part 7). After that deploy, count them:
+Fly usually starts two machines per app on the first deploy (the worker starts with one if you follow Fly Part 7, and gets its second in that part's last step). HandsFreeOS runs two of each. Count them:
 
 ```bash
 fly scale show --app handsfreeos-api
@@ -447,7 +447,9 @@ You should see a `COUNT` column with each app's number of machines.
 3. Check that it is 20. Each role gets a pool that size, so the two apps can use up to 40 of Micro's 60 database connections, and Supabase's own services use about 10 more. On the transaction pooler that is plenty, because a transaction holds its connection for milliseconds.
 4. Don't raise it above 20 on Micro, or the apps and Supabase's own services together can run the database out of connections, which breaks sign-in too. If you need more, move to a larger compute size first.
 
-Before you add machines to either app, check that the apps' clients (6 per API machine, 10 per worker machine) stay well under 200.
+Before you add machines to either app, check that the apps' clients (6 per API machine, 19 per worker machine) stay well under 200.
+
+A statement can't hold its connection for ever (`packages/db/src/client.ts`). A person's request gets 15 seconds for a statement, and 30 seconds with its transaction open and nothing running. A worker's statement gets 60 seconds: one that runs over shows in the worker's log as `canceling statement due to statement timeout`, and its event, delivery or job is tried again. Deleting a whole business for good is the one worker statement with no limit. The worker's open transactions have no limit of their own, because a file import honestly leaves the outbox's transaction open for minutes; what ends them is each provider call's own time limit (Twilio 30 seconds, Postmark a minute, a file to or from a provider 2 minutes).
 
 If you see `MaxClientsInSessionMode` or `max clients reached in session mode` in a log, an app's string is on the session pooler, port `5432`. Move both strings to `6543`:
 
@@ -1883,6 +1885,8 @@ The defaults are right in production. Setting some of these changes real behavio
 | `SUPABASE_JWKS_URL`, `SUPABASE_JWT_ISSUER` | Worked out from `SUPABASE_URL`                                             | Nothing to change.                                                                                                                                                                                                                                             |
 | `WORKER_POLL_MS`                           | `1000` (one second between loop passes)                                    | Tuning only.                                                                                                                                                                                                                                                   |
 | `WORKER_BATCH_SIZE`                        | `20`                                                                       | Tuning only.                                                                                                                                                                                                                                                   |
+| `WORKER_JOB_SLOTS`                         | `6`                                                                        | How many jobs the worker runs at once on each machine. `1` runs them one after another, as it did before November 2026. Each one more is one more database connection (see "How many connections the apps use").                                               |
+| `WORKER_SLOW_JOB_SLOTS`                    | Half of `WORKER_JOB_SLOTS` (`3`)                                           | How many of those may be slow jobs (a job, or a kind of job, that takes two seconds or more). The rest are kept for quick ones: a push, a reminder. The AI teammate's reply to a customer is never counted as slow. Tuning only.                               |
 | `REGISTRATION_POLL_MS`                     | `900000` (15 minutes) with Twilio                                          | How often carrier registrations are checked.                                                                                                                                                                                                                   |
 | `NUMBER_IMPORT_POLL_MS`                    | `300000` (5 minutes) with Twilio                                           | How often a number being transferred in from another Twilio account (or GoHighLevel) is looked for. It slows down by itself after two days.                                                                                                                    |
 | `MAILBOX_BACKFILL_DAYS`                    | `30` (kept between 1 and 90)                                               | How far back a new mailbox's first sync looks.                                                                                                                                                                                                                 |
@@ -2150,7 +2154,7 @@ Add the feature secrets later, as their own sections describe: `TWILIO_PRIMARY_P
 
 ### Fly Part 7: The first deploy, by hand
 
-Do the first deploy by hand. You can watch it, keep the worker to one machine, and fix a missing secret before GitHub starts deploying on every push. The commands match what `.github/workflows/deploy.yml` runs. The worker goes first, so providers never reach a half-deployed pair. Then the API.
+Do the first deploy by hand. You can watch it, start the worker on one machine, and fix a missing secret before GitHub starts deploying on every push. The worker's second machine is the last step. The commands match what `.github/workflows/deploy.yml` runs. The worker goes first, so providers never reach a half-deployed pair. Then the API.
 
 1. Switch to `main` and bring it up to date.
 
@@ -2214,7 +2218,7 @@ Do the first deploy by hand. You can watch it, keep the worker to one machine, a
    fly status --app handsfreeos-worker
    ```
 
-   You should see one machine in the `started` state.
+   You should see one machine in the `started` state. Its second comes in step 13.
 
 8. Check the API's machines.
 
@@ -2259,6 +2263,14 @@ Do the first deploy by hand. You can watch it, keep the worker to one machine, a
     ```
 
     You should see `{"ok":true}`. The API adds the service name and the time; the worker does not.
+
+13. Give the worker its second machine, so webhooks keep being answered when one machine fails or is being replaced. Fly shows what it will change and asks you to confirm. Type `y` and press Return.
+
+    ```bash
+    fly scale count 2 --app handsfreeos-worker
+    ```
+
+    Then run `fly status --app handsfreeos-worker` again. You should see two machines in the `started` state. "One worker machine or two" in "Scaling, and keeping the apps running" says what two cost and how to go back to one.
 
 Use the `.fly.dev` addresses for checks only. Later deploys keep the number of machines you have now. Fly adds a second machine only on an app's first deploy, or after the app has been scaled to zero.
 
@@ -2773,12 +2785,14 @@ What two machines change, compared with one:
 
 #### One worker machine or two
 
-- **One** (what Fly Part 7 set up). Pro: about $4 a month cheaper, and up to 14 database connections. Con: if that machine fails, webhooks wait until it is back.
-- **Two.** Pro: webhooks keep being answered if one machine fails. Con: about $4 a month more, and up to 28 database connections.
+HandsFreeOS runs two (checked on Fly on 24 November 2026, and Chris's choice in the speed audit that month: keep both).
+
+- **Two** (what Fly Part 7 sets up, in its last step). Pro: webhooks keep being answered if one machine fails, while Fly restarts a host, and while a deploy replaces one. Con: about $4 a month more, and up to 38 pooler clients.
+- **One.** Pro: about $4 a month cheaper, and up to 19 pooler clients. Con: if that machine fails, webhooks wait until it is back.
 
 Running two is safe. Each loop locks the rows it claims, and the other machine skips locked rows. The recurring cleanup job is kept to one copy. Rows held by a machine that died are picked up again after 5 minutes. Before you add a machine to either app, check the database pool size (see "How many connections the apps use" in "The database: Supabase (hosted)").
 
-To run two worker machines:
+To run two worker machines, when you see one:
 
 ```bash
 fly scale count 2 --app handsfreeos-worker
@@ -3057,7 +3071,7 @@ Fly sends each organization one bill a month. Running machines are billed by the
 | Dedicated IPv4 address                                      | $2 per app. Not needed.                                              |
 | Outbound traffic                                            | $0.02 per GB in North America. Inbound traffic is free.              |
 
-Total for Fly in `dfw`: about $8 a month with one worker machine, or about $12 with two. In `iad`, about $6.40 or $9.60.
+Total for Fly in `dfw`: about $12 a month with two worker machines, as HandsFreeOS runs, or about $8 with one. In `iad`, about $9.60 or $6.40.
 
 The sync service for the phone app adds about $13 to $15 a month on Fly (see "Rough cost of the sync service" in "Sync service: PowerSync on Fly").
 
