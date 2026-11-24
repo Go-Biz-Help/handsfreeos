@@ -3,16 +3,17 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import {
   createContext,
-  startTransition,
   useContext,
   useEffect,
   useRef,
   useState,
+  useTransition,
   type ReactNode,
 } from 'react';
 import { isOwnRequest } from '@/lib/api/own-requests';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { browserAccessToken } from '@/lib/supabase/token';
+import { redrawLine, type RedrawLine, type Redraws } from './redraws';
 
 /**
  * What the database broadcasts for every event in the workspace: ids only, never row data. For the inbox's and
@@ -35,11 +36,14 @@ type Listener = (change: LiveChange | { entityType: '*'; type: 'resync' }) => vo
 interface LiveContextValue {
   /** `whileHidden` listeners still hear changes in a background tab (the unread count in the tab title). */
   subscribe(listener: Listener, whileHidden?: boolean): () => void;
+  /** Where a screen asks for the page to be drawn again: one at a time for them all (./redraws.ts). */
+  redraws: Redraws;
   connected: boolean;
 }
 
 const LiveContext = createContext<LiveContextValue>({
   subscribe: () => () => {},
+  redraws: { ask: () => {}, forget: () => {} },
   connected: false,
 });
 
@@ -63,11 +67,13 @@ export function LiveProvider({
 }) {
   const listeners = useRef(new Map<Listener, boolean>());
   const [connected, setConnected] = useState(false);
+  const [line] = useState(redrawLine);
   const value = useRef<LiveContextValue>({
     subscribe(listener, whileHidden = false) {
       listeners.current.set(listener, whileHidden);
       return () => listeners.current.delete(listener);
     },
+    redraws: line,
     connected: false,
   });
   value.current = { ...value.current, connected };
@@ -182,7 +188,29 @@ export function LiveProvider({
     };
   }, [workspaceId]);
 
-  return <LiveContext.Provider value={value.current}>{children}</LiveContext.Provider>;
+  return (
+    <LiveContext.Provider value={value.current}>
+      <LiveRedraws line={line} />
+      {children}
+    </LiveContext.Provider>
+  );
+}
+
+/**
+ * Draws the page again for the screens that asked (./redraws.ts), and says when it is there. On its own, so that a
+ * page being drawn changes nothing the screens are given.
+ */
+function LiveRedraws({ line }: { line: RedrawLine }) {
+  const router = useRouter();
+  const [drawing, draw] = useTransition();
+  useEffect(() => {
+    line.drawWith(() => draw(() => router.refresh()));
+    return () => line.drawWith(null);
+  }, [line, router]);
+  useEffect(() => {
+    if (!drawing) line.landed();
+  }, [line, drawing]);
+  return null;
 }
 
 /**
@@ -208,14 +236,20 @@ function matches(
   return !ids || id === null || ids.includes(id);
 }
 
+interface Debounced {
+  (): void;
+  /** Fires now what is waiting, if anything is. */
+  flush(): void;
+}
+
 /**
  * Trailing debounce that still fires within MAX_WAIT_MS of the first change, so a steady stream of events
  * (a campaign going out) cannot hold the screen stale indefinitely.
  */
-function debounced(fire: () => void, ms: number): () => void {
+function debounced(fire: () => void, ms: number): Debounced {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let first = 0;
-  return () => {
+  const trigger = () => {
     const now = Date.now();
     if (!timer) first = now;
     else if (now - first >= MAX_WAIT_MS) return;
@@ -225,6 +259,13 @@ function debounced(fire: () => void, ms: number): () => void {
       fire();
     }, ms);
   };
+  trigger.flush = () => {
+    if (!timer) return;
+    clearTimeout(timer);
+    timer = null;
+    fire();
+  };
+  return trigger;
 }
 
 /** The deps-stable form of an entity-type list: undefined is every change; [] is none (''). */
@@ -234,15 +275,16 @@ function typesKey(entityTypes: readonly string[] | undefined): string | undefine
 
 /**
  * Refreshes the server-rendered page (debounced) when a teammate changes one of these entity types. Paused while
- * the tab is hidden; it refreshes once when shown again.
+ * the tab is hidden; it refreshes once when shown again. The page is drawn once for every screen on it that asks,
+ * and never again before the one ahead has landed (./redraws.ts).
  */
 export function useLiveRefresh(
   entityTypes?: readonly string[],
   debounceMs = 300,
   options?: LiveOptions,
 ): void {
-  const { subscribe } = useContext(LiveContext);
-  const router = useRouter();
+  const { subscribe, redraws } = useContext(LiveContext);
+  const [me] = useState(() => ({}));
   const key = typesKey(entityTypes);
   const onlyKey = options?.only ? JSON.stringify(options.only) : undefined;
   const whileHidden = options?.whileHidden ?? false;
@@ -250,11 +292,21 @@ export function useLiveRefresh(
     if (key === '') return;
     const types = key === undefined ? undefined : key.split(',');
     const only = onlyKey === undefined ? undefined : (JSON.parse(onlyKey) as LiveOptions['only']);
-    const trigger = debounced(() => startTransition(() => router.refresh()), debounceMs);
-    return subscribe((change) => {
-      if (matches(change, types, only)) trigger();
+    let heard = 0;
+    const trigger = debounced(() => redraws.ask(me, heard), debounceMs);
+    const unsubscribe = subscribe((change) => {
+      if (!matches(change, types, only)) return;
+      heard = Date.now();
+      trigger();
     }, whileHidden);
-  }, [subscribe, router, key, onlyKey, debounceMs, whileHidden]);
+    return () => {
+      unsubscribe();
+      // What was heard is still wanted when only what is listened for has changed.
+      trigger.flush();
+    };
+  }, [subscribe, redraws, me, key, onlyKey, debounceMs, whileHidden]);
+  // After the effect above, so a screen that goes takes back what it has just asked for.
+  useEffect(() => () => redraws.forget(me), [redraws, me]);
 }
 
 /**
