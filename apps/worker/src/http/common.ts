@@ -29,6 +29,11 @@ import type { TestRoutes } from './test-routes';
 export interface HttpDeps extends WorkerServices {
   /** A separate small pool, so the loops never starve webhooks. */
   readonly httpDb: Db;
+  /**
+   * Told once a webhook is stored. The loop that processes them runs in this same process, so main.ts wakes it:
+   * a customer's text is read now, not at the next poll up to a second away.
+   */
+  readonly onDeliveryStored?: () => void;
   readonly verifyToken: TokenVerifier | null;
   readonly webOrigins: readonly string[];
   /** The fixed addresses websites see our reads come from (env SITE_READER_IPS); empty until allocated. */
@@ -147,6 +152,7 @@ export async function recordDelivery(
             ${input.workspaceId}, ${input.organizationId})`,
     ),
   );
+  deps.onDeliveryStored?.();
 }
 
 export interface VerifiedTwilio {

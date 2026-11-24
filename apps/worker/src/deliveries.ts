@@ -24,6 +24,11 @@ export interface DeliveryDeps extends WorkerServices {
   readonly batchSize: number;
   /** Only claim rows this worker id already reserved (tests and the seed, which share a database with other pollers). */
   readonly reservedOnly?: boolean;
+  /**
+   * Told after each delivery was processed, whatever came of it. Its processor may have left an event for the
+   * outbox or a job due now: main.ts wakes those loops, so neither waits for the next poll.
+   */
+  readonly onProcessed?: () => void;
 }
 
 export interface DeliveryStats {
@@ -143,6 +148,7 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
       if (failed) stats.failed++;
       else stats.retried++;
     }
+    deps.onProcessed?.();
   }
   return stats;
 }

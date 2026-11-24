@@ -15,6 +15,11 @@ export interface OutboxDeps extends WorkerServices {
   readonly reservedOnly?: boolean;
   /** Told the type of each event this pass claimed, before it is handled: how one loop wakes another (main.ts). */
   readonly onEvent?: (eventType: string) => void;
+  /**
+   * Told after an event's handlers ran, whatever came of them. They queue pushes and add-on deliveries as jobs due
+   * now, and a workflow's step leaves the next event: main.ts wakes those loops, so neither waits for the next poll.
+   */
+  readonly onHandled?: () => void;
 }
 
 export const MAX_ATTEMPTS = 5;
@@ -154,6 +159,7 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
       if (failed) stats.failed++;
       else stats.retried++;
     }
+    deps.onHandled?.();
   }
   return stats;
 }

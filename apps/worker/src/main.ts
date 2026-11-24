@@ -77,11 +77,26 @@ const model =
       ? scriptedAssistant()
       : null;
 
+/**
+ * Each queue's loop, once it runs (below): how one part of the worker tells another there is work for it now. Every
+ * hand-over used to wait for the next poll, half a second on average and a second at worst, and an AI reply to a
+ * customer's text is four of them: the webhook is stored, its processor leaves an event, the event's handler
+ * queues the reply, the reply's job leaves the event that sends it.
+ */
+const wake: { outbox?: () => void; webhook?: () => void; jobs?: () => void } = {};
+/** After work that may have left an event or a job due now. Each loop that is waiting looks once; one in a pass
+ * looks again when the pass ends. */
+const handedOver = () => {
+  wake.outbox?.();
+  wake.jobs?.();
+};
+
 // Cloudflare Turnstile: one widget for app.handsfreeos.com serves booking pages, our forms and the website chat.
 const botCheck = createBotCheck(env.turnstileSecretKey);
 const app = await buildHttpServer({
   ...services,
   httpDb: httpHandle.db,
+  onDeliveryStored: () => wake.webhook?.(),
   verifyToken:
     env.jwksUrl && env.jwtIssuer
       ? createTokenVerifier({ jwksUrl: env.jwksUrl, jwtIssuer: env.jwtIssuer })
@@ -220,24 +235,36 @@ const migrationLoop = runLoop(
   { drain: false, idle: { afterMs: 60_000, everyMs: 30_000 } },
   pace,
 );
-const loops = [
-  runLoop(
-    'outbox',
-    () =>
-      processOnce({
-        ...loopDeps,
-        handlers,
-        onEvent: (type) => {
-          if (type.startsWith('migration.')) migrationLoop.wake();
-        },
-      }),
-    { drain: true },
-    pace,
-  ),
-  runLoop('webhook', () => processDeliveries({ ...loopDeps, processors }), { drain: true }, pace),
-  runLoop('jobs', () => processJobs({ ...loopDeps, jobs }), { drain: true }, pace),
-  migrationLoop,
-];
+const outboxLoop = runLoop(
+  'outbox',
+  () =>
+    processOnce({
+      ...loopDeps,
+      handlers,
+      onEvent: (type) => {
+        if (type.startsWith('migration.')) migrationLoop.wake();
+      },
+      onHandled: handedOver,
+    }),
+  { drain: true },
+  pace,
+);
+const webhookLoop = runLoop(
+  'webhook',
+  () => processDeliveries({ ...loopDeps, processors, onProcessed: handedOver }),
+  { drain: true },
+  pace,
+);
+const jobsLoop = runLoop(
+  'jobs',
+  () => processJobs({ ...loopDeps, jobs, onRan: handedOver }),
+  { drain: true },
+  pace,
+);
+wake.outbox = outboxLoop.wake;
+wake.webhook = webhookLoop.wake;
+wake.jobs = jobsLoop.wake;
+const loops = [outboxLoop, webhookLoop, jobsLoop, migrationLoop];
 
 /**
  * How long a shutdown lets the Assistant's answers finish, inside fly.toml's 30-second kill_timeout: most people

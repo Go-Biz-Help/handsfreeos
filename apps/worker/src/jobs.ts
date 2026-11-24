@@ -31,6 +31,11 @@ export interface JobDeps extends WorkerServices {
   readonly reservedOnly?: boolean;
   /** The moment each job runs as of (the test route and tests; default: now). */
   readonly clock?: (job: JobRow) => number;
+  /**
+   * Told after each job's handler ran, whatever came of it. What it did may have left an event for the outbox or
+   * another job due now: main.ts wakes those loops, so neither waits for the next poll.
+   */
+  readonly onRan?: () => void;
 }
 
 export interface JobStats {
@@ -230,6 +235,7 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
       if (failed) stats.failed++;
       else stats.retried++;
     }
+    deps.onRan?.();
   }
   return stats;
 }
