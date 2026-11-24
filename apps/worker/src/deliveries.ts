@@ -24,6 +24,11 @@ export interface DeliveryDeps extends WorkerServices {
   readonly batchSize: number;
   /** Only claim rows this worker id already reserved (tests and the seed, which share a database with other pollers). */
   readonly reservedOnly?: boolean;
+  /**
+   * Told after each delivery was processed, whatever came of it. Its processor may have left an event for the
+   * outbox or a job due now: main.ts wakes those loops, so neither waits for the next poll.
+   */
+  readonly onProcessed?: () => void;
 }
 
 export interface DeliveryStats {
@@ -33,6 +38,14 @@ export interface DeliveryStats {
   retried: number;
   failed: number;
 }
+
+/**
+ * A delivery this worker may claim now: due, and not inside another worker's five-minute lease. The claim below
+ * and the one look a second that paces the loops (queues.ts) ask with these same words, so they can't disagree.
+ */
+export const claimableDeliveries = (workerId: string) =>
+  sql`status = 'pending' and next_attempt_at <= now()
+      and (locked_at is null or locked_at < now() - interval '5 minutes' or locked_by = ${workerId})`;
 
 /**
  * Webhooks are stored and acknowledged by the HTTP server, then processed here with the outbox's rules:
@@ -46,8 +59,7 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
       sql`with claimed as (update app.webhook_deliveries d set locked_at = now(), locked_by = ${deps.workerId}
           where d.id in (
             select id from app.webhook_deliveries
-            where status = 'pending' and next_attempt_at <= now()
-              and (locked_at is null or locked_at < now() - interval '5 minutes' or locked_by = ${deps.workerId})
+            where ${claimableDeliveries(deps.workerId)}
               ${deps.reservedOnly ? sql`and locked_by = ${deps.workerId}` : sql``}
             order by received_at
             limit ${deps.batchSize}
@@ -143,6 +155,7 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
       if (failed) stats.failed++;
       else stats.retried++;
     }
+    deps.onProcessed?.();
   }
   return stats;
 }
