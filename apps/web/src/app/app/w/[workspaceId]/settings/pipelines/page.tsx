@@ -2,7 +2,7 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { PipelinesEditor } from '@/components/settings/pipelines-editor';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Pipelines' };
 
@@ -13,7 +13,7 @@ export default async function PipelinesSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'pipelines.manage')) notFound();
   const { pipelines } = unwrapPage(
     await api.POST('/v1/queries/pipeline.list', { body: { workspaceId } }),

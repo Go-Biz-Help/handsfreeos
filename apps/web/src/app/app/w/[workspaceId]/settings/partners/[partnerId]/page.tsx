@@ -2,7 +2,7 @@ import { ADDON_CATALOG, can, coreFeatureRunning, PARTNERS_WORDS } from '@hfos/co
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { PartnerDetail } from '@/components/partners/partner-detail';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
 export const metadata: Metadata = { title: PARTNERS_WORDS.menu };
@@ -18,9 +18,7 @@ export default async function PartnerSettingsPage({
 }) {
   const { workspaceId, partnerId } = await params;
   const { api } = await apiServer();
-  const { workspace } = unwrapPage(
-    await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
-  );
+  const { workspace } = await getWorkspace(workspaceId);
   if (
     !coreFeatureRunning(ADDON_CATALOG, workspace.addons, 'partners') ||
     !can(workspace.permissions, 'partners.manage')

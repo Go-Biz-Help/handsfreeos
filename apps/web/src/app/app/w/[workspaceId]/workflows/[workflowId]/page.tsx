@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { WorkflowEditor } from '@/components/workflows/editor';
 import type { QuietHours } from '@/components/workflows/editor-context';
 import { teammateBriefOf } from '@/lib/ai-team/inbox-words';
-import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrap, unwrapPage } from '@/lib/api/server';
 import type { SampleContact } from '@/lib/workflows/sample';
 
 export const metadata: Metadata = { title: 'Workflow' };
@@ -23,7 +23,7 @@ export default async function WorkflowEditorPage({
   if (!ID.test(workflowId)) notFound();
   const query = await searchParams;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const canManage = can(got.workspace.permissions, 'workflows.manage');
   const [wf, catalogs, people, teammate] = await Promise.all([
     api.POST('/v1/queries/workflow.get', { body: { workspaceId, workflowId } }).then(unwrapPage),

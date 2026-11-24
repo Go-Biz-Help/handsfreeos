@@ -1,6 +1,7 @@
 'use client';
 import {
   EXTENSION_SIGN_IN_WATCH_MS,
+  EXTENSION_SIGN_IN_WATCH_SOON_MS,
   EXTENSION_SIGN_IN_WORDS,
   type ExtensionSignInPending,
 } from '@hfos/core';
@@ -16,18 +17,23 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
  * Someone is signing in to the browser extension with this person's email (20261027002910): "Signing in to the
  * extension on Chrome? Type the number the extension shows." The right number lets it in; a wrong one, or That wasn't
  * me, stops it. The number is typed, never picked from a list: anyone can start a prompt for any email, and a list of
- * three let a stranger in one tap in three. Mounted once in the workspace layout; while the tab is in front it asks
- * every few seconds whether a request is waiting (`extension_sign_in.pending`), and a hidden tab asks nothing. The box
- * never takes the focus on its own, so typing elsewhere can't answer it.
+ * three let a stranger in one tap in three. Mounted once in the workspace layout. It asks whether a request is waiting
+ * (`extension_sign_in.pending`) the moment the person comes to the tab: it's shown, its window is picked, or the pointer
+ * comes onto the page, as it does from the extension's panel beside it, where the number is. Left alone in front it
+ * asks once a minute (it was every 4 seconds, all day: the speed audit, Nov 2026), every few seconds while a request
+ * is on screen, so one answered on the phone goes, and a hidden tab asks nothing. The box never takes the focus on its
+ * own, so typing elsewhere can't answer it.
  */
 export function ExtensionSignInPrompt() {
   const [request, setRequest] = useState<ExtensionSignInPending | null>(null);
   const [busy, setBusy] = useState(false);
   const [typed, setTyped] = useState('');
   const answered = useRef(new Set<string>());
+  const looked = useRef(0);
 
   const look = useCallback(async () => {
     if (document.visibilityState !== 'visible') return;
+    looked.current = Date.now();
     try {
       const found = unwrap(
         await apiBrowser().POST('/v1/queries/extension_sign_in.pending', { body: {} }),
@@ -39,16 +45,32 @@ export function ExtensionSignInPrompt() {
     }
   }, []);
 
+  // The person came to this tab: looked at once, though no more often than every few seconds however they come.
   useEffect(() => {
     void look();
-    const timer = setInterval(() => void look(), EXTENSION_SIGN_IN_WATCH_MS);
-    const shown = () => void look();
-    document.addEventListener('visibilitychange', shown);
+    const came = () => {
+      if (Date.now() - looked.current >= EXTENSION_SIGN_IN_WATCH_SOON_MS) void look();
+    };
+    const page = document.documentElement;
+    document.addEventListener('visibilitychange', came);
+    window.addEventListener('focus', came);
+    page.addEventListener('pointerenter', came);
     return () => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', shown);
+      document.removeEventListener('visibilitychange', came);
+      window.removeEventListener('focus', came);
+      page.removeEventListener('pointerenter', came);
     };
   }, [look]);
+
+  // Left alone, once a minute; with a request on screen, every few seconds.
+  const waiting = request !== null;
+  useEffect(() => {
+    const timer = setInterval(
+      () => void look(),
+      waiting ? EXTENSION_SIGN_IN_WATCH_SOON_MS : EXTENSION_SIGN_IN_WATCH_MS,
+    );
+    return () => clearInterval(timer);
+  }, [look, waiting]);
 
   // A new request starts with an empty box.
   const requestId = request?.id;

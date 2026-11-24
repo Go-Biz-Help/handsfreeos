@@ -18,6 +18,7 @@ import {
   askReplyLabel,
   askWaitingWords,
   askNameOn,
+  ASK_LINE_CHANGE,
   ASK_SHOWN_STATES,
   ASK_TONES,
   ASK_CODE_SENT_WORDS,
@@ -35,12 +36,13 @@ import {
 } from '@hfos/core/addons/outreach/asks';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { clockWords } from '@hfos/core/addons/outreach/live';
-import { useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import type { Ask, Asks } from './types';
 import { useAct } from './use-act';
@@ -124,6 +126,55 @@ export function AskButton({
   );
 }
 
+/** The look-up under way for a kind's asks: every line of that kind on the page hears the same change at once. */
+const asking = new Map<string, Promise<Asks | null>>();
+
+function asksNow(workspaceId: string, kind: Ask['kind']): Promise<Asks | null> {
+  const key = `${workspaceId}:${kind}`;
+  const under = asking.get(key);
+  if (under) return under;
+  const asked = apiBrowser()
+    .POST('/v1/queries/outreach.asks', { body: { workspaceId, kinds: [kind] } })
+    .then((r) => r.data ?? null)
+    // The line stays as it was drawn, and the next one asks again.
+    .catch(() => null)
+    .finally(() => asking.delete(key));
+  asking.set(key, asked);
+  return asked;
+}
+
+/**
+ * An ask's line as its computer last said it. A new line alone is told as the line's own change (`ASK_LINE_CHANGE`,
+ * at most every `ASK_LINE_SECONDS`), so no page is drawn again for it: the line asks for itself, one small look-up
+ * however many places on the page show it. Anything more than a line (taken, stuck, a code, ended) is the ask's
+ * change, which draws the page again, and the page's answer has the last word.
+ */
+function useLineNow(workspaceId: string, ask: Ask): string | null {
+  const heard = useLiveVersion([ASK_LINE_CHANGE], 800, {
+    only: { [ASK_LINE_CHANGE]: [ask.askId] },
+  });
+  const drawn = useRef(ask);
+  useEffect(() => {
+    drawn.current = ask;
+  });
+  const [said, setSaid] = useState<{ readonly of: Ask; readonly line: string | null } | null>(null);
+  const { askId, kind } = ask;
+  useEffect(() => {
+    if (heard === 0) return;
+    let gone = false;
+    void asksNow(workspaceId, kind).then((got) => {
+      const now = got?.asks.find((a) => a.askId === askId);
+      // Still the ask as the page drew it: one that moved on is the page's to draw.
+      if (!gone && now && now.state === drawn.current.state)
+        setSaid({ of: drawn.current, line: now.line });
+    });
+    return () => {
+      gone = true;
+    };
+  }, [heard, workspaceId, askId, kind]);
+  return said?.of === ask ? said.line : ask.line;
+}
+
 /**
  * How an ask is going: its state, its line and when; **Carry on** and **Skip** while a step is handed to the person,
  * the box for a code from their email while it waits on one, and **Stop** while it's open. Typing says to type on the
@@ -145,6 +196,7 @@ export function AskLine({
   className?: string;
 }) {
   const { busy, act } = useAct();
+  const line = useLineNow(workspaceId, ask);
   const open = askOpen(ask.state);
   const replies = ask.state === 'stuck' && ask.reply === null ? askRepliesFor(ask.kind) : [];
   const at = ask.endedAt ?? ask.startedAt ?? ask.askedAt;
@@ -191,7 +243,7 @@ export function AskLine({
         <p className="mt-1.5 text-warning-text" role="status">
           {ASK_TYPING_WORDS}
         </p>
-      ) : ask.line ? (
+      ) : line ? (
         <p
           className={cn(
             'mt-1.5',
@@ -200,7 +252,7 @@ export function AskLine({
           role={open ? 'status' : undefined}
           data-testid="ask-line-words"
         >
-          {ask.line}
+          {line}
         </p>
       ) : ask.state === 'waiting' ? (
         <p className="mt-1.5 text-text-2">

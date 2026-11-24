@@ -2,7 +2,7 @@ import { businessAddressOf, can, PHONE_SETUP_WORDS } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { PhoneSetupFlow } from '@/components/phone-setup/phone-setup-flow';
-import { apiServer, getMe, getSetupWorkspace, unwrapPage } from '@/lib/api/server';
+import { apiServer, getMe, getSetupWorkspace, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: PHONE_SETUP_WORDS.startCard.title };
 
@@ -28,7 +28,7 @@ export default async function PhoneSetupPage({
   if (!mine) notFound();
   if (!can(mine.ws.permissions, 'channels.manage')) redirect(home);
   const [got, status, draft, me] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     api.POST('/v1/queries/phone.setup_status', { body: { workspaceId } }).then(unwrapPage),
     api
       .POST('/v1/queries/guided_setup.get_draft', { body: { workspaceId, setup: 'phone' } })

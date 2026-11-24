@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { KnowledgeHeaderActions } from '@/components/knowledge/header-actions';
 import { KnowledgeSubnav } from '@/components/knowledge/subnav';
 import { PageHeader } from '@/components/shell/page-header';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrapPage, workspaceGet } from '@/lib/api/server';
 
 /**
  * The Knowledge section: one header and the subnav (with how many suggestions are waiting) over every page.
@@ -19,7 +19,7 @@ export default async function KnowledgeLayout({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const [ws, waiting] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
+    workspaceGet(workspaceId),
     api.POST('/v1/queries/knowledge_suggestion.list', {
       body: { workspaceId, status: 'pending', limit: 100 },
     }),

@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { RecordGone } from '@/components/bin/record-gone';
 import { RecordPage } from '@/components/crm/record-page';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Customer' };
 
@@ -25,9 +25,7 @@ export default async function PersonPage({
   // Asked beside the rest, and answered first: a customer deleted for good (20261027000400) says where they went
   // rather than "We could not find that", whatever the other look-ups make of them.
   const asked = api.POST('/v1/queries/person.get', { body: { workspaceId, personId } });
-  const workspace = api
-    .POST('/v1/queries/workspace.get', { body: { workspaceId } })
-    .then(unwrapPage);
+  const workspace = getWorkspace(workspaceId);
   const rest = Promise.all([
     api
       .POST('/v1/queries/timeline.list', {

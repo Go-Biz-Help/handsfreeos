@@ -420,6 +420,10 @@ function NavLink({
   return (
     <Link
       href={item.href}
+      // Never loaded ahead: no page has a part that can be had before the press (no `loading.tsx`, see
+      // navigation-progress.tsx), so that was a request for every row on every load and every redraw, for a press
+      // that lands as fast without it (timed on the built app in the speed audit, Nov 2026).
+      prefetch={false}
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
       // Where the tour points (components/onboarding/tour.tsx).

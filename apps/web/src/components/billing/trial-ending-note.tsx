@@ -3,7 +3,7 @@ import { BILLING_WORDS as W } from '@hfos/core';
 import { CalendarClock, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { apiBrowser, unwrap } from '@/lib/api/client';
+import { billingStatusNow } from './status-now';
 
 /**
  * A free trial about to end (20261027027000, the owner's pick): in its last days, whoever manages money sees a slim
@@ -17,9 +17,7 @@ export function TrialEndingNote({ workspaceId }: { workspaceId: string }) {
   const [ending, setEnding] = useState<{ endsAt: string; chargeCents: number } | null>(null);
   useEffect(() => {
     let gone = false;
-    void apiBrowser()
-      .POST('/v1/queries/billing.status', { body: { workspaceId } })
-      .then(unwrap)
+    void billingStatusNow(workspaceId)
       .then((status) => {
         if (gone || !status.trialEnding) return;
         if (readHidden(workspaceId) === status.trialEnding.endsAt) return;

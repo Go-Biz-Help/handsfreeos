@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { ListingOffersPage } from '@/addons/realestate/listing-offers-page';
 import { OffersPage } from '@/addons/realestate/offers-page';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Offers' };
 
@@ -23,7 +23,7 @@ export default async function RealestateOffersPage({
     const side = deal.deal.side;
     if (side === 'listing') {
       const [got, compare, offers, documents] = await Promise.all([
-        api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+        getWorkspace(workspaceId),
         api.POST('/v1/queries/realestate.offers.compare', inDeal).then(unwrapPage),
         api.POST('/v1/queries/realestate.offers', inDeal).then(unwrapPage),
         api.POST('/v1/queries/realestate.document.list', inDeal).then(unwrapPage),
@@ -43,7 +43,7 @@ export default async function RealestateOffersPage({
       );
     }
     const [got, offers, cmas, homes, documents] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       api.POST('/v1/queries/realestate.offers', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.cmas', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.homes', inDeal).then(unwrapPage),

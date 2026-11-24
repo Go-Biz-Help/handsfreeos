@@ -2,7 +2,7 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { SendDocument, type SendAbout } from '@/components/documents/send-document';
 import { PageHeader } from '@/components/shell/page-header';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { assigneeOptions } from '@/lib/api/people';
 
 export const metadata: Metadata = { title: 'Send a document' };
@@ -25,7 +25,7 @@ export default async function SendDocumentPage({
   const { workspaceId } = await params;
   const q = await searchParams;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'documents.send'))
     return (
       <PageHeader

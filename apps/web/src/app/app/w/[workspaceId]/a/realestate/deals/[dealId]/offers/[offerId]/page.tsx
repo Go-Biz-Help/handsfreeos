@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { addonPage } from '@/addons/gate';
 import { OfferPage } from '@/addons/realestate/offers-page';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Offer' };
 
@@ -17,7 +17,7 @@ export default async function RealestateOfferPage({
     const { api } = await apiServer();
     const inDeal = { body: { workspaceId, dealId } };
     const [got, deal, offers, documents] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.offers', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.document.list', inDeal).then(unwrapPage),

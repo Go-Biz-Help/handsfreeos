@@ -8,7 +8,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { FacebookInstagramOverview } from '@/components/settings/facebook-instagram-overview';
 import { FacebookInstagramPage } from '@/components/settings/facebook-instagram-page';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { metaResultOf } from '@/lib/meta-connect';
 
 export const metadata: Metadata = { title: 'Facebook & Instagram' };
@@ -31,7 +31,7 @@ export default async function FacebookInstagramSettingsPage({
   const q = await searchParams;
   const { api } = await apiServer();
   const body = { body: { workspaceId } };
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', body));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'channels.manage')) notFound();
   const [data, intake, draft] = await Promise.all([
     api.POST('/v1/queries/meta_account.list', body).then(unwrapPage),

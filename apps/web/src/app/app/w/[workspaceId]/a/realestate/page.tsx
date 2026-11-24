@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { DealsHome, type DealFilters, type DealsView } from '@/addons/realestate/deals-home';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Deals' };
 
@@ -78,7 +78,7 @@ export default async function RealestatePage({
         })
         .then(unwrapPage);
     const [got, open, matching, closed, ended, archived, members] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       list('open'),
       filtered ? list('open', true) : null,
       view === 'closed' ? list('closed') : null,

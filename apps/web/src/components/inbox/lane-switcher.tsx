@@ -95,7 +95,8 @@ export function LaneSwitcher({
               <span className={cn('flex-1 truncate', l.id === currentId && !all && 'font-medium')}>
                 {l.lineDisplay}
               </span>
-              <CountBadge count={l.unreadCount} />
+              {/* The line that is open is being read: its count is cleared as it opens, without the page drawn again. */}
+              <CountBadge count={l.id === currentId ? 0 : l.unreadCount} />
             </Link>
           </DropdownMenuItem>
         ))}

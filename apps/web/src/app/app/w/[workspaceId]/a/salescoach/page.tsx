@@ -3,7 +3,7 @@ import { SALESCOACH_PAGE_VIEWS, type SalescoachPageView } from '@hfos/core/addon
 import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { SalescoachHome } from '@/addons/salescoach/home';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'AI Sales Coach' };
 
@@ -41,9 +41,7 @@ export default async function SalescoachPage({
   const rep = askedRep && /^[0-9a-f-]{36}$/i.test(askedRep) ? askedRep : null;
   return addonPage(workspaceId, 'salescoach', 'salescoach.use', async () => {
     const { api } = await apiServer();
-    const got = await api
-      .POST('/v1/queries/workspace.get', { body: { workspaceId } })
-      .then(unwrapPage);
+    const got = await getWorkspace(workspaceId);
     const can = (p: string) => got.workspace.permissions.includes(p);
     const shown =
       view === 'calls' && callId

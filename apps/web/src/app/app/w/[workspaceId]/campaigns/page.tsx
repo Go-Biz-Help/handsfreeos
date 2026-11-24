@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { CampaignList } from '@/components/campaigns/campaign-list';
 import { PageHeader } from '@/components/shell/page-header';
 import { ButtonLink } from '@/components/ui/button';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Campaigns' };
 
@@ -17,7 +17,7 @@ export default async function CampaignsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const [got, list] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     api.POST('/v1/queries/campaign.list', { body: { workspaceId } }).then(unwrapPage),
   ]);
   const canManage = can(got.workspace.permissions, 'workflows.manage');

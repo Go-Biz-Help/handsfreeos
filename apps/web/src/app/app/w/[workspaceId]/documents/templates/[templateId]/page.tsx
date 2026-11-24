@@ -2,7 +2,7 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { TemplateEditor } from '@/components/documents/template-editor';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Template' };
 
@@ -14,7 +14,7 @@ export default async function DocumentTemplatePage({
 }) {
   const { workspaceId, templateId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const res = await api.POST('/v1/queries/document_template.get', {
     body: { workspaceId, templateId },
   });

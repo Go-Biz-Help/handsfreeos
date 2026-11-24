@@ -1,7 +1,7 @@
 import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { ItemEditor } from '@/components/knowledge/item-editor';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrapPage, workspaceGet } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Knowledge item' };
 
@@ -14,7 +14,7 @@ export default async function KnowledgeItemPage({
   const { workspaceId, itemId } = await params;
   const { api } = await apiServer();
   const [ws, got] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
+    workspaceGet(workspaceId),
     api.POST('/v1/queries/knowledge_item.get', { body: { workspaceId, itemId } }),
   ]);
   const { workspace } = unwrapPage(ws);

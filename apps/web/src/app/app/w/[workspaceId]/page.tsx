@@ -21,7 +21,14 @@ import { PageHeader } from '@/components/shell/page-header';
 import { RoleBadge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { apiServer, getMe, getWorkspaceShell, unwrap, unwrapPage } from '@/lib/api/server';
+import {
+  apiServer,
+  getMe,
+  getWorkspace,
+  getWorkspaceShell,
+  unwrap,
+  unwrapPage,
+} from '@/lib/api/server';
 import { loadOnboarding } from '@/lib/onboarding';
 import type { Members, Task } from '@/lib/api/types';
 import { todayIn } from '@/lib/calendar/time';
@@ -48,9 +55,39 @@ export default async function WorkspaceHomePage({
   // The Assistant's cards link to one item: /app/w/<id>?item=<itemId>.
   const linked = (await searchParams)['item'];
   const { api, userId } = await apiServer();
-  const workspace = api
-    .POST('/v1/queries/workspace.get', { body: { workspaceId } })
-    .then((r) => unwrapPage(r));
+  const workspace = getWorkspace(workspaceId);
+  // What the Action Center shows, asked beside the rest and not after it: Home waited for everything above the
+  // fold, then for these. Only the day's appointments wait, for the business's time zone. A brand-new business's
+  // Home doesn't show them, and is none the slower for their being asked.
+  const center = Promise.all([
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then((r) => unwrapPage(r)),
+    workspace.then((w) => {
+      // Today and tomorrow, for the Today card (an item carries its own appointment).
+      const today = todayIn(w.workspace.timezone);
+      const tomorrow = addDays(today, 1);
+      return api
+        .POST('/v1/queries/appointment.list', {
+          body: {
+            workspaceId,
+            from: new Date(localInstant(today, '00:00', w.workspace.timezone)).toISOString(),
+            to: new Date(localInstant(tomorrow, '24:00', w.workspace.timezone)).toISOString(),
+          },
+        })
+        .then((r) => ({ today, tomorrow, items: unwrapPage(r).items }));
+    }),
+    api
+      .POST('/v1/queries/task.list', {
+        body: { workspaceId, scope: 'all', status: 'open', limit: 100 },
+      })
+      .then((r) => unwrap(r).items)
+      .catch((): Task[] => []),
+    api
+      .POST('/v1/queries/ai_teammate.get', { body: { workspaceId } })
+      .then((r) => r.data?.teammate?.name ?? null)
+      .catch(() => null),
+  ]);
+  // Whichever way it goes, nothing is left failing unwatched.
+  center.catch(() => undefined);
   const [me, got, summary, list, suggested, news, onboarding, email] = await Promise.all([
     getMe(),
     workspace,
@@ -222,31 +259,8 @@ export default async function WorkspaceHomePage({
     day: 'numeric',
     timeZone: ws.timezone,
   });
-  // Today and tomorrow, for the Today card (an item carries its own appointment).
-  const todayDate = todayIn(ws.timezone);
-  const tomorrow = addDays(todayDate, 1);
-  const [members, appointments, tasks, teammateName] = await Promise.all([
-    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then((r) => unwrapPage(r)),
-    api
-      .POST('/v1/queries/appointment.list', {
-        body: {
-          workspaceId,
-          from: new Date(localInstant(todayDate, '00:00', ws.timezone)).toISOString(),
-          to: new Date(localInstant(tomorrow, '24:00', ws.timezone)).toISOString(),
-        },
-      })
-      .then((r) => unwrapPage(r).items),
-    api
-      .POST('/v1/queries/task.list', {
-        body: { workspaceId, scope: 'all', status: 'open', limit: 100 },
-      })
-      .then((r) => unwrap(r).items)
-      .catch((): Task[] => []),
-    api
-      .POST('/v1/queries/ai_teammate.get', { body: { workspaceId } })
-      .then((r) => r.data?.teammate?.name ?? null)
-      .catch(() => null),
-  ]);
+  const [members, { today: todayDate, tomorrow, items: appointments }, tasks, teammateName] =
+    await center;
 
   return (
     <ActionCenter

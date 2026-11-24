@@ -3,7 +3,7 @@ import type { ApiClient } from '@hfos/api-client';
 import type { ComponentProps } from 'react';
 import type { CurrentItem } from '@/components/knowledge/suggestion-card';
 import type { WebsiteScan } from '@/components/knowledge/website-scan';
-import { unwrapPage } from '@/lib/api/server';
+import { unwrapPage, workspaceGet } from '@/lib/api/server';
 
 /**
  * The business's website, its newest scan (live while it reads), and that scan's suggestions page by page: for
@@ -14,7 +14,7 @@ export async function loadWebsiteScan(
   workspaceId: string,
 ): Promise<ComponentProps<typeof WebsiteScan>> {
   const [ws, got] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
+    workspaceGet(workspaceId),
     api.POST('/v1/queries/knowledge_scan.get', { body: { workspaceId } }),
   ]);
   const { workspace } = unwrapPage(ws);

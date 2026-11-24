@@ -4,7 +4,7 @@ import { addonPage } from '@/addons/gate';
 import { DealPage } from '@/addons/realestate/deal-page';
 import { assigneeOptions } from '@/lib/api/people';
 import type { FileItem } from '@/lib/api/types';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
 export const metadata: Metadata = { title: 'Deal' };
@@ -27,7 +27,7 @@ export default async function RealestateDealPage({
     const inDeal = { body: { workspaceId, dealId } };
     const [got, deal, risks, drafts, members, contingencies, reads, holds, notes, walkthrough] =
       await Promise.all([
-        api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+        getWorkspace(workspaceId),
         api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage),
         api.POST('/v1/queries/realestate.deal.risks', inDeal).then(unwrapPage),
         api.POST('/v1/queries/realestate.status_email.list', inDeal).then(unwrapPage),

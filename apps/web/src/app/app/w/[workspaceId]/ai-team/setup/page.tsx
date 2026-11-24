@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { AiQuickSetup } from '@/components/ai-setup/quick-setup';
 import { AiTeamIntro } from '@/components/ai-team/teammate-tab';
 import { loadAiSetup } from '@/lib/ai-setup/load';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Quick setup' };
 
@@ -23,7 +23,7 @@ export default async function AiQuickSetupPage({
   const { workspaceId } = await params;
   const team = `/app/w/${workspaceId}/ai-team`;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'ai_team.manage')) redirect(team);
   const [data, query] = await Promise.all([loadAiSetup(api, workspaceId), searchParams]);
   return (

@@ -2,7 +2,7 @@ import { ADDON_CATALOG, can, coreFeatureRunning, OFFER_STEPS, type OfferStep } f
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { OfferBuilder } from '@/components/main-offer/builder';
-import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
+import { apiServer, getMe, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { safeNext } from '@/lib/utils';
 
 export const metadata: Metadata = { title: 'Build your main offer' };
@@ -28,10 +28,7 @@ export default async function MainOfferBuildPage({
   const back = safeNext(one(query.back), '');
   const doneHref = back.startsWith(`/app/w/${workspaceId}/`) ? back : undefined;
   const { api } = await apiServer();
-  const [{ workspace }, me] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
-    getMe(),
-  ]);
+  const [{ workspace }, me] = await Promise.all([getWorkspace(workspaceId), getMe()]);
   if (
     !coreFeatureRunning(ADDON_CATALOG, workspace.addons, 'main_offer') ||
     !can(workspace.permissions, 'main_offer.manage')

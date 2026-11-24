@@ -39,7 +39,7 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
-import { useLiveVersion } from '@/lib/realtime/live-provider';
+import { useLiveRefresh, useLiveVersion } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { AskLine } from './asks';
 import type { Asks, Live, LiveTeam } from './types';
@@ -173,6 +173,8 @@ export function AskedCard({
   asks: Asks;
   className?: string;
 }) {
+  // An ask made, taken, handed over or ended draws the list again. A line alone moves by itself (`AskLine`).
+  useLiveRefresh(['outreach_ask'], 800);
   const [shown, setShown] = useState<ReadonlySet<string>>(new Set());
   const now = Date.parse(asks.now);
   const folded = foldAsks(asks.asks);

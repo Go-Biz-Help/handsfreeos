@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { CoordinatePage, type CoordinateTab } from '@/addons/realestate/coordinate-page';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Coordinate' };
 
@@ -30,9 +30,7 @@ export default async function RealestateCoordinatePage({
   const mine = one('mine') === '1';
   return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
     const { api } = await apiServer();
-    const got = await api
-      .POST('/v1/queries/workspace.get', { body: { workspaceId } })
-      .then(unwrapPage);
+    const got = await getWorkspace(workspaceId);
     const canSeeAll = got.workspace.permissions.includes('realestate.all_deals');
     const tab: CoordinateTab =
       TABS.includes(wanted as CoordinateTab) && (wanted !== 'workload' || canSeeAll)

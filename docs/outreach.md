@@ -5693,6 +5693,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **An ask's line tells nobody more than every 20 seconds** (`ASK_LINE_SECONDS`) and keeps no receipt
   (`receipt: false`), as the beat; a new state goes at once. Its end keeps its moment and command id, so a retried end
   gets the first answer, and one sent after a Stop leaves it stopped.
+- **A new line alone is the line's own change, and draws no page again** (the speed audit, Nov 2026).
+  `outreach.ask.progressed` goes out as `outreach_ask_line` (`ASK_LINE_CHANGE`) when only the line is new, and as
+  `outreach_ask` when the ask's state moved. The line on screen (`AskLine` in `asks.tsx`) hears its own ask's and asks
+  `outreach.asks` for itself; the pages and the side menu's count follow `outreach_ask` only. Before, every line drew
+  seven pages again, for everyone in the business with one open. A screen that shows an ask's line any other way
+  listens for `outreach_ask_line` too. Settings → Your computer's list of what was asked follows `outreach_ask` as
+  the other pages do (`AskedCard`); before, it moved only when the page was opened again.
 - **The Assistant does what a person does on the screens, and nothing the extension or the worker sends in**
   (each operation's `ai`; `NOT_THE_ASSISTANTS` in `packages/core/test/addons/outreach.test.ts` lists the rest).
   Only a person's own browser can see Facebook, LinkedIn or Instagram, so what the extension read, saw or did, and

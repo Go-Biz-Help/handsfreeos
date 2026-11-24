@@ -173,6 +173,8 @@ export function MobileShell({
             <Link
               key={item.key}
               href={item.href}
+              // Never loaded ahead, like the side menu's rows (`NavLink` in nav-links.tsx says why).
+              prefetch={false}
               aria-current={on ? 'page' : undefined}
               data-tour={item.key}
               className={cn(

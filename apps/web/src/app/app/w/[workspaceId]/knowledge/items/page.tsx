@@ -1,7 +1,7 @@
 import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { ItemList, type ItemFilters } from '@/components/knowledge/item-list';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrapPage, workspaceGet } from '@/lib/api/server';
 import type { KnowledgeItemKind, KnowledgeItemListBody } from '@/lib/api/types';
 
 export const metadata: Metadata = { title: 'Knowledge items' };
@@ -42,7 +42,7 @@ export default async function KnowledgeItemsPage({
   const filtered = !!(filters.q || filters.kind || filters.tag || filters.status);
   const { api } = await apiServer();
   const [ws, list, all, search] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
+    workspaceGet(workspaceId),
     api.POST('/v1/queries/knowledge_item.list', { body }),
     // The tags to filter by come from the whole knowledge base, whatever is filtered now.
     filtered

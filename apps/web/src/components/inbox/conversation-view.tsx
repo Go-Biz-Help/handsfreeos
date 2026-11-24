@@ -246,7 +246,9 @@ export function ConversationView({
     reloadList();
     router.refresh();
   };
-  const actions = useConversationActions(workspaceId, c.id, after);
+  // Read: the list hears (a row leaves the Unread filter), and the page stays as it is. The row's count and this
+  // line's in the switcher are cleared here, so there is nothing for a redraw to bring.
+  const actions = useConversationActions(workspaceId, c.id, after, reloadList);
   // On Home: this conversation has an open Action Center item (a customer waiting, or a hot or unanswered lead).
   const onHome = useRecordAttention(workspaceId, 'conversation', c.id).items[0] ?? null;
 

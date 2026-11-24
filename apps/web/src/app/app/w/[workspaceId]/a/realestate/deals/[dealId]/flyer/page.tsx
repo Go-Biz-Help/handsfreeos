@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { addonPage } from '@/addons/gate';
 import { FlyerPage } from '@/addons/realestate/flyer-page';
-import { ApiError, apiServer, unwrapPage } from '@/lib/api/server';
+import { ApiError, apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
 export const metadata: Metadata = { title: 'Flyer' };
@@ -18,7 +18,7 @@ export default async function RealestateFlyerPage({
     const { api } = await apiServer();
     const inDeal = { body: { workspaceId, dealId } };
     const [got, deal] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage),
     ]);
     if (deal.deal.side !== 'listing') notFound();

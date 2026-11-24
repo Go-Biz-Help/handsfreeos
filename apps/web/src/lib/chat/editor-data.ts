@@ -7,7 +7,7 @@
 import { can, lookOf, teammateAnswersChat } from '@hfos/core';
 import type { ChatBrand, ChatTeammate } from '@/components/settings/website-chat-page';
 import type { ChatWidget } from '@/lib/api/types';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 import { logoSrc } from '@/lib/look';
 
@@ -29,7 +29,7 @@ export interface ChatEditorData {
 
 export async function loadChatEditor(workspaceId: string): Promise<ChatEditorData> {
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const permissions = got.workspace.permissions;
   const [widgets, team, brandedOrigin] = await Promise.all([
     api.POST('/v1/queries/chat_widget.list', { body: { workspaceId } }),

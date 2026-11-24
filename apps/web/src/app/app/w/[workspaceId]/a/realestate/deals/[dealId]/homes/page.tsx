@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { addonPage } from '@/addons/gate';
 import { HomesPage } from '@/addons/realestate/homes-page';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Homes' };
 
@@ -17,7 +17,7 @@ export default async function RealestateHomesPage({
     const { api } = await apiServer();
     const inDeal = { body: { workspaceId, dealId } };
     const [got, deal] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage),
     ]);
     // Homes to look at are a buyer deal's; a listing has none.

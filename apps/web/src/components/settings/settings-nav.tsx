@@ -188,6 +188,9 @@ function SettingsNav({ groups, search }: { groups: readonly Group[]; search: Sea
                         <Link
                           key={i.href}
                           href={i.href}
+                          // Never loaded ahead, like the side menu's rows (shell/nav-links.tsx): a request for
+                          // each of thirty rows on every load and every redraw, for a press that lands as fast.
+                          prefetch={false}
                           aria-current={i.active ? 'page' : undefined}
                           className={cn(
                             'flex h-9 items-center gap-2.5 rounded-control px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring',

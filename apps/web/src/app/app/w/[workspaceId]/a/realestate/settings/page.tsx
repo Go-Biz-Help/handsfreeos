@@ -3,7 +3,7 @@ import { RealestateSettingsSchema } from '@hfos/core/addons/realestate/settings'
 import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { DealSettings, type SettingsTab } from '@/addons/realestate/deal-settings';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Deal settings' };
 
@@ -38,7 +38,7 @@ export default async function RealestateSettingsPage({
     const { api, userId } = await apiServer();
     const [got, list, versions, settings, members, support, calendars, connections, uses, holds] =
       await Promise.all([
-        api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+        getWorkspace(workspaceId),
         tab === 'duties'
           ? api
               .POST('/v1/queries/realestate.template.list', { body: { workspaceId } })
