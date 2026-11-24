@@ -21,8 +21,17 @@
 export const EXTENSION_SIGN_IN_TTL_MS = 2 * 60_000;
 /** How often the extension asks whether it was answered. */
 export const EXTENSION_SIGN_IN_POLL_MS = 2_000;
-/** How often an open HandsFreeOS tab looks for a request to answer, while it is in front. */
-export const EXTENSION_SIGN_IN_WATCH_MS = 4_000;
+/**
+ * How often an open HandsFreeOS tab looks for a request to answer, while it is in front and nothing says the person
+ * has come to it (the owner's pick, the speed audit, Nov 2026: it was every 4 seconds, all day, in every tab in front).
+ */
+export const EXTENSION_SIGN_IN_WATCH_MS = 60_000;
+/**
+ * How soon it looks again when the person comes to the tab (it's shown, its window is picked, or the pointer comes
+ * onto the page from the extension's panel beside it), and how often while a request is on screen, so one answered
+ * on the phone goes from the tab.
+ */
+export const EXTENSION_SIGN_IN_WATCH_SOON_MS = 4_000;
 
 /**
  * The number the extension shows (10–99), and two others beside it in a random order, which the request's row keeps
