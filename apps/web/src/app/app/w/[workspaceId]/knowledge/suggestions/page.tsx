@@ -2,7 +2,7 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import type { CurrentItem } from '@/components/knowledge/suggestion-card';
 import { SuggestionsBoard, type ReasonFilter } from '@/components/knowledge/suggestions-board';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrapPage, workspaceGet } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Knowledge suggestions' };
 
@@ -21,7 +21,7 @@ export default async function KnowledgeSuggestionsPage({
   const reason = one((await searchParams).reason);
   const { api } = await apiServer();
   const [ws, list] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
+    workspaceGet(workspaceId),
     api.POST('/v1/queries/knowledge_suggestion.list', {
       body: { workspaceId, status: 'pending', limit: 100 },
     }),

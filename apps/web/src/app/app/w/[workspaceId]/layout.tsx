@@ -21,7 +21,14 @@ import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeSync } from '@/components/shell/theme-sync';
 import { WorkspaceMain } from '@/components/shell/workspace-main';
 import { WorkspaceShellProvider } from '@/components/shell/workspace-shell';
-import { apiServer, getMe, getWorkspaceShell, unwrap } from '@/lib/api/server';
+import {
+  apiServer,
+  getMe,
+  getPlatformMe,
+  getWorkspaceShell,
+  unwrap,
+  workspaceGet,
+} from '@/lib/api/server';
 import { foundingPlanHref } from '@/lib/founding-plan';
 import { guideOf } from '@/lib/guide';
 import { CallProvider } from '@/lib/calls/call-provider';
@@ -45,7 +52,7 @@ export default async function WorkspaceLayout({
 }) {
   const { workspaceId } = await params;
   // Recent searches are the signed-in person's own, even while they view the app as a teammate.
-  const { api, signedInAs, userId } = await apiServer();
+  const { signedInAs, userId } = await apiServer();
   const [me, { current, viewingAs, teammateView, staleView }, platform, workspace] =
     await Promise.all([
       getMe(),
@@ -54,14 +61,11 @@ export default async function WorkspaceLayout({
       getWorkspaceShell(workspaceId),
       // Whether they answer HandsFreeOS support: only then does the workspace switcher link to the admin area. Only a
       // hint, so a failure just leaves the link out; /admin asks again on every page.
-      api
-        .POST('/v1/queries/platform.me', { body: {} })
-        .then(unwrap)
-        .catch(() => null),
+      getPlatformMe(),
       // The business's settings, for the values Search everything's Settings group shows (quiet hours, opening
-      // hours). Only a hint too: without them a setting is still found, just without its value.
-      api
-        .POST('/v1/queries/workspace.get', { body: { workspaceId } })
+      // hours). Only a hint too: without them a setting is still found, just without its value. The page reads the
+      // same answer (`workspaceGet`), so it is asked once for both.
+      workspaceGet(workspaceId)
         .then(unwrap)
         .catch(() => null),
     ]);

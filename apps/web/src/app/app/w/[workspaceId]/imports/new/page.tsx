@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ImportWizard } from '@/components/import/import-wizard';
 import { PageHeader } from '@/components/shell/page-header';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { getWorkspace } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Import contacts' };
 
@@ -14,8 +14,7 @@ export default async function NewImportPage({
   params: Promise<{ workspaceId: string }>;
 }) {
   const { workspaceId } = await params;
-  const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'records.import')) notFound();
   return (
     <>

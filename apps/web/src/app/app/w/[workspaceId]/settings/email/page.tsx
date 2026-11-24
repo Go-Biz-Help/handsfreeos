@@ -2,7 +2,7 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { EmailPage } from '@/components/settings/email-page';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Email' };
 
@@ -18,7 +18,7 @@ export default async function EmailSettingsPage({
   // Coming back from Microsoft's or Google's sign-in: how it went.
   const { mailbox } = await searchParams;
   const { api, userId } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'channels.manage')) notFound();
   const [status, blocked, unmatched, senderRules, members, tags] = await Promise.all([
     api.POST('/v1/queries/email.setup_status', { body: { workspaceId } }).then(unwrapPage),

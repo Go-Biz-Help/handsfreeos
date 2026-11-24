@@ -2,7 +2,7 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { RunDetail } from '@/components/workflows/runs/run-detail';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrapPage, workspaceGet } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Run' };
 
@@ -18,7 +18,7 @@ export default async function WorkflowRunPage({
   if (!ID.test(runId)) notFound();
   const { api } = await apiServer();
   const [ws, run, catalogs] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
+    workspaceGet(workspaceId),
     api.POST('/v1/queries/workflow.run_get', { body: { workspaceId, runId } }),
     api.POST('/v1/queries/workflow.catalogs', { body: { workspaceId } }),
   ]);

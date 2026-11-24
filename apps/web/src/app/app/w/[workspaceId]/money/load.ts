@@ -16,7 +16,7 @@ import {
   type MoneySettings,
 } from '@hfos/core';
 import type { ApiClient } from '@hfos/api-client';
-import { ApiError, apiServer, unwrapPage } from '@/lib/api/server';
+import { ApiError, apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import type { MoneySummaryOut, PaymentConnectionRow, ProductRow } from '@/lib/api/types';
 
 export interface MoneyShell {
@@ -52,7 +52,7 @@ export async function allowed<T>(run: Promise<T>): Promise<T | null> {
 
 export async function loadMoneyShell(workspaceId: string): Promise<MoneyShell> {
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const role = got.workspace.role;
   const permissions = got.workspace.permissions;
   const canManage = seesWholeBusiness(permissions);

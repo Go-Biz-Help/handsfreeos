@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 import { formatDate } from '@/lib/format';
 
 export const metadata: Metadata = { title: 'Imports' };
@@ -27,7 +27,7 @@ export default async function ImportsSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'records.import')) notFound();
   const { imports } = unwrapPage(
     await api.POST('/v1/queries/import.list', { body: { workspaceId } }),

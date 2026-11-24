@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { JobsHome, type JobsFilter, type JobsView } from '@/addons/contractor/jobs-home';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Jobs' };
 
@@ -33,7 +33,7 @@ export default async function ContractorJobsPage({
   return addonPage(workspaceId, 'contractor', 'contractor.use', async () => {
     const { api, userId } = await apiServer();
     const [got, overview, list] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       api.POST('/v1/queries/contractor.overview', { body: { workspaceId } }).then(unwrapPage),
       api
         .POST('/v1/queries/contractor.job.list', {

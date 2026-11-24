@@ -2,7 +2,7 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { TemplatesEditor } from '@/components/settings/templates-editor';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Templates' };
 
@@ -13,7 +13,7 @@ export default async function TemplatesSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'templates.manage')) notFound();
   const { templates, folders } = unwrapPage(
     await api.POST('/v1/queries/template.list', { body: { workspaceId, includeArchived: true } }),

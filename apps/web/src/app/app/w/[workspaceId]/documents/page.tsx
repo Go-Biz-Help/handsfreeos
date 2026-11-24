@@ -5,7 +5,7 @@ import { DocumentsHome } from '@/components/documents/documents-home';
 import { NewTemplateButton } from '@/components/documents/new-template';
 import { PageHeader } from '@/components/shell/page-header';
 import { ButtonLink } from '@/components/ui/button';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Documents' };
 
@@ -20,7 +20,7 @@ export default async function DocumentsPage({
   const { workspaceId } = await params;
   const { tab } = await searchParams;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const canManage = can(got.workspace.permissions, 'documents.manage');
   const canSend = can(got.workspace.permissions, 'documents.send');
   const [docs, templates] = await Promise.all([

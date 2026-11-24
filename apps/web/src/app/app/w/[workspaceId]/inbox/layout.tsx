@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { InboxShell } from '@/components/inbox/inbox-shell';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 /** The list stays mounted while people move between conversations; each conversation is its own page. */
 export default async function InboxLayout({
@@ -14,7 +14,7 @@ export default async function InboxLayout({
   const { workspaceId } = await params;
   const { api, userId } = await apiServer();
   const [got, members] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
   ]);
   return (

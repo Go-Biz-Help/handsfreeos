@@ -1,7 +1,7 @@
 import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { ProfileForm } from '@/components/knowledge/profile-form';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrapPage, workspaceGet } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Business profile' };
 
@@ -14,7 +14,7 @@ export default async function KnowledgeProfilePage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const [ws, profile] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
+    workspaceGet(workspaceId),
     api.POST('/v1/queries/knowledge.profile', { body: { workspaceId } }),
   ]);
   const { workspace } = unwrapPage(ws);

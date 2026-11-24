@@ -5,7 +5,7 @@ import { CustomersList, type CustomerFilters } from '@/components/crm/customers-
 import { HandsList } from '@/components/crm/hands';
 import { PageHeader } from '@/components/shell/page-header';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: CONTACTS_WORDS.title };
 
@@ -52,7 +52,7 @@ export default async function ContactsPage({
   };
   const [got, tags, members, summary, people, companies, records, kindFields, inHands] =
     await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       api.POST('/v1/queries/tag.list', { body: { workspaceId } }).then(unwrapPage),
       api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
       api.POST('/v1/queries/crm.summary', { body: { workspaceId } }).then(unwrapPage),
@@ -125,7 +125,7 @@ export default async function ContactsPage({
 async function InHandsPage({ workspaceId, mine }: { workspaceId: string; mine: boolean }) {
   const { api, userId } = await apiServer();
   const [got, list] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     api
       .POST('/v1/queries/person.in_hands', { body: { workspaceId, mine, limit: 200 } })
       .then(unwrapPage),

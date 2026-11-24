@@ -8,7 +8,7 @@ import { LookCard } from '@/components/settings/look-card';
 import { PageCard } from '@/components/settings/page-card';
 import { WorkspaceForm } from '@/components/settings/workspace-form';
 import { Card } from '@/components/ui/card';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Workspace settings' };
 
@@ -19,7 +19,7 @@ export default async function WorkspaceSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'workspace.update')) notFound();
   // The domain lives here rather than under Calendars: it carries the forms, the estimates and the
   // payment links too, and nobody looking for "my own web address" thinks to open the booking site.

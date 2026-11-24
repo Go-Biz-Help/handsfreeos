@@ -1,7 +1,7 @@
 import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { KnowledgeOverview, type KindCount } from '@/components/knowledge/overview';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrapPage, workspaceGet } from '@/lib/api/server';
 import type { KnowledgeItemKind } from '@/lib/api/types';
 
 export const metadata: Metadata = { title: 'Knowledge' };
@@ -23,7 +23,7 @@ export default async function KnowledgePage({
     .slice(0, 500);
   const { api } = await apiServer();
   const [ws, profile, items, waiting] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
+    workspaceGet(workspaceId),
     api.POST('/v1/queries/knowledge.profile', { body: { workspaceId } }),
     api.POST('/v1/queries/knowledge_item.list', { body: { workspaceId, limit: 100 } }),
     api.POST('/v1/queries/knowledge_suggestion.list', {

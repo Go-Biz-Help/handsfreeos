@@ -2,7 +2,7 @@ import { attentionSettingsOf, automationSettingsOf, can, type NudgeCheckContext 
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { AutomationsSettings } from '@/components/settings/automations/automations-page';
-import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
+import { apiServer, getMe, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Automations' };
 
@@ -31,10 +31,7 @@ export default async function AutomationsSettingsPage({
   const { workspaceId } = await params;
   const { adjust } = await searchParams;
   const { api } = await apiServer();
-  const [got, me] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
-    getMe(),
-  ]);
+  const [got, me] = await Promise.all([getWorkspace(workspaceId), getMe()]);
   const role = got.workspace.role;
   if (!can(got.workspace.permissions, 'workspace.update')) notFound();
   const body = { body: { workspaceId } };

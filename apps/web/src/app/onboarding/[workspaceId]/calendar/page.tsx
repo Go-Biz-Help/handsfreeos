@@ -6,7 +6,14 @@ import {
   CalendarSetupFlow,
 } from '@/components/calendar-setup/calendar-setup-flow';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, getMe, getSetupWorkspace, unwrap, unwrapPage } from '@/lib/api/server';
+import {
+  apiServer,
+  getMe,
+  getSetupWorkspace,
+  getWorkspace,
+  unwrap,
+  unwrapPage,
+} from '@/lib/api/server';
 import { buildCatalogs } from '@/lib/calendar/catalogs';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
@@ -37,7 +44,7 @@ export default async function CalendarSetupPage({
   const query = await searchParams;
   const made = typeof query['made'] === 'string' && ID.test(query['made']) ? query['made'] : null;
   const [got, me, brandedOrigin] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    getWorkspace(workspaceId),
     getMe(),
     brandedOriginFor(api, workspaceId),
   ]);

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { TeammateTab } from '@/components/ai-team/teammate-tab';
 import { teammateGetOf } from '@/lib/ai-team/types';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrapPage, workspaceGet } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'AI teammate' };
 
@@ -21,7 +21,7 @@ export default async function AiTeamPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const [ws, got, query] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
+    workspaceGet(workspaceId),
     api.POST('/v1/queries/ai_teammate.get', { body: { workspaceId } }),
     searchParams,
   ]);

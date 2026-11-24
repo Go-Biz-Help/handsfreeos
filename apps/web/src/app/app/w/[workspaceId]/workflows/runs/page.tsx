@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/shell/page-header';
 import { ButtonLink } from '@/components/ui/button';
 import { RunsList } from '@/components/workflows/runs/runs-list';
 import { WorkflowsSubnav } from '@/components/workflows/subnav';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrapPage, workspaceGet } from '@/lib/api/server';
 import { parseRunFilters, runListBody } from '@/lib/workflows/run-filters';
 
 export const metadata: Metadata = { title: 'Runs' };
@@ -22,7 +22,7 @@ export default async function WorkflowRunsPage({
   const filters = parseRunFilters(await searchParams);
   const { api } = await apiServer();
   const [ws, list, runs, stats] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
+    workspaceGet(workspaceId),
     api.POST('/v1/queries/workflow.list', { body: { workspaceId, includeArchived: true } }),
     api.POST('/v1/queries/workflow.run_list', {
       body: runListBody(workspaceId, filters, Date.now()),

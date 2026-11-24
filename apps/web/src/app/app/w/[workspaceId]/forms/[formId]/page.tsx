@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { FormEditor } from '@/components/forms/editor';
 import { FormNameHeader } from '@/components/forms/name-header';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 import { logoSrc } from '@/lib/look';
 
@@ -26,7 +26,7 @@ export default async function FormPage({
   const { response } = await searchParams;
   const openResponse = typeof response === 'string' && UUID.test(response) ? response : null;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const canManage = can(got.workspace.permissions, 'forms.manage');
   const [formRes, catalogsRes, resultsRes, siteRes, brandedOrigin] = await Promise.all([
     api.POST('/v1/queries/form.get', { body: { workspaceId, formId } }),

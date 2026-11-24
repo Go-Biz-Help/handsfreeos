@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { AddonsSettings } from '@/components/settings/add-ons/add-ons-page';
 import { PageHeader } from '@/components/shell/page-header';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Add-ons' };
 
@@ -26,7 +26,7 @@ export default async function AddonsPage({
   const { api } = await apiServer();
   const body = { body: { workspaceId } };
   const [got, list] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', body).then(unwrapPage),
+    getWorkspace(workspaceId),
     api.POST('/v1/queries/addon.list', body).then(unwrapPage),
   ]);
   const permissions = got.workspace.permissions;

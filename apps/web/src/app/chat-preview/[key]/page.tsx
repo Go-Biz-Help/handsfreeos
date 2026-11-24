@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Script from 'next/script';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrapPage, workspaceGet } from '@/lib/api/server';
 import { CHAT_KEY_RE } from '@/lib/chat/lookup';
 import { markOf } from '@/lib/chat/look';
 
@@ -32,7 +32,7 @@ export default async function ChatPreviewPage({
   if (!CHAT_KEY_RE.test(key) || typeof w !== 'string' || !UUID.test(w)) notFound();
   const { api } = await apiServer();
   const [got, list] = await Promise.all([
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId: w } }),
+    workspaceGet(w),
     api.POST('/v1/queries/chat_widget.list', { body: { workspaceId: w } }),
   ]);
   const workspace = unwrapPage(got).workspace;

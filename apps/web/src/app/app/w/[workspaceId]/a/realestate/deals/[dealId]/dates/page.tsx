@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { DatesPage } from '@/addons/realestate/dates-page';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Key dates' };
 
@@ -15,7 +15,7 @@ export default async function RealestateDatesPage({
   return addonPage(workspaceId, 'realestate', 'realestate.use', async () => {
     const { api } = await apiServer();
     const [got, deal, history] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       api
         .POST('/v1/queries/realestate.deal.get', { body: { workspaceId, dealId } })
         .then(unwrapPage),

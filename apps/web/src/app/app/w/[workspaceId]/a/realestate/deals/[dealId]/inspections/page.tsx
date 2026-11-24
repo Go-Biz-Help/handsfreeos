@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { addonPage } from '@/addons/gate';
 import { InspectionsPage } from '@/addons/realestate/inspections-page';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Inspections' };
 
@@ -16,7 +16,7 @@ export default async function RealestateInspectionsPage({
     const { api } = await apiServer();
     const inDeal = { body: { workspaceId, dealId } };
     const [got, deal, data, documents] = await Promise.all([
-      api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+      getWorkspace(workspaceId),
       api.POST('/v1/queries/realestate.deal.get', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.inspections', inDeal).then(unwrapPage),
       api.POST('/v1/queries/realestate.document.list', inDeal).then(unwrapPage),

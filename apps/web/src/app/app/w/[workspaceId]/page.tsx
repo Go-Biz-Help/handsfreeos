@@ -21,7 +21,14 @@ import { PageHeader } from '@/components/shell/page-header';
 import { RoleBadge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { apiServer, getMe, getWorkspaceShell, unwrap, unwrapPage } from '@/lib/api/server';
+import {
+  apiServer,
+  getMe,
+  getWorkspace,
+  getWorkspaceShell,
+  unwrap,
+  unwrapPage,
+} from '@/lib/api/server';
 import { loadOnboarding } from '@/lib/onboarding';
 import type { Members, Task } from '@/lib/api/types';
 import { todayIn } from '@/lib/calendar/time';
@@ -48,9 +55,7 @@ export default async function WorkspaceHomePage({
   // The Assistant's cards link to one item: /app/w/<id>?item=<itemId>.
   const linked = (await searchParams)['item'];
   const { api, userId } = await apiServer();
-  const workspace = api
-    .POST('/v1/queries/workspace.get', { body: { workspaceId } })
-    .then((r) => unwrapPage(r));
+  const workspace = getWorkspace(workspaceId);
   const [me, got, summary, list, suggested, news, onboarding, email] = await Promise.all([
     getMe(),
     workspace,

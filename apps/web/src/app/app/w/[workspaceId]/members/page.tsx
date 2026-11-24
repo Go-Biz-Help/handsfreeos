@@ -5,7 +5,7 @@ import { MembersTable } from '@/components/members/members-table';
 import { OrgAdmins } from '@/components/members/org-admins';
 import { PendingInvitations } from '@/components/members/pending-invitations';
 import { PageHeader } from '@/components/shell/page-header';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Members' };
 
@@ -19,7 +19,7 @@ export default async function MembersPage({
   const { workspaceId } = await params;
   const sp = await searchParams;
   const { api, userId } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const myRole = got.workspace.role;
   const mine = got.workspace.permissions;
   const seesInvitations = can(mine, 'invitations.read');

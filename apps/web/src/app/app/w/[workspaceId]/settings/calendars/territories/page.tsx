@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { CalendarsSubnav } from '@/components/calendars/subnav';
 import { TerritoriesPage } from '@/components/calendars/territories-page';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Territories' };
 
@@ -15,7 +15,7 @@ export default async function TerritoriesSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const [territories, members] = await Promise.all([
     api.POST('/v1/queries/territory.list', { body: { workspaceId } }).then(unwrapPage),

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MyCalendar } from '@/components/settings/my-calendar';
 import { ZoomCoachCard } from '@/components/settings/zoom-coach-card';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'My calendar' };
 
@@ -23,7 +23,7 @@ export default async function MyCalendarPage({
   const { workspaceId } = await params;
   const { calendar, meeting, user } = await searchParams;
   const { api, userId } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = await getWorkspace(workspaceId);
   const canManage = can(got.workspace.permissions, 'calendars.manage');
   const targetId = typeof user === 'string' && canManage ? user : userId;
   const members = unwrapPage(
