@@ -231,14 +231,6 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
         if (row.mode === 'poll') throw pageNotFound();
         const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
         const definition = parseStoredForm(row.definition);
-        // Somebody looked: the day's tally, with nothing in it that says who.
-        await worker(scope, (tx) =>
-          tx.execute(
-            sql`insert into app.form_days (workspace_id, form_id, day, views)
-                values (${row.workspace_id}, ${row.form_id}, current_date, 1)
-                on conflict (form_id, day) do update set views = app.form_days.views + 1`,
-          ),
-        );
         const closed =
           row.status !== 'live' ||
           (definition.settings.closesAt !== null &&
@@ -280,6 +272,30 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
           embedOrigins: row.embed_origins ?? [],
           botCheck: botCheck.enabled ? { siteKey: botCheck.siteKey } : null,
         };
+      },
+    );
+
+    /**
+     * Somebody looked: the day's tally, with nothing in it that says who. The page says so from the visitor's own
+     * browser once it's open (the speed audit, Nov 2026). Reading the form used to count it, so the web had to ask
+     * for the form afresh on every visit; now it keeps a copy for half a minute, and a link preview or the frame
+     * check, which never draw the page, count nobody.
+     */
+    pub.post<{ Params: { site: string; slug: string } }>(
+      '/public/form/:site/:slug/view',
+      { config: { rateLimit: limits.read } },
+      async (req) => {
+        const row = await findForm(req.params.site, req.params.slug);
+        // A live poll has no page to look at.
+        if (row.mode === 'poll') throw pageNotFound();
+        await worker({ workspaceId: row.workspace_id, organizationId: row.organization_id }, (tx) =>
+          tx.execute(
+            sql`insert into app.form_days (workspace_id, form_id, day, views)
+                  values (${row.workspace_id}, ${row.form_id}, current_date, 1)
+                  on conflict (form_id, day) do update set views = app.form_days.views + 1`,
+          ),
+        );
+        return { counted: true };
       },
     );
 

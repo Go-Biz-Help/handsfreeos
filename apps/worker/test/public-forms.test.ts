@@ -100,8 +100,24 @@ afterAll(async () => {
 
 const formUrl = (extra = '') => `/public/form/${w.site}/${slug}${extra}`;
 
+/** How many times today's tally says the form was looked at. */
+const lookedToday = async () => {
+  const [day] = await rows<{ views: number }>(
+    admin(),
+    sql`select views from app.form_days where day = current_date
+        and form_id = (select id from app.forms
+          where slug = ${slug} and workspace_id = ${w.workspaceId})`,
+  );
+  return Number(day?.views ?? 0);
+};
+
 describe('opening one', () => {
-  it('hands the page the published form and counts the visit', async () => {
+  /**
+   * Reading the form used to count a visit, so the web could never keep a copy of it. Now the web keeps one for
+   * half a minute (the speed audit, Nov 2026), and reading it counts nobody.
+   */
+  it('hands the page the published form, and reading it counts nobody', async () => {
+    const before = await lookedToday();
     const res = await get(w, formUrl());
     expect(res.statusCode, res.body).toBe(200);
     const body = res.json() as {
@@ -110,13 +126,19 @@ describe('opening one', () => {
     };
     expect(body.closed).toBe(false);
     expect(body.definition.pages[0]!.questions).toHaveLength(4);
-    const [day] = await rows<{ views: number }>(
-      admin(),
-      sql`select views from app.form_days where day = current_date
-          and form_id = (select id from app.forms
-            where slug = ${slug} and workspace_id = ${w.workspaceId})`,
-    );
-    expect(Number(day!.views)).toBeGreaterThan(0);
+    expect(await lookedToday()).toBe(before);
+  });
+
+  it('counts a visit each time the page says somebody opened it', async () => {
+    const before = await lookedToday();
+    const first = await post(w, formUrl('/view'), {});
+    expect(first.statusCode, first.body).toBe(200);
+    expect((await post(w, formUrl('/view'), {})).statusCode).toBe(200);
+    expect(await lookedToday()).toBe(before + 2);
+  });
+
+  it('counts nobody at an address with no form at it', async () => {
+    expect((await post(w, `/public/form/${w.site}/nothing-here/view`, {})).statusCode).toBe(404);
   });
 
   it('is a plain 404 for an address with no form at it', async () => {

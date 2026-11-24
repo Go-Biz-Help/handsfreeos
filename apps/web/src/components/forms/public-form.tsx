@@ -25,6 +25,7 @@ import { ApiError } from '@/lib/api/errors';
 import { TURNSTILE_SITE_KEY } from '@/lib/api/public-booking';
 import { cn } from '@/lib/utils';
 import {
+  countFormView,
   saveContactSheet,
   saveSheet,
   sendSheet,
@@ -107,6 +108,15 @@ export function PublicForm({
   const [timesRefresh, setTimesRefresh] = useState(0);
   /** The sheet, started if it must be, for a file picked before anything was typed (file-field.tsx). */
   const sheetForFiles = useRef<(() => Promise<{ responseId: string; token: string }>) | null>(null);
+  // Somebody looked: said once, from here, because the page itself is a copy the web keeps for half a minute.
+  const counted = useRef(false);
+  useEffect(() => {
+    if (counted.current) return;
+    counted.current = true;
+    void countFormView(site, slug).catch(() => {
+      // Only the business's count: the form works the same without it.
+    });
+  }, [site, slug]);
   const pageContext = useMemo(
     () => ({
       site,
