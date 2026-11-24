@@ -2,7 +2,7 @@
 import { Archive, Building2, ChevronRight, Plus, Trash2, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { Avatar } from '@/components/ui/avatar';
@@ -93,6 +93,39 @@ export function CustomersList({
   const [q, setQ] = useState(filters.q);
   const [adding, setAdding] = useState(false);
   useLiveRefresh(['person', 'company', 'tag', 'custom_record', 'relationship']);
+  /**
+   * What a typed search found. The box puts the search in the address, so a link, a reload or the page drawn again
+   * shows the same, and the browser asks for the one list, the way the tables below ask for more of it. Going there
+   * through the router had the server draw the whole page again at every pause in typing: seven look-ups for one
+   * list. Once the server's own list is for the same search (a live change drew the page again), that one shows.
+   */
+  const [found, setFound] = useState<{
+    q: string;
+    /** The tab and the other filters it was asked with. */
+    rest: string;
+    people: PersonList | null;
+    companies: CompanyList | null;
+    records: CustomRecordList | null;
+  } | null>(null);
+  const [searching, setSearching] = useState(false);
+  const rest = JSON.stringify([
+    tab,
+    kind?.id ?? null,
+    filters.tagId,
+    filters.assignedUserId,
+    filters.standing,
+    filters.archived,
+  ]);
+  /** Which search is the newest, the pause in typing that waits to ask, and the search the box last put in the address. */
+  const asked = useRef(0);
+  const pause = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const put = useRef<string | null>(null);
+  const drawnFor = useRef(rest);
+  const mine = found && found.rest === rest && found.q !== filters.q ? found : null;
+  const shown: CustomerFilters = mine ? { ...filters, q: mine.q } : filters;
+  const shownPeople = mine ? mine.people : people;
+  const shownCompanies = mine ? mine.companies : companies;
+  const shownRecords = mine ? mine.records : records;
 
   /**
    * "Add a contact" from a search that found nobody (`#add=person&name=…`): the dialog opens with what was typed as
@@ -116,9 +149,10 @@ export function CustomersList({
   }, [canWrite, tab]);
 
   // Filters live in the URL so the server renders the right page and links are shareable.
-  function navigate(next: Partial<CustomerFilters> & { tab?: 'people' | 'companies' }) {
+  function hrefOf(next: Partial<CustomerFilters> & { tab?: 'people' | 'companies' }) {
     const params = new URLSearchParams();
-    const merged = { ...filters, tab, ...next };
+    // The box as it stands: a filter picked before the pause in typing ends takes the search with it.
+    const merged = { ...filters, q, tab, ...next };
     if (merged.tab === 'companies') params.set('tab', 'companies');
     if (merged.tab === 'records' && kind) params.set('kind', kind.id);
     if (merged.q.trim()) params.set('q', merged.q.trim());
@@ -127,22 +161,97 @@ export function CustomersList({
     if (merged.standing) params.set('show', merged.standing === 'lead' ? 'leads' : 'clients');
     if (merged.archived) params.set('archived', '1');
     const qs = params.toString();
-    startTransition(() => router.replace(`${pathname}${qs ? `?${qs}` : ''}`));
+    return `${pathname}${qs ? `?${qs}` : ''}`;
+  }
+  /** Another filter: the server draws the page, so a search waiting to be asked, or on its way, is its to answer. */
+  function navigate(next: Partial<CustomerFilters> & { tab?: 'people' | 'companies' }) {
+    clearTimeout(pause.current);
+    asked.current += 1;
+    setSearching(false);
+    startTransition(() => router.replace(hrefOf(next)));
+  }
+  /** The one list a search changes, asked by the browser. A search typed since then wins. */
+  async function search(typed: string) {
+    const turn = ++asked.current;
+    put.current = typed;
+    // Only the address changes (Next's router hears of it, and asks the server nothing).
+    window.history.replaceState(null, '', hrefOf({ q: typed }));
+    if (typed === filters.q) {
+      // Back at the search the server drew: its list is here already.
+      setFound(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    try {
+      const api = apiBrowser();
+      const lists: Pick<NonNullable<typeof found>, 'people' | 'companies' | 'records'> = {
+        people: null,
+        companies: null,
+        records: null,
+      };
+      // What the page itself asks (customers/page.tsx), with the search typed.
+      const body = {
+        workspaceId,
+        q: typed || undefined,
+        tagId: filters.tagId || undefined,
+        assignedUserId: filters.assignedUserId || undefined,
+        standing: filters.standing || undefined,
+        includeArchived: filters.archived,
+        limit: 50,
+      };
+      if (tab === 'people')
+        lists.people = unwrap(await api.POST('/v1/queries/person.list', { body }));
+      else if (tab === 'companies')
+        lists.companies = unwrap(await api.POST('/v1/queries/company.list', { body }));
+      else if (kind)
+        lists.records = unwrap(
+          await api.POST('/v1/queries/custom_record.list', {
+            body: {
+              workspaceId,
+              typeId: kind.id,
+              q: typed || undefined,
+              includeArchived: filters.archived,
+              limit: 50,
+            },
+          }),
+        );
+      if (turn === asked.current) setFound({ q: typed, rest, ...lists });
+    } catch (e) {
+      if (turn === asked.current) toast.error(errorMessage(e));
+    } finally {
+      if (turn === asked.current) setSearching(false);
+    }
   }
   useEffect(() => {
-    if (q === filters.q) return;
-    const t = setTimeout(() => navigate({ q }), 300);
-    return () => clearTimeout(t);
-  }, [q]);
-  useEffect(() => setQ(filters.q), [filters.q]);
+    // As the server reads it (the page's own `q`).
+    const typed = q.trim().slice(0, 120);
+    if (typed === shown.q) return;
+    pause.current = setTimeout(() => void search(typed), 300);
+    return () => clearTimeout(pause.current);
+  }, [q, shown.q]);
+  // The server drew the page for another tab, filter or search (a link): the box says what the list is for, and what
+  // the browser found is over. When it only caught up with the search the box put in the address (a live change drew
+  // the page again), the box is left alone: the person may be typing in it.
+  useEffect(() => {
+    const sameRest = drawnFor.current === rest;
+    drawnFor.current = rest;
+    if (sameRest && put.current === filters.q) return;
+    clearTimeout(pause.current);
+    asked.current += 1;
+    put.current = null;
+    setSearching(false);
+    setFound(null);
+    setQ(filters.q);
+  }, [filters.q, rest]);
 
   const base = `/app/w/${workspaceId}/customers`;
-  const shown =
+  const count =
     tab === 'people'
-      ? (people?.items.length ?? 0)
+      ? (shownPeople?.items.length ?? 0)
       : tab === 'companies'
-        ? (companies?.items.length ?? 0)
-        : (records?.items.length ?? 0);
+        ? (shownCompanies?.items.length ?? 0)
+        : (shownRecords?.items.length ?? 0);
   const tabs: { key: string; label: string; href: string; current: boolean }[] = [
     { key: 'people', label: `People · ${counts.people}`, href: base, current: tab === 'people' },
     {
@@ -278,15 +387,15 @@ export function CustomersList({
         </Button>
         <span className="flex-1" />
         <span className="text-[13px] text-text-3" aria-live="polite">
-          {pending ? 'Updating…' : `${shown} shown`}
+          {pending || searching ? 'Updating…' : `${count} shown`}
         </span>
       </div>
 
       {tab === 'people' ? (
         <PeopleTable
           workspaceId={workspaceId}
-          filters={filters}
-          initial={people!}
+          filters={shown}
+          initial={shownPeople!}
           onAdd={() => setAdding(true)}
           canImport={canImport}
           canDelete={canDelete}
@@ -294,17 +403,17 @@ export function CustomersList({
       ) : tab === 'companies' ? (
         <CompaniesTable
           workspaceId={workspaceId}
-          filters={filters}
-          initial={companies!}
+          filters={shown}
+          initial={shownCompanies!}
           onAdd={() => setAdding(true)}
           canImport={canImport}
         />
-      ) : kind && records ? (
+      ) : kind && shownRecords ? (
         <RecordsTable
           workspaceId={workspaceId}
-          filters={filters}
+          filters={shown}
           kind={kind}
-          initial={records}
+          initial={shownRecords}
           onAdd={() => setAdding(true)}
         />
       ) : null}
