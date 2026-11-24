@@ -59,7 +59,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { errorMessage } from '@/lib/api/errors';
 import { workerPost } from '@/lib/api/worker';
-import { supabaseBrowser } from '@/lib/supabase/client';
+import { fileLink } from '@/lib/supabase/file-links';
 import { cn } from '@/lib/utils';
 import { DidntPost } from './calendar-picking';
 import type { Content, ContentPicture } from './types';
@@ -87,8 +87,10 @@ export const STATE_BADGE: Record<Content['state'], BadgeVariant> = {
 export const timeIn = timeShown;
 
 /**
- * One of a post's pictures, or the person's video, through a short-lived link from the person's own storage session.
- * A video plays with its controls only where `controls` says (the post's sheet); elsewhere it shows its first frame.
+ * One of a post's pictures, or the person's video, through a short-lived link from the person's own storage session
+ * (a kept one while it lasts, so a list drawn again shows the copies the browser has). A video plays with its
+ * controls only where `controls` says (the post's sheet), on a link of its own; elsewhere it shows its first frame.
+ * A picture is fetched when it comes near the screen, not before.
  */
 export function PostPicture({
   picture,
@@ -100,18 +102,17 @@ export function PostPicture({
   controls?: boolean;
 }) {
   const [url, setUrl] = useState<string | null>(null);
+  const video = picture.mimeType?.startsWith('video/') ?? false;
+  const played = video && controls;
   useEffect(() => {
     let gone = false;
-    void supabaseBrowser()
-      .storage.from(picture.bucket)
-      .createSignedUrl(picture.objectPath, 3600)
-      .then(({ data }) => !gone && setUrl(data?.signedUrl ?? null));
+    void fileLink(picture.bucket, picture.objectPath, played).then((made) => !gone && setUrl(made));
     return () => {
       gone = true;
     };
-  }, [picture.bucket, picture.objectPath]);
+  }, [picture.bucket, picture.objectPath, played]);
   if (!url) return null;
-  return picture.mimeType?.startsWith('video/') ? (
+  return video ? (
     <video
       src={url}
       aria-label={picture.name}
@@ -122,7 +123,7 @@ export function PostPicture({
       preload="metadata"
     />
   ) : (
-    <img src={url} alt={picture.name} className={className} />
+    <img src={url} alt={picture.name} className={className} loading="lazy" decoding="async" />
   );
 }
 
