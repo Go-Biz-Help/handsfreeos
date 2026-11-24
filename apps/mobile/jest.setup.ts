@@ -286,6 +286,9 @@ jest.mock('expo-notifications', () => {
     getPresentedNotificationsAsync: jest.fn(async () =>
       presented.map((request) => ({ date: 0, request })),
     ),
+    getAllScheduledNotificationsAsync: jest.fn(async () =>
+      presented.filter((request) => request.trigger),
+    ),
     dismissNotificationAsync: jest.fn(async () => undefined),
     dismissAllNotificationsAsync: jest.fn(async () => undefined),
     __presented: presented,

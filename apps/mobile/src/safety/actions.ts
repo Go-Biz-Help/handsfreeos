@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import {
   change,
+  changes,
   newId,
   type ChangeOptions,
   type ChangeResult,
@@ -30,7 +31,8 @@ import { startFollowing, stopFollowing } from './follow';
  * clears the reminder for the planned end, so the person is asked even with no signal at all. The reminder's own
  * buttons (I'm OK, +15 min) do the same through `changeFromPress`, so pressing one with no signal checks out or moves
  * the reminder on this phone too. A check-in sharing where the person is follows the phone until it ends (round seven,
- * `follow.ts`): checking in starts that, and checking out, here or from the reminder, stops it.
+ * `follow.ts`): checking in starts that, and checking out, here or from the reminder, stops it. Checking out or adding
+ * time anywhere else moves or clears this phone's reminder once its copy hears (`reconcileReminders`).
  */
 
 /** SQL the changes write to the phone's own copy before anything is sent. */
@@ -66,8 +68,11 @@ interface Reminder {
   readonly alertAfterMinutes: number;
 }
 
+/** Reads the phone's copy: a write's transaction, or the database itself. */
+type SqlReader = Pick<SqlRunner, 'getAll' | 'getOptional'>;
+
 /** The reminder for a check-in as the phone's copy has it now, or null when it's not open (or not here). */
-async function reminderOf(tx: SqlRunner, checkInId: string): Promise<Reminder | null> {
+async function reminderOf(tx: SqlReader, checkInId: string): Promise<Reminder | null> {
   const c = await tx.getOptional<{
     id: string;
     workspace_id: string;
@@ -136,6 +141,41 @@ async function setReminder(r: Reminder): Promise<void> {
 
 const clearReminder = (checkInId: string) =>
   Notifications.cancelScheduledNotificationAsync(reminderId(checkInId)).catch(() => {});
+
+/** A check-in as the phone's copy has it, enough to tell whether its reminder still fits. */
+export interface CheckInNow {
+  readonly id: string;
+  readonly planned_end_at: string;
+  readonly state: string;
+}
+
+/**
+ * Moves or clears the reminders this phone set when its copy says a check-in changed somewhere else: checked out or
+ * given more time on the web, by Ask HandsFreeOS, on another phone, or answered by the business. A reminder that
+ * already fits is left alone, and a check-in made somewhere else gets none here: HandsFreeOS's own push asks about it.
+ */
+export async function reconcileReminders(
+  checkIns: readonly CheckInNow[],
+  db: SqlReader | null = changes?.open?.db ?? null,
+): Promise<void> {
+  const set = await Notifications.getAllScheduledNotificationsAsync().catch(() => []);
+  for (const c of checkIns) {
+    const reminder = set.find((n) => n.identifier === reminderId(c.id));
+    if (!reminder) continue;
+    if (!OPEN_STATES.includes(c.state)) {
+      await clearReminder(c.id);
+      continue;
+    }
+    const data = reminder.content.data as { sentAt?: unknown } | null;
+    const end = typeof data?.sentAt === 'string' ? Date.parse(data.sentAt) : NaN;
+    if (end === Date.parse(c.planned_end_at)) continue;
+    // Moving one reads the business's times and contacts from the copy; with no copy open it waits for the next time.
+    if (!db) continue;
+    const now = await reminderOf(db, c.id);
+    if (now) await setReminder(now);
+    else await clearReminder(c.id);
+  }
+}
 
 export async function checkIn(input: {
   readonly workspaceId: string;
