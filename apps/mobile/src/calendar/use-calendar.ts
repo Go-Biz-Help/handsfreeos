@@ -615,8 +615,14 @@ export interface CustomerChoice {
   readonly searchText: string;
 }
 
-/** The business's customers, for asking for a time for one of them. */
-export function useCustomers(): readonly CustomerChoice[] {
+/**
+ * The business's customers, for asking for a time for one of them.
+ *
+ * `when` is for a picker that stays mounted while it is closed (a sheet under the Inbox or the Calendar): closed, it
+ * reads nobody, where it used to read every customer of the business as its screen opened and again on every change
+ * to any of them. What it last had is what it answers with meanwhile, so a sheet on its way down keeps its list.
+ */
+export function useCustomers(when = true): readonly CustomerChoice[] {
   const { business } = useBusiness();
   const { data } = useQuery<
     Pick<
@@ -635,8 +641,8 @@ export function useCustomers(): readonly CustomerChoice[] {
       | 'other_phones'
       | 'other_addresses'
     >
-  >(PEOPLE_SQL, [business.id]);
-  return React.useMemo(
+  >(PEOPLE_SQL, [when ? business.id : '']);
+  const customers = React.useMemo(
     () =>
       data.map((p) => ({
         id: p.id,
@@ -656,6 +662,11 @@ export function useCustomers(): readonly CustomerChoice[] {
       })),
     [data],
   );
+  const last = React.useRef(customers);
+  React.useEffect(() => {
+    if (when) last.current = customers;
+  }, [when, customers]);
+  return when ? customers : last.current;
 }
 
 export interface CalendarService {

@@ -62,7 +62,8 @@ export default function Customers() {
     return () => clearTimeout(timer);
   }, [typed]);
   const { people, companies, loading } = useCustomers();
-  const hits = useCustomerSearch(q);
+  // On from the first letter typed until the box is empty again, and not before: see `useCustomerSearch`.
+  const { hits, loading: finding } = useCustomerSearch(q, typed.trim() !== '' || q !== '');
   const searching = q.length >= 2;
   const inHands = useInHandsCount(business.id);
 
@@ -199,9 +200,14 @@ export default function Customers() {
             />
           }
           ListEmptyComponent={
-            <Text className="py-10 text-center text-[13px] text-text-3" testID="customers-no-hits">
-              {`Nothing on this phone matches “${q}”.`}
-            </Text>
+            finding ? null : (
+              <Text
+                className="py-10 text-center text-[13px] text-text-3"
+                testID="customers-no-hits"
+              >
+                {`Nothing on this phone matches “${q}”.`}
+              </Text>
+            )
           }
         />
       ) : tab === 'people' ? (

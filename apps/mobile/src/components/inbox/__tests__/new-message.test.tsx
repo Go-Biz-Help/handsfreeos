@@ -99,6 +99,34 @@ describe('the New message sheet', () => {
     expect(screen.getByTestId('new-message-email')).toHaveTextContent('Email amy@example.com');
   });
 
+  it('reads nobody while it’s closed, and keeps its list on the way down', async () => {
+    // The copy as it answers: this business's customers, and nobody for no business.
+    jest.mocked(useQuery).mockClear();
+    jest.mocked(useQuery).mockImplementation(((sql: string, params: unknown[] = []) => ({
+      data: sql === PEOPLE_SQL && params[0] === LONE_STAR ? PEOPLE : [],
+      isLoading: false,
+      isFetching: false,
+    })) as never);
+    const asked = () =>
+      jest
+        .mocked(useQuery)
+        .mock.calls.filter(([sql]) => sql === PEOPLE_SQL)
+        .map(([, params]) => params?.[0]);
+    const sheet = (open: boolean) =>
+      wrap(<NewMessageSheet open={open} onClose={jest.fn()} onOpened={jest.fn()} />);
+    // Under the Inbox, closed: it's there, and asks for nobody.
+    const view = await render(sheet(false));
+    expect(asked().length).toBeGreaterThan(0);
+    expect(asked().every((business) => business === '')).toBe(true);
+    await view.rerender(sheet(true));
+    expect(asked().at(-1)).toBe(LONE_STAR);
+    expect(screen.getByTestId('new-message-person-p-amy')).toBeTruthy();
+    // Closing, it stops reading at once, and the rows it had go down with it.
+    await view.rerender(sheet(false));
+    expect(asked().at(-1)).toBe('');
+    expect(screen.getByTestId('new-message-person-p-amy')).toBeTruthy();
+  });
+
   it('opens their conversation once the sheet is gone', async () => {
     jest.mocked(startConversation).mockResolvedValue({ ok: true, conversationId: 'c-amy' });
     const { onClose, onOpened, view } = await show();
