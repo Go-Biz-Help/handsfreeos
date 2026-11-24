@@ -515,6 +515,12 @@ describe('the add-on check, for every kind of actor', () => {
     expect(await refusal(ask(addonCount, { workspaceId: wsA }, human(member)))).toMatchObject({
       rule: 'addon_inactive',
     });
+    // Someone outside the business hears only that it isn't there, never whether an add-on is on in it. The
+    // look-up asks both in one statement, and "not there" is answered first.
+    expect(await refusal(ask(addonCount, { workspaceId: wsA }, human(outsider)))).toMatchObject({
+      status: 404,
+      rule: null,
+    });
     expect(await refusal(ask(addonCount, { workspaceId: wsA }, system(wsA)))).toMatchObject({
       rule: 'addon_inactive',
     });
@@ -542,6 +548,11 @@ describe('the add-on check, for every kind of actor', () => {
     for (const actor of [system(wsC), workflow(wsC)])
       expect(await note(wsC, actor)).toEqual({ ok: true });
     expect(await ask(addonCount, { workspaceId: wsC }, human(member))).toEqual({ n: 0 });
+    // …and still isn't there for someone outside the business.
+    expect(await refusal(ask(addonCount, { workspaceId: wsC }, human(outsider)))).toMatchObject({
+      status: 404,
+      rule: null,
+    });
     const history = await rows<{ event_type: string; addon_id: string | null; addon: unknown }>(
       admin(),
       sql`select e.event_type, e.addon_id, e.payload -> '_addon' as addon from app.events e
