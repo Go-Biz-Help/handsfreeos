@@ -28,54 +28,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { MetaAccount, MetaAccountList, MetaConnection } from '@/lib/api/types';
-import { publicEnv } from '@/lib/env';
+import { connectFacebook, metaResultWords, type MetaResult } from '@/lib/meta-connect';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { relativeTime } from '@/lib/utils';
 import { settingAttrs } from './setting-anchor';
 
-/** What the worker came back with, from `?meta=` and its counts. */
-export interface MetaResult {
-  readonly meta: string;
-  readonly facebook: number;
-  readonly instagram: number;
-  readonly skipped: number;
-}
-
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-function resultWords(r: MetaResult): { tone: 'success' | 'info' | 'error'; text: string } {
-  if (r.meta === 'connected') {
-    const what = [
-      r.facebook ? plural(r.facebook, 'Facebook Page', 'Facebook Pages') : null,
-      r.instagram ? plural(r.instagram, 'Instagram account', 'Instagram accounts') : null,
-    ]
-      .filter(Boolean)
-      .join(' and ');
-    const skipped = r.skipped
-      ? ` ${plural(r.skipped, 'other was', 'others were')} connected to another business in the meantime.`
-      : '';
-    return {
-      tone: 'success',
-      text: `Connected ${what || 'Facebook'}. Their messages arrive in the inbox from now on.${skipped}`,
-    };
-  }
-  if (r.meta === 'cancelled')
-    return { tone: 'info', text: 'Sign-in cancelled. Nothing was connected.' };
-  return {
-    tone: 'error',
-    text: 'Facebook didn’t connect. Choose Connect Facebook again in a minute.',
-  };
-}
-
-/** Starts connecting: a one-time state, then Facebook's own sign-in. */
-async function connectFacebook(workspaceId: string): Promise<void> {
-  const out = unwrap(
-    await apiBrowser().POST('/v1/commands/meta_connection.connect', { body: { workspaceId } }),
-  );
-  window.location.assign(
-    `${publicEnv.workerUrl}/oauth/facebook/start?state=${encodeURIComponent(out.state)}`,
-  );
-}
 
 /** Why a Page or account isn't answering, and what fixes it (core's, as the Assistant says it). */
 const troubleOf = (a: MetaAccount): string | null => metaAccountTrouble(a);
@@ -102,7 +60,7 @@ export function FacebookInstagramPage({
   useEffect(() => {
     if (!result || told.current) return;
     told.current = true;
-    const r = resultWords(result);
+    const r = metaResultWords(result);
     if (r.tone === 'success') toast.success(r.text);
     else if (r.tone === 'error') toast.error(r.text);
     else toast(r.text);

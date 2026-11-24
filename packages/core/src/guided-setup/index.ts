@@ -3,7 +3,7 @@
  * setup's way "with all the settings", the phone number first). What every one of them shares lives here, once, for
  * the web and the phone: which setups there are and who may run each, the answers saved as they are given
  * (guided_setup.save_draft, so someone who leaves comes back to their choices), and the frame's words. Each setup's
- * own questions sit beside this file (phone.ts, calendar.ts, payments.ts, chat.ts). Browser-safe.
+ * own questions sit beside this file (phone.ts, calendar.ts, payments.ts, chat.ts, facebook.ts). Browser-safe.
  */
 import { z } from 'zod';
 import { daysBetween, formatLocalDate, localDateOf } from '../calendar/engine/zoned';
@@ -22,6 +22,7 @@ export const GUIDED_SETUPS = {
   calendar: { permission: 'calendars.manage' },
   payments: { permission: 'money.manage' },
   chat: { permission: 'channels.manage' },
+  facebook: { permission: 'channels.manage' },
 } as const satisfies Record<string, { readonly permission: Permission }>;
 export type GuidedSetupKey = keyof typeof GUIDED_SETUPS;
 export const GUIDED_SETUP_KEYS = Object.keys(GUIDED_SETUPS) as [

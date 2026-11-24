@@ -1,9 +1,9 @@
 {
   "area": "settings-money-partners",
   "title": "Settings: payments, products, partners, imports and migrations",
-  "checkedOn": "2026-11-23",
+  "checkedOn": "2026-11-24",
   "files": {
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "d3145ae0d259",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/partners/[partnerId].tsx": "f392529733e2",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/partners/index.tsx": "fe824ca6769b",
     "apps/mobile/src/app/app/w/[workspaceId]/payments-setup.tsx": "2ac059c98881",
@@ -1270,7 +1270,7 @@
     {
       "path": "Phone → Settings → Partners row: Who sends you customers, and what they’ve earned",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:249",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:264",
       "covered": "yes",
       "by": "get_settings partners"
     },

@@ -2,11 +2,21 @@
  * Facebook Messenger and Instagram (20261025000200): the Pages and accounts a business has connected, and where its
  * customers came from.
  */
-import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, ne, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
-import { conversations, metaAccounts, metaConnections, metaLeadForms } from '@hfos/db/schema';
+import {
+  conversations,
+  messages,
+  metaAccounts,
+  metaConnections,
+  metaLeadForms,
+} from '@hfos/db/schema';
 import { userNames } from '../calendar/load';
 import { META_ACCOUNT_COLUMNS } from '../commands/social';
+import {
+  MetaAccountTestMessagesInput,
+  MetaAccountTestMessagesOutput,
+} from '../guided-setup/facebook';
 import { defineQuery } from '../kernel/define';
 import { metaAccountLabel } from '../messaging/social';
 import {
@@ -123,6 +133,75 @@ export const metaAccountList = defineQuery({
         readsLeads: c.scopes.includes('leads_retrieval'),
         lastError: c.lastError,
       })),
+    };
+  },
+});
+
+/**
+ * The guided Facebook & Instagram setup's live test (the owner, 24 Nov 2026, F2 a): for each Page and Instagram
+ * account connected now, the newest message someone sent it since the test began, so its row turns green the moment
+ * one lands. Only messages the person may read count (row-level security), and only a few words of one are given.
+ */
+export const metaAccountTestMessages = defineQuery({
+  name: 'meta_account.test_messages',
+  description:
+    'For each connected Facebook Page and Instagram account, the newest message someone sent it since a moment, with its first words: the Facebook & Instagram setup’s Send yourself a test message, which shows whether messages arrive.',
+  input: MetaAccountTestMessagesInput,
+  output: MetaAccountTestMessagesOutput,
+  permission: 'channels.manage',
+  scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+  async handler(ctx, input) {
+    const accounts = await ctx.tx
+      .select({
+        id: metaAccounts.id,
+        platform: metaAccounts.platform,
+        name: metaAccounts.name,
+        username: metaAccounts.username,
+      })
+      .from(metaAccounts)
+      .where(
+        and(
+          eq(metaAccounts.workspaceId, input.workspaceId),
+          ne(metaAccounts.status, 'disconnected'),
+        ),
+      )
+      .orderBy(metaAccounts.platform, metaAccounts.name);
+    const got = accounts.length
+      ? await ctx.tx
+          .selectDistinctOn([conversations.metaAccountId], {
+            accountId: conversations.metaAccountId,
+            at: messages.occurredAt,
+            body: messages.bodyText,
+          })
+          .from(messages)
+          .innerJoin(conversations, eq(conversations.id, messages.conversationId))
+          .where(
+            and(
+              eq(messages.workspaceId, input.workspaceId),
+              eq(messages.direction, 'inbound'),
+              gte(messages.occurredAt, new Date(input.since)),
+              inArray(
+                conversations.metaAccountId,
+                accounts.map((a) => a.id),
+              ),
+            ),
+          )
+          .orderBy(conversations.metaAccountId, desc(messages.occurredAt))
+      : [];
+    const byAccount = new Map(got.map((g) => [g.accountId, g]));
+    return {
+      accounts: accounts.map((a) => {
+        const m = byAccount.get(a.id);
+        const words = m?.body?.replace(/\s+/g, ' ').trim() ?? '';
+        return {
+          accountId: a.id,
+          platform: a.platform,
+          name: a.name,
+          username: a.username,
+          gotAt: m ? new Date(m.at).toISOString() : null,
+          preview: words ? (words.length > 40 ? `${words.slice(0, 39).trimEnd()}…` : words) : null,
+        };
+      }),
     };
   },
 });
