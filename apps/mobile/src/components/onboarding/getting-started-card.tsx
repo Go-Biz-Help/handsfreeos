@@ -1,5 +1,6 @@
 import {
   CHAT_SETUP_WORDS,
+  FACEBOOK_SETUP_WORDS,
   GUIDE_WORDS,
   holds,
   LINK_WORDS,
@@ -106,6 +107,10 @@ function Steps({
     step.state === 'todo' &&
     step.note.phase === 'mailbox' &&
     holds(grants, 'channels.manage');
+  // And Facebook & Instagram's, once Meta approved the app for everyone (the owner, 24 Nov 2026, F1 a and F4 a), until a
+  // Page is connected; a sign-in Facebook stopped is put right on the web.
+  const setsUpFacebook = (step: OnboardingStep) =>
+    step.key === 'facebook' && step.state === 'todo' && holds(grants, 'channels.manage');
   // The teammate quick setup saves reaches the phone's copy: the guide asks again.
   const hadTeammate = React.useRef<boolean | null>(null);
   React.useEffect(() => {
@@ -146,7 +151,8 @@ function Steps({
     (step.key === 'ai' && setsUpAi) ||
     setsUpNumber(step) ||
     setsUpPayments(step) ||
-    setsUpChat(step);
+    setsUpChat(step) ||
+    setsUpFacebook(step);
 
   /** One command at a time, with signal; the guide asks again when it's done. */
   const act = async (key: string, run: () => Promise<string | null>) => {
@@ -241,6 +247,17 @@ function Steps({
           testID="getting-started-chat-setup"
         >
           {stepWords(step).action ?? CHAT_SETUP_WORDS.summary.start}
+        </Button>
+      );
+    if (setsUpFacebook(step))
+      return (
+        <Button
+          size="sm"
+          variant={primary ? 'primary' : 'secondary'}
+          onPress={() => router.push(businessHref(business.id, 'facebook-setup'))}
+          testID="getting-started-facebook-setup"
+        >
+          {stepWords(step).action ?? FACEBOOK_SETUP_WORDS.summary.start}
         </Button>
       );
     if (step.key === 'notifications')

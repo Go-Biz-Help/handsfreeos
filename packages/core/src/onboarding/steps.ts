@@ -17,6 +17,7 @@ export const BUSINESS_STEPS = [
   'ai',
   'team',
   'email_chat',
+  'facebook',
 ] as const;
 export type BusinessStepKey = (typeof BUSINESS_STEPS)[number];
 
@@ -50,6 +51,7 @@ export const STEP_PERMISSIONS: Readonly<Record<OnboardingStepKey, readonly Permi
   ai: ['ai_team.manage', 'knowledge.manage'],
   team: ['members.invite'],
   email_chat: ['channels.manage'],
+  facebook: ['channels.manage'],
   app: [],
   sign_in: [],
   notifications: [],
@@ -148,6 +150,11 @@ export interface OnboardingFacts {
       /** The chat widget has been seen on the business's website. */
       readonly chat: boolean;
     };
+    /** Facebook Pages and Instagram accounts whose messages come to the inbox, and those Facebook stopped. */
+    readonly facebook: {
+      readonly active: number;
+      readonly needsAttention: number;
+    };
   } | null;
   readonly person: {
     /** Phones this person gets notifications on. A phone registers only once notifications are allowed. */
@@ -230,7 +237,8 @@ export function laterOrder(
   const out: OnboardingStepKey[] = [];
   if (answers?.teamSize !== 'solo') out.push('team');
   if (answers?.goal !== 'paid') out.push('payments');
-  out.push('email_chat', 'app', 'sign_in');
+  // Facebook & Instagram once Meta approved the app for everyone (the owner, 24 Nov 2026, F1 a).
+  out.push('email_chat', 'facebook', 'app', 'sign_in');
   return out;
 }
 
@@ -329,6 +337,18 @@ function standingOf(key: OnboardingStepKey, facts: OnboardingFacts, device: Devi
         phase: b.emailChat.mailbox ? 'mailbox' : b.emailChat.chat ? 'chat' : 'none',
       };
       return parts.every(Boolean) ? done(note) : todo(note);
+    }
+    case 'facebook': {
+      if (!b) return todo();
+      const f = b.facebook;
+      if (f.active > 0) return done({ count: f.active });
+      if (f.needsAttention > 0)
+        return {
+          state: 'needs_fix',
+          since: null,
+          note: { phase: 'reconnect', count: f.needsAttention },
+        };
+      return todo();
     }
     case 'app':
       return (device.app ?? facts.person.phones > 0) ? done() : todo();

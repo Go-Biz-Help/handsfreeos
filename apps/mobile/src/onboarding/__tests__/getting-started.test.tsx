@@ -266,6 +266,36 @@ it('sets website chat up on the phone itself once the mailbox is in', async () =
   expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/chat-setup`);
 });
 
+/** The owner's business with Facebook & Instagram among the later steps, next. */
+const withFacebook = (state: OnboardingStep['state'], note: OnboardingStep['note'] = {}) => ({
+  ...OWNER,
+  steps: [
+    ...OWNER.steps.slice(0, -2),
+    step('facebook', 'later', state, note),
+    ...OWNER.steps.slice(-2),
+  ],
+  total: 10,
+  done: 2,
+  next: 'facebook' as const,
+});
+
+it('sets Facebook & Instagram up on the phone itself until a Page is connected', async () => {
+  await show(withFacebook('todo'));
+  const next = await screen.findByTestId('getting-started-next');
+  // The guided Facebook & Instagram setup runs here as on the web (the owner, 24 Nov 2026, F1 a and F4 a).
+  expect(next).not.toHaveTextContent(LINK_WORDS.easierDetail, { exact: false });
+  expect(screen.getByTestId('getting-started-facebook-setup')).toHaveTextContent('Set up');
+  await fireEvent.press(screen.getByTestId('getting-started-facebook-setup'));
+  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/facebook-setup`);
+});
+
+it('emails the link to sign in again when Facebook stopped a Page', async () => {
+  await show(withFacebook('needs_fix', { phase: 'reconnect', count: 1 }));
+  await screen.findByTestId('getting-started-next');
+  expect(screen.queryByTestId('getting-started-facebook-setup')).toBeNull();
+  expect(screen.getByTestId('getting-started-facebook-link')).toBeTruthy();
+});
+
 it('emails a link to send the texting details, a long form, once the number is theirs', async () => {
   await show({
     ...OWNER,

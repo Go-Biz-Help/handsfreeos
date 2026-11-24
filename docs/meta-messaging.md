@@ -90,7 +90,11 @@ sign-in. Facebook comes back to **Send yourself a test message** (`?step=test`, 
 waiting says what to check. With a Page already connected, the same questions end in **Save my answers**, and the
 sign-in stays as it is. What the setup can't change is said, not hidden: Messenger comes with the Page, an Instagram
 account linked to the Page comes along with it, and Facebook decides which permissions its screens ask for, so the ads
-answer changes only what they're said to ask. The Getting started step waits until Meta's approval is confirmed (F1).
+answer changes only what they're said to ask. Since Meta's approval was confirmed (24 Nov 2026), Getting started on
+Home has a **Facebook & Instagram** step in When you're ready, after Email & website chat (`channels.manage`): it opens
+the setup with `?from=home`, so Finish later, Save and Done go back Home; it's done once a Page or account is active,
+and to fix (Reconnect, to Settings → Facebook & Instagram) when none is but Facebook stopped one. On the phone, Set up
+opens the phone's guided setup; Reconnect emails the web link.
 
 ## Rules worth knowing before changing anything
 

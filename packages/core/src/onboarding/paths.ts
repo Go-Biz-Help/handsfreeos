@@ -12,7 +12,8 @@ export const setupPath = (workspaceId: string, step: WizardStepKey): string =>
 /**
  * The page for a step, or null for the two done on the phone itself (the app, and its notifications).
  * `passkeys`: the web signs in with passkeys, so "Sign in faster" opens that section rather than Google's.
- * `phase`: how far a step has got, from its note (email and chat: the mailbox is in, chat is next).
+ * `phase`: how far a step has got, from its note (email and chat: the mailbox is in, chat is next; Facebook & Instagram:
+ * a sign-in to put right).
  */
 export function stepPath(
   workspaceId: string,
@@ -26,6 +27,11 @@ export function stepPath(
       return `${base}/members?invite=1`;
     case 'email_chat':
       return opts.phase === 'mailbox' ? `${base}/settings/website-chat` : `${base}/settings/email`;
+    // The guided setup, back to Home after; a sign-in Facebook stopped is put right where Connect more is.
+    case 'facebook':
+      return opts.phase === 'reconnect'
+        ? `${base}/settings/facebook-instagram`
+        : `/onboarding/${workspaceId}/facebook?from=home`;
     case 'sign_in':
       return `${base}/settings#${opts.passkeys ? 'passkeys' : 'google'}`;
     case 'my_calendar':

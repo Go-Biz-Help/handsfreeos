@@ -21,6 +21,7 @@ import {
   personalOnboardingOf,
   PHONE_APP_LINKS,
   progressWords,
+  stepPath,
   stepWords,
   TOUR_STOPS,
   tourStopWords,
@@ -54,6 +55,7 @@ function facts(
     },
     team: { members: 1, liveInvitations: 0 },
     emailChat: { mailbox: false, chat: false },
+    facebook: { active: 0, needsAttention: 0 },
   };
   const business = Object.fromEntries(
     Object.entries(blank).map(([k, v]) => [k, { ...v, ...(patch[k as keyof Business] ?? {}) }]),
@@ -98,9 +100,16 @@ describe('the order', () => {
   it('puts the number first and the rest in a sensible order when nothing was answered', () => {
     const p = owner(facts());
     expect(keys(p, 'basics')).toEqual(['number', 'customers', 'calendar', 'ai']);
-    expect(keys(p, 'later')).toEqual(['team', 'payments', 'email_chat', 'app', 'sign_in']);
+    expect(keys(p, 'later')).toEqual([
+      'team',
+      'payments',
+      'email_chat',
+      'facebook',
+      'app',
+      'sign_in',
+    ]);
     expect(p.steps.every((s) => s.mustDo === (s.group === 'basics'))).toBe(true);
-    expect(progressWords(p)).toBe('0 of 9 done');
+    expect(progressWords(p)).toBe('0 of 10 done');
   });
 
   it('puts the goal’s own step second, and the number always first', () => {
@@ -127,8 +136,8 @@ describe('the order', () => {
   it('makes connecting payments a must-do for “Getting paid” (Chris, 2026-09-29)', () => {
     const p = owner(facts(), answers({ goal: 'paid' }));
     expect(keys(p, 'basics')).toEqual(['number', 'payments', 'customers', 'calendar', 'ai']);
-    expect(keys(p, 'later')).toEqual(['team', 'email_chat', 'app', 'sign_in']);
-    expect(p.total).toBe(9);
+    expect(keys(p, 'later')).toEqual(['team', 'email_chat', 'facebook', 'app', 'sign_in']);
+    expect(p.total).toBe(10);
   });
 
   it('leaves Invite your team out for “Just me”', () => {
@@ -263,6 +272,29 @@ describe('where each step stands', () => {
     ).toBe('done');
   });
 
+  it('is Facebook & Instagram done once a Page or account answers, and to fix when Facebook stopped one', () => {
+    const todo = step(owner(facts()), 'facebook');
+    expect(todo.state).toBe('todo');
+    expect(stepWords(todo)).toMatchObject({ title: 'Facebook & Instagram', action: 'Set up' });
+    expect(stepPath('ws', 'facebook', { phase: todo.note.phase })).toBe(
+      '/onboarding/ws/facebook?from=home',
+    );
+    expect(step(owner(facts({ facebook: { active: 2 } })), 'facebook')).toMatchObject({
+      state: 'done',
+      note: { count: 2 },
+    });
+    const stopped = step(owner(facts({ facebook: { needsAttention: 1 } })), 'facebook');
+    expect(stopped).toMatchObject({ state: 'needs_fix', note: { phase: 'reconnect' } });
+    expect(stepWords(stopped)).toMatchObject({ badge: 'Needs a fix', action: 'Reconnect' });
+    expect(stepPath('ws', 'facebook', { phase: stopped.note.phase })).toBe(
+      '/app/w/ws/settings/facebook-instagram',
+    );
+    // One still answering is enough, whatever happened to another.
+    expect(
+      step(owner(facts({ facebook: { active: 1, needsAttention: 1 } })), 'facebook').state,
+    ).toBe('done');
+  });
+
   it('takes the sign-in methods and the phone from the device', () => {
     const p = owner(facts(), null, [], { signIn: true, app: true });
     expect(step(p, 'sign_in').state).toBe('done');
@@ -275,7 +307,7 @@ describe('skipping and finishing', () => {
   it('skips a step still to do, takes it off the total, and moves on to the next', () => {
     const p = owner(facts(), answers(), ['number']);
     expect(step(p, 'number').state).toBe('skipped');
-    expect(p).toMatchObject({ total: 8, skipped: 1, next: 'ai' });
+    expect(p).toMatchObject({ total: 9, skipped: 1, next: 'ai' });
     expect(stepWords(step(p, 'number'))).toMatchObject({
       badge: 'Skipped',
       action: 'Get a number',
@@ -296,7 +328,7 @@ describe('skipping and finishing', () => {
       calendar: { calendars: 1, services: 2, bookingOn: true },
       ai: { name: 'Ava', published: 6, profileFilled: 5 },
     });
-    const rest: OnboardingStepKey[] = ['team', 'payments', 'email_chat', 'app'];
+    const rest: OnboardingStepKey[] = ['team', 'payments', 'email_chat', 'facebook', 'app'];
     expect(owner(f, answers(), rest).complete).toBe(false);
     const p = owner(f, answers(), [...rest, 'sign_in']);
     expect(p).toMatchObject({ complete: true, next: null, done: 4, total: 4 });
@@ -424,9 +456,28 @@ describe('what’s kept', () => {
 
 describe('the quick questions', () => {
   it('shows the order while it’s still being answered', () => {
-    expect(laterOrder({ teamSize: 'solo' })).toEqual(['payments', 'email_chat', 'app', 'sign_in']);
-    expect(laterOrder({ goal: 'paid' })).toEqual(['team', 'email_chat', 'app', 'sign_in']);
-    expect(laterOrder(null)).toEqual(['team', 'payments', 'email_chat', 'app', 'sign_in']);
+    expect(laterOrder({ teamSize: 'solo' })).toEqual([
+      'payments',
+      'email_chat',
+      'facebook',
+      'app',
+      'sign_in',
+    ]);
+    expect(laterOrder({ goal: 'paid' })).toEqual([
+      'team',
+      'email_chat',
+      'facebook',
+      'app',
+      'sign_in',
+    ]);
+    expect(laterOrder(null)).toEqual([
+      'team',
+      'payments',
+      'email_chat',
+      'facebook',
+      'app',
+      'sign_in',
+    ]);
   });
 
   it('says how the customers come in, from the answer', () => {
@@ -495,7 +546,7 @@ describe('an agency’s view of a client', () => {
       ai: { name: 'Ava', published: 9, profileFilled: 6 },
       team: { members: 3 },
     });
-    const steps = business(set, answers(), ['payments', 'email_chat']);
+    const steps = business(set, answers(), ['payments', 'email_chat', 'facebook']);
     expect(standing(steps, ago(30))).toMatchObject({ group: 'done', badge: 'In review' });
     expect(standing(business(facts()), ago(30), false)).toEqual({
       group: 'done',
@@ -507,7 +558,7 @@ describe('an agency’s view of a client', () => {
     expect(standing(optional, ago(30))).toEqual({
       group: 'setup',
       badge: 'Optional left',
-      note: 'Connect payments, Email & website chat',
+      note: 'Connect payments, Email & website chat, Facebook & Instagram',
     });
   });
 });

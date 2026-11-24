@@ -64,6 +64,13 @@ import { cn } from '@/lib/utils';
 
 const settingsOf = (workspaceId: string) => `/app/w/${workspaceId}/settings/facebook-instagram`;
 
+/** Where the setup was opened from: Getting started on Home (`?from=home`), or Settings. */
+export type FacebookSetupFrom = 'home' | 'settings';
+
+/** Where Finish later, Save and Done go back to. */
+const homeOf = (workspaceId: string, from: FacebookSetupFrom) =>
+  from === 'home' ? `/app/w/${workspaceId}` : settingsOf(workspaceId);
+
 type Problems = Partial<Record<keyof FacebookSetupAnswers, string>>;
 
 const problemsOf = (
@@ -73,11 +80,11 @@ const problemsOf = (
 ): Problems => Object.fromEntries(facebookSetupProblems(q, a, ctx).map((p) => [p.path, p.message]));
 
 /** Saves the answers' way back, then Facebook's sign-in: it comes back to the test. */
-async function signIn(workspaceId: string, instagram: boolean) {
+async function signIn(workspaceId: string, instagram: boolean, from: FacebookSetupFrom) {
   keepSetupReturn(
     workspaceId,
     'facebook',
-    `/onboarding/${workspaceId}/facebook?step=test${instagram ? '&ig=1' : ''}`,
+    `/onboarding/${workspaceId}/facebook?step=test${instagram ? '&ig=1' : ''}${from === 'home' ? '&from=home' : ''}`,
   );
   await connectFacebook(workspaceId);
 }
@@ -90,6 +97,7 @@ export function FacebookSetupFlow({
   ctx,
   draft,
   at,
+  from = 'settings',
 }: {
   workspaceId: string;
   businessName: string;
@@ -101,9 +109,11 @@ export function FacebookSetupFlow({
   draft: { readonly answers: Record<string, unknown> | null; readonly savedAt: string | null };
   /** `?at=`: Settings' Change opens that question, and Next goes to Check it over. */
   at: FacebookSetupScreen | null;
+  /** `?from=home`: Getting started on Home opened it, so Finish later and Save go Home. */
+  from?: FacebookSetupFrom;
 }) {
   const router = useRouter();
-  const home = settingsOf(workspaceId);
+  const home = homeOf(workspaceId, from);
   const [first] = useState(() => {
     const start = facebookSetupStart(ctx);
     // A Change from Settings starts from what's set now; a draft from before a Page was connected (or after one was
@@ -214,7 +224,7 @@ export function FacebookSetupFlow({
       return;
     }
     try {
-      await signIn(workspaceId, answers.instagram);
+      await signIn(workspaceId, answers.instagram, from);
     } catch (e) {
       // The answers are saved; only the sign-in didn't start.
       setBusy(null);
@@ -687,6 +697,7 @@ export function FacebookSetupTest({
   accounts,
   result,
   instagramAsked = false,
+  from = 'settings',
 }: {
   workspaceId: string;
   businessName: string;
@@ -696,9 +707,11 @@ export function FacebookSetupTest({
   result: MetaResult | null;
   /** `?ig=1`: Instagram was picked, so an Instagram account is expected. */
   instagramAsked?: boolean;
+  /** `?from=home`: opened from Getting started, so Done goes Home. */
+  from?: FacebookSetupFrom;
 }) {
   const router = useRouter();
-  const home = settingsOf(workspaceId);
+  const home = homeOf(workspaceId, from);
   const [since] = useState(() => new Date(Date.now() - 2 * 60_000).toISOString());
   const [opened] = useState(() => Date.now());
   const [got, setGot] = useState<MetaAccountTestMessages['accounts']>([]);
@@ -739,7 +752,7 @@ export function FacebookSetupTest({
   async function again() {
     setBusy(true);
     try {
-      await signIn(workspaceId, instagramAsked);
+      await signIn(workspaceId, instagramAsked, from);
     } catch (e) {
       setBusy(false);
       toast.error(errorMessage(e));

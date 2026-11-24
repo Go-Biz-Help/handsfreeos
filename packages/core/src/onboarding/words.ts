@@ -41,6 +41,8 @@ export function stepTitle(key: OnboardingStepKey, name?: string | null): string 
       return 'Invite your team';
     case 'email_chat':
       return 'Email & website chat';
+    case 'facebook':
+      return 'Facebook & Instagram';
     case 'app':
       return 'Get the phone app';
     case 'sign_in':
@@ -163,6 +165,11 @@ function todoLine(step: OnboardingStep, answers: OnboardingAnswers | null): Line
               action: 'Connect mailbox',
             }
           : { detail: 'Connect your mailbox and add chat to your website.', action: 'Set up' };
+    case 'facebook':
+      return {
+        detail: 'Answer Messenger and Instagram messages from your inbox.',
+        action: 'Set up',
+      };
     case 'app':
       return PHONE_APP_LINKS.testing
         ? {
@@ -206,6 +213,8 @@ function doneLine(step: OnboardingStep): string {
         : 'Invitation sent. They’re in once they accept.';
     case 'email_chat':
       return 'Your mailbox and website chat are working.';
+    case 'facebook':
+      return 'Connected. New Messenger and Instagram messages come to your inbox.';
     case 'app':
       return 'On your phone.';
     case 'sign_in':
@@ -270,6 +279,12 @@ function needsFixLine(step: OnboardingStep): Line {
           action: 'Reconnect',
         };
   }
+  if (step.key === 'facebook')
+    return {
+      detail:
+        'Facebook stopped accepting your sign-in, so new Messenger and Instagram messages aren’t coming in. Sign in again.',
+      action: 'Reconnect',
+    };
   const reason = clause(n.reason);
   return {
     detail: `The carriers turned down texting${reason ? `: ${reason}` : ''}. Fix your details and send them again.`,

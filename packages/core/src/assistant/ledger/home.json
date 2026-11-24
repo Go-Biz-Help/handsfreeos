@@ -1,7 +1,7 @@
 {
   "area": "home",
   "title": "Home, Search everything, Needs you, the bell's notifications, Audit log, Changes and the Assistant panel itself",
-  "checkedOn": "2026-11-23",
+  "checkedOn": "2026-11-24",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/get-help.tsx": "a1fa8bee58ff",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx": "242f970f8798",
@@ -32,7 +32,7 @@
     "apps/mobile/src/components/home/item-sheets.tsx": "1e0fc20a6146",
     "apps/mobile/src/components/home/let-handle-sheet.tsx": "aec9005368fb",
     "apps/mobile/src/components/home/waiting-changes.tsx": "5969f5a3aff5",
-    "apps/mobile/src/components/onboarding/getting-started-card.tsx": "a8d9a95173ca",
+    "apps/mobile/src/components/onboarding/getting-started-card.tsx": "3c732c78eb6f",
     "apps/mobile/src/home/actions.ts": "80e1442f9475",
     "apps/mobile/src/search/recent.ts": "6d3884953cf1",
     "apps/mobile/src/search/rows.tsx": "4c8fee7ac09c",
@@ -2343,28 +2343,28 @@
     {
       "path": "Phone Home → Getting started → Email me the link",
       "kind": "do",
-      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:50",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:51",
       "covered": "yes",
       "by": "do_onboarding_send_link"
     },
     {
       "path": "Phone Home → Getting started → Turn on notifications",
       "kind": "do",
-      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:50",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:51",
       "covered": "person",
       "by": "the phone’s own permission"
     },
     {
       "path": "Phone Home → Getting started → AI teammate quick setup",
       "kind": "do",
-      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:89",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:90",
       "covered": "partly",
       "by": "read_onboarding_setup_get; setup pages are their own area"
     },
     {
       "path": "Phone Home → Getting started → phone tour",
       "kind": "do",
-      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:84",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:85",
       "covered": "person",
       "by": "the tour lights up the person’s own menu on their screen, so starting it stays theirs; the Assistant gives the way (places map Home: Get help, then Take the tour, or Take the tour on Getting started) and explains each place in words"
     },
@@ -2588,23 +2588,30 @@
     {
       "path": "Phone → Home → Getting started → Business number & texting → Get a number (opens the guided phone number setup while there is no number)",
       "kind": "do",
-      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:215",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:221",
       "covered": "yes",
       "by": "find_phone_numbers and do_phone_setup_save"
     },
     {
       "path": "Phone → Home → Getting started → Getting paid → Set up payments (opens the guided payments setup until an account is connected)",
       "kind": "do",
-      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:226",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:232",
       "covered": "yes",
       "by": "update_money_settings and update_numbering_and_ways_to_pay set every answer; connecting is the person’s own sign-in"
     },
     {
       "path": "Phone → Home → Getting started → Email & website chat → Add chat (opens the guided website chat setup once the mailbox is in)",
       "kind": "do",
-      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:237",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:243",
       "covered": "yes",
       "by": "do_chat_setup_save; read_guided_setup_get_draft setup chat reads where they left off"
+    },
+    {
+      "path": "Phone → Home → Getting started → Facebook & Instagram → Set up (opens the guided Facebook & Instagram setup until a Page is connected; Reconnect emails the web link)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:257",
+      "covered": "yes",
+      "by": "do_facebook_setup_save; read_guided_setup_get_draft setup facebook reads where they left off; read_onboarding_status says where the step stands. Connecting Facebook is the person’s own sign-in"
     }
   ],
   "gaps": [

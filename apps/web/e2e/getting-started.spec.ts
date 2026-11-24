@@ -16,7 +16,7 @@ test('a new owner works through Getting started on Home, hides it, and brings it
 
   const guide = page.getByTestId('getting-started');
   await expect(guide).toBeVisible();
-  await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 9 done');
+  await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 10 done');
   await expect(guide.getByText('The basics')).toBeVisible();
   await expect(guide.getByText('When you’re ready')).toBeVisible();
   // They left the guided setup after its first screen, so the card says to carry on.
@@ -39,10 +39,10 @@ test('a new owner works through Getting started on Home, hides it, and brings it
   await number.getByRole('button', { name: 'Skip' }).click();
   await expect(number).toHaveAttribute('data-state', 'skipped');
   await expect(number).toContainText('Skipped for now.');
-  await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 8 done');
+  await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 9 done');
   await number.getByRole('button', { name: 'Undo' }).click();
   await expect(number).toHaveAttribute('data-state', 'todo');
-  await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 9 done');
+  await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 10 done');
 
   // The phone app's step opens the links: the App Store for iPhone, Google Play for Android.
   await page
@@ -213,7 +213,7 @@ test('the guided setup’s answers put the steps in order, and the wizard walks 
   // and the guided setup is still there to finish.
   await expect(rows.nth(1)).toHaveAttribute('data-testid', 'getting-started-payments');
   await expect(page.getByTestId('getting-started-customers')).toHaveAttribute('data-state', 'done');
-  await expect(page.getByTestId('getting-started-count')).toHaveText('1 of 5 done');
+  await expect(page.getByTestId('getting-started-count')).toHaveText('1 of 6 done');
   await expect(page.getByTestId('getting-started-setup')).toContainText(
     'Finish setting up your business',
   );
@@ -313,5 +313,5 @@ test('an owner turns Getting started off for everyone, and back on', async ({ pa
   await page.getByTestId('getting-started-enabled').click();
   await expect(page.getByTestId('getting-started-enabled')).toHaveAttribute('aria-checked', 'true');
   await page.goto(`/app/w/${workspaceId}`);
-  await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 9 done');
+  await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 10 done');
 });

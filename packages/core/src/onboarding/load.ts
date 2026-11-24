@@ -102,6 +102,8 @@ async function businessFacts(
     live_invitations: number;
     mailbox: boolean;
     chat: boolean;
+    meta_active: number;
+    meta_attention: number;
   }>(
     tx,
     sql`select
@@ -138,7 +140,11 @@ async function businessFacts(
         exists (select 1 from app.mailbox_connections mc where mc.workspace_id = ${workspaceId}
                   and mc.status = 'active') as mailbox,
         exists (select 1 from app.chat_widgets w where w.workspace_id = ${workspaceId}
-                  and w.last_seen_at is not null and w.paused_at is null) as chat`,
+                  and w.last_seen_at is not null and w.paused_at is null) as chat,
+        (select count(*) from app.meta_accounts ma where ma.workspace_id = ${workspaceId}
+           and ma.status = 'active')::int as meta_active,
+        (select count(*) from app.meta_accounts ma where ma.workspace_id = ${workspaceId}
+           and ma.status = 'needs_attention')::int as meta_attention`,
   );
   // Named columns: the sealed tokens are not granted to people at all.
   const payments = await rows<{ status: string; provider: string; capabilities: unknown }>(
@@ -202,6 +208,7 @@ async function businessFacts(
     },
     team: { members: s?.members ?? 0, liveInvitations: s?.live_invitations ?? 0 },
     emailChat: { mailbox: s?.mailbox ?? false, chat: s?.chat ?? false },
+    facebook: { active: s?.meta_active ?? 0, needsAttention: s?.meta_attention ?? 0 },
   };
 }
 
