@@ -139,4 +139,38 @@ describe('last active', () => {
     expect(got.business.attention).not.toContain('gone_quiet');
     expect(await activeThisWeek()).toBe(before + 1);
   });
+
+  // 20261027035700 asks each member for the newest thing they did here, so these two are what it could get wrong.
+  it('takes the newest of several people, and counts a person only where they did something', async () => {
+    const second = await createTestUser('last-active-second');
+    const [busy, elsewhere] = [
+      await addBusiness(`${tag} Two people`),
+      await addBusiness(`${tag} Elsewhere`),
+    ];
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${busy}, ${member.id}, 'owner'), (${busy}, ${second.id}, 'member'),
+                 (${elsewhere}, ${member.id}, 'owner')`,
+    );
+    const before = await activeThisWeek();
+    await addEvent(busy, 'human', member.id, '9 days');
+    await addEvent(busy, 'human', second.id, '3 days');
+    await addEvent(busy, 'human', second.id, '12 days');
+
+    const got = await detail(busy);
+    const lastActive = Date.parse(got.business.lastActiveAt!);
+    expect(Date.now() - lastActive).toBeGreaterThan(2 * 86_400_000);
+    expect(Date.now() - lastActive).toBeLessThan(4 * 86_400_000);
+    expect(got.people.find((p) => p.userId === second.id)?.lastActiveAt).toBe(
+      got.business.lastActiveAt,
+    );
+    expect(got.business.attention).not.toContain('gone_quiet');
+
+    // Its owner is busy in two other businesses, and has done nothing in this one.
+    const idle = await detail(elsewhere);
+    expect(idle.business.lastActiveAt).toBeNull();
+    expect(idle.business.attention).toContain('gone_quiet');
+    expect(await activeThisWeek()).toBe(before + 1);
+  });
 });

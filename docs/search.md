@@ -224,7 +224,7 @@ take 40 to 60 ms. Text with an accent pays the whole map, about 2.4 µs a charac
 each time it's folded, which is why each searcher folds a name once. `foldPattern` finds a word in a file's 100,000
 characters in about 1.6 ms, against about 280 ms to fold them.
 
-**What a search holds.** One of its API machine's 6 database connections for one transaction, inside one of the
+**What a search holds.** One of its API machine's 10 database connections for one transaction, inside one of the
 machine's 3 search slots, each statement held to what's left of its budget (How a search runs): far inside the
 15-second statement ceiling and the 30-second limit on an idle transaction. The plan puts a box search at about 14
 short statements, typically 60 to 250 ms and 2 s at worst.

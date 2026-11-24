@@ -17,7 +17,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
-import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import { as, closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
@@ -344,5 +344,96 @@ describe('a customer nobody has linked', () => {
     expect(linked).toHaveLength(1);
     expect(linked[0]!.lanes).toHaveLength(2);
     expect(linked[0]!.sameAs).toBeNull();
+  });
+});
+
+/**
+ * The other three ways a thread looks like a customer (20261027035800): their main address, whatever its capitals,
+ * and their other numbers and addresses. The Inbox asks `private.people_with_contact` for those, which reads the
+ * customers past row-level security so that it can use their indexes. So what it must never do is here too: offer
+ * another business's customer, or answer somebody who isn't in the business.
+ */
+describe('the customer an unlinked thread looks like, by their other details', () => {
+  const spareNumber = '+18325550177';
+  const mainMail = 'pat.rivera@example.com';
+  const spareMail = 'pat@rivera-roofing.example.com';
+  let pat: string;
+  let outsider: TestUser;
+
+  /** The row for an address, wherever a stranger's thread was filed: the Inbox, or Other mail. */
+  const sameAs = async (counterpart: string) => {
+    for (const box of ['all', 'other'] as const) {
+      const { items } = await ask(inboxList, { workspaceId: wsId, box }, owner);
+      const row = items.find((c) => c.counterpart === counterpart);
+      if (row) return row.sameAs;
+    }
+    throw new Error(`no thread with ${counterpart}`);
+  };
+  const reached = (u: TestUser, kind: string, value: string) =>
+    as(u)((tx) =>
+      rows<{ ids: string[] }>(
+        tx,
+        sql`select private.people_with_contact(${wsId}::uuid, ${kind}, ${value}) as ids`,
+      ),
+    ).then((r) => r[0]!.ids);
+
+  beforeAll(async () => {
+    // Each writes in before anybody knows them, and (as for texts, above) with nothing making a customer of a
+    // stranger, so the thread arrives linked to nobody.
+    await run(intakeSourceUpdate, { workspaceId: wsId, kind: 'email', active: false }, owner);
+    await sys(messageReceive, {
+      workspaceId: wsId,
+      provider: 'fake',
+      providerMessageId: `SM${randomUUID().replace(/-/g, '')}`,
+      from: spareNumber,
+      to: frontDesk,
+      body: 'Do you do gutters?',
+    });
+    for (const address of [mainMail, spareMail])
+      await sys(emailReceive, {
+        workspaceId: wsId,
+        provider: 'fake',
+        providerMessageId: randomUUID(),
+        messageIdHeader: `<${randomUUID()}@example.com>`,
+        from: { address },
+        to: [{ address: 'hello@business.example.com' }],
+        subject: 'Gutters',
+        bodyText: 'Do you do gutters?',
+      });
+    const details = (workspaceId: string, by: string, first: string) =>
+      rows<{ id: string }>(
+        admin(),
+        sql`insert into app.people (workspace_id, first_name, last_name, email, other_phones, other_emails, created_by)
+            values (${workspaceId}, ${first}, 'Rivera', 'Pat.Rivera@Example.com',
+              ${JSON.stringify([{ phone: spareNumber, label: 'Work' }])}::jsonb,
+              ${JSON.stringify([{ email: spareMail }])}::jsonb, ${by}) returning id`,
+      ).then((r) => r[0]!.id);
+    pat = await details(wsId, owner.id, 'Pat');
+    // Somebody else's customer with the very same details, touched later: the one a look-up that forgot which
+    // business it was asked about would offer first.
+    outsider = await createTestUser('lanes-outsider');
+    const theirs = await run(organizationCreate, { businessName: 'Lanes Other Co' }, outsider);
+    await details(theirs.workspaceId, outsider.id, 'Not ours');
+  });
+
+  it('offers the customer whose other number it is', async () => {
+    expect(await sameAs(spareNumber)).toMatchObject({ id: pat, fullName: 'Pat Rivera' });
+  });
+
+  it('offers the customer whose address it is, whatever its capitals', async () => {
+    expect(await sameAs(mainMail)).toMatchObject({ id: pat, fullName: 'Pat Rivera' });
+  });
+
+  it('offers the customer whose other address it is', async () => {
+    expect(await sameAs(spareMail)).toMatchObject({ id: pat, fullName: 'Pat Rivera' });
+  });
+
+  it('answers the business’s own people, and nobody else', async () => {
+    expect(await reached(owner, 'other_phone', spareNumber)).toEqual([pat]);
+    expect(await reached(owner, 'email', mainMail)).toEqual([pat]);
+    expect(await reached(owner, 'other_email', spareMail)).toEqual([pat]);
+    expect(await reached(outsider, 'other_phone', spareNumber)).toEqual([]);
+    expect(await reached(outsider, 'email', mainMail)).toEqual([]);
+    expect(await reached(outsider, 'other_email', spareMail)).toEqual([]);
   });
 });

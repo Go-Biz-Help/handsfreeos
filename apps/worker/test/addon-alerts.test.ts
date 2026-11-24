@@ -22,7 +22,12 @@ import { PushData } from '@hfos/core';
 import { asUser, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { FIXTURE_CATALOG, fxprop, fxrent } from '../../../packages/core/test/addons/fixtures';
+import {
+  FIXTURE_CATALOG,
+  FIXTURE_MODULES,
+  fxprop,
+  fxrent,
+} from '../../../packages/core/test/addons/fixtures';
 import {
   addonScope,
   addonWorker,
@@ -92,7 +97,7 @@ const fxrentHears: AddonManifest = {
 const catalog: Catalog = FIXTURE_CATALOG.map((m) =>
   m.id === fxprop.id ? fxpropHears : m.id === fxrent.id ? fxrentHears : m,
 );
-const cmds = addonLifecycleCommands(catalog);
+const cmds = addonLifecycleCommands(catalog, FIXTURE_MODULES);
 const nothing = async () => {};
 const modules: AddonWorkerModule[] = [
   {

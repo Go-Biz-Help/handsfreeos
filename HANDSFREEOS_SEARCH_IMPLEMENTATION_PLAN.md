@@ -284,8 +284,8 @@ then the name.
 
 ### 6. Capacity
 
-The API is 2 machines with 6 database connections each (`apps/api/src/app.ts:52`), one transaction a request and a
-15-second statement ceiling (`packages/db/src/client.ts:58`), on Micro compute.
+The API is 2 machines with 10 database connections each (`apps/api/src/app.ts`; 6 each until Nov 2026), one
+transaction a request and a 15-second statement ceiling (`packages/db/src/client.ts:58`), on Micro compute.
 
 - **Budgets.** Quick: 2 s a request, 1.5 s a statement. Full: 6 s and 4 s. One kind: 8 s and 5 s. Before every
   statement `step` runs `select set_config('statement_timeout', '<ms>ms', true)`, the smaller of the cap and what's
@@ -304,7 +304,7 @@ The API is 2 machines with 6 database connections each (`apps/api/src/app.ts:52`
   as "100+", and snippets cut in SQL (`substr` around `strpos`) for returned rows only. A row never carries a whole
   body.
 - **The slot gate** (`apps/api/src/search-slots.ts`, `acquireSlot(timeoutMs)`): at most 3 searches at once on a
-  machine, so search never holds more than half its 6 connections. A fourth waits up to 1 s, then gets `search_busy`
+  machine, so search never holds more than 3 of its 10 connections. A fourth waits up to 1 s, then gets `search_busy`
   (503, retried). Other routes never wait on it.
 - **Rate limits** (`RATE_LIMITED`, `routes.ts:15-18`): `search.everything` 90 a minute and `search.kind` 60 a minute
   per person, keyed by the user's id (the IP when there's none), on the `preHandler` hook so `req.actor` is set,
@@ -316,7 +316,7 @@ The API is 2 machines with 6 database connections each (`apps/api/src/app.ts:52`
 - **Clients**: 2 characters at least, a debounce, a stale answer dropped, one quiet retry after 2 s on a retried
   refusal.
 - **Arithmetic.** A quick search is about 14 short statements on one connection: typically 60 to 250 ms, at worst 2
-  s. Two machines with 3 slots each hold at most 6 of the API's 12 connections.
+  s. Two machines with 3 slots each hold at most 6 of the API's 20 connections.
 - A load check before the screens (stage 3) proves the budgets on a local business with 300,000 messages.
 
 ### 7. Privacy

@@ -38,8 +38,8 @@ Three rules shape the design:
 An add-on's own code sits in the layer it belongs to, under its id:
 
 ```
-packages/core/src/addons/<id>/manifest.ts   what it is (browser-safe)
-packages/core/src/addons/<id>/server.ts     its commands and queries
+packages/core/src/addons/<id>/manifest.ts   what it is (browser-safe, and light: every signed-in page loads it)
+packages/core/src/addons/<id>/server.ts     its commands and queries, and what only a server reads of it
 apps/worker/src/addons/<id>/index.ts        its subscribers, jobs and lifecycle hooks
 apps/web/src/addons/<id>/                   its components; its pages under app/app/w/[workspaceId]/a/<id>/
 supabase/migrations/…_addon_<id>.sql        its permissions, and its own tables in schema addon_<id>
@@ -53,8 +53,8 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
 - **The manifest** (`defineAddon`): its id (2–16 lowercase letters, never reused), name, catalogue status and
   keywords, the capabilities it gives, its permissions, what it requires (`required` or `optional`), its kinds of
   records and relationship types, the events it emits and consumes, its jobs, what it holds at providers, its
-  settings and switches, its pages in the side menu and its panels, and one line for the AI. `manifestIssues` and
-  `catalogIssues` hold it to the rules (names under its id, the database's own limits, no dependency cycles, a
+  settings and switches (their shapes are in its server half), its pages in the side menu and its panels, and one
+  line for the AI. `manifestIssues` and `catalogIssues` hold it to the rules (names under its id, the database's own limits, no dependency cycles, a
   planned add-on declares no code); the catalogue tests run them on every build.
 - **Parts of core only some add-ons use** (`uses`, from `CORE_FEATURES`): built in core so add-ons can share them,
   shown only while an add-on that names one is on. The business's main offer is the first (`uses: ['main_offer']`,
@@ -585,7 +585,7 @@ written for the model; else the description's first sentence, without the argume
 holds every card to naming no tool or argument. `ai.card` draws an operation's Confirm card from what the change would do, read from its
 rehearsal (rolled back whole): whose thing it changes, by name, each line as it was and will be, the exact words that
 go out as its body, whole (a line is cut short), and a warning for what reaches people; without it the card shows what
-the model gave, a line for each part. The manifest's `ai.places` says
+the model gave, a line for each part. Its server half's `ai.places` says
 where its pages are, the way core's places are said, and `ai.lookAlikes` the words it shares with core's pages: both
 are told only where it runs, to people who may open it, and name the page a question is asked from (`addonPlaces`,
 with `queryIds` for what an id in a page's query holds there, and `view` for a tab one page keeps at `?view=`, as AI
@@ -596,6 +596,23 @@ when that isn't its page keyed `settings`, for the card that saves them. `find_c
 this business do X" from the capability sets. It suggests an add-on only to people who manage add-ons, at most two,
 only `available` ones, and only when nothing the business already has matches as well; it names a planned one only
 when asked what's coming, and never as something to install.
+
+**The manifest stays light.** Every signed-in page loads the catalogue (the side menu, the gate, the Add-ons page),
+so whatever a manifest imports is in every page's first script, read or not. A manifest imports core's `../manifest`
+and `../billing`, and its own `pages.ts` (its pages' names, with no imports of its own): nothing else of the add-on.
+What only a server reads is declared on its server half (`AddonServerModule`, `<id>/server.ts`) instead:
+
+- `settings`: the shapes of its settings (`workspace`, the business's; `user`, each person's own). The manifest's
+  `settings` says the rest: their version, who may change them, its switches and the settings that pick people.
+  `addon.save_settings` and `addon.save_my_settings` check a save against the shape, and refuse an add-on with none.
+- `ai`: `places` and `lookAlikes`, which are written from the add-on's own words. The manifest's `ai` keeps the one
+  line (`directory`).
+
+The speed audit (Nov 2026) found those two in the manifests, and through them 144 files of the add-ons' words and
+rules in every signed-in page: 168 KB of the 1,089 KB (zipped) it loaded first. `test/addons/catalog-weight.test.ts`
+names any file a manifest brings in that isn't a manifest or a `pages.ts`, and `addonModuleIssues` holds the server
+half to the manifest (a setting the phone keeps is one of the shape's; shapes and places need the manifest's
+`settings` and `ai`).
 
 **The web hides what isn't on.** The menu shows an add-on's row only while it runs and the person may open one of its
 pages, keeping where the person put it while it's off. Every add-on page opens through `addonPage` (the gate), and a

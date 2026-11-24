@@ -5,6 +5,7 @@
  * lives here and in ./standouts.ts: never in its screens, never in a prompt.
  */
 import type { AddonServerModule } from '../server';
+import { SOCIALCONTENT_LOOK_ALIKES, SOCIALCONTENT_PLACES } from './ai-places';
 import { socialcontentAddon } from './manifest';
 import { contentCommands, contentQueries } from './ops/content';
 import { notesCommands, notesQueries } from './ops/notes';
@@ -19,6 +20,7 @@ import { workerCommands } from './ops/worker';
 
 export const socialcontentAddonServer: AddonServerModule = {
   manifest: socialcontentAddon,
+  ai: { places: SOCIALCONTENT_PLACES, lookAlikes: SOCIALCONTENT_LOOK_ALIKES },
   commands: [
     ...researchCommands,
     ...notesCommands,

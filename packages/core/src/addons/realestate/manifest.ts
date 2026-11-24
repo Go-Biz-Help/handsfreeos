@@ -16,8 +16,6 @@
  */
 import { defineAddon, type AddonRelationshipType } from '../manifest';
 import { ADDON_TRIAL_DAYS } from '../billing';
-import { REALESTATE_LOOK_ALIKES, REALESTATE_PLACES } from './ai-places';
-import { RealestateSettingsSchema } from './settings';
 
 /** Someone from outside the business with a part in a deal: the person's role, and the deal as they see it. */
 const personOnDeal = (key: string, role: string, short: string): AddonRelationshipType => ({
@@ -1483,7 +1481,7 @@ export const realestateAddon = defineAddon({
   settings: {
     version: 1,
     permission: 'realestate.manage',
-    workspace: RealestateSettingsSchema,
+    // Their shape (RealestateSettingsSchema) is in the server half: ./server.ts.
     // Alerts go to the people picked only while they see every deal (round four): someone else is never picked.
     people: {
       alertPersonUserIds: {
@@ -1631,10 +1629,7 @@ export const realestateAddon = defineAddon({
   ai: {
     directory:
       'buyer and listing deals: their people, property, key dates, duties, deadlines, documents and alerts; a listing’s facts, photos, description, price, marketing and public page, flyer, showings and lockboxes, open houses, offers and the seller’s estimate, CMAs; a buyer’s homes, matches, tours, inspections and financing; client updates',
-    // Its pages, said only where it runs, so the Assistant names them, gives the clicks for what only the person does
-    // (uploading photos, a lockbox's code) and knows the deal a question is asked from.
-    places: REALESTATE_PLACES,
-    lookAlikes: REALESTATE_LOOK_ALIKES,
+    // Its pages (./ai-places.ts) are in the server half, ./server.ts: written from its words, which stay out of here.
   },
   // Round seven (Chris 2026-10-05: answer from their deal, ask before acting): the AI teammate sees what the client's
   // portal shows them, asks their agent before adding a home, and its replies go through the fair housing checks.

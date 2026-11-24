@@ -1,14 +1,15 @@
 /**
- * Where AI Sales Coach's tabs are, as the Assistant says them (its manifest's `ai.places`): every way it gives is the
+ * Where AI Sales Coach's tabs are, as the Assistant says them (its server half's `ai.places`): every way it gives is the
  * side menu's AI Sales Coach row, then one of the page's tabs, in the screens' own words, and the tab a question is
  * asked from is named by the address's `?view=`, with a call's or a rep's id kept. It once had none of them, and
  * couldn't say where call scores, Make it the usual one or Delete were.
  */
 import { describe, expect, it } from 'vitest';
 import { addonPlaces, addonPlacesText } from '../../src/addons/ai';
-import { ADDON_CATALOG } from '../../src/addons/catalog';
+import { ADDON_SERVER_MODULES } from '../../src/addons/modules';
 import { SALESCOACH_LOOK_ALIKES, SALESCOACH_PLACES } from '../../src/addons/salescoach/ai-places';
 import { salescoachAddon } from '../../src/addons/salescoach/manifest';
+import { salescoachAddonServer } from '../../src/addons/salescoach/server';
 import {
   SALESCOACH_PAGE_VIEWS,
   SALESCOACH_VIEWS,
@@ -35,8 +36,8 @@ function waysIn(text: string): string[] {
 
 describe('AI Sales Coach’s places', () => {
   it('gives each tab a way there that is really on the page, in the page’s order', () => {
-    expect(salescoachAddon.ai?.places).toBe(SALESCOACH_PLACES);
-    expect(salescoachAddon.ai?.lookAlikes).toBe(SALESCOACH_LOOK_ALIKES);
+    expect(salescoachAddonServer.ai?.places).toBe(SALESCOACH_PLACES);
+    expect(salescoachAddonServer.ai?.lookAlikes).toBe(SALESCOACH_LOOK_ALIKES);
     expect(nav.map((n) => n.label)).toEqual([NAME]);
     expect(SALESCOACH_PLACES.map((p) => p.label)).toEqual(TABS);
     for (const [i, p] of SALESCOACH_PLACES.entries()) {
@@ -71,7 +72,9 @@ describe('AI Sales Coach’s places', () => {
   });
 
   it('says what only the person does, and how calls pick a playbook', () => {
-    const text = addonPlacesText(ADDON_CATALOG, ['salescoach'], ['salescoach.use']).join('\n');
+    const text = addonPlacesText(ADDON_SERVER_MODULES, ['salescoach'], ['salescoach.use']).join(
+      '\n',
+    );
     // Deleting a coached call is for good: the person does it, and who may.
     expect(text).toContain(`${W.calls.delete}, then ${W.calls.deleteConfirm}`);
     expect(text).toMatch(/the Assistant never deletes one/);
@@ -97,18 +100,18 @@ describe('AI Sales Coach’s places', () => {
 
   it('is said only where AI Sales Coach runs, to people who may open it, under its own address', () => {
     const may = ['salescoach.use'];
-    const places = addonPlaces(ADDON_CATALOG, ['salescoach'], may);
+    const places = addonPlaces(ADDON_SERVER_MODULES, ['salescoach'], may);
     expect(places).toHaveLength(SALESCOACH_PLACES.length);
     expect(places.every((p) => p.path === '/a/salescoach')).toBe(true);
-    expect(addonPlaces(ADDON_CATALOG, [], may)).toEqual([]);
-    expect(addonPlaces(ADDON_CATALOG, ['salescoach'], ['inbox.use'])).toEqual([]);
-    const text = addonPlacesText(ADDON_CATALOG, ['salescoach'], may).join('\n');
+    expect(addonPlaces(ADDON_SERVER_MODULES, [], may)).toEqual([]);
+    expect(addonPlaces(ADDON_SERVER_MODULES, ['salescoach'], ['inbox.use'])).toEqual([]);
+    const text = addonPlacesText(ADDON_SERVER_MODULES, ['salescoach'], may).join('\n');
     expect(text).toContain('AI Sales Coach’s pages');
     for (const l of SALESCOACH_LOOK_ALIKES) expect(text).toContain(l);
   });
 
   it('names the tab a question is asked from, with the call’s or the rep’s id', () => {
-    const places = addonPlaces(ADDON_CATALOG, ['salescoach'], ['salescoach.use']);
+    const places = addonPlaces(ADDON_SERVER_MODULES, ['salescoach'], ['salescoach.use']);
     const call = '7c1f6a52-3b0e-4f8e-9d4b-1a2b3c4d5e6f';
     const rep = '0d6b2f1e-8a4c-4e2b-9f3a-5c6d7e8f9a0b';
     expect(screenPlace('/a/salescoach', places)).toMatchObject({

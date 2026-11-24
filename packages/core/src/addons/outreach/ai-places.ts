@@ -1,5 +1,5 @@
 /**
- * Where Social Outreach's pages are, for the Assistant (its manifest's `ai.places`): each the way there from the side
+ * Where Social Outreach's pages are, for the Assistant (server half, `ai.places`): each the way there from the side
  * menu, a click at a time, in the screens' own words, then what is on it and how to do what people ask about there. Said
  * only to people in a business it runs in (the worker's per-business context), never in the fixed instructions.
  *

@@ -71,23 +71,38 @@ function parseInput<I extends z.ZodType>(schema: I, raw: unknown): z.output<I> {
   return parsed.data;
 }
 
-async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
+/**
+ * Who the person is in the place the operation names. With `addon` (a look-up's add-on), the same statement also
+ * asks whether that add-on runs in the business (0108), and one that's off is refused here, after "not there": every
+ * add-on page's every look-up used to make a second trip to ask. No lock is taken, so this is a look-up's check
+ * only. A command's is assertAddonRuns, which holds the installation's row, after its receipt is claimed.
+ */
+async function resolveScope(
+  tx: Tx,
+  ref: ScopeRef,
+  addon: AddonRef | null = null,
+): Promise<ResolvedScope> {
   switch (ref.kind) {
     case 'workspace': {
+      const addonRuns = addon
+        ? sql`, private.addon_in_use(${ref.workspaceId}::uuid, ${addon.id}, false) as addon_runs`
+        : sql``;
       const [row] = await rows<{
         role: WorkspaceRole | null;
         org: string | null;
         view_as: string | null;
         permissions: string[] | null;
+        addon_runs?: boolean | null;
       }>(
         tx,
         sql`select private.my_workspace_role(${ref.workspaceId})::text as role,
                    private.workspace_organization(${ref.workspaceId}) as org,
                    (select session_id from private.my_view_as(${ref.workspaceId})) as view_as,
-                   private.my_permissions(${ref.workspaceId}) as permissions`,
+                   private.my_permissions(${ref.workspaceId}) as permissions${addonRuns}`,
       );
       // A workspace the user cannot see does not exist for them (no 403 existence leak).
       if (!row?.org || (!row.role && !row.view_as)) throw businessNotThere();
+      if (addon && !row.addon_runs) throw HfosError.addonInactive(addon);
       return {
         workspaceId: ref.workspaceId,
         organizationId: row.org,
@@ -997,13 +1012,14 @@ export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
       // has ended reads as the viewer again, and the screen finds out from teammate_view.current.
       const view = await namedView(tx, meta, scopeRef);
       const reader = view?.live ? await readAsTeammate(tx, actor, view) : actor;
-      const resolved = await resolveScope(tx, scopeRef);
+      // A turned-off add-on's data is hidden until it's back on (the owner's decision, 2026-09-28), from people
+      // working in the business and from anyone looking at it. In a business, resolveScope asks with the scope, in
+      // one statement; an add-on's look-up anywhere else has no business for it to be on in.
+      const resolved = await resolveScope(tx, scopeRef, query.addon ?? null);
+      if (query.addon && !resolved.workspaceId) throw HfosError.addonInactive(query.addon);
       const scope: ResolvedScope = view?.live
         ? { ...resolved, teammateView: { viewId: view.viewId, viewerId: actor.userId } }
         : resolved;
-      // A turned-off add-on's data is hidden until it's back on (the owner's decision, 2026-09-28), from people
-      // working in the business and from anyone looking at it.
-      await assertAddonRuns(tx, query.addon ?? null, scope.workspaceId, false);
       if (scope.viewAs) {
         // Looking at a business, not working in it: no role to check a permission against, so the read
         // rules are the whole answer — except the Assistant, which is never part of looking.

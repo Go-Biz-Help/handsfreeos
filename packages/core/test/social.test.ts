@@ -35,6 +35,7 @@ import {
   attributionList,
   conversationGet,
   conversationThread,
+  inboxList,
   messageSend,
   messageUpdateStatus,
   metaAccountConnect,
@@ -646,6 +647,11 @@ describe('answering', () => {
       contact: { name: '@jordan.builds', username: 'jordan.builds' },
       textLimit: 1000,
     });
+    // The Inbox finds the thread by their handle, and its row says who they are rather than the id Meta knows
+    // them by.
+    const found = await ask(inboxList, { workspaceId: wsId, q: 'Jordan.Builds' }, owner);
+    const row = found.items.find((i) => i.id === r.conversationId);
+    expect(row).toMatchObject({ channel: 'instagram', counterpartDisplay: '@jordan.builds' });
   });
 });
 

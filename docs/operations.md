@@ -428,7 +428,7 @@ Never give an app the `postgres` user (`postgres.ybupfghakoszfcxhyrby`). The app
 
 #### How many connections the apps use
 
-Each open app connection is one pooler client. On the transaction pooler, a client borrows a database connection only while a transaction runs, and each role (`hfos_api` and `hfos_worker`) has a pool of up to **Pool Size** database connections to borrow from. The API opens up to 6 connections per machine. The worker opens up to 19 per machine: 13 for its loops and the jobs it runs side by side (7, and one for each of the `WORKER_JOB_SLOTS` jobs it runs at once, 6 unless you change it), and 6 for its web server. Both close a connection once it has sat unused for 10 minutes (an idle one holds no database connection, only one of the 200 clients). Micro compute allows 60 database connections and 200 pooler clients. When every database connection in a pool is busy, the next transaction waits for one. When there are 200 clients, the next connection is refused with `Max client connections reached`.
+Each open app connection is one pooler client. On the transaction pooler, a client borrows a database connection only while a transaction runs, and each role (`hfos_api` and `hfos_worker`) has a pool of up to **Pool Size** database connections to borrow from. The API opens up to 10 connections per machine: with two machines that is the role's whole pool, so a page that asks many things at once isn't kept waiting for a connection while the database has one free. The worker opens up to 19 per machine: 13 for its loops and the jobs it runs side by side (7, and one for each of the `WORKER_JOB_SLOTS` jobs it runs at once, 6 unless you change it), and 6 for its web server. Both close a connection once it has sat unused for 10 minutes (an idle one holds no database connection, only one of the 200 clients). Micro compute allows 60 database connections and 200 pooler clients. When every database connection in a pool is busy, the next transaction waits for one. When there are 200 clients, the next connection is refused with `Max client connections reached`.
 
 Fly usually starts two machines per app on the first deploy (the worker starts with one if you follow Fly Part 7, and gets its second in that part's last step). HandsFreeOS runs two of each. Count them:
 
@@ -447,7 +447,7 @@ You should see a `COUNT` column with each app's number of machines.
 3. Check that it is 20. Each role gets a pool that size, so the two apps can use up to 40 of Micro's 60 database connections, and Supabase's own services use about 10 more. On the transaction pooler that is plenty, because a transaction holds its connection for milliseconds.
 4. Don't raise it above 20 on Micro, or the apps and Supabase's own services together can run the database out of connections, which breaks sign-in too. If you need more, move to a larger compute size first.
 
-Before you add machines to either app, check that the apps' clients (6 per API machine, 19 per worker machine) stay well under 200.
+Before you add machines to either app, check that the apps' clients (10 per API machine, 19 per worker machine) stay well under 200. A third API machine would not run more at once: the three would share the same pool of 20.
 
 A statement can't hold its connection for ever (`packages/db/src/client.ts`). A person's request gets 15 seconds for a statement, and 30 seconds with its transaction open and nothing running. A worker's statement gets 60 seconds: one that runs over shows in the worker's log as `canceling statement due to statement timeout`, and its event, delivery or job is tried again. Deleting a whole business for good is the one worker statement with no limit. The worker's open transactions have no limit of their own, because a file import honestly leaves the outbox's transaction open for minutes; what ends them is each provider call's own time limit (Twilio 30 seconds, Postmark a minute, a file to or from a provider 2 minutes).
 
@@ -2781,7 +2781,7 @@ What two machines change, compared with one:
 - About $4 a month more.
 - Up to 12 pooler clients for the API instead of 6. That is well inside the limits (see "How many connections the apps use" in "The database: Supabase (hosted)").
 - The limits on opening and accepting an invitation (30 and 10 a minute) are counted on each machine, so with two someone gets up to twice that.
-- Search's limits (90 and 60 searches a minute a person) and its 3 searches at once are counted on each machine too, so with two someone gets up to twice the searches, and search holds at most 6 of the API's 12 connections (see "Search on the API").
+- Search's limits (90 and 60 searches a minute a person) and its 3 searches at once are counted on each machine too, so with two someone gets up to twice the searches, and search holds at most 6 of the API's 20 connections (see "Search on the API").
 
 #### One worker machine or two
 
@@ -2847,7 +2847,7 @@ Search everything (docs/search.md) runs in the API, as the person searching, und
 Its limits are set in the code:
 
 - **How often.** 90 searches a minute from one person (`search.everything`: the box and the Search page) and 60 of one kind (`search.kind`), set in `apps/api/src/routes.ts`. They're counted on each API machine, so with two someone gets up to twice that. Past them the API answers 429 with the rule `search_too_fast`: "You’re searching faster than HandsFreeOS can keep up. Wait a few seconds and try again."
-- **How many at once.** 3 searches at a time on each API machine (`SEARCH_SLOTS` in `apps/api/src/search-slots.ts`), so search never holds more than half of a machine's 6 database connections, or 6 of the API's 12 on two machines. A fourth waits up to a second, then gets 503 with the rule `search_busy`: "Search is busy for a moment. Try again in a few seconds." Other requests never wait for a slot.
+- **How many at once.** 3 searches at a time on each API machine (`SEARCH_SLOTS` in `apps/api/src/search-slots.ts`), so search never holds more than 3 of a machine's 10 database connections, or 6 of the API's 20 on two machines. A fourth waits up to a second, then gets 503 with the rule `search_busy`: "Search is busy for a moment. Try again in a few seconds." Other requests never wait for a slot.
 - **How long.** Each search has a budget, and each statement in it a cap (`SEARCH_BUDGETS` in `packages/core/src/search/server/run.ts`): the box 2 seconds and 1.5 a statement, the Search page 6 and 4, one kind's page 8 and 5, an add-on's own query 1.5 in the box and 3 on a page (`CONTRIBUTOR_MS`), and never under 50 ms. A kind that runs out of time shows "Messages took too long to search. Try again, or pick Messages on its own." while the rest still answers. Only when every kind ran out does the API answer 503 with the rule `search_took_too_long`. All of it sits well inside the 15-second limit on any one statement.
 
 The web and the phone try a 503 or a 429 again once, quietly, after 2 seconds.

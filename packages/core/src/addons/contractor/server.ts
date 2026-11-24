@@ -8,6 +8,8 @@
  * 2026-10-26). Its settings are saved by core's `addon.save_settings`, which the Assistant already covers.
  */
 import type { AddonServerModule } from '../server';
+import { CONTRACTOR_LOOK_ALIKES, CONTRACTOR_PLACES } from './ai-places';
+import { ContractorSettingsSchema } from './schemas';
 import { contractorAddon } from './manifest';
 import { budgetAdvise, budgetCheck } from './ops/budget';
 import { jobCosting, otherCostAdd, otherCostRemove, profit } from './ops/costing';
@@ -85,6 +87,8 @@ import {
 
 export const contractorAddonServer: AddonServerModule = {
   manifest: contractorAddon,
+  settings: { workspace: ContractorSettingsSchema },
+  ai: { places: CONTRACTOR_PLACES, lookAlikes: CONTRACTOR_LOOK_ALIKES },
   commands: [
     jobOpen,
     jobUpdate,

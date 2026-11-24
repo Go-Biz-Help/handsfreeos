@@ -28,6 +28,7 @@ import { addonDataHeldMessage } from '../addons/words';
 import { addonPriceOf } from '../addons/billing';
 import { grantedHere } from '../addons/capabilities';
 import type { AddonManifest } from '../addons/manifest';
+import { addonSettingsShapes, type AddonServerModule } from '../addons/server';
 import { planTransition } from '../addons/plan';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -261,8 +262,14 @@ async function checkPeople(
   }
 }
 
-/** The lifecycle commands, over a catalogue. */
-export function addonLifecycleCommands(catalog: Catalog) {
+/**
+ * The lifecycle commands, over a catalogue. `modules` are the add-ons' server halves, where the shapes of their
+ * settings are (`AddonServerModule.settings`): a save is checked against them, and refused for an add-on with none.
+ */
+export function addonLifecycleCommands(
+  catalog: Catalog,
+  modules: readonly Pick<AddonServerModule, 'manifest' | 'settings'>[],
+) {
   const scope = (i: { workspaceId: string }) => ({
     kind: 'workspace' as const,
     workspaceId: i.workspaceId,
@@ -415,7 +422,12 @@ export function addonLifecycleCommands(catalog: Catalog) {
       const settings =
         input.settings === undefined
           ? null
-          : checked(m.settings?.workspace, input.settings, 'business settings', m.name);
+          : checked(
+              addonSettingsShapes(modules, m.id).workspace,
+              input.settings,
+              'business settings',
+              m.name,
+            );
       await checkPeople(ctx, m, settings);
       const declared = m.settings?.flags ?? {};
       for (const key of Object.keys(input.flags ?? {}))
@@ -457,7 +469,7 @@ export function addonLifecycleCommands(catalog: Catalog) {
       const m = known(catalog, input.addonId);
       await assertOn(ctx, m);
       const settings = checked(
-        m.settings?.user,
+        addonSettingsShapes(modules, m.id).user,
         input.settings,
         'personal settings',
         m.name,

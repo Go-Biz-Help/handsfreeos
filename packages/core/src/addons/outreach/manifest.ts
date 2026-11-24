@@ -8,8 +8,6 @@
  */
 import { defineAddon } from '../manifest';
 import { ADDON_TRIAL_DAYS } from '../billing';
-import { OUTREACH_LOOK_ALIKES, OUTREACH_PLACES } from './ai-places';
-import { OutreachSettingsSchema } from './chat-read';
 import { OUTREACH_PAGES } from './pages';
 
 export const outreachAddon = defineAddon({
@@ -292,7 +290,8 @@ export const outreachAddon = defineAddon({
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
   // team, with each network's page for its own say.
-  settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
+  // Their shape (OutreachSettingsSchema) is in the server half: ./server.ts.
+  settings: { version: 1, permission: 'outreach.manage' },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
     'ask_codes',
@@ -422,8 +421,6 @@ export const outreachAddon = defineAddon({
   ai: {
     directory:
       'Facebook, LinkedIn, Instagram and Alignable outreach with a browser extension: setting it up and getting the extension, today’s list, messages to OK, friends, chats, groups, the pipeline, helpful posts, partners, playbooks and its settings. A yes to the first message gets the ask for a demo with the booking link; videos from the business’s video library (Settings → Videos, which owners and admins change) go in follow-ups, another time after a missed demo and replies, where they fit',
-    // Its pages, said only where it runs (decision 127's side menu), so the Assistant names them and the one open.
-    places: OUTREACH_PLACES,
-    lookAlikes: OUTREACH_LOOK_ALIKES,
+    // Its pages (./ai-places.ts) are in the server half, ./server.ts: written from its words, which stay out of here.
   },
 });

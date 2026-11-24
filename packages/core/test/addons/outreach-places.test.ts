@@ -1,5 +1,5 @@
 /**
- * Where Social Outreach's pages are, as the Assistant says them (its manifest's `ai.places`): every way it gives is
+ * Where Social Outreach's pages are, as the Assistant says them (its server half's `ai.places`): every way it gives is
  * the side menu's Social Outreach row, then one of its pages, then a part on that page's own row, in the screens' own
  * words, and every page's address is one the web opens. It once couldn't say where Team was, and sent a person
  * looking for Social Outreach's team under Members.
@@ -8,9 +8,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { addonPlaces, addonPlacesText } from '../../src/addons/ai';
-import { ADDON_CATALOG } from '../../src/addons/catalog';
+import { ADDON_SERVER_MODULES } from '../../src/addons/modules';
 import { OUTREACH_LOOK_ALIKES, OUTREACH_PLACES } from '../../src/addons/outreach/ai-places';
 import { outreachAddon } from '../../src/addons/outreach/manifest';
+import { outreachAddonServer } from '../../src/addons/outreach/server';
 import { PLATFORM_KEYS, PLATFORMS } from '../../src/addons/outreach/networks';
 import { NEEDS_PARTS, TODAY_PARTS } from '../../src/addons/outreach/page-parts';
 import { PEOPLE_VIEWS } from '../../src/addons/outreach/people-views';
@@ -91,7 +92,7 @@ function expectRealWay(way: readonly string[], name: string) {
 
 describe('Social Outreach’s places', () => {
   it('gives each page a way there that is really in its menus, and an address the web opens', () => {
-    expect(outreachAddon.ai?.places).toBe(OUTREACH_PLACES);
+    expect(outreachAddonServer.ai?.places).toBe(OUTREACH_PLACES);
     for (const p of OUTREACH_PLACES) {
       expectRealWay(p.where, p.label);
       expect(WEB_PATHS, `${p.label}: no page at ${p.path}`).toContain(p.path);
@@ -133,22 +134,22 @@ describe('Social Outreach’s places', () => {
 
   it('is said only where Social Outreach runs, to people who may open it, under its own address', () => {
     const may = ['outreach.use'];
-    const places = addonPlaces(ADDON_CATALOG, ['outreach'], may);
+    const places = addonPlaces(ADDON_SERVER_MODULES, ['outreach'], may);
     expect(places).toHaveLength(OUTREACH_PLACES.length);
     expect(places.every((p) => p.path.startsWith('/a/outreach/'))).toBe(true);
-    expect(addonPlaces(ADDON_CATALOG, [], may)).toEqual([]);
-    expect(addonPlaces(ADDON_CATALOG, ['outreach'], ['inbox.use'])).toEqual([]);
+    expect(addonPlaces(ADDON_SERVER_MODULES, [], may)).toEqual([]);
+    expect(addonPlaces(ADDON_SERVER_MODULES, ['outreach'], ['inbox.use'])).toEqual([]);
 
-    const text = addonPlacesText(ADDON_CATALOG, ['outreach'], may).join('\n');
+    const text = addonPlacesText(ADDON_SERVER_MODULES, ['outreach'], may).join('\n');
     expect(text).toContain('Social Outreach’s pages');
     expect(text).toContain('- Team is at Social Outreach → Settings → Team:');
     expect(text).toContain('Social Outreach → People → Partners');
     for (const l of OUTREACH_LOOK_ALIKES) expect(text).toContain(l);
-    expect(addonPlacesText(ADDON_CATALOG, ['outreach'], [])).toEqual([]);
+    expect(addonPlacesText(ADDON_SERVER_MODULES, ['outreach'], [])).toEqual([]);
   });
 
   it('names the Social Outreach page a question is asked from, with the ids in its address', () => {
-    const places = addonPlaces(ADDON_CATALOG, ['outreach'], ['outreach.use']);
+    const places = addonPlaces(ADDON_SERVER_MODULES, ['outreach'], ['outreach.use']);
     const someone = '7c1f6a52-3b0e-4f8e-9d4b-1a2b3c4d5e6f';
     const team = screenPlace(`/a/outreach/settings/team?for=${someone}`, places);
     expect(team).toMatchObject({

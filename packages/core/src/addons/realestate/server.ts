@@ -5,6 +5,8 @@
  * prompt.
  */
 import type { AddonServerModule } from '../server';
+import { REALESTATE_LOOK_ALIKES, REALESTATE_PLACES } from './ai-places';
+import { RealestateSettingsSchema } from './settings';
 import { realestateAddon } from './manifest';
 import { clientUpdateCommands, clientUpdateQueries } from './ops/client-updates';
 import { dealLifeCommands } from './ops/deals';
@@ -51,6 +53,10 @@ import { lockboxCommands, lockboxQueries } from './ops/lockboxes';
 
 export const realestateAddonServer: AddonServerModule = {
   manifest: realestateAddon,
+  settings: { workspace: RealestateSettingsSchema },
+  // Its pages, said only where it runs, so the Assistant names them, gives the clicks for what only the person does
+  // (uploading photos, a lockbox's code) and knows the deal a question is asked from.
+  ai: { places: REALESTATE_PLACES, lookAlikes: REALESTATE_LOOK_ALIKES },
   commands: [
     ...dealLifeCommands,
     ...dealPeopleCommands,

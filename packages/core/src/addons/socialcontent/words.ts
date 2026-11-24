@@ -8,18 +8,11 @@ import { fmtDateLong, fmtDateShort, fmtTime } from '../../calendar/when';
 import { EXTENSION_DOWNLOAD_WORDS } from '../../extension-download';
 import type { PostedTo, PostPlace } from './calendar';
 import { hasNumbers, OWN, type DoneWell, type OwnNumbers, type OwnNumbersRead } from './own';
+import { SOCIALCONTENT_PAGES } from './pages';
 import { DONE_WELL, STANDOUT } from './standouts';
 
-/** Its pages, which pop out of its one row in the side menu. */
-export const SOCIALCONTENT_PAGES = {
-  creators: 'Creators',
-  standouts: 'Standouts',
-  playbook: 'Playbook',
-  ideas: 'Ideas',
-  calendar: 'Calendar',
-  // Not `settings`: that key would put the page in Settings search, which opens it on the web.
-  gear: 'Settings',
-} as const;
+// Its pages' names are in ./pages.ts, which the manifest reads alone: every signed-in page loads the manifest.
+export { SOCIALCONTENT_PAGES };
 
 const count = (n: number, one: string, many = `${one}s`) =>
   `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;

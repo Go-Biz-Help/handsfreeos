@@ -47,10 +47,12 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
     void reply.status(404).send(HfosError.noSuchRoute().toBody());
   });
 
-  // Six per machine: Fly runs the API on two, so at their busiest twelve transactions run at once, inside the
-  // role's pool of 20 database connections on the transaction pooler (docs/operations.md, "How many connections
-  // the apps use").
-  const db = opts.db ?? createDb(opts.env.databaseUrl, { max: 6, applicationName: 'hfos-api' });
+  // Ten per machine: Fly runs the API on two, so at their busiest twenty transactions run at once, which is the
+  // role's whole pool of 20 database connections on the transaction pooler (docs/operations.md, "How many
+  // connections the apps use"). It was six, from the session pooler's days, when every open connection held a
+  // database connection: a page asks 9 to 17 things at once, and the ones past the sixth on a machine waited in line
+  // (speed audit, Nov 2026). More than ten would only move the line to the pooler.
+  const db = opts.db ?? createDb(opts.env.databaseUrl, { max: 10, applicationName: 'hfos-api' });
   if (!opts.db) app.addHook('onClose', async () => db.close());
   const verifyToken = opts.verifyToken ?? createTokenVerifier(opts.env);
 

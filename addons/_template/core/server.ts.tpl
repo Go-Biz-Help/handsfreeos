@@ -29,6 +29,9 @@ export const __CONST__Server: AddonServerModule = {
   manifest: __CONST__,
   commands: [],
   queries: [overview],
+  // What only a server reads goes here, never in the manifest, which every signed-in page loads: the shapes of its
+  // settings (`settings: { workspace: Schema }`, with `settings: { version: 1 }` in the manifest) and where its pages
+  // are for the Assistant (`ai: { places, lookAlikes }`). See "The manifest stays light" in docs/addon-architecture.md.
   // A person's operations the Assistant never runs, with why (most declare `ai` instead): see "The AI sees only what
   // it may use" in docs/addon-architecture.md.
   notForTheAssistant: {},

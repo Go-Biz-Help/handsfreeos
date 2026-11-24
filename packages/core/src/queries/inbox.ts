@@ -200,22 +200,25 @@ const LANES = (workspaceId: string, archived: boolean) => sql`
             'assignee_user_id', z.assignee_user_id,
             'assignee_name', coalesce(nullif(zu.full_name, ''), zu.email::text))
           order by z.last_message_at desc nulls last, z.id desc), '[]'::json)
-     from app.conversations z
+     -- The customer's threads when somebody has said whose this one is; the address's, on its channel, when nobody
+     -- has. Two look-ups put end to end, each down an index of its own (conversations_person_idx,
+     -- conversations_unlinked_idx): as one OR, or a CASE, it read every thread in the business once per row on the
+     -- page (20261027035800).
+     from (select z1.* from app.conversations z1
+            where z1.workspace_id = ${workspaceId} and z1.person_id = x.person_id
+           union all
+           select z2.* from app.conversations z2
+            where z2.workspace_id = ${workspaceId} and x.person_id is null and z2.person_id is null
+              and z2.counterpart = x.counterpart and z2.channel = x.channel::app.channel) z
      left join app.phone_numbers pn on pn.id = z.phone_number_id
      left join app.email_addresses ea on ea.id = z.email_address_id
      left join app.users zu on zu.id = z.assignee_user_id
      left join app.custom_records zr on zr.id = z.custom_record_id
      left join app.meta_accounts za on za.id = z.meta_account_id
-    where z.workspace_id = ${workspaceId}
       -- The thread being looked at is always in its own switcher, archived or not: a menu that cannot name
       -- where you are standing is a menu that reads as though you are nowhere.
-      and (z.id = x.id
+    where (z.id = x.id
         or ${archived ? sql`z.archived_at is not null` : sql`z.archived_at is null`})
-      -- An OR rather than a CASE, and the cast on the outer side, so each half can use its own index: a CASE
-      -- read every thread in the business once per row on the page.
-      and (z.person_id = x.person_id
-        or (x.person_id is null and z.person_id is null and z.channel = x.channel::app.channel
-          and z.counterpart = x.counterpart))
       -- The person's own mail and the team's are never lanes of one row (M19): the policies show only the viewer's
       -- own, so "as private as this one" is all it takes.
       and (z.private_to is not null) = x.private)`;
@@ -228,10 +231,17 @@ const LANES = (workspaceId: string, archived: boolean) => sql`
  * one that never happened.
  */
 const SAME_AS = (workspaceId: string) => {
-  // One lookup per way of matching rather than one OR over them all, so each can use its own index (the phone and
-  // email ones, the GIN ones on the other numbers and addresses); the OR, and lower() on the email, read every
-  // customer in the business for every unlinked row on the page. Their order is the old ORDER BY: a customer whose
-  // main number or address it is first, the most recently touched among equals.
+  // One lookup per way of matching rather than one OR over them all, so each goes down its own index; the OR, and
+  // lower() on the email, read every customer in the business for every unlinked row on the page. Their order is
+  // the old ORDER BY: a customer whose main number or address it is first, the most recently touched among equals.
+  //
+  // Only the main number can be asked for here as it is. Under row-level security Postgres takes a condition to an
+  // index only when its operator can't leak, and text's `=` can't, but citext's and jsonb's `@>` can: written here,
+  // the other three read every customer again (20,000 threads and 8,000 customers: 12 ms a row). So
+  // `private.people_with_contact` (20261027035800) finds their ids from the indexes, and this reads those few
+  // customers, by id, through row-level security as before.
+  const reachedAt = (kind: 'email' | 'other_phone' | 'other_email') =>
+    sql`sp.id = any(private.people_with_contact(${workspaceId}::uuid, ${kind}, x.counterpart))`;
   const match = (on: ReturnType<typeof sql>) => sql`
     (select json_build_object('id', sp.id,
               'fullName', btrim(coalesce(sp.first_name, '') || ' ' || coalesce(sp.last_name, '')))
@@ -244,9 +254,9 @@ const SAME_AS = (workspaceId: string) => {
       limit 1)`;
   return sql`coalesce(
     ${match(sql`x.channel = 'sms' and sp.phone_e164 = x.counterpart`)},
-    ${match(sql`x.channel = 'email' and sp.email = x.counterpart::extensions.citext`)},
-    ${match(sql`x.channel = 'sms' and sp.other_phones @> jsonb_build_array(jsonb_build_object('phone', x.counterpart))`)},
-    ${match(sql`x.channel = 'email' and sp.other_emails @> jsonb_build_array(jsonb_build_object('email', x.counterpart))`)})`;
+    ${match(sql`x.channel = 'email' and ${reachedAt('email')}`)},
+    ${match(sql`x.channel = 'sms' and ${reachedAt('other_phone')}`)},
+    ${match(sql`x.channel = 'email' and ${reachedAt('other_email')}`)})`;
 };
 
 /**
@@ -269,7 +279,15 @@ const ROW_EXTRAS = sql`
        where x.last_direction = 'outbound' and lm.conversation_id = x.id and lm.direction = 'outbound'
        order by lm.occurred_at desc limit 1) as last_sender`;
 
-/** `sortBy` needs_person: the "Needs a person" box, by how long it has waited. */
+/**
+ * What a list of threads `c` is in the order of. `sortBy` needs_person: the "Needs a person" box, by how long it
+ * has waited.
+ */
+const SORT_COLUMN = (sortBy: 'recent' | 'needs_person') =>
+  sortBy === 'needs_person'
+    ? sql`c.needs_person_since`
+    : sql`coalesce(c.last_message_at, c.created_at)`;
+
 const conversationSelect = (
   workspaceId: string,
   sortBy: 'recent' | 'needs_person' = 'recent',
@@ -286,16 +304,21 @@ const conversationSelect = (
     c.folder::text as folder, c.private_to is not null as private,
     c.custom_record_id as record_id, cr.name as record_name,
     mx.name as social_name, mx.username as social_username,
-    ${SORT_KEY(sortBy === 'needs_person' ? sql`c.needs_person_since` : sql`coalesce(c.last_message_at, c.created_at)`)} as sort_key,
+    ${SORT_KEY(SORT_COLUMN(sortBy))} as sort_key,
     ${GROUP_KEY} as group_key
   from app.conversations c
   left join app.people p on p.id = c.person_id
   left join app.users u on u.id = c.assignee_user_id
-  left join app.chat_visitors cv on cv.conversation_id = c.id
+  -- A website chat's visitor and a Messenger or Instagram thread's contact, asked for only on a thread of that
+  -- channel (a row shows them for no other), and looked up for it (offset 0). Joined plainly, a page of texts read
+  -- every visitor there is, and row-level security asks for each of them whether the viewer may use the Inbox.
+  left join lateral (select v.name, v.last_seen_at from app.chat_visitors v
+                      where c.channel = 'chat' and v.conversation_id = c.id offset 0) cv on true
   left join app.ai_teammates tm on tm.id = c.ai_teammate_id
   left join app.users tu on tu.id = c.taken_over_by
   left join app.custom_records cr on cr.id = c.custom_record_id
-  left join app.meta_contacts mx on mx.conversation_id = c.id
+  left join lateral (select m.name, m.username from app.meta_contacts m
+                      where c.channel in ('messenger', 'instagram') and m.conversation_id = c.id offset 0) mx on true
   where c.workspace_id = ${workspaceId}`;
 
 function summary(r: ConversationRow): ConversationSummary {
@@ -504,18 +527,6 @@ export const inboxList = defineQuery({
         input.box === 'archived'
           ? sql`and ${c}.archived_at is not null`
           : sql`and ${c}.archived_at is null`;
-      // A chat visitor's name is joined for `c`; for `c2` it is looked up. The customer's name needs neither:
-      // a lane of the same customer has the same person, so `p` is theirs too.
-      const visitorName =
-        t === 'c'
-          ? sql`cv.name`
-          : sql`(select cv2.name from app.chat_visitors cv2 where cv2.conversation_id = c2.id)`;
-      // A Messenger or Instagram customer's name and @handle, as Meta gave them (20261025000200).
-      const socialName =
-        t === 'c'
-          ? sql`coalesce(mx.name, '') || ' ' || coalesce(mx.username, '')`
-          : sql`(select coalesce(m2.name, '') || ' ' || coalesce(m2.username, '')
-                 from app.meta_contacts m2 where m2.conversation_id = c2.id)`;
       return sql`
             ${
               input.personId
@@ -534,14 +545,35 @@ export const inboxList = defineQuery({
             ${input.unread ? sql`and ${c}.unread_count > 0` : sql``}
             ${
               q
-                ? sql`and (lower(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) like ${q}
-                      or lower(${c}.counterpart) like ${q} or lower(coalesce(${c}.last_preview, '')) like ${q}
-                      or lower(coalesce(${visitorName}, '')) like ${q}
-                      or lower(coalesce(${socialName}, '')) like ${q}
-                      ${digits.length >= 3 ? sql`or ${c}.counterpart like ${`%${digits}%`}` : sql``})`
+                ? // The thread's own words first; then who it's with, from `found` below.
+                  sql`and (lower(${c}.counterpart) like ${q} or lower(coalesce(${c}.last_preview, '')) like ${q}
+                      ${digits.length >= 3 ? sql`or ${c}.counterpart like ${`%${digits}%`}` : sql``}
+                      or ${c}.person_id in (select f.person_id from found f where f.person_id is not null)
+                      or ${c}.id in (select f.conversation_id from found f where f.conversation_id is not null))`
                 : sql``
             }`;
     };
+    /**
+     * Who a search finds by name: the business's customers, its website visitors, and its Messenger and Instagram
+     * contacts as Meta named them (20261025000200), each with the thread or the customer it stands for.
+     *
+     * Asked once, ahead of the threads, which are then checked against the answer. Joined to each thread instead,
+     * they had to be read for every thread in the box before one could be turned away, and the check for a newer
+     * lane of the same customer (below) ran for all of those too: 20,000 threads, 0.5 s to find 100.
+     */
+    const found = q
+      ? sql`found as materialized (
+            select sp.id as person_id, null::uuid as conversation_id from app.people sp
+             where sp.workspace_id = ${input.workspaceId}
+               and lower(coalesce(sp.first_name, '') || ' ' || coalesce(sp.last_name, '')) like ${q}
+            union all
+            select null, sv.conversation_id from app.chat_visitors sv
+             where sv.workspace_id = ${input.workspaceId} and lower(sv.name) like ${q}
+            union all
+            select null, sm.conversation_id from app.meta_contacts sm
+             where sm.workspace_id = ${input.workspaceId}
+               and lower(coalesce(sm.name, '') || ' ' || coalesce(sm.username, '')) like ${q}),`
+      : sql``;
     /**
      * One row per customer, not per thread (0089).
      *
@@ -560,49 +592,75 @@ export const inboxList = defineQuery({
      * purpose — grouping them would answer with a single row, which is the opposite of what it is for.
      */
     const grouped = !input.personId;
+    const sortBy = oldestFirst ? 'needs_person' : 'recent';
     const col = sql.raw(oldestFirst ? 'needs_person_since' : 'last_message_at');
-    const one = sql`${conversationSelect(input.workspaceId, oldestFirst ? 'needs_person' : 'recent')}
-            ${filters('c')}
-            ${
-              grouped
-                ? sql`and not exists (select 1 from app.conversations c2
+    // A newer lane of the same customer that the filters keep, `same` saying which threads are theirs.
+    const noNewerLane = (
+      same: ReturnType<typeof sql>,
+    ) => sql`and not exists (select 1 from app.conversations c2
                     where c2.workspace_id = c.workspace_id
-                      -- An OR, as in the lanes, so each half can use its own index.
-                      and (c2.person_id = c.person_id
-                        or (c.person_id is null and c2.person_id is null and c2.channel = c.channel
-                          and c2.counterpart = c.counterpart))
+                      and ${same}
                       -- The person's own mail is its own row, never folded into the team's (GROUP_KEY).
                       and c2.private_to is not distinct from c.private_to
                       ${filters('c2')}
-                      and (c2.${col}, c2.id) > (c.${col}, c.id))`
-                : sql``
-            }`;
+                      and (c2.${col}, c2.id) > (c.${col}, c.id)
+                    -- Keeps it a look-up for each thread the page reads. Without it Postgres makes a join of it,
+                    -- and under row-level security it reckons a look-up dear, so it reads every thread in the box
+                    -- instead and weighs each against each (a million pairs for a page of 50 out of 20,000).
+                    offset 0)`;
+    // What the page is in the order of, on a thread `c` and on a row `x` of `conversationSelect`.
+    const at = (t: 'c' | 'x') =>
+      grouped
+        ? sql`${sql.raw(t)}.${col}`
+        : t === 'c'
+          ? SORT_KEY(SORT_COLUMN(sortBy))
+          : sql`x.sort_key`;
+    const order = (t: 'c' | 'x') => {
+      const id = sql`${sql.raw(t)}.id`;
+      return oldestFirst
+        ? sql`${at(t)} asc, ${id} asc`
+        : grouped
+          ? sql`${at(t)} desc nulls last, ${id} desc`
+          : sql`${at(t)} desc, ${id} desc`;
+    };
     const after = !cursor
       ? sql``
-      : grouped
-        ? oldestFirst
-          ? sql`and (x.${col}, x.id) > (${cursor.sort}::timestamptz, ${cursor.id}::uuid)`
-          : sql`and (x.${col}, x.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)`
-        : oldestFirst
-          ? sql`and (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`
-          : sql`and (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)`;
-    const order = grouped
-      ? oldestFirst
-        ? sql`x.${col} asc, x.id asc`
-        : sql`x.${col} desc nulls last, x.id desc`
-      : oldestFirst
-        ? sql`x.sort_key asc, x.id asc`
-        : sql`x.sort_key desc, x.id desc`;
+      : sql`and (${at('c')}, c.id) ${oldestFirst ? sql`>` : sql`<`}
+              (${grouped ? sql`${cursor.sort}::timestamptz` : sql`${cursor.sort}`}, ${cursor.id}::uuid)`;
+    /**
+     * Which threads are on the page, before anything is read about them (speed audit, Nov 2026).
+     *
+     * Read from the threads alone, so there is one way to do it: down an index in the page's order until the page is
+     * full, or the box's threads sorted when the box is small. Everything a row shows (the customer, who has it, the
+     * lanes) is then read for the page's threads alone, by their ids. Done in one go, each of those was joined to
+     * the whole box before the page was cut, and Postgres, with a poor idea of how many threads a box holds under
+     * row-level security, would pick a join that read every customer in the business once per thread.
+     */
+    const pageIds = sql`select c.id from app.conversations c
+          where c.workspace_id = ${input.workspaceId}
+            ${filters('c')}
+            ${
+              grouped
+                ? // Asked twice, as the lanes are: the customer's threads when the thread is linked to one, the address's
+                  // on its channel when it isn't. As one OR neither index could be used; each half alone is a look-up
+                  // down its own (conversations_person_idx, conversations_unlinked_idx: 20261027035800).
+                  sql`${noNewerLane(sql`c2.person_id = c.person_id`)}
+                      ${noNewerLane(sql`c.person_id is null and c2.person_id is null
+                        and c2.counterpart = c.counterpart and c2.channel = c.channel`)}`
+                : sql``
+            }
+            ${after}
+          order by ${order('c')}
+          limit ${input.limit + 1}`;
     const list = await rows<ConversationRow>(
       ctx.tx,
-      sql`select x.*, ${ROW_EXTRAS},
+      sql`with ${found} page as (${pageIds})
+          select x.*, ${ROW_EXTRAS},
             ${LANES(input.workspaceId, input.box === 'archived')} as lanes,
             ${SAME_AS(input.workspaceId)} as same_as
-          from (${one}) x
-          where true
-          ${after}
-          order by ${order}
-          limit ${input.limit + 1}`,
+          from (${conversationSelect(input.workspaceId, sortBy)}
+            and c.id = any(array(select page.id from page))) x
+          order by ${order('x')}`,
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
     return { items: result.items.map(summary), nextCursor: result.nextCursor };

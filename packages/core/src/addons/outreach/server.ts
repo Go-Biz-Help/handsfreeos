@@ -4,6 +4,8 @@
  * is its own in history. The business logic lives here: never in its screens, never in the extension.
  */
 import type { AddonServerModule } from '../server';
+import { OUTREACH_LOOK_ALIKES, OUTREACH_PLACES } from './ai-places';
+import { OutreachSettingsSchema } from './chat-read';
 import { outreachAddon } from './manifest';
 import { activityCommands, activityQueries } from './ops/activity';
 import { askCommands, askQueries } from './ops/asks';
@@ -64,6 +66,9 @@ const EXTENSION = 'What the browser extension read, saw or did, as the person’
 
 export const outreachAddonServer: AddonServerModule = {
   manifest: outreachAddon,
+  settings: { workspace: OutreachSettingsSchema },
+  // Its pages, said only where it runs (decision 127's side menu), so the Assistant names them and the one open.
+  ai: { places: OUTREACH_PLACES, lookAlikes: OUTREACH_LOOK_ALIKES },
   commands: [
     ...playbookCommands,
     ...saveCommands,

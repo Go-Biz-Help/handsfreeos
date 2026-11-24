@@ -1,5 +1,5 @@
 /**
- * Where AI Social Media Content Creator's pages are, for the Assistant (its manifest's `ai.places`): each the way
+ * Where AI Social Media Content Creator's pages are, for the Assistant (its server half's `ai.places`): each the way
  * there from the side menu, in the screens' own words (./words.ts), what's on it and how to do what people ask about
  * there. Its pages pop out of its one row in the side menu. Said only in businesses it runs in. Browser-safe and pure.
  */
