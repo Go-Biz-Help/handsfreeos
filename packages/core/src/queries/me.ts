@@ -53,12 +53,17 @@ export const me = defineQuery({
       ctx.tx,
       // The businesses this person works in. Support staff can see every business's name (M13), so the
       // filter is written here rather than left to the read rules: this list is "yours", not "visible".
+      // It starts from the two ways to be in a business (a member of it, or of its organization), so the role is
+      // worked out for those alone: asked of every business a person can see, it was worked out once for every
+      // business on the platform whenever a member of staff opened a page.
       sql`select w.id, w.organization_id, o.name as organization_name, w.name, w.slug, w.timezone, w.industry, private.effective_workspace_role(w.id)::text as role,
             private.my_permissions(w.id) as permissions, private.active_addons(w.id) as addons,
             (w.settings -> 'onboarding' -> 'turnedOff') is null as getting_started,
             private.workspace_needs_plan(w.id) as needs_plan, o.practice_ends_at
           from app.workspaces w join app.organizations o on o.id = w.organization_id
-          where private.effective_workspace_role(w.id) is not null
+          where (w.id in (select private.direct_workspace_ids())
+                 or w.organization_id in (select private.member_organization_ids()))
+            and private.effective_workspace_role(w.id) is not null
           order by o.name, w.name`,
     );
     return {

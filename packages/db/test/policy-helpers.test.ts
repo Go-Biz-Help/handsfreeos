@@ -11,8 +11,13 @@
  * for one value from a select that gives one row, `return query select …;` for rows, and the same
  * `stable security definer set search_path = ''`.
  *
+ * And a staff check is asked once per statement (migration 20261027035500). `private.staff_can('…')` reads no column,
+ * yet standing bare in a policy it is called for every row a statement looks at, ahead of the member's own rule:
+ * "who am I" called it once for every business on the platform, each time a page was drawn. In a sub-select,
+ * `(select private.staff_can('…'))`, it is asked once. A policy that says it bare fails here by name.
+ *
  * What each helper answers is the security suites' to hold (rls.test.ts and the rest of this folder): they pass
- * unchanged over the plpgsql helpers.
+ * unchanged over the plpgsql helpers and the sub-selects.
  */
 import { afterAll, describe, expect, it } from 'vitest';
 import { rows, sql } from '../src/client';
@@ -77,6 +82,25 @@ describe('the functions row security calls', () => {
     expect(
       inSql,
       'A policy reaches these, so each statement on a protected table plans them again. Write them in plpgsql.',
+    ).toEqual([]);
+  });
+
+  it('ask a staff check once per statement: no policy calls one bare', async () => {
+    // The catalogue spells a sub-select `( SELECT private.staff_can(…) AS staff_can)`.
+    const bare = await rows<{ policy: string }>(
+      admin$,
+      sql`select n.nspname || '.' || c.relname || ': ' || pol.polname as policy
+          from pg_policy pol
+          join pg_class c on c.oid = pol.polrelid
+          join pg_namespace n on n.oid = c.relnamespace
+          where (coalesce(pg_get_expr(pol.polqual, pol.polrelid), '') || ' ' ||
+                 coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), ''))
+                ~ '(?<!SELECT )private\\.(staff_can|is_staff|i_am_founder)\\('
+          order by 1`,
+    );
+    expect(
+      bare.map((b) => b.policy),
+      'These policies call a staff check for every row. Write it in a sub-select: (select private.staff_can(…)).',
     ).toEqual([]);
   });
 });
