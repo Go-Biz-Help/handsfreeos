@@ -220,8 +220,8 @@ function cleaned(html: string): string {
   return closedTags(out + page.slice(pos));
 }
 
-/** The words of a piece of a page, its tags taken out. */
-const wordsOf = (html: string): string => squash(closedTags(html).replace(/<[^>]+>/g, ' '));
+/** The words of a piece of a page, its tags taken out. `[^<>]`, never `[^>]`, so a run of `<` is passed in one go. */
+const wordsOf = (html: string): string => squash(closedTags(html).replace(/<[^<>]*>/g, ' '));
 
 const squash = (text: string): string => decodeEntities(text).replace(/\s+/g, ' ').trim();
 
@@ -525,7 +525,7 @@ function summaryOf(outline: string): string {
     .split('\n')
     .map((l) =>
       l
-        .replace(/\[[^\]]*\]|\([^)]*\)|[{}]|---/g, ' ')
+        .replace(/\[[^[\]]*\]|\([^()]*\)|[{}]|---/g, ' ')
         .replace(/\s+/g, ' ')
         .trim(),
     )
