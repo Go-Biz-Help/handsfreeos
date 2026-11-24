@@ -13,15 +13,15 @@
     "apps/mobile/src/components/phone-setup/guided-flow.tsx": "36216bb152e1",
     "apps/mobile/src/components/phone-setup/number-picker.tsx": "bf53e3c04b02",
     "apps/web/src/app/app/oauth/finish/page.tsx": "32b5c89b1bb7",
-    "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "908f13e57cca",
-    "apps/web/src/app/app/w/[workspaceId]/settings/facebook-instagram/page.tsx": "956ed0495199",
-    "apps/web/src/app/app/w/[workspaceId]/settings/lead-intake/page.tsx": "9f59345c668b",
-    "apps/web/src/app/app/w/[workspaceId]/settings/templates/page.tsx": "b2960fd030b7",
+    "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "ad68b7bf922c",
+    "apps/web/src/app/app/w/[workspaceId]/settings/facebook-instagram/page.tsx": "dd7668234a51",
+    "apps/web/src/app/app/w/[workspaceId]/settings/lead-intake/page.tsx": "3a358f27f274",
+    "apps/web/src/app/app/w/[workspaceId]/settings/templates/page.tsx": "8bac184b35c2",
     "apps/web/src/app/app/w/[workspaceId]/settings/texting/page.tsx": "eb4ca86349a1",
     "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx": "b09994efe770",
     "apps/web/src/app/onboarding/[workspaceId]/chat/page.tsx": "bc80c1f7bddb",
     "apps/web/src/app/onboarding/[workspaceId]/facebook/page.tsx": "36cf16a1ae60",
-    "apps/web/src/app/onboarding/[workspaceId]/phone/page.tsx": "41cfea8de77a",
+    "apps/web/src/app/onboarding/[workspaceId]/phone/page.tsx": "12d793e8b905",
     "apps/web/src/app/onboarding/[workspaceId]/texting/page.tsx": "83bf6bc1b4cb",
     "apps/web/src/components/chat-setup/chat-setup-flow.tsx": "84f9cbb5ffd8",
     "apps/web/src/components/facebook-setup/facebook-setup-flow.tsx": "d71fdc56e1b4",
@@ -55,8 +55,8 @@
     "apps/web/src/components/settings/website-chat-overview.tsx": "5fb5d1cfdc6a",
     "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d",
     "apps/web/src/components/texting-approval/texting-approval-flow.tsx": "3d171675cb71",
-    "apps/web/src/lib/chat/editor-data.ts": "84f9988ce043",
-    "apps/web/src/lib/texting.ts": "f2fe9ae2aff9"
+    "apps/web/src/lib/chat/editor-data.ts": "997a752276ed",
+    "apps/web/src/lib/texting.ts": "fcba854a7d0a"
   },
   "items": [
     {

@@ -8,6 +8,7 @@ import {
   isLocalDate,
   localDateOf,
   registry,
+  reservedText,
   startOfLocalDay,
   statusOf,
   type AgendaAppointment,
@@ -709,6 +710,8 @@ function bookingInput(
     startsAt: args['startsAt'],
     durationMinutes: args['durationMinutes'],
     serviceId: str(args['serviceId']),
+    // New appointment's What, for a time with no service.
+    title: str(args['title']),
     // A calendar without staff books nobody; people the model named are dropped.
     userIds: calendar.config.team.assignment === 'none' ? undefined : args['userIds'],
     leadId: str(args['leadId']),
@@ -759,6 +762,7 @@ const bookAppointment: ConfirmTool = {
         )
       : null;
     const where = whereOf(appt.location);
+    const uses = appt.resources.map((r) => reservedText(r.quantity, r.name));
     const what = `${whatOf(appt)} · ${formatDuration(Math.round((end - start) / MIN))}`;
     const notify = args['notify'] !== false;
     const tell = tellRow(appt, first, notify, canText, 'with the details');
@@ -795,6 +799,8 @@ const bookAppointment: ConfirmTool = {
             ? [{ label: 'With', value: `${joinAnd(staff)}${picked ? `, ${picked}` : ''}` }]
             : []),
           ...(where ? [{ label: 'Where', value: where }] : []),
+          // The room, truck or chair the calendar reserves, as New appointment's Uses shows it.
+          ...(uses.length ? [{ label: 'Uses', value: joinAnd(uses) }] : []),
           ...(reminders ? [{ label: 'Reminders', value: reminders.line }] : []),
           ...(tell ? [tell] : []),
         ],
@@ -805,6 +811,7 @@ const bookAppointment: ConfirmTool = {
         customer: person?.fullName ?? null,
         ...(where ? { where } : {}),
         what,
+        ...(uses.length ? { uses } : {}),
         ...(appt.customRecord ? { for: appt.customRecord.name } : {}),
         when: atLabel(start, tz),
         with: staff,

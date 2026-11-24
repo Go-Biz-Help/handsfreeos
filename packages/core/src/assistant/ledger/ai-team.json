@@ -1,7 +1,7 @@
 {
   "area": "ai-team",
   "title": "The AI teammate: setup, instructions, approvals, review, activity, funnels, AI setup and test chat",
-  "checkedOn": "2026-11-21",
+  "checkedOn": "2026-11-24",
   "files": {
     "apps/mobile/src/ai-setup/calls.ts": "881c51c1a351",
     "apps/mobile/src/ai-setup/use-ai-setup.ts": "4bec8c37baf1",
@@ -27,9 +27,9 @@
     "apps/web/src/app/app/w/[workspaceId]/ai-team/funnels/page.tsx": "020cc06cfe4b",
     "apps/web/src/app/app/w/[workspaceId]/ai-team/instructions/page.tsx": "4c61613357de",
     "apps/web/src/app/app/w/[workspaceId]/ai-team/layout.tsx": "e3bba22f029b",
-    "apps/web/src/app/app/w/[workspaceId]/ai-team/page.tsx": "3d5d300207ef",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/page.tsx": "3d528888ced0",
     "apps/web/src/app/app/w/[workspaceId]/ai-team/review/page.tsx": "eab33b9bfd44",
-    "apps/web/src/app/app/w/[workspaceId]/ai-team/setup/page.tsx": "7efffb94b250",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/setup/page.tsx": "df964c0aa59e",
     "apps/web/src/components/ai-setup/fields.tsx": "e984ff863980",
     "apps/web/src/components/ai-setup/quick-setup.tsx": "ac505a7a1feb",
     "apps/web/src/components/ai-setup/screens.tsx": "be84fd802fdb",

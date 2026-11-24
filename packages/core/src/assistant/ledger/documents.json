@@ -1,7 +1,7 @@
 {
   "area": "documents",
   "title": "Documents to sign and their templates",
-  "checkedOn": "2026-11-20",
+  "checkedOn": "2026-11-24",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/documents.tsx": "a753a5248fa6",
     "apps/mobile/src/app/app/w/[workspaceId]/documents/[documentId]/index.tsx": "358731e8544c",
@@ -16,9 +16,9 @@
     "apps/mobile/src/documents/send.tsx": "bd026e77b5f7",
     "apps/mobile/src/documents/templates.tsx": "f90dd322dcd3",
     "apps/web/src/app/app/w/[workspaceId]/documents/[documentId]/page.tsx": "fc900cb8d456",
-    "apps/web/src/app/app/w/[workspaceId]/documents/page.tsx": "d285d601a218",
-    "apps/web/src/app/app/w/[workspaceId]/documents/send/page.tsx": "893bb7b94aac",
-    "apps/web/src/app/app/w/[workspaceId]/documents/templates/[templateId]/page.tsx": "78e692276a93",
+    "apps/web/src/app/app/w/[workspaceId]/documents/page.tsx": "8a8f6d01076a",
+    "apps/web/src/app/app/w/[workspaceId]/documents/send/page.tsx": "b65034f847f4",
+    "apps/web/src/app/app/w/[workspaceId]/documents/templates/[templateId]/page.tsx": "31d73cb664a0",
     "apps/web/src/components/documents/document-page.tsx": "875203dce955",
     "apps/web/src/components/documents/documents-home.tsx": "c373697bffcb",
     "apps/web/src/components/documents/editor-canvas.tsx": "553d9bfc4f1c",

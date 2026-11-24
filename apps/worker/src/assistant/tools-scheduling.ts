@@ -18,6 +18,7 @@ import {
   depositWhen,
   depositWords,
   diffConfigs,
+  directionsUrl,
   formatDuration,
   HfosError,
   holdOf,
@@ -653,6 +654,8 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
           ? { equipment: a.resources.map((r) => reservedText(r.quantity, r.name)) }
           : {}),
         where: whereOf(a.location),
+        // Where's Directions: the address in Google Maps, as the sheet opens it.
+        ...(a.location.address ? { directions: directionsUrl(a.location.address) } : {}),
         ...(door ? { linkAnyoneCanUse: door } : {}),
         // Zoom link: why no link could be made yet (do_appointment_make_meeting_link tries again).
         ...(a.location.meetingError && !a.location.meetingUrl
@@ -682,6 +685,10 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
             name: s.fullName,
             status: s.status,
             ...(isGroup(a) ? { seats: s.seats } : {}),
+            // The line under their name: how to reach them, and whether they said yes to texts.
+            phone: s.contactPhone ?? null,
+            email: s.contactEmail ?? null,
+            texts: s.smsOk ? 'Texts OK' : 'No text consent',
             confirmed: confirmWords(s, tz),
             hearsBy: reachOf(s, canText) ?? 'nothing on file',
             ...(s.joinedAt ? { joined: atLabel(Date.parse(s.joinedAt), tz) } : {}),

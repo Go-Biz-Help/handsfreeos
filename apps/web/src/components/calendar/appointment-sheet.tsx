@@ -3,6 +3,7 @@ import {
   addDays,
   BIN_WORDS,
   can,
+  directionsUrl,
   formatDuration,
   localInstant,
   moneyLabel,
@@ -1001,7 +1002,7 @@ export function AppointmentSheet({
                     </span>
                     {address ? (
                       <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`}
+                        href={directionsUrl(address)}
                         target="_blank"
                         rel="noreferrer"
                         className="whitespace-nowrap text-[13px] font-medium text-accent-text hover:underline"
