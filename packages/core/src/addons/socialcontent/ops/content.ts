@@ -27,6 +27,7 @@ import {
   stillNeeds,
   type ContentState,
 } from '../calendar';
+import { lookRange } from '../calendar-looks';
 import { learnedShown, openSlots } from '../schedule';
 import {
   CalendarGetInput,
@@ -206,8 +207,15 @@ export async function readPosts(ctx: Ctx, where: ReturnType<typeof sql>): Promis
   return found.map(fromRaw);
 }
 
-/** Posts as shown: their pictures (files still on the record, in order), who OK'd them and what each still needs. */
-export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise<Content[]> {
+/**
+ * Posts as shown: their pictures (files still on the record, in order), who OK'd them and what each still needs.
+ * `facebookPage` is the business's setting, from a caller that has read its settings already.
+ */
+export async function contentOut(
+  ctx: Ctx,
+  list: readonly ContentRow[],
+  known?: { facebookPage: string | null },
+): Promise<Content[]> {
   if (!list.length) return [];
   const ids = [...new Set(list.flatMap((c) => c.fileIds))];
   const files = ids.length
@@ -235,7 +243,7 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
       )
     : [];
   const nameById = new Map(names.map((n) => [n.id, n.name]));
-  const s = await settingsOf(ctx);
+  const s = known ?? (await settingsOf(ctx));
   return list.map((c) => {
     const pictures: ContentPicture[] = c.fileIds.flatMap((id) => {
       const f = fileById.get(id);
@@ -345,8 +353,10 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
     const timeZone = await timeZoneOf(ctx);
     const now = Date.now();
     const today = localDateOf(now, timeZone);
-    const from = input.from ?? today;
-    const { end, start, stop } = rangeOf(from, input.days, timeZone);
+    const { from, days } = input.look
+      ? lookRange(input.look, input.from ?? today, today)
+      : { from: input.from ?? today, days: input.days };
+    const { end, start, stop } = rangeOf(from, days, timeZone);
     const s = await settingsOf(ctx);
     const inRange = await readPosts(
       ctx,
@@ -386,17 +396,19 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
                join app.custom_records r on r.id = c.record_id and r.archived_at is null
                where c.workspace_id = ${ws} and c.state = 'ready') as ready`,
     );
+    // The three lists' pictures and names are read together (one read of each, not three), then dealt back out.
+    const shown = await contentOut(ctx, [...inRange, ...undated, ...recent], s);
     return {
       timeZone,
       today,
       from,
-      days: input.days,
+      days,
       plan: s.plan,
       learned: learnedShown(s.plan, times),
       open: open.map((o) => ({ ...o, at: new Date(o.at).toISOString() })),
-      posts: await contentOut(ctx, inRange),
-      undated: await contentOut(ctx, undated),
-      recent: await contentOut(ctx, recent),
+      posts: shown.slice(0, inRange.length),
+      undated: shown.slice(inRange.length, inRange.length + undated.length),
+      recent: shown.slice(inRange.length + undated.length),
       filledAt: s.filledAt,
       autoFill: s.autoFill,
       offerLive: await offerLiveOf(ctx),

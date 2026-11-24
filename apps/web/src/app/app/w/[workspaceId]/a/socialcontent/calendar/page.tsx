@@ -41,17 +41,20 @@ export default async function Page({
   const day = dayAsked(one(sp['day']));
   return addonPage(workspaceId, 'socialcontent', 'socialcontent.use', async () => {
     const { api } = await apiServer();
-    const get = (range?: { from?: string; days: number }) =>
+    const get = (range?: { from?: string; days?: number; look?: 'week' | 'month' }) =>
       api
         .POST('/v1/queries/socialcontent.calendar.get', { body: { workspaceId, ...range } })
         .then(unwrapPage);
-    // A week or month with no day asked for is the one with today in it, in the business's time zone: a one-day read
-    // finds today first.
+    // A week or month with no day asked for is the one with today in it, in the business's time zone, which the
+    // server knows: one ask, where a one-day ask used to find today first (speed audit, Nov 2026).
     let calendar = await get(
-      look === 'list' ? undefined : day ? lookRange(look, day, day) : { days: 1 },
+      look === 'list' ? undefined : day ? lookRange(look, day, day) : { look },
     );
-    if (look !== 'list' && !day)
-      calendar = await get(lookRange(look, calendar.today, calendar.today));
+    // An API from before it took `look` (the minutes of a release) answers with today's list: ask for the days then.
+    if (look !== 'list' && !day) {
+      const want = lookRange(look, calendar.today, calendar.today);
+      if (calendar.from !== want.from || calendar.days !== want.days) calendar = await get(want);
+    }
     return (
       <CalendarPage
         workspaceId={workspaceId}
