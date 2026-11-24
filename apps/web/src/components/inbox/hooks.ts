@@ -469,11 +469,15 @@ export function useCustomerNotes(workspaceId: string, personId: string | null): 
 /**
  * Conversation actions. Each takes the confirmation the design words for it; `after` refreshes whatever is
  * showing. They resolve to whether the change went through.
+ *
+ * Reading has its own `afterRead`: it changes nothing the open conversation shows (its count is cleared on the
+ * page as it opens), so opening an unread one need not draw the whole page a second time.
  */
 export function useConversationActions(
   workspaceId: string,
   conversationId: string,
   after: () => void,
+  afterRead: () => void = after,
 ) {
   const { refresh: refreshUnread } = useUnread();
   const ref = { workspaceId, conversationId };
@@ -494,7 +498,7 @@ export function useConversationActions(
       try {
         unwrap(await apiBrowser().POST('/v1/commands/conversation.mark_read', { body: ref }));
         refreshUnread();
-        after();
+        afterRead();
       } catch {
         // Reading is best effort; the badge catches up on the next change.
       }
