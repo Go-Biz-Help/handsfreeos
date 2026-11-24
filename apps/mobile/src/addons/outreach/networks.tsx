@@ -30,24 +30,31 @@ export function NetworkName({ platform, className }: { platform: Platform; class
   );
 }
 
-/** Every network, or one: narrows a long list. */
+/**
+ * Every network, or one: narrows a long list. With `networks`, only those, and no All: Today's parts off the Overview
+ * (decision 193), whose list is always one network's.
+ */
 export function NetworkFilter({
   value,
   onChange,
+  networks,
 }: {
   value: Platform | null;
   onChange: (next: Platform | null) => void;
+  networks?: readonly Platform[];
 }) {
+  const choices: readonly (Platform | 'all')[] = networks ?? NETWORK_FILTERS;
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
       <View className="flex-row gap-1.5" accessibilityLabel={NW.filter}>
-        {NETWORK_FILTERS.map((k) => {
+        {choices.map((k) => {
           const on = (value ?? 'all') === k;
           return (
             <Button
               key={k}
               size="sm"
               variant={on ? 'secondary' : 'ghost'}
+              accessibilityState={{ selected: on }}
               onPress={() => onChange(k === 'all' ? null : k)}
               testID={`network-filter-${k}`}
             >

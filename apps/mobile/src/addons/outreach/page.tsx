@@ -1,4 +1,5 @@
 import { readNetwork } from '@hfos/core/addons/outreach/network-words';
+import { readNeedsPart } from '@hfos/core/addons/outreach/page-parts';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
 
@@ -33,7 +34,9 @@ import { NeedsYouScreen } from './waiting';
 /**
  * Social Outreach on the phone (decisions 44, 59, 127 to 129), by its address's `?view=`, as the web's old addresses
  * name its pages. With none, its first screen lists the pages in the web's side-menu order (./home.tsx). Set up
- * (`setup`) has how far the setup has come and each network's Get ready; Needs you is `waiting`; Today (`today`) has what the computer is doing on each network, the list and Done today; People is one
+ * (`setup`) has how far the setup has come and each network's Get ready; Needs you is `waiting`; Today (`today`) has what
+ * the computer is doing on each network, the list and Done today; each of those two a part at a time (decision 193),
+ * `&part=` the one to open with; People is one
  * list with a view for each kind (./frame.tsx): the Pipeline, the friends lists (`friends`, `&show=` which), Chats,
  * the Partners list and the Never contact list; then Find people (`find`), where Groups (`groups`, `&group=` one
  * group's own page, decision 103) open from, Results, Playbooks and Settings, a menu with `?part=` one of its pages
@@ -111,9 +114,9 @@ function OutreachView({
     case 'setup':
       return <SetupScreen />;
     case 'waiting':
-      return <NeedsYouScreen />;
+      return <NeedsYouScreen part={readNeedsPart(part)} />;
     case 'today':
-      return <TodayHub net={readNetwork(net)} />;
+      return <TodayHub net={readNetwork(net)} part={part} />;
     case 'live':
       return <LiveScreen net={readNetwork(net)} />;
     case 'pipeline':

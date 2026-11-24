@@ -4,8 +4,10 @@
  *
  * - **Set up** (`/set-up`, decision 129): how far the setup has come, each step opening the setup itself (`/setup`, a
  *   step at a time), and each network's Get ready.
- * - **Needs you** (`/needs-you`): everything waiting on the person, on every network.
- * - **Today** (`/today`): what their computer is doing on each network, and the network shown's list (`?net=`).
+ * - **Needs you** (`/needs-you`): everything waiting on the person, on every network, a part at a time (decision 193):
+ *   `/needs-you/<part>` (`message`, `need`, `request`…), else the first part with anything in it.
+ * - **Today** (`/today`): what their computer is doing on each network, and the network shown's list (`?net=`), a part
+ *   at a time (decision 193): Overview, else `/today/<part>` (`list`, `posts`, `done`, or `team` for owners and admins).
  * - **People**, one list with a view for each kind (`people-views.ts` in core): everyone reached by where they stand
  *   (`/people`, `?show=ready`… for one stage, else the board), their friends (`/people/friends`, `?show=fits`,
  *   `requests`, `sent`, `keep`, `dont_pitch` or `never_contact`), their chats (`/people/chats`, `?show=tagged`, `read`
@@ -35,6 +37,12 @@ import { GROUP_PEOPLE_VIEW_KEYS, type GroupPeopleView } from '@hfos/core/addons/
 import { readNetwork } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { OutreachPage } from '@hfos/core/addons/outreach/pages';
+import {
+  readNeedsPart,
+  readTodayPart,
+  type NeedsPart,
+  type TodayPart,
+} from '@hfos/core/addons/outreach/page-parts';
 import { PARTNER_VIEW_KEYS, type PartnerView } from '@hfos/core/addons/outreach/partners';
 import { settingsPartOf, type SettingsPart } from '@hfos/core/addons/outreach/settings-parts';
 import { STAGE_VIEW_KEYS, type StageView } from '@hfos/core/addons/outreach/stages';
@@ -173,6 +181,10 @@ export interface OutreachAddress {
   readonly for: string;
   /** Which part of Settings: You (`general`), a network's page, Your computer, Team or Start fresh. */
   readonly part: SettingsPart;
+  /** Which part of Needs you (decision 193): null for the first with anything in it. */
+  readonly needsPart: NeedsPart | null;
+  /** Which part of Today (decision 193): Overview when the path names none. The page shows Your team to managers only. */
+  readonly todayPart: TodayPart;
   /** Today's network, or the network a list is narrowed to: null for the first, or every one. */
   readonly net: Platform | null;
   /** In your hands: only the person's own (`?mine=1`), else everyone's. */
@@ -207,6 +219,8 @@ export function readOutreachAddress(
     page: /^[1-9]\d{0,4}$/.test(one(sp.page)) ? Number(one(sp.page)) : 1,
     for: UUID.test(one(sp.for)) ? one(sp.for).toLowerCase() : '',
     part: settingsPartOf(part),
+    needsPart: view === 'needs' ? readNeedsPart(part) : null,
+    todayPart: view === 'today' ? readTodayPart(part, true) : 'overview',
     // The address's own; with none, the last picked; `all` (or nothing) is every network.
     net: sp.net !== undefined ? readNetwork(one(sp.net)) : readNetwork(remembered),
     mine: one(sp.mine) === '1',
@@ -239,7 +253,7 @@ export function forwardedHref(workspaceId: string, sp: Query): string | null {
 }
 
 /**
- * A view's address: for the results their stretch and whose; for the pipeline, groups, friends and chats which, the
+ * A view's address: for Needs you and Today their part; for the results their stretch and whose; for the pipeline, groups, friends and chats which, the
  * name searched for and the page; for a group's page the group, who and the page; for partners which and the page;
  * for settings, the part and whose.
  */
@@ -260,6 +274,10 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
   if (view === 'settings') {
     if (to.part && to.part !== 'general') path = `${path}/${to.part}`;
     if (to.for) params.set('for', to.for);
+  } else if (view === 'needs') {
+    if (to.needsPart) path = `${path}/${to.needsPart}`;
+  } else if (view === 'today') {
+    if (to.todayPart && to.todayPart !== 'overview') path = `${path}/${to.todayPart}`;
   } else if (view === 'groups' && to.group) {
     params.set('group', to.group);
     if (to.outcome && to.outcome !== 'all') params.set('show', to.outcome);

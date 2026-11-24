@@ -51,6 +51,15 @@ import {
   type NeedClear,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { seenWords } from '@hfos/core/addons/outreach/live';
+import {
+  autopilotWaitingOf,
+  NEEDS_PARTS,
+  needsCountsOf,
+  needsPartOpen,
+  needsPartsShown,
+  PAGE_PART_WORDS,
+  type NeedsPart,
+} from '@hfos/core/addons/outreach/page-parts';
 import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -84,6 +93,7 @@ import { AskLine, useAskActions, type AskActions } from './asks';
 import { AutopilotList, type AutopilotAnswerOf } from './autopilot-list';
 import { ChatBubbles } from './chat-bubbles';
 import { useOutreachWaiting } from './copy';
+import { PartsRow } from './frame';
 import { NetworkName } from './networks';
 import { PersonMenuScope, PersonName } from './person-menu';
 import { PostQuote } from './post-quote';
@@ -98,7 +108,8 @@ import {
 } from './kit';
 
 /**
- * Needs you on the phone (decision 44, owner answer 19b), its own page since decision 127, second on the add-on's
+ * Needs you on the phone (decision 44, owner answer 19b), a part at a time since decision 193 (a row under the title,
+ * as on the web), its own page since decision 127, second on the add-on's
  * first screen (./home.tsx) and where Today's count leads: the person's messages waiting for their OK come from
  * the phone's own copy, so they read, OK, change, skip and Approve all with no signal; each goes to HandsFreeOS when
  * the phone's back online. What they asked their computer that needs them there (decision 43, with **Carry on**,
@@ -218,10 +229,14 @@ function failed(e: unknown) {
   toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
 }
 
-/** Needs you's screen (`?view=waiting`): everything waiting on the person, a change in a person menu reloading it. */
-export function NeedsYouScreen() {
+/**
+ * Needs you's screen (`?view=waiting`, `&part=` one of its parts): everything waiting on the person, a part at a time
+ * (decision 193), a change in a person menu reloading it. Pressing a part switches it in place, so nothing loads again.
+ */
+export function NeedsYouScreen({ part = null }: { part?: NeedsPart | null } = {}) {
   const ctx = useOutreachContext();
   const waiting = useWaitingProps();
+  const [asked, setAsked] = React.useState<NeedsPart | null>(part);
   return (
     <PersonMenuScope
       workspaceId={ctx.workspaceId}
@@ -229,7 +244,7 @@ export function NeedsYouScreen() {
       writesContacts={ctx.writesContacts}
       onChanged={waiting.onRetry}
     >
-      <WaitingBody {...waiting} />
+      <WaitingBody {...waiting} parts={{ asked, onPick: setAsked }} />
     </PersonMenuScope>
   );
 }
@@ -418,6 +433,7 @@ export function WaitingBody({
   autopilot = null,
   onAutopilot,
   onHands,
+  parts,
 }: {
   phone: PhoneWaiting;
   server: WaitingFromServer | null;
@@ -445,6 +461,11 @@ export function WaitingBody({
   onAutopilot?: AutopilotAnswerOf;
   /** Let the AI take it, or Keep it mine, on an ask about someone in the person's hands (decision 182). */
   onHands?: (ask: HandsAsk, letAi: boolean) => void;
+  /**
+   * Needs you's parts (decision 193): the one asked for (null for the first with anything in it), and pressing one.
+   * Left out, every part shows, one after another.
+   */
+  parts?: { readonly asked: NeedsPart | null; readonly onPick: (part: NeedsPart) => void };
 }) {
   const [changing, setChanging] = React.useState<PhoneSend | null>(null);
   const all = approveAllFromPhone(phone);
@@ -462,6 +483,22 @@ export function WaitingBody({
         server.kinds.request.count +
         (server.hands?.length ?? 0)
       : 0);
+  // Each part's count, from the phone's copy and, with signal, HandsFreeOS's answer: a part it hasn't heard of shows
+  // only while it's open.
+  const counts = needsCountsOf({
+    kinds: {
+      reply: phone.kinds.reply,
+      message: phone.kinds.message,
+      ...(server ? server.kinds : {}),
+    },
+    ...(server ? { hands: server.hands?.length ?? 0 } : {}),
+    autopilot: autopilotWaitingOf(autopilot),
+    ...(unsure ? { unsure: unsure.count } : {}),
+  });
+  const open = parts ? needsPartOpen(parts.asked, counts) : null;
+  const shows = (p: NeedsPart) => !parts || open === p;
+  const shownParts = parts ? needsPartsShown(open, counts) : [];
+  const emptied = open !== null && !(counts[open] ?? 0);
   const sendRow = (send: PhoneSend) => (
     <SendCard
       key={send.sendId}
@@ -480,6 +517,21 @@ export function WaitingBody({
       subtitle={server ? waitingWords(count) : W.waitingMore(count)}
       leading="back"
       testID="outreach-waiting"
+      header={
+        parts && shownParts.length ? (
+          <PartsRow<NeedsPart>
+            label={PAGE_PART_WORDS.needsLabel}
+            parts={shownParts.map((p) => ({
+              key: p,
+              label: NEEDS_PARTS[p],
+              count: counts[p] ?? 0,
+              on: p === open,
+            }))}
+            onPick={parts.onPick}
+            testIDOf={(p) => `needs-part-${p}`}
+          />
+        ) : undefined
+      }
     >
       {!online ? (
         <Card className="px-4 py-3" testID="waiting-offline">
@@ -487,11 +539,11 @@ export function WaitingBody({
         </Card>
       ) : null}
 
-      {autopilot && onAutopilot ? (
+      {autopilot && onAutopilot && shows('autopilot') ? (
         <AutopilotList list={autopilot} online={online} onAnswer={onAutopilot} place="top" />
       ) : null}
 
-      {server?.asks.length && askActions ? (
+      {server?.asks.length && askActions && shows('ask') ? (
         <Group
           title={WAITING_KINDS.ask}
           count={server.kinds.ask.count}
@@ -511,7 +563,7 @@ export function WaitingBody({
         </Group>
       ) : null}
 
-      {server?.hands?.length && onHands ? (
+      {server?.hands?.length && onHands && shows('hands') ? (
         <View className="gap-2" testID="waiting-hands">
           <Text className="px-1 text-[15px] font-semibold">
             {HW.asksTitle}{' '}
@@ -523,7 +575,7 @@ export function WaitingBody({
         </View>
       ) : null}
 
-      {phone.replies.length ? (
+      {phone.replies.length && shows('reply') ? (
         <Group
           title={WAITING_KINDS.reply}
           count={phone.kinds.reply.count}
@@ -536,7 +588,7 @@ export function WaitingBody({
         </Group>
       ) : null}
 
-      {phone.messages.length ? (
+      {phone.messages.length && shows('message') ? (
         <Group
           title={messagesTitle(comments.length > 0)}
           count={phone.kinds.message.count}
@@ -571,7 +623,7 @@ export function WaitingBody({
 
       {server ? (
         <>
-          {server.needs.length ? (
+          {server.needs.length && shows('need') ? (
             <Group
               title={WAITING_KINDS.need}
               count={server.kinds.need.count}
@@ -607,7 +659,7 @@ export function WaitingBody({
               ))}
             </Group>
           ) : null}
-          {server.requests.length ? (
+          {server.requests.length && shows('request') ? (
             <Group
               title={WAITING_KINDS.request}
               count={server.kinds.request.count}
@@ -631,7 +683,7 @@ export function WaitingBody({
         <NeedsSignal words={serverError} onRetry={onRetry} testID="waiting-server-error" />
       ) : null}
 
-      {unsure ? (
+      {unsure && shows('unsure') ? (
         <Card className="gap-1.5 px-4 py-3.5" testID="waiting-country-unsure">
           <Text className="text-[15px] font-semibold">{CW.unsureTitle}</Text>
           <Note>{`${CW.unsureNote} ${CW.unsureCount(unsure.count)}`}</Note>
@@ -654,6 +706,12 @@ export function WaitingBody({
             {server ? W.emptyTitle : W.waitingMore(0)}
           </Text>
           <Note>{W.emptyBody}</Note>
+        </Card>
+      ) : null}
+
+      {emptied && count > 0 ? (
+        <Card className="px-5 py-6" testID="waiting-part-empty">
+          <Note>{PAGE_PART_WORDS.needsPartEmpty}</Note>
         </Card>
       ) : null}
 

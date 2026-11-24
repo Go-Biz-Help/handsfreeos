@@ -24,7 +24,8 @@ import { openOutreach, switchOutreach, type OutreachTab } from './kit';
  * One of Social Outreach's pages on the phone (decisions 127 and 128): its name at the top, as the add-on's first
  * screen lists them (./home.tsx) in the web's side-menu order, and Back to that list. People is one list with a view
  * for each kind, as on the web (`people-views.ts` in core), a row of them that scrolls, and under Left alone a row of
- * its own lists. A view replaces the screen rather than stacking on it; Skipped for country opens over it.
+ * its own lists. A view replaces the screen rather than stacking on it; Skipped for country opens over it. Needs you and
+ * Today have a row of parts the same way (decision 193, `PartsRow`), switched in place.
  */
 
 /** The business whose Social Outreach is open: the page sets it, so each screen's body draws the frame alone. */
@@ -56,11 +57,57 @@ export function peopleScreenOf(at: PeopleList): {
 const withCount = (label: string, count: number | undefined) =>
   count === undefined ? label : `${label} ${count.toLocaleString('en-US')}`;
 
+/** One choice on a row of parts: its key, its words, how many are on it where that's known, and whether it's open. */
+export interface PartChoice<K extends string> {
+  readonly key: K;
+  readonly label: string;
+  readonly count?: number;
+  readonly on: boolean;
+}
+
+/**
+ * A row of parts that scrolls, the one open marked: People's views and Left alone's lists (decision 128), and Needs
+ * you's and Today's parts (decision 193). Pressing the one open does nothing.
+ */
+export function PartsRow<K extends string>({
+  label,
+  parts,
+  onPick,
+  testIDOf,
+}: {
+  label: string;
+  parts: readonly PartChoice<K>[];
+  onPick: (key: K) => void;
+  testIDOf: (key: K) => string;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View className="flex-row gap-1.5" accessibilityLabel={label}>
+        {parts.map((p) => (
+          <Button
+            key={p.key}
+            size="sm"
+            variant={p.on ? 'secondary' : 'ghost'}
+            accessibilityState={{ selected: p.on }}
+            onPress={() => {
+              if (!p.on) onPick(p.key);
+            }}
+            testID={testIDOf(p.key)}
+          >
+            {withCount(p.label, p.count)}
+          </Button>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
 export function OutreachFrame({
   page,
   list,
   counts = {},
   subtitle,
+  header,
   testID,
   children,
 }: {
@@ -70,6 +117,8 @@ export function OutreachFrame({
   /** How many are on each view, where the list shown knows (`peopleCountsOf`). */
   counts?: Partial<Record<PeopleView | LeftAlone, number>>;
   subtitle?: string;
+  /** Under the title on a page other than People: Today's parts (decision 193). */
+  header?: React.ReactNode;
   testID?: string;
   children?: React.ReactNode;
 }) {
@@ -90,52 +139,34 @@ export function OutreachFrame({
       header={
         page === 'people' ? (
           <View className="gap-1.5">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View className="flex-row gap-1.5" accessibilityLabel={PV.label}>
-                {PEOPLE_VIEW_KEYS.map((v) => {
-                  const on = at.view === v;
-                  return (
-                    <Button
-                      key={v}
-                      size="sm"
-                      variant={on ? 'secondary' : 'ghost'}
-                      accessibilityState={{ selected: on }}
-                      onPress={() => {
-                        if (!on) go(peopleListOf(v));
-                      }}
-                      testID={`people-view-${v}`}
-                    >
-                      {withCount(PEOPLE_VIEWS[v], counts[v])}
-                    </Button>
-                  );
-                })}
-              </View>
-            </ScrollView>
+            <PartsRow<PeopleView>
+              label={PV.label}
+              parts={PEOPLE_VIEW_KEYS.map((v) => ({
+                key: v,
+                label: PEOPLE_VIEWS[v],
+                count: counts[v],
+                on: at.view === v,
+              }))}
+              onPick={(v) => go(peopleListOf(v))}
+              testIDOf={(v) => `people-view-${v}`}
+            />
             {at.alone ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View className="flex-row gap-1.5" accessibilityLabel={PV.leftAloneLabel}>
-                  {LEFT_ALONE_KEYS.map((k) => {
-                    const on = at.alone === k;
-                    return (
-                      <Button
-                        key={k}
-                        size="sm"
-                        variant={on ? 'secondary' : 'ghost'}
-                        accessibilityState={{ selected: on }}
-                        onPress={() => {
-                          if (!on) go(peopleListOf(k));
-                        }}
-                        testID={`people-alone-${k}`}
-                      >
-                        {withCount(LEFT_ALONE[k], counts[k])}
-                      </Button>
-                    );
-                  })}
-                </View>
-              </ScrollView>
+              <PartsRow<LeftAlone>
+                label={PV.leftAloneLabel}
+                parts={LEFT_ALONE_KEYS.map((k) => ({
+                  key: k,
+                  label: LEFT_ALONE[k],
+                  count: counts[k],
+                  on: at.alone === k,
+                }))}
+                onPick={(k) => go(peopleListOf(k))}
+                testIDOf={(k) => `people-alone-${k}`}
+              />
             ) : null}
           </View>
-        ) : undefined
+        ) : (
+          header
+        )
       }
     >
       {children}

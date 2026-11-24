@@ -5,6 +5,7 @@ import {
   type WheelsListOutput,
 } from '@hfos/core/addons/outreach/automation';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { leftForToday, type TodayPart } from '@hfos/core/addons/outreach/page-parts';
 import { CALL_WORDS } from '@hfos/core/addons/outreach/calls';
 import {
   helpfulOn,
@@ -352,7 +353,13 @@ export function TodayBody({
   onRequestsAgain,
   embedded = false,
   hideSends,
+  part,
 }: {
+  /**
+   * Today's part shown (decision 193): Overview has what to know, Your list the list, partners and referrals, Posts and
+   * events the helpful post and the events, and Your team who's on training wheels. Left out, all of it.
+   */
+  part?: Exclude<TodayPart, 'done'>;
   /** The network whose list it is. */
   platform?: Platform;
   today: TodayOutput | null;
@@ -404,155 +411,169 @@ export function TodayBody({
     return frame(
       error ? <NeedsSignal words={error} onRetry={onRetry} testID="today-needs-signal" /> : null,
     );
-  const shown = (i: TodayItem) => !(i.send?.state === 'waiting' && hideSends?.has(i.send.sendId));
   const list: TodayOutput = hideSends?.size
-    ? { ...today, items: today.items.filter(shown), partners: today.partners.filter(shown) }
+    ? {
+        ...today,
+        items: leftForToday(today.items, hideSends),
+        partners: leftForToday(today.partners, hideSends),
+      }
     : today;
+  const at = (p: Exclude<TodayPart, 'done'>) => part === undefined || part === p;
   const kinds = TODAY_KIND_KEYS.filter((k) => list.items.some((i) => i.kind === k && !i.asking));
   // Posts asking for what the business offers come first, apart (decision 49).
   const asking = list.items.filter((i) => i.asking);
   return frame(
     <>
-      {list.warning ? (
-        <Card className="border-danger px-4 py-3" testID="today-warning">
-          <Text className="text-[14px] leading-[20px] text-danger">
-            {warningNote(list.warning, Date.now(), platform)}
-          </Text>
-        </Card>
-      ) : null}
-      {list.wheels.on ? (
-        <Note testID="today-wheels">{wheelsWords(list.wheels, list.fullSpeed)}</Note>
-      ) : null}
-      {/* None from a server before decisions 96 and 97. */}
-      {list.fresh?.on ? <Note testID="today-fresh">{freshWords(list.fresh, platform)}</Note> : null}
-      {list.newMessagesWait ? (
-        <Note testID="today-new-messages-wait">{W.newMessagesWait}</Note>
-      ) : null}
-      {list.requestsHeld ? (
-        <View
-          className="gap-2 rounded-menu bg-warning-soft px-3 py-2.5"
-          testID="today-requests-held"
-        >
-          <Text className="text-[13px] leading-[18px] text-warning-text">
-            {requestsHeldWords(list.requestsHeld, platform)}
-          </Text>
-          <CancelAllButtons
-            platform={platform}
-            held={list.requestsHeld}
-            onCancelAll={onCancelAll}
-          />
-          {list.requestsHeld.why === 'limit' && onRequestsAgain ? (
-            <View className="flex-row">
-              <Button
-                size="md"
-                variant="secondary"
-                onPress={onRequestsAgain}
-                testID="today-requests-again"
-              >
-                {requestsAgainWords(platform).button}
-              </Button>
+      {at('overview') ? (
+        <>
+          {list.warning ? (
+            <Card className="border-danger px-4 py-3" testID="today-warning">
+              <Text className="text-[14px] leading-[20px] text-danger">
+                {warningNote(list.warning, Date.now(), platform)}
+              </Text>
+            </Card>
+          ) : null}
+          {list.wheels.on ? (
+            <Note testID="today-wheels">{wheelsWords(list.wheels, list.fullSpeed)}</Note>
+          ) : null}
+          {/* None from a server before decisions 96 and 97. */}
+          {list.fresh?.on ? (
+            <Note testID="today-fresh">{freshWords(list.fresh, platform)}</Note>
+          ) : null}
+          {list.newMessagesWait ? (
+            <Note testID="today-new-messages-wait">{W.newMessagesWait}</Note>
+          ) : null}
+          {list.requestsHeld ? (
+            <View
+              className="gap-2 rounded-menu bg-warning-soft px-3 py-2.5"
+              testID="today-requests-held"
+            >
+              <Text className="text-[13px] leading-[18px] text-warning-text">
+                {requestsHeldWords(list.requestsHeld, platform)}
+              </Text>
+              <CancelAllButtons
+                platform={platform}
+                held={list.requestsHeld}
+                onCancelAll={onCancelAll}
+              />
+              {list.requestsHeld.why === 'limit' && onRequestsAgain ? (
+                <View className="flex-row">
+                  <Button
+                    size="md"
+                    variant="secondary"
+                    onPress={onRequestsAgain}
+                    testID="today-requests-again"
+                  >
+                    {requestsAgainWords(platform).button}
+                  </Button>
+                </View>
+              ) : null}
             </View>
           ) : null}
-        </View>
-      ) : null}
-      {/* Short of today's first messages, why, and what to try (decision 126): none from a server before it. */}
-      {list.goal ? <GoalNote platform={platform} goal={list.goal} onTry={onGoalTry} /> : null}
-      {/* The week's 1-on-1s and last week's (decision 187): none from a server before it. */}
-      {list.oneOnOnes ? (
-        <Text className="text-[13px] leading-[18px] text-text-2" testID="today-one-on-ones">
-          {CALL_WORDS.week(list.oneOnOnes.week, list.oneOnOnes.lastWeek)}
-        </Text>
-      ) : null}
-      {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
-      {list.profileOwn ? (
-        <View className="gap-2 rounded-menu bg-card-2 px-3 py-2.5" testID="today-profile-own">
-          <Text className="text-[13px] leading-[18px] text-text-2">
-            {PROFILE_PART_WORDS.ownWaiting(platform, list.profileOwn.parts)}
-          </Text>
-          {onProfileOwn ? (
-            <Button
-              size="md"
-              variant="secondary"
-              className="self-start"
-              onPress={onProfileOwn}
-              testID="today-profile-own-look"
-            >
-              {PROFILE_PART_WORDS.ownLook}
-            </Button>
+          {/* Short of today's first messages, why, and what to try (decision 126): none from a server before it. */}
+          {list.goal ? <GoalNote platform={platform} goal={list.goal} onTry={onGoalTry} /> : null}
+          {/* The week's 1-on-1s and last week's (decision 187): none from a server before it. */}
+          {list.oneOnOnes ? (
+            <Text className="text-[13px] leading-[18px] text-text-2" testID="today-one-on-ones">
+              {CALL_WORDS.week(list.oneOnOnes.week, list.oneOnOnes.lastWeek)}
+            </Text>
           ) : null}
-        </View>
+          {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
+          {list.profileOwn ? (
+            <View className="gap-2 rounded-menu bg-card-2 px-3 py-2.5" testID="today-profile-own">
+              <Text className="text-[13px] leading-[18px] text-text-2">
+                {PROFILE_PART_WORDS.ownWaiting(platform, list.profileOwn.parts)}
+              </Text>
+              {onProfileOwn ? (
+                <Button
+                  size="md"
+                  variant="secondary"
+                  className="self-start"
+                  onPress={onProfileOwn}
+                  testID="today-profile-own-look"
+                >
+                  {PROFILE_PART_WORDS.ownLook}
+                </Button>
+              ) : null}
+            </View>
+          ) : null}
+        </>
       ) : null}
-      {helpful && onHelpful && helpfulOn(platform) ? (
+      {helpful && onHelpful && helpfulOn(platform) && at('posts') ? (
         <HelpfulPart platform={platform} helpful={helpful} on={onHelpful} />
       ) : null}
-      {referrals && onReferral ? (
+      {referrals && onReferral && at('list') ? (
         <ReferralsPart referrals={referrals} asks={referAsks ?? []} on={onReferral} />
       ) : null}
       {/* The events near them coming up (decision 188): none from a server before it. */}
-      <EventsPart events={list.events ?? []} onSkip={onEventSkip} />
-      {asking.length ? (
-        <Part
-          title={`${W.asking} · ${asking.length.toLocaleString('en-US')}`}
-          about={W.askingAbout}
-          testID="today-asking"
-        >
-          {asking.map((item, i) => (
-            <ItemCard
-              key={`${item.postId ?? i}:${i}`}
-              platform={platform}
-              item={item}
-              onOk={onOk}
-              onSkip={onSkip}
-              onNotForMe={onNotForMe}
-              onPotential={onPotential}
-            />
-          ))}
-        </Part>
+      {at('posts') ? <EventsPart events={list.events ?? []} onSkip={onEventSkip} /> : null}
+      {at('list') ? (
+        <>
+          {asking.length ? (
+            <Part
+              title={`${W.asking} · ${asking.length.toLocaleString('en-US')}`}
+              about={W.askingAbout}
+              testID="today-asking"
+            >
+              {asking.map((item, i) => (
+                <ItemCard
+                  key={`${item.postId ?? i}:${i}`}
+                  platform={platform}
+                  item={item}
+                  onOk={onOk}
+                  onSkip={onSkip}
+                  onNotForMe={onNotForMe}
+                  onPotential={onPotential}
+                />
+              ))}
+            </Part>
+          ) : null}
+          {kinds.length || asking.length ? (
+            kinds.map((kind) => (
+              <KindPart
+                key={kind}
+                platform={platform}
+                kind={kind}
+                today={list}
+                onOk={onOk}
+                onSkip={onSkip}
+                onNotForMe={onNotForMe}
+                onPotential={onPotential}
+              />
+            ))
+          ) : list.partners.length ? null : (
+            <Card className="px-5 py-6" testID="today-empty">
+              <Note>{W.todayEmpty}</Note>
+            </Card>
+          )}
+          {list.partners.length ? (
+            <Part
+              title={`${PW.title} · ${list.partners.length.toLocaleString('en-US')}`}
+              about={PW.todayAbout}
+              testID="today-partners"
+            >
+              {list.partners.map((item, i) => (
+                <ItemCard
+                  key={`${item.kind}:${item.profileId ?? i}`}
+                  platform={platform}
+                  item={item}
+                  step={[
+                    todayKindsOn(platform)[item.kind],
+                    doneOnItsOwn(item.kind, list.auto) ? W.doneOnItsOwn : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  onOk={onOk}
+                  onSkip={onSkip}
+                  onNotForMe={onNotForMe}
+                />
+              ))}
+            </Part>
+          ) : null}
+          <Note>{W.todayComputerOnly}</Note>
+        </>
       ) : null}
-      {kinds.length || asking.length ? (
-        kinds.map((kind) => (
-          <KindPart
-            key={kind}
-            platform={platform}
-            kind={kind}
-            today={list}
-            onOk={onOk}
-            onSkip={onSkip}
-            onNotForMe={onNotForMe}
-            onPotential={onPotential}
-          />
-        ))
-      ) : list.partners.length ? null : (
-        <Card className="px-5 py-6" testID="today-empty">
-          <Note>{W.todayEmpty}</Note>
-        </Card>
-      )}
-      {list.partners.length ? (
-        <Part
-          title={`${PW.title} · ${list.partners.length.toLocaleString('en-US')}`}
-          about={PW.todayAbout}
-          testID="today-partners"
-        >
-          {list.partners.map((item, i) => (
-            <ItemCard
-              key={`${item.kind}:${item.profileId ?? i}`}
-              platform={platform}
-              item={item}
-              step={[
-                todayKindsOn(platform)[item.kind],
-                doneOnItsOwn(item.kind, list.auto) ? W.doneOnItsOwn : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-              onOk={onOk}
-              onSkip={onSkip}
-              onNotForMe={onNotForMe}
-            />
-          ))}
-        </Part>
-      ) : null}
-      <Note>{W.todayComputerOnly}</Note>
-      {wheels ? (
+      {wheels && at('team') ? (
         <Part title={W.wheelsTitle} testID="today-wheels-team">
           {wheels.people.length ? (
             wheels.people.map((p) => (

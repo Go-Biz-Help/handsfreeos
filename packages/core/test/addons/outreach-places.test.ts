@@ -12,6 +12,7 @@ import { ADDON_CATALOG } from '../../src/addons/catalog';
 import { OUTREACH_LOOK_ALIKES, OUTREACH_PLACES } from '../../src/addons/outreach/ai-places';
 import { outreachAddon } from '../../src/addons/outreach/manifest';
 import { PLATFORM_KEYS, PLATFORMS } from '../../src/addons/outreach/networks';
+import { NEEDS_PARTS, TODAY_PARTS } from '../../src/addons/outreach/page-parts';
 import { PEOPLE_VIEWS } from '../../src/addons/outreach/people-views';
 import { SETTINGS_PART_KEYS } from '../../src/addons/outreach/settings-parts';
 import { OUTREACH_WORDS } from '../../src/addons/outreach/words';
@@ -21,8 +22,13 @@ const NAME = 'Social Outreach';
 const nav = outreachAddon.ui?.nav ?? [];
 const PARTS = OUTREACH_WORDS.settingsParts;
 
-/** What may follow each page in its own row: People's views, Find people's parts, and the Settings menu. */
+/**
+ * What may follow each page in its own row: People's views, Find people's parts, Needs you's and Today's parts
+ * (decision 193), and the Settings menu.
+ */
 const ROWS: Readonly<Record<string, readonly string[]>> = {
+  'Needs you': Object.values(NEEDS_PARTS),
+  Today: Object.values(TODAY_PARTS),
   People: Object.values(PEOPLE_VIEWS),
   'Find people': Object.values(OUTREACH_WORDS.findParts),
   Settings: [

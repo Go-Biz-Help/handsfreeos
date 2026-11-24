@@ -10,6 +10,11 @@ import { Linking } from 'react-native';
 import { change } from '@/changes';
 
 import { AUTOPILOT_WORDS, type AutopilotOutput } from '@hfos/core/addons/outreach/autopilot';
+import {
+  NEEDS_PARTS,
+  PAGE_PART_WORDS,
+  type NeedsPart,
+} from '@hfos/core/addons/outreach/page-parts';
 
 import {
   answerAutopilot,
@@ -153,6 +158,77 @@ const AUTOPILOT: AutopilotOutput = {
     },
   ],
 };
+
+describe('Needs you’s parts on the phone (decision 193)', () => {
+  it('shows one part at a time, the first with anything in it, with a row of the parts that have something', async () => {
+    const h = handlers();
+    const onPick = jest.fn();
+    const body = (asked: NeedsPart | null) => (
+      <WaitingBody
+        phone={waitingOfCopy([], ME)}
+        server={SERVER}
+        serverError={null}
+        online
+        timeZone={TZ}
+        now={NOW}
+        autopilot={AUTOPILOT}
+        onAutopilot={jest.fn()}
+        parts={{ asked, onPick }}
+        {...h}
+      />
+    );
+    const { rerender } = await render(body(null));
+    // Autopilot's people to OK first, then the step and the request: nothing else waits, so nothing else is on the row.
+    expect(screen.getByTestId('needs-part-autopilot')).toBeTruthy();
+    expect(screen.getByText(`${NEEDS_PARTS.autopilot} 2`)).toBeTruthy();
+    expect(screen.getByText(`${NEEDS_PARTS.need} 1`)).toBeTruthy();
+    expect(screen.getByText(`${NEEDS_PARTS.request} 1`)).toBeTruthy();
+    expect(screen.queryByTestId('needs-part-message')).toBeNull();
+    expect(screen.getByTestId('autopilot-list')).toBeTruthy();
+    expect(screen.queryByTestId('waiting-need')).toBeNull();
+    expect(screen.queryByTestId('waiting-request')).toBeNull();
+    await fireEvent.press(screen.getByTestId('needs-part-need'));
+    expect(onPick).toHaveBeenCalledWith('need');
+    // The steps part: only the steps.
+    await rerender(body('need'));
+    expect(screen.getByTestId('waiting-need')).toBeTruthy();
+    expect(screen.queryByTestId('autopilot-list')).toBeNull();
+    expect(screen.queryByTestId('waiting-request')).toBeNull();
+    // A part asked for that's empty now stays on the row, and says to pick another.
+    await rerender(body('message'));
+    expect(screen.getByTestId('needs-part-message')).toBeTruthy();
+    expect(
+      within(screen.getByTestId('waiting-part-empty')).getByText(PAGE_PART_WORDS.needsPartEmpty),
+    ).toBeTruthy();
+  });
+
+  it('has no row while nothing waits', async () => {
+    const h = handlers();
+    await render(
+      <WaitingBody
+        phone={waitingOfCopy([], ME)}
+        server={{
+          ...SERVER,
+          needs: [],
+          requests: [],
+          kinds: {
+            ...SERVER.kinds,
+            need: { count: 0, newestAt: null },
+            request: { count: 0, newestAt: null },
+          },
+        }}
+        serverError={null}
+        online
+        timeZone={TZ}
+        now={NOW}
+        parts={{ asked: null, onPick: jest.fn() }}
+        {...h}
+      />,
+    );
+    expect(screen.queryByTestId('needs-part-need')).toBeNull();
+    expect(screen.getByTestId('waiting-empty')).toBeTruthy();
+  });
+});
 
 describe('Autopilot’s day’s list on the phone (decision 151)', () => {
   it('comes first on Needs you, grouped by network, the spares last, with OK everyone else, Not today and Put back', async () => {
