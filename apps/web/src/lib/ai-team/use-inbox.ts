@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiBrowser, unwrap } from '@/lib/api/client';
-import { useLiveVersion } from '@/lib/realtime/live-provider';
+import { DELIVERY_RECEIPTS, useLiveVersion } from '@/lib/realtime/live-provider';
 import type { TeammateDraft } from './inbox-types';
 import { teammateBriefOf, type TeammateBrief } from './inbox-words';
 
@@ -41,7 +41,10 @@ export function useTeammateBrief(
  * latest decided, so the thread can say what became of it.
  */
 export function useConversationDrafts(workspaceId: string, conversationId: string) {
-  const live = useLiveVersion(['ai_teammate_draft', 'conversation', 'message'], 250);
+  // A message: the customer's next one ends a draft. How one that went out fared says little of a draft.
+  const live = useLiveVersion(['ai_teammate_draft', 'conversation', 'message'], 250, {
+    seldom: DELIVERY_RECEIPTS,
+  });
   const [state, setState] = useState<{ for: string; items: TeammateDraft[]; loaded: boolean }>({
     for: conversationId,
     items: [],

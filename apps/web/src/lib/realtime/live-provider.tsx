@@ -221,7 +221,30 @@ export interface LiveOptions {
   readonly only?: Readonly<Record<string, readonly string[]>>;
   /** Keep listening in a background tab (the unread count in the tab title). */
   readonly whileHidden?: boolean;
+  /**
+   * useLiveVersion only: kinds of event that seldom change what this screen shows (DELIVERY_RECEIPTS, for a list of
+   * conversations and its counts). They are still heard, so nothing that leans on one is lost, but a run of them
+   * asks once every few seconds, not once each.
+   */
+  readonly seldom?: readonly string[];
 }
+
+/**
+ * What a carrier, a mail service or the customer's own app says became of a message that went out
+ * (`message.update_status` in core, and its like for chat, the portal and social). It changes that message's bubble
+ * in the thread. A conversation's row and the unread counts are made of none of it, yet their screens asked again
+ * for each one: a campaign going out is a run of them, heard by every open tab.
+ */
+export const DELIVERY_RECEIPTS: readonly string[] = [
+  'message.sent',
+  'message.delivered',
+  'message.read',
+  'message.failed',
+  'message.bounced',
+  'message.complained',
+];
+/** How long a run of `seldom` events is gathered before it asks once. */
+const SELDOM_WAIT_MS = 4_000;
 
 function matches(
   change: Parameters<Listener>[0],
@@ -264,6 +287,28 @@ function debounced(fire: () => void, ms: number): Debounced {
     clearTimeout(timer);
     timer = null;
     fire();
+  };
+  return trigger;
+}
+
+interface Gathered {
+  (): void;
+  /** Drops what is waiting: something else has just asked for the same. */
+  cancel(): void;
+}
+
+/** Fires once, `ms` after the first of a run of calls. */
+function gathered(fire: () => void, ms: number): Gathered {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const trigger = () => {
+    timer ??= setTimeout(() => {
+      timer = null;
+      fire();
+    }, ms);
+  };
+  trigger.cancel = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
   };
   return trigger;
 }
@@ -322,16 +367,25 @@ export function useLiveVersion(
   const [version, setVersion] = useState(0);
   const key = typesKey(entityTypes);
   const onlyKey = options?.only ? JSON.stringify(options.only) : undefined;
+  const seldomKey = options?.seldom?.join(',');
   const whileHidden = options?.whileHidden ?? false;
   useEffect(() => {
     if (key === '') return;
     const types = key === undefined ? undefined : key.split(',');
     const only = onlyKey === undefined ? undefined : (JSON.parse(onlyKey) as LiveOptions['only']);
-    const trigger = debounced(() => setVersion((v) => v + 1), debounceMs);
+    const seldom = seldomKey?.split(',');
+    const later = gathered(() => setVersion((v) => v + 1), SELDOM_WAIT_MS);
+    const trigger = debounced(() => {
+      // What the gathered ones wanted is asked for now.
+      later.cancel();
+      setVersion((v) => v + 1);
+    }, debounceMs);
     return subscribe((change) => {
-      if (matches(change, types, only)) trigger();
+      if (!matches(change, types, only)) return;
+      if (seldom?.includes(change.type)) later();
+      else trigger();
     }, whileHidden);
-  }, [subscribe, key, onlyKey, debounceMs, whileHidden]);
+  }, [subscribe, key, onlyKey, seldomKey, debounceMs, whileHidden]);
   return version;
 }
 
