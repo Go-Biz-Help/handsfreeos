@@ -1,14 +1,89 @@
-import { ASSISTANT_WORDS, VOICE_WORDS } from '@hfos/core';
+import { ASSISTANT_PICTURES_MAX, ASSISTANT_WORDS, VOICE_WORDS } from '@hfos/core';
 import * as React from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Image, Pressable, TextInput, View } from 'react-native';
 
+import type { DraftPicture } from '@/assistant/pictures';
 import type { AssistantVoice } from '@/assistant/voice';
-import { ArrowUp, Mic, Square } from '@/components/icons';
+import { ArrowUp, Camera, Images, ImagePlus, Mic, Square, X } from '@/components/icons';
 import { Icon } from '@/components/ui/icon';
+import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
 import { VoiceBar, VoiceError } from '@/components/voice/voice-bar';
 import { cn } from '@/lib/utils';
 import { useColors } from '@/theme';
+
+/** Take a photo, or choose pictures: what the picture button offers. */
+function PictureSheet({
+  open,
+  onClose,
+  onPick,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onPick: (source: 'camera' | 'library') => void;
+}) {
+  const W = ASSISTANT_WORDS.pictures;
+  return (
+    <Sheet open={open} onClose={onClose} title={W.add} testID="assistant-picture-sheet">
+      <View className="gap-1">
+        <Pressable
+          role="button"
+          onPress={() => onPick('camera')}
+          className="min-h-14 flex-row items-center gap-3 rounded-menu px-2"
+          testID="assistant-picture-camera"
+        >
+          <Icon as={Camera} className="size-5 text-text-2" />
+          <Text className="text-[15px]">{W.take}</Text>
+        </Pressable>
+        <Pressable
+          role="button"
+          onPress={() => onPick('library')}
+          className="min-h-14 flex-row items-center gap-3 rounded-menu px-2"
+          testID="assistant-picture-library"
+        >
+          <Icon as={Images} className="size-5 text-text-2" />
+          <Text className="text-[15px]">{W.choose}</Text>
+        </Pressable>
+        <Text className="px-2 pt-1 text-[12.5px] text-text-3">{W.hint}</Text>
+      </View>
+    </Sheet>
+  );
+}
+
+/** The pictures waiting to go with the question, each with a way to take it off. */
+function DraftPictures({
+  pictures,
+  onRemove,
+}: {
+  pictures: readonly DraftPicture[];
+  onRemove: (id: string) => void;
+}) {
+  if (!pictures.length) return null;
+  return (
+    <View className="flex-row flex-wrap gap-2 px-3 pt-2.5" testID="assistant-pictures">
+      {pictures.map((p, i) => (
+        <View key={p.id} className="relative">
+          <Image
+            source={{ uri: p.preview }}
+            accessibilityLabel={`Picture ${i + 1}`}
+            className="size-14 rounded-[10px] border border-border"
+            resizeMode="cover"
+          />
+          <Pressable
+            role="button"
+            accessibilityLabel={`${ASSISTANT_WORDS.pictures.remove} (${i + 1})`}
+            hitSlop={8}
+            onPress={() => onRemove(p.id)}
+            testID={`assistant-picture-remove-${i + 1}`}
+            className="absolute -right-1.5 -top-1.5 size-5 items-center justify-center rounded-full border border-border bg-card"
+          >
+            <Icon as={X} className="size-3 text-text-2" />
+          </Pressable>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 /**
  * Where the question is typed. Return adds a line, and the round button sends, as on a phone it must. While an
@@ -24,6 +99,9 @@ export function AssistantComposer({
   running,
   off,
   voice,
+  pictures = [],
+  onPickPictures,
+  onRemovePicture,
 }: {
   value: string;
   onChange: (text: string) => void;
@@ -34,9 +112,15 @@ export function AssistantComposer({
   off: { readonly text: string; readonly hint: string } | null;
   /** Talking out loud; without it there's no mic. */
   voice?: AssistantVoice;
+  /** Pictures waiting to go with the question; without `onPickPictures` there's no picture button. */
+  pictures?: readonly DraftPicture[];
+  onPickPictures?: (source: 'camera' | 'library') => void;
+  onRemovePicture?: (id: string) => void;
 }) {
   const colors = useColors();
-  const canSend = value.trim().length > 0 && !running;
+  const [sheet, setSheet] = React.useState(false);
+  const canSend = (value.trim().length > 0 || pictures.length > 0) && !running;
+  const full = pictures.length >= ASSISTANT_PICTURES_MAX;
 
   if (off)
     return (
@@ -56,7 +140,24 @@ export function AssistantComposer({
     <View className="flex-none border-t border-border bg-card">
       {voice ? <VoiceBar session={voice.session} snap={voice.snap} onTalk={voice.talk} /> : null}
       {voice ? <VoiceError snap={voice.snap} className="px-3.5 pt-2" /> : null}
+      {onRemovePicture ? <DraftPictures pictures={pictures} onRemove={onRemovePicture} /> : null}
       <View className="flex-row items-end gap-1.5 px-2.5 pb-2.5 pt-2" testID="assistant-composer">
+        {onPickPictures ? (
+          <Pressable
+            role="button"
+            accessibilityLabel={ASSISTANT_WORDS.pictures.add}
+            accessibilityState={{ disabled: full }}
+            disabled={full}
+            testID="assistant-add-picture"
+            onPress={() => setSheet(true)}
+            className={cn(
+              'size-11 shrink-0 items-center justify-center rounded-full border border-border-strong active:bg-card-2',
+              full && 'opacity-45',
+            )}
+          >
+            <Icon as={ImagePlus} className="size-[18px] text-text-2" />
+          </Pressable>
+        ) : null}
         {voice ? (
           <Pressable
             role="button"
@@ -117,6 +218,16 @@ export function AssistantComposer({
           </Pressable>
         )}
       </View>
+      {onPickPictures ? (
+        <PictureSheet
+          open={sheet}
+          onClose={() => setSheet(false)}
+          onPick={(source) => {
+            setSheet(false);
+            onPickPictures(source);
+          }}
+        />
+      ) : null}
     </View>
   );
 }

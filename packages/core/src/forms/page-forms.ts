@@ -1,0 +1,1088 @@
+/**
+ * The forms on a web page, read so the form builder can make them (the owner, 2026-11-24: "send a link, have the AI
+ * see the form(s) on the page and be able to create those as well, including if the form has drop down options or
+ * things not viewable until opened").
+ *
+ * **Read from the page's HTML, not a screen.** A dropdown's choices, a later step of a form that goes a step at a
+ * time, and a part that shows only once something is picked are all in the HTML before anyone opens them, so the
+ * outline has every one of them, marked for what it is. A Google Form keeps every question, its sections included, in
+ * the page's data, and a Typeform keeps its whole form, skip rules and all, in `window.rendererData`: each is read from
+ * that data instead of its HTML. Any other form a site draws with code after the page loads (Wix) has nothing in its
+ * HTML to read: `formsOnPage` then finds nothing, and the person is asked for a screenshot.
+ *
+ * **An outline, not markup.** Each form becomes lines of its words and its boxes ("[dropdown, required: Lawn |
+ * Snow]"), which reads well to a model and survives being quoted as data. Split like `messaging/site-forms.ts`: the
+ * worker fetches the page and the forms framed on it (`apps/worker/src/forms/page-forms.ts`), this only reads, so all
+ * of it can be tested without a network. Browser-safe.
+ */
+
+/** One form found on a page. */
+export interface PageForm {
+  /** 1, 2, 3… in the order they are on the page (and its frames after it). */
+  readonly number: number;
+  /** What the page calls it: the heading above it, its legend, its label or the page's title. Null when none says. */
+  readonly title: string | null;
+  /** How many boxes it has for a person to fill in or pick in. */
+  readonly fields: number;
+  /** A line to tell it apart from the page's other forms ("Name · Email · Service"). */
+  readonly summary: string;
+  /** The form as the builder reads it: its words, its boxes, every dropdown's choices, steps and hidden parts marked. */
+  readonly outline: string;
+  /** Where it was read: the page, or the form framed on it. */
+  readonly url: string;
+}
+
+/** The longest outline kept for one form: a long form's questions fit many times over. */
+export const PAGE_FORM_OUTLINE_MAX = 20_000;
+/** The most forms read from one page (its frames included). */
+export const PAGE_FORMS_MAX = 8;
+
+const VOID = new Set([
+  'input',
+  'br',
+  'img',
+  'hr',
+  'meta',
+  'link',
+  'source',
+  'wbr',
+  'area',
+  'col',
+  'embed',
+  'param',
+  'track',
+  'base',
+]);
+/** Tags that start a new line in the outline. */
+const BLOCK = new Set([
+  'p',
+  'div',
+  'li',
+  'br',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'label',
+  'fieldset',
+  'legend',
+  'tr',
+  'section',
+  'form',
+  'ul',
+  'ol',
+  'table',
+  'hr',
+  'dt',
+  'dd',
+  'article',
+  'header',
+  'footer',
+]);
+/** Kinds of input box nobody fills in. */
+const NOT_FILLED = new Set(['hidden', 'submit', 'button', 'image', 'reset']);
+const INPUT_WORDS: Readonly<Record<string, string>> = {
+  text: 'short answer box',
+  email: 'email box',
+  tel: 'phone box',
+  number: 'number box',
+  date: 'date box',
+  'datetime-local': 'date and time box',
+  time: 'time box',
+  month: 'month box',
+  week: 'week box',
+  url: 'website box',
+  file: 'file upload',
+  range: 'slider',
+  color: 'color picker',
+  search: 'search box',
+  password: 'password box',
+};
+
+/** The named entities a page's words are usually written with. */
+const ENTITIES: Readonly<Record<string, string>> = {
+  nbsp: ' ',
+  quot: '"',
+  apos: "'",
+  lt: '<',
+  gt: '>',
+  rsquo: '’',
+  lsquo: '’',
+  rdquo: '"',
+  ldquo: '"',
+  ndash: '–',
+  mdash: '—',
+  hellip: '…',
+  amp: '&',
+};
+
+/**
+ * The few entities a page's words are written with, and numbered ones, in one pass: one at a time would read
+ * "&#38;lt;" as "<", the "&" the first made being read again by the next.
+ */
+export function decodeEntities(text: string): string {
+  return text.replace(
+    /&(?:#x([0-9a-f]{1,6})|#(\d{1,7})|([a-z]{2,6}));/gi,
+    (whole, hex: string | undefined, dec: string | undefined, name: string | undefined) =>
+      hex
+        ? safeChar(parseInt(hex, 16))
+        : dec
+          ? safeChar(Number(dec))
+          : (ENTITIES[name!.toLowerCase()] ?? whole),
+  );
+}
+
+function safeChar(code: number): string {
+  try {
+    return code > 0 && code < 0x110000 ? String.fromCodePoint(code) : ' ';
+  } catch {
+    return ' ';
+  }
+}
+
+/** One attribute of a tag, quoted or not, entities undone; null when it isn't there. */
+function attr(tag: string, name: string): string | null {
+  const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
+  if (m) return decodeEntities(m[1] ?? m[2] ?? m[3] ?? '').trim();
+  return new RegExp(`\\s${name}(?=[\\s/>])`, 'i').test(tag) ? '' : null;
+}
+
+const has = (tag: string, name: string): boolean => attr(tag, name) !== null;
+
+/*
+ * A page someone links can be anything, so nothing here looks for an end with a pattern like `<form[^>]*>[\s\S]*?
+ * </form>`: on a page of a thing opened again and again and never closed, its time grows with the square of the page
+ * (3 MB of "<!--" took hours). Elements and comments are found in one pass instead, and a `<` with no `>` after it is
+ * taken out, so every tag pattern finds its end straight away.
+ */
+
+/** A `<` that no `>` follows can't start a tag: made a space, so a tag pattern never searches to the end for one. */
+function closedTags(html: string): string {
+  const last = html.lastIndexOf('>');
+  return last < 0
+    ? html.replaceAll('<', ' ')
+    : html.slice(0, last + 1) + html.slice(last + 1).replaceAll('<', ' ');
+}
+
+/** Comments taken out, in one pass. */
+function withoutComments(html: string): string {
+  let out = '';
+  let pos = 0;
+  for (;;) {
+    const open = html.indexOf('<!--', pos);
+    const close = open < 0 ? -1 : html.indexOf('-->', open + 4);
+    if (close < 0) return out + html.slice(pos);
+    out += `${html.slice(pos, open)} `;
+    pos = close + 3;
+  }
+}
+
+interface Element {
+  /** Where its open tag starts in the page. */
+  readonly start: number;
+  /** Just after its close tag. */
+  readonly end: number;
+  /** Its open tag, `<form class="x">`. */
+  readonly open: string;
+  /** What's between its tags. */
+  readonly inner: string;
+}
+
+const HEADINGS = ['h1', 'h2', 'h3', 'h4'] as const;
+const NOT_READ = ['script', 'style', 'noscript', 'svg', 'template', 'head', 'iframe'] as const;
+
+/**
+ * Each `<name …>…</name>` on the page, in order and never one inside another, found in one pass. A name never closed
+ * after one opens is never looked for again. Every pattern is made from `names`, never from the page.
+ */
+function elements(html: string, names: readonly string[], limit = Infinity): Element[] {
+  const opens = new RegExp(`<(${names.join('|')})\\b`, 'gi');
+  const closers = new Map(names.map((n) => [n, new RegExp(`</${n}\\s*>`, 'gi')]));
+  const unclosed = new Set<string>();
+  const found: Element[] = [];
+  let m: RegExpExecArray | null;
+  while (found.length < limit && (m = opens.exec(html))) {
+    const name = m[1]!.toLowerCase();
+    const closes = closers.get(name);
+    if (!closes || unclosed.has(name)) continue;
+    const gt = html.indexOf('>', m.index);
+    if (gt < 0) break;
+    closes.lastIndex = gt + 1;
+    const close = closes.exec(html);
+    if (!close) {
+      unclosed.add(name);
+      continue;
+    }
+    const end = close.index + close[0].length;
+    found.push({
+      start: m.index,
+      end,
+      open: html.slice(m.index, gt + 1),
+      inner: html.slice(gt + 1, close.index),
+    });
+    opens.lastIndex = end;
+  }
+  return found;
+}
+
+/** Comments, scripts, styles, pictures drawn in code and the page's head, taken out. */
+function cleaned(html: string): string {
+  const page = withoutComments(html);
+  let out = '';
+  let pos = 0;
+  for (const e of elements(page, NOT_READ)) {
+    out += `${page.slice(pos, e.start)} `;
+    pos = e.end;
+  }
+  // Last, since what was taken out may have held the `>` a `<` before it was waiting for.
+  return closedTags(out + page.slice(pos));
+}
+
+/** The words of a piece of a page, its tags taken out. `[^<>]`, never `[^>]`, so a run of `<` is passed in one go. */
+const wordsOf = (html: string): string => squash(closedTags(html).replace(/<[^<>]*>/g, ' '));
+
+const squash = (text: string): string => decodeEntities(text).replace(/\s+/g, ' ').trim();
+
+/** Whether a tag hides what's inside it until something happens. */
+function hiddenTag(tag: string): boolean {
+  if (has(tag, 'hidden')) return true;
+  const style = attr(tag, 'style') ?? '';
+  if (/display\s*:\s*none|visibility\s*:\s*hidden/i.test(style)) return true;
+  const classes = (attr(tag, 'class') ?? '').toLowerCase().split(/\s+/);
+  return classes.some((c) => /^(hidden|d-none|is-hidden|hide|gf_hidden|elementor-hidden)$/.test(c));
+}
+
+/** A box a page hides to catch robots ("leave this field empty"): never one of the form's questions. */
+function robotTrap(tag: string): boolean {
+  const classes = (attr(tag, 'class') ?? '').toLowerCase();
+  return /gform_validation_container|honeypot|\bhp-field|ohnohoney|wpforms-field-hp|ak_hp|cf7-hp|nf-field-hp/.test(
+    classes,
+  );
+}
+
+/** Whether a tag is one step of a form that goes a step at a time. */
+function stepTag(tag: string): boolean {
+  if (has(tag, 'data-step') || has(tag, 'data-page')) return true;
+  const classes = (attr(tag, 'class') ?? '').toLowerCase().split(/\s+/);
+  return classes.some((c) =>
+    /^(gform_page|wpforms-page|form-step|step|formstep|multi-step-page|jf-page|e-form__step|fluentform-step|ff-step-body)$|^(step|page)-\d+$/.test(
+      c,
+    ),
+  );
+}
+
+/** Whether a tag holds a part that shows only when an earlier answer fits. */
+function conditionalTag(tag: string): boolean {
+  const classes = (attr(tag, 'class') ?? '').toLowerCase();
+  return (
+    /conditional|has-condition|ff_excluded|dependent/.test(classes) ||
+    has(tag, 'data-conditional-logic')
+  );
+}
+
+/** What a box says about itself, beyond its kind: its name, placeholder, limits and whether it must be filled in. */
+function boxDetails(tag: string): string {
+  const parts: string[] = [];
+  const label = attr(tag, 'aria-label') || attr(tag, 'title');
+  if (label) parts.push(`labelled "${label}"`);
+  const placeholder = attr(tag, 'placeholder');
+  if (placeholder) parts.push(`placeholder "${placeholder}"`);
+  const name = attr(tag, 'name');
+  if (name && !/^(input_\d+|field\d*|wpforms\[fields\]\[\d+\])/i.test(name) && name.length <= 60)
+    parts.push(`name "${name}"`);
+  const min = attr(tag, 'min');
+  const max = attr(tag, 'max');
+  if (min) parts.push(`at least ${min}`);
+  if (max) parts.push(`at most ${max}`);
+  const accept = attr(tag, 'accept');
+  if (accept) parts.push(`takes ${accept}`);
+  if (has(tag, 'multiple')) parts.push('more than one');
+  if (
+    has(tag, 'required') ||
+    /^true$/i.test(attr(tag, 'aria-required') ?? '') ||
+    /^true$/i.test(attr(tag, 'data-required') ?? '')
+  )
+    parts.push('required');
+  return parts.length ? `, ${parts.join(', ')}` : '';
+}
+
+interface Box {
+  /** The whole tag, `<input type="email" name="e">`. */
+  readonly tag: string;
+  /** input, select or textarea. */
+  readonly kind: string;
+  readonly index: number;
+}
+
+/** Each `<input>`, `<select>` and `<textarea>` tag, in one pass. */
+function boxTags(html: string): Box[] {
+  const found: Box[] = [];
+  let next = 0;
+  for (const m of html.matchAll(/<(input|select|textarea)\b/gi)) {
+    if (m.index < next) continue;
+    const gt = html.indexOf('>', m.index);
+    if (gt < 0) break;
+    found.push({ tag: html.slice(m.index, gt + 1), kind: m[1]!.toLowerCase(), index: m.index });
+    next = gt + 1;
+  }
+  return found;
+}
+
+interface Piece {
+  /** A tag as written, or a run of words between tags. */
+  readonly raw: string;
+  /** The tag's name, lower case; null for words. */
+  readonly name: string | null;
+  readonly closing: boolean;
+}
+
+/** The page as tags and the words between them, in one pass. A `<` that starts no tag is left out. */
+function piecesOf(html: string): Piece[] {
+  const pieces: Piece[] = [];
+  const lastGt = html.lastIndexOf('>');
+  let pos = 0;
+  while (pos < html.length) {
+    const lt = html.indexOf('<', pos);
+    const end = lt < 0 ? html.length : lt;
+    if (end > pos) pieces.push({ raw: html.slice(pos, end), name: null, closing: false });
+    if (lt < 0) break;
+    const head = lt < lastGt ? /^<(\/?)([a-zA-Z][\w:-]*)/.exec(html.slice(lt, lt + 64)) : null;
+    if (!head) {
+      pos = lt + 1;
+      continue;
+    }
+    const gt = html.indexOf('>', lt);
+    pieces.push({
+      raw: html.slice(lt, gt + 1),
+      name: head[2]!.toLowerCase(),
+      closing: head[1] === '/',
+    });
+    pos = gt + 1;
+  }
+  return pieces;
+}
+
+/** Counts the boxes a person fills in or picks in. Radio buttons sharing a name count once. */
+export function countFields(html: string): number {
+  const clean = cleaned(html);
+  let n = 0;
+  const radios = new Set<string>();
+  for (const { tag, kind, index } of boxTags(clean)) {
+    if (kind !== 'input') {
+      n++;
+      continue;
+    }
+    const type = (attr(tag, 'type') ?? 'text').toLowerCase();
+    if (NOT_FILLED.has(type)) continue;
+    if (type === 'radio') {
+      const name = attr(tag, 'name') ?? `#${index}`;
+      if (radios.has(name)) continue;
+      radios.add(name);
+    }
+    n++;
+  }
+  return n;
+}
+
+/**
+ * A stretch of HTML as an outline: its words, a line per block, each box in square brackets, a dropdown with all its
+ * choices, and the parts a person can't see yet marked where they start and end.
+ */
+export function pageFormOutline(html: string): string {
+  const clean = cleaned(html);
+  const out: string[] = [];
+  let line = '';
+  const flush = () => {
+    const t = line.replace(/\s+/g, ' ').trim();
+    if (t) out.push(t);
+    line = '';
+  };
+  const say = (text: string) => {
+    line += text;
+  };
+  /** Open elements, and what to say when each closes (only the ones that said something as they opened). */
+  const stack: { name: string; closing: string | null }[] = [];
+  let steps = 0;
+  /** A dropdown being read: its tag and choices so far. */
+  let select: {
+    tag: string;
+    choices: string[];
+    group: string | null;
+    option: string | null;
+  } | null = null;
+  /**
+   * Inside something whose words aren't the form's own: a text area's starting text, a button's words (said once it
+   * closes), or a box a page hides from robots (said not at all). `depth` counts the same tag opened inside it.
+   */
+  let skipping: { name: string; words: string; depth: number; button: boolean } | null = null;
+
+  for (const piece of piecesOf(clean)) {
+    const raw = piece.raw;
+    if (piece.name === null) {
+      const text = decodeEntities(raw);
+      if (select) {
+        if (select.option !== null) select.option += text;
+      } else if (skipping) skipping.words += text;
+      else say(text);
+      continue;
+    }
+    const closing = piece.closing;
+    const name = piece.name;
+
+    if (select) {
+      if (name === 'option' && !closing) {
+        if (select.option !== null) endOption(select);
+        select.option = '';
+        if (has(raw, 'disabled') && !attr(raw, 'value')) select.option = '\u0000';
+      } else if (name === 'option' && closing) endOption(select);
+      else if (name === 'optgroup' && !closing) select.group = attr(raw, 'label');
+      else if (name === 'select' && closing) {
+        if (select.option !== null) endOption(select);
+        const pickAny = has(select.tag, 'multiple');
+        say(
+          ` [${pickAny ? 'list to pick any of' : 'dropdown'}${boxDetails(select.tag).replace(', more than one', '')}: ${
+            select.choices.join(' | ') || 'no choices'
+          }] `,
+        );
+        select = null;
+      }
+      continue;
+    }
+    if (skipping) {
+      if (name === skipping.name && !closing && !VOID.has(name)) skipping.depth++;
+      else if (name === skipping.name && closing && --skipping.depth <= 0) {
+        if (skipping.button) {
+          const words = squash(skipping.words);
+          if (words) say(` [button: ${words}] `);
+        }
+        skipping = null;
+      }
+      continue;
+    }
+
+    if (closing) {
+      // Close back to the matching element, saying the end of any part that was marked.
+      const at = stack.map((s) => s.name).lastIndexOf(name);
+      if (at < 0) continue;
+      while (stack.length > at) {
+        const open = stack.pop()!;
+        if (open.closing) {
+          flush();
+          out.push(open.closing);
+        }
+      }
+      // A label's box usually comes right after it: they stay on one line, and the next block starts a new one.
+      if (BLOCK.has(name) && name !== 'label') flush();
+      continue;
+    }
+
+    if (BLOCK.has(name)) flush();
+    if (!VOID.has(name) && robotTrap(raw)) {
+      skipping = { name, words: '', depth: 1, button: false };
+      continue;
+    }
+    switch (name) {
+      case 'input': {
+        const type = (attr(raw, 'type') ?? 'text').toLowerCase();
+        if (type === 'hidden') break;
+        if (type === 'submit' || type === 'button' || type === 'image' || type === 'reset') {
+          const words = attr(raw, 'value') || attr(raw, 'alt');
+          if (words && type !== 'reset') say(` [button: ${words}] `);
+          break;
+        }
+        const required = boxDetails(raw).includes('required') ? ' (required)' : '';
+        if (type === 'checkbox') say(` [tick box${checked(raw)}${required}] `);
+        else if (type === 'radio') say(` (pick one${checked(raw)}${required}) `);
+        else say(` [${INPUT_WORDS[type] ?? 'short answer box'}${boxDetails(raw)}] `);
+        break;
+      }
+      case 'select':
+        select = { tag: raw, choices: [], group: null, option: null };
+        break;
+      case 'textarea':
+        say(` [long answer box${boxDetails(raw)}] `);
+        skipping = { name, words: '', depth: 1, button: false };
+        break;
+      case 'button':
+        skipping = {
+          name,
+          words: '',
+          depth: 1,
+          button: (attr(raw, 'type') ?? 'submit').toLowerCase() !== 'reset',
+        };
+        break;
+      case 'img': {
+        const alt = attr(raw, 'alt');
+        if (alt) say(` (picture: ${alt}) `);
+        break;
+      }
+      default:
+        break;
+    }
+    if (VOID.has(name) || name === 'select' || name === 'textarea' || name === 'button') continue;
+
+    // An element that hides what's inside it, or is one step of several: said where it starts and ends.
+    let opening: string | null = null;
+    let ending: string | null = null;
+    if (stepTag(raw)) {
+      steps++;
+      opening = `--- Step ${steps}${hiddenTag(raw) && steps > 1 ? ' (shows after Next is pressed)' : ''} ---`;
+    } else if (conditionalTag(raw)) {
+      opening = '{Shows only when an earlier answer fits:';
+      ending = '}';
+    } else if (hiddenTag(raw)) {
+      opening = '{Hidden until something on the form shows it:';
+      ending = '}';
+    }
+    if (opening) {
+      flush();
+      out.push(opening);
+    }
+    stack.push({ name, closing: ending });
+  }
+  flush();
+  const text = out
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return text.length > PAGE_FORM_OUTLINE_MAX
+    ? `${text.slice(0, PAGE_FORM_OUTLINE_MAX)}\n…(the rest of the form was cut)`
+    : text;
+
+  function endOption(s: NonNullable<typeof select>) {
+    const words = squash(s.option ?? '');
+    s.option = null;
+    if (!words || words.startsWith('\u0000')) return;
+    // "Select one…", "-- Choose --": what the box says before anything is picked, not a choice.
+    if (/^(-+\s*)?(please\s+)?(select|choose|pick)\b|^-+$|^…$/i.test(words) && !s.choices.length)
+      return;
+    s.choices.push(s.group ? `${s.group}: ${words}` : words);
+  }
+}
+
+const checked = (tag: string): string => (has(tag, 'checked') ? ', already ticked' : '');
+
+/** The words of the last heading before `at`, within a stretch of page, or null. */
+function headingBefore(html: string, at: number): string | null {
+  const last = elements(html.slice(Math.max(0, at - 3000), at), HEADINGS).at(-1);
+  const words = last ? wordsOf(last.inner) : '';
+  return words && words.length <= 120 ? words : null;
+}
+
+function formTitle(page: string, form: Element): string | null {
+  const own =
+    attr(form.open, 'aria-label') || attr(form.open, 'title') || attr(form.open, 'data-form-name');
+  if (own) return own.slice(0, 120);
+  // A heading inside it, then the one above it; a legend only names one group of its questions, so it comes last.
+  const inside = elements(form.inner, HEADINGS, 1)[0];
+  const words = inside ? wordsOf(inside.inner) : '';
+  if (words && words.length <= 120) return words;
+  const above = headingBefore(page, form.start);
+  if (above) return above;
+  const legend = elements(form.inner, ['legend'], 1)[0];
+  const named = legend ? wordsOf(legend.inner) : '';
+  return named && named.length <= 120 ? named : null;
+}
+
+function pageTitle(html: string): string | null {
+  const title = elements(html, ['title'], 1)[0];
+  const words = title ? squash(title.inner) : '';
+  return words ? words.slice(0, 120) : null;
+}
+
+/** "Name · Email · Service": the outline's first few lines, short, to tell forms apart. */
+function summaryOf(outline: string): string {
+  const lines = outline
+    .split('\n')
+    .map((l) =>
+      l
+        .replace(/\[[^[\]]*\]|\([^()]*\)|[{}]|---/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
+    .filter((l) => l && !/^step \d+/i.test(l));
+  const short = lines.slice(0, 8).map((l) => (l.length > 40 ? `${l.slice(0, 39)}…` : l));
+  const joined = short.join(' · ');
+  return joined.length > 220 ? `${joined.slice(0, 219)}…` : joined;
+}
+
+/** A form nobody would want built: a site search, or a sign-in. */
+function notWanted(form: Element): boolean {
+  const all = boxTags(cleaned(form.inner));
+  if (all.some((b) => /^password/i.test(attr(b.tag, 'type') ?? ''))) return true;
+  const boxes = all.filter((b) => {
+    const type = (attr(b.tag, 'type') ?? 'text').toLowerCase();
+    return b.kind !== 'input' || !NOT_FILLED.has(type);
+  });
+  // A search is one box to type in: a lone dropdown or text area is a question.
+  if (boxes.length !== 1 || boxes[0]!.kind !== 'input') return false;
+  const tag = boxes[0]!.tag;
+  const type = (attr(tag, 'type') ?? '').toLowerCase();
+  const name = (attr(tag, 'name') ?? '').toLowerCase();
+  const open = form.open;
+  return (
+    type === 'search' ||
+    ['s', 'q', 'search', 'query', 'keyword', 'keywords'].includes(name) ||
+    /search/i.test(attr(open, 'role') ?? '') ||
+    /search/i.test(attr(open, 'action') ?? '')
+  );
+}
+
+/** What's inside `<body>`, from its open tag to its last close; the whole page when it has none. */
+function bodyOf(html: string): string {
+  const open = /<body\b/i.exec(html);
+  const gt = open ? html.indexOf('>', open.index) : -1;
+  const close = [...html.matchAll(/<\/body/gi)].at(-1)?.index ?? -1;
+  return gt >= 0 && close > gt ? html.slice(gt + 1, close) : html;
+}
+
+/**
+ * The forms on a page. Each `<form>` with a box to fill in (a site search and a sign-in left out); with none, a page
+ * whose boxes sit outside any `<form>` (as page builders often write them) is read as one form. A Google Form and a
+ * Typeform are read from their data, sections, groups and skip rules and all. Numbered from `first`.
+ */
+export function formsOnPage(html: string, url: string, first = 1): PageForm[] {
+  const google = googleForm(html, url, first);
+  if (google) return [google];
+  const typeform = typeformForm(html, url, first);
+  if (typeform) return [typeform];
+  const clean = cleaned(html);
+  const found: PageForm[] = [];
+  for (const form of elements(clean, ['form'])) {
+    const block = clean.slice(form.start, form.end);
+    const fields = countFields(block);
+    if (!fields || notWanted(form)) continue;
+    const outline = pageFormOutline(block);
+    if (!outline) continue;
+    found.push({
+      number: first + found.length,
+      title: formTitle(clean, form),
+      fields,
+      summary: summaryOf(outline),
+      outline,
+      url,
+    });
+    if (found.length >= PAGE_FORMS_MAX) break;
+  }
+  if (found.length) return found;
+  // No <form>: boxes a page builder laid out on their own still make a form, when there are a few of them.
+  const body = bodyOf(clean);
+  const fields = countFields(body);
+  if (fields < 2) return [];
+  const outline = pageFormOutline(body);
+  return outline
+    ? [
+        {
+          number: first,
+          title: pageTitle(html),
+          fields,
+          summary: summaryOf(outline),
+          outline,
+          url,
+        },
+      ]
+    : [];
+}
+
+// ---- Google Forms ----
+
+/** Google's question kinds, by the number its data gives each. */
+const GOOGLE_KINDS: Readonly<Record<number, string>> = {
+  0: 'short answer box',
+  1: 'long answer box',
+  2: 'pick one',
+  3: 'dropdown',
+  4: 'pick any (checkboxes)',
+  5: 'scale',
+  7: 'grid',
+  9: 'date box',
+  10: 'time box',
+  13: 'file upload',
+};
+
+/** The text of `FB_PUBLIC_LOAD_DATA_ = [ … ];` up to its `</script>`, found in one pass. Null when there's none. */
+function googleFormData(html: string): string | null {
+  const NAME = 'FB_PUBLIC_LOAD_DATA_';
+  for (let at = html.indexOf(NAME); at >= 0; at = html.indexOf(NAME, at + NAME.length)) {
+    const start = /^\s*=\s*\[/.exec(html.slice(at + NAME.length, at + NAME.length + 200));
+    if (!start) continue;
+    const from = at + NAME.length + start[0].length - 1;
+    const end = html.indexOf('</script>', from);
+    if (end < 0) return null;
+    const text = html.slice(from, end).trimEnd();
+    const json = text.endsWith(';') ? text.slice(0, -1).trimEnd() : text;
+    return json.endsWith(']') ? json : null;
+  }
+  return null;
+}
+
+/**
+ * A Google Form, from the data its page carries (`FB_PUBLIC_LOAD_DATA_`): every question with its kind, choices and
+ * whether it must be answered, and each section break as a new step. Null when the page isn't one, or its data can't
+ * be read (its HTML is read as usual then).
+ */
+export function googleForm(html: string, url: string, number = 1): PageForm | null {
+  const json = googleFormData(html);
+  if (!json) return null;
+  let data: unknown;
+  try {
+    data = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  const root = Array.isArray(data) ? data : null;
+  const info = Array.isArray(root?.[1]) ? (root[1] as unknown[]) : null;
+  const items = Array.isArray(info?.[1]) ? (info[1] as unknown[]) : null;
+  if (!info || !items) return null;
+  const text = (v: unknown): string => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
+  const title = text(info[8]) || text(root?.[3]) || null;
+  const lines: string[] = [];
+  const intro = text(info[0]);
+  if (title) lines.push(title);
+  if (intro) lines.push(intro);
+  let fields = 0;
+  let step = 1;
+  for (const raw of items) {
+    if (!Array.isArray(raw)) continue;
+    const question = text(raw[1]);
+    const help = text(raw[2]);
+    const kind = typeof raw[3] === 'number' ? raw[3] : -1;
+    if (kind === 8) {
+      step++;
+      lines.push(`--- Step ${step}${question ? `: ${question}` : ''} ---`);
+      if (help) lines.push(help);
+      continue;
+    }
+    if (kind === 6) {
+      if (question) lines.push(question);
+      if (help) lines.push(help);
+      continue;
+    }
+    const words = GOOGLE_KINDS[kind];
+    if (!words) continue;
+    const parts = Array.isArray(raw[4]) ? (raw[4] as unknown[]) : [];
+    const first = Array.isArray(parts[0]) ? (parts[0] as unknown[]) : [];
+    const required = first[2] === 1 || first[2] === true;
+    const choices = Array.isArray(first[1])
+      ? (first[1] as unknown[]).flatMap((c) => {
+          const label = Array.isArray(c) ? text(c[0]) : '';
+          return label ? [label] : [];
+        })
+      : [];
+    let detail = '';
+    if (kind === 5 && choices.length) detail = `: ${choices[0]} to ${choices[choices.length - 1]}`;
+    else if (kind === 7) {
+      const rows = parts.flatMap((r) => {
+        const label = Array.isArray(r) && Array.isArray(r[3]) ? text(r[3][0]) : '';
+        return label ? [label] : [];
+      });
+      detail = `${rows.length ? `, rows: ${rows.join(' | ')}` : ''}${choices.length ? `, columns: ${choices.join(' | ')}` : ''}`;
+    } else if (choices.length) detail = `: ${choices.join(' | ')}`;
+    fields++;
+    lines.push(
+      `${question || 'Untitled question'} [${words}${required ? ', required' : ''}${detail}]${help ? ` (${help})` : ''}`,
+    );
+  }
+  if (!fields) return null;
+  const outline = lines.join('\n').slice(0, PAGE_FORM_OUTLINE_MAX);
+  return { number, title, fields, summary: summaryOf(outline), outline, url };
+}
+
+/** What each kind of Typeform question is, in the outline's words. */
+const TYPEFORM_KINDS: Readonly<Record<string, string>> = {
+  short_text: 'short answer box',
+  long_text: 'long answer box',
+  email: 'email box',
+  phone_number: 'phone box',
+  number: 'number box',
+  website: 'website box',
+  date: 'date box',
+  file_upload: 'file upload',
+  dropdown: 'dropdown',
+  yes_no: 'yes or no',
+  legal: 'tick box to accept',
+  ranking: 'put in order',
+  payment: 'card payment',
+  multi_format: 'answer by video, voice or text',
+  calendly: 'book a time (Calendly)',
+};
+
+type Loose = Record<string, unknown>;
+const loose = (v: unknown): Loose =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Loose) : {};
+const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+/** Where the JSON object or list starting at `start` ends (just after it), counting brackets outside strings. */
+function jsonEnd(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (inString) {
+      if (c === 92) i++;
+      else if (c === 34) inString = false;
+    } else if (c === 34) inString = true;
+    else if (c === 123 || c === 91) depth++;
+    else if (c === 125 || c === 93) {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+/** The form a Typeform page carries in `window.rendererData = { …, form: {…}, … }`. Null when there's none. */
+function typeformData(html: string): Loose | null {
+  const start = /window\.rendererData\s*=\s*\{/.exec(html);
+  if (!start) return null;
+  const at = start.index;
+  const end = html.indexOf('</script>', at);
+  const script = html.slice(at, end < 0 ? undefined : end);
+  const key = /[\s{,]form\s*:\s*(?=\{)/.exec(script);
+  if (!key) return null;
+  const from = key.index + key[0].length;
+  const to = jsonEnd(script, from);
+  if (to < 0) return null;
+  try {
+    const form = loose(JSON.parse(script.slice(from, to)));
+    return Array.isArray(form['fields']) ? form : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A Typeform's words: its markdown taken out (a link keeps its words), and an earlier answer it repeats said as one. */
+function typeformText(v: unknown): string {
+  if (typeof v !== 'string') return '';
+  return v
+    .slice(0, 2_000)
+    .replace(/\{\{field:[^{}]*\}\}/g, '(their earlier answer)')
+    .replace(/\{\{[^{}]*\}\}/g, '…')
+    .replace(/\[([^[\]]*)\]\([^()]*\)/g, '$1')
+    .replace(/\*/g, '')
+    .replace(/(?<!\w)_+|(?<!_)_+(?!\w)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Typeform's tests in its skip rules, in the outline's words. */
+const TYPEFORM_TESTS: Readonly<Record<string, string>> = {
+  is: 'is',
+  equal: 'is',
+  is_not: 'isn’t',
+  not_equal: 'isn’t',
+  lower_than: 'is under',
+  lower_equal_than: 'is at most',
+  greater_than: 'is over',
+  greater_equal_than: 'is at least',
+  contains: 'has',
+  not_contains: 'doesn’t have',
+  begins_with: 'starts with',
+  ends_with: 'ends with',
+  on: 'is on',
+  not_on: 'isn’t on',
+  earlier_than: 'is before',
+  later_than: 'is after',
+};
+/** The skip rules kept, and the longest one. */
+const TYPEFORM_RULES = 40;
+const TYPEFORM_RULE_MAX = 600;
+
+/** "“A”", "“A” or “B”", "“A”, “B” or “C”". */
+const eitherOf = (values: readonly string[]): string =>
+  values.length < 2
+    ? (values[0] ?? '')
+    : `${values.slice(0, -1).join(', ')} or ${values[values.length - 1]}`;
+
+/**
+ * A Typeform, from the data its page carries (`window.rendererData`), as Typeform's own form definition: every
+ * question with its kind, choices and whether it must be answered, the groups they sit in, and its skip rules
+ * (Typeform shows one question at a time and jumps on answers, so a screen never shows them all). Null when the page
+ * isn't one, or its data can't be read (its HTML is read as usual then, which finds nothing).
+ */
+export function typeformForm(html: string, url: string, number = 1): PageForm | null {
+  const form = typeformData(html);
+  if (!form) return null;
+  const title = typeformText(form['title']) || null;
+  const lines: string[] = [];
+  /** A line, unless it says just what the one before it does (a form's eight booking steps, say). */
+  const line = (text: string): void => {
+    if (text !== lines[lines.length - 1]) lines.push(text);
+  };
+  if (title) line(title);
+  for (const screen of list(form['welcome_screens'])) {
+    const words = typeformText(loose(screen)['title']);
+    if (words && words !== title) line(words);
+  }
+  /** Each question by its ref, for the skip rules, and each choice by its ref. */
+  const titles = new Map<string, string>();
+  const choices = new Map<string, string>();
+  let fields = 0;
+
+  const read = (raw: unknown, depth: number): void => {
+    const field = loose(raw);
+    const type = typeof field['type'] === 'string' ? field['type'] : '';
+    const props = loose(field['properties']);
+    const question = typeformText(field['title']) || 'Untitled question';
+    const help = typeformText(props['description']);
+    const helpNote = help ? ` (${help})` : '';
+    const ref = typeof field['ref'] === 'string' ? field['ref'] : '';
+    if (ref) titles.set(ref, question);
+    const labels = list(props['choices']).flatMap((c) => {
+      const choice = loose(c);
+      const label = typeformText(choice['label']);
+      if (label && typeof choice['ref'] === 'string') choices.set(choice['ref'], label);
+      return label ? [label] : [];
+    });
+    const indent = '  '.repeat(depth);
+    if (type === 'statement') {
+      line(`${indent}${question}${helpNote}`);
+      return;
+    }
+    const inner = list(props['fields']);
+    if (type === 'matrix') {
+      const rows = inner.map((r) => typeformText(loose(r)['title'])).filter(Boolean);
+      const columns = list(loose(loose(inner[0])['properties'])['choices'])
+        .map((c) => typeformText(loose(c)['label']))
+        .filter(Boolean);
+      fields++;
+      line(
+        `${indent}${question} [grid${rows.length ? `, rows: ${rows.join(' | ')}` : ''}${columns.length ? `, columns: ${columns.join(' | ')}` : ''}]${helpNote}`,
+      );
+      return;
+    }
+    if (inner.length) {
+      // A group of questions shown together (a name's two parts, an address, contact details).
+      line(`${indent}${question}:${helpNote}`);
+      for (const f of inner) read(f, depth + 1);
+      return;
+    }
+    const required = loose(field['validations'])['required'] === true;
+    let kind = TYPEFORM_KINDS[type];
+    if (type === 'multiple_choice' || type === 'checkbox' || type === 'picture_choice') {
+      kind = props['allow_multiple_selection'] === true ? 'pick any (checkboxes)' : 'pick one';
+      if (type === 'picture_choice') kind += ', with pictures';
+    } else if (type === 'opinion_scale' || type === 'nps') {
+      const steps = typeof props['steps'] === 'number' ? props['steps'] : 11;
+      const from = props['start_at_one'] === true ? 1 : 0;
+      const ends = loose(props['labels']);
+      const left = typeformText(ends['left']);
+      const right = typeformText(ends['right']);
+      kind = `scale: ${from} to ${from + steps - 1}${left || right ? ` (${left || '…'} to ${right || '…'})` : ''}`;
+    } else if (type === 'rating') {
+      kind = `rating out of ${typeof props['steps'] === 'number' ? props['steps'] : 5}`;
+    }
+    if (!kind) return;
+    const all = [
+      ...labels,
+      ...(props['allow_other_choice'] === true ? ['Other (they type it)'] : []),
+      ...(props['none_of_the_above'] === true ? ['None of the above'] : []),
+    ];
+    if (type !== 'calendly') fields++;
+    line(
+      `${indent}${question} [${kind}${required ? ', required' : ''}${all.length ? `: ${all.join(' | ')}` : ''}]${helpNote}`,
+    );
+  };
+  for (const f of list(form['fields'])) read(f, 0);
+  if (!fields) return null;
+
+  // Typeform skips questions on answers: said in words, so the builder can make the same rules.
+  const said = (ref: unknown): string => {
+    const name = typeof ref === 'string' ? titles.get(ref) : undefined;
+    return name ? `“${name}”` : 'an earlier answer';
+  };
+  interface Test {
+    readonly subject: string;
+    readonly verb: string;
+    readonly value: string;
+  }
+  /** One test of one answer; null for a test that isn't one (an "and" or "or" of others). */
+  const testOf = (c: Loose, own: string): Test | null => {
+    const op = typeof c['op'] === 'string' ? c['op'] : '';
+    const vars = list(c['vars']).map(loose);
+    const answer = vars.find((v) => v['type'] === 'field');
+    const against = vars.find((v) => v['type'] !== 'field');
+    if (!answer || op === 'and' || op === 'or') return null;
+    const raw = against?.['value'];
+    const value =
+      against?.['type'] === 'choice' && typeof raw === 'string'
+        ? `“${choices.get(raw) ?? 'a choice'}”`
+        : typeof raw === 'boolean'
+          ? `“${raw ? 'yes' : 'no'}”`
+          : typeof raw === 'string' || typeof raw === 'number'
+            ? `“${typeformText(String(raw))}”`
+            : 'something';
+    const ref = answer['value'];
+    return {
+      subject: ref && ref === own ? 'the answer' : said(ref),
+      verb: TYPEFORM_TESTS[op] ?? 'fits a rule about',
+      value,
+    };
+  };
+  /** A rule's condition in words, tests of one answer run together ("the answer is “A”, “B” or “C”"). */
+  const condition = (raw: unknown, own: string, top: boolean): string => {
+    const c = loose(raw);
+    const op = typeof c['op'] === 'string' ? c['op'] : '';
+    if (op === 'always' || !op) return '';
+    if (op !== 'and' && op !== 'or') {
+      const test = testOf(c, own);
+      return test ? `${test.subject} ${test.verb} ${test.value}` : '';
+    }
+    const parts: string[] = [];
+    let run: { subject: string; verb: string; values: string[] } | null = null;
+    for (const v of list(c['vars'])) {
+      const test = op === 'or' ? testOf(loose(v), own) : null;
+      if (test && run && run.subject === test.subject && run.verb === test.verb) {
+        run.values.push(test.value);
+        continue;
+      }
+      if (run) parts.push(`${run.subject} ${run.verb} ${eitherOf(run.values)}`);
+      run = test ? { subject: test.subject, verb: test.verb, values: [test.value] } : null;
+      if (!test) {
+        const words = condition(v, own, false);
+        if (words) parts.push(words);
+      }
+    }
+    if (run) parts.push(`${run.subject} ${run.verb} ${eitherOf(run.values)}`);
+    const words = parts.join(op === 'and' ? ' and ' : ' or ');
+    return !top && parts.length > 1 ? `(${words})` : words;
+  };
+  const rules: string[] = [];
+  for (const raw of list(form['logic'])) {
+    const block = loose(raw);
+    const own = typeof block['ref'] === 'string' ? block['ref'] : '';
+    for (const a of list(block['actions'])) {
+      const action = loose(a);
+      if (action['action'] !== 'jump' || rules.length >= TYPEFORM_RULES) continue;
+      const to = loose(loose(action['details'])['to']);
+      const target = to['type'] === 'thankyou' ? 'the end' : said(to['value']);
+      const when = condition(action['condition'], own, true);
+      const rule = `After ${said(own)}: ${when ? `if ${when}, it` : 'otherwise it'} goes to ${target}.`;
+      rules.push(
+        rule.length > TYPEFORM_RULE_MAX ? `${rule.slice(0, TYPEFORM_RULE_MAX - 1)}…` : rule,
+      );
+    }
+  }
+  if (rules.length) lines.push('--- Which question comes next (Typeform’s logic) ---', ...rules);
+  const outline = lines.join('\n').slice(0, PAGE_FORM_OUTLINE_MAX);
+  return { number, title, fields, summary: summaryOf(outline), outline, url };
+}
+
+/**
+ * The Typeforms a page puts on it with Typeform's embed code (`data-tf-widget="abc123"` and the like) or links to,
+ * as the addresses that open them, since its embed draws the frame with code after the page loads.
+ */
+export function typeformAddresses(html: string, limit = 3): string[] {
+  const ids = new Set<string>();
+  for (const m of html.matchAll(
+    /data-tf-(?:widget|popup|slider|popover|sidetab|live)\s*=\s*["']([A-Za-z0-9]{4,32})["']/g,
+  ))
+    ids.add(m[1]!);
+  for (const m of html.matchAll(
+    /https:\/\/(?:[a-z0-9-]{1,63}\.)?typeform\.com\/to\/([A-Za-z0-9]{4,32})(?![A-Za-z0-9])/gi,
+  ))
+    ids.add(m[1]!);
+  return [...ids].slice(0, limit).map((id) => `https://form.typeform.com/to/${id}`);
+}

@@ -6,18 +6,19 @@ one engine and one set of results screens rather than three of each.
 
 ## Where things are
 
-| What                                | Where                                                                               |
-| ----------------------------------- | ----------------------------------------------------------------------------------- |
-| The definition, the ops, the engine | `packages/core/src/forms/`                                                          |
-| Commands                            | `packages/core/src/commands/form.ts`, `form-response.ts` (and its uploads)          |
-| Reads                               | `packages/core/src/queries/form.ts`                                                 |
-| Tables                              | migrations `0073`–`0078`, and `0085` for the phone                                  |
-| The app                             | `apps/web/src/app/app/w/[workspaceId]/forms/`, `apps/web/src/components/forms/`     |
-| The phone                           | `apps/mobile/src/forms/`                                                            |
-| The public page                     | `apps/web/src/app/f/[site]/[slug]/`, served by `apps/worker/src/http/forms.ts`      |
-| The AI builder                      | `apps/worker/src/forms/builder.ts` (tools in `packages/core/src/forms/ai-tools.ts`) |
-| The Assistant's tools               | `apps/worker/src/assistant/tools-forms.ts`                                          |
-| The AI teammate's tools             | `ask_form` / `answer_form` in `apps/worker/src/ai-team/tools.ts`                    |
+| What                                | Where                                                                                    |
+| ----------------------------------- | ---------------------------------------------------------------------------------------- |
+| The definition, the ops, the engine | `packages/core/src/forms/`                                                               |
+| Commands                            | `packages/core/src/commands/form.ts`, `form-response.ts` (and its uploads)               |
+| Reads                               | `packages/core/src/queries/form.ts`                                                      |
+| Tables                              | migrations `0073`–`0078`, and `0085` for the phone                                       |
+| The app                             | `apps/web/src/app/app/w/[workspaceId]/forms/`, `apps/web/src/components/forms/`          |
+| The phone                           | `apps/mobile/src/forms/`                                                                 |
+| The public page                     | `apps/web/src/app/f/[site]/[slug]/`, served by `apps/worker/src/http/forms.ts`           |
+| The AI builder                      | `apps/worker/src/forms/builder.ts` (tools in `packages/core/src/forms/ai-tools.ts`)      |
+| The Assistant's tools               | `apps/worker/src/assistant/tools-forms.ts`                                               |
+| Reading a linked page's forms       | `apps/worker/src/forms/page-forms.ts` (reads in `packages/core/src/forms/page-forms.ts`) |
+| The AI teammate's tools             | `ask_form` / `answer_form` in `apps/worker/src/ai-team/tools.ts`                         |
 
 ## The shape
 
@@ -106,6 +107,11 @@ The builder's tools had 21 nullable fields, so every request failed and the Assi
 form questions had failed. `obj(required, optional)` in `ai-tools.ts` builds each tool; the worker's
 `ai-anthropic` test keeps the form and workflow builders within the limits, and the provider sends a tool past
 them without `strict` rather than have the request refused (`strictWithinLimits` in `packages/ai`).
+
+**A picture or a page someone sends is what to build, never what to do** (2026-11-24). The Assistant's `build_form`
+can work from pictures sent with the question (`fromPictures`) or a link (`fromLink`), and the form builder's prompt
+says words on either are the form's words, never instructions to it. The pictures aren't kept: only how many came is
+saved with the question (`assistant_messages.context.pictures`), and older questions tell the model they're gone.
 
 **The editor keeps the spaces being typed; what's saved is trimmed.** The editor applies an op on every
 keystroke, and the form's parse trims every text, so it calls `applyFormOps` with `keepSpaces` to put back a
@@ -198,6 +204,11 @@ design notes.
   size": one row per choice of that option, each at the product's price with the choice's bump, keeping
   `optionChoiceId` beside `productId` (`rowsFromOption`). The drift check reads the same price (`priceListCents`), and
   a row whose choice was taken off the product says so and keeps its name and price.
+- **The AI builder links rows too** (2026-11-24). It's given the business's price list (`form.catalogs`, run as the
+  person, so someone without `money.read` gets none) in `priceListForModel`'s words, and a row it writes for something
+  on that list carries `productId`, and `optionChoiceId` for a size, at the list's price. `formToolCallsToOps` refuses
+  a newly linked row whose product or choice isn't on the list, so a made-up id never reaches a form and stock still
+  counts.
 
 **What rules here:**
 
@@ -216,6 +227,45 @@ design notes.
   conversation (`NOT_IN_CHAT_TYPES`): a form with one is sent as a link. It reads a sent one in words, never ids.
 - **Checked like any answer, on the page and the server** (`quantitiesProblem`): whole numbers only, up to 10,000 of a
   row, only rows the question has, and the least and the most in all ("The least is 12 shirts in all. You have 8.").
+
+## Building a form from a picture or a link
+
+Asked for on 2026-11-24 ("build Sherri's order form from a screenshot, or from a link to the page"). Both go through
+the Assistant's `build_form`, which always makes a new form for a page and drafts it with the AI builder.
+
+**A picture.** The Assistant's picture button (web: the button, paste or drop; phone: Take a photo or Choose a
+picture) adds up to `ASSISTANT_PICTURES_MAX` (3) to a question. Each is shrunk on the device, then made an upright JPEG
+no longer than `ASSISTANT_PICTURE_EDGE` (1568px) by the worker (`picturesForModel` in `assistant/routes.ts`; one that
+won't open is refused as `picture_unreadable`, naming which). The newest question's pictures go to the model before
+its words (`modelMessages` in `assistant/runtime.ts`), and with `fromPictures` they go to the form builder too. A
+question with pictures is never read as a yes or no to a card waiting for an OK.
+
+**A link.** `fromLink` reads the page in `apps/worker/src/forms/page-forms.ts` through the worker's safe fetch (10
+seconds, 3 MB), then opens up to 3 forms framed on it (a JotForm or Google Form pasted into a page, or a Typeform put
+there with Typeform's embed code, found by its `data-tf-…` id or a `typeform.com/to/…` link). Core's
+`formsOnPage` (`packages/core/src/forms/page-forms.ts`) turns each into a plain outline the builder reads:
+
+- every box, its kind, its name and whether it's required, in brackets: `[dropdown, name "color", required: Black |
+White & Gray | Neon: Pink]`, with every choice of a dropdown, even the ones only seen when it's opened;
+- choices to pick one of as `(pick one)`, and tick boxes as `[tick box]`;
+- steps as `--- Step 2 (shows after Next is pressed) ---`, and parts that show later as `{Shows only when an earlier
+answer fits: …}` or `{Hidden until something on the form shows it: …}`;
+- a Google Form from its own data (`FB_PUBLIC_LOAD_DATA_`), sections as steps;
+- a Typeform from its own data (`window.rendererData`'s `form`, Typeform's form definition; the owner chose this on
+  2026-11-24 over a screenshot or a headless browser, since it gets every question and choice at once and costs
+  nothing): every question with its kind and choices, the groups they sit in (`Your name:` with its parts indented
+  under it), a grid's rows and columns, and its skip rules in words under a "Which question comes next" heading
+  ("After “Service”: if the answer is “Ducts” or “Tile”, it goes to “How many vents?”."), since Typeform shows one
+  question at a time and no screenshot shows them all.
+
+A site search, a sign-in, hidden fields and robot traps are left out, and boxes with no form tag around them are read
+as one form when there are two or more. When a page has several forms and no `formNumber` was given, `build_form`
+lists them and builds nothing, so the Assistant asks which (or builds each one asked for).
+
+**What a link can't read says so, and asks for a screenshot instead** (`link_unreadable`): a robot check, a page that
+won't open or isn't there, an address that isn't public, and a form drawn by code after the page loads (Wix, say),
+since the worker reads the page's HTML and runs none of its code. A Typeform is the exception: its page carries the
+whole form as data. The screenshot advice says to open each dropdown first, so every choice is in the picture.
 
 ## Files on a public form (designs and photos)
 

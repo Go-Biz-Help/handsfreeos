@@ -170656,6 +170656,11 @@
                           "text": {
                             "type": "string"
                           },
+                          "pictures": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
                           "cards": {
                             "type": "array",
                             "items": {
@@ -171863,6 +171868,7 @@
                           "id",
                           "role",
                           "text",
+                          "pictures",
                           "cards",
                           "createdAt"
                         ],

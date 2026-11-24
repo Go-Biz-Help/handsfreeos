@@ -204,6 +204,22 @@ export const ASSISTANT_WORDS = {
   hintWhileAnswering: 'You can leave. The answer will be here when you come back.',
   send: 'Send',
   stop: 'Stop',
+  /**
+   * Pictures sent with a question (a paper form, a screenshot of another form): up to ASSISTANT_PICTURES_MAX, shown to
+   * the AI with that question only and not kept, so a saved chat says only that they came with it.
+   */
+  pictures: {
+    add: 'Add a picture',
+    take: 'Take a photo',
+    choose: 'Choose a picture',
+    remove: 'Remove this picture',
+    /** On a saved question whose pictures aren't kept. */
+    sent: (n: number) => (n === 1 ? 'Sent with a picture' : `Sent with ${n} pictures`),
+    tooMany: (max: number) => `Up to ${max} pictures go with one question. The rest were left out.`,
+    unreadable: 'That picture couldn’t be opened. Try a screenshot, or a JPEG or PNG.',
+    /** Beside the pictures waiting to go. */
+    hint: 'The AI sees these with this question. They aren’t kept.',
+  },
   stopped: 'Stopped. Anything that needs your OK did not happen.',
   /**
    * Under an answer still coming that this screen isn't streaming: the person came back while it was being worked

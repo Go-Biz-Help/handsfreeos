@@ -299,3 +299,86 @@ describe('saying what changed', () => {
     expect(describeFormOps(ops, before)).toContain('Deleted “email”');
   });
 });
+
+describe('rows from the price list', () => {
+  const PRICE_LIST = [
+    {
+      id: '00000000-0000-4000-8000-000000000001',
+      name: 'T-shirt',
+      priceCents: 1200,
+      options: [
+        {
+          id: 'o_size0001',
+          name: 'Size',
+          choices: [
+            { id: 'v_youths01', label: 'Youth S', priceCents: 0 },
+            { id: 'v_adult2xl', label: 'Adult 2XL', priceCents: 200 },
+          ],
+        },
+      ],
+    },
+  ];
+  const sizes = (productId: string, optionChoiceId: string | null) =>
+    call('add_question', {
+      type: 'quantities',
+      title: 'How many of each size?',
+      json: JSON.stringify({
+        choices: [{ label: 'Adult 2XL', price: 14, productId, optionChoiceId }],
+        unit: 'shirts',
+      }),
+    });
+
+  it('keeps a row’s product and choice when the price list has them', () => {
+    const out = formToolCallsToOps(
+      [sizes(PRICE_LIST[0]!.id, 'v_adult2xl')],
+      def(),
+      seeded(),
+      PRICE_LIST,
+    );
+    expect(out.results[0]).toMatchObject({ ok: true });
+    const question = allQuestions(out.definition).find((q) => q.type === 'quantities')!;
+    expect((question.config as { choices: unknown[] }).choices[0]).toMatchObject({
+      productId: PRICE_LIST[0]!.id,
+      optionChoiceId: 'v_adult2xl',
+      price: 14,
+    });
+  });
+
+  it('turns down a product or a choice the price list doesn’t have, so the model can fix it', () => {
+    const noProduct = formToolCallsToOps(
+      [sizes('00000000-0000-4000-8000-0000000000ff', null)],
+      def(),
+      seeded(),
+      PRICE_LIST,
+    );
+    expect(noProduct.results[0]).toMatchObject({
+      ok: false,
+      message: expect.stringContaining('isn’t on the price list'),
+    });
+    expect(noProduct.ops).toEqual([]);
+    const noChoice = formToolCallsToOps(
+      [sizes(PRICE_LIST[0]!.id, 'v_nochoice')],
+      def(),
+      seeded(),
+      PRICE_LIST,
+    );
+    expect(noChoice.results[0]!.message).toContain('a choice T-shirt doesn’t have');
+    // Without a price list, a row can't point at one at all.
+    expect(formToolCallsToOps([sizes(PRICE_LIST[0]!.id, null)], def()).results[0]!.ok).toBe(false);
+  });
+
+  it('leaves a link already on the form alone, even when the product has gone from the list', () => {
+    const first = formToolCallsToOps([sizes(PRICE_LIST[0]!.id, null)], def(), seeded(), PRICE_LIST);
+    const question = allQuestions(first.definition).find((q) => q.type === 'quantities')!;
+    const renamed = formToolCallsToOps(
+      [
+        call('update_question', {
+          questionId: question.id,
+          json: JSON.stringify({ title: 'Sizes' }),
+        }),
+      ],
+      first.definition,
+    );
+    expect(renamed.results[0]).toMatchObject({ ok: true });
+  });
+});

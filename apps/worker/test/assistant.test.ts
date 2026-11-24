@@ -26,7 +26,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { consentToAssistant } from './assistant-consent';
 import { ScriptedProvider, type AiProvider, type AiRequest } from '@hfos/ai';
 import { SPOKEN } from '../src/assistant/prompt';
-import { settleAssistantRuns, WARMS_PER_MINUTE } from '../src/assistant/routes';
+import { ASKS_PER_MINUTE, settleAssistantRuns, WARMS_PER_MINUTE } from '../src/assistant/routes';
 import { CUT_OFF_BY_UPDATE } from '../src/assistant/runtime';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
@@ -532,6 +532,28 @@ describe('the Assistant', () => {
       expect(codes.at(-1)).toBe(429);
     } finally {
       await reading.close();
+    }
+  });
+
+  it('holds each address to so many questions a minute, before anything is read', async () => {
+    const asking = await build('scripted', scriptedAssistant());
+    try {
+      // Signed out, so each is refused at once: the limit is counted before the question is looked at.
+      const codes: number[] = [];
+      for (let i = 0; i <= ASKS_PER_MINUTE; i++)
+        codes.push(
+          (
+            await asking.inject({
+              method: 'POST',
+              url: '/v1/assistant/messages',
+              payload: { workspaceId, text: 'Hi' },
+            })
+          ).statusCode,
+        );
+      expect(codes.slice(0, ASKS_PER_MINUTE).every((c) => c === 401)).toBe(true);
+      expect(codes.at(-1)).toBe(429);
+    } finally {
+      await asking.close();
     }
   });
 

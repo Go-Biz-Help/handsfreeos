@@ -24,3 +24,4 @@ export * from './texting-box';
 export * from './quantities';
 export * from './uploads';
 export * from './order';
+export * from './page-forms';

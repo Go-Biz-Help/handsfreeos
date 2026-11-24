@@ -1,7 +1,14 @@
 'use client';
-import { ASSISTANT_WORDS, VOICE_WORDS } from '@hfos/core';
-import { ArrowUp, Mic, Square } from 'lucide-react';
-import { useEffect, type KeyboardEvent } from 'react';
+import { ASSISTANT_PICTURES_MAX, ASSISTANT_WORDS, VOICE_WORDS } from '@hfos/core';
+import { ArrowUp, ImagePlus, Mic, Square, X } from 'lucide-react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type DragEvent,
+  type KeyboardEvent,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { VoiceBar, VoiceError } from '@/components/voice/voice-bar';
 import { useMatches } from '@/lib/use-media';
@@ -50,6 +57,38 @@ function OffComposer({ phone, paused }: { phone: boolean; paused: boolean }) {
   );
 }
 
+/** The pictures waiting to go with the question, each with a way to take it off. */
+function DraftPictures() {
+  const a = useAssistant();
+  if (!a.draftPictures.length) return null;
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 px-2.5 pt-2.5"
+      data-testid="assistant-pictures"
+    >
+      {a.draftPictures.map((p, i) => (
+        <div key={p.id} className="relative">
+          <img
+            src={p.preview}
+            alt={`Picture ${i + 1}`}
+            className="h-14 w-14 rounded-[10px] border border-border object-cover"
+          />
+          <button
+            type="button"
+            onClick={() => a.removePicture(p.id)}
+            aria-label={`${ASSISTANT_WORDS.pictures.remove} (${i + 1})`}
+            title={ASSISTANT_WORDS.pictures.remove}
+            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-text-2 shadow-sm hover:text-text"
+          >
+            <X className="h-3 w-3" strokeWidth={2} />
+          </button>
+        </div>
+      ))}
+      <span className="min-w-0 flex-1 text-xs text-text-3">{ASSISTANT_WORDS.pictures.hint}</span>
+    </div>
+  );
+}
+
 /**
  * Where the person asks. Return sends where there's a keyboard and a mouse (Shift+Return adds a line); on
  * touch screens Return adds a line and the round button sends. While an answer streams in, Stop replaces Send.
@@ -62,7 +101,11 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
   const fine = useMatches('(pointer: fine)');
   const ref = a.composerRef;
   const off = a.setup === 'missing' || a.paused;
-  const canSend = !!a.draft.trim() && !a.running;
+  const pictures = a.draftPictures;
+  const canSend = (!!a.draft.trim() || pictures.length > 0) && !a.running;
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const full = pictures.length >= ASSISTANT_PICTURES_MAX;
+  const [dragging, setDragging] = useState(false);
 
   // The box grows with the question, up to about six lines.
   useEffect(() => {
@@ -81,11 +124,63 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
     if (!canSend) return;
     const text = a.draft;
     a.setDraft('');
+    // With pictures it's a question about them (a form to build from a screenshot), never a yes or no to a card.
+    if (pictures.length) {
+      a.ask(text, { pictures });
+      a.clearPictures();
+      return;
+    }
     // A plain yes or no answers the cards waiting for an OK, as their buttons do; anything else is a question.
     void answerWaiting(a, text).then((answered) => {
       if (answered === null) a.ask(text);
     });
   }
+
+  // A screenshot pasted into the box goes with the question; pasted words stay words.
+  function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+    const files = [...e.clipboardData.files].filter((f) => f.type.startsWith('image/'));
+    if (!files.length) return;
+    e.preventDefault();
+    void a.addPictures(files);
+  }
+  const drop = {
+    onDragOver: (e: DragEvent<HTMLDivElement>) => {
+      if (![...e.dataTransfer.types].includes('Files')) return;
+      e.preventDefault();
+      setDragging(true);
+    },
+    onDragLeave: () => setDragging(false),
+    onDrop: (e: DragEvent<HTMLDivElement>) => {
+      setDragging(false);
+      if (!e.dataTransfer.files.length) return;
+      e.preventDefault();
+      void a.addPictures(e.dataTransfer.files);
+    },
+  };
+  const filePicker = (
+    <input
+      ref={fileRef}
+      type="file"
+      accept="image/*"
+      multiple
+      hidden
+      data-testid="assistant-picture-input"
+      onChange={(e) => {
+        const files = [...(e.target.files ?? [])];
+        e.target.value = '';
+        void a.addPictures(files);
+      }}
+    />
+  );
+  const pictureButton = {
+    title: full
+      ? ASSISTANT_WORDS.pictures.tooMany(ASSISTANT_PICTURES_MAX)
+      : ASSISTANT_WORDS.pictures.add,
+    'aria-label': ASSISTANT_WORDS.pictures.add,
+    disabled: full,
+    onClick: () => fileRef.current?.click(),
+    'data-testid': 'assistant-add-picture',
+  };
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && fine) {
@@ -118,6 +213,7 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
     maxLength: 4000,
     onChange: (e: { target: { value: string } }) => a.setDraft(e.target.value),
     onKeyDown,
+    onPaste,
     'aria-label': 'Message the Assistant',
     enterKeyHint: fine ? ('send' as const) : ('enter' as const),
   };
@@ -125,12 +221,25 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
   if (phone)
     return (
       <div
-        className="flex flex-none flex-col gap-2 border-t border-border bg-card px-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2"
+        className={cn(
+          'flex flex-none flex-col gap-2 border-t border-border bg-card px-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2',
+          dragging && 'bg-accent-soft',
+        )}
         data-testid="assistant-composer"
+        {...drop}
       >
         {bar}
         <VoiceError snap={voice.snap} className="px-1.5" />
+        <DraftPictures />
+        {filePicker}
         <div className="flex items-end gap-1.5">
+          <button
+            type="button"
+            {...pictureButton}
+            className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-border-strong text-text-2 disabled:opacity-45"
+          >
+            <ImagePlus className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </button>
           <button
             type="button"
             {...mic}
@@ -179,9 +288,17 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
     <div
       className="flex flex-none flex-col gap-1.5 border-t border-border bg-card px-3 pb-3 pt-2.5"
       data-testid="assistant-composer"
+      {...drop}
     >
       {bar}
-      <div className="rounded-card border border-border-strong bg-card transition-[border-color,box-shadow] focus-within:border-accent focus-within:ring-[3px] focus-within:ring-ring">
+      {filePicker}
+      <div
+        className={cn(
+          'rounded-card border border-border-strong bg-card transition-[border-color,box-shadow] focus-within:border-accent focus-within:ring-[3px] focus-within:ring-ring',
+          dragging && 'border-accent bg-accent-soft',
+        )}
+      >
+        <DraftPictures />
         <textarea
           {...box}
           rows={2}
@@ -192,6 +309,9 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
           <span className="min-w-0 flex-1 px-1.5 text-xs text-text-3" data-testid="assistant-hint">
             {a.running ? ASSISTANT_WORDS.hintWhileAnswering : ASSISTANT_WORDS.hint}
           </span>
+          <Button variant="ghost" size="icon" {...pictureButton}>
+            <ImagePlus className="h-3.5 w-3.5" strokeWidth={1.5} />
+          </Button>
           <Button
             variant={talking ? 'secondary' : 'ghost'}
             size="icon"
