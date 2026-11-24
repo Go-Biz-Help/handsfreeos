@@ -25,7 +25,8 @@ Leave `MICROSOFT_OAUTH_CLIENT_ID` and `GOOGLE_CALENDAR_OAUTH_CLIENT_ID` out of `
 `pnpm env:local` never writes them, so this is the default. The two buttons then open a stand-in sign-in page
 on the worker, and no Google or Microsoft account is touched. The `worker started` line shows `calendars: "fake"`.
 
-1. `pnpm dev`, sign in, open **Settings** → **My calendar**, click **Google** or **Outlook**.
+1. `pnpm dev`, sign in, open **Settings** → **My calendar**, open **All settings**, click **Google** or **Outlook**.
+   (Or click **Start** and go through the guided setup, which ends at the same sign-in.)
 2. On the stand-in page, leave the address as `owner@gmail.fake` and click **Allow**. You land back on
    **My calendar**, **Connected**.
 3. Give that calendar a busy time and click **Sync now**:
@@ -238,8 +239,8 @@ shows names only, never values.
 `fly logs --app handsfreeos-worker` should show a `worker started` line with `"calendars":"real"`. That only
 says the real providers are on — production always uses them. These steps check the values.
 
-1. Sign in at `https://app.handsfreeos.com`, open a workspace, **Settings** → **My calendar**. You should see
-   "Not connected yet" with a **Google** and an **Outlook** button.
+1. Sign in at `https://app.handsfreeos.com`, open a workspace, **Settings** → **My calendar**, and open
+   **All settings**. You should see "Not connected yet" with a **Google** and an **Outlook** button.
 2. Click **Google**. A HandsFreeOS page titled "Google Calendar isn't set up yet" means one of the two values
    is missing.
 3. Sign in as a test user. Google warns the app is unverified — click **Continue**, or **Advanced** and then
@@ -255,6 +256,35 @@ says the real providers are on — production always uses them. These steps chec
    `calendar refresh failed` or `calendar write-through failed`.
 
 Busy times are read every 10 minutes after that, 60 days ahead, and at once on **Sync now**. For someone on a calendar that books further ahead than 60 days, they are read as far ahead as that calendar books.
+
+---
+
+## The guided My calendar setup
+
+The owner's picks, 24 Nov 2026 (M1 a to M4 a). Everyone sets up their own calendar; nothing here needs a key
+beyond the ones above.
+
+- **Where it opens.** Getting started's **Connect your calendar** (`/onboarding/<business>/my-calendar?from=home`,
+  so Finish later and Done go back Home), and **Settings** → **My calendar** while it isn't set up yet (a calendar
+  connected, or hours of their own saved, counts as set up). On the phone: **Settings** → **My calendar**, Getting
+  started's **Connect**, and the business setup's **Set up my calendar**.
+- **The questions**, one at a time and saved as they're given, per person (`guided_setup.save_draft` under
+  `my_calendar`, kept in that person's own `users.settings`, so teammates never see each other's): which calendar
+  they keep their days in (Google, Outlook, or something else or none), when customers can book them (the
+  business's open hours, weekdays 9 to 5, or their own, with a lunch break switch for the first two, and a time
+  zone), time off coming up, where their day starts (only when a calendar they're on leaves time to drive), and Zoom
+  (only when a calendar they're on makes Zoom links and theirs isn't connected).
+- **Check it over** runs `my_calendar_setup.save`, which sets the hours, time off and day start through the usual
+  commands, then starts Google's or Microsoft's sign-in. It comes back to Done (`?step=done`, through
+  `apps/web/src/lib/setup-return.ts`), which waits for the first busy-time check and offers Zoom. On the phone the
+  sign-in opens in the phone's browser and comes back to the app. **Something else, or none** saves and skips the
+  sign-in, and ticks off a teammate's Getting started step.
+- **Once it's set up**, **Settings** → **My calendar** is one simple card: the calendar with **Sync now**, the answers
+  each with **Change**, and today's page under **All settings**, which opens by itself for `?all=1`, a `#` link, on the
+  way back from a sign-in (`?calendar=`, `?meeting=`), and while the calendar needs signing in again. A teammate's
+  calendar, opened from Members, is today's page alone.
+
+The logic both apps share is `packages/core/src/guided-setup/my-calendar.ts`; the read is `my_calendar_setup.get`.
 
 ---
 

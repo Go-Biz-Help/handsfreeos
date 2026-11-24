@@ -4,7 +4,7 @@
 # WEB_URL, SUPABASE_URL and SUPABASE_SECRET_KEY (Storage, imports, photos; the worker is the only app that
 # holds provider secrets), WORKER_ENCRYPTION_KEY (seals subaccount tokens), WORKER_PUBLIC_URL (the https
 # address providers call), WEB_ORIGINS, TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN, optional
-# TWILIO_PRIMARY_PROFILE_SID (local-number registration), WORKER_ENCRYPTION_KEYS_PREVIOUS, WORKER_HTTP_PORT (4100), WORKER_POLL_MS, WORKER_BATCH_SIZE, LOG_LEVEL.
+# TWILIO_PRIMARY_PROFILE_SID (local-number registration), WORKER_ENCRYPTION_KEYS_PREVIOUS, WORKER_HTTP_PORT (4100), WORKER_POLL_MS, WORKER_BATCH_SIZE, WORKER_JOB_SLOTS, WORKER_SLOW_JOB_SLOTS, LOG_LEVEL.
 # The Assistant, workflow AI steps and the knowledge base: ANTHROPIC_API_KEY, ASSISTANT_MODEL.
 # Push notifications to the phone app: EXPO_ACCESS_TOKEN (without it, push is off).
 # The same image runs the media process (`node dist/media.js`, fly.toml), the AI's listener for video calls.

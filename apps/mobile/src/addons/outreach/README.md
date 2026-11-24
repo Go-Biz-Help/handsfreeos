@@ -98,7 +98,15 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
   playbook's help writes is only offered, and saved with the part.
 - **Everything else** asks HandsFreeOS (`useOutreachAnswer`, on `@/lib/live-answer`), and with no signal says
   "… needs signal. Try again when you're back online." The Live screen asks again every minute
-  (`LIVE_REFETCH_SECONDS`) and keeps the last answer, "As of 2:14 PM".
+  (`LIVE_REFETCH_SECONDS`) and keeps the last answer, "As of 2:14 PM". Asking again waits its turn: a round is passed
+  over while the one before it is still out, and none is asked with the app in the background.
+- **Only the screen in view asks again** (`@/lib/in-view`): the routes put `RouteInView` around their screen, and the
+  layout around the ticker, so under another screen or on a tab that isn't picked the ticker (every 5 seconds), the
+  counters (every 15, `COUNTS_ASK_SECONDS`), the live answers and the asks all wait, and the ticker stops telling the
+  computer it's watched. Each asks at once on the way back if a round's time went by. A screen that asks again from
+  a new route needs `RouteInView` there too; without it, it asks as if always in view.
+- **A list with Show more** asks for its pages together (`pagesOf`) and says what it is more of (`moreOf`, its key
+  without the page count), so the rows on screen stay there while the longer list comes.
 
 ## Changing it
 

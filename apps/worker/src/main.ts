@@ -3,6 +3,8 @@ import { TELEPHONY_BUCKET } from '@hfos/core';
 import { createTokenVerifier } from '@hfos/core/server';
 import { createDb } from '@hfos/db/client';
 import pino from 'pino';
+import { ADDON_WORKER_MODULES } from './addons/modules';
+import { TEAMMATE_JOBS } from './ai-team/constants';
 import { claudeWithBackup } from './ai/provider';
 import { settleAssistantRuns } from './assistant/routes';
 import { scriptedAssistant } from './assistant/scripted';
@@ -11,13 +13,14 @@ import { createBotCheck } from './booking/bot-check';
 import { processDeliveries } from './deliveries';
 import { mailDns } from './email/dns';
 import { loadEnv, readEnv, supabaseKeyLooksRight } from './env';
+import { FILE_TEXT_JOBS } from './files/file-text';
 import { handlers } from './handlers/index';
 import { createMigrationAdapters } from './migrations/adapters/registry';
 import { processMigrationJobs } from './migrations/engine/run';
 import { PAYMENT_NAME, WEBHOOK_SECRET_SETTING } from './payments/index';
 import { queuesWaiting, runQueues } from './queues';
 import { buildHttpServer } from './http/server';
-import { processJobs } from './jobs';
+import { createJobRunner } from './job-runner';
 import { runLoop } from './loop';
 import { errorMessage, processOnce } from './outbox';
 import { processors } from './processors/index';
@@ -33,8 +36,12 @@ const log = pino(
     : { level: env.logLevel, transport: { target: 'pino-pretty', options: { colorize: true } } },
 );
 
-// The loops below run side by side, and a handler inside a transaction can take a second connection.
-const handle = createDb(env.databaseUrl, { max: 8, applicationName: 'hfos-worker' });
+// The loops below run side by side, and a handler inside a transaction can take a second connection. Eight was
+// right for one job at a time; each job more that runs beside it gets one (job-runner.ts).
+const handle = createDb(env.databaseUrl, {
+  max: 7 + env.jobSlots,
+  applicationName: 'hfos-worker',
+});
 // Webhooks, sign-ins and the Assistant's questions; each question holds a connection only per step.
 const httpHandle = createDb(env.databaseUrl, { max: 6, applicationName: 'hfos-worker-http' });
 const services = createEngineServices(env, log, handle.db);
@@ -236,6 +243,27 @@ const migrationLoop = runLoop(
   { drain: false, idle: { afterMs: 60_000, everyMs: 30_000 } },
   pace,
 );
+/**
+ * The jobs, several at once: a push or the AI teammate's reply no longer waits behind a picture being made or a
+ * few hundred Social Outreach checks (job-runner.ts). Reading a big file and making pictures happen inside this
+ * process, on one shared CPU with 512 MB, so one of those runs at a time. A customer is waiting on the teammate's
+ * reply, so it never waits for one of the slow places, though it takes seconds itself.
+ */
+const jobRunner = createJobRunner({
+  ...services,
+  workerId,
+  jobs,
+  slots: env.jobSlots,
+  slowSlots: env.slowJobSlots,
+  heavyKinds: [
+    FILE_TEXT_JOBS.read,
+    'knowledge.document',
+    ...ADDON_WORKER_MODULES.flatMap((m) => m.heavyJobs ?? []),
+  ],
+  promptKinds: [TEAMMATE_JOBS.reply],
+  onRan: handedOver,
+  onFree: () => wake.jobs?.(),
+});
 // The outbox, the webhooks and the jobs: one look a second for all three, and a claim only when there is one to
 // make (queues.ts).
 const queues = runQueues(
@@ -250,9 +278,9 @@ const queues = runQueues(
         onHandled: handedOver,
       }),
     webhook: () => processDeliveries({ ...loopDeps, processors, onProcessed: handedOver }),
-    jobs: () => processJobs({ ...loopDeps, jobs, onRan: handedOver }),
+    jobs: () => jobRunner.pass(),
   },
-  () => queuesWaiting(handle.db, workerId),
+  () => queuesWaiting(handle.db, workerId, jobRunner.runningIds()),
   pace,
 );
 wake.outbox = () => queues.wake('outbox');
@@ -266,6 +294,8 @@ const loops = [...queues.loops, migrationLoop];
  * and saves a line saying an update cut it off.
  */
 const ANSWERS_GRACE_MS = 20_000;
+/** The same for the jobs that are running. One still going then is let go of, and runs again from its start. */
+const JOBS_GRACE_MS = 20_000;
 
 const shutdown = async (signal: string) => {
   running = false;
@@ -274,8 +304,17 @@ const shutdown = async (signal: string) => {
   aiSwitch?.stop();
   log.info({ signal }, 'worker stopping: closing the listener, then finishing the current passes');
   // The listener closes at once; answers streaming to someone hold it open until they end, so both go together.
-  const [, answers] = await Promise.all([app.close(), settleAssistantRuns(ANSWERS_GRACE_MS)]);
+  const [, answers, jobsLeft] = await Promise.all([
+    app.close(),
+    settleAssistantRuns(ANSWERS_GRACE_MS),
+    jobRunner
+      .settle(JOBS_GRACE_MS)
+      .catch((e: unknown) =>
+        log.error({ err: errorMessage(e) }, 'couldn’t let go of the running jobs'),
+      ),
+  ]);
   if (answers) log.info({ answers }, 'the Assistant’s answers in progress were let finish');
+  if (jobsLeft) log.info({ jobs: jobsLeft }, 'jobs still running were let go of, to run again');
   await Promise.all(loops.map((loop) => loop.done));
   await Promise.all([handle.close(), httpHandle.close()]);
   process.exit(0);

@@ -429,6 +429,7 @@ import {
 } from './chat-widget';
 import { chatSetupSave } from './chat-setup';
 import { facebookSetupSave } from './facebook-setup';
+import { myCalendarSetupSave } from './my-calendar-setup';
 import {
   chatBlockVisitor,
   chatIdentify,
@@ -752,6 +753,7 @@ export {
   calendarSetupSave,
   chatSetupSave,
   facebookSetupSave,
+  myCalendarSetupSave,
   serviceCreate,
   serviceUpdate,
   serviceArchive,
@@ -1168,6 +1170,7 @@ export const commands: readonly CommandDef[] = [
   chatWidgetUpdate,
   chatSetupSave,
   facebookSetupSave,
+  myCalendarSetupSave,
   chatWidgetPause,
   chatWidgetResume,
   chatWidgetHideUntilTexting,

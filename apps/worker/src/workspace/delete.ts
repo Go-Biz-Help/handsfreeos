@@ -17,7 +17,7 @@
  */
 import { eq } from 'drizzle-orm';
 import { scheduleJob } from '@hfos/core/server';
-import { asWorker, rows, sql } from '@hfos/db/client';
+import { asWorker, noStatementLimit, rows, sql } from '@hfos/db/client';
 import { paymentConnections, telephonyAccounts, workspaces } from '@hfos/db/schema';
 import type { EventHandler } from '../handlers/types';
 import { assertInWorkspace } from '../handlers/file-removed';
@@ -182,6 +182,8 @@ export const deleteWorkspaceJob: JobHandler = async (ctx) => {
   const correlationId = ctx.job.payload['correlationId'];
   const causationId = ctx.job.payload['requestEventId'];
   await asWorker(ctx.db, scope, async (tx) => {
+    // One statement for the whole business, as long as the business is big.
+    await noStatementLimit(tx);
     await tx.execute(sql`select private.purge_workspace(${workspaceId})`);
     await recordSystemEvent(tx, {
       type: 'workspace.deleted',

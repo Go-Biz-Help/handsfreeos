@@ -44,6 +44,7 @@ import {
   Note,
   openOutreach,
   openOutside,
+  pagesOf,
   useOutreachAnswer,
   useOutreachContext,
 } from './kit';
@@ -74,20 +75,19 @@ export function GroupsScreen({ show, q }: { show?: string; q?: string }) {
   React.useEffect(() => setPages(1), [view, asked]);
   const answer = useOutreachAnswer(
     async () => {
-      const all: GroupsOutput[] = [];
-      for (let page = 1; page <= pages; page++)
-        all.push(
-          unwrap(
-            await api.POST('/v1/queries/outreach.groups', {
-              body: { workspaceId: ws, view, page, ...(asked ? { search: asked } : {}) },
-            }),
-          ),
-        );
+      const all: GroupsOutput[] = await pagesOf(pages, async (page) =>
+        unwrap(
+          await api.POST('/v1/queries/outreach.groups', {
+            body: { workspaceId: ws, view, page, ...(asked ? { search: asked } : {}) },
+          }),
+        ),
+      );
       const last = all[all.length - 1]!;
       return { ...last, groups: all.flatMap((a) => a.groups) };
     },
     `groups:${ws}:${view}:${asked}:${pages}`,
     W.rows.groups,
+    { moreOf: `groups:${ws}:${view}:${asked}` },
   );
   const asks = useAsks('groups', W.rows.groups);
   const actions = useAskActions(asks.data, asks.reload);

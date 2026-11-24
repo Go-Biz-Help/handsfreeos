@@ -218,6 +218,8 @@ export const socialcontentAddonWorker: AddonWorkerModule = {
     [SETUP_JOB]: runSetup,
     [RESEARCH_JOB]: runResearch,
   },
+  // Pictures are made and resized in the worker's own process.
+  heavyJobs: [PICTURES_JOB],
   onEnable,
   actions: {
     'socialcontent.niches.suggest': suggestNichesNow,

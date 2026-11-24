@@ -27,7 +27,14 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { OutreachFrame } from './frame';
-import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import {
+  NeedsSignal,
+  Note,
+  openOutside,
+  pagesOf,
+  useOutreachAnswer,
+  useOutreachContext,
+} from './kit';
 import { NetworkFilter, NetworkName } from './networks';
 
 /**
@@ -58,20 +65,19 @@ export function PartnersScreen({
   React.useEffect(() => setPages(1), [view, net]);
   const answer = useOutreachAnswer(
     async () => {
-      const all: PartnersOutput[] = [];
-      for (let page = 1; page <= pages; page++)
-        all.push(
-          unwrap(
-            await api.POST('/v1/queries/outreach.partners', {
-              body: { workspaceId: ws, view, page, ...(net ? { platform: net } : {}) },
-            }),
-          ),
-        );
+      const all: PartnersOutput[] = await pagesOf(pages, async (page) =>
+        unwrap(
+          await api.POST('/v1/queries/outreach.partners', {
+            body: { workspaceId: ws, view, page, ...(net ? { platform: net } : {}) },
+          }),
+        ),
+      );
       const last = all[all.length - 1]!;
       return { ...last, partners: all.flatMap((a) => a.partners) };
     },
     `partners:${ws}:${view}:${pages}:${net ?? 'all'}`,
     W.rows.partners,
+    { moreOf: `partners:${ws}:${view}:${net ?? 'all'}` },
   );
   const [busy, setBusy] = React.useState<string | null>(null);
   const mark = async (p: Partner, m: PartnerMark) => {

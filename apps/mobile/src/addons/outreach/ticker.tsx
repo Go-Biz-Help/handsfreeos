@@ -21,6 +21,7 @@ import { Pause, Play } from '@/components/icons';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { api, unwrap } from '@/lib/api';
+import { useInView } from '@/lib/in-view';
 import { cn } from '@/lib/utils';
 
 import { useOutreachAnswer, useOutreachContext } from './kit';
@@ -33,7 +34,9 @@ import { useOutreachAnswer, useOutreachContext } from './kit';
  *
  * While it's on screen with the app open it says so every minute (`outreach.live.watch`), so the person's computer
  * tells what it's doing every few seconds, and it asks again every few seconds itself (`TICKER_ASK_SECONDS`): the
- * phone hears nothing live. The route's layout puts it under every screen.
+ * phone hears nothing live. The route's layout puts it under every screen. With Social Outreach under another screen
+ * or on a tab that isn't picked, it does neither (`@/lib/in-view`): the computer goes back to its slower pace a minute
+ * and a half later, and picks up again the moment the person comes back.
  */
 export function OutreachTicker() {
   const ctx = useOutreachContext();
@@ -46,8 +49,9 @@ export function OutreachTicker() {
     { everySeconds: TICKER_ASK_SECONDS },
   );
   const { online } = ctx;
+  const inView = useInView();
   React.useEffect(() => {
-    if (!online) return;
+    if (!online || !inView) return;
     const watch = () => {
       if (AppState.currentState !== 'active') return;
       void api
@@ -63,7 +67,7 @@ export function OutreachTicker() {
       clearInterval(t);
       sub.remove();
     };
-  }, [ws, online]);
+  }, [ws, online, inView]);
   // Ticks on its own, so a computer that goes quiet shows offline without asking again.
   const [, setTick] = React.useState(0);
   React.useEffect(() => {

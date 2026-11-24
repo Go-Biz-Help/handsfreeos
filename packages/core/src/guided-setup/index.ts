@@ -3,7 +3,8 @@
  * setup's way "with all the settings", the phone number first). What every one of them shares lives here, once, for
  * the web and the phone: which setups there are and who may run each, the answers saved as they are given
  * (guided_setup.save_draft, so someone who leaves comes back to their choices), and the frame's words. Each setup's
- * own questions sit beside this file (phone.ts, calendar.ts, payments.ts, chat.ts, facebook.ts). Browser-safe.
+ * own questions sit beside this file (phone.ts, calendar.ts, payments.ts, chat.ts, facebook.ts, my-calendar.ts). One
+ * is each person's own (My calendar): its answers are kept in their own settings, not the business's. Browser-safe.
  */
 import { z } from 'zod';
 import { daysBetween, formatLocalDate, localDateOf } from '../calendar/engine/zoned';
@@ -29,7 +30,76 @@ export const GUIDED_SETUP_KEYS = Object.keys(GUIDED_SETUPS) as [
   GuidedSetupKey,
   ...GuidedSetupKey[],
 ];
-export const guidedSetupKey = z.enum(GUIDED_SETUP_KEYS);
+
+/**
+ * The guided setups each person runs for themselves (My calendar, the owner's M1 to M4 of 24 Nov 2026), and the
+ * permission they need. Their answers are the person's own, kept in their `users.settings` by business
+ * (`guidedSetupDrafts`), so two teammates setting up their calendars never share a draft.
+ */
+export const PERSONAL_GUIDED_SETUPS = {
+  my_calendar: { permission: 'appointments.write' },
+} as const satisfies Record<string, { readonly permission: Permission }>;
+export type PersonalGuidedSetupKey = keyof typeof PERSONAL_GUIDED_SETUPS;
+/** Any guided setup's saved answers: the business's (GUIDED_SETUPS) or a person's own (PERSONAL_GUIDED_SETUPS). */
+export type GuidedDraftKey = GuidedSetupKey | PersonalGuidedSetupKey;
+export const isPersonalGuidedSetup = (setup: string): setup is PersonalGuidedSetupKey =>
+  Object.hasOwn(PERSONAL_GUIDED_SETUPS, setup);
+export const guidedSetupKey = z.enum([
+  ...GUIDED_SETUP_KEYS,
+  ...(Object.keys(PERSONAL_GUIDED_SETUPS) as PersonalGuidedSetupKey[]),
+]);
+/** The permission a setup's saved answers need, the business's or a person's own. */
+export const guidedSetupPermission = (setup: GuidedDraftKey): Permission =>
+  isPersonalGuidedSetup(setup)
+    ? PERSONAL_GUIDED_SETUPS[setup].permission
+    : GUIDED_SETUPS[setup].permission;
+
+/** Where a person's own setups keep their answers in `users.settings`: `{ [business]: { [setup]: draft } }`. */
+export const PERSONAL_DRAFTS_KEY = 'guidedSetupDrafts';
+export interface PersonalGuidedDraft {
+  readonly answers: Record<string, unknown>;
+  readonly savedAt: string;
+}
+
+/** A person's saved answers for one of their own setups in one business, or null. */
+export function personalGuidedDraftOf(
+  settings: Readonly<Record<string, unknown>> | null | undefined,
+  workspaceId: string,
+  setup: PersonalGuidedSetupKey,
+): PersonalGuidedDraft | null {
+  const all = settings?.[PERSONAL_DRAFTS_KEY];
+  if (!all || typeof all !== 'object') return null;
+  const mine = (all as Record<string, unknown>)[workspaceId];
+  if (!mine || typeof mine !== 'object') return null;
+  const draft = (mine as Record<string, unknown>)[setup];
+  if (!draft || typeof draft !== 'object') return null;
+  const { answers, savedAt } = draft as Record<string, unknown>;
+  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) return null;
+  if (typeof savedAt !== 'string' || Number.isNaN(Date.parse(savedAt))) return null;
+  return { answers: answers as Record<string, unknown>, savedAt };
+}
+
+/** The settings with one of the person's own drafts kept (or, with null, forgotten); everything else as it was. */
+export function withPersonalGuidedDraft(
+  settings: Readonly<Record<string, unknown>> | null | undefined,
+  workspaceId: string,
+  setup: PersonalGuidedSetupKey,
+  draft: PersonalGuidedDraft | null,
+): Record<string, unknown> {
+  const base = { ...(settings ?? {}) };
+  const raw = base[PERSONAL_DRAFTS_KEY];
+  const all = raw && typeof raw === 'object' ? { ...(raw as Record<string, unknown>) } : {};
+  const rawMine = all[workspaceId];
+  const mine =
+    rawMine && typeof rawMine === 'object' ? { ...(rawMine as Record<string, unknown>) } : {};
+  if (draft) mine[setup] = draft;
+  else delete mine[setup];
+  if (Object.keys(mine).length) all[workspaceId] = mine;
+  else delete all[workspaceId];
+  if (Object.keys(all).length) base[PERSONAL_DRAFTS_KEY] = all;
+  else delete base[PERSONAL_DRAFTS_KEY];
+  return base;
+}
 
 /**
  * A setup's answers as its screens keep them: single picks and lists of rows alike. Loose on purpose, since a

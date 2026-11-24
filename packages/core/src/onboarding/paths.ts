@@ -34,8 +34,9 @@ export function stepPath(
         : `/onboarding/${workspaceId}/facebook?from=home`;
     case 'sign_in':
       return `${base}/settings#${opts.passkeys ? 'passkeys' : 'google'}`;
+    // The guided setup (the owner, 24 Nov 2026, M1 a), back to Home after.
     case 'my_calendar':
-      return `${base}/settings/my-calendar`;
+      return `/onboarding/${workspaceId}/my-calendar?from=home`;
     case 'app':
     case 'notifications':
       return null;

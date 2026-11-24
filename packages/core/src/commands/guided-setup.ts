@@ -1,19 +1,25 @@
 /**
  * Guided setups save as you go (the owner, 22 Nov 2026): the answers of a setup that isn't finished, kept as they are
  * given, so someone who leaves comes back to their choices. One row per business and setup; nothing in it is acted on.
+ * A setup each person runs for themselves (My calendar) keeps its answers in their own `users.settings` instead,
+ * by business, so teammates never share one.
  */
 import { and, eq } from 'drizzle-orm';
-import { guidedSetupDrafts } from '@hfos/db/schema';
+import { guidedSetupDrafts, users } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import {
-  GUIDED_SETUPS,
   GuidedSetupClearDraftInput,
   GuidedSetupClearDraftOutput,
   GuidedSetupSaveDraftInput,
   GuidedSetupSaveDraftOutput,
-  type GuidedSetupKey,
+  guidedSetupPermission,
+  isPersonalGuidedSetup,
+  withPersonalGuidedDraft,
+  type GuidedDraftKey,
+  type PersonalGuidedDraft,
+  type PersonalGuidedSetupKey,
 } from '../guided-setup/index';
-import { userIdOf } from '../kernel/actor';
+import { requireHuman, userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { scopeCan } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
@@ -25,10 +31,37 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 });
 
 /** Each setup's answers belong to the people who may change what it sets up. */
-function assertMaySetUp(ctx: CommandContext, setup: GuidedSetupKey): void {
-  const { permission } = GUIDED_SETUPS[setup];
+function assertMaySetUp(ctx: CommandContext, setup: GuidedDraftKey): void {
+  const permission = guidedSetupPermission(setup);
   if (ctx.actor.type === 'human' && !scopeCan(ctx.scope, permission))
     throw HfosError.forbidden(missingPermissionMessage(permission, ctx.scope.workspaceRole));
+}
+
+/**
+ * Keeps (or, with null, forgets) one of the person's own setups' answers in this business, in their own
+ * `users.settings`, with their row held so two saves never undo each other. True when there was one to forget.
+ */
+export async function keepPersonalDraft(
+  ctx: CommandContext,
+  setup: PersonalGuidedSetupKey,
+  draft: PersonalGuidedDraft | null,
+): Promise<boolean> {
+  const userId = requireHuman(ctx).userId;
+  const workspaceId = ctx.scope.workspaceId!;
+  const [u] = await ctx.tx
+    .select({ settings: users.settings })
+    .from(users)
+    .where(eq(users.id, userId))
+    .for('update');
+  if (!u)
+    throw HfosError.notFound(
+      'We couldn’t find your account. Sign out, sign in again and try once more.',
+    );
+  const settings = (u.settings ?? {}) as Record<string, unknown>;
+  const next = withPersonalGuidedDraft(settings, workspaceId, setup, draft);
+  if (JSON.stringify(next) === JSON.stringify(settings)) return false;
+  await ctx.tx.update(users).set({ settings: next }).where(eq(users.id, userId));
+  return true;
 }
 
 export const guidedSetupSaveDraft = defineCommand({
@@ -46,6 +79,13 @@ export const guidedSetupSaveDraft = defineCommand({
     assertMaySetUp(ctx, input.setup);
     const workspaceId = ctx.scope.workspaceId!;
     const now = new Date();
+    if (isPersonalGuidedSetup(input.setup)) {
+      await keepPersonalDraft(ctx, input.setup, {
+        answers: input.answers,
+        savedAt: now.toISOString(),
+      });
+      return { savedAt: now.toISOString() };
+    }
     await ctx.tx
       .insert(guidedSetupDrafts)
       .values({
@@ -74,6 +114,8 @@ export const guidedSetupClearDraft = defineCommand({
   emits: [],
   async handler(ctx, input) {
     assertMaySetUp(ctx, input.setup);
+    if (isPersonalGuidedSetup(input.setup))
+      return { cleared: await keepPersonalDraft(ctx, input.setup, null) };
     const gone = await ctx.tx
       .delete(guidedSetupDrafts)
       .where(

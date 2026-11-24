@@ -14,7 +14,14 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { OutreachFrame } from './frame';
-import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import {
+  NeedsSignal,
+  Note,
+  openOutside,
+  pagesOf,
+  useOutreachAnswer,
+  useOutreachContext,
+} from './kit';
 
 /**
  * The business's Never contact list on the phone's People tab (`?view=never_contact`), as the web's Friends tab has
@@ -39,25 +46,24 @@ export function NeverContactScreen({ q }: { q?: string }) {
   React.useEffect(() => setPages(1), [asked]);
   const answer = useOutreachAnswer(
     async () => {
-      const all: FriendsOutput[] = [];
-      for (let page = 1; page <= pages; page++)
-        all.push(
-          unwrap(
-            await api.POST('/v1/queries/outreach.friends', {
-              body: {
-                workspaceId: ws,
-                view: 'never_contact',
-                page,
-                ...(asked ? { search: asked } : {}),
-              },
-            }),
-          ),
-        );
+      const all: FriendsOutput[] = await pagesOf(pages, async (page) =>
+        unwrap(
+          await api.POST('/v1/queries/outreach.friends', {
+            body: {
+              workspaceId: ws,
+              view: 'never_contact',
+              page,
+              ...(asked ? { search: asked } : {}),
+            },
+          }),
+        ),
+      );
       const last = all[all.length - 1]!;
       return { ...last, people: all.flatMap((a) => a.people) };
     },
     `never-contact:${ws}:${asked}:${pages}`,
     W.rows.never_contact,
+    { moreOf: `never-contact:${ws}:${asked}` },
   );
   return (
     <NeverContactBody

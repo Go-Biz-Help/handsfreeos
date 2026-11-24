@@ -6,7 +6,7 @@
  * marked, and the answers saved as they are given (guided_setup.save_draft), so someone who leaves comes back to
  * them. The phone number's setup is the first to use it; each setup brings its own questions.
  */
-import { GUIDED_SETUP_WORDS as W, type GuidedSetupKey } from '@hfos/core';
+import { GUIDED_SETUP_WORDS as W, type GuidedDraftKey } from '@hfos/core';
 import { ArrowLeft, ArrowRight, Check, CircleAlert, PartyPopper } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { SetupPage } from '@/components/onboarding-setup/frame';
@@ -26,7 +26,7 @@ export type SavedState = 'idle' | 'saving' | 'saved' | 'error';
  */
 export function useGuidedDraft(
   workspaceId: string,
-  setup: GuidedSetupKey,
+  setup: GuidedDraftKey,
   answers: Record<string, unknown> | null,
   opts: { readonly hadDraft: boolean },
 ) {
@@ -338,6 +338,7 @@ export function ChoiceTile({
   title,
   hint,
   best,
+  icon,
   disabled,
   testId,
   children,
@@ -347,6 +348,8 @@ export function ChoiceTile({
   title: string;
   hint?: ReactNode;
   best?: string;
+  /** A mark beside the title, like a provider's logo. */
+  icon?: ReactNode;
   disabled?: boolean;
   testId?: string;
   /** Shown inside the tile while it is picked. */
@@ -379,6 +382,14 @@ export function ChoiceTile({
         >
           {selected ? <span className="h-2.5 w-2.5 rounded-full bg-accent" /> : null}
         </span>
+        {icon ? (
+          <span
+            aria-hidden
+            className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-[10px] border border-border bg-card"
+          >
+            {icon}
+          </span>
+        ) : null}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex flex-wrap items-center gap-2 font-semibold">
             {title}

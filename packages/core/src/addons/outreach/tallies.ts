@@ -323,10 +323,15 @@ export const WATCHED_LINE_SECONDS = 4;
 /** Today's steps the ticker carries, the newest first. */
 export const TICKER_STEPS = 12;
 /**
- * How often the phone asks again for the ticker and the counters while they're on screen: it hears nothing live, so
- * it asks. The web asks each time the computer says something, and every minute.
+ * How often the phone asks again for the ticker while it's on screen: it hears nothing live, so it asks. The web asks
+ * each time the computer says something, and every minute.
  */
 export const TICKER_ASK_SECONDS = 5;
+/**
+ * How often the phone asks again for the counters while Today is the screen in view (docs/outreach.md, decision 140).
+ * It was as often as the ticker until the speed audit (24 Nov 2026): the numbers every 15 seconds, the ticker as it was.
+ */
+export const COUNTS_ASK_SECONDS = 15;
 /** How fast the ticker's words go past, in pixels a second, and its shortest loop. */
 export const TICKER_PIXELS_PER_SECOND = 60;
 export const TICKER_SHORTEST_SECONDS = 20;

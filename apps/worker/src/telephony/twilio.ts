@@ -83,6 +83,16 @@ function providerError(
   );
 }
 
+/**
+ * How long Twilio has to answer. Node's own limit is five minutes, and a text is handed to Twilio from inside the
+ * outbox's transaction, in the one lane every business's texts, emails and pushes on a machine share: a call that
+ * hung held them all for as long (the speed audit, Nov 2026). Thirty seconds, as for Meta (social/graph.ts); a file
+ * coming down or going up gets two minutes. One that runs out is thrown as any failure to reach Twilio is, so what
+ * was retried is still retried, and a text says "The phone carrier didn’t answer" on its last try.
+ */
+const CALL_MS = 30_000;
+const FILE_MS = 120_000;
+
 async function call<T>(
   creds: Creds,
   method: 'GET' | 'POST' | 'DELETE',
@@ -92,6 +102,7 @@ async function call<T>(
   const target = method === 'GET' && params ? `${url}?${form(params).toString()}` : url;
   const res = await fetch(target, {
     method,
+    signal: AbortSignal.timeout(CALL_MS),
     headers: {
       authorization: `Basic ${Buffer.from(`${creds.sid}:${creds.token}`).toString('base64')}`,
       ...(method === 'POST' ? { 'content-type': 'application/x-www-form-urlencoded' } : {}),
@@ -109,6 +120,7 @@ async function call<T>(
 async function callJson<T>(creds: Creds, url: string, body: unknown): Promise<T> {
   const res = await fetch(url, {
     method: 'POST',
+    signal: AbortSignal.timeout(CALL_MS),
     headers: {
       authorization: `Basic ${Buffer.from(`${creds.sid}:${creds.token}`).toString('base64')}`,
       'content-type': 'application/json',
@@ -1279,6 +1291,7 @@ export function createTwilioTelephony(master: {
 
     async fetchMedia(account, url) {
       const res = await fetch(twilioMediaUrl(url), {
+        signal: AbortSignal.timeout(FILE_MS),
         headers: {
           authorization: `Basic ${Buffer.from(`${account.sid}:${account.authToken}`).toString('base64')}`,
         },
@@ -1308,6 +1321,7 @@ export function createTwilioTelephony(master: {
 
     async fetchRecording(account, recordingSid) {
       const res = await fetch(`${API}/Accounts/${account.sid}/Recordings/${recordingSid}.mp3`, {
+        signal: AbortSignal.timeout(FILE_MS),
         headers: {
           authorization: `Basic ${Buffer.from(`${account.sid}:${account.authToken}`).toString('base64')}`,
         },
@@ -1632,6 +1646,7 @@ export function createTwilioTelephony(master: {
       body.append('File', new Blob([data as BlobPart], { type: contentType }), name);
       const res = await fetch(`${TRUST_HUB}/SupportingDocuments`, {
         method: 'POST',
+        signal: AbortSignal.timeout(FILE_MS),
         headers: {
           authorization: `Basic ${Buffer.from(`${creds.sid}:${creds.token}`).toString('base64')}`,
         },

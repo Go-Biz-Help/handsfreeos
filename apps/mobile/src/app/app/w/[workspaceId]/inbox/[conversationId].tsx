@@ -99,8 +99,7 @@ import { AttributionStrip } from '@/components/customers/attribution';
 import { EditSheet, RECORD_SHEET_WORDS, TagSheet } from '@/components/customers/sheets';
 import { MoveSheet } from '@/components/pipeline/bits';
 import { savePerson, saveTags, type PersonEdit } from '@/customers/actions';
-import { useNames } from '@/customers/names';
-import { TAGS_SQL } from '@/customers/queries';
+import { TAGS_OF_SQL, TAGS_SQL } from '@/customers/queries';
 import { moveLead, setNextAction } from '@/pipeline/actions';
 import { useStagesOf } from '@/pipeline/use-pipeline';
 import { conversationActions } from '@/inbox/actions';
@@ -185,7 +184,6 @@ function Thread() {
   const feedback = useReplyFeedback(business.id, { messageIds: aiMessageIds });
   const drafts = useWaitingDrafts({ conversationId, kinds: ['reply', 'ask'] });
   const members = useMembers();
-  const names = useNames();
   const now = useNow();
   const myUserId = me.user.id;
   const { data: tagRows } = useQuery<{ id: string; name: string; color: string }>(TAGS_SQL, [
@@ -198,7 +196,12 @@ function Thread() {
    * so from a conversation the lead moves along and is closed out there.
    */
   const stages = useStagesOf(lead?.pipelineId ?? null).filter((s) => s.kind === 'open');
-  const personTags = names.tags(data?.person?.id ?? '');
+  // This customer's tags only. The whole name book (`useNames`) read every person, company, lead and tag of the
+  // business, again on every change to any of them, for this one line.
+  const { data: personTags } = useQuery<{ id: string; name: string; color: string }>(TAGS_OF_SQL, [
+    business.id,
+    data?.person?.id ?? '',
+  ]);
   const actions = React.useMemo(
     () => conversationActions({ workspaceId: business.id, conversationId, myUserId }),
     [business.id, conversationId, myUserId],

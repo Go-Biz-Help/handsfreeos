@@ -18,6 +18,7 @@ import { FORM_JOBS, FORMS_STOPPED_KEY, formJobs, nextStoppedSweep } from './form
 import { BIN_JOBS, BIN_SWEEP_KEY, binJobs } from './bin/index';
 import { PRACTICE_JOBS, PRACTICE_SWEEP_KEY, practiceJobs } from './practice/jobs';
 import { addonJobs, ensureAddonSweep } from './addons/index';
+import { ADDON_JOBS } from './addons/queue';
 import { ensureAddonVoting, roadmapJobs } from './addons/roadmap';
 import { workspaceJobs } from './workspace/delete';
 import { DIGEST_JOBS, DIGEST_PLAN_KEY, digestJobs } from './agency-digest';
@@ -310,6 +311,8 @@ const PURGE_ROUNDS = 40;
 const PURGE_PAUSE_MS = 200;
 /** A table with more to remove than one sweep takes carries on this much later. */
 const PURGE_AGAIN_MS = 10 * 60_000;
+/** How long an event handed to an add-on is kept once it's done. One that failed is kept as long as any job. */
+export const ADDON_DELIVERED_KEEP = '2 days';
 
 /**
  * Up to PURGE_ROUNDS batches of `deleteBatch` (a delete of at most PURGE_BATCH rows `returning 1`), each its own
@@ -333,6 +336,10 @@ async function purgeInBatches(ctx: JobContext, deleteBatch: SQL): Promise<boolea
  * Daily: provider webhooks are kept 30 days once handled (90 when they failed), finished jobs 30 days, and
  * handled outbox rows 7 days (their events stay; failed ones are kept for a person to look at). A batch at a
  * time, so no one transaction removes millions of rows.
+ *
+ * An event handed to an add-on and done is kept 2 days, not 30 (the owner's pick from the speed audit, 24 Nov 2026):
+ * those rows were 7 in 10 of the job table, 28,800 of 41,700, under the worker's busiest loop, and nobody reads one
+ * that went well. One that failed is kept the 30 days, as any failed job is.
  */
 export const sweepDeliveries: JobHandler = async (ctx) => {
   const left = [
@@ -350,6 +357,15 @@ export const sweepDeliveries: JobHandler = async (ctx) => {
       sql`delete from app.scheduled_jobs where id in (
             select id from app.scheduled_jobs
             where status <> 'pending' and updated_at < now() - interval '30 days'
+            limit ${PURGE_BATCH})
+          returning 1`,
+    ),
+    await purgeInBatches(
+      ctx,
+      sql`delete from app.scheduled_jobs where id in (
+            select id from app.scheduled_jobs
+            where status = 'done' and kind = ${ADDON_JOBS.deliver}
+              and updated_at < now() - ${ADDON_DELIVERED_KEEP}::interval
             limit ${PURGE_BATCH})
           returning 1`,
     ),

@@ -37,16 +37,35 @@ export const SAFETY_MS = 30_000;
 const oldest = (table: SQL, claimable: SQL, due: SQL) =>
   sql`coalesce((select true from ${table} where ${claimable} order by ${due} limit 1), false)`;
 
-/** The look's one statement: each queue's oldest claimable row, through its index of waiting rows. */
-export const waitingStatement = (workerId: string) =>
-  sql`select
+/**
+ * The look's one statement: each queue's oldest claimable row, through its index of waiting rows.
+ *
+ * `runningJobs` are the jobs this worker is running (job-runner.ts): it holds them, so the claim's words count them
+ * as its own to take, and they are left out here as the runner's claim leaves them out.
+ */
+export const waitingStatement = (workerId: string, runningJobs: readonly string[] = []) => {
+  const notRunning =
+    runningJobs.length === 0
+      ? sql``
+      : sql`and id not in (${sql.join(
+          runningJobs.map((id) => sql`${id}`),
+          sql`, `,
+        )})`;
+  return sql`select
         ${oldest(sql`app.outbox`, claimableEvents(workerId), sql`next_attempt_at`)} as outbox,
         ${oldest(sql`app.webhook_deliveries`, claimableDeliveries(workerId), sql`next_attempt_at`)} as webhook,
-        ${oldest(sql`app.scheduled_jobs`, claimableJobs(workerId), sql`run_at`)} as jobs`;
+        ${oldest(sql`app.scheduled_jobs`, sql`${claimableJobs(workerId)} ${notRunning}`, sql`run_at`)} as jobs`;
+};
 
 /** Which queues have something this worker may claim now. */
-export async function queuesWaiting(db: Db, workerId: string): Promise<QueuesWaiting> {
-  const [row] = await asWorker(db, {}, (tx) => rows<QueuesWaiting>(tx, waitingStatement(workerId)));
+export async function queuesWaiting(
+  db: Db,
+  workerId: string,
+  runningJobs: readonly string[] = [],
+): Promise<QueuesWaiting> {
+  const [row] = await asWorker(db, {}, (tx) =>
+    rows<QueuesWaiting>(tx, waitingStatement(workerId, runningJobs)),
+  );
   return row ?? { outbox: false, webhook: false, jobs: false };
 }
 

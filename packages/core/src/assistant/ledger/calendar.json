@@ -5,6 +5,7 @@
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/calendar.tsx": "bf2926675f7a",
     "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "99f851115c11",
+    "apps/mobile/src/app/app/w/[workspaceId]/my-calendar-setup.tsx": "005f6a34df65",
     "apps/mobile/src/calendar/actions.ts": "f893cebae555",
     "apps/mobile/src/calendar/outbox.ts": "73e8c8f98bf3",
     "apps/mobile/src/calendar/queries.ts": "c05679afc32a",
@@ -19,9 +20,11 @@
     "apps/mobile/src/components/calendar/visit-job.tsx": "cf3e380beec3",
     "apps/mobile/src/components/calendar/zone-chips.tsx": "df1b3ae5b12a",
     "apps/mobile/src/components/customers/new-contact-form.tsx": "b1ce260018e2",
+    "apps/mobile/src/components/my-calendar-setup/guided-flow.tsx": "39d876b3a59b",
     "apps/mobile/src/components/safety/check-in-sheet.tsx": "e0da61398345",
     "apps/web/src/app/app/w/[workspaceId]/calendar/page.tsx": "b20c0e261b48",
-    "apps/web/src/app/app/w/[workspaceId]/settings/my-calendar/page.tsx": "173a8af934bd",
+    "apps/web/src/app/app/w/[workspaceId]/settings/my-calendar/page.tsx": "cf7ae253500c",
+    "apps/web/src/app/onboarding/[workspaceId]/my-calendar/page.tsx": "5d58115e1e3a",
     "apps/web/src/components/booking/add-to-calendar.tsx": "b1fe85e88a23",
     "apps/web/src/components/booking/booked-panel.tsx": "ff76fb3f55d0",
     "apps/web/src/components/booking/booking-flow.tsx": "db379d44a61a",
@@ -62,9 +65,11 @@
     "apps/web/src/components/calendar/webinar-leads.tsx": "606978ae90be",
     "apps/web/src/components/calendar/zone-field.tsx": "bb70cbad3575",
     "apps/web/src/components/calendars/weekly-hours.tsx": "86cab98e3be1",
+    "apps/web/src/components/my-calendar-setup/my-calendar-setup-flow.tsx": "f5cdfcb4a43c",
     "apps/web/src/components/settings/calendar-connection-card.tsx": "fb70eee130ed",
     "apps/web/src/components/settings/day-start.tsx": "6eece1cc5610",
-    "apps/web/src/components/settings/meeting-connection-card.tsx": "a7a95b16bd67",
+    "apps/web/src/components/settings/meeting-connection-card.tsx": "c35907e2fc0b",
+    "apps/web/src/components/settings/my-calendar-overview.tsx": "4346bb9225b4",
     "apps/web/src/components/settings/my-calendar.tsx": "b3a3033240a1",
     "apps/web/src/components/settings/zoom-coach-card.tsx": "53c1cd48f3f4",
     "apps/web/src/components/video-call/call-chat-log.tsx": "f5b02e51b3c9"
@@ -1903,6 +1908,146 @@
       "file": "apps/web/src/components/calendar/orders-due.tsx:34",
       "covered": "yes",
       "by": "read_order_list dueFrom, dueTo"
+    },
+    {
+      "path": "My calendar → the simple card until it’s set up: Set up my calendar, Start / Pick up where you left off (opens the guided setup), Until then",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-calendar-overview.tsx:140",
+      "covered": "yes",
+      "by": "do_my_calendar_setup_save takes every answer, on a Confirm card; read_guided_setup_get_draft setup my_calendar reads where they left off; read_my_calendar_setup_get says whether it’s set up; the sign-in that follows is the person’s own"
+    },
+    {
+      "path": "My calendar → your Google or Outlook calendar: its account, Connected / Sign in again, Busy times checked",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-calendar-overview.tsx:168",
+      "covered": "yes",
+      "by": "read_my_calendar_setup_get connection; get_settings my_calendar connectedCalendars"
+    },
+    {
+      "path": "My calendar → your Google or Outlook calendar: Sync now",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-calendar-overview.tsx:193",
+      "covered": "yes",
+      "by": "do_calendar_connection_sync_now"
+    },
+    {
+      "path": "My calendar → No calendar connected: Connect a calendar (opens the setup’s first question)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-calendar-overview.tsx:203",
+      "covered": "person",
+      "by": "signing in to Google or Outlook (calendar_connection.connect is NEVER); do_my_calendar_setup_save saves the rest"
+    },
+    {
+      "path": "My calendar → Your answers: when customers can book you, your time zone, time off, where your day starts, Zoom, each with Change",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-calendar-overview.tsx:221",
+      "covered": "yes",
+      "by": "read_my_calendar_setup_get reads each; do_my_calendar_setup_save changes them"
+    },
+    {
+      "path": "My calendar → Go through the questions again",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-calendar-overview.tsx:227",
+      "covered": "yes",
+      "by": "do_my_calendar_setup_save with the whole setup"
+    },
+    {
+      "path": "My calendar → All settings / Hide all settings, the Under All settings note, and Your calendar needs you to sign in again",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-calendar-overview.tsx:111",
+      "covered": "yes",
+      "by": "get_settings my_calendar reads every setting there; settings_help my_calendar links the page"
+    },
+    {
+      "path": "My calendar → Guided setup → 1. Which calendar do you keep your days in?: Google Calendar, Outlook, Something else, or none, We only see when you’re busy",
+      "kind": "do",
+      "file": "apps/web/src/components/my-calendar-setup/my-calendar-setup-flow.tsx:434",
+      "covered": "yes",
+      "by": "do_my_calendar_setup_save calendar; connect says which calendar the person signs in to next, which is their own"
+    },
+    {
+      "path": "My calendar → Guided setup → 2. When can customers book you?: Same as the business, Weekdays 9 to 5, Set my own (each day’s hours), Lunch break with its times, Time zone",
+      "kind": "do",
+      "file": "apps/web/src/components/my-calendar-setup/my-calendar-setup-flow.tsx:509",
+      "covered": "yes",
+      "by": "do_my_calendar_setup_save hours, ownHours, lunch, lunchStart, lunchEnd, timezone"
+    },
+    {
+      "path": "My calendar → Guided setup → 3. Any time off coming up?: the time off saved, with remove, and Add time off (All day, From, To, Day, start and end, Note)",
+      "kind": "do",
+      "file": "apps/web/src/components/my-calendar-setup/my-calendar-setup-flow.tsx:613",
+      "covered": "yes",
+      "by": "do_my_calendar_setup_save timeOff and removeTimeOff; read_my_calendar_setup_get lists the time off saved, with ids"
+    },
+    {
+      "path": "My calendar → Guided setup → 4. Where does your day start?: the business’s address, or my own (only when a calendar they’re on leaves time to drive)",
+      "kind": "do",
+      "file": "apps/web/src/components/my-calendar-setup/my-calendar-setup-flow.tsx:628",
+      "covered": "yes",
+      "by": "do_my_calendar_setup_save dayStart and address; read_my_calendar_setup_get drive says whether it’s asked"
+    },
+    {
+      "path": "My calendar → Guided setup → 5. Connect Zoom for your online appointments?: Yes, after / Not now (only when a calendar makes Zoom links and theirs isn’t connected)",
+      "kind": "do",
+      "file": "apps/web/src/components/my-calendar-setup/my-calendar-setup-flow.tsx:670",
+      "covered": "partly",
+      "by": "do_my_calendar_setup_save zoom; signing in to Zoom (meeting_connection.connect is NEVER) is the person’s own"
+    },
+    {
+      "path": "My calendar → Guided setup → Saved, Finish later, Welcome back, Start over, Your calendar so far beside the question",
+      "kind": "do",
+      "file": "apps/web/src/components/my-calendar-setup/my-calendar-setup-flow.tsx:324",
+      "covered": "yes",
+      "by": "read_guided_setup_get_draft setup my_calendar reads where they left off; the Assistant saves the answers straight away with do_my_calendar_setup_save, so it keeps no draft"
+    },
+    {
+      "path": "My calendar → Guided setup → Check it over: each answer with Change",
+      "kind": "do",
+      "file": "apps/web/src/components/my-calendar-setup/my-calendar-setup-flow.tsx:379",
+      "covered": "yes",
+      "by": "do_my_calendar_setup_save takes the same answers, on a Confirm card"
+    },
+    {
+      "path": "My calendar → Guided setup → Check it over: Save and connect Google Calendar / Outlook, Save my calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/my-calendar-setup/my-calendar-setup-flow.tsx:396",
+      "covered": "partly",
+      "by": "do_my_calendar_setup_save saves the answers, on a Confirm card; the sign-in that follows is the person’s own (calendar_connection.connect is NEVER)"
+    },
+    {
+      "path": "My calendar → Guided setup → Done: your calendar connected (or didn’t finish, with Try again), busy times being checked, what was set, Connect Zoom, Back",
+      "kind": "see",
+      "file": "apps/web/src/components/my-calendar-setup/my-calendar-setup-flow.tsx:963",
+      "covered": "yes",
+      "by": "read_my_calendar_setup_get connection, meeting, weekly and timeOff; trying a sign-in again and Connect Zoom are the person’s own"
+    },
+    {
+      "path": "Home → Getting started → Connect your calendar → Connect: the guided My calendar setup opened from Home, whose Finish later and Done go back Home (Something else, or none ticks off a teammate’s step)",
+      "kind": "do",
+      "file": "apps/web/src/app/onboarding/[workspaceId]/my-calendar/page.tsx:36",
+      "covered": "yes",
+      "by": "read_onboarding_status gives the my_calendar step; do_my_calendar_setup_save carries the answers out; connecting Google or Outlook is the person’s own sign-in"
+    },
+    {
+      "path": "Phone → My calendar (Settings → My calendar, Getting started’s Connect, the business setup’s Set up my calendar): the same questions one a screen, lunch picked from chips, whole days off, then Check it over, whose sign-in opens in the phone’s browser",
+      "kind": "do",
+      "file": "apps/mobile/src/components/my-calendar-setup/guided-flow.tsx:131",
+      "covered": "yes",
+      "by": "do_my_calendar_setup_save takes every answer; read_guided_setup_get_draft setup my_calendar reads where they left off; the sign-in is the person’s own"
+    },
+    {
+      "path": "Phone → My calendar → Done, or once it’s set up Your answers with Go through the questions again: your calendar, Try again, what was set, Connect Zoom",
+      "kind": "see",
+      "file": "apps/mobile/src/components/my-calendar-setup/guided-flow.tsx:819",
+      "covered": "yes",
+      "by": "read_my_calendar_setup_get; signing in again and Connect Zoom are the person’s own"
+    },
+    {
+      "path": "Phone → My calendar → not allowed, needs signal, couldn’t load with Try again",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/my-calendar-setup.tsx:34",
+      "covered": "yes",
+      "by": "the tool’s permission refusal; read_my_calendar_setup_get"
     }
   ],
   "gaps": [

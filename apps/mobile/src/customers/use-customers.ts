@@ -109,24 +109,41 @@ export function useCustomers(opts: { readonly archived?: boolean } = {}) {
 /**
  * Search across customers, companies and leads, in the phone's copy: name, number, email, city and street the way
  * `sync/compute.ts` builds them, and then a word in a note.
+ *
+ * `when` false reads nothing. The Contacts list holds a search box that is empty most of the time, and the search
+ * kept its own copy of every customer, company, lead and name beside the list's, and every note's words, each read
+ * again on any change to its table. The list turns the search on at the first letter typed, so the rows are here by
+ * the time two letters are asked for; `loading` says when they aren't yet, so nothing is called unmatched before
+ * the rows have been looked through.
  */
-export function useCustomerSearch(typed: string): readonly SearchHit[] {
+export function useCustomerSearch(
+  typed: string,
+  when = true,
+): { readonly hits: readonly SearchHit[]; readonly loading: boolean } {
   const { business } = useBusiness();
-  const names = useNames();
-  const { data: peopleRows } = useQuery<Record<string, string | null>>(PEOPLE_SQL, [business.id]);
-  const { data: companyRows } = useQuery<Record<string, string | null>>(COMPANIES_SQL, [
-    business.id,
-  ]);
-  const { data: leadRows } = useQuery<Record<string, string | null>>(LEADS_SQL, [business.id]);
-  const { data: noteRows } = useQuery<{
+  const names = useNames(when);
+  const from = when ? business.id : '';
+  const people = useQuery<Record<string, string | null>>(PEOPLE_SQL, [from]);
+  const companies = useQuery<Record<string, string | null>>(COMPANIES_SQL, [from]);
+  const leads = useQuery<Record<string, string | null>>(LEADS_SQL, [from]);
+  const notes = useQuery<{
     id: string;
     person_id: string | null;
     company_id: string | null;
     lead_id: string | null;
     body: string | null;
-  }>(NOTES_SQL, [business.id]);
+  }>(NOTES_SQL, [from]);
+  const peopleRows = people.data;
+  const companyRows = companies.data;
+  const leadRows = leads.data;
+  const noteRows = notes.data;
+  // Ready once each has answered since the search came on; a later re-read (a row synced in) doesn't unsay it.
+  const reading = [people, companies, leads, notes].some((one) => one.isLoading || one.isFetching);
+  const [ready, setReady] = React.useState(false);
+  if (!when && ready) setReady(false);
+  if (when && !ready && !reading) setReady(true);
 
-  return React.useMemo(() => {
+  const hits = React.useMemo(() => {
     const q = typed.trim();
     if (q.length < 2) return [];
     const hits: SearchHit[] = [];
@@ -212,6 +229,7 @@ export function useCustomerSearch(typed: string): readonly SearchHit[] {
     }
     return hits;
   }, [typed, peopleRows, companyRows, leadRows, noteRows, names]);
+  return React.useMemo(() => ({ hits, loading: when && !ready }), [hits, when, ready]);
 }
 
 /** The few words around the match in a note, so the row says why it matched. */

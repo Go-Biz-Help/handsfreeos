@@ -24,7 +24,14 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { OutreachFrame } from './frame';
-import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import {
+  NeedsSignal,
+  Note,
+  openOutside,
+  pagesOf,
+  useOutreachAnswer,
+  useOutreachContext,
+} from './kit';
 
 /**
  * A group's own page on the phone (`?view=groups&group=`, decision 103), the web's: everyone the extension found in
@@ -51,20 +58,19 @@ export function GroupPageScreen({ groupId, show }: { groupId: string; show?: str
   React.useEffect(() => setPages(1), [view]);
   const answer = useOutreachAnswer(
     async () => {
-      const all: GroupPeopleOutput[] = [];
-      for (let page = 1; page <= pages; page++)
-        all.push(
-          unwrap(
-            await api.POST('/v1/queries/outreach.group.people', {
-              body: { workspaceId: ws, groupId, view, page },
-            }),
-          ),
-        );
+      const all: GroupPeopleOutput[] = await pagesOf(pages, async (page) =>
+        unwrap(
+          await api.POST('/v1/queries/outreach.group.people', {
+            body: { workspaceId: ws, groupId, view, page },
+          }),
+        ),
+      );
       const last = all[all.length - 1]!;
       return { ...last, people: all.flatMap((a) => a.people) };
     },
     `group-people:${ws}:${groupId}:${view}:${pages}`,
     W.rows.groups,
+    { moreOf: `group-people:${ws}:${groupId}:${view}` },
   );
   return (
     <GroupPageBody

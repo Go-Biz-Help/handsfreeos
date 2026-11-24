@@ -100,26 +100,153 @@ export async function scheduleDebouncedJob(
 }
 
 /**
- * A job this worker may claim now: due, and not inside another worker's five-minute lease. The claim below and
- * the one look a second that paces the loops (queues.ts) ask with these same words, so they can't disagree.
+ * A job a worker may claim now: due, and not inside another worker's five-minute lease. The claims below and the
+ * one look a second that paces the loops (queues.ts) ask with these same words, so they can't disagree.
+ *
+ * A row this worker already holds counts too: one that an earlier pass of its own left behind (a pass that broke
+ * off, a restart under the same name). The runner that keeps several jobs going (job-runner.ts) leaves out the
+ * ones it is running.
  */
 export const claimableJobs = (workerId: string) =>
   sql`status = 'pending' and run_at <= now()
       and (locked_at is null or locked_at < now() - interval '5 minutes' or locked_by = ${workerId})`;
 
+const noStats = (): JobStats => ({
+  claimed: 0,
+  done: 0,
+  rescheduled: 0,
+  retried: 0,
+  failed: 0,
+  cancelled: 0,
+});
+
+/** What became of a claimed job. `lost`: when its turn came, its lease was no longer this worker's. */
+export type JobOutcome = 'done' | 'rescheduled' | 'retried' | 'failed' | 'cancelled' | 'lost';
+
+/**
+ * Runs one job this worker has claimed, and writes what came of it. Nothing here throws for the job's own
+ * failure: that is an outcome (`retried`, `failed`).
+ */
+export async function runClaimed(
+  deps: Omit<JobDeps, 'batchSize' | 'reservedOnly'>,
+  id: string,
+): Promise<JobOutcome> {
+  // Ours only while the lease holds: a row still waiting its turn after the rows before it ran for five minutes
+  // can be claimed by another worker, and must then run there, not twice.
+  const ours = and(eq(scheduledJobs.id, id), eq(scheduledJobs.lockedBy, deps.workerId));
+  // Read as its turn comes, and the lease renewed from now for the handler's own five minutes. An add-on's job
+  // also asks, in the same transaction, whether its add-on still runs here at the generation it was queued for;
+  // core's jobs ask nothing, so add-ons cost them nothing.
+  const { job, addonRuns } = await asWorker(deps.db, {}, async (tx) => {
+    const [row] = await tx
+      .update(scheduledJobs)
+      .set({ lockedAt: sql`now()` })
+      .where(and(ours, eq(scheduledJobs.status, 'pending')))
+      .returning();
+    if (!row?.addonId) return { job: row, addonRuns: true };
+    const [check] = await rows<{ ok: boolean }>(
+      tx,
+      sql`select private.addon_runs_now(${row.workspaceId}::uuid, ${row.addonId}, ${row.addonGeneration}::integer) as ok`,
+    );
+    return { job: row, addonRuns: check?.ok === true };
+  });
+  if (!job) return 'lost';
+  const handler = deps.jobs[job.kind];
+  const finish = (set: PgUpdateSetSource<typeof scheduledJobs>) =>
+    asWorker(deps.db, {}, (tx) =>
+      tx
+        .update(scheduledJobs)
+        .set({ ...set, lockedAt: null, lockedBy: null })
+        .where(ours),
+    );
+  // Turned off, uninstalled or reinstalled since: it never runs, and nothing it would have sent goes out late
+  // (the owner's decision, 2026-09-28). Nor does an add-on job this build has no code for.
+  if (job.addonId && (!addonRuns || !handler)) {
+    await finish({
+      status: 'cancelled',
+      lastError: addonRuns ? `no handler for ${job.kind}` : 'addon_inactive',
+      finishedAt: new Date(),
+    });
+    return 'cancelled';
+  }
+  if (!handler) {
+    await finish({
+      status: 'failed',
+      lastError: `no handler for ${job.kind}`,
+      finishedAt: new Date(),
+    });
+    return 'failed';
+  }
+  let outcome: JobOutcome;
+  try {
+    // A practice business's jobs run with its stand-ins (practice/kit.ts): nothing goes outside.
+    const run = await practiceRunFor(deps.db, {
+      organizationId: job.organizationId,
+      workspaceId: job.workspaceId,
+    });
+    const result = await inPractice(run, () =>
+      handler({
+        ...forPractice(deps, run),
+        job,
+        scope: { workspaceId: job.workspaceId, organizationId: job.organizationId },
+        attempt: job.attempts + 1,
+        now: deps.clock ? deps.clock(job) : Date.now(),
+        log: deps.log.child({ jobId: id, kind: job.kind }),
+      }),
+    );
+    // A run that worked starts the count of tries again: the limit is for errors in a row. Counted over a job's
+    // whole life, five errors months apart (or one minute of a provider's outage) ended a recurring job for good:
+    // the hourly reviews read, or a sweep like plan renewals until the next restart.
+    if (result?.rescheduleAt) {
+      await finish({
+        runAt: notLaterThanWake(result.rescheduleAt),
+        attempts: 0,
+        payload: withoutWake,
+        lastError: null,
+      });
+      outcome = 'rescheduled';
+    } else {
+      await finish({
+        status: sql`(case when ${wakeAt} is null then 'done' else 'pending' end)::app.job_status`,
+        runAt: sql`coalesce(${wakeAt}, ${scheduledJobs.runAt})`,
+        finishedAt: sql`case when ${wakeAt} is null then now() end`,
+        attempts: sql`case when ${wakeAt} is null then ${scheduledJobs.attempts} else 0 end`,
+        payload: withoutWake,
+        lastError: null,
+      });
+      outcome = 'done';
+    }
+  } catch (e) {
+    const attempts = job.attempts + 1;
+    const failed = attempts >= MAX_ATTEMPTS;
+    const message = errorMessage(e);
+    deps.log.warn({ jobId: id, kind: job.kind, attempts, failed, err: message }, 'job failed');
+    // Twilio refusing a business's own sign-in can mean its token was rotated: the retry gets the new one.
+    await renewAfterRefusal(deps, e);
+    await finish({
+      status: failed ? 'failed' : 'pending',
+      attempts,
+      runAt: notLaterThanWake(new Date(Date.now() + backoffMs(attempts))),
+      payload: withoutWake,
+      lastError: message.slice(0, 2000),
+      ...(failed ? { finishedAt: new Date() } : {}),
+    });
+    outcome = failed ? 'failed' : 'retried';
+  }
+  deps.onRan?.();
+  return outcome;
+}
+
 /**
  * The queue seam: delayed and periodic work lives in app.scheduled_jobs and is claimed like the outbox.
  * pgmq (or another queue) can replace the storage later behind the same two functions.
+ *
+ * One pass, one job at a time: it claims a batch and runs it in order, and answers when the last one has ended.
+ * The tests, the seed and Playwright's routes run jobs with this. The worker itself keeps several going at once
+ * (job-runner.ts).
  */
 export async function processJobs(deps: JobDeps): Promise<JobStats> {
-  const stats: JobStats = {
-    claimed: 0,
-    done: 0,
-    rescheduled: 0,
-    retried: 0,
-    failed: 0,
-    cancelled: 0,
-  };
+  const stats = noStats();
   const claimed = await asWorker(deps.db, {}, (tx) =>
     rows<{ id: string }>(
       tx,
@@ -136,113 +263,9 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
     ),
   );
   stats.claimed = claimed.length;
-  // Ours only while the lease holds: a row still waiting its turn after the rows before it ran for five minutes
-  // can be claimed by another worker, and must then run there, not twice.
-  const ours = (id: string) =>
-    and(eq(scheduledJobs.id, id), eq(scheduledJobs.lockedBy, deps.workerId));
   for (const { id } of claimed) {
-    // Read as its turn comes, and the lease renewed from now for the handler's own five minutes. An add-on's job
-    // also asks, in the same transaction, whether its add-on still runs here at the generation it was queued for;
-    // core's jobs ask nothing, so add-ons cost them nothing.
-    const { job, addonRuns } = await asWorker(deps.db, {}, async (tx) => {
-      const [row] = await tx
-        .update(scheduledJobs)
-        .set({ lockedAt: sql`now()` })
-        .where(and(ours(id), eq(scheduledJobs.status, 'pending')))
-        .returning();
-      if (!row?.addonId) return { job: row, addonRuns: true };
-      const [check] = await rows<{ ok: boolean }>(
-        tx,
-        sql`select private.addon_runs_now(${row.workspaceId}::uuid, ${row.addonId}, ${row.addonGeneration}::integer) as ok`,
-      );
-      return { job: row, addonRuns: check?.ok === true };
-    });
-    if (!job) continue;
-    const handler = deps.jobs[job.kind];
-    const finish = (set: PgUpdateSetSource<typeof scheduledJobs>) =>
-      asWorker(deps.db, {}, (tx) =>
-        tx
-          .update(scheduledJobs)
-          .set({ ...set, lockedAt: null, lockedBy: null })
-          .where(ours(id)),
-      );
-    // Turned off, uninstalled or reinstalled since: it never runs, and nothing it would have sent goes out late
-    // (the owner's decision, 2026-09-28). Nor does an add-on job this build has no code for.
-    if (job.addonId && (!addonRuns || !handler)) {
-      await finish({
-        status: 'cancelled',
-        lastError: addonRuns ? `no handler for ${job.kind}` : 'addon_inactive',
-        finishedAt: new Date(),
-      });
-      stats.cancelled++;
-      continue;
-    }
-    if (!handler) {
-      await finish({
-        status: 'failed',
-        lastError: `no handler for ${job.kind}`,
-        finishedAt: new Date(),
-      });
-      stats.failed++;
-      continue;
-    }
-    try {
-      // A practice business's jobs run with its stand-ins (practice/kit.ts): nothing goes outside.
-      const run = await practiceRunFor(deps.db, {
-        organizationId: job.organizationId,
-        workspaceId: job.workspaceId,
-      });
-      const result = await inPractice(run, () =>
-        handler({
-          ...forPractice(deps, run),
-          job,
-          scope: { workspaceId: job.workspaceId, organizationId: job.organizationId },
-          attempt: job.attempts + 1,
-          now: deps.clock ? deps.clock(job) : Date.now(),
-          log: deps.log.child({ jobId: id, kind: job.kind }),
-        }),
-      );
-      // A run that worked starts the count of tries again: the limit is for errors in a row. Counted over a job's
-      // whole life, five errors months apart (or one minute of a provider's outage) ended a recurring job for good:
-      // the hourly reviews read, or a sweep like plan renewals until the next restart.
-      if (result?.rescheduleAt) {
-        await finish({
-          runAt: notLaterThanWake(result.rescheduleAt),
-          attempts: 0,
-          payload: withoutWake,
-          lastError: null,
-        });
-        stats.rescheduled++;
-      } else {
-        await finish({
-          status: sql`(case when ${wakeAt} is null then 'done' else 'pending' end)::app.job_status`,
-          runAt: sql`coalesce(${wakeAt}, ${scheduledJobs.runAt})`,
-          finishedAt: sql`case when ${wakeAt} is null then now() end`,
-          attempts: sql`case when ${wakeAt} is null then ${scheduledJobs.attempts} else 0 end`,
-          payload: withoutWake,
-          lastError: null,
-        });
-        stats.done++;
-      }
-    } catch (e) {
-      const attempts = job.attempts + 1;
-      const failed = attempts >= MAX_ATTEMPTS;
-      const message = errorMessage(e);
-      deps.log.warn({ jobId: id, kind: job.kind, attempts, failed, err: message }, 'job failed');
-      // Twilio refusing a business's own sign-in can mean its token was rotated: the retry gets the new one.
-      await renewAfterRefusal(deps, e);
-      await finish({
-        status: failed ? 'failed' : 'pending',
-        attempts,
-        runAt: notLaterThanWake(new Date(Date.now() + backoffMs(attempts))),
-        payload: withoutWake,
-        lastError: message.slice(0, 2000),
-        ...(failed ? { finishedAt: new Date() } : {}),
-      });
-      if (failed) stats.failed++;
-      else stats.retried++;
-    }
-    deps.onRan?.();
+    const outcome = await runClaimed(deps, id);
+    if (outcome !== 'lost') stats[outcome]++;
   }
   return stats;
 }

@@ -51,7 +51,7 @@ export function NewMessageSheet({
   onOpened: (conversationId: string) => void;
 }) {
   const { business, viewing } = useBusiness();
-  const customers = useCustomers();
+  const customers = useCustomers(open);
   const [typed, setTyped] = React.useState('');
   const [chosen, setChosen] = React.useState<CustomerChoice | null>(null);
   /** The New contact form, open, with what's in its boxes. */

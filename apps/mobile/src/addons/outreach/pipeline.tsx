@@ -28,7 +28,14 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { OutreachFrame } from './frame';
-import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import {
+  NeedsSignal,
+  Note,
+  openOutside,
+  pagesOf,
+  useOutreachAnswer,
+  useOutreachContext,
+} from './kit';
 import { NetworkFilter, NetworkName } from './networks';
 import { PersonMenuScope, PersonName } from './person-menu';
 
@@ -59,26 +66,25 @@ export function PipelineScreen({ show, q }: { show?: string; q?: string }) {
   React.useEffect(() => setPages(1), [view, asked, net]);
   const answer = useOutreachAnswer(
     async () => {
-      const all: StagesOutput[] = [];
-      for (let page = 1; page <= pages; page++)
-        all.push(
-          unwrap(
-            await api.POST('/v1/queries/outreach.stages', {
-              body: {
-                workspaceId: ws,
-                view,
-                page,
-                ...(asked ? { search: asked } : {}),
-                ...(net ? { platform: net } : {}),
-              },
-            }),
-          ),
-        );
+      const all: StagesOutput[] = await pagesOf(pages, async (page) =>
+        unwrap(
+          await api.POST('/v1/queries/outreach.stages', {
+            body: {
+              workspaceId: ws,
+              view,
+              page,
+              ...(asked ? { search: asked } : {}),
+              ...(net ? { platform: net } : {}),
+            },
+          }),
+        ),
+      );
       const last = all[all.length - 1]!;
       return { ...last, people: all.flatMap((a) => a.people) };
     },
     `pipeline:${ws}:${view}:${asked}:${pages}:${net ?? 'all'}`,
     W.rows.pipeline,
+    { moreOf: `pipeline:${ws}:${view}:${asked}:${net ?? 'all'}` },
   );
   const [busy, setBusy] = React.useState<string | null>(null);
   const mark = async (profileId: string, name: string, m: StageMark) => {

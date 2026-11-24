@@ -39,6 +39,9 @@ export interface WorkerEnv {
   readonly webUrl: string;
   readonly pollMs: number;
   readonly batchSize: number;
+  /** How many jobs run at once, and how many of those may be slow ones (job-runner.ts). */
+  readonly jobSlots: number;
+  readonly slowJobSlots: number;
   readonly logLevel: string;
   readonly production: boolean;
   /** The worker's small HTTP server: provider webhooks, OAuth callbacks, voice tokens, number search. */
@@ -440,6 +443,17 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
       'WORKER_ENCRYPTION_KEY is required (openssl rand -base64 32); `pnpm env:local` writes one',
     );
 
+  const jobSlots = Number(env.WORKER_JOB_SLOTS ?? 6);
+  if (!Number.isInteger(jobSlots) || jobSlots < 1 || jobSlots > 20)
+    throw new Error(
+      `Invalid WORKER_JOB_SLOTS: ${env.WORKER_JOB_SLOTS} (a whole number from 1 to 20)`,
+    );
+  const slowJobSlots = Number(env.WORKER_SLOW_JOB_SLOTS ?? Math.max(1, Math.floor(jobSlots / 2)));
+  if (!Number.isInteger(slowJobSlots) || slowJobSlots < 1 || slowJobSlots > jobSlots)
+    throw new Error(
+      `Invalid WORKER_SLOW_JOB_SLOTS: ${env.WORKER_SLOW_JOB_SLOTS} (a whole number from 1 to WORKER_JOB_SLOTS)`,
+    );
+
   const httpPort = Number(env.WORKER_HTTP_PORT ?? 4100);
   if (!Number.isInteger(httpPort) || httpPort < 0 || httpPort > 65535)
     throw new Error(`Invalid WORKER_HTTP_PORT: ${env.WORKER_HTTP_PORT}`);
@@ -728,6 +742,8 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     webUrl: (env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
     pollMs: Number(env.WORKER_POLL_MS ?? 1000),
     batchSize: Number(env.WORKER_BATCH_SIZE ?? 20),
+    jobSlots,
+    slowJobSlots,
     logLevel: env.LOG_LEVEL ?? 'info',
     production,
     httpPort,

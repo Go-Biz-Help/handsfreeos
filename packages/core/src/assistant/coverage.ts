@@ -233,6 +233,14 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'meeting_connection.disconnect': {},
   // Where your day starts, for drive times between visits (decision 179 in docs/outreach.md).
   'day_start.set': {},
+  // The guided My calendar setup's Check it over (24 Nov 2026, the owner's picks M1 a to M4 a). Signing in to Google,
+  // Outlook or Zoom afterwards is the person's own.
+  'my_calendar_setup.save': {
+    about:
+      'answers is the whole setup, always the person’s own calendar, as read_guided_setup_get_draft with setup my_calendar gives it while they are part way through (or read_my_calendar_setup_get to start from what is set now): calendar (google, microsoft or none: which calendar they keep their days in; it is never connected here), hours (business: the business’s open hours, weekdays: 9 to 5, or own) with ownHours ({day 0 to 6, start, end} rows), lunch with lunchStart and lunchEnd (a break on every working day, for business or weekdays), timezone (null follows the business’s), timeOff to add (key, allDay, startDate and endDate, or start and end on one day, note), removeTimeOff (ids of saved time off), dayStart (business or own) with address (only asked when read_my_calendar_setup_get says drive), and zoom (offer Connect Zoom next). connect says which calendar the person signs in to next. A refusal names the answer that is wrong.',
+    warning:
+      'This sets your hours and time off now, so customers can only book inside them. It never connects Google, Outlook or Zoom: only you can sign in, from Settings → My calendar.',
+  },
   'live_meeting_account.disconnect': { offeredTo: 'assistant.use' },
   // ---- Settings → Workspace, Add-ons and Safety ----
   'look.find': {},
