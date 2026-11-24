@@ -1089,6 +1089,7 @@ describe('registry', () => {
       'conversation.thread',
       'message.get',
       'meta_account.list',
+      'meta_account.test_messages',
       'attribution.list',
       'email.setup_status',
       'email_setup.get',
