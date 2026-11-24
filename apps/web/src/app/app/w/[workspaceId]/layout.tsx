@@ -16,6 +16,7 @@ import { PracticeBanner } from '@/components/practice/practice-banner';
 import { MenuEditor } from '@/components/shell/menu-editor';
 import { MenuProvider } from '@/components/shell/menu-provider';
 import { MobileShell } from '@/components/shell/mobile-shell';
+import { NavigationProgress } from '@/components/shell/navigation-progress';
 import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeSync } from '@/components/shell/theme-sync';
 import { WorkspaceMain } from '@/components/shell/workspace-main';
@@ -117,6 +118,8 @@ export default async function WorkspaceLayout({
                         <ThemeSync
                           theme={parseTheme((me.user.settings as { theme?: unknown }).theme)}
                         />
+                        {/* A move to another page shows at once that the click was heard. */}
+                        <NavigationProgress />
                         {viewingAs ? (
                           <ViewAsBanner
                             workspaceId={workspaceId}
