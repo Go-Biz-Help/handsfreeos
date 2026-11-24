@@ -60,7 +60,7 @@ import {
   POST_REFUSALS,
   type ContentRow,
 } from './content';
-import { needReader } from './reading';
+import { needReader, readerOf, readerSeen } from './reading';
 
 const PATH = 'a/socialcontent/calendar';
 
@@ -104,14 +104,9 @@ export const postNext = defineAddonCommand(socialcontentAddon, {
   scope: inWorkspace,
   emits: ['socialcontent.content.posting', 'socialcontent.content.failed'],
   async handler(ctx, input) {
-    await needReader(ctx);
+    const { settings: kept } = await readerOf(ctx);
     const ws = ctx.scope.workspaceId!;
-    await rows(
-      ctx.tx,
-      sql`update addon_socialcontent.settings
-          set reader_seen_at = now(), reader_version = coalesce(${input.version ?? null}, reader_version)
-          where workspace_id = ${ws}`,
-    );
+    await readerSeen(ctx, kept, input.version);
     // Taken and never said how it went: it may have gone up, so a person looks before it's tried again.
     const stuck = await rows<{ record_id: string; network: string }>(
       ctx.tx,

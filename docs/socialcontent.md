@@ -107,7 +107,8 @@ offered to nobody; staff give it to a business from Admin → Businesses.
   written before the two were read, is searched there by its name.
 - **What it's doing** (the owner's ask, 9 Nov 2026: "so we can know the work it's done"). The Creators page shows,
   on top, whether the reading computer is there (when it last asked for work, and its extension's version; quiet past
-  10 minutes), what it's doing now (the words it's searching, the searches done, the accounts the searches showed,
+  10 minutes; it asks twice a minute, and the time is written again once it's 2 minutes old, `readerSeen`, not on
+  every ask), what it's doing now (the words it's searching, the searches done, the accounts the searches showed,
   the profiles and posts it read), how many more wait, and the last three things it did, each with what it found or
   why it didn't work. The extension says how a read is going as it goes (`socialcontent.work.progress`, into
   `work.progress`), and HandsFreeOS adds who a search suggested and who didn't fit. Settings → What it's doing shows
