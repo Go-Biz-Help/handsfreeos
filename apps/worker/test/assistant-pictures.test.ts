@@ -125,7 +125,7 @@ describe('the forms on a linked page', () => {
       <iframe src="https://forms.example.test/order"></iframe>`;
     const framed = `<form><label>Size</label><select name="s"><option>S</option><option>M</option></select></form>`;
     const fetchUrl = (async (url: string) =>
-      page(url.includes('forms.example') ? framed : outer)(url)) as SafeFetch;
+      page(new URL(url).hostname === 'forms.example.test' ? framed : outer)(url)) as SafeFetch;
     const read = await readPageForms(fetchUrl, 'https://sherris.test/contact');
     expect(read.forms.map((f) => [f.number, f.url])).toEqual([
       [1, 'https://sherris.test/contact'],
@@ -153,7 +153,7 @@ describe('the forms on a linked page', () => {
     const opened: string[] = [];
     const fetchUrl = (async (url: string) => {
       opened.push(url);
-      return page(url.includes('typeform.com') ? typeform : outer)(url);
+      return page(new URL(url).hostname === 'form.typeform.com' ? typeform : outer)(url);
     }) as SafeFetch;
     const read = await readPageForms(fetchUrl, 'https://sherris.test/book');
     expect(opened).toEqual(['https://sherris.test/book', 'https://form.typeform.com/to/abc123']);
