@@ -7,13 +7,17 @@ import { urls } from '@/content/site';
  * changes pages without reloading, so the container needs a History Change trigger on its page view tag as well as
  * the usual Pageview one. Nobody signs in here, so unlike the two apps it sends no User ID. `/privacy` says what is
  * counted; keep the two in step.
+ *
+ * It loads once the page has finished loading and the browser has a quiet moment (`lazyOnload`, the speed audit, Nov
+ * 2026), so it never competes with the page's own first second. Somebody who leaves within that second or two isn't
+ * counted, which the owner chose on 24 Nov 2026.
  */
 const CONTAINER = 'https://cdn.matomo.cloud/gobizhelp.matomo.cloud/container_E8zmrEO3.js';
 const HOST = new URL(urls.site).host;
 
 export function Matomo() {
   return (
-    <Script id="matomo-tag-manager" strategy="afterInteractive">
+    <Script id="matomo-tag-manager" strategy="lazyOnload">
       {`(function() {
   if (location.host !== '${HOST}') return;
   var _mtm = window._mtm = window._mtm || [];
