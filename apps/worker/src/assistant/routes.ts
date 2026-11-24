@@ -4,6 +4,9 @@ import { eq } from 'drizzle-orm';
 import {
   ADDON_SERVER_MODULES,
   addonAiToolByName,
+  ASSISTANT_PICTURE_EDGE,
+  ASSISTANT_PICTURE_MAX_BASE64,
+  ASSISTANT_PICTURES_MAX,
   AssistantAskInput,
   AssistantDecisionInput,
   AssistantWarmInput,
@@ -24,7 +27,15 @@ import { openStream } from '../http/sse';
 import { ADDON_WORKER_MODULES } from '../addons/modules';
 import type { AddonWorkerModule } from '../addons/types';
 import { personQuery, questionContext } from './context';
-import { ask, SHUTTING_DOWN, warmUp, type ToolContext, type ToolExecutor } from './runtime';
+import { uprightJpeg } from '../contacts/card-picture';
+import {
+  ask,
+  SHUTTING_DOWN,
+  warmUp,
+  type AssistantModelPicture,
+  type ToolContext,
+  type ToolExecutor,
+} from './runtime';
 import { addonActionToolByName } from './tools-addons';
 import { screenActionToolByName } from './tools-screen-actions';
 import * as store from './store';
@@ -77,6 +88,38 @@ const WARM_EVERY_MS = 4 * 60_000;
 /** Warm-ups one address may ask for a minute: it spends AI, like the worker's other AI routes. */
 export const WARMS_PER_MINUTE = 12;
 
+/** The most a question may weigh: its pictures, and room for the words and everything else it carries. */
+export const ASK_BODY_LIMIT = ASSISTANT_PICTURES_MAX * ASSISTANT_PICTURE_MAX_BASE64 + 256 * 1024;
+
+/**
+ * Pictures sent with a question, as the model is shown them: turned upright (a phone photo's EXIF), no bigger than
+ * ASSISTANT_PICTURE_EDGE on their longest side, and JPEGs, whatever the apps sent. One that can't be opened refuses
+ * the question before anything is asked, so nothing is half-read.
+ */
+export async function picturesForModel(
+  pictures: readonly { readonly data: string }[],
+): Promise<AssistantModelPicture[]> {
+  const out: AssistantModelPicture[] = [];
+  for (const [i, picture] of pictures.entries()) {
+    try {
+      const { jpeg } = await uprightJpeg(
+        Buffer.from(picture.data, 'base64'),
+        ASSISTANT_PICTURE_EDGE,
+      );
+      out.push({ mediaType: 'image/jpeg', data: jpeg.toString('base64') });
+    } catch {
+      throw HfosError.rule(
+        'picture_unreadable',
+        400,
+        pictures.length > 1
+          ? `Picture ${i + 1} couldn’t be opened. Take it again, or send a screenshot or a JPEG or PNG instead.`
+          : 'That picture couldn’t be opened. Take it again, or send a screenshot or a JPEG or PNG instead.',
+      );
+    }
+  }
+  return out;
+}
+
 /** Runs in progress on this machine, so Stop can reach them. */
 const running = new Map<string, { readonly userId: string; readonly stop: AbortController }>();
 
@@ -124,13 +167,14 @@ export function registerAssistantRoutes(
       'The Assistant hasn’t been set up for HandsFreeOS yet, so it can’t answer. Everything else works as usual.',
     );
 
-  app.post('/v1/assistant/messages', async (req, reply) => {
+  app.post('/v1/assistant/messages', { bodyLimit: ASK_BODY_LIMIT }, async (req, reply) => {
     const receivedAt = Date.now();
     const actor = await authenticate(deps, req);
     const input = parseBody(AssistantAskInput, req.body);
     await requirePermission(deps, actor.userId, input.workspaceId, 'assistant.use');
     if (!assistant) throw notConfigured();
     await assertConsented(deps, actor);
+    const pictures = await picturesForModel(input.pictures);
     const context = await questionContext(
       deps.httpDb,
       actor,
@@ -182,6 +226,7 @@ export function registerAssistantRoutes(
             organizationId: context.organizationId,
             ...(input.threadId ? { threadId: input.threadId } : {}),
             text: input.text,
+            ...(pictures.length ? { pictures } : {}),
             page: input.page,
             tools: context.tools,
             prompt,

@@ -21,7 +21,12 @@ import {
   QUESTION_ID_RE,
 } from './ids';
 import { applyFormOps, FormOpError, type FormOp } from './ops';
-import { ANSWER_TARGET_KEYS, QUESTION_CONFIGS, QUESTION_TYPES } from './questions';
+import {
+  ANSWER_TARGET_KEYS,
+  QUESTION_CONFIGS,
+  QUESTION_TYPES,
+  type QuantityRow,
+} from './questions';
 
 /** The same shape workflows' builder uses; named apart so both can be exported from the package. */
 type FormJsonSchema = Readonly<Record<string, unknown>>;
@@ -101,7 +106,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
           'The field on the customer or the lead this answer fills in; leave it out to keep it on the response.',
         ),
         json: str(
-          'The question’s own settings as a JSON object (choices, min, max, statement…); leave it out for none. A video takes {"url": "a YouTube, Vimeo or Loom link", "minPercent": 80} — minPercent holds the Next button until they have watched that much, null lets them move on. One box to check (I agree to the terms, I own my home) is a yes_no with {"display": "checkbox"}, its title the words beside the box; a required one must be checked. An address can suggest real addresses from Google as they type the street with {"search": true}. A First name or Last name box is a short_text with mapTo person.first_name or person.last_name. A quantities question (How many of each) is rows with a number box beside each, for an order of several kinds: {"choices": [{"label": "Adult M", "price": 12}, {"label": "Adult L", "price": 12}], "unit": "shirts", "minTotal": 12} — price is one of it in dollars (leave it out for none), unit is what the total counts, minTotal and maxTotal limit how many in all. Use one for sizes, flavours, colours or products ordered several at a time (T-shirts, mugs, tumblers, keychains, pins), never a number question per row. Never add a box asking to text them: HandsFreeOS adds that one to every form itself, in the words the carriers approved.',
+          'The question’s own settings as a JSON object (choices, min, max, statement…); leave it out for none. A video takes {"url": "a YouTube, Vimeo or Loom link", "minPercent": 80} — minPercent holds the Next button until they have watched that much, null lets them move on. One box to check (I agree to the terms, I own my home) is a yes_no with {"display": "checkbox"}, its title the words beside the box; a required one must be checked. An address can suggest real addresses from Google as they type the street with {"search": true}. A First name or Last name box is a short_text with mapTo person.first_name or person.last_name. A quantities question (How many of each) is rows with a number box beside each, for an order of several kinds: {"choices": [{"label": "Adult M", "price": 12}, {"label": "Adult L", "price": 12}], "unit": "shirts", "minTotal": 12} — price is one of it in dollars (leave it out for none), unit is what the total counts, minTotal and maxTotal limit how many in all. A row for something on the price list also takes its "productId", and "optionChoiceId" when it is one of the product’s choices (a size), copied from the price list with its label and price. Use one for sizes, flavours, colours or products ordered several at a time (T-shirts, mugs, tumblers, keychains, pins), never a number question per row. Never add a box asking to text them: HandsFreeOS adds that one to every form itself, in the words the carriers approved.',
         ),
         showIfJson: str(
           'When to show it, as a JSON condition group: {"match":"all","conditions":[{"source":{"kind":"question","questionId":"…"},"op":"is","value":"…"}]}. Only questions asked earlier. Leave it out to always show it.',
@@ -113,7 +118,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'update_question',
     description:
-      'Change a question with a JSON merge patch: objects merge, lists and null replace. Its own settings go under "config"; a new "type" replaces them. Choices, and a quantities question’s rows, are edited by id under config.choices: [{"id", "label"}] (a row also takes "price"). In a live poll, "live" holds {"seconds": 60, "showResults": false, "cues": ["what the presenter might say just before asking it"], "points": {"c_…": 10}}; points are what each answer says about how ready someone is (-100 to 100), by a choice’s id, "yes" and "no", a rating or scale’s number, "answered" for a short answer or "pressed" for a button, and are replaced whole.',
+      'Change a question with a JSON merge patch: objects merge, lists and null replace. Its own settings go under "config"; a new "type" replaces them. Choices, and a quantities question’s rows, are edited by id under config.choices: [{"id", "label"}] (a row also takes "price", and "productId" and "optionChoiceId" from the price list). In a live poll, "live" holds {"seconds": 60, "showResults": false, "cues": ["what the presenter might say just before asking it"], "points": {"c_…": 10}}; points are what each answer says about how ready someone is (-100 to 100), by a choice’s id, "yes" and "no", a rating or scale’s number, "answered" for a short answer or "pressed" for a button, and are replaced whole.',
     inputSchema: obj({
       questionId: questionRef,
       json: str('The merge patch as a JSON object.'),
@@ -273,6 +278,25 @@ export interface AiFormResult {
   readonly message: string;
 }
 
+/**
+ * The price list a "How many of each" question's rows may come from, as `form.catalogs` reads it: each product, and
+ * its options' choices (a choice's `priceCents` is its bump). A row the builder writes may point only at these.
+ */
+export type AiFormPriceList = readonly {
+  readonly id: string;
+  readonly name: string;
+  readonly priceCents: number;
+  readonly options: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly choices: readonly {
+      readonly id: string;
+      readonly label: string;
+      readonly priceCents: number;
+    }[];
+  }[];
+}[];
+
 export interface AiFormConversion {
   readonly ops: FormOp[];
   readonly definition: FormDefinition;
@@ -355,6 +379,7 @@ export function formToolCallsToOps(
   calls: readonly AiFormCall[],
   definition: FormDefinition,
   random?: () => number,
+  priceList: AiFormPriceList = [],
 ): AiFormConversion {
   let work = definition;
   const ops: FormOp[] = [];
@@ -586,6 +611,8 @@ export function formToolCallsToOps(
       const made = toOps(call.name as FormToolName, call.arguments);
       if (made.length) {
         const applied = applyFormOps(work, made);
+        const wrong = priceListProblem(work, applied.definition, priceList);
+        if (wrong) throw new CallError(wrong);
         work = applied.definition;
         ops.push(...made);
       }
@@ -600,6 +627,42 @@ export function formToolCallsToOps(
   }
 
   return { ops, definition: work, results, finish };
+}
+
+/** Each "How many of each" row's price-list link, by the row's id ("productId/optionChoiceId"). */
+function rowLinks(definition: FormDefinition): Map<string, { label: string; link: string }> {
+  const out = new Map<string, { label: string; link: string }>();
+  for (const question of allQuestions(definition)) {
+    if (question.type !== 'quantities') continue;
+    const rows = (question.config as { choices?: readonly QuantityRow[] }).choices ?? [];
+    for (const row of rows)
+      if (row.productId)
+        out.set(row.id, { label: row.label, link: `${row.productId}/${row.optionChoiceId ?? ''}` });
+  }
+  return out;
+}
+
+/**
+ * A row the call newly points at the price list, where the price list has no such product, or the product no such
+ * choice: what to tell the model, or null when every link is real. Links already on the form are left alone (a
+ * product taken off the list since keeps its row, as the editor keeps it).
+ */
+function priceListProblem(
+  before: FormDefinition,
+  after: FormDefinition,
+  priceList: AiFormPriceList,
+): string | null {
+  const had = rowLinks(before);
+  for (const [rowId, row] of rowLinks(after)) {
+    if (had.get(rowId)?.link === row.link) continue;
+    const [productId, choiceId] = row.link.split('/');
+    const product = priceList.find((p) => p.id === productId);
+    if (!product)
+      return `The row “${row.label}” points at a product that isn’t on the price list. Use a productId from the price list, or leave productId out.`;
+    if (choiceId && !product.options.some((o) => o.choices.some((c) => c.id === choiceId)))
+      return `The row “${row.label}” points at a choice ${product.name} doesn’t have. Use an optionChoiceId listed under ${product.name}, or leave it out.`;
+  }
+  return null;
 }
 
 /** What a call that worked tells the model: the ids it made, so a later reply can point at them. */

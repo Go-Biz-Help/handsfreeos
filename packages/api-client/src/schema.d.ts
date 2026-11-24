@@ -77906,6 +77906,7 @@ export interface operations {
                             createdAt: string;
                             /** Format: uuid */
                             id: string;
+                            pictures: number;
                             /** @enum {string} */
                             role: "user" | "assistant";
                             text: string;

@@ -1,6 +1,7 @@
 'use client';
 import {
   ASSISTANT_CONSENT_VERSION,
+  ASSISTANT_PICTURES_MAX,
   ASSISTANT_WORDS,
   assistantAnswerAfterLastQuestion,
   assistantChatToReopen,
@@ -32,7 +33,8 @@ import type {
   AssistantToolStatus,
 } from '@/lib/api/types';
 import { usePageRecord, useScreenPath, type PageRecord } from '@/lib/assistant/page-record';
-import { stopRun, streamAnswer, warmAssistant } from '@/lib/assistant/stream';
+import { picturesAmong, shrinkPicture, type DraftPicture } from '@/lib/assistant/pictures';
+import { stopRun, streamAnswer, warmAssistant, type AskPicture } from '@/lib/assistant/stream';
 import { isMac, isShortcut } from '@/lib/keys';
 import { useMatches } from '@/lib/use-media';
 
@@ -63,6 +65,10 @@ export interface QuestionMessage {
   readonly key: string;
   readonly role: 'user';
   readonly text: string;
+  /** How many pictures came with it. */
+  readonly pictures: number;
+  /** The pictures themselves, while this screen still has them (they aren't kept, so a reopened chat has none). */
+  readonly previews?: readonly string[];
   readonly createdAt: string;
 }
 export interface AnswerMessage {
@@ -77,6 +83,8 @@ export interface AnswerMessage {
   readonly notice: Notice | null;
   /** The question it answers, for Try again. */
   readonly question: string | null;
+  /** The pictures that came with that question, for Try again, while this screen has them. */
+  readonly questionPictures?: readonly AskPicture[];
   readonly createdAt: string;
 }
 export type ChatMessage = QuestionMessage | AnswerMessage;
@@ -138,6 +146,13 @@ export interface AssistantValue {
   readonly paused: boolean;
   readonly page: PageRecord | null;
   readonly draft: string;
+  /** Pictures waiting to go with the next question (ASSISTANT_PICTURES_MAX at most). */
+  readonly draftPictures: readonly DraftPicture[];
+  /** Adds pictures chosen, pasted or dropped, shrunk first; the ones past the most, or that won't open, say so. */
+  addPictures(files: Iterable<File>): Promise<void>;
+  removePicture(id: string): void;
+  /** The question went: its pictures leave the box. */
+  clearPictures(): void;
   readonly composerRef: RefObject<HTMLTextAreaElement | null>;
   /** The H in the phone header: focus goes back to it when the full-screen panel closes. */
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
@@ -149,7 +164,10 @@ export interface AssistantValue {
    * Asks a question; `spoken` when it was said out loud, so the answer is written to be heard. Answers whether it
    * went (not while another answer is coming, or before the person's OK).
    */
-  ask(text: string, opts?: { readonly spoken?: boolean }): boolean;
+  ask(
+    text: string,
+    opts?: { readonly spoken?: boolean; readonly pictures?: readonly AskPicture[] },
+  ): boolean;
   /** Asks an answer's question again (Try again). */
   retry(answerKey: string): void;
   stop(): void;
@@ -180,6 +198,10 @@ const NONE: AssistantValue = {
   paused: false,
   page: null,
   draft: '',
+  draftPictures: [],
+  addPictures: async () => undefined,
+  removePicture: noop,
+  clearPictures: noop,
   composerRef: { current: null },
   triggerRef: { current: null },
   setDraft: noop,
@@ -289,7 +311,7 @@ const STILL_WORKING: Step = {
 
 const fromSaved = (m: AssistantSavedMessage): ChatMessage =>
   m.role === 'user'
-    ? { key: m.id, role: 'user', text: m.text, createdAt: m.createdAt }
+    ? { key: m.id, role: 'user', text: m.text, pictures: m.pictures ?? 0, createdAt: m.createdAt }
     : {
         key: m.id,
         role: 'assistant',
@@ -365,7 +387,10 @@ export function AssistantProvider({
   const wide = useMatches(onInbox(pathname, workspaceId) ? DOCK_ON_INBOX : DOCK);
   const [consentNeeded, setConsentNeeded] = useState(consentNeededAtLoad);
   /** A question asked while the consent step was up (or refused for want of it): asked once the person says OK. */
-  const waitingQuestionRef = useRef<string | null>(null);
+  const waitingQuestionRef = useRef<{
+    readonly text: string;
+    readonly pictures: readonly AskPicture[];
+  } | null>(null);
   const [open, setOpenState] = useState(false);
   const [view, setView] = useState<View>('chat');
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -376,6 +401,9 @@ export function AssistantProvider({
   const [setup, setSetup] = useState<Setup>('unknown');
   const [paused, setPaused] = useState(false);
   const [draft, setDraft] = useState('');
+  const [draftPictures, setDraftPictures] = useState<readonly DraftPicture[]>([]);
+  const draftPicturesRef = useRef(draftPictures);
+  draftPicturesRef.current = draftPictures;
   const [mac, setMac] = useState<boolean | null>(null);
 
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -519,15 +547,21 @@ export function AssistantProvider({
   );
 
   const ask = useCallback(
-    (raw: string, opts: { readonly spoken?: boolean } = {}): boolean => {
+    (
+      raw: string,
+      opts: { readonly spoken?: boolean; readonly pictures?: readonly AskPicture[] } = {},
+    ): boolean => {
       const text = raw.trim();
-      if (!text || !enabled || streamRef.current) return false;
+      // Only what's sent: a draft picture's preview stays on this screen.
+      const pictures = (opts.pictures ?? []).map((p) => ({ data: p.data, mediaType: p.mediaType }));
+      if ((!text && !pictures.length) || !enabled || streamRef.current) return false;
       // Nothing goes to the AI service before the person's OK: the question waits for it.
       if (consentNeeded) {
-        waitingQuestionRef.current = text;
+        waitingQuestionRef.current = { text, pictures };
         setView('chat');
         return false;
       }
+      const previews = pictures.map((p) => `data:${p.mediaType};base64,${p.data}`);
       const now = new Date().toISOString();
       const userKey = `q-${crypto.randomUUID()}`;
       const answerKey = `a-${crypto.randomUUID()}`;
@@ -536,7 +570,14 @@ export function AssistantProvider({
       const fresh = new Set<string>();
       setMessages((all) => [
         ...all,
-        { key: userKey, role: 'user', text, createdAt: now },
+        {
+          key: userKey,
+          role: 'user',
+          text,
+          pictures: pictures.length,
+          ...(previews.length ? { previews } : {}),
+          createdAt: now,
+        },
         {
           key: answerKey,
           role: 'assistant',
@@ -546,6 +587,7 @@ export function AssistantProvider({
           live: true,
           notice: null,
           question: text,
+          ...(pictures.length ? { questionPictures: pictures } : {}),
           createdAt: now,
         },
       ]);
@@ -638,6 +680,7 @@ export function AssistantProvider({
               page: pageRef.current,
               path: screenRef.current,
               ...(opts.spoken ? { spoken: true } : {}),
+              ...(pictures.length ? { pictures } : {}),
             },
             onEvent,
             controller.signal,
@@ -670,7 +713,7 @@ export function AssistantProvider({
           if (e instanceof ApiError && e.rule === 'assistant_consent_required') {
             forgetWaiting(workspaceId, threadRef.current);
             setMessages((all) => all.filter((m) => m.key !== userKey && m.key !== answerKey));
-            waitingQuestionRef.current = text;
+            waitingQuestionRef.current = { text, pictures };
             setConsentNeeded(true);
             return;
           }
@@ -694,7 +737,8 @@ export function AssistantProvider({
   const retry = useCallback(
     (answerKey: string) => {
       const m = messages.find((x) => x.key === answerKey);
-      if (m?.role === 'assistant' && m.question) ask(m.question);
+      if (m?.role === 'assistant' && (m.question || m.questionPictures?.length))
+        ask(m.question ?? '', { pictures: m.questionPictures ?? [] });
     },
     [ask, messages],
   );
@@ -737,6 +781,7 @@ export function AssistantProvider({
     setThread(null);
     setView('chat');
     setDraft('');
+    setDraftPictures([]);
   }, [detach, endLoading, setThread]);
 
   const openThread = useCallback(
@@ -921,8 +966,27 @@ export function AssistantProvider({
     if (consentNeeded || !waitingQuestionRef.current) return;
     const waiting = waitingQuestionRef.current;
     waitingQuestionRef.current = null;
-    ask(waiting);
+    ask(waiting.text, { pictures: waiting.pictures });
   }, [ask, consentNeeded]);
+
+  const addPictures = useCallback(async (files: Iterable<File>) => {
+    const chosen = picturesAmong(files);
+    if (!chosen.length) return;
+    const room = ASSISTANT_PICTURES_MAX - draftPicturesRef.current.length;
+    if (chosen.length > room) toast(ASSISTANT_WORDS.pictures.tooMany(ASSISTANT_PICTURES_MAX));
+    const shrunk = await Promise.all(
+      chosen.slice(0, Math.max(0, room)).map((f) => shrinkPicture(f).catch(() => null)),
+    );
+    if (shrunk.some((p) => !p)) toast.error(ASSISTANT_WORDS.pictures.unreadable);
+    const fine = shrunk.filter((p): p is DraftPicture => !!p);
+    if (fine.length) setDraftPictures((all) => [...all, ...fine].slice(0, ASSISTANT_PICTURES_MAX));
+    composerRef.current?.focus({ preventScroll: true });
+  }, []);
+  const removePicture = useCallback(
+    (id: string) => setDraftPictures((all) => all.filter((p) => p.id !== id)),
+    [],
+  );
+  const clearPictures = useCallback(() => setDraftPictures([]), []);
 
   const shortcut = useMemo<Shortcut | null>(
     () =>
@@ -953,6 +1017,10 @@ export function AssistantProvider({
       paused,
       page,
       draft,
+      draftPictures,
+      addPictures,
+      removePicture,
+      clearPictures,
       composerRef,
       triggerRef,
       setDraft,
@@ -991,6 +1059,10 @@ export function AssistantProvider({
       paused,
       page,
       draft,
+      draftPictures,
+      addPictures,
+      removePicture,
+      clearPictures,
       setOpen,
       toggle,
       ask,

@@ -3,6 +3,7 @@ import {
   AiProviderError,
   emptyUsage,
   totalTokens,
+  type AiContent,
   type AiFirstBlock,
   type AiMessage,
   type AiProvider,
@@ -97,6 +98,17 @@ export interface ToolContext {
   /** Every command the run makes shares it, so the audit log and live updates tie back to the run. */
   readonly correlationId: string;
   readonly timezone: string;
+  /**
+   * The pictures that came with the question, as the model saw them (JPEGs): a tool that hands work to another model
+   * passes them on, so the form builder sees the screenshot it's building from. None when there were none.
+   */
+  readonly pictures?: readonly AssistantModelPicture[];
+}
+
+/** A picture as the model is shown it: the worker has already turned it upright and into a JPEG (routes.ts). */
+export interface AssistantModelPicture {
+  readonly mediaType: 'image/jpeg';
+  readonly data: string;
 }
 
 export interface ToolOutcome {
@@ -184,6 +196,8 @@ export interface AskInput {
   readonly organizationId: string;
   readonly threadId?: string;
   readonly text: string;
+  /** Pictures sent with the question, already upright JPEGs. The model sees them with this question only. */
+  readonly pictures?: readonly AssistantModelPicture[];
   readonly page: { readonly type: string; readonly id: string } | null;
   /**
    * The tools this person may use: core's their permissions allow, and those of the add-ons running here whose
@@ -326,13 +340,41 @@ const stepLabel = (tool: OfferedTool) =>
           ? screenActionStep(tool)
           : (STEP_LABEL[tool.name] ?? MORE_STEP_LABELS[tool.name] ?? 'Preparing it for your OK');
 
-/** The thread so far as model messages: what was said, and what each answer did, as short notes. */
-function modelMessages(history: readonly store.HistoryItem[]): AiMessage[] {
+/** Said beside a question whose pictures the model can no longer see: they aren't kept after the answer. */
+const PICTURES_GONE = (n: number) =>
+  `(${n === 1 ? 'A picture' : `${n} pictures`} came with this. ${
+    n === 1 ? 'It isn’t' : 'They aren’t'
+  } kept, so ask them to send ${n === 1 ? 'it' : 'them'} again if you need to look again.)`;
+/** Said with a question that is only pictures. */
+const PICTURES_ONLY = '(They sent only this, with no words.)';
+
+/**
+ * The thread so far as model messages: what was said, and what each answer did, as short notes. `pictures` are the
+ * newest question's, shown before its words; an older question's pictures are only mentioned.
+ */
+export function modelMessages(
+  history: readonly store.HistoryItem[],
+  pictures: readonly AssistantModelPicture[] = [],
+): AiMessage[] {
   const out: AiMessage[] = [];
-  for (const h of history) {
+  const newest = history.findLastIndex((h) => h.role === 'user');
+  history.forEach((h, i) => {
     if (h.role === 'user') {
-      out.push({ role: 'user', content: h.text });
-      continue;
+      if (i === newest && pictures.length) {
+        const images: AiContent[] = pictures.map((p) => ({
+          type: 'image',
+          mediaType: p.mediaType,
+          data: p.data,
+        }));
+        out.push({
+          role: 'user',
+          content: [...images, { type: 'text', text: h.text || PICTURES_ONLY }],
+        });
+      } else {
+        const gone = h.pictures > 0 ? PICTURES_GONE(h.pictures) : '';
+        out.push({ role: 'user', content: [h.text, gone].filter(Boolean).join('\n') || '…' });
+      }
+      return;
     }
     const notes = h.actions.map(
       (a) => `${a.tool}: ${a.status}${a.result ? ` ${JSON.stringify(a.result)}` : ''}`,
@@ -341,7 +383,7 @@ function modelMessages(history: readonly store.HistoryItem[]): AiMessage[] {
       .filter(Boolean)
       .join('\n');
     if (text) out.push({ role: 'assistant', content: text });
-  }
+  });
   // The API wants turns to alternate, starting with the person.
   return out.filter((m, i) => i === 0 || m.role !== out[i - 1]!.role || m.role === 'user');
 }
@@ -375,6 +417,7 @@ export async function ask(
     userId: input.actor.userId,
     ...(input.threadId ? { threadId: input.threadId } : {}),
     question: input.text,
+    pictures: input.pictures?.length ?? 0,
     // The screen too (its route words and ids only), so a message to support says where they asked from.
     context: {
       page: input.page,
@@ -391,11 +434,15 @@ export async function ask(
     organizationId: input.organizationId,
     correlationId,
     timezone: input.prompt.timezone,
+    ...(input.pictures?.length ? { pictures: input.pictures } : {}),
   };
   // What was offered is all that can be called: anything else the model asks for is refused below.
   const offered = new Map<string, OfferedTool>(input.tools.map((t) => [t.name, t]));
   const request = assistantRequest(input.tools, deps.provider);
-  const messages = modelMessages(await store.history(deps.db, scope, run.threadId));
+  const messages = modelMessages(
+    await store.history(deps.db, scope, run.threadId),
+    input.pictures ?? [],
+  );
   const cards: AssistantCard[] = [];
   // Look-ups asked for together run at once (`reads`), but their cards still go out, and their calls are kept, in
   // the order the model asked: each call holds its place, and waits for the calls before it to show and be kept.

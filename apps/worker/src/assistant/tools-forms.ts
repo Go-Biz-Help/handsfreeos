@@ -43,6 +43,7 @@ import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
 import { draftForm } from '../forms/builder';
+import { readPageForms } from '../forms/page-forms';
 import type { SafeFetch } from '../http/safe-fetch';
 import { siteAddress, websiteDesign } from '../http/website-style';
 import type { WorkerServices } from '../services';
@@ -603,9 +604,55 @@ async function buildForm(
   args: Args,
   deps: FormToolDeps | null,
 ): Promise<ToolOutcome> {
-  const description = str(args['description']);
   const starter = str(args['starter']);
   const site = str(args['matchWebsite']);
+  // The pictures that came with the question (a paper order form, a screenshot of another form's page), which the
+  // builder sees too.
+  const pictures = args['fromPictures'] === true ? (ctx.pictures ?? []) : [];
+  if (args['fromPictures'] === true && !pictures.length)
+    throw HfosError.validation(
+      undefined,
+      'No picture came with this question, so there’s nothing to build from. Ask them to send it again with their question.',
+    );
+  // A form on a web page they linked: read before anything is made, so a page that can't be read starts nothing.
+  const link = str(args['fromLink']);
+  if (link && !deps?.fetchUrl)
+    throw HfosError.rule(
+      'website_unreadable',
+      503,
+      'Web pages can’t be read from here just now. Send a screenshot of the form instead, with each dropdown opened.',
+    );
+  const read = link && deps?.fetchUrl ? await readPageForms(deps.fetchUrl, link) : null;
+  const wanted = typeof args['formNumber'] === 'number' ? args['formNumber'] : null;
+  if (read && wanted === null && read.forms.length > 1)
+    return {
+      result: {
+        readFrom: read.url,
+        formsOnThePage: read.forms.map((f) => ({
+          formNumber: f.number,
+          name: f.title,
+          boxes: f.fields,
+          asks: f.summary,
+          ...(f.url !== read.url ? { framedFrom: f.url } : {}),
+        })),
+        nothingBuiltYet: `That page has ${read.forms.length} forms. Build the ones they want with formNumber, one build_form call each (every one if they asked for all of them), or ask which they mean.`,
+      },
+    };
+  const pageForm = read ? (read.forms.find((f) => f.number === (wanted ?? 1)) ?? null) : null;
+  if (read && !pageForm)
+    throw HfosError.validation(
+      undefined,
+      read.forms.length === 1
+        ? 'That page has one form. Leave formNumber out, or use 1.'
+        : `That page has ${read.forms.length} forms, so formNumber goes from 1 to ${read.forms.length}.`,
+    );
+  const description =
+    str(args['description']) ??
+    (pictures.length
+      ? 'Build the form in the pictures, as close to it as it can be.'
+      : pageForm
+        ? 'Build the form read from the page, as close to it as it can be.'
+        : null);
   if (!description && !starter && !site)
     throw HfosError.validation(
       undefined,
@@ -625,11 +672,16 @@ async function buildForm(
       ? await websiteDesign({ fetchUrl: deps.fetchUrl, log: deps.log }, siteAddress(site))
       : null;
 
-  let formId = str(args['formId']);
+  // A form from a page is always a new one: changing a form they have is said in words or shown in a picture.
+  let formId = pageForm ? undefined : str(args['formId']);
   let made = false;
   if (!formId) {
     const created = await command<{ formId: string }>(db, ctx, 'form.create', {
-      name: str(args['name']) ?? FORM_STARTERS.find((s) => s.key === starter)?.name ?? 'New form',
+      name:
+        str(args['name']) ??
+        pageForm?.title?.slice(0, 120) ??
+        FORM_STARTERS.find((s) => s.key === starter)?.name ??
+        'New form',
       mode: str(args['mode']) ?? 'form',
       ...(starter ? { starter } : {}),
     });
@@ -643,6 +695,8 @@ async function buildForm(
           workspaceId: ctx.workspaceId,
           formId,
           prompt: description,
+          ...(pictures.length ? { pictures } : {}),
+          ...(pageForm ? { page: { url: pageForm.url, outline: pageForm.outline } } : {}),
         })
       : null;
   const issues = drafted
@@ -660,6 +714,14 @@ async function buildForm(
     result: {
       formId,
       created: made,
+      ...(pageForm
+        ? {
+            builtFrom: pageForm.url,
+            ...(read && read.forms.length > 1
+              ? { formNumber: pageForm.number, formsOnThePage: read.forms.length }
+              : {}),
+          }
+        : {}),
       summary: drafted?.summary ?? null,
       changes,
       ...(matched?.fontNote ? { fontNote: matched.fontNote } : {}),

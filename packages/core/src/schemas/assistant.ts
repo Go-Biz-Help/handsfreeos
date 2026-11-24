@@ -277,6 +277,8 @@ export const AssistantMessageOut = z.object({
   id: uuid,
   role: z.enum(['user', 'assistant']),
   text: z.string(),
+  /** How many pictures came with a question. The pictures themselves aren't kept: the model saw them while it answered. */
+  pictures: z.int().min(0),
   cards: z.array(AssistantCard),
   createdAt: isoDateTime,
 });
@@ -360,37 +362,69 @@ export const AssistantDeviceChanges = z.object({
 });
 export type AssistantDeviceChanges = z.infer<typeof AssistantDeviceChanges>;
 
-/** What the browser sends to the worker for one question. */
-export const AssistantAskInput = z.object({
-  workspaceId: uuid,
-  threadId: uuid.optional(),
-  text: z.string().trim().min(1).max(4000),
-  page: AssistantPageRecord.nullable().default(null),
-  /**
-   * The screen they asked from, inside the business: the address after /app/w/<workspaceId>, with its query string
-   * ("/settings/calendars/<id>", "/" for Home). The worker names its place for the model (`screenPlace`). One that
-   * can't be read is left out rather than refusing the question.
-   */
-  path: z
-    .string()
-    .startsWith('/')
-    .max(ASSISTANT_SCREEN_PATH_MAX)
-    .nullable()
-    .default(null)
-    .catch(null),
-  /** They're talking out loud and hear the answer read to them (voice mode): it's written to be said. */
-  spoken: z.boolean().default(false),
-  /**
-   * Which app asked: the phone's answers give the phone's ways first, and the web app's link for what only the web
-   * does. One that can't be read counts as the web, rather than refusing the question.
-   */
-  app: z.enum(['web', 'phone']).default('web').catch('web'),
-  /**
-   * Asked on the phone: its Changes on this phone, when anything is there. One that can't be read is left out rather
-   * than refusing the question.
-   */
-  deviceChanges: AssistantDeviceChanges.nullable().default(null).catch(null),
+/** The most pictures one question can carry: a screenshot of a form, a photo of a paper one, both sides of a flyer. */
+export const ASSISTANT_PICTURES_MAX = 3;
+/** The longest side the apps send a picture at: about what the model reads at, so a bigger one only costs more. */
+export const ASSISTANT_PICTURE_EDGE = 1568;
+/** One picture's most, as base64. The apps shrink it first, so this is room to spare (a 1,568 px JPEG is ~0.5 MB). */
+export const ASSISTANT_PICTURE_MAX_BASE64 = 4_000_000;
+/** The picture types a question can carry; the worker turns each into a JPEG before the model sees it. */
+export const ASSISTANT_PICTURE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+] as const;
+
+/**
+ * A picture sent with a question. The model sees it while it answers that question (and the form builder sees it
+ * when it builds a form from it); it isn't kept, so the chat says only that a picture came with the question.
+ */
+export const AssistantPicture = z.object({
+  /** The picture's bytes, base64, with no `data:` prefix. */
+  data: z.string().min(1).max(ASSISTANT_PICTURE_MAX_BASE64),
+  mediaType: z.enum(ASSISTANT_PICTURE_TYPES).default('image/jpeg'),
 });
+export type AssistantPicture = z.infer<typeof AssistantPicture>;
+
+/** What the browser sends to the worker for one question. */
+export const AssistantAskInput = z
+  .object({
+    workspaceId: uuid,
+    threadId: uuid.optional(),
+    /** What they asked. It may be empty when a picture came with it ("make this form" is often the picture alone). */
+    text: z.string().trim().max(4000).default(''),
+    pictures: z.array(AssistantPicture).max(ASSISTANT_PICTURES_MAX).default([]),
+    page: AssistantPageRecord.nullable().default(null),
+    /**
+     * The screen they asked from, inside the business: the address after /app/w/<workspaceId>, with its query string
+     * ("/settings/calendars/<id>", "/" for Home). The worker names its place for the model (`screenPlace`). One that
+     * can't be read is left out rather than refusing the question.
+     */
+    path: z
+      .string()
+      .startsWith('/')
+      .max(ASSISTANT_SCREEN_PATH_MAX)
+      .nullable()
+      .default(null)
+      .catch(null),
+    /** They're talking out loud and hear the answer read to them (voice mode): it's written to be said. */
+    spoken: z.boolean().default(false),
+    /**
+     * Which app asked: the phone's answers give the phone's ways first, and the web app's link for what only the web
+     * does. One that can't be read counts as the web, rather than refusing the question.
+     */
+    app: z.enum(['web', 'phone']).default('web').catch('web'),
+    /**
+     * Asked on the phone: its Changes on this phone, when anything is there. One that can't be read is left out rather
+     * than refusing the question.
+     */
+    deviceChanges: AssistantDeviceChanges.nullable().default(null).catch(null),
+  })
+  .refine((input) => input.text.length > 0 || input.pictures.length > 0, {
+    path: ['text'],
+    error: 'Type a question, or add a picture, then send it.',
+  });
 
 /** The panel opened: the worker has the AI read the instructions ahead of the person's question. */
 export const AssistantWarmInput = z.object({ workspaceId: uuid });

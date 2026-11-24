@@ -34,7 +34,8 @@ import { asService, closeTestDbs, createTestUser, testDbs, type TestUser } from 
 import { installRealestate } from '../../../packages/core/test/addons/realestate-fixture';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
-import { scriptedAi } from '../src/ai/scripted';
+import { emptyUsage, type AiProvider, type AiRequest } from '@hfos/ai';
+import { scriptedAi, unquote } from '../src/ai/scripted';
 import { toolsFor } from '../src/assistant/context';
 import type { ToolContext } from '../src/assistant/runtime';
 import { finishRun, recordToolCall, startRun } from '../src/assistant/store';
@@ -886,6 +887,124 @@ describe('forms', () => {
     await expect(
       read('build_form', { formId: out.result['formId'], matchWebsite: 'acme.com' }),
     ).rejects.toMatchObject({ rule: 'website_unreadable' });
+  });
+
+  describe('building a form from a picture or a link', () => {
+    const ORDER_PAGE = `<html><head><title>Order | Sherri’s</title></head><body>
+      <h2>T-shirt order</h2>
+      <form><label>Your name</label><input name="name" required>
+        <label>Color</label><select name="color"><option>-- Choose --</option><option>Black</option><option>Red</option></select>
+        <div style="display:none"><label>Delivery address</label><input name="addr"></div>
+      </form>
+      <h2>Join our list</h2><form><label>Email</label><input type="email" name="e"></form>
+    </body></html>`;
+    /** A page fetched by the safe fetch: the order page, anything else a 404. */
+    const fetchUrl = async (url: string) => ({
+      status: url.includes('/order') ? 200 : 404,
+      headers: { 'content-type': 'text/html' },
+      body: url.includes('/order') ? ORDER_PAGE : 'Not found',
+      bytes: Buffer.from(''),
+      finalUrl: url,
+      truncated: false,
+    });
+    /** The builder's model: says what it was asked, adds one question and finishes. */
+    const asked: AiRequest[] = [];
+    const provider: AiProvider = {
+      id: 'test',
+      model: 'test-model',
+      stream: async (request) => {
+        asked.push(request);
+        return {
+          text: '',
+          toolCalls: [
+            {
+              id: `c${asked.length}`,
+              name: 'add_question',
+              arguments: { type: 'short_text', title: 'Your name', required: true },
+            },
+            {
+              id: `f${asked.length}`,
+              name: 'finish',
+              arguments: { summary: 'Takes a T-shirt order.' },
+            },
+          ],
+          stopReason: 'tool_use',
+          usage: emptyUsage,
+        };
+      },
+    };
+    const formTools = () =>
+      createToolExecutor(api(), null, {
+        ai: { provider },
+        log: testServices().log,
+        wallet: testServices().wallet,
+        fetchUrl: fetchUrl as never,
+      });
+    const build = async (args: Record<string, unknown>, extra: Partial<ToolContext> = {}) =>
+      (await formTools().run(tool('build_form'), argsOf('build_form', args), {
+        ...ctx(),
+        ...extra,
+      })) as { result: Record<string, unknown> };
+    const userText = (request: AiRequest) => {
+      const content = request.messages[0]!.content;
+      return typeof content === 'string'
+        ? content
+        : content.flatMap((c) => (c.type === 'text' ? [c.text] : [])).join('\n');
+    };
+
+    it('lists the forms on a page with more than one, building nothing yet', async () => {
+      const before = asked.length;
+      const out = await build({ fromLink: 'sherris.test/order' });
+      expect(asked.length).toBe(before);
+      expect(out.result['formId']).toBeUndefined();
+      expect(out.result['formsOnThePage']).toEqual([
+        expect.objectContaining({ formNumber: 1, name: 'T-shirt order', boxes: 3 }),
+        expect.objectContaining({ formNumber: 2, name: 'Join our list', boxes: 1 }),
+      ]);
+    });
+
+    it('builds the one asked for, with the page’s dropdown choices and hidden parts in front of the builder', async () => {
+      const out = await build({ fromLink: 'https://sherris.test/order', formNumber: 1 });
+      expect(out.result).toMatchObject({
+        created: true,
+        builtFrom: 'https://sherris.test/order',
+        formNumber: 1,
+        summary: 'Takes a T-shirt order.',
+      });
+      const prompt = unquote(userText(asked[asked.length - 1]!));
+      expect(prompt).toContain('<page_form url="https://sherris.test/order">');
+      expect(prompt).toContain('[dropdown, name "color": Black | Red]');
+      expect(prompt).toContain('{Hidden until something on the form shows it:');
+      expect(asked[asked.length - 1]!.context).toContain('nothing on its price list yet');
+      const made = await one<{ name: string; draft: string }>(
+        sql`select name, definition::text as draft from app.forms where id = ${String(out.result['formId'])}`,
+      );
+      expect(made.name).toBe('T-shirt order');
+      expect(made.draft).toContain('Your name');
+    });
+
+    it('says why a page can’t be read, and makes no form', async () => {
+      await expect(build({ fromLink: 'https://sherris.test/gone' })).rejects.toMatchObject({
+        rule: 'link_unreadable',
+        message: expect.stringContaining('screenshot'),
+      });
+      await expect(build({ fromLink: 'not a link' })).rejects.toMatchObject({
+        rule: 'link_unreadable',
+      });
+    });
+
+    it('shows the builder the pictures that came with the question', async () => {
+      const picture = { mediaType: 'image/jpeg' as const, data: '/9j/4AAQSkZJRg==' };
+      const out = await build({ fromPictures: true }, { pictures: [picture] });
+      expect(out.result).toMatchObject({ created: true });
+      const content = asked[asked.length - 1]!.messages[0]!.content;
+      expect(Array.isArray(content) && content[0]).toEqual({ type: 'image', ...picture });
+      expect(unquote(userText(asked[asked.length - 1]!))).toContain(
+        'Build the form in the pictures, as close to it as it can be.',
+      );
+      // Asked to build from a picture that didn't come: nothing to build from.
+      await expect(build({ fromPictures: true })).rejects.toThrow(/No picture came/);
+    });
   });
 
   it('gives a live poll no link, and won’t text it or fill it in for someone', async () => {

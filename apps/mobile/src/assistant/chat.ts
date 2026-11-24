@@ -27,6 +27,7 @@ import {
   stopRun,
   streamAnswer,
   warmAssistant,
+  type AskPicture,
 } from './stream';
 
 /**
@@ -62,6 +63,10 @@ export interface QuestionMessage {
   readonly key: string;
   readonly role: 'user';
   readonly text: string;
+  /** How many pictures came with it. */
+  readonly pictures: number;
+  /** The pictures themselves, while this screen still has them (they aren't kept, so a reopened chat has none). */
+  readonly previews?: readonly string[];
   readonly createdAt: string;
 }
 export interface AnswerMessage {
@@ -75,6 +80,8 @@ export interface AnswerMessage {
   readonly notice: Notice | null;
   /** The question it answers, for Ask again. */
   readonly question: string | null;
+  /** The pictures that came with that question, for Ask again, while this screen has them. */
+  readonly questionPictures?: readonly AskPicture[];
   readonly createdAt: string;
 }
 export type ChatMessage = QuestionMessage | AnswerMessage;
@@ -205,7 +212,7 @@ const callsOf = (toolCalls: SavedChat['toolCalls']): Record<string, CallState> =
 
 const fromSaved = (m: SavedChat['messages'][number]): ChatMessage =>
   m.role === 'user'
-    ? { key: m.id, role: 'user', text: m.text, createdAt: m.createdAt }
+    ? { key: m.id, role: 'user', text: m.text, pictures: m.pictures ?? 0, createdAt: m.createdAt }
     : {
         key: m.id,
         role: 'assistant',
@@ -252,7 +259,10 @@ export interface AssistantChat {
    * Asks a question; `spoken` when it was said out loud, so the answer is written to be heard. Answers whether it
    * went (not while another answer is coming, or before the person's OK).
    */
-  ask(text: string, opts?: { readonly spoken?: boolean }): boolean;
+  ask(
+    text: string,
+    opts?: { readonly spoken?: boolean; readonly pictures?: readonly AskPicture[] },
+  ): boolean;
   retry(answerKey: string): void;
   stop(): void;
   newChat(): void;
@@ -298,7 +308,10 @@ export function useAssistantChat(
   const streamRef = React.useRef<AbortController | null>(null);
   const runRef = React.useRef<string | null>(null);
   const answerRef = React.useRef<string | null>(null);
-  const waitingQuestion = React.useRef<string | null>(null);
+  const waitingQuestion = React.useRef<{
+    readonly text: string;
+    readonly pictures: readonly AskPicture[];
+  } | null>(null);
   /** Checking on an answer rather than streaming it (follow): Stop then leaves it to land. */
   const followingRef = React.useRef(false);
   /** The run streaming now, once the worker named it: where an answer that stops streaming is picked up. */
@@ -424,14 +437,20 @@ export function useAssistantChat(
   );
 
   const ask = React.useCallback(
-    (raw: string, opts: { readonly spoken?: boolean } = {}): boolean => {
+    (
+      raw: string,
+      opts: { readonly spoken?: boolean; readonly pictures?: readonly AskPicture[] } = {},
+    ): boolean => {
       const text = raw.trim();
-      if (!text || streamRef.current) return false;
+      // Only what's sent: a picture's preview stays on this screen.
+      const pictures = (opts.pictures ?? []).map((p) => ({ data: p.data, mediaType: p.mediaType }));
+      if ((!text && !pictures.length) || streamRef.current) return false;
       // Nothing goes to the AI service before the person's OK: the question waits for it.
       if (consentNeeded) {
-        waitingQuestion.current = text;
+        waitingQuestion.current = { text, pictures };
         return false;
       }
+      const previews = pictures.map((p) => `data:${p.mediaType};base64,${p.data}`);
       const now = new Date().toISOString();
       const userKey = newKey('q');
       const answerKey = newKey('a');
@@ -439,7 +458,14 @@ export function useAssistantChat(
       const fresh = new Set<string>();
       setMessages((all) => [
         ...all,
-        { key: userKey, role: 'user', text, createdAt: now },
+        {
+          key: userKey,
+          role: 'user',
+          text,
+          pictures: pictures.length,
+          ...(previews.length ? { previews } : {}),
+          createdAt: now,
+        },
         {
           key: answerKey,
           role: 'assistant',
@@ -449,6 +475,7 @@ export function useAssistantChat(
           live: true,
           notice: null,
           question: text,
+          ...(pictures.length ? { questionPictures: pictures } : {}),
           createdAt: now,
         },
       ]);
@@ -543,6 +570,7 @@ export function useAssistantChat(
               path: pathRef.current,
               app: 'phone',
               ...(opts.spoken ? { spoken: true } : {}),
+              ...(pictures.length ? { pictures } : {}),
               ...(deviceChangesRef.current ? { deviceChanges: deviceChangesRef.current } : {}),
             },
             onEvent,
@@ -576,7 +604,7 @@ export function useAssistantChat(
           if (error instanceof AssistantError && error.failure === 'consent_required') {
             forgetWaiting(userId, workspaceId, threadRef.current);
             setMessages((all) => all.filter((m) => m.key !== userKey && m.key !== answerKey));
-            waitingQuestion.current = text;
+            waitingQuestion.current = { text, pictures };
             rememberConsent(userId, false);
             setConsentNeeded(true);
             return;
@@ -602,13 +630,13 @@ export function useAssistantChat(
   const retry = React.useCallback(
     (answerKey: string) => {
       const m = messages.find((x) => x.key === answerKey);
-      if (m?.role !== 'assistant' || !m.question) return;
+      if (m?.role !== 'assistant' || (!m.question && !m.questionPictures?.length)) return;
       // Asking again replaces the answer that failed, so the question isn't asked twice in the chat.
       setMessages((all) => {
         const at = all.findIndex((x) => x.key === answerKey);
         return at <= 0 ? all : all.slice(0, at - 1);
       });
-      ask(m.question);
+      ask(m.question ?? '', { pictures: m.questionPictures ?? [] });
     },
     [ask, messages],
   );
@@ -756,7 +784,7 @@ export function useAssistantChat(
     if (consentNeeded !== false || !waitingQuestion.current) return;
     const waiting = waitingQuestion.current;
     waitingQuestion.current = null;
-    ask(waiting);
+    ask(waiting.text, { pictures: waiting.pictures });
   }, [ask, consentNeeded]);
 
   // Opening Ask HandsFreeOS with a question whose answer hasn't been shown yet (asked before the screen or the app

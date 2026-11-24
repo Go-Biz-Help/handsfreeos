@@ -14,6 +14,7 @@ import {
   CalendarDays,
   Check,
   Copy,
+  Image as ImageIcon,
   KanbanSquare,
   LoaderCircle,
   MessageCircle,
@@ -408,6 +409,26 @@ export function MessageList({
                 phone ? 'text-[15px]' : 'text-sm',
               )}
             >
+              {m.previews?.length ? (
+                <div className={cn('flex flex-wrap justify-end gap-1.5', m.text && 'mb-1.5')}>
+                  {m.previews.map((src, i) => (
+                    <img
+                      key={i}
+                      src={src}
+                      alt={`Picture ${i + 1}`}
+                      className="max-h-40 max-w-full rounded-[10px] border border-border object-contain"
+                    />
+                  ))}
+                </div>
+              ) : m.pictures > 0 ? (
+                <div
+                  className={cn('flex items-center gap-1.5 text-xs text-text-3', m.text && 'mb-1')}
+                  data-testid="assistant-question-pictures"
+                >
+                  <ImageIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {ASSISTANT_WORDS.pictures.sent(m.pictures)}
+                </div>
+              ) : null}
               {m.text}
             </div>
           ) : (

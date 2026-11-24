@@ -321,6 +321,7 @@ describe('the chat itself', () => {
         key: 'q1',
         role: 'user',
         text: 'Who still owes us money?',
+        pictures: 0,
         createdAt: '2026-09-17T08:30:00.000Z',
       }),
     );
