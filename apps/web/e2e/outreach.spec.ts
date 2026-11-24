@@ -632,8 +632,10 @@ test('a name opens the person menu, their page first; Mark as client ends outrea
     text: 'Hi Rowan! How is the spring rush treating you?',
   });
 
-  // Needs you: the name is a button that opens the person menu, and the card keeps its own Open.
-  await page.goto(`/app/w/${workspaceId}/a/outreach/needs-you`);
+  // Needs you: the name is a button that opens the person menu, and the card keeps its own Open. The messages are a
+  // part of their own (decision 193), on the row with their count.
+  await page.goto(`/app/w/${workspaceId}/a/outreach/needs-you/message`);
+  await expect(page.getByTestId('needs-part-message')).toHaveAttribute('aria-current', 'page');
   const card = page
     .getByTestId('waiting-message')
     .getByTestId('waiting-item')
@@ -888,10 +890,13 @@ test('the groups tab scores saved groups, and today waits for a group’s admins
   await expect(page.getByTestId('today-get-ready')).toContainText(
     'before the extension reaches anyone on Facebook',
   );
-  await expect(page.getByTestId('today-read-admins')).toContainText('Austin Small Business Owners');
-  await expect(page.getByText('Friend requests need a playbook')).toBeVisible();
   // Half while Facebook is new to them (decision 96).
   await expect(page.getByTestId('today-limits')).toContainText('Friend requests0 of 10');
+  // Your list is a part of its own (decision 193): the groups whose admins to save, and the playbook it needs.
+  await page.getByTestId('today-part-list').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/today/list$`));
+  await expect(page.getByTestId('today-read-admins')).toContainText('Austin Small Business Owners');
+  await expect(page.getByText('Friend requests need a playbook')).toBeVisible();
   // Get ready is on Set up (decision 129), its playbook still to write.
   await page.getByTestId('today-get-ready-open').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/set-up$`));

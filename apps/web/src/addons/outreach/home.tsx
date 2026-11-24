@@ -6,9 +6,11 @@
  *
  * - **Set up** (decision 129): how far the setup has come and each network's Get ready (./setup-hub.tsx); first in the
  *   menu, with its count, while anything's left.
- * - **Needs you**: everything waiting on the person (decision 42's list), on every network, never narrowed.
- * - **Today**: what the person's computer is doing, a card for each network with Start my day and Stop for today,
- *   one Heads up for what to know, the feed of today's steps and the team's, and their list for the day.
+ * - **Needs you**: everything waiting on the person (decision 42's list), on every network, never narrowed, a part at
+ *   a time (decision 193): a row of the kinds waiting, each with its count, opening on the first.
+ * - **Today**: what the person's computer is doing, a part at a time (decision 193): the Overview (a card for each
+ *   network with Start my day and Stop for today, one Heads up for what to know), Your list for the day, Posts and
+ *   events, Done today (the feed of today's steps) and, for owners and admins, Your team.
  * - **People**: one list with a view for each kind (decision 128, `people-views.ts` in core): everyone in play (the
  *   board, or one stage), the good fits, those talking, friends, requests got and sent, chats as the AI read them, the
  *   Partners list (decision 81), clients, and Left alone, with a row of its own lists.
@@ -39,6 +41,20 @@ import {
   WORKING_PLATFORMS,
   type Platform,
 } from '@hfos/core/addons/outreach/networks';
+import {
+  autopilotWaitingOf,
+  NEEDS_PARTS,
+  needsCountsOf,
+  needsPartOpen,
+  needsPartsShown,
+  PAGE_PART_WORDS as PART_WORDS,
+  TODAY_PARTS,
+  todayListCount,
+  todayPartsFor,
+  type NeedsCounts,
+  type NeedsPart,
+  type TodayPart,
+} from '@hfos/core/addons/outreach/page-parts';
 import { OUTREACH_PAGE_ABOUT, OUTREACH_PAGES } from '@hfos/core/addons/outreach/pages';
 import type { PartnerView } from '@hfos/core/addons/outreach/partners';
 import type { RunNowPage } from '@hfos/core/addons/outreach/run-now';
@@ -97,7 +113,7 @@ import { SettingsView } from './settings-page';
 import { SetupHub } from './setup-hub';
 import type { NetworkLive } from './status-strip';
 import { OutreachTicker } from './ticker';
-import { TodayView } from './today-view';
+import { TodayView, underNeedsOf } from './today-view';
 import { NeedsYou } from './waiting-view';
 import type {
   Activity,
@@ -130,12 +146,20 @@ import type {
 export type OutreachShown =
   | {
       readonly view: 'today';
+      /** The part shown (decision 193): Your team only ever for owners and admins. */
+      readonly part: TodayPart;
       /** The network whose list is shown. */
       readonly platform: Platform;
-      /** Each network the person works, with what their computer is doing there: those that could be had. */
+      /** Each network the person works, for the picker. */
+      readonly nets: readonly Platform[];
+      /**
+       * What their computer is doing on each network, those that could be had: every network's on the Overview, else
+       * the network shown's alone.
+       */
       readonly networks: readonly NetworkLive[];
       readonly today: TodayList;
-      readonly helpful: HelpfulList;
+      /** The helpful post: on Posts and events, else null. */
+      readonly helpful: HelpfulList | null;
       /** Referrals waiting for the person on the network shown (decision 174); left out, none. */
       readonly referrals?: readonly Referral[];
       /** The asks after two on the network shown (decision 185); left out, none. */
@@ -166,6 +190,10 @@ export type OutreachShown =
       readonly waiting: Waiting;
       /** Autopilot's day's list (decision 151): null while it couldn't be had. */
       readonly autopilot?: Autopilot | null;
+      /** How many the country setting isn't sure of: null when it couldn't be had. */
+      readonly unsure?: number | null;
+      /** The part the address asks for (decision 193): null for the first with anything in it. */
+      readonly part?: NeedsPart | null;
     }
   | {
       readonly view: 'results';
@@ -635,6 +663,84 @@ function PeopleViews({ workspaceId, shown }: { workspaceId: string; shown: Outre
   );
 }
 
+/** Needs you's counts, part by part (decision 193), from what the page has. */
+function needsCountsShown(shown: Extract<OutreachShown, { view: 'needs' }>): NeedsCounts {
+  return needsCountsOf({
+    kinds: shown.waiting.kinds,
+    hands: shown.waiting.hands?.length ?? 0,
+    autopilot: autopilotWaitingOf(shown.autopilot ?? null),
+    ...(typeof shown.unsure === 'number' ? { unsure: shown.unsure } : {}),
+  });
+}
+
+/**
+ * Needs you's parts (decision 193), the way People has its views: one for each kind of thing waiting, each with its
+ * count, only those with something in them and the one open. None while nothing waits.
+ */
+function NeedsParts({
+  workspaceId,
+  open,
+  counts,
+}: {
+  workspaceId: string;
+  open: NeedsPart | null;
+  counts: NeedsCounts;
+}) {
+  const parts = needsPartsShown(open, counts);
+  if (!parts.length) return null;
+  return (
+    <div className="mb-4">
+      <LinkSegments
+        label={PART_WORDS.needsLabel}
+        items={parts.map((p) => ({
+          href: outreachHref(workspaceId, { view: 'needs', needsPart: p }),
+          label: NEEDS_PARTS[p],
+          active: p === open,
+          testId: `needs-part-${p}`,
+          count: counts[p] ?? 0,
+        }))}
+      />
+    </div>
+  );
+}
+
+/**
+ * Today's parts (decision 193), the way People has its views: Overview, Your list with its count, Posts and events, Done
+ * today with its count, and Your team for owners and admins. Each keeps the network shown.
+ */
+function TodayParts({
+  workspaceId,
+  shown,
+  canManage,
+}: {
+  workspaceId: string;
+  shown: Extract<OutreachShown, { view: 'today' }>;
+  canManage: boolean;
+}) {
+  const counts: Partial<Record<TodayPart, number>> = {
+    list: todayListCount(shown.today, underNeedsOf(shown.waiting)),
+    done: shown.networks.find((n) => n.platform === shown.platform)?.live.steps.length,
+  };
+  return (
+    <div className="mb-4">
+      <LinkSegments
+        label={PART_WORDS.todayLabel}
+        items={todayPartsFor(canManage).map((p) => ({
+          href: outreachHref(workspaceId, {
+            view: 'today',
+            todayPart: p,
+            ...(shown.nets.length > 1 ? { net: shown.platform } : {}),
+          }),
+          label: TODAY_PARTS[p],
+          active: p === shown.part,
+          testId: `today-part-${p}`,
+          count: counts[p],
+        }))}
+      />
+    </div>
+  );
+}
+
 /**
  * The network picker at the top of Today and People's lists (decision 127): on Today, the networks the person works,
  * whose list shows; on a list, every network or one. Each choice keeps what else the page shows, from its first page.
@@ -648,12 +754,12 @@ function networkPickerOf(
     outreachHref(workspaceId, { ...to, ...(net ? { net } : {}) });
   switch (shown.view) {
     case 'today':
-      return shown.networks.length > 1
+      return shown.nets.length > 1
         ? {
             value: shown.platform,
-            networks: shown.networks.map((n) => n.platform),
+            networks: shown.nets,
             every: false,
-            hrefOf: at({ view: 'today' }),
+            hrefOf: at({ view: 'today', todayPart: shown.part }),
           }
         : null;
     case 'pipeline':
@@ -719,6 +825,9 @@ export function OutreachHome({
       ? shown.asks
       : null;
   const picker = networkPickerOf(workspaceId, shown);
+  // Needs you's part open (decision 193): the one asked for, else the first with anything in it.
+  const needsCounts = shown.view === 'needs' ? needsCountsShown(shown) : {};
+  const needsOpen = shown.view === 'needs' ? needsPartOpen(shown.part ?? null, needsCounts) : null;
   // The jobs the person's computer can do for them here (decision 129): People's and Find people's.
   const runNow: RunNowPage | null = page === 'people' ? 'people' : page === 'find' ? 'find' : null;
   const runAsks = runNow && 'asks' in shown ? shown.asks : null;
@@ -745,6 +854,12 @@ export function OutreachHome({
         actions={actions}
       />
       {page === 'people' ? <PeopleViews workspaceId={workspaceId} shown={shown} /> : null}
+      {shown.view === 'needs' ? (
+        <NeedsParts workspaceId={workspaceId} open={needsOpen} counts={needsCounts} />
+      ) : null}
+      {shown.view === 'today' ? (
+        <TodayParts workspaceId={workspaceId} shown={shown} canManage={canManage} />
+      ) : null}
       {page === 'find' ? (
         <div className="mb-4">
           <LinkSegments
@@ -814,11 +929,15 @@ export function OutreachHome({
           workspaceId={workspaceId}
           waiting={shown.waiting}
           autopilot={shown.autopilot ?? null}
+          part={needsOpen}
+          counts={needsCounts}
         />
       ) : shown.view === 'today' ? (
         <TodayView
           workspaceId={workspaceId}
+          part={shown.part}
           platform={shown.platform}
+          nets={shown.nets}
           networks={shown.networks}
           today={shown.today}
           helpful={shown.helpful}

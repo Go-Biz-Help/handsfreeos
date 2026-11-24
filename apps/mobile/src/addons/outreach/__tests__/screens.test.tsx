@@ -231,6 +231,56 @@ const post = (n: number, name: string, asking: boolean): TodayItem => ({
 });
 
 describe('Today on the phone', () => {
+  it('shows one part at a time (decision 193): what to know on the Overview, the people on Your list', async () => {
+    const today: TodayOutput = {
+      limits: LIVE.limits,
+      items: [post(1, 'Lee Park', true), post(2, 'Kim Ng', false)],
+      partners: [],
+      readAdmins: [],
+      hasPlaybook: true,
+      warning: null,
+      auto: [],
+      messages: [],
+      sending: 'off',
+      wheels: { on: true, from: null, ok: 2, daysLeft: 5, edits: 0 },
+      ready: true,
+      week: null,
+      fresh: { on: false, from: null, until: null, days: 14 },
+      fullSpeed: false,
+      newMessagesWait: false,
+      requestsHeld: null,
+      profileOwn: null,
+      goal: null,
+      oneOnOnes: null,
+      events: [],
+      retryAt: null,
+    };
+    const body = (part: 'overview' | 'list' | 'posts') => (
+      <TodayBody
+        part={part}
+        today={today}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />
+    );
+    const { rerender } = await render(body('overview'));
+    expect(screen.getByTestId('today-wheels')).toBeTruthy();
+    expect(screen.queryByTestId('today-asking')).toBeNull();
+    expect(screen.queryByTestId('today-comment')).toBeNull();
+    await rerender(body('list'));
+    expect(screen.queryByTestId('today-wheels')).toBeNull();
+    expect(screen.getByTestId('today-asking')).toBeTruthy();
+    expect(screen.getByTestId('today-comment')).toBeTruthy();
+    await rerender(body('posts'));
+    expect(screen.queryByTestId('today-asking')).toBeNull();
+    expect(screen.queryByTestId('today-wheels')).toBeNull();
+  });
+
   it('puts posts asking for what the business offers first, apart from the other comments', async () => {
     const today: TodayOutput = {
       limits: LIVE.limits,

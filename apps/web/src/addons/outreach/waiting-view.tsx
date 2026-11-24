@@ -24,6 +24,9 @@
  *
  * With Autopilot on (decision 151), its day's list comes first (./autopilot-list.tsx): the people to OK for today.
  *
+ * One kind shows at a time (decision 193): the page's row of parts (`page-parts.ts` in core) picks it, opening on the
+ * first with anything in it.
+ *
  * Each person's name opens their person menu (./person-menu.tsx, decision 91): their page first, then Contacts, Mark
  * as client, Demo booked, Don't pitch and Never contact. Each card keeps its own Open.
  *
@@ -67,6 +70,11 @@ import {
   type WaitingKind,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import {
+  PAGE_PART_WORDS,
+  type NeedsCounts,
+  type NeedsPart,
+} from '@hfos/core/addons/outreach/page-parts';
 import { HANDS_OUTREACH_WORDS as HW, type HandsAsk } from '@hfos/core/addons/outreach/in-hands';
 import { Check, CheckCheck, Copy, ExternalLink, RotateCcw, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
@@ -116,11 +124,20 @@ export function NeedsYou({
   workspaceId,
   waiting,
   autopilot = null,
+  part,
+  counts = {},
 }: {
   workspaceId: string;
   waiting: Waiting;
   /** Autopilot's day's list (decision 151): first while anyone waits, else a line at the bottom (decision 160); null while it's off or couldn't be had. */
   autopilot?: Autopilot | null;
+  /**
+   * The part shown (decision 193): one kind of thing waiting, from the row at the top; null while nothing waits. Left
+   * out, every part shows, one after another.
+   */
+  part?: NeedsPart | null;
+  /** How many wait in each part, for a part that's emptied now. */
+  counts?: NeedsCounts;
 }) {
   useLiveRefresh(
     [
@@ -133,34 +150,52 @@ export function NeedsYou({
     ],
     800,
   );
+  const shows = (p: NeedsPart) => part === undefined || part === p;
+  // A part asked for that's empty now, with something still waiting elsewhere: the row says where.
+  const emptied = part != null && !(counts[part] ?? 0);
   return (
     <section
       id="needs-you"
       aria-label={W.needsYou}
       className="space-y-3"
       data-testid="outreach-waiting"
+      data-part={part ?? undefined}
     >
-      <AutopilotList workspaceId={workspaceId} autopilot={autopilot} place="top" />
+      {shows('autopilot') ? (
+        <AutopilotList workspaceId={workspaceId} autopilot={autopilot} place="top" />
+      ) : null}
       {waiting.count ? (
         <>
           <p className="text-[13px] text-text-2" data-testid="waiting-count">
             {waitingWords(waiting.count)}
           </p>
-          <HandsAsks workspaceId={workspaceId} asks={waiting.hands ?? []} />
-          {WAITING_KIND_KEYS.map((kind) => (
+          {shows('hands') ? (
+            <HandsAsks workspaceId={workspaceId} asks={waiting.hands ?? []} />
+          ) : null}
+          {WAITING_KIND_KEYS.filter(shows).map((kind) => (
             <Group key={kind} workspaceId={workspaceId} kind={kind} waiting={waiting} />
           ))}
         </>
-      ) : (
+      ) : part === null || part === undefined ? (
         <p
           className="rounded-card border border-dashed border-border-strong px-4 py-3.5 text-[13px] text-text-2"
           data-testid="waiting-none"
         >
           {W.needsYouNone}
         </p>
-      )}
+      ) : null}
       {/* Whoever the country setting can't place waits on the person too (decision 128): it loads itself. */}
-      <UnsureCountryCard workspaceId={workspaceId} />
+      {shows('unsure') ? <UnsureCountryCard workspaceId={workspaceId} /> : null}
+      {emptied ? (
+        <p
+          className="rounded-card border border-dashed border-border-strong px-4 py-3.5 text-[13px] text-text-2"
+          data-testid="waiting-part-empty"
+        >
+          {Object.values(counts).some((n) => (n ?? 0) > 0)
+            ? PAGE_PART_WORDS.needsPartEmpty
+            : W.needsYouNone}
+        </p>
+      ) : null}
       {/* Once nothing on Autopilot's list waits, it's one line here, at the bottom (decision 160). */}
       <AutopilotList workspaceId={workspaceId} autopilot={autopilot} place="bottom" />
     </section>

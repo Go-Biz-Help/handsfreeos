@@ -2,6 +2,7 @@ import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import {
   dayGoing,
   isOffline,
+  LIVE_REFETCH_SECONDS,
   offlineWords,
   seenWords,
   SHOWN_STATES,
@@ -26,6 +27,14 @@ import { SET_UP_PAGE_WORDS, todayReadyWords } from '@hfos/core/addons/outreach/s
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import {
+  PAGE_PART_WORDS,
+  readTodayPart,
+  TODAY_PARTS,
+  todayListCount,
+  todayPartsFor,
+  type TodayPart,
+} from '@hfos/core/addons/outreach/page-parts';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -39,7 +48,7 @@ import { cn } from '@/lib/utils';
 
 import { AskButton, useAskActions, useAsks } from './asks';
 import { OutreachCounters } from './counters';
-import { OutreachFrame } from './frame';
+import { OutreachFrame, PartsRow } from './frame';
 import {
   isSetUp,
   NeedsSignal,
@@ -52,14 +61,16 @@ import {
 } from './kit';
 import type { LiveBody } from './live';
 import { StartRefusedNote, StepsPart, TeamPart, useLiveProps } from './live';
-import { useNetworksOn } from './networks';
+import { NetworkFilter, useNetworksOn } from './networks';
 import { PersonMenuScope } from './person-menu';
 import { useReadyProps } from './ready';
 import { TodayBody, useTodayProps } from './today';
 import { useWaitingProps } from './waiting';
 
 /**
- * Social Outreach's Today on the phone (decisions 59 and 127), as the web's: how many things need the person, with the
+ * Social Outreach's Today on the phone (decisions 59 and 127), as the web's, a part at a time (decision 193): a row under
+ * the title switches between Overview, Your list, Posts and events, Done today and, for owners and admins, Your team.
+ * In all: how many things need the person, with the
  * way to Needs you (its own page, ./waiting.tsx's `NeedsYouScreen`, which works with no signal), what their computer
  * is doing with Start my day and Stop for today in a card for each network, their list for the day, Done today (every
  * step today, newest first) and, for owners and admins, how each person's extension is doing. A message waiting for
@@ -80,13 +91,18 @@ import { useWaitingProps } from './waiting';
  * Every name on the list opens the person menu (decision 91, ./person-menu.tsx); a change there reloads the list and
  * the count, so a card that should leave does.
  */
-export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) {
+export function TodayHub({
+  net: start = null,
+  part: startPart,
+}: { net?: Platform | null; part?: string } = {}) {
   const ctx = useOutreachContext();
   const nets = useNetworksOn();
   // The network an address names (a push about a post there): its list first.
   const [asked, setAsked] = React.useState<Platform | null>(start);
   const net = networkShown(nets, asked);
   const many = nets.length > 1;
+  // The part shown (decision 193): the address's, else the Overview. Pressing one switches it in place.
+  const [part, setPart] = React.useState<TodayPart>(readTodayPart(startPart, ctx.manages));
   const waiting = useWaitingProps();
   const today = useTodayProps(net);
   // Until the person is ready on the network shown, its Get ready shows above the list; once they are, Today's list
@@ -103,11 +119,25 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
     `setup:${ctx.workspaceId}`,
     W.title,
   );
-  // The shown network's live answer, from its card: today's steps for Done today.
-  const [shownLive, setShownLive] = React.useState<LiveOutput | null>(null);
-  // How each person's extension is doing on the network shown, for owners and admins.
+  // The shown network's live answer, for Done today: from its card on the Overview, else asked for here.
+  const [cardLive, setCardLive] = React.useState<LiveOutput | null>(null);
+  const ownLive = useOutreachAnswer(
+    part === 'overview'
+      ? null
+      : async () =>
+          unwrap(
+            await api.POST('/v1/queries/outreach.live', {
+              body: { workspaceId: ctx.workspaceId, platform: net },
+            }),
+          ),
+    `live:${ctx.workspaceId}:${net}`,
+    W.rows.live,
+    { everySeconds: LIVE_REFETCH_SECONDS },
+  );
+  const shownLive = part === 'overview' ? cardLive : (ownLive.data ?? cardLive);
+  // How each person's extension is doing on the network shown, for owners and admins, on Your team.
   const team = useOutreachAnswer(
-    ctx.manages
+    ctx.manages && part === 'team'
       ? async () =>
           unwrap(
             await api.POST('/v1/queries/outreach.live.team', {
@@ -137,71 +167,127 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
         waiting.server.kinds.need.count +
         waiting.server.kinds.request.count
       : 0);
+  const counts: Partial<Record<TodayPart, number>> = {
+    list: today.today ? todayListCount(today.today, shownOnce) : undefined,
+    done: shownLive?.steps.length,
+  };
+  const getReady = ready.readiness ? (
+    <GetReadyLine
+      words={todayReadyWords(PLATFORMS[net], ready.readiness.ready, ready.readiness.items)}
+      onOpen={() => openOutreach(ctx.workspaceId, 'setup')}
+    />
+  ) : null;
+  // Off the Overview, whose cards pick it, the network shown is picked at the top of the part.
+  const picker =
+    many && part !== 'overview' ? (
+      <NetworkFilter value={net} onChange={(p) => p && setAsked(p)} networks={nets} />
+    ) : null;
   return (
-    <OutreachFrame page="today" testID="outreach-hub">
-      {/* Everything it did on its own, today, this week and this month, going up as it works (decision 140). */}
-      <OutreachCounters working={nets} />
-      {isSetUp(setup.data) ? null : (
-        <Card className="px-4 py-3.5" testID="outreach-set-up-on-computer">
-          <Note>{SETUP_WORDS.onPhone}</Note>
-        </Card>
-      )}
-      {count ? (
-        <Pressable
-          role="link"
-          accessibilityLabel={`${W.needsYouCount(count)} ${W.openNeedsYou}`}
-          onPress={() => openOutreach(ctx.workspaceId, 'waiting')}
-          className="min-h-12 flex-row items-center gap-3 rounded-card bg-accent-soft px-4 py-3 active:opacity-80"
-          testID="today-needs-you"
-        >
-          <Icon as={Inbox} className="size-5 text-accent-text" />
-          <View className="min-w-0 flex-1">
-            <Text className="text-[14.5px] font-semibold text-accent-text">
-              {W.needsYouCount(count)}
-            </Text>
-            <Text className="text-[13px] text-accent-text">{W.openNeedsYou}</Text>
-          </View>
-          <Icon as={ChevronRight} className="size-5 text-accent-text" />
-        </Pressable>
-      ) : null}
-      {nets.map((p) => (
-        <NetworkDay
-          key={p}
-          platform={p}
-          many={many}
-          shown={p === net}
-          ready={!notReady}
-          held={held}
-          onShow={() => setAsked(p)}
-          onLive={p === net ? setShownLive : undefined}
+    <OutreachFrame
+      page="today"
+      testID="outreach-hub"
+      header={
+        <PartsRow<TodayPart>
+          label={PAGE_PART_WORDS.todayLabel}
+          parts={todayPartsFor(ctx.manages).map((p) => ({
+            key: p,
+            label: TODAY_PARTS[p],
+            count: counts[p],
+            on: p === part,
+          }))}
+          onPick={setPart}
+          testIDOf={(p) => `today-part-${p}`}
         />
-      ))}
-      {ready.readiness ? (
-        <GetReadyLine
-          words={todayReadyWords(PLATFORMS[net], ready.readiness.ready, ready.readiness.items)}
-          onOpen={() => openOutreach(ctx.workspaceId, 'setup')}
-        />
+      }
+    >
+      {picker}
+      {part === 'overview' ? (
+        <>
+          {/* Everything it did on its own, today, this week and this month, going up as it works (decision 140). */}
+          <OutreachCounters working={nets} />
+          {isSetUp(setup.data) ? null : (
+            <Card className="px-4 py-3.5" testID="outreach-set-up-on-computer">
+              <Note>{SETUP_WORDS.onPhone}</Note>
+            </Card>
+          )}
+          {count ? (
+            <Pressable
+              role="link"
+              accessibilityLabel={`${W.needsYouCount(count)} ${W.openNeedsYou}`}
+              onPress={() => openOutreach(ctx.workspaceId, 'waiting')}
+              className="min-h-12 flex-row items-center gap-3 rounded-card bg-accent-soft px-4 py-3 active:opacity-80"
+              testID="today-needs-you"
+            >
+              <Icon as={Inbox} className="size-5 text-accent-text" />
+              <View className="min-w-0 flex-1">
+                <Text className="text-[14.5px] font-semibold text-accent-text">
+                  {W.needsYouCount(count)}
+                </Text>
+                <Text className="text-[13px] text-accent-text">{W.openNeedsYou}</Text>
+              </View>
+              <Icon as={ChevronRight} className="size-5 text-accent-text" />
+            </Pressable>
+          ) : null}
+          {/* What to know today: the warning, training wheels, half limits, requests held and the rest. */}
+          <TodayBody {...today} embedded hideSends={shownOnce} part="overview" />
+          {nets.map((p) => (
+            <NetworkDay
+              key={p}
+              platform={p}
+              many={many}
+              shown={p === net}
+              ready={!notReady}
+              held={held}
+              onShow={() => setAsked(p)}
+              onLive={p === net ? setCardLive : undefined}
+            />
+          ))}
+          {getReady}
+        </>
       ) : null}
-      <PersonMenuScope
-        workspaceId={ctx.workspaceId}
-        online={ctx.online}
-        writesContacts={ctx.writesContacts}
-        onChanged={reloadBoth}
-      >
-        <Part title={many ? NW.listOn(PLATFORMS[net]) : W.listTitle} testID="today-list">
-          <TodayBody {...today} embedded hideSends={shownOnce} />
-        </Part>
-      </PersonMenuScope>
-      {askableOn(net, 'posts') && !runsOnItsOwn(net) ? <FindPosts platform={net} /> : null}
-      {shownLive ? (
-        <StepsPart
-          live={shownLive}
-          title={W.doneToday}
-          about={W.doneTodayAbout}
-          testID="today-done"
-        />
+      {part === 'list' ? (
+        <>
+          {getReady}
+          <PersonMenuScope
+            workspaceId={ctx.workspaceId}
+            online={ctx.online}
+            writesContacts={ctx.writesContacts}
+            onChanged={reloadBoth}
+          >
+            <Part title={many ? NW.listOn(PLATFORMS[net]) : W.listTitle} testID="today-list">
+              <TodayBody {...today} embedded hideSends={shownOnce} part="list" />
+            </Part>
+          </PersonMenuScope>
+        </>
       ) : null}
-      {team.data ? <TeamPart team={team.data} now={Date.now()} /> : null}
+      {part === 'posts' ? (
+        <>
+          <TodayBody {...today} embedded hideSends={shownOnce} part="posts" />
+          {askableOn(net, 'posts') && !runsOnItsOwn(net) ? <FindPosts platform={net} /> : null}
+        </>
+      ) : null}
+      {part === 'done' ? (
+        shownLive ? (
+          <StepsPart
+            live={shownLive}
+            title={W.doneToday}
+            about={W.doneTodayAbout}
+            testID="today-done"
+          />
+        ) : ownLive.error ? (
+          <NeedsSignal words={ownLive.error} onRetry={ownLive.reload} testID="today-done-signal" />
+        ) : null
+      ) : null}
+      {part === 'team' ? (
+        <>
+          {team.data ? (
+            <TeamPart team={team.data} now={Date.now()} />
+          ) : team.error ? (
+            <NeedsSignal words={team.error} onRetry={team.reload} testID="today-team-signal" />
+          ) : null}
+          <TodayBody {...today} embedded hideSends={shownOnce} part="team" />
+        </>
+      ) : null}
     </OutreachFrame>
   );
 }

@@ -1,6 +1,9 @@
 'use client';
 /**
- * Social Outreach's Today (docs/outreach.md, the plan's Phase 1 step 5, and decision 127's page to watch it work): at
+ * Social Outreach's Today (docs/outreach.md, the plan's Phase 1 step 5, and decision 127's page to watch it work), a
+ * part at a time since decision 193: the Overview has what it did, Heads up, the Needs you line and the cards; Your
+ * list the list, partners and referrals; Posts and events the helpful post and the events; Done today the feed; and
+ * Your team, for owners and admins, each person's extension. Before that it was one column: at
  * the top, one Heads up card for what to know (a warning, training wheels, half limits on a new account, requests
  * held with Cancel all, profile ideas waiting), the count of what needs the person with the way to Needs you (its own
  * page, which a `#needs-you` here opens, as the extension's links still ask), and a card for each network the person
@@ -77,6 +80,11 @@ import {
 } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
+import {
+  leftForToday,
+  PAGE_PART_WORDS,
+  type TodayPart,
+} from '@hfos/core/addons/outreach/page-parts';
 import { SET_UP_PAGE_WORDS, todayReadyWords } from '@hfos/core/addons/outreach/set-up-page';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -159,9 +167,20 @@ const KIND_BADGE = {
   partner_warm_up: 'gray',
 } as const;
 
+/** The messages Needs you shows already (`outreach.waiting`'s): off Today's list, so nobody shows twice. */
+export function underNeedsOf(waiting: Waiting | null): ReadonlySet<string> {
+  return new Set(
+    (waiting?.items ?? []).flatMap((i) =>
+      i.kind === 'message' || i.kind === 'reply' ? [i.send.sendId] : [],
+    ),
+  );
+}
+
 export function TodayView({
   workspaceId,
+  part = 'overview',
   platform = 'facebook',
+  nets,
   networks,
   today,
   helpful,
@@ -174,26 +193,34 @@ export function TodayView({
   canManage = false,
 }: {
   workspaceId: string;
+  /** The part shown (decision 193): Overview, Your list, Posts and events, Done today, or Your team. */
+  part?: TodayPart;
   /** An owner or admin: a refused Start my day may point them to the business's part to fix. */
   canManage?: boolean;
   /** The network whose list it is. */
   platform?: Platform;
-  /** Each network the person works, with what their computer is doing there: the strip at the top. */
+  /** Each network the person works: the list's title names the network when there's more than one. */
+  nets?: readonly Platform[];
+  /**
+   * What their computer is doing on each network the person works: every network's card on the Overview; the network
+   * shown's alone (its steps for Done today) on the other parts.
+   */
   networks: readonly NetworkLive[];
   /** The network's list for today. */
   today: TodayList;
   /**
    * Get ready on the network shown (decisions 63 and 90): what's left, the profile's advice among it; null when it
-   * couldn't be had. Whether anything holds the day is `today.ready`. Get ready itself is on Set up (decision 129).
+   * couldn't be had, or on a part without it. Whether anything holds the day is `today.ready`. Get ready itself is on
+   * Set up (decision 129).
    */
   readiness: Readiness | null;
-  /** Today's helpful post, and those up lately (decision 50). */
-  helpful: HelpfulList;
+  /** Today's helpful post, and those up lately (decision 50): Posts and events', else null. */
+  helpful: HelpfulList | null;
   /** Referrals waiting for the person on this network (decision 174), or done for them soon (decision 185). */
   referrals?: readonly Referral[];
   /** The asks after two on this network (decision 185). */
   referAsks?: readonly ReferAsk[];
-  /** How each person's extension is doing on the network shown: for owners and admins, else null. */
+  /** How each person's extension is doing on the network shown: for owners and admins, on Your team, else null. */
   team?: LiveTeam | null;
   /** The look-ups and group members asked of the person's computer from here. */
   asks: Asks;
@@ -214,20 +241,12 @@ export function TodayView({
   // 63 and 129); once they are, only while their profile is left, as advice above the list (decision 90).
   const ready = today.ready;
   const live = networks.find((n) => n.platform === platform)?.live ?? null;
-  const many = networks.length > 1;
+  const many = (nets ?? networks.map((n) => n.platform)).length > 1;
   const name = PLATFORMS[platform];
   // A message waiting for an OK is under Needs you; the list keeps everyone else, so nobody shows twice.
-  const needs = new Set(
-    (waiting?.items ?? []).flatMap((i) =>
-      i.kind === 'message' || i.kind === 'reply' ? [i.send.sendId] : [],
-    ),
-  );
-  const items = today.items.filter(
-    (i) => !(i.send?.state === 'waiting' && needs.has(i.send.sendId)),
-  );
-  const partners = today.partners.filter(
-    (i) => !(i.send?.state === 'waiting' && needs.has(i.send.sendId)),
-  );
+  const needs = underNeedsOf(waiting);
+  const items = leftForToday(today.items, needs);
+  const partners = leftForToday(today.partners, needs);
   // Approve all leaves those that wait for an OK of their own: a reply handed over, one to someone who needs them, or a
   // forum answer (decision 92).
   const waitingSends = items.filter((i) => i.send?.state === 'waiting');
@@ -257,8 +276,215 @@ export function TodayView({
     goal ||
     today.profileOwn,
   );
+  const getReady = readiness ? (
+    <GetReadyLine
+      workspaceId={workspaceId}
+      words={todayReadyWords(PLATFORMS[platform], ready, readiness.items)}
+      ready={ready}
+    />
+  ) : null;
+  if (part === 'posts') {
+    // The helpful post on the network shown, and the events near them coming up (decision 188).
+    const events = today.events ?? [];
+    const post = helpful && helpfulOn(platform);
+    return (
+      <div className="max-w-3xl space-y-5" data-testid="outreach-today" data-part={part}>
+        {post ? (
+          <HelpfulCard
+            workspaceId={workspaceId}
+            platform={platform}
+            helpful={helpful}
+            asks={asks}
+          />
+        ) : null}
+        <EventsCard workspaceId={workspaceId} events={events} />
+        {!post && !events.length ? (
+          <p
+            className="rounded-card border border-dashed border-border-strong px-4 py-3.5 text-[13px] text-text-2"
+            data-testid="today-posts-none"
+          >
+            {PAGE_PART_WORDS.postsNone(name)}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+  if (part === 'done') {
+    return (
+      <div className="max-w-3xl" data-testid="outreach-today" data-part={part}>
+        {live ? (
+          <DoneToday live={live} />
+        ) : (
+          <p className="text-[13px] text-text-2" data-testid="today-done-none">
+            {W.noSteps}
+          </p>
+        )}
+      </div>
+    );
+  }
+  if (part === 'team') {
+    return (
+      <div data-testid="outreach-today" data-part={part}>
+        {team ? (
+          <TeamCard workspaceId={workspaceId} team={team} />
+        ) : (
+          <p className="text-[13px] text-text-2" data-testid="today-team-none">
+            {PAGE_PART_WORDS.teamNotLoaded}
+          </p>
+        )}
+      </div>
+    );
+  }
+  if (part === 'list') {
+    return (
+      <div
+        className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]"
+        data-testid="outreach-today"
+        data-part={part}
+      >
+        <div className="min-w-0 space-y-5">
+          {getReady}
+          <ReferralCards workspaceId={workspaceId} referrals={referrals} asks={referAsks} />
+          {items.length ? (
+            <section aria-labelledby="today-list-title" className="space-y-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <h2 id="today-list-title" className="text-lg font-semibold tracking-tight">
+                  {many ? NW.listOn(name) : W.listTitle}
+                  <span className="font-medium text-text-3">
+                    {' '}
+                    · {items.length.toLocaleString()}
+                  </span>
+                </h2>
+                {approvable > 1 ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={approving.busy !== null}
+                    onClick={() => void approveAll()}
+                    data-testid="today-approve-all"
+                  >
+                    <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    {approveAllWords(approvable, comments)}
+                  </Button>
+                ) : null}
+              </div>
+              {approvable > 1 && answers ? (
+                <p className="-mt-1 text-[12.5px] text-text-2" data-testid="today-answers-left">
+                  {forumAnswersLeftWords(answers)}
+                </p>
+              ) : null}
+              {ready ? null : (
+                <p className="-mt-1 text-[13px] text-text-2">{READY_WORDS.repliesStill}</p>
+              )}
+              <Card className="p-0" data-testid="today-list">
+                <ul>
+                  {items.map((item, i) => (
+                    <TodayRow
+                      key={`${item.kind}:${item.postId ?? item.chatId ?? item.profileId ?? item.name}`}
+                      workspaceId={workspaceId}
+                      platform={platform}
+                      item={item}
+                      auto={today.auto.includes(item.kind)}
+                      asks={asks}
+                      first={i === 0}
+                    />
+                  ))}
+                </ul>
+              </Card>
+            </section>
+          ) : ready ? (
+            <TodayStart workspaceId={workspaceId} platform={platform} />
+          ) : null}
+          {partners.length ? (
+            <section
+              aria-labelledby="today-partners-title"
+              className="space-y-3"
+              data-testid="today-partners"
+            >
+              <h2 id="today-partners-title" className="text-lg font-semibold tracking-tight">
+                {PW.title}
+                <span className="font-medium text-text-3">
+                  {' '}
+                  · {partners.length.toLocaleString()}
+                </span>
+              </h2>
+              <p className="-mt-1 text-[13px] text-text-2">{PW.todayAbout}</p>
+              <Card className="p-0" data-testid="today-partner-list">
+                <ul>
+                  {partners.map((item, i) => (
+                    <TodayRow
+                      key={`${item.kind}:${item.profileId ?? item.name}`}
+                      workspaceId={workspaceId}
+                      platform={platform}
+                      item={item}
+                      auto={doneOnItsOwn(item.kind, today.auto)}
+                      asks={asks}
+                      first={i === 0}
+                      partner
+                    />
+                  ))}
+                </ul>
+              </Card>
+            </section>
+          ) : null}
+        </div>
+        <aside className="space-y-4">
+          {!today.hasPlaybook ? (
+            <Card className="p-4">
+              <h3 className="text-[15px] font-semibold">
+                {`${dailyWordsOn(platform).friend_request.label} need a playbook`}
+              </h3>
+              <p className="mt-1.5 text-[13px] text-text-2">
+                People who fit are suggested once the business has a playbook saying who to look
+                for.
+              </p>
+              <ButtonLink
+                size="sm"
+                variant="secondary"
+                className="mt-3"
+                href={outreachHref(workspaceId, { view: 'playbooks' })}
+              >
+                Go to Playbooks
+              </ButtonLink>
+            </Card>
+          ) : null}
+          {today.readAdmins.length && askableOn(platform, 'members') ? (
+            <Card className="p-4" data-testid="today-read-admins">
+              <h3 className="text-[15px] font-semibold">Save who runs these groups</h3>
+              <p className="mt-1.5 text-[13px] text-text-2">
+                Their members are suggested once the group’s admins are saved, so nobody who runs a
+                group is approached.
+              </p>
+              <ul className="mt-3 grid gap-3 text-[13px]">
+                {today.readAdmins.map((g) => (
+                  <li key={g.groupId} className="grid gap-1.5">
+                    <a
+                      href={g.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-accent-text hover:underline"
+                    >
+                      {g.name ?? 'A group'}
+                    </a>
+                    <AskButton
+                      workspaceId={workspaceId}
+                      asks={asks}
+                      ask={{ kind: 'members', groupIds: [g.groupId] }}
+                      label="Save its members"
+                      testId="today-ask-members"
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
+        </aside>
+      </div>
+    );
+  }
+  // The Overview.
   return (
-    <div data-testid="outreach-today">
+    <div data-testid="outreach-today" data-part="overview">
       {/* Everything it did on its own, today, this week and this month, going up as it works (decision 140). */}
       <OutreachCounters
         workspaceId={workspaceId}
@@ -356,163 +582,7 @@ export function TodayView({
           canManage={canManage}
         />
       ) : null}
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-5">
-          {readiness ? (
-            <GetReadyLine
-              workspaceId={workspaceId}
-              words={todayReadyWords(PLATFORMS[platform], ready, readiness.items)}
-              ready={ready}
-            />
-          ) : null}
-          {helpfulOn(platform) ? (
-            <HelpfulCard
-              workspaceId={workspaceId}
-              platform={platform}
-              helpful={helpful}
-              asks={asks}
-            />
-          ) : null}
-          <ReferralCards workspaceId={workspaceId} referrals={referrals} asks={referAsks} />
-          {/* The events near them coming up (decision 188): none from a server before it. */}
-          <EventsCard workspaceId={workspaceId} events={today.events ?? []} />
-          {items.length ? (
-            <section aria-labelledby="today-list-title" className="space-y-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-3">
-                <h2 id="today-list-title" className="text-lg font-semibold tracking-tight">
-                  {many ? NW.listOn(name) : W.listTitle}
-                  <span className="font-medium text-text-3">
-                    {' '}
-                    · {items.length.toLocaleString()}
-                  </span>
-                </h2>
-                {approvable > 1 ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={approving.busy !== null}
-                    onClick={() => void approveAll()}
-                    data-testid="today-approve-all"
-                  >
-                    <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    {approveAllWords(approvable, comments)}
-                  </Button>
-                ) : null}
-              </div>
-              {approvable > 1 && answers ? (
-                <p className="-mt-1 text-[12.5px] text-text-2" data-testid="today-answers-left">
-                  {forumAnswersLeftWords(answers)}
-                </p>
-              ) : null}
-              {ready ? null : (
-                <p className="-mt-1 text-[13px] text-text-2">{READY_WORDS.repliesStill}</p>
-              )}
-              <Card className="p-0" data-testid="today-list">
-                <ul>
-                  {items.map((item, i) => (
-                    <TodayRow
-                      key={`${item.kind}:${item.postId ?? item.chatId ?? item.profileId ?? item.name}`}
-                      workspaceId={workspaceId}
-                      platform={platform}
-                      item={item}
-                      auto={today.auto.includes(item.kind)}
-                      asks={asks}
-                      first={i === 0}
-                    />
-                  ))}
-                </ul>
-              </Card>
-            </section>
-          ) : ready ? (
-            <TodayStart workspaceId={workspaceId} platform={platform} />
-          ) : null}
-          {partners.length ? (
-            <section
-              aria-labelledby="today-partners-title"
-              className="space-y-3"
-              data-testid="today-partners"
-            >
-              <h2 id="today-partners-title" className="text-lg font-semibold tracking-tight">
-                {PW.title}
-                <span className="font-medium text-text-3">
-                  {' '}
-                  · {partners.length.toLocaleString()}
-                </span>
-              </h2>
-              <p className="-mt-1 text-[13px] text-text-2">{PW.todayAbout}</p>
-              <Card className="p-0" data-testid="today-partner-list">
-                <ul>
-                  {partners.map((item, i) => (
-                    <TodayRow
-                      key={`${item.kind}:${item.profileId ?? item.name}`}
-                      workspaceId={workspaceId}
-                      platform={platform}
-                      item={item}
-                      auto={doneOnItsOwn(item.kind, today.auto)}
-                      asks={asks}
-                      first={i === 0}
-                      partner
-                    />
-                  ))}
-                </ul>
-              </Card>
-            </section>
-          ) : null}
-        </div>
-        <aside className="space-y-4">
-          {live ? <DoneToday live={live} /> : null}
-          {!today.hasPlaybook ? (
-            <Card className="p-4">
-              <h3 className="text-[15px] font-semibold">
-                {`${dailyWordsOn(platform).friend_request.label} need a playbook`}
-              </h3>
-              <p className="mt-1.5 text-[13px] text-text-2">
-                People who fit are suggested once the business has a playbook saying who to look
-                for.
-              </p>
-              <ButtonLink
-                size="sm"
-                variant="secondary"
-                className="mt-3"
-                href={outreachHref(workspaceId, { view: 'playbooks' })}
-              >
-                Go to Playbooks
-              </ButtonLink>
-            </Card>
-          ) : null}
-          {today.readAdmins.length && askableOn(platform, 'members') ? (
-            <Card className="p-4" data-testid="today-read-admins">
-              <h3 className="text-[15px] font-semibold">Save who runs these groups</h3>
-              <p className="mt-1.5 text-[13px] text-text-2">
-                Their members are suggested once the group’s admins are saved, so nobody who runs a
-                group is approached.
-              </p>
-              <ul className="mt-3 grid gap-3 text-[13px]">
-                {today.readAdmins.map((g) => (
-                  <li key={g.groupId} className="grid gap-1.5">
-                    <a
-                      href={g.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-accent-text hover:underline"
-                    >
-                      {g.name ?? 'A group'}
-                    </a>
-                    <AskButton
-                      workspaceId={workspaceId}
-                      asks={asks}
-                      ask={{ kind: 'members', groupIds: [g.groupId] }}
-                      label="Save its members"
-                      testId="today-ask-members"
-                    />
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          ) : null}
-        </aside>
-      </div>
-      {team ? <TeamCard workspaceId={workspaceId} team={team} className="mt-5" /> : null}
+      {getReady ? <div className="max-w-3xl">{getReady}</div> : null}
       <HowItWorks />
     </div>
   );

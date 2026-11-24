@@ -5277,6 +5277,38 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **How it's built** (no migration, no server change): the count and the switch live in the runner's state for
         the day on that computer (`refusedInRow`, `requestsOff`), as its tries do.
 
+193.  **Needs you and Today, a part at a time** (Chris, 24 Nov 2026: "the needs you and today pages on the social
+      outreach add on are too long. they need a menu to break it up like the people page on web and phone app"). Each
+      page has a row of parts under its title, drawn the way People's views are (decision 128), on the web and the
+      phone (`page-parts.ts` in core). Nothing is taken away: only one part shows at a time. No migration, and no
+      command or query changed.
+      - **Needs you's parts are the kinds that wait,** in decision 42's order: **People to OK** (Autopilot's list,
+        decision 151, while anyone on it waits), **Your computer**, **In your hands** (decision 182), **Replies**,
+        **Messages** (comments among them, decision 92), **Steps**, **Requests** and **Where they live** (decision
+        128's Not sure where they live). Each shows its count. Only the parts with something in them are on the row,
+        and the one open even once it's emptied, saying to pick another. With nothing waiting there's no row, only
+        "Nothing needs you right now". It's still never narrowed to a network.
+      - **It opens on the first part with anything in it** (`needsPartOpen`). The bare address (`/needs-you`, the
+        side menu, Today's line, pushes and the extension's links) works it out each time it draws, so OK'ing the
+        last message moves on to the next part by itself. A part's own address (`/needs-you/message`, `need`,
+        `request`…, the phone's `&part=`) stays on that part. Autopilot's line at the bottom (decision 160) and, on
+        the phone, how the person hears of it stay under every part.
+      - **Today's parts are fixed:** **Overview** (what it did, the 1-on-1s, Heads up, how many things need the
+        person, each network's card with Start my day, Get ready, How it works), **Your list** with its count
+        (referrals, the list, partners, a playbook needed, the group admins to save, Get ready), **Posts and events**
+        (the helpful post, the events near them, and Find posts on the phone), **Done today** with its count, and
+        **Your team** for owners and admins. The page opens on the Overview (`/today`); each other part has its own
+        address (`/today/list`, `posts`, `done`, `team`), keeping the network shown (`?net=`). Your team asked for by
+        someone who doesn't manage opens the Overview.
+      - **Each web part asks only for what it shows:** every part asks for the day's list (its count and Heads up) and
+        the network shown's live view (Done today's count); each network's card and readiness are the Overview's,
+        the helpful post Posts and events', the referrals the list's, and the team's day Your team's. Needs you asks
+        for all of it, as each part's count is on the row, and how many the country setting isn't sure of too.
+      - **On the phone,** the row sits under the title and a press switches the part in place, with nothing loaded
+        again. Off the Overview, whose cards pick the network, the networks the person works are a row at the top
+        of the part.
+      - The Assistant knows the parts (`ai-places.ts`: "Social Outreach → Needs you → Messages, Approve all").
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
