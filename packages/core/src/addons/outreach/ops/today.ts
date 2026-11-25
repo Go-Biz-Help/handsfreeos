@@ -9,6 +9,7 @@ import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { intlTimeZone } from '../../../intl/engine-zones';
 import { userIdOf } from '../../../kernel/actor';
+import { EXTENSION_CLIENT } from '../../../mobile';
 import { defineAddonQuery } from '../../server';
 import {
   MESSAGE_KINDS,
@@ -41,6 +42,7 @@ import {
   WORKING_PLATFORMS,
 } from '../networks';
 import { todayAnswer } from '../ai-answers';
+import { listWithoutOut } from '../plan-changes';
 import { outreachAddon } from '../manifest';
 import {
   ANSWERS,
@@ -114,7 +116,9 @@ import {
   ruledOut,
   zoneOf,
 } from './common';
+import { businessToday } from './day';
 import { leadPathOf, localOf } from './local';
+import { changesOf } from './plan-changes';
 import { milesBetweenTowns } from './towns';
 import {
   acceptedMine,
@@ -319,13 +323,31 @@ export const today = defineAddonQuery(outreachAddon, {
   actors: ['human', 'system'],
   scope: inWorkspace,
   async handler(ctx, input) {
-    const { list } = await todayFor(ctx, input);
+    const { list: whole } = await todayFor(ctx, input);
+    const list = await forRunner(ctx, input.platform, whole);
     if (!input.kind) return list;
     const ofKind = (items: readonly { kind: string }[] | undefined) =>
       (items ?? []).filter((i) => i.kind === input.kind);
     return { ...list, items: ofKind(list.items), partners: ofKind(list.partners) } as typeof list;
   },
 });
+
+/**
+ * Today's list as the extension is given it (decision 195, step 3): without anyone whose row the person skipped on
+ * today's Plan, or moved to a time still ahead (../plan-changes.ts). A runner then never sees them, whoever plans its
+ * go and whatever its build. The web, the phone and the Assistant get the whole list, as before.
+ */
+async function forRunner(
+  ctx: Ctx,
+  platform: Platform,
+  list: z.input<typeof TodayOutput>,
+): Promise<z.input<typeof TodayOutput>> {
+  const me = userIdOf(ctx.actor);
+  if (!me || ctx.meta.channel !== EXTENSION_CLIENT) return list;
+  const now = Date.now();
+  const { today } = await businessToday(ctx, now);
+  return listWithoutOut(list, await changesOf(ctx, me, platform, today), now);
+}
 
 /**
  * The person's list for today on a network, as `outreach.today` gives it. With `plan`, as Autopilot's day's list is

@@ -756,6 +756,7 @@ became.
 | Lists first, before the day (decision 60)                | `lists.ts`, `ops/lists.ts`, `apps/extension/src/auto/lists.ts`, `src/jobs/people.ts`, `src/jobs/groups.ts`, `src/jobs/groups-check.ts`, the web's `pre-day-list.tsx`, `supabase/migrations/20261027002800_outreach_list_saves.sql`, `20261027002830_outreach_list_saves_groups.sql` |
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/auto/turns.ts`, `src/facebook/auto.ts`, `src/panel/status.ts`, `src/tab.ts`                                                                                                                                              |
 | The plan, and the day's rules (decision 195)             | `plan-rules.ts` and `runners.ts` (the day's rules, the extension's own), `plan.ts`, `ops/plan.ts`, `apps/extension/src/hfos/plan.ts`, the web's `plan-view.tsx`, the phone's `plan.tsx`, `supabase/migrations/20261027036200_outreach_plan_days.sql`                                |
+| Changes to the plan (decision 195, step 3)               | `plan-changes.ts`, `ops/plan-changes.ts`, `ops/today.ts` (the extension's list), the web's `plan-change.tsx`, `supabase/migrations/20261027036900_outreach_plan_changes.sql`                                                                                                        |
 | Stages and the pitch (decision 47)                       | `stages.ts`, `ops/stages.ts`, `apps/web/src/addons/outreach/pipeline-view.tsx`, `apps/mobile/src/addons/outreach/pipeline.tsx`, `supabase/migrations/20261027002100_outreach_stages.sql`                                                                                            |
 | The fits among friends and chats (decision 46)           | `checks.ts`, `ops/checks.ts`, `apps/worker/src/addons/outreach/checks.ts`, `apps/extension/src/jobs/checks.ts`, `supabase/migrations/20261027002000_outreach_fit_checks.sql`                                                                                                        |
 | Groups, theirs first, then new ones (decisions 48, 148)  | `group-checks.ts`, `ops/group-checks.ts`, `apps/worker/src/addons/outreach/groups.ts`, `apps/extension/src/jobs/groups-check.ts`, `src/jobs/join.ts`, `src/facebook/join.ts`, `supabase/migrations/20261027002200_outreach_group_checks.sql`                                        |
@@ -853,6 +854,7 @@ Operations, all through the kernel:
 | `outreach.lists`, `outreach.lists.saved`              | `outreach.use`    | When the person's own friends list, requests got and sent, and groups were last saved, and the first group check, Tidy up and friend check after; the extension notes each (Lists first, decision 60)                                                                                                                               |
 | `outreach.plan.note`                                  | `outreach.use`    | Where the extension's day is up to on a network, as it changes; kept only from the person's working computer (decision 195). Keeps no receipt                                                                                                                                                                                       |
 | `outreach.plan`                                       | `outreach.use`    | The plan on a network: where the day stands, what the person asked for first, what's coming in order with about when, and what's done so far; worked out from the extension's word with its own rules (decision 195)                                                                                                                |
+| `outreach.plan.change`                                | `outreach.use`    | Change a row of today's plan: Do now, Skip today, Move to a time today, or Put back. The person's own, kept for the day; every hold and limit stays (decision 195, step 3). Refused with what to do when the row is gone, the order isn't HandsFreeOS's there, or the time can't be kept                                            |
 | `outreach.computer.rename`                            | `outreach.use`    | Rename one of the person's computers                                                                                                                                                                                                                                                                                                |
 | `outreach.computer.remove`                            | `outreach.use`    | Remove the person's computers, one or every one standing by; never the one that works (`outreach_computer_working`)                                                                                                                                                                                                                 |
 | `outreach.live`                                       | `outreach.use`    | The Live tab: the computer that works and what it says, the day, counts, what waits, the warning, today's feed. `waiting: false` leaves the count of what waits out (0), for a page that shows it from `outreach.waiting`: the web's Today cards and Settings ask that way, so six cards don't each count it                        |
@@ -5342,7 +5344,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       2. **The app decides, the extension does:** the extension asks HandsFreeOS for its next move, one network at a
          time, the smallest first and Facebook last. Threads and X are built (extension 0.156.0), then Alignable
          (0.157.0), Instagram (0.158.0), LinkedIn (0.159.0) and Facebook (0.160.0), all below.
-      3. **Buttons on the plan:** do now, skip today, move to a time.
+      3. **Buttons on the plan:** do now, skip today, move to a time (built below).
       4. **The Assistant changes the plan,** as it already reads it.
       5. **Clean-up:** the extension's own planning goes.
 
@@ -5477,6 +5479,44 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         decides and once as the runner plans by itself, and the two must come to the same read, page, words, state
         and next time.
       - No migration, and nothing a person sees changes.
+
+      **Step 3, buttons on the plan.** A row that's coming on Today's Plan can be told something, on the web (its
+      menu) and the phone (press the row): **Do now**, **Skip today** and **Move to a time**, and **Put back**. No
+      new extension build: the extension is given a shorter list, and asks as it already does.
+      - **One command** (`outreach.plan.change`, `plan-changes.ts`, `ops/plan.ts`): the row by its key from the
+        plan, and `now`, `skip`, `at` with a time today on the business's clock, or `back`. The newest change to a row
+        is the one kept, for the day (`addon_outreach.plan_changes`, a person's own, one a row). An earlier day's
+        count for nothing.
+      - **Skip today** leaves it out for the rest of the day: it's back on tomorrow's plan if it's still due.
+        **Move to a time** leaves it out until then. **Do now** makes it the runner's next move. **Put back** takes
+        the change off.
+      - **A change only picks among what the day would do anyway, and when.** Every hold stays ahead of it: Sending
+        off, Stop for today, a warning, noting off, what the person asked of the extension, a first day's lists, a
+        batch of checks waiting its turn, a read put off till they're away. Outside the working hours only replies
+        go, first or not. No limit, warm-up or check on a step is touched: the step is done by the same code.
+      - **A step for someone on the list can be skipped or moved on every network, with any build.** What's skipped
+        or not yet due is left off the list the extension is given (`outreach.today`, for the extension alone: the
+        app's own Today still shows everyone). So a runner that plans its own go never sees them, and one HandsFreeOS
+        decides for is never sent them.
+      - **Do now, and any change to a once-a-day read, only where HandsFreeOS decides the order** (`PLAN_DECIDES`,
+        and a build that asks, `ASKS_SINCE`): a runner that plans for itself wouldn't know of either. Each row says
+        what it can be told (`can`), so the menu offers only that, and a press that can't be kept is refused with the
+        reason (`outreach_plan_order_not_here`). While every network is switched off, that's Skip today and Move to
+        a time for the steps, and nothing for the reads.
+      - **Where the runner plans its own go, a move only holds the step till its time:** it's back on the list
+        then, in its own place. Where HandsFreeOS decides, it goes first from then on, and a runner with nothing else
+        to do is told to look again at that time.
+      - **It takes hold at the runner's next go,** a few minutes off while it's working, up to an hour when it has
+        nothing to do. Nothing wakes the extension for a change yet.
+      - **A time that can't be kept is refused, with what to do:** one already past, one after the working hours end
+        (Start my day keeps it going), and anything new once they're over. A row that's gone from the plan (done
+        meanwhile) says so. 100 changes a network a day at most.
+      - **The plan shows it** (`outreach.plan`): a row put first or moved says so (**First**, **Moved**), and
+        **Skipped or moved today** lists the rest under Coming up, each with Put back. The web asks for the plan again
+        at once after a press, and when a change is heard (`outreach.plan.changed`); the phone after a press.
+      - **The Assistant can press them** (`outreach_change_plan`, asking first on a card): the plan it reads gives
+        each row's key and what it can be told.
+      - A migration (`20261027036900_outreach_plan_changes.sql`), which only adds a table.
 
 196.  **Comments and messages, a part each on Needs you** (Chris, 25 Nov 2026: "separate comments and messages into
       different menued pages", with a picture of one "Messages 85" part holding both). Needs you's row has
@@ -6410,7 +6450,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   and `runners.ts` (each network's kinds, once-a-day jobs, names and pace). The extension's runners import them, and
   the plan on Today works the day out with them (`nextMove` in `plan.ts`). A change to a runner's order in its `go()`
   goes into `nextMove` too, or the plan shows a day the extension won't do. The plan only ever shows: nothing in it
-  tells the extension what to do until step 2 of decision 195.
+  tells the extension what to do until step 2 of decision 195. What a person changed on the plan (step 3,
+  `plan-changes.ts`) only leaves a row out or picks what's next: keep every hold of the day ahead of it in `nextMove`,
+  and keep `outreach.today` leaving the same people out for the extension (`listWithoutOut`), or a runner that plans
+  its own go does what was skipped.
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from
   outlines, never saved pages (apps/extension/README.md).
 

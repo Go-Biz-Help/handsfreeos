@@ -397,6 +397,7 @@ import {
   LaterSetInput,
   LaterSetOutput,
 } from '@hfos/core/addons/outreach/person-menu';
+import { PlanChangeInput, PlanChangeOutput } from '@hfos/core/addons/outreach/plan-changes';
 import {
   Playbook,
   PlaybookArchiveInput,
@@ -821,6 +822,8 @@ export const PHONE_COMMANDS = {
   'outreach.partner.mark': command(ONLINE, PartnerMarkInput, PartnerMarkOutput),
   // Potential partner from the person menu (decision 130): with signal, as the rest of the menu is.
   'outreach.partner.potential': command(ONLINE, PartnerPotentialInput, PartnerPotentialOutput),
+  // A row of Today's Plan changed (decision 195, step 3): Do now, Skip today, Move to a time or Put back, with signal.
+  'outreach.plan.change': command(ONLINE, PlanChangeInput, PlanChangeOutput),
   'outreach.playbook.archive': command(ONLINE, PlaybookArchiveInput, Playbook),
   'outreach.playbook.save': command(ONLINE, PlaybookSaveInput, Playbook),
   'outreach.post.skip': command(ANYTIME, PostSkipInput, PostSkipOutput),

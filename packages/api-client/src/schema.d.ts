@@ -10137,6 +10137,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.plan.change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change one row of today’s plan on a network (Facebook when left out), by the row’s key from the plan: now puts it first, so it’s the next thing the person’s computer does there; skip leaves it out for today (it’s back tomorrow if it’s still due); at moves it to a time today (time, as 15:30 on the business’s clock): it waits till then; back puts it back as it was. It takes hold the next time their computer looks, usually within minutes. A step for someone on the list can be skipped or moved on any network. Do now, and any change to a once-a-day read, only where the row’s can says so. Every limit and wait stays: a change only picks among what the day would do anyway.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.plan.changed.
+         */
+        post: operations["command_outreach_plan_change"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.plan.note": {
         parameters: {
             query?: never;
@@ -24067,7 +24087,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the person’s computer will do today on one network (Facebook when left out), and about when: where the day stands in a line, what they asked for that goes first, what’s coming in order with rough times, how many more follow, and the day’s reading and steps done so far. Worked out from where the extension said its day is up to, by the rules it follows. Times are a rough guide.
+         * What the person’s computer will do today on one network (Facebook when left out), and about when: where the day stands in a line, what they asked for that goes first, what’s coming in order with rough times, how many more follow, and the day’s reading and steps done so far. Worked out from where the extension said its day is up to, by the rules it follows. Times are a rough guide. A row that can be changed has its key, and can says how (now, skip, at): pass both to outreach.plan.change. changes is what the person skipped today or moved to a time still ahead, each with its key to put it back.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_plan"];
@@ -53171,6 +53191,49 @@ export interface operations {
                         partnerId: string | null;
                         skipped: number;
                         stage: ("found" | "warming" | "asked" | "interested" | "call_booked" | "partner" | "not_now") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_plan_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    change: "now" | "skip" | "at" | "back";
+                    key: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                    time?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        at: string | null;
+                        /** @enum {string} */
+                        change: "now" | "skip" | "at" | "back";
+                        key: string;
+                        title: string;
+                        words: string;
                     };
                 };
             };
@@ -95049,11 +95112,21 @@ export interface operations {
                             title: string;
                             working: boolean;
                         }[];
+                        changes: {
+                            at: string | null;
+                            /** @enum {string} */
+                            change: "skip" | "at";
+                            key: string;
+                            title: string;
+                        }[];
                         coming: {
                             about: boolean;
                             /** Format: date-time */
                             at: string;
+                            can: ("now" | "skip" | "at")[];
+                            changed: ("now" | "at") | null;
                             detail: string | null;
+                            key: string | null;
                             /** @enum {string} */
                             kind: "lists" | "job" | "search" | "watch" | "step" | "draft" | "send";
                             now: boolean;

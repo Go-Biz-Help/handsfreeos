@@ -3,7 +3,8 @@
  * to on a network and only the working computer's word is kept, each person's their own; the plan is worked out from
  * it for today, says to update an older build, and puts what the person asked for first. A runner of a network
  * HandsFreeOS decides asks for its next move (step 2): only the working computer is answered, by the day's rules,
- * with every time on its own clock.
+ * with every time on its own clock. A row of the plan is changed (step 3): put first, skipped, moved to a time or put
+ * back, and the runner's next move follows.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
@@ -19,11 +20,12 @@ import {
 } from '../../src/addons/outreach/automation';
 import { LIST_MARKS_ON } from '../../src/addons/outreach/lists';
 import { PLAN_SINCE, PLAN_WORDS } from '../../src/addons/outreach/plan';
+import { jobChangeKey, PLAN_CHANGE_UI } from '../../src/addons/outreach/plan-changes';
 import { NEXT_SINCE, NOT_DECIDING, PLAN_DECIDES } from '../../src/addons/outreach/plan-next';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { RUNNERS } from '../../src/addons/outreach/runners';
 import { zonedParts } from '../../src/calendar/engine/zoned';
-import { outreachBusiness, runAs, runWith } from './outreach-fixture';
+import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
 
 /**
  * Threads and X switched on, as they will be: the switch itself (`PLAN_DECIDES`) is off until a day's plan has been
@@ -328,6 +330,164 @@ describe('the plan, kept and shown', () => {
       theirs,
     );
     expect(putOff.move).toEqual({ do: 'wait', why: 'idle', until: theirs + 10 * MIN });
+  });
+
+  // ------------------------------------------------------------------------------------------------- a row changed
+
+  /** A change to a row of the plan, pressed on the web. */
+  const change = (
+    u: TestUser,
+    platform: string,
+    key: string,
+    what: 'now' | 'skip' | 'at' | 'back',
+    time?: string,
+  ) =>
+    runWith(
+      u,
+      ws,
+      'outreach.plan.change',
+      { platform, key, change: what, ...(time ? { time } : {}) },
+      { channel: 'web' },
+    );
+  /** The business's clock some minutes from now, as 15:30. */
+  const clock = (minutes: number) => {
+    const { hour, minute } = zonedParts(Date.now() + minutes * MIN, zone);
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  };
+  const changesKept = (u: TestUser, platform: string) =>
+    rows<{ key: string; change: string; day: string; title: string; at: Date | null }>(
+      admin(),
+      sql`select key, change, day::text as day, title, at from addon_outreach.plan_changes
+          where workspace_id = ${ws} and user_id = ${u.id} and platform = ${platform}
+          order by key`,
+    );
+
+  it('changes a once-a-day read only where HandsFreeOS decides the order, for a build that asks', async () => {
+    // Facebook's order is still its runner's own: a read there can't be changed, nor anything put first.
+    expect(await refused(change(member, 'facebook', jobChangeKey('requests'), 'skip'))).toBe(
+      'outreach_plan_order_not_here',
+    );
+    // X is decided, and the working computer's build is from before its runner asked.
+    expect(await refused(change(member, 'x', jobChangeKey('requests'), 'skip'))).toBe(
+      'outreach_plan_order_not_here',
+    );
+    await beat(member, home, NEXT_SINCE);
+    // A row that isn't on the plan: not one of X's reads, or nobody left on its list.
+    expect(await refused(change(member, 'x', jobChangeKey('members'), 'skip'))).toBe(
+      'outreach_plan_row_gone',
+    );
+    expect(await refused(change(member, 'x', 'work:follow:nobody', 'skip'))).toBe(
+      'outreach_plan_row_gone',
+    );
+    expect(await changesKept(member, 'x')).toEqual([]);
+  });
+
+  it('skips a read, puts one first, moves one to a time and puts it back, and the runner’s next move follows', async () => {
+    const theirs = Date.now();
+    // The day's reading is to do, and the hourly search isn't due yet.
+    const rest = { watchAt: theirs + 40 * MIN };
+    const away = { away: true, passOver: [] as string[], asking: false };
+    const job = async () => (await next(member, home, 'x', rest, away, theirs)).move.job as string;
+    const [one, two, three] = RUNNERS.x.daily.filter((j) => j !== 'comment_research');
+    expect(await job()).toBe(one);
+
+    expect(await change(member, 'x', jobChangeKey(one!), 'skip')).toEqual({
+      key: jobChangeKey(one!),
+      change: 'skip',
+      at: null,
+      title: RUNNERS.x.names[one!],
+      words: PLAN_CHANGE_UI.done.skip,
+    });
+    expect(await job()).toBe(two);
+    const first = await change(member, 'x', jobChangeKey(three!), 'now');
+    expect(first).toMatchObject({ change: 'now', words: PLAN_CHANGE_UI.done.now });
+    expect(await job()).toBe(three);
+    // Put back, it's in its own place again; and putting back twice is no trouble.
+    expect(await change(member, 'x', jobChangeKey(three!), 'back')).toMatchObject({
+      change: 'back',
+      title: RUNNERS.x.names[three!],
+      words: PLAN_CHANGE_UI.done.back,
+    });
+    expect(await change(member, 'x', jobChangeKey(three!), 'back')).toMatchObject({ title: '' });
+    expect(await job()).toBe(two);
+    // Moved to half an hour from now, it waits till then.
+    const moved = await change(member, 'x', jobChangeKey(two!), 'at', clock(30));
+    expect(moved).toMatchObject({ change: 'at', title: RUNNERS.x.names[two!] });
+    expect(Math.abs(Date.parse(moved.at) - (Date.now() + 30 * MIN))).toBeLessThanOrEqual(2 * MIN);
+    expect(await job()).toBe(three);
+
+    // One row a row of the plan, for today, with what it said; a new change to it takes the old one's place.
+    const first2 = await changesKept(member, 'x');
+    expect(first2.map((c) => [c.key, c.change, c.day]).sort()).toEqual(
+      [
+        [jobChangeKey(one!), 'skip', today()],
+        [jobChangeKey(two!), 'at', today()],
+      ].sort(),
+    );
+    expect(first2.every((c) => c.title.length > 0)).toBe(true);
+    await change(member, 'x', jobChangeKey(two!), 'skip');
+    const kept = await changesKept(member, 'x');
+    expect(kept.map((c) => [c.key, c.change, c.at]).sort()).toEqual(
+      [
+        [jobChangeKey(one!), 'skip', null],
+        [jobChangeKey(two!), 'skip', null],
+      ].sort(),
+    );
+    expect(await job()).toBe(three);
+  });
+
+  it('shows what was skipped or moved on the plan, to put back, and offers each row what it can be told', async () => {
+    await note(member, home, { done: {}, daily: {}, before: {} }, {}, 'x');
+    const [one, two] = RUNNERS.x.daily.filter((j) => j !== 'comment_research');
+    await change(member, 'x', jobChangeKey(two!), 'at', clock(45));
+    const plan = await runAs(member, ws, 'outreach.plan', { platform: 'x' });
+    expect(plan.changes).toEqual([
+      { key: jobChangeKey(one!), change: 'skip', at: null, title: RUNNERS.x.names[one!] },
+      {
+        key: jobChangeKey(two!),
+        change: 'at',
+        at: expect.any(String),
+        title: RUNNERS.x.names[two!],
+      },
+    ]);
+    const reads = (plan.coming as { kind: string; key: string | null; can: string[] }[]).filter(
+      (r) => r.kind === 'job',
+    );
+    expect(reads.length).toBeGreaterThan(0);
+    for (const row of reads) {
+      expect(row.can).toEqual(['now', 'skip', 'at']);
+      expect(row.key).not.toBe(jobChangeKey(one!));
+    }
+    // Each person's changes are their own: the owner's plan there has none.
+    expect((await runAs(owner, ws, 'outreach.plan', { platform: 'x' })).changes).toEqual([]);
+    // A network whose order isn't decided offers no read anything.
+    const facebook = await runAs(member, ws, 'outreach.plan', {});
+    for (const row of facebook.coming as { kind: string; can: string[] }[])
+      if (row.kind === 'job') expect(row.can).toEqual([]);
+  });
+
+  it('refuses a time that has passed, and yesterday’s changes count for nothing', async () => {
+    const [one, two, three] = RUNNERS.x.daily.filter((j) => j !== 'comment_research');
+    expect(await refused(change(member, 'x', jobChangeKey(three!), 'at', clock(-5)))).toBe(
+      'outreach_plan_time_past',
+    );
+    expect(await refused(change(member, 'x', jobChangeKey(three!), 'at'))).toBe('validation');
+    // The day turns: what was changed yesterday is a day not changed, and goes with the next change.
+    await rows(
+      admin(),
+      sql`update addon_outreach.plan_changes set day = day - 1
+          where workspace_id = ${ws} and user_id = ${member.id} and platform = 'x'`,
+    );
+    expect((await runAs(member, ws, 'outreach.plan', { platform: 'x' })).changes).toEqual([]);
+    const theirs = Date.now();
+    const away = { away: true, passOver: [] as string[], asking: false };
+    const first = await next(member, home, 'x', { watchAt: theirs + 40 * MIN }, away, theirs);
+    expect(first.move.job).toBe(one);
+    await change(member, 'x', jobChangeKey(three!), 'skip');
+    expect((await changesKept(member, 'x')).map((c) => c.key)).toEqual([jobChangeKey(three!)]);
+    await change(member, 'x', jobChangeKey(three!), 'back');
+    expect(two).toBeDefined();
+    expect(await changesKept(member, 'x')).toEqual([]);
   });
 
   it('holds its own work for what the person asked only as the runner says it’s in line, and says nothing while Sending is off', async () => {

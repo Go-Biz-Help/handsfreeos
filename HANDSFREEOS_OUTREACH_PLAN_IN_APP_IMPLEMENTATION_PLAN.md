@@ -33,7 +33,8 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
    already has) and does it, saying how it went. One network at a time, the smallest first: Threads and X, then
    Alignable, Instagram, LinkedIn, and Facebook last. Each keeps its own pace, warnings and limits. With no
    connection, a runner goes on as it does today until it's back.
-3. **Buttons on the plan:** do now, skip today, move to a time. Each is a command, so the Assistant can do it too.
+3. **Buttons on the plan** (built, no new extension build): do now, skip today, move to a time, and put back. One
+   command (`outreach.plan.change`), so the Assistant can do it too.
 4. **The Assistant changes the plan,** on Confirm cards where a change asks first (decision of 26 Oct 2026).
 5. **Clean-up.** The extension's own planning goes: its day's state is HandsFreeOS's, and `src/auto/plan.ts` keeps
    only what the pages need.
@@ -190,7 +191,50 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
   down, and 72 situations compared, 10 about a referral, 18 about the helpful post and 9 about the newest posts,
   with when each goes next. 33 rules of the runner's and of `nextMove`, each broken on purpose, each fail a test.
 
+## Step 3, as built
+
+- **One command, one table.** `outreach.plan.change` (`ops/plan.ts`) takes a row's key from the plan and `now`,
+  `skip`, `at` (with `time`, as 15:30 on the business's clock) or `back`. It keeps the newest change to each row for
+  the day in `addon_outreach.plan_changes` (`20261027036900_outreach_plan_changes.sql`: a person's own, hidden from a
+  view of them, one a person, network and row). An earlier day's rows count for nothing and go with the next change.
+  It says `outreach.plan.changed`, which the web's Plan hears.
+- **A row's key** (`plan-changes.ts`): `job:<read>` for a once-a-day read, `work:<workKey>` for a piece of the
+  list's work (a step, a message to write, a message to send). The plan gives each row its `key`, what it can be told
+  (`can`) and a change in force on it (`changed`), and lists what's skipped or moved to later (`changes`).
+- **The rules read the changes** (`nextMove`, `changesAt`, `workInLine`, `listWithoutOut`): what's skipped, or moved
+  to a time still ahead, is left out; what was put first, or moved and now due, is the next move, in the order said.
+  Ahead of it stay the runner's own checks, what the person asked of it (`asking`), a first day's lists
+  (`holdsTheDay`), a batch's wait (`waitsAgain`) and a read put off till they're away (`passOver`). Outside the
+  hours only replies go. With no changes a day runs exactly as before: the runners' comparison tests pass untouched.
+- **How it reaches the extension without a new build.** `outreach.today` leaves the people held off the list when
+  the extension asks (`forRunner` in `ops/today.ts`; the app's own Today shows everyone), so a runner planning its
+  own go works from the same list `nextMove` does. The list sent with a move (`outreach.plan.next`) is cut the same
+  way.
+- **Where HandsFreeOS doesn't decide the order** (`decidesFor` in `ops/plan.ts`: the network in `PLAN_DECIDES`, and
+  the working computer's build from `ASKS_SINCE`), a row for someone offers Skip today and Move to a time, and a read
+  offers nothing. Do now, or a change to a read, is refused there (`outreach_plan_order_not_here`). A move there
+  holds the step till its time and puts nothing first (`changesLead: false` for the plan that's shown).
+- **Refused with what to do:** a row gone from the plan (`outreach_plan_row_gone`), a time past
+  (`outreach_plan_time_past`), a time after the hours end (`outreach_plan_time_late`), anything new once they're over
+  (`outreach_plan_day_over`), and more than 100 changes a network a day (`outreach_plan_changes_full`).
+- **The buttons.** The web's row menu, time box and "Skipped or moved today" (`plan-change.tsx`, `plan-view.tsx`);
+  the phone's row sheet with every half hour left till the plan ends (`plan.tsx`, `planMoveTimes`). The words are
+  core's (`PLAN_CHANGE_WORDS`, `PLAN_CHANGE_UI`). The phone sends it with signal (`outreach.plan.change` is in the
+  phone's contract).
+- **The Assistant** has it as `outreach_change_plan`, asking first on a card, and its checklist has the five new
+  items (`assistant/ledger/outreach.json`).
+- **Not built: a wake.** A change takes hold at the runner's next go: a few minutes off while it works, up to an
+  hour (`IDLE_MS`) when it has nothing to do. Waking the extension on `outreach.plan.changed` needs extension code
+  that keeps the pace between steps, so it's left for its own change.
+- **Tested** in core without a database (`outreach-plan-changes.test.ts`, 30 tests; 16 of the rules broken on
+  purpose, each failing a test) and with one (`outreach-plan-ops.test.ts`, `outreach-plan-change-list.test.ts`,
+  `outreach-own-rows.test.ts`), and on the phone (`plan.test.tsx`).
+
 ## Rules for the steps after
+
+- **A change of the person's to the plan never lets a step past a hold or a limit:** it only leaves a row out or
+  picks what's next. A new hold in `nextMove` goes ahead of `changed.first`. And `outreach.today` keeps leaving the
+  same people out for the extension as `nextMove` does (`listWithoutOut`), until step 5.
 
 - **A change to a runner's order goes into `nextMove` too**, and for Threads and X into `follows.ts` as well (for
   Alignable, `alignable.ts`; for Instagram, `instagram.ts`; for LinkedIn, `linkedin.ts`; for Facebook, `run.ts`),
