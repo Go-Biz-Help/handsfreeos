@@ -26,10 +26,11 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
    same rules (`plan.ts`: `nextMove`, `planAhead`, `planShown`; `outreach.plan`). Today gets a **Plan** part on the
    web and the phone, and the Assistant reads it (`outreach_plan`). The extension still decides for itself, so the
    plan only shows.
-2. **The app decides, the extension does.** Each runner's `go()` asks HandsFreeOS for its next move (`nextMove` on
-   the server, with the list and the day it already has) and does it, saying how it went. One network at a time, the
-   smallest first: Threads and X, then Alignable, Instagram, LinkedIn, and Facebook last. Each keeps its own pace,
-   warnings and limits. With no connection, a runner goes on as it does today until it's back.
+2. **The app decides, the extension does** (Threads and X built, extension 0.156.0; the other networks to come).
+   Each runner's `go()` asks HandsFreeOS for its next move (`nextMove` on the server, with the list and the day it
+   already has) and does it, saying how it went. One network at a time, the smallest first: Threads and X, then
+   Alignable, Instagram, LinkedIn, and Facebook last. Each keeps its own pace, warnings and limits. With no
+   connection, a runner goes on as it does today until it's back.
 3. **Buttons on the plan:** do now, skip today, move to a time. Each is a command, so the Assistant can do it too.
 4. **The Assistant changes the plan,** on Confirm cards where a change asks first (decision of 26 Oct 2026).
 5. **Clean-up.** The extension's own planning goes: its day's state is HandsFreeOS's, and `src/auto/plan.ts` keeps
@@ -59,11 +60,46 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
   web when the computer, the day or an ask changes. Before an extension says anything, it says to update to 0.155.0,
   or that the computer will say within a minute.
 
+## Step 2, as built (Threads and X)
+
+- **One order, asked for** (`outreach.plan.next`, `packages/core/src/addons/outreach/ops/plan.ts`; its shapes in
+  `plan-next.ts`). A runner says where its day is up to (`PlanState`), its own clock, a number from 0 to 1 for the
+  go's waits, and what only its computer knows (`PlanHere`): whether the person is away, the once-a-day reads put off
+  till they are, whether a comment research of theirs reads now, and whether something they asked is in line.
+  HandsFreeOS answers with `nextMove` on its own settings, hours, day, warning, lists and today's list.
+- **`nextMove` takes what the computer knows.** A first day's lists wait for the person to be away (`screen`); a
+  later save of them is left till then and the rest goes on; a read put off is passed over, tried again in 10
+  minutes, and holds a round of finding again; a comment research reads when the runner was told one does. A piece
+  of the list's work says how it goes (`reading`, the `day` it's in, `answering` outside the hours). Left out, as
+  for the plan that's shown, the day is worked out as if they're away.
+- **What's in line is the runner's word** (`here.asking`). HandsFreeOS's own count of what the person asked includes
+  one no computer took yet, which never held a runner: the count is only for the plan that's shown.
+- **Whose clock.** HandsFreeOS works the move out on its own clock and sends each time back on the runner's, by how
+  far apart the two are (`now`). A piece of work comes by its key (`workKey`) with today's list, so the runner asks
+  once. What the move changed in the day comes back too (`change`): a round begun, who still waits for an answer.
+- **Who's answered** (`decides`). Only the networks in `PLAN_DECIDES` (`['threads', 'x']`), only the person's working
+  computer, and only a build from 0.156.0 (`NEXT_SINCE`, read from the request). Anyone else is told to plan for
+  itself. Taking a network out of `PLAN_DECIDES` hands its order back to the extension at its next go.
+- **The runner** (`apps/extension/src/auto/follows.ts`). Its own checks stay first and unchanged: the working
+  computer, Chrome allowing the network, Sending, a warning, noting, Stop for today, an ask in line. Then it asks
+  (`planNext`, 15 seconds at most) and does the move as it does its own (`asTold`): the same reads, steps, words,
+  pace and limits. It plans the go itself, with the code it had, when HandsFreeOS doesn't decide, can't be reached, or
+  sends a move it can't do. It never saves the person's lists while they're at their computer, whatever it's sent.
+- **Tested** in core (`outreach-plan.test.ts`, `outreach-plan-ops.test.ts`) and in the extension
+  (`follows-plan-next.test.ts`): each kind of move done as sent, and 19 situations of a day where the move the rules
+  send is compared with the one the runner picks by itself.
+- **Not yet:** the runner's own planning is still there, used when HandsFreeOS can't be reached (step 5 takes it
+  out). Nothing on the Plan is pressed yet (step 3).
+
 ## Rules for the steps after
 
-- **A change to a runner's order goes into `nextMove` too** until step 2 makes `nextMove` the only order. Otherwise
-  the plan shows a day the extension won't do.
-- **Nothing the plan shows tells the extension anything** until step 2. Step 2 moves one network at a time, behind a
-  build check, so an older extension keeps planning for itself.
+- **A change to a runner's order goes into `nextMove` too**, and for Threads and X into `follows.ts` as well, until
+  step 5 makes `nextMove` the only order. Otherwise the plan shows a day the extension won't do, and a go planned
+  without HandsFreeOS differs from one it decides. `follows-plan-next.test.ts` compares the two.
+- **A network joins step 2 by its own pull request:** its runner's `go` split the way `follows.ts` is (its own
+  checks, the ask, `asTold`, then its own planning), its situations compared in a test, then its name added to
+  `PLAN_DECIDES`. An older extension keeps planning for itself, as it never asks.
+- **What only the computer knows goes in `PlanHere`,** never guessed on the server: the plan that's shown says what it
+  can't see.
 - **The safety rules stay where they're enforced today** (core's limits, the readers' warnings, the warm-up and
   Instagram's follower check): the app deciding the order never lets a step past them.

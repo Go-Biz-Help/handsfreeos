@@ -4,17 +4,21 @@
  * the things that the app send it… we could also see the schedule of things in the app and see what it plans to do
  * when").
  *
- * This is the first step of that (HANDSFREEOS_OUTREACH_PLAN_IN_APP_IMPLEMENTATION_PLAN.md): the plan is seen. The
- * extension still decides each move, by the rules in ./plan-rules.ts. From 0.155.0 it tells HandsFreeOS where its day
- * is up to on each network (`outreach.plan.note`, a `PlanState`: what's done, what's tried, when it goes next), and
- * HandsFreeOS works the rest of the day out from that with the same rules (`nextMove`, `planAhead`) and what it keeps
- * already: today's list, the person's choices and hours, their lists, their day and any warning. Today's Plan part
- * shows it (`outreach.plan`), and the Assistant reads it. Nothing the extension does changes.
+ * The first step of that (HANDSFREEOS_OUTREACH_PLAN_IN_APP_IMPLEMENTATION_PLAN.md): the plan is seen. From 0.155.0
+ * the extension tells HandsFreeOS where its day is up to on each network (`outreach.plan.note`, a `PlanState`: what's
+ * done, what's tried, when it goes next), and HandsFreeOS works the rest of the day out from that with the runners'
+ * own rules (./plan-rules.ts; `nextMove`, `planAhead`) and what it keeps already: today's list, the person's choices
+ * and hours, their lists, their day and any warning. Today's Plan part shows it (`outreach.plan`), and the Assistant
+ * reads it.
  *
- * What the plan can't see yet, and says so in its own words rather than guess: whether the person is away from their
- * computer (some reads wait for that, decision 120), a referral to do (decision 185), the helpful post going up on its
- * own (decision 50), and how long each read takes (`MOVE_MINUTES`, a rough guide). The next move's time is the
- * extension's own; every later one is "about". The second step of the plan moves the deciding here, and these with it.
+ * The second step: HandsFreeOS decides. From 0.156.0 a network's runner asks for its next move (`outreach.plan.next`,
+ * ./plan-next.ts) with what only its computer knows (`PlanHere`), and does the move `nextMove` gives. A network at a
+ * time: Threads' and X's first; every other still decides each move itself, by the same rules.
+ *
+ * What the plan that's shown can't see, and says so in its own words rather than guess: whether the person is away
+ * from their computer (some reads wait for that, decision 120), a referral to do (decision 185), the helpful post
+ * going up on its own (decision 50), and how long each read takes (`MOVE_MINUTES`, a rough guide). The next move's
+ * time is the extension's own; every later one is "about".
  *
  * Browser-safe: the web, the phone and the extension read these.
  */

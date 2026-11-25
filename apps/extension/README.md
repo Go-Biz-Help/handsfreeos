@@ -1307,6 +1307,31 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Threads and X ask HandsFreeOS what to do next (0.156.0)
+
+The second step of decision 195 (`docs/outreach.md`): the app decides and the extension does, a network at a time.
+Threads' and X's runner goes first, as the smallest. Every other network's runner plans for itself as before.
+
+- **Its own checks come first, unchanged** (`go` in `src/auto/follows.ts`): this is the computer that works, the
+  network is on and Chrome allows it, its Sending isn't Off, no warning today, noting on, Stop for today not pressed,
+  and nothing the person asked in line. While one of those holds it, it never asks.
+- **Then it asks** (`planNext` in `src/hfos/plan.ts`, `outreach.plan.next`): where its day is up to, its own clock,
+  and what only this computer knows: whether the person is away (decision 120), the reads put off till they are,
+  whether a comment research of theirs reads now (decision 194), and that nothing they asked is in line. It waits up
+  to 15 seconds for the answer.
+- **It does the move it's sent, as it does its own** (`asTold`): its hour's search, a step before its day, a
+  once-a-day read, a wait with its own words for each kind, or the piece of its list's work HandsFreeOS picked, from
+  the list sent with the answer. The same read, the same press, its own pace between steps, and every daily limit,
+  which HandsFreeOS keeps. A wait that comes with a read is never shorter than its pace's least.
+- **What the move changed in its day is kept** (`changeKept`): a round of finding again begun, and who still waits
+  for an answer. Each job's line stays its own.
+- **It plans the go itself, as it always has,** whenever HandsFreeOS doesn't decide for it (another network, a
+  computer on standby), doesn't answer in time, can't be reached, or sends a move this build can't do: a read that
+  isn't this network's, a piece of work that isn't on its list, or a save of the person's lists while they're at their
+  computer, which it never does whatever it's sent.
+- **Tested both ways** (`test/follows-plan-next.test.ts`): what a go does when it's sent each kind of move, and 19
+  situations of a day where the move HandsFreeOS's rules send is compared with the one the runner picks by itself.
+
 ### It tells HandsFreeOS where each network's day is up to (0.155.0)
 
 The owner, 25 Nov 2026: the web and phone apps should hold the schedule, and the extension should only do what it's
