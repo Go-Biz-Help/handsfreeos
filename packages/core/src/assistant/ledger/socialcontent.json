@@ -1,18 +1,19 @@
 {
   "area": "socialcontent",
   "title": "The AI Social Media Content Creator add-on: Creators, Standouts, Playbook, Ideas, Calendar and Settings, on the web and the phone",
-  "checkedOn": "2026-11-22",
+  "checkedOn": "2026-11-24",
   "files": {
     "apps/mobile/src/addons/socialcontent/activity.tsx": "9744b485ef7b",
     "apps/mobile/src/addons/socialcontent/calendar-picking.tsx": "ae5dd25fd599",
-    "apps/mobile/src/addons/socialcontent/calendar.tsx": "2f685418c34d",
+    "apps/mobile/src/addons/socialcontent/calendar.tsx": "fa13d3d4e4ef",
     "apps/mobile/src/addons/socialcontent/creators.tsx": "afbddca04aa6",
     "apps/mobile/src/addons/socialcontent/home.tsx": "6973e687d399",
     "apps/mobile/src/addons/socialcontent/ideas.tsx": "355ae79366b6",
     "apps/mobile/src/addons/socialcontent/kit.tsx": "f3734b26ca2f",
+    "apps/mobile/src/addons/socialcontent/link.tsx": "6b15b0b2e56b",
     "apps/mobile/src/addons/socialcontent/more.tsx": "41a0e2e099f1",
-    "apps/mobile/src/addons/socialcontent/own-post.tsx": "e212f4e42440",
-    "apps/mobile/src/addons/socialcontent/playbook.tsx": "f6bbed355f8c",
+    "apps/mobile/src/addons/socialcontent/own-post.tsx": "4432971bc19d",
+    "apps/mobile/src/addons/socialcontent/playbook.tsx": "0e93691d546c",
     "apps/mobile/src/addons/socialcontent/post-card.tsx": "047b4bb8df26",
     "apps/mobile/src/addons/socialcontent/settings.tsx": "965748f592e6",
     "apps/mobile/src/addons/socialcontent/setup.tsx": "0f359ad31454",
@@ -25,26 +26,27 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/playbook.tsx": "1ece804bcab9",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/settings.tsx": "b7e6c2a6389d",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/standouts.tsx": "adbc9f8ec4fe",
-    "apps/web/src/addons/registry.ts": "c925198a00a2",
+    "apps/web/src/addons/registry.ts": "2fe0786fa4ef",
     "apps/web/src/addons/socialcontent/activity-card.tsx": "ac129c506362",
     "apps/web/src/addons/socialcontent/calendar-grids.tsx": "da4fca23f6a0",
-    "apps/web/src/addons/socialcontent/calendar-page.tsx": "04c21944ea10",
+    "apps/web/src/addons/socialcontent/calendar-page.tsx": "a37dfb2c3a39",
     "apps/web/src/addons/socialcontent/calendar-picking.tsx": "4da8f81635be",
     "apps/web/src/addons/socialcontent/creators-page.tsx": "7981cd799c44",
     "apps/web/src/addons/socialcontent/ideas-page.tsx": "38ccbdb2a0f8",
+    "apps/web/src/addons/socialcontent/link-card.tsx": "b3fd268dd69c",
     "apps/web/src/addons/socialcontent/offer-notice.tsx": "bd18d03766c4",
-    "apps/web/src/addons/socialcontent/playbook-page.tsx": "add4a230d665",
+    "apps/web/src/addons/socialcontent/playbook-page.tsx": "93c8d0cc6847",
     "apps/web/src/addons/socialcontent/post-card.tsx": "67aaf4c54254",
-    "apps/web/src/addons/socialcontent/post-sheet.tsx": "71474f061d95",
+    "apps/web/src/addons/socialcontent/post-sheet.tsx": "5cbe0db7baee",
     "apps/web/src/addons/socialcontent/settings-page.tsx": "6d8a2b281731",
     "apps/web/src/addons/socialcontent/setup-card.tsx": "c30a470b168c",
     "apps/web/src/addons/socialcontent/standout-links.tsx": "1d5a6acf8414",
     "apps/web/src/addons/socialcontent/standouts-page.tsx": "432ad6ca185d",
-    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/calendar/page.tsx": "059a522797e6",
+    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/calendar/page.tsx": "048cf7d19624",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/creators/page.tsx": "f4ae2d8b3e77",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/ideas/page.tsx": "6b4e6194b80e",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/page.tsx": "f6d978501d91",
-    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/playbook/page.tsx": "e8ea3f0e428f",
+    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/playbook/page.tsx": "c11938352eb8",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/settings/page.tsx": "af3ff673f9d4",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/standouts/page.tsx": "ebf3c721a49e",
     "apps/web/src/components/extension-download-button.tsx": "f437f7e74ef3"
@@ -408,6 +410,20 @@
       "by": "socialcontent_get_playbook (writtenAt: null); the place’s words"
     },
     {
+      "path": "Playbook → Your link: the link the business's posts send people to, Save link, Take it off, and the note when there's none (owners and admins change it; everyone sees it)",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/link-card.tsx:57",
+      "covered": "yes",
+      "by": "socialcontent_get_playbook (link, mayManage); socialcontent_save_link (link)"
+    },
+    {
+      "path": "Playbook → Your link → Where the link goes on each network: In the post, Link in bio, First comment, with what each does",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/link-card.tsx:105",
+      "covered": "yes",
+      "by": "socialcontent_get_playbook (linkPlaces); socialcontent_save_link (places)"
+    },
+    {
       "path": "Ideas → Get ideas",
       "kind": "do",
       "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:113",
@@ -693,6 +709,20 @@
       "file": "apps/mobile/src/addons/socialcontent/playbook.tsx:96",
       "covered": "yes",
       "by": "socialcontent_write_playbook (worker action)"
+    },
+    {
+      "path": "Phone → Playbook → Your link: the link, Save link, Take it off, the note when there's none (owners and admins change it, with signal)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/link.tsx:63",
+      "covered": "yes",
+      "by": "socialcontent_get_playbook (link, mayManage); socialcontent_save_link (link)"
+    },
+    {
+      "path": "Phone → Playbook → Your link → Where the link goes on each network: In the post, Link in bio, First comment",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/link.tsx:107",
+      "covered": "yes",
+      "by": "socialcontent_get_playbook (linkPlaces); socialcontent_save_link (places)"
     },
     {
       "path": "Phone → Ideas → Get ideas",
@@ -1036,6 +1066,20 @@
       "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:821",
       "covered": "yes",
       "by": "socialcontent_save_own_post (hook, words, hashtags)"
+    },
+    {
+      "path": "Phone → Post → Link: No link, In the post, Link in bio, First comment; the link and where it goes, or that there's no link yet",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:933",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (linkPlace); socialcontent_get_own_post (linkPlace)"
+    },
+    {
+      "path": "Phone → Post → where it went up → whether its link went up as the first comment, with the link to copy when it didn't",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:737",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (postedTo comment)"
     },
     {
       "path": "Phone → Post → on Threads or X: how many characters the words and tags take of what the network allows",
@@ -1442,6 +1486,20 @@
       "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:557",
       "covered": "yes",
       "by": "socialcontent_save_own_post (hook, words, hashtags)"
+    },
+    {
+      "path": "Post → Link: No link, In the post, Link in bio, First comment; the link and where it goes, or that there's no link yet with Open Playbook",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:748",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (linkPlace); socialcontent_get_own_post (linkPlace)"
+    },
+    {
+      "path": "Post → where it went up → whether its link went up as the first comment, with Copy link when it didn't",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:574",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (postedTo comment); socialcontent_get_playbook (link)"
     },
     {
       "path": "Post → on Threads or X: how many characters the words and tags take of what the network allows",

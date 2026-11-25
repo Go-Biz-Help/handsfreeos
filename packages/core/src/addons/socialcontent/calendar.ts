@@ -8,6 +8,7 @@
  */
 import { isClock, parseClock } from '../../calendar/engine/zoned';
 import type { ContentNetwork } from './networks';
+import { linkRoom, mentionsLink, type LinkPlace } from './links';
 
 /**
  * The networks it writes posts for (part 8; Threads and X from decision 41); posting through the extension comes in
@@ -76,6 +77,8 @@ export interface PostedTo {
   readonly place: PostPlace;
   readonly link: string | null;
   readonly at: string;
+  /** Whether its first comment with the business's link went up there (docs/socialcontent.md, "Your link"). */
+  readonly comment?: boolean | null;
 }
 
 /** The places one post goes up, in the order the extension puts it up. */
@@ -271,21 +274,28 @@ export function withParagraphs(network: string, words: string): string {
 /**
  * The words as they go up: the post's words, a blank line between paragraphs (`withParagraphs`), then a blank line
  * and its hashtags, each with its #, no more of them than the network takes (`HASHTAGS_MOST`). Kept within what the
- * network takes, cutting the words (never a hashtag in half) when they'd run over.
+ * network takes, cutting the words (never a hashtag in half) when they'd run over. A post whose link goes in the post
+ * (docs/socialcontent.md, "Your link") has it on a line of its own after the words, before the hashtags, never cut,
+ * unless the words hold it already.
  */
 export function postText(
   network: PostingNetwork,
   words: string,
   hashtags: readonly string[],
+  link: { readonly place: LinkPlace; readonly link: string } | null = null,
 ): string {
   const tags = tagsLine(tagsFor(network, words, hashtags));
   const most = POSTING.textMost[network];
-  const tail = tags ? `\n\n${tags}` : '';
+  const linkLine = link?.place === 'post' && !words.includes(link.link) ? link.link : '';
+  const tail = [linkLine, tags]
+    .filter(Boolean)
+    .map((t) => `\n\n${t}`)
+    .join('');
   const room = Math.max(0, most - tail.length);
   const spaced = withParagraphs(network, words.trim());
   const body =
     spaced.length > room ? `${spaced.slice(0, Math.max(0, room - 1)).trimEnd()}…` : spaced;
-  return body ? `${body}${tail}`.slice(0, most) : tags.slice(0, most);
+  return body ? `${body}${tail}`.slice(0, most) : tail.trim().slice(0, most);
 }
 
 export const CALENDAR = {
@@ -475,6 +485,12 @@ export interface ReadyCheck {
   /** Threads and X (decision 41): its tags and the posts under it, which must fit what the network takes. */
   readonly hashtags?: readonly string[];
   readonly chain?: readonly string[];
+  /**
+   * Where its link goes, when it points people to the business's link, and the business's link from the Playbook
+   * page (docs/socialcontent.md, "Your link"). Given, a post never promises a link it won't have.
+   */
+  readonly linkPlace?: LinkPlace | null;
+  readonly link?: string | null;
 }
 
 /**
@@ -483,11 +499,23 @@ export interface ReadyCheck {
  */
 export function stillNeeds(c: ReadyCheck): string | null {
   if (!c.words.trim() && c.format === 'text') return 'It has no words yet. Write them first.';
+  if (c.link !== undefined) {
+    if (c.linkPlace && !c.link)
+      return 'It points people to your link, but there’s no link yet. Add yours on the Playbook page, or take the link off this post.';
+    if (!c.linkPlace && [c.words, ...(c.chain ?? [])].some(mentionsLink))
+      return c.link
+        ? 'Its words point people to a link, but it carries none. Pick where its link goes on this post, or take that out of its words.'
+        : 'Its words point people to a link, but there’s no link yet. Add yours on the Playbook page, or take that out of its words.';
+  }
   if (isShortNetwork(c.network)) {
     const most = POSTING.textMost[c.network];
     const name = c.network === 'x' ? 'X' : 'Threads';
-    if (postLength(c.words, c.hashtags ?? []) > most)
-      return `Its words and tags run past the ${most} characters ${name} takes. Shorten them first.`;
+    const room =
+      c.link && c.words.includes(c.link) ? 0 : linkRoom(c.linkPlace ?? null, c.link ?? null);
+    if (postLength(c.words, c.hashtags ?? []) + room > most)
+      return room
+        ? `Its words, link and tags run past the ${most} characters ${name} takes. Shorten them first.`
+        : `Its words and tags run past the ${most} characters ${name} takes. Shorten them first.`;
     const long = (c.chain ?? []).findIndex((t) => t.trim().length > most);
     if (long >= 0)
       return `Post ${long + 2} in its chain runs past the ${most} characters ${name} takes. Shorten it first.`;

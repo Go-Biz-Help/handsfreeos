@@ -235,6 +235,8 @@ const ONLINE_COMMANDS = [
   'socialcontent.content.remove_many',
   'socialcontent.content.mark_posted',
   'socialcontent.content.look',
+  // Your link on its Playbook (docs/socialcontent.md, "Your link"; the owner, 24 Nov): the link and where it goes.
+  'socialcontent.link.save',
   // Contractor Operations in the field (docs/contractor.md, "On the phone"), with signal: a job's own status, and
   // taking a note off.
   'contractor.job.set_status',

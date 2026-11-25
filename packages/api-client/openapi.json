@@ -128055,10 +128055,157 @@
         }
       }
     },
+    "/v1/commands/socialcontent.link.save": {
+      "post": {
+        "operationId": "command_socialcontent_link_save",
+        "summary": "Set the business’s link for its own posts (the Playbook page’s Your link), and where it goes on each network: \"post\" (on a line after the post’s words), \"bio\" (the words say the link is in the bio, where the business keeps it) or \"comment\" (the extension writes it as the first comment once the post is up; on Threads and X, a reply under it). The AI only points people to the link when the business has one, and says where it is. A link just added is carried by the posts not up yet whose words already point to one. What isn’t given stays as it is; a null or empty link takes it off.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires socialcontent.manage. Emits socialcontent.link.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "link": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "places": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "enum": [
+                        "instagram",
+                        "facebook",
+                        "linkedin",
+                        "threads",
+                        "x"
+                      ]
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "enum": [
+                        "post",
+                        "bio",
+                        "comment"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "link": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "places": {
+                      "type": "object",
+                      "properties": {
+                        "instagram": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "facebook": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "linkedin": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "threads": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "x": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "instagram",
+                        "facebook",
+                        "linkedin",
+                        "threads",
+                        "x"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "carried": {
+                      "default": 0,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "link",
+                    "places",
+                    "carried"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/socialcontent.content.save": {
       "post": {
         "operationId": "command_socialcontent_content_save",
-        "summary": "Change one of the business’s own posts: its title, network, format, words, hook, hashtags, slides, script, what its picture shows and how it’s made, its pictures (files on the post, in order), where on Facebook it goes, or when it goes (null for no day yet). What isn’t given stays as it is. Changing an OK’d post takes the OK back, so it waits for an OK again. A posted post can’t be changed.",
+        "summary": "Change one of the business’s own posts: its title, network, format, words, hook, hashtags, slides, script, what its picture shows and how it’s made, its pictures (files on the post, in order), where on Facebook it goes, when it goes (null for no day yet), or where its link goes (linkPlace: \"post\" after its words, \"bio\" when its words say the link is in the bio, \"comment\" for the first comment under it once it’s up; null for no link; the link itself is the business’s, set on the Playbook page). What isn’t given stays as it is. Changing an OK’d post takes the OK back, so it waits for an OK again. A posted post can’t be changed.",
         "tags": [
           "commands"
         ],
@@ -128229,6 +128376,21 @@
                         "type": "string",
                         "format": "date-time",
                         "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "linkPlace": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "post",
+                          "bio",
+                          "comment"
+                        ]
                       },
                       {
                         "type": "null"
@@ -128495,12 +128657,20 @@
                           },
                           "at": {
                             "type": "string"
+                          },
+                          "comment": {
+                            "default": null,
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "place",
                           "link",
-                          "at"
+                          "at",
+                          "comment"
                         ],
                         "additionalProperties": false
                       }
@@ -128758,6 +128928,22 @@
                         "null"
                       ]
                     },
+                    "linkPlace": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "hidden": {
                       "default": false,
                       "type": "boolean"
@@ -128824,6 +129010,7 @@
                     "topic",
                     "ideaId",
                     "stillNeeds",
+                    "linkPlace",
                     "hidden",
                     "lookAt",
                     "lookedAt",
@@ -129128,12 +129315,20 @@
                           },
                           "at": {
                             "type": "string"
+                          },
+                          "comment": {
+                            "default": null,
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "place",
                           "link",
-                          "at"
+                          "at",
+                          "comment"
                         ],
                         "additionalProperties": false
                       }
@@ -129391,6 +129586,22 @@
                         "null"
                       ]
                     },
+                    "linkPlace": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "hidden": {
                       "default": false,
                       "type": "boolean"
@@ -129457,6 +129668,7 @@
                     "topic",
                     "ideaId",
                     "stillNeeds",
+                    "linkPlace",
                     "hidden",
                     "lookAt",
                     "lookedAt",
@@ -129844,12 +130056,20 @@
                           },
                           "at": {
                             "type": "string"
+                          },
+                          "comment": {
+                            "default": null,
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "place",
                           "link",
-                          "at"
+                          "at",
+                          "comment"
                         ],
                         "additionalProperties": false
                       }
@@ -130107,6 +130327,22 @@
                         "null"
                       ]
                     },
+                    "linkPlace": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "hidden": {
                       "default": false,
                       "type": "boolean"
@@ -130173,6 +130409,7 @@
                     "topic",
                     "ideaId",
                     "stillNeeds",
+                    "linkPlace",
                     "hidden",
                     "lookAt",
                     "lookedAt",
@@ -130356,6 +130593,13 @@
                                 "type": "string"
                               }
                             },
+                            "comment": {
+                              "default": null,
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "files": {
                               "type": "array",
                               "items": {
@@ -130417,6 +130661,7 @@
                             "format",
                             "text",
                             "chain",
+                            "comment",
                             "files",
                             "places",
                             "facebookPage",
@@ -130506,6 +130751,13 @@
                             {
                               "type": "null"
                             }
+                          ]
+                        },
+                        "comment": {
+                          "default": null,
+                          "type": [
+                            "boolean",
+                            "null"
                           ]
                         }
                       },
@@ -130792,12 +131044,20 @@
                           },
                           "at": {
                             "type": "string"
+                          },
+                          "comment": {
+                            "default": null,
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "place",
                           "link",
-                          "at"
+                          "at",
+                          "comment"
                         ],
                         "additionalProperties": false
                       }
@@ -131055,6 +131315,22 @@
                         "null"
                       ]
                     },
+                    "linkPlace": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "hidden": {
                       "default": false,
                       "type": "boolean"
@@ -131121,6 +131397,7 @@
                     "topic",
                     "ideaId",
                     "stillNeeds",
+                    "linkPlace",
                     "hidden",
                     "lookAt",
                     "lookedAt",
@@ -131421,12 +131698,20 @@
                           },
                           "at": {
                             "type": "string"
+                          },
+                          "comment": {
+                            "default": null,
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "place",
                           "link",
-                          "at"
+                          "at",
+                          "comment"
                         ],
                         "additionalProperties": false
                       }
@@ -131684,6 +131969,22 @@
                         "null"
                       ]
                     },
+                    "linkPlace": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "hidden": {
                       "default": false,
                       "type": "boolean"
@@ -131750,6 +132051,7 @@
                     "topic",
                     "ideaId",
                     "stillNeeds",
+                    "linkPlace",
                     "hidden",
                     "lookAt",
                     "lookedAt",
@@ -132790,12 +133092,20 @@
                           },
                           "at": {
                             "type": "string"
+                          },
+                          "comment": {
+                            "default": null,
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "place",
                           "link",
-                          "at"
+                          "at",
+                          "comment"
                         ],
                         "additionalProperties": false
                       }
@@ -133053,6 +133363,22 @@
                         "null"
                       ]
                     },
+                    "linkPlace": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "hidden": {
                       "default": false,
                       "type": "boolean"
@@ -133119,6 +133445,7 @@
                     "topic",
                     "ideaId",
                     "stillNeeds",
+                    "linkPlace",
                     "hidden",
                     "lookAt",
                     "lookedAt",
@@ -133644,12 +133971,20 @@
                           },
                           "at": {
                             "type": "string"
+                          },
+                          "comment": {
+                            "default": null,
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "place",
                           "link",
-                          "at"
+                          "at",
+                          "comment"
                         ],
                         "additionalProperties": false
                       }
@@ -133907,6 +134242,22 @@
                         "null"
                       ]
                     },
+                    "linkPlace": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "hidden": {
                       "default": false,
                       "type": "boolean"
@@ -133973,6 +134324,7 @@
                     "topic",
                     "ideaId",
                     "stillNeeds",
+                    "linkPlace",
                     "hidden",
                     "lookAt",
                     "lookedAt",
@@ -273341,7 +273693,7 @@
     "/v1/queries/socialcontent.playbook.get": {
       "post": {
         "operationId": "query_socialcontent_playbook_get",
-        "summary": "The Playbook: what works for the creators studied, written by the AI from its notes on their standout posts, in sections (hooks, formats, topics, captions, timing and the like), each with what to do, why it works and the standouts it came from (examples: each one’s link); when it was last written, and from how many of the noted standouts there are now.",
+        "summary": "The Playbook: what works for the creators studied, written by the AI from its notes on their standout posts, in sections (hooks, formats, topics, captions, timing and the like), each with what to do, why it works and the standouts it came from (examples: each one’s link); when it was last written, and from how many of the noted standouts there are now; and the business’s link for its posts (link, null for none) with where it goes on each network (linkPlaces: \"post\" after the words, \"bio\" said to be in the bio, \"comment\" the first comment once it’s up, a reply on Threads and X).",
         "tags": [
           "queries"
         ],
@@ -273502,11 +273854,77 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "link": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "linkPlaces": {
+                      "type": "object",
+                      "properties": {
+                        "instagram": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "facebook": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "linkedin": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "threads": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "x": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "instagram",
+                        "facebook",
+                        "linkedin",
+                        "threads",
+                        "x"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "mayManage": {
+                      "default": false,
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "playbook",
-                    "examples"
+                    "examples",
+                    "link",
+                    "mayManage"
                   ],
                   "additionalProperties": false
                 }
@@ -274692,12 +275110,20 @@
                                 },
                                 "at": {
                                   "type": "string"
+                                },
+                                "comment": {
+                                  "default": null,
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
                                 "place",
                                 "link",
-                                "at"
+                                "at",
+                                "comment"
                               ],
                               "additionalProperties": false
                             }
@@ -274955,6 +275381,22 @@
                               "null"
                             ]
                           },
+                          "linkPlace": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "post",
+                                  "bio",
+                                  "comment"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "hidden": {
                             "default": false,
                             "type": "boolean"
@@ -275021,6 +275463,7 @@
                           "topic",
                           "ideaId",
                           "stillNeeds",
+                          "linkPlace",
                           "hidden",
                           "lookAt",
                           "lookedAt",
@@ -275279,12 +275722,20 @@
                                 },
                                 "at": {
                                   "type": "string"
+                                },
+                                "comment": {
+                                  "default": null,
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
                                 "place",
                                 "link",
-                                "at"
+                                "at",
+                                "comment"
                               ],
                               "additionalProperties": false
                             }
@@ -275542,6 +275993,22 @@
                               "null"
                             ]
                           },
+                          "linkPlace": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "post",
+                                  "bio",
+                                  "comment"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "hidden": {
                             "default": false,
                             "type": "boolean"
@@ -275608,6 +276075,7 @@
                           "topic",
                           "ideaId",
                           "stillNeeds",
+                          "linkPlace",
                           "hidden",
                           "lookAt",
                           "lookedAt",
@@ -275866,12 +276334,20 @@
                                 },
                                 "at": {
                                   "type": "string"
+                                },
+                                "comment": {
+                                  "default": null,
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
                                 "place",
                                 "link",
-                                "at"
+                                "at",
+                                "comment"
                               ],
                               "additionalProperties": false
                             }
@@ -276129,6 +276605,22 @@
                               "null"
                             ]
                           },
+                          "linkPlace": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "post",
+                                  "bio",
+                                  "comment"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "hidden": {
                             "default": false,
                             "type": "boolean"
@@ -276195,6 +276687,7 @@
                           "topic",
                           "ideaId",
                           "stillNeeds",
+                          "linkPlace",
                           "hidden",
                           "lookAt",
                           "lookedAt",
@@ -276293,6 +276786,66 @@
                         "null"
                       ]
                     },
+                    "link": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "linkPlaces": {
+                      "type": "object",
+                      "properties": {
+                        "instagram": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "facebook": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "linkedin": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "threads": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        "x": {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "instagram",
+                        "facebook",
+                        "linkedin",
+                        "threads",
+                        "x"
+                      ],
+                      "additionalProperties": false
+                    },
                     "mayManage": {
                       "type": "boolean"
                     }
@@ -276316,6 +276869,7 @@
                     "poster",
                     "postsOn",
                     "facebookPage",
+                    "link",
                     "mayManage"
                   ],
                   "additionalProperties": false
@@ -276611,12 +277165,20 @@
                           },
                           "at": {
                             "type": "string"
+                          },
+                          "comment": {
+                            "default": null,
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "place",
                           "link",
-                          "at"
+                          "at",
+                          "comment"
                         ],
                         "additionalProperties": false
                       }
@@ -276874,6 +277436,22 @@
                         "null"
                       ]
                     },
+                    "linkPlace": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "post",
+                            "bio",
+                            "comment"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "hidden": {
                       "default": false,
                       "type": "boolean"
@@ -276940,6 +277518,7 @@
                     "topic",
                     "ideaId",
                     "stillNeeds",
+                    "linkPlace",
                     "hidden",
                     "lookAt",
                     "lookedAt",
@@ -277268,12 +277847,20 @@
                                 },
                                 "at": {
                                   "type": "string"
+                                },
+                                "comment": {
+                                  "default": null,
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
                                 }
                               },
                               "required": [
                                 "place",
                                 "link",
-                                "at"
+                                "at",
+                                "comment"
                               ],
                               "additionalProperties": false
                             }
@@ -277531,6 +278118,22 @@
                               "null"
                             ]
                           },
+                          "linkPlace": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "post",
+                                  "bio",
+                                  "comment"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "hidden": {
                             "default": false,
                             "type": "boolean"
@@ -277597,6 +278200,7 @@
                           "topic",
                           "ideaId",
                           "stillNeeds",
+                          "linkPlace",
                           "hidden",
                           "lookAt",
                           "lookedAt",

@@ -25,6 +25,7 @@ import {
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
+import { LINK_PLACES, postLinkOf, type LinkPlace } from '@hfos/core/addons/socialcontent/links';
 import { ANGLE_LABELS } from '@hfos/core/addons/socialcontent/variety';
 import {
   SOCIALCONTENT_WORDS as W,
@@ -53,6 +54,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
 import { useCan } from '@/components/shell/workspace-shell';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
@@ -233,6 +235,8 @@ type Draft = {
   shots: string;
   picture: string;
   facebookWhere: FacebookWhere[];
+  /** Where its link goes; null for no link (docs/socialcontent.md, "Your link"). */
+  linkPlace: LinkPlace | null;
   day: string;
   time: string;
 };
@@ -253,6 +257,7 @@ function draftOf(p: Content, timeZone: string): Draft {
     shots: p.script?.shots.join('\n') ?? '',
     picture: p.picture ?? '',
     facebookWhere: [...p.facebookWhere],
+    linkPlace: p.linkPlace ?? null,
     day: p.postAt ? localDateOf(Date.parse(p.postAt), timeZone) : '',
     time: p.postAt ? clockOf(p.postAt, timeZone) : '09:00',
   };
@@ -328,12 +333,15 @@ export function PostSheet({
   post: p,
   timeZone,
   facebookPage,
+  link,
   onClose,
 }: {
   workspaceId: string;
   post: Content;
   timeZone: string;
   facebookPage: string | null;
+  /** The business's link, from the Playbook page (docs/socialcontent.md, "Your link"). */
+  link: string | null;
   onClose: () => void;
 }) {
   const { busy, act } = useAct();
@@ -383,6 +391,7 @@ export function PostSheet({
                 d.format === 'video' ? { lines: lines(d.lines), shots: lines(d.shots) } : null,
               picture: d.picture.trim() || null,
               facebookWhere: d.facebookWhere,
+              linkPlace: d.linkPlace,
               postAt: d.day
                 ? new Date(localInstant(d.day, d.time || '09:00', timeZone)).toISOString()
                 : null,
@@ -415,7 +424,9 @@ export function PostSheet({
     );
   const copyWords = () =>
     void navigator.clipboard
-      .writeText(postText(p.network as PostingNetwork, p.words, p.hashtags))
+      .writeText(
+        postText(p.network as PostingNetwork, p.words, p.hashtags, postLinkOf(p.linkPlace, link)),
+      )
       .then(() => toast.success(W.post.copied))
       .catch(() => undefined);
   const skip = (skipIt: boolean) =>
@@ -546,6 +557,17 @@ export function PostSheet({
                   </p>
                 ),
               )}
+              {p.postedTo.some((w) => w.comment === false) ? (
+                <p
+                  className="flex flex-wrap items-center gap-2 text-[13px] text-warning-text"
+                  data-testid="socialcontent-post-comment-failed"
+                >
+                  {W.link.commentFailed}
+                  {link ? <CopyLink link={link} /> : null}
+                </p>
+              ) : p.postedTo.some((w) => w.comment === true) ? (
+                <p className="text-[13px] text-text-2">{W.link.commentWent}</p>
+              ) : null}
             </div>
           ) : p.postLink ? (
             <a
@@ -714,6 +736,14 @@ export function PostSheet({
               onChange={(e) => set('hashtags', e.target.value)}
             />
           </Field>
+          <PostLinkRow
+            workspaceId={workspaceId}
+            network={d.network}
+            place={d.linkPlace}
+            link={link}
+            disabled={!changeable}
+            onChange={(place) => set('linkPlace', place)}
+          />
           {isShortNetwork(d.network) ? (
             <ShortChain
               network={d.network}
@@ -1206,5 +1236,83 @@ function ShortChain({
         </Button>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Where a post's link goes (docs/socialcontent.md, "Your link"): no link, in the post, link in bio, or the first
+ * comment once it's up. The link itself is the business's, from the Playbook page; without one, it says so.
+ */
+function PostLinkRow({
+  workspaceId,
+  network,
+  place,
+  link,
+  disabled,
+  onChange,
+}: {
+  workspaceId: string;
+  network: PostingNetwork;
+  place: LinkPlace | null;
+  link: string | null;
+  disabled: boolean;
+  onChange: (place: LinkPlace | null) => void;
+}) {
+  return (
+    <div data-testid="socialcontent-post-link">
+      <div className="mb-1.5 text-[13px] font-medium">{W.link.post}</div>
+      <Segmented<LinkPlace | 'none'>
+        value={place ?? 'none'}
+        onChange={(v) => onChange(v === 'none' ? null : v)}
+        ariaLabel={W.link.post}
+        options={[
+          {
+            value: 'none',
+            label: W.link.postNone,
+            disabled,
+            testId: 'socialcontent-post-link-none',
+          },
+          ...LINK_PLACES.map((p) => ({
+            value: p,
+            label: W.link.places[p],
+            disabled,
+            testId: `socialcontent-post-link-${p}`,
+          })),
+        ]}
+      />
+      {place && !link ? (
+        <p className="mt-1.5 text-[12.5px] text-warning-text">
+          {W.link.noLinkYet}{' '}
+          <a
+            href={`/app/w/${workspaceId}/a/socialcontent/playbook`}
+            className="text-accent-text underline"
+          >
+            {W.link.openPlaybook}
+          </a>
+        </p>
+      ) : place ? (
+        <p className="mt-1.5 text-[12.5px] text-text-3">
+          <span className="break-all">{link}</span> · {W.link.hint(network, place)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Copies the business's link, for a first comment that didn't go up. */
+function CopyLink({ link }: { link: string }) {
+  return (
+    <button
+      type="button"
+      className="text-accent-text underline"
+      onClick={() =>
+        void navigator.clipboard
+          .writeText(link)
+          .then(() => toast.success(W.link.copied))
+          .catch(() => undefined)
+      }
+    >
+      {W.link.copyLink}
+    </button>
   );
 }

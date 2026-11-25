@@ -16958,6 +16958,17 @@
                 "type": "null"
               }
             ]
+          },
+          "linkPlace": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["post", "bio", "comment"]
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["workspaceId", "postId"]
@@ -17062,6 +17073,41 @@
           }
         },
         "required": ["workspaceId", "ideaId", "state"]
+      }
+    },
+    "socialcontent.link.save": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "places": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "enum": ["instagram", "facebook", "linkedin", "threads", "x"]
+            },
+            "additionalProperties": {
+              "type": "string",
+              "enum": ["post", "bio", "comment"]
+            }
+          }
+        },
+        "required": ["workspaceId"]
       }
     },
     "socialcontent.niche.add": {

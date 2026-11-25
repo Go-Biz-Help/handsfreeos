@@ -1489,7 +1489,7 @@ describe('the business’s own posts', () => {
     expect(marked).toEqual({ marked: 1, notMarked: [] });
     const got = await as(member, 'socialcontent.content.get', { postId: one });
     expect(got).toMatchObject({ state: 'posted', postLink: link, failure: null, lookAt: null });
-    expect(got.postedTo).toEqual([{ place: 'feed', link, at: expect.any(String) }]);
+    expect(got.postedTo).toEqual([{ place: 'feed', link, at: expect.any(String), comment: null }]);
     // Its numbers are read from about its time, as with any post that went up with a link.
     const [due] = await rows<{ checks_due_at: unknown }>(
       admin(),
@@ -1704,5 +1704,140 @@ describe('the business’s own posts', () => {
       sql`select checks_due_at from addon_socialcontent.content where record_id = ${linkedinId}`,
     );
     expect(after!.checks_due_at).toBeNull();
+  });
+});
+
+describe('Your link (the owner, 24 Nov)', () => {
+  const written = (over: Record<string, unknown> = {}) => ({
+    title: 'Book a check-up',
+    format: 'text',
+    hook: null,
+    words: 'Winter is hard on pipes. Book a check-up, link in the first comment.',
+    hashtags: [],
+    slides: [],
+    script: null,
+    picture: null,
+    pictureWay: 'own',
+    ...over,
+  });
+
+  it('lets owners and admins set the link and where it goes, and shows it to everyone on the Playbook', async () => {
+    expect(
+      await refused(as(member, 'socialcontent.link.save', { link: 'pipedreams.example' })),
+    ).toBe('forbidden');
+    expect(await refused(as(owner, 'socialcontent.link.save', { link: 'call us maybe' }))).toBe(
+      'socialcontent_link_not_a_link',
+    );
+    const seen = await as(member, 'socialcontent.playbook.get');
+    expect(seen).toMatchObject({ link: null, mayManage: false });
+    expect(seen.linkPlaces).toMatchObject({ instagram: 'bio', facebook: 'post' });
+    const placed = await as(owner, 'socialcontent.link.save', {
+      places: { facebook: 'comment', linkedin: 'comment' },
+    });
+    expect(placed).toMatchObject({ link: null, carried: 0 });
+    expect(placed.places).toMatchObject({
+      facebook: 'comment',
+      linkedin: 'comment',
+      instagram: 'bio',
+    });
+    expect((await as(owner, 'socialcontent.playbook.get')).mayManage).toBe(true);
+  });
+
+  it('won’t OK a post that points to a link there isn’t, and gives it the link once one is added', async () => {
+    const fb = (
+      await worker('socialcontent.content.put', {
+        network: 'facebook',
+        post: written(),
+        postAt: new Date(Date.now() + 3 * DAY).toISOString(),
+      })
+    ).postId;
+    const plain = (
+      await worker('socialcontent.content.put', {
+        network: 'linkedin',
+        post: written({ title: 'Drips', words: 'A drip a second is 3,000 gallons a year.' }),
+        postAt: new Date(Date.now() + 3 * DAY).toISOString(),
+      })
+    ).postId;
+    expect((await as(member, 'socialcontent.content.get', { postId: fb })).stillNeeds).toMatch(
+      /no link yet/,
+    );
+    expect(await refused(as(member, 'socialcontent.content.approve', { postId: fb }))).not.toBe(
+      'went through',
+    );
+    const saved = await as(owner, 'socialcontent.link.save', { link: 'pipedreams.example/book' });
+    expect(saved).toMatchObject({ link: 'https://pipedreams.example/book' });
+    expect(saved.carried).toBeGreaterThanOrEqual(1);
+    const got = await as(member, 'socialcontent.content.get', { postId: fb });
+    // Its words say the first comment, so that's where it goes.
+    expect(got).toMatchObject({ linkPlace: 'comment', stillNeeds: null });
+    expect((await as(member, 'socialcontent.content.get', { postId: plain })).linkPlace).toBeNull();
+    const cal = await as(member, 'socialcontent.calendar.get');
+    expect(cal.link).toBe('https://pipedreams.example/book');
+    // Changed on the post's sheet: in the post itself.
+    expect(
+      (await as(member, 'socialcontent.content.save', { postId: fb, linkPlace: 'post' })).linkPlace,
+    ).toBe('post');
+    await as(member, 'socialcontent.content.save', { postId: fb, linkPlace: 'comment' });
+  });
+
+  it('hands the extension the link as the first comment, and keeps whether it went', async () => {
+    const [row] = await rows<{ id: string }>(
+      admin(),
+      sql`select record_id as id from addon_socialcontent.content
+          where workspace_id = ${ws} and link_place = 'comment' and network = 'facebook' limit 1`,
+    );
+    const id = row!.id;
+    await as(member, 'socialcontent.content.save', { postId: id, facebookWhere: ['profile'] });
+    await as(member, 'socialcontent.content.post_now', { postId: id });
+    const { post } = await as(owner, 'socialcontent.post.next', { networks: ['facebook'] });
+    expect(post).toMatchObject({ id, comment: 'https://pipedreams.example/book', chain: [] });
+    expect(post.text).not.toContain('pipedreams.example');
+    const went = await as(owner, 'socialcontent.post.went', {
+      postId: id,
+      went: [{ place: 'profile', posted: true, link: null, comment: false }],
+    });
+    expect(went.state).toBe('posted');
+    expect(went.postedTo).toEqual([expect.objectContaining({ place: 'profile', comment: false })]);
+  });
+
+  it('puts it in the post’s words, or as the last reply of a chain on X', async () => {
+    await as(owner, 'socialcontent.link.save', { places: { x: 'comment' } });
+    const inPost = (
+      await worker('socialcontent.content.put', {
+        network: 'linkedin',
+        post: written({ title: 'Book now', words: 'Book a check-up at the link below.' }),
+      })
+    ).postId;
+    await as(owner, 'socialcontent.link.save', { places: { linkedin: 'post' } });
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set link_place = 'post' where record_id = ${inPost}`,
+    );
+    await as(member, 'socialcontent.content.post_now', { postId: inPost });
+    const li = (await as(owner, 'socialcontent.post.next', { networks: ['linkedin'] })).post;
+    expect(li).toMatchObject({ id: inPost, comment: null });
+    expect(li.text).toBe('Book a check-up at the link below.\n\nhttps://pipedreams.example/book');
+    await as(owner, 'socialcontent.post.went', {
+      postId: inPost,
+      went: [{ place: 'feed', posted: true, link: null }],
+    });
+    const onX = (
+      await worker('socialcontent.content.put', {
+        network: 'x',
+        post: written({ title: 'X', words: 'Pipes freeze at 20°F. Link in the reply below.' }),
+      })
+    ).postId;
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set link_place = 'comment' where record_id = ${onX}`,
+    );
+    await as(member, 'socialcontent.content.post_now', { postId: onX });
+    const x = (await as(owner, 'socialcontent.post.next', { networks: ['x'] })).post;
+    expect(x).toMatchObject({ id: onX, comment: null });
+    expect(x.chain.at(-1)).toBe('https://pipedreams.example/book');
+    await as(owner, 'socialcontent.post.went', {
+      postId: onX,
+      went: [{ place: 'feed', posted: true, link: null }],
+    });
   });
 });

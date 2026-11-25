@@ -11,7 +11,8 @@
  *   pictures in the network's own box, then Post. It's the only thing these hands post, and only when the
  *   background asks with a post HandsFreeOS handed it (./posting.ts). `pageIds`: the numbers Business Suite might open
  *   a Facebook Page by, from its page. `me`: the signed-in person's Instagram name, from their Profile link, to find the link
- *   of a post just put up among their own (part 10).
+ *   of a post just put up among their own (part 10). `comment`: the business's link as the first comment under that
+ *   post, once it's up (./post-comment.ts, "Your link"): the only comment these hands write.
  * - `read`: the page as its network's readers see it (Facebook's and LinkedIn's: a profile, its posts, a search's
  *   people and posts), for the reads that go by the page itself (./page-read.ts). `scroll`: one screen further down,
  *   as a person scrolls, for the network to load more. `drawPosts`: on a page that draws its posts only once they're
@@ -30,8 +31,10 @@
  *   clears the way. Never a press: a read has no button of its own.
  */
 import { kitHere } from '../networks';
+import type { AutoResult } from '../networks/facebook/auto';
 import { HelperHands, type HelperMoveAsk, type HelperMoveDone } from '../networks/helper-view';
 import { heldOn, profileHeldOn, type ResearchHeld } from './held';
+import { commentHere, type CommentAsk } from './post-comment';
 import { instagramMe, pageIdsHere, postHere, type PostAsk, type PostDone } from './post-here';
 import type { InstagramPageProfile } from './instagram';
 import { INSTAGRAM_APP_ID, INSTAGRAM_READS } from './instagram';
@@ -93,6 +96,8 @@ export interface ResearchHands {
   pageIds(): string[];
   /** On Instagram: the signed-in person's name. */
   me(): string | null;
+  /** The business's link as the first comment under its own post just put up: `done` once it went. */
+  comment(ask: CommentAsk): Promise<AutoResult>;
 }
 
 /** What each network's pages send with what they ask for. */
@@ -196,5 +201,6 @@ if (kit && !here.hfosResearch) {
     post: (ask) => postHere(document, ask),
     pageIds: () => pageIdsHere(document, location.href),
     me: () => instagramMe(document),
+    comment: (ask) => commentHere(document, location.href, ask),
   };
 }

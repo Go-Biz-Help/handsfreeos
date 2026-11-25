@@ -24,6 +24,7 @@ import {
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import type { Content, ContentPicture } from '@hfos/core/addons/socialcontent/content-shapes';
+import { postLinkOf, type LinkPlace } from '@hfos/core/addons/socialcontent/links';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
 import { ANGLE_LABELS } from '@hfos/core/addons/socialcontent/variety';
 import {
@@ -87,6 +88,7 @@ import {
   useSocialcontentContext,
 } from './kit';
 import { DidntPost } from './calendar-picking';
+import { PostLinkChoice } from './link';
 
 /**
  * One of the business's own posts on the phone, as the web's sheet (docs/socialcontent.md, "Making posts", "Posting"
@@ -292,6 +294,8 @@ export interface PostDraft {
   readonly lines: string;
   readonly shots: string;
   readonly facebookWhere: readonly FacebookWhere[];
+  /** Where its link goes; null for no link (docs/socialcontent.md, "Your link"). */
+  readonly linkPlace: LinkPlace | null;
   /** "YYYY-MM-DD" in the business's zone, or '' for no day yet. */
   readonly day: string;
   readonly time: string;
@@ -312,6 +316,7 @@ export function draftOf(p: Content, timeZone: string): PostDraft {
     lines: p.script?.lines.join('\n') ?? '',
     shots: p.script?.shots.join('\n') ?? '',
     facebookWhere: [...p.facebookWhere],
+    linkPlace: p.linkPlace ?? null,
     day: p.postAt ? localDateOf(Date.parse(p.postAt), timeZone) : '',
     time: p.postAt ? clockOf(p.postAt, timeZone) : '09:00',
   };
@@ -339,6 +344,7 @@ export function saveInput(p: Content, d: PostDraft, timeZone: string) {
     chain: isShortNetwork(d.network) ? d.chain.filter((t) => t.trim()) : [],
     script: d.format === 'video' ? { lines: lines(d.lines), shots: lines(d.shots) } : null,
     facebookWhere: [...d.facebookWhere],
+    linkPlace: d.linkPlace,
     postAt: d.day ? new Date(localInstant(d.day, d.time || '09:00', timeZone)).toISOString() : null,
   };
 }
@@ -367,6 +373,7 @@ export function PostScreen({ postId }: { postId: string }) {
     post: Content;
     timeZone: string;
     facebookPage: string | null;
+    link: string | null;
   }>(
     async () => {
       const [post, cal] = await Promise.all([
@@ -378,7 +385,12 @@ export function PostScreen({ postId }: { postId: string }) {
           .POST('/v1/queries/socialcontent.calendar.get', { body: { workspaceId: ws, days: 1 } })
           .then(unwrap),
       ]);
-      return { post, timeZone: cal.timeZone, facebookPage: cal.facebookPage };
+      return {
+        post,
+        timeZone: cal.timeZone,
+        facebookPage: cal.facebookPage,
+        link: cal.link ?? null,
+      };
     },
     `socialcontent-post:${ws}:${postId}`,
     W.calendar.title,
@@ -510,7 +522,14 @@ export function PostScreen({ postId }: { postId: string }) {
       ),
     share: () => {
       if (!p) return;
-      void Share.share({ message: postText(p.network as PostingNetwork, p.words, p.hashtags) });
+      void Share.share({
+        message: postText(
+          p.network as PostingNetwork,
+          p.words,
+          p.hashtags,
+          postLinkOf(p.linkPlace, answer.data?.link ?? null),
+        ),
+      });
     },
   };
 
@@ -519,6 +538,7 @@ export function PostScreen({ postId }: { postId: string }) {
       post={p}
       timeZone={tz}
       facebookPage={answer.data?.facebookPage ?? null}
+      link={answer.data?.link ?? null}
       error={answer.error}
       online={ctx.online}
       busy={busy}
@@ -604,6 +624,7 @@ export function PostBody({
   post: p,
   timeZone,
   facebookPage,
+  link = null,
   error,
   online,
   busy,
@@ -615,6 +636,8 @@ export function PostBody({
   post: Content | null;
   timeZone: string;
   facebookPage: string | null;
+  /** The business's link, from the Playbook (docs/socialcontent.md, "Your link"). */
+  link?: string | null;
   error: string | null;
   online: boolean;
   busy: string | null;
@@ -707,6 +730,18 @@ export function PostBody({
               </Note>
             ),
           )}
+          {p.postedTo.some((w) => w.comment === false) ? (
+            <Text
+              selectable
+              className="text-[13px] leading-[18px] text-warning-text"
+              testID="socialcontent-post-comment-failed"
+            >
+              {W.link.commentFailed}
+              {link ? ` ${link}` : ''}
+            </Text>
+          ) : p.postedTo.some((w) => w.comment === true) ? (
+            <Note>{W.link.commentWent}</Note>
+          ) : null}
         </Card>
       ) : null}
 
@@ -895,6 +930,13 @@ export function PostBody({
             testID="socialcontent-post-hashtags"
           />
         </Field>
+        <PostLinkChoice
+          network={d.network}
+          place={d.linkPlace}
+          link={link}
+          disabled={!changeable}
+          onChange={(place) => set('linkPlace', place)}
+        />
         {isShortNetwork(d.network) ? (
           <Text
             className={cn(

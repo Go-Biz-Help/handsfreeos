@@ -7,6 +7,7 @@ import { addDays, localDateOf, zonedParts } from '../../calendar/engine/zoned';
 import { fmtDateLong, fmtDateShort, fmtTime } from '../../calendar/when';
 import { EXTENSION_DOWNLOAD_WORDS } from '../../extension-download';
 import type { PostedTo, PostPlace } from './calendar';
+import { repliesWithLink } from './links';
 import { hasNumbers, OWN, type DoneWell, type OwnNumbers, type OwnNumbersRead } from './own';
 import { SOCIALCONTENT_PAGES } from './pages';
 import { DONE_WELL, STANDOUT } from './standouts';
@@ -425,6 +426,47 @@ export const SOCIALCONTENT_WORDS = {
     yourPost: 'Your post',
     nothingToWrite:
       'There’s nothing to write a Playbook from yet: no standout has the AI’s notes. Study creators first, then their standouts get notes on their own.',
+  },
+  /** Your link, at the top of the Playbook, and on each post (docs/socialcontent.md, "Your link"; the owner, 24 Nov). */
+  link: {
+    title: 'Your link',
+    intro:
+      'Where your posts send people, like your booking page or shop. The AI only mentions a link when you have one here, and says where to find it.',
+    label: 'Link',
+    placeholder: 'yourbusiness.com/book',
+    none: 'No link yet, so your posts never mention one.',
+    where: 'Where it goes',
+    places: { post: 'In the post', bio: 'Link in bio', comment: 'First comment' } as Readonly<
+      Record<'post' | 'bio' | 'comment', string>
+    >,
+    /** What a place means on a network, in a line. */
+    hint: (network: string, place: 'post' | 'bio' | 'comment'): string =>
+      place === 'comment' && repliesWithLink(network)
+        ? 'On Threads and X, the first comment is a reply under the post.'
+        : place === 'post' && network === 'instagram'
+          ? 'Instagram doesn’t let people tap a link in a post, so most say it’s in the bio.'
+          : {
+              post: 'On its own line after the words.',
+              bio: 'The post says it’s in your bio. Keep the link in your profile’s bio yourself.',
+              comment: 'Written as the first comment once the post is up.',
+            }[place],
+    save: 'Save link',
+    saving: 'Saving…',
+    saved: 'Your link is saved.',
+    carried: (n: number) =>
+      `${count(n, 'post')} not up yet already pointed to a link, and now ${n === 1 ? 'carries' : 'carry'} yours.`,
+    remove: 'Take it off',
+    removed: 'Your link is off. Posts that point to one need it back, or the link taken off them.',
+    onlyManagers: 'Only an owner or admin can change it.',
+    /** On a post. */
+    post: 'Link',
+    postNone: 'No link',
+    noLinkYet: 'Add your link on the Playbook page first.',
+    openPlaybook: 'Open Playbook',
+    commentWent: 'Its first comment with your link went up.',
+    commentFailed: 'Its first comment with your link didn’t go up. Add it yourself.',
+    copyLink: 'Copy your link',
+    copied: 'Copied.',
   },
   ideas: {
     title: 'Ideas',

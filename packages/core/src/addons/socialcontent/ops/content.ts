@@ -52,6 +52,7 @@ import { tidyHashtags } from '../posts-ai';
 import { isAngle } from '../variety';
 import { isOfferList } from '../../../main-offer/lists';
 import { content } from '../tables';
+import { isLinkPlace } from '../links';
 import { SOCIALCONTENT_WORDS as W } from '../words';
 import { inWorkspace, mayManage, offerLiveOf, settingsOf, timeZoneOf, type Ctx } from './common';
 import { learnedTimesOf, postsOnCalendar } from './schedule';
@@ -192,6 +193,7 @@ function fromRaw(r: RawRow): ContentRow {
     lookedAt: asDate(r['looked_at']),
     lookFailure: (r['look_failure'] as string | null) ?? null,
     lookAsked: r['look_asked'] === true,
+    linkPlace: isLinkPlace(r['link_place']) ? r['link_place'] : null,
     createdBy: (r['created_by'] as string | null) ?? null,
     createdAt: asDate(r['created_at'])!,
     updatedAt: asDate(r['updated_at'])!,
@@ -214,7 +216,7 @@ export async function readPosts(ctx: Ctx, where: ReturnType<typeof sql>): Promis
 export async function contentOut(
   ctx: Ctx,
   list: readonly ContentRow[],
-  known?: { facebookPage: string | null },
+  known?: { facebookPage: string | null; link: string | null },
 ): Promise<Content[]> {
   if (!list.length) return [];
   const ids = [...new Set(list.flatMap((c) => c.fileIds))];
@@ -304,7 +306,10 @@ export async function contentOut(
         postAt: c.postAt,
         facebookWhere: c.facebookWhere,
         facebookPage: s.facebookPage,
+        linkPlace: c.linkPlace,
+        link: s.link,
       }),
+      linkPlace: c.linkPlace,
       hidden: c.hiddenAt !== null,
       lookAt: c.state === 'failed' ? (c.lookDueAt?.toISOString() ?? null) : null,
       lookedAt: c.state === 'failed' ? (c.lookedAt?.toISOString() ?? null) : null,
@@ -428,6 +433,8 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
         : null,
       postsOn: [...POSTING.networks],
       facebookPage: s.facebookPage,
+      link: s.link,
+      linkPlaces: s.linkPlaces,
       mayManage: mayManage(ctx),
     };
   },
@@ -493,7 +500,7 @@ const sameList = (a: readonly unknown[], b: readonly unknown[]) =>
 export const contentSave = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.content.save',
   description:
-    'Change one of the business’s own posts: its title, network, format, words, hook, hashtags, slides, script, what its picture shows and how it’s made, its pictures (files on the post, in order), where on Facebook it goes, or when it goes (null for no day yet). What isn’t given stays as it is. Changing an OK’d post takes the OK back, so it waits for an OK again. A posted post can’t be changed.',
+    'Change one of the business’s own posts: its title, network, format, words, hook, hashtags, slides, script, what its picture shows and how it’s made, its pictures (files on the post, in order), where on Facebook it goes, when it goes (null for no day yet), or where its link goes (linkPlace: "post" after its words, "bio" when its words say the link is in the bio, "comment" for the first comment under it once it’s up; null for no link; the link itself is the business’s, set on the Playbook page). What isn’t given stays as it is. Changing an OK’d post takes the OK back, so it waits for an OK again. A posted post can’t be changed.',
   risk: 1,
   input: ContentSaveInput,
   output: ContentShape,
@@ -545,6 +552,7 @@ export const contentSave = defineAddonCommand(socialcontentAddon, {
           : input.postAt === null
             ? null
             : new Date(input.postAt),
+      linkPlace: input.linkPlace === undefined ? was.linkPlace : input.linkPlace,
     };
     const title = input.title ?? was.title;
     const changed =
@@ -561,6 +569,7 @@ export const contentSave = defineAddonCommand(socialcontentAddon, {
       next.pictureWay !== was.pictureWay ||
       !sameList(next.fileIds, was.fileIds) ||
       !sameList(next.facebookWhere, was.facebookWhere) ||
+      next.linkPlace !== was.linkPlace ||
       (next.postAt?.getTime() ?? null) !== (was.postAt?.getTime() ?? null);
     // Changing an OK'd post (or one that didn't post) takes the OK back: it waits for an OK again.
     const unOk = changed && (was.state === 'ready' || was.state === 'failed');
@@ -604,7 +613,7 @@ export async function okOne(
   ctx: CommandContext,
   c: ContentRow,
   me: string,
-  facebookPage: string | null,
+  s: { readonly facebookPage: string | null; readonly link: string | null },
 ): Promise<string | null> {
   if (c.state === 'ready') return null;
   if (c.state === 'skipped') return POST_REFUSALS.skipped;
@@ -627,7 +636,9 @@ export async function okOne(
     videos: pictures.filter((p) => p.mime_type?.startsWith('video/')).length,
     postAt: c.postAt,
     facebookWhere: c.facebookWhere,
-    facebookPage,
+    facebookPage: s.facebookPage,
+    linkPlace: c.linkPlace,
+    link: s.link,
   });
   if (needs) return needs;
   if (c.postAt && c.postAt.getTime() < Date.now() + AHEAD_MS) return POST_REFUSALS.past;
@@ -679,7 +690,7 @@ export const contentApprove = defineAddonCommand(socialcontentAddon, {
     const c = await loadContent(ctx, input.postId, { lock: true });
     needChangeable(c);
     if (input.ok) {
-      const needs = await okOne(ctx, c, me, (await settingsOf(ctx)).facebookPage);
+      const needs = await okOne(ctx, c, me, await settingsOf(ctx));
       if (needs) throw HfosError.rule('socialcontent_post_not_ready', 409, needs);
     } else if (c.state === 'ready' || c.state === 'failed') {
       await ctx.tx
@@ -730,7 +741,7 @@ export const contentApproveWeek = defineAddonCommand(socialcontentAddon, {
     const timeZone = await timeZoneOf(ctx);
     const from = input.from ?? localDateOf(Date.now(), timeZone);
     const { start, stop } = rangeOf(from, 7, timeZone);
-    const facebookPage = (await settingsOf(ctx)).facebookPage;
+    const known = await settingsOf(ctx);
     const drafts = await readPosts(
       ctx,
       sql`c.state = 'draft' and c.post_at >= ${new Date(Math.max(start.getTime(), Date.now())).toISOString()}::timestamptz
@@ -739,7 +750,7 @@ export const contentApproveWeek = defineAddonCommand(socialcontentAddon, {
     let approved = 0;
     const notReady: { postId: string; title: string; needs: string }[] = [];
     for (const c of drafts) {
-      const needs = await okOne(ctx, c, me, facebookPage);
+      const needs = await okOne(ctx, c, me, known);
       if (needs) notReady.push({ postId: c.recordId, title: c.title, needs });
       else approved++;
     }
