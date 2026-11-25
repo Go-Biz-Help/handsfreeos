@@ -2,6 +2,7 @@ import {
   AssistantEvent,
   type AssistantCard,
   type AssistantDeviceChanges,
+  type AssistantFileType,
   type PageRecord,
 } from '@hfos/core';
 import { fetch as streamingFetch } from 'expo/fetch';
@@ -37,6 +38,15 @@ export interface AskBody {
   readonly deviceChanges?: AssistantDeviceChanges;
   /** Pictures sent with it, shrunk to JPEGs (`takeAssistantPicture`). */
   readonly pictures?: readonly AskPicture[];
+  /** Files sent with it: PDFs, Word and Excel files, text (`pickAssistantFiles`). */
+  readonly files?: readonly AskFile[];
+}
+
+/** A file as a question carries it: its name, its kind, and its bytes as base64 with no `data:` prefix. */
+export interface AskFile {
+  readonly name: string;
+  readonly mediaType: AssistantFileType;
+  readonly data: string;
 }
 
 /** A picture as a question carries it: base64 JPEG bytes, no `data:` prefix. */

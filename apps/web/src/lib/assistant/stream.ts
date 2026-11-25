@@ -1,5 +1,5 @@
 'use client';
-import { AssistantEvent } from '@hfos/core';
+import { AssistantEvent, type AssistantFileType } from '@hfos/core';
 import { ApiError } from '../api/errors';
 import { publicEnv } from '../env';
 import { browserAccessToken } from '../supabase/token';
@@ -17,12 +17,21 @@ export interface AskBody {
   readonly spoken?: boolean;
   /** Pictures sent with it, shrunk to JPEGs (`shrinkPicture`). */
   readonly pictures?: readonly AskPicture[];
+  /** Files sent with it: PDFs, Word and Excel files, text (`readDraftFile`). */
+  readonly files?: readonly AskFile[];
 }
 
 /** A picture as a question carries it: base64 JPEG bytes, no `data:` prefix. */
 export interface AskPicture {
   readonly data: string;
   readonly mediaType: 'image/jpeg';
+}
+
+/** A file as a question carries it: its name, its kind, and its bytes as base64 with no `data:` prefix. */
+export interface AskFile {
+  readonly name: string;
+  readonly mediaType: AssistantFileType;
+  readonly data: string;
 }
 
 /** Where a card stands after Confirm, Cancel or Undo. */

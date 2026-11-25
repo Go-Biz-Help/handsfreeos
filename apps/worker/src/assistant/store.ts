@@ -14,9 +14,10 @@ export interface StartedRun {
   readonly correlationId: string;
 }
 
-/** A new chat's name: its first question, or what came with it when that was only a picture. */
-const title = (question: string, pictures = 0) => {
+/** A new chat's name: its first question, or what came with it when that was only a picture or a file. */
+const title = (question: string, pictures = 0, files: readonly string[] = []) => {
   const t = question.replace(/\s+/g, ' ').trim();
+  if (!t && files.length) return files.length > 1 ? 'Files' : files[0]!.slice(0, 60);
   if (!t) return pictures > 1 ? 'Pictures' : 'A picture';
   return t.length > 60 ? `${t.slice(0, 57).trimEnd()}…` : t;
 };
@@ -31,6 +32,8 @@ export async function startRun(
     readonly question: string;
     /** How many pictures came with it: kept in the message's context, never the pictures themselves. */
     readonly pictures?: number;
+    /** The names of the files that came with it: kept the same way, never the files themselves. */
+    readonly files?: readonly string[];
     readonly context: Record<string, unknown>;
     readonly model: string;
     readonly correlationId: string;
@@ -53,7 +56,7 @@ export async function startRun(
       const [t] = await rows<{ id: string }>(
         tx,
         sql`insert into app.assistant_threads (workspace_id, user_id, title)
-            values (${scope.workspaceId}, ${input.userId}, ${title(input.question, input.pictures)}) returning id`,
+            values (${scope.workspaceId}, ${input.userId}, ${title(input.question, input.pictures, input.files)}) returning id`,
       );
       threadId = t!.id;
     }
@@ -73,7 +76,11 @@ export async function startRun(
     );
     await tx.execute(sql`insert into app.assistant_messages (workspace_id, user_id, thread_id, role, text, context, run_id)
       values (${scope.workspaceId}, ${input.userId}, ${threadId}, 'user', ${input.question},
-              ${JSON.stringify(input.pictures ? { ...input.context, pictures: input.pictures } : input.context)}::jsonb,
+              ${JSON.stringify({
+                ...input.context,
+                ...(input.pictures ? { pictures: input.pictures } : {}),
+                ...(input.files?.length ? { files: input.files } : {}),
+              })}::jsonb,
               ${run!.id})`);
     await tx.execute(
       sql`update app.assistant_threads set last_message_at = now() where id = ${threadId}`,
@@ -296,11 +303,17 @@ export async function replaceWaiting(
   );
 }
 
+/** The file names kept in a question's context, whatever shape the row has. */
+const fileNames = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((n): n is string => typeof n === 'string').slice(0, 10) : [];
+
 export interface HistoryItem {
   readonly role: 'user' | 'assistant';
   readonly text: string;
   /** How many pictures came with a question (0 for an answer). */
   readonly pictures: number;
+  /** The names of the files that came with a question (none for an answer). */
+  readonly files: readonly string[];
   readonly actions: readonly {
     readonly tool: string;
     readonly status: string;
@@ -320,11 +333,13 @@ export async function history(
       role: 'user' | 'assistant';
       text: string;
       pictures: number;
+      files: unknown;
       run_id: string | null;
     }>(
       tx,
-      sql`select role, text, pictures, run_id from (
-            select role, text, coalesce((context->>'pictures')::int, 0) as pictures, run_id, created_at, id
+      sql`select role, text, pictures, files, run_id from (
+            select role, text, coalesce((context->>'pictures')::int, 0) as pictures, context->'files' as files,
+                   run_id, created_at, id
             from app.assistant_messages
             where thread_id = ${threadId} order by created_at desc, id desc limit ${limit}
           ) m order by created_at, id`,
@@ -346,6 +361,7 @@ export async function history(
       role: m.role,
       text: m.text,
       pictures: Number(m.pictures) || 0,
+      files: fileNames(m.files),
       actions:
         m.role === 'assistant'
           ? calls

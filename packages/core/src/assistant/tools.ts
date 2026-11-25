@@ -2211,7 +2211,7 @@ export const assistantTools = [
   define({
     name: 'build_form',
     description:
-      'Build a form, survey, quiz or live poll from the person’s words, from pictures they sent (fromPictures: a paper form, a screenshot of another form) or from a form on a web page they link (fromLink: every dropdown choice and the parts that show later are read too), or change one they name (formId). A page with more than one form answers with its list first: build each one they want with formNumber, one call each. Besides its questions (and their pages, rules for when one shows, and where each answer goes), it can change how the form looks (the Design tab: light or dark, colours, font, text size, corners, boxes, the button, spacing, labels inside or above, width, the name and logo at the top), how it behaves (one question or one page at a time, anonymous, the button’s words, closing on a date or after so many answers) and what happens when it is sent (a lead in a stage, a task, workflows, who hears). A new one can start from a starter, as New form offers them. matchWebsite reads a website’s button colour, font and corners into the design, as Match my website does. A live poll’s questions pop up during a HandsFreeOS video call or webinar, and it gets when-to-ask phrases for the AI listening. It saves a draft only — nothing a customer sees changes until it is published, which is a separate step they agree to. Put everything they asked for in the description.',
+      'Build a form, survey, quiz or live poll from the person’s words, from pictures or files they sent (fromPictures: a paper form, a screenshot of another form, a PDF or Word file of one) or from a form on a web page they link (fromLink: every dropdown choice and the parts that show later are read too), or change one they name (formId). A page with more than one form answers with its list first: build each one they want with formNumber, one call each. Besides its questions (and their pages, rules for when one shows, and where each answer goes), it can change how the form looks (the Design tab: light or dark, colours, font, text size, corners, boxes, the button, spacing, labels inside or above, width, the name and logo at the top), how it behaves (one question or one page at a time, anonymous, the button’s words, closing on a date or after so many answers) and what happens when it is sent (a lead in a stage, a task, workflows, who hears). A new one can start from a starter, as New form offers them. matchWebsite reads a website’s button colour, font and corners into the design, as Match my website does. A live poll’s questions pop up during a HandsFreeOS video call or webinar, and it gets when-to-ask phrases for the AI listening. It saves a draft only — nothing a customer sees changes until it is published, which is a separate step they agree to. Put everything they asked for in the description.',
     input: z.object({
       description: z
         .string()
@@ -2226,7 +2226,7 @@ export const assistantTools = [
         .boolean()
         .optional()
         .describe(
-          'Build it from the pictures that came with this question: the builder sees them too and copies the questions, choices, sizes and prices. Put only what they want different in description',
+          'Build it from the pictures or files that came with this question: the builder sees them too and copies the questions, choices, sizes and prices. Put only what they want different in description',
         ),
       fromLink: z
         .string()

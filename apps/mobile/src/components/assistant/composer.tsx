@@ -1,10 +1,16 @@
-import { ASSISTANT_PICTURES_MAX, ASSISTANT_WORDS, VOICE_WORDS } from '@hfos/core';
+import {
+  ASSISTANT_FILES_MAX,
+  ASSISTANT_PICTURES_MAX,
+  ASSISTANT_WORDS,
+  VOICE_WORDS,
+} from '@hfos/core';
 import * as React from 'react';
 import { Image, Pressable, TextInput, View } from 'react-native';
 
+import type { DraftFile } from '@/assistant/files';
 import type { DraftPicture } from '@/assistant/pictures';
 import type { AssistantVoice } from '@/assistant/voice';
-import { ArrowUp, Camera, Images, ImagePlus, Mic, Square, X } from '@/components/icons';
+import { ArrowUp, Camera, FileText, Images, Mic, Paperclip, Square, X } from '@/components/icons';
 import { Icon } from '@/components/ui/icon';
 import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
@@ -12,19 +18,26 @@ import { VoiceBar, VoiceError } from '@/components/voice/voice-bar';
 import { cn } from '@/lib/utils';
 import { useColors } from '@/theme';
 
-/** Take a photo, or choose pictures: what the picture button offers. */
+/** Take a photo, choose pictures, or choose a file: what the attach button offers. */
 function PictureSheet({
   open,
   onClose,
   onPick,
+  onPickFiles,
 }: {
   open: boolean;
   onClose: () => void;
   onPick: (source: 'camera' | 'library') => void;
+  onPickFiles?: () => void;
 }) {
   const W = ASSISTANT_WORDS.pictures;
   return (
-    <Sheet open={open} onClose={onClose} title={W.add} testID="assistant-picture-sheet">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={onPickFiles ? ASSISTANT_WORDS.files.add : W.add}
+      testID="assistant-picture-sheet"
+    >
       <View className="gap-1">
         <Pressable
           role="button"
@@ -44,21 +57,38 @@ function PictureSheet({
           <Icon as={Images} className="size-5 text-text-2" />
           <Text className="text-[15px]">{W.choose}</Text>
         </Pressable>
-        <Text className="px-2 pt-1 text-[12.5px] text-text-3">{W.hint}</Text>
+        {onPickFiles ? (
+          <Pressable
+            role="button"
+            onPress={onPickFiles}
+            className="min-h-14 flex-row items-center gap-3 rounded-menu px-2"
+            testID="assistant-file-pick"
+          >
+            <Icon as={FileText} className="size-5 text-text-2" />
+            <Text className="text-[15px]">{ASSISTANT_WORDS.files.choose}</Text>
+          </Pressable>
+        ) : null}
+        <Text className="px-2 pt-1 text-[12.5px] text-text-3">
+          {onPickFiles ? ASSISTANT_WORDS.files.hint : W.hint}
+        </Text>
       </View>
     </Sheet>
   );
 }
 
-/** The pictures waiting to go with the question, each with a way to take it off. */
+/** The pictures and files waiting to go with the question, each with a way to take it off. */
 function DraftPictures({
   pictures,
   onRemove,
+  files = [],
+  onRemoveFile,
 }: {
   pictures: readonly DraftPicture[];
   onRemove: (id: string) => void;
+  files?: readonly DraftFile[];
+  onRemoveFile?: (id: string) => void;
 }) {
-  if (!pictures.length) return null;
+  if (!pictures.length && !files.length) return null;
   return (
     <View className="flex-row flex-wrap gap-2 px-3 pt-2.5" testID="assistant-pictures">
       {pictures.map((p, i) => (
@@ -79,6 +109,30 @@ function DraftPictures({
           >
             <Icon as={X} className="size-3 text-text-2" />
           </Pressable>
+        </View>
+      ))}
+      {files.map((f, i) => (
+        <View
+          key={f.id}
+          className="h-14 max-w-[220px] flex-row items-center gap-2 rounded-[10px] border border-border bg-card-2 pl-2.5 pr-1"
+          testID="assistant-draft-file"
+        >
+          <Icon as={FileText} className="size-4 text-text-2" />
+          <Text numberOfLines={1} className="shrink text-[13px]">
+            {f.name}
+          </Text>
+          {onRemoveFile ? (
+            <Pressable
+              role="button"
+              accessibilityLabel={ASSISTANT_WORDS.files.remove(f.name)}
+              hitSlop={8}
+              onPress={() => onRemoveFile(f.id)}
+              testID={`assistant-file-remove-${i + 1}`}
+              className="size-7 items-center justify-center rounded-full"
+            >
+              <Icon as={X} className="size-3 text-text-2" />
+            </Pressable>
+          ) : null}
         </View>
       ))}
     </View>
@@ -102,6 +156,9 @@ export function AssistantComposer({
   pictures = [],
   onPickPictures,
   onRemovePicture,
+  files = [],
+  onPickFiles,
+  onRemoveFile,
 }: {
   value: string;
   onChange: (text: string) => void;
@@ -116,11 +173,17 @@ export function AssistantComposer({
   pictures?: readonly DraftPicture[];
   onPickPictures?: (source: 'camera' | 'library') => void;
   onRemovePicture?: (id: string) => void;
+  /** Files waiting to go with it; without `onPickFiles` the sheet offers only pictures. */
+  files?: readonly DraftFile[];
+  onPickFiles?: () => void;
+  onRemoveFile?: (id: string) => void;
 }) {
   const colors = useColors();
   const [sheet, setSheet] = React.useState(false);
-  const canSend = (value.trim().length > 0 || pictures.length > 0) && !running;
-  const full = pictures.length >= ASSISTANT_PICTURES_MAX;
+  const canSend = (value.trim().length > 0 || pictures.length > 0 || files.length > 0) && !running;
+  const full =
+    pictures.length >= ASSISTANT_PICTURES_MAX &&
+    (!onPickFiles || files.length >= ASSISTANT_FILES_MAX);
 
   if (off)
     return (
@@ -140,12 +203,21 @@ export function AssistantComposer({
     <View className="flex-none border-t border-border bg-card">
       {voice ? <VoiceBar session={voice.session} snap={voice.snap} onTalk={voice.talk} /> : null}
       {voice ? <VoiceError snap={voice.snap} className="px-3.5 pt-2" /> : null}
-      {onRemovePicture ? <DraftPictures pictures={pictures} onRemove={onRemovePicture} /> : null}
+      {onRemovePicture ? (
+        <DraftPictures
+          pictures={pictures}
+          onRemove={onRemovePicture}
+          files={files}
+          {...(onRemoveFile ? { onRemoveFile } : {})}
+        />
+      ) : null}
       <View className="flex-row items-end gap-1.5 px-2.5 pb-2.5 pt-2" testID="assistant-composer">
         {onPickPictures ? (
           <Pressable
             role="button"
-            accessibilityLabel={ASSISTANT_WORDS.pictures.add}
+            accessibilityLabel={
+              onPickFiles ? ASSISTANT_WORDS.files.add : ASSISTANT_WORDS.pictures.add
+            }
             accessibilityState={{ disabled: full }}
             disabled={full}
             testID="assistant-add-picture"
@@ -155,7 +227,7 @@ export function AssistantComposer({
               full && 'opacity-45',
             )}
           >
-            <Icon as={ImagePlus} className="size-[18px] text-text-2" />
+            <Icon as={Paperclip} className="size-[18px] text-text-2" />
           </Pressable>
         ) : null}
         {voice ? (
@@ -226,6 +298,14 @@ export function AssistantComposer({
             setSheet(false);
             onPickPictures(source);
           }}
+          {...(onPickFiles
+            ? {
+                onPickFiles: () => {
+                  setSheet(false);
+                  onPickFiles();
+                },
+              }
+            : {})}
         />
       ) : null}
     </View>

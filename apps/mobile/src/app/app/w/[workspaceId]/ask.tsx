@@ -1,4 +1,4 @@
-import { ASSISTANT_PICTURES_MAX, ASSISTANT_WORDS } from '@hfos/core';
+import { ASSISTANT_FILES_MAX, ASSISTANT_PICTURES_MAX, ASSISTANT_WORDS } from '@hfos/core';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { FlatList, Platform, Pressable, View } from 'react-native';
@@ -19,6 +19,7 @@ import { setupIsOff, useAssistantChat, type ChatMessage } from '@/assistant/chat
 import { deviceChangesOf } from '@/assistant/device-changes';
 import { answerWaiting } from '@/assistant/decide';
 import { pageRecordOf, screenPathOf } from '@/assistant/page-record';
+import { pickAssistantFiles, type DraftFile } from '@/assistant/files';
 import { takeAssistantPictures, type DraftPicture } from '@/assistant/pictures';
 import { useAssistantVoice } from '@/assistant/voice';
 import { useChangeList } from '@/changes/hooks';
@@ -50,6 +51,7 @@ export default function Ask() {
   const voice = useAssistantVoice(chat, business.id);
   const [draft, setDraft] = React.useState('');
   const [pictures, setPictures] = React.useState<readonly DraftPicture[]>([]);
+  const [files, setFiles] = React.useState<readonly DraftFile[]>([]);
   const [view, setView] = React.useState<'chat' | 'history'>('chat');
   const listRef = React.useRef<FlatList<ChatMessage>>(null);
 
@@ -75,14 +77,31 @@ export default function Ask() {
     setPictures((all) => [...all, ...taken.pictures].slice(0, ASSISTANT_PICTURES_MAX));
   };
 
+  /** The sheet's Choose a file: chosen with the phone's own picker, read, and put in the box to go too. */
+  const pickFiles = async () => {
+    await new Promise((done) => setTimeout(done, 450));
+    const room = ASSISTANT_FILES_MAX - files.length;
+    if (room <= 0) return void toast.show(ASSISTANT_WORDS.files.tooMany(ASSISTANT_FILES_MAX));
+    const picked = await pickAssistantFiles(
+      room,
+      files.reduce((n, f) => n + f.bytes, 0),
+    ).catch(() => null);
+    if (!picked) return void toast.error('The files couldn’t be opened. Try again.');
+    if (picked.kind !== 'picked') return;
+    if (picked.refused.length) toast.error(picked.refused[0]!);
+    setFiles((all) => [...all, ...picked.files].slice(0, ASSISTANT_FILES_MAX));
+  };
+
   const send = () => {
-    if (!draft.trim() && !pictures.length) return;
+    if (!draft.trim() && !pictures.length && !files.length) return;
     const text = draft;
     setDraft('');
-    // With pictures it's a question about them (a form to build from a screenshot), never a yes or no to a card.
-    if (pictures.length) {
-      chat.ask(text, { pictures });
+    // With pictures or files it's a question about them (a form to build from a screenshot), never a yes or no to
+    // a card.
+    if (pictures.length || files.length) {
+      chat.ask(text, { pictures, files });
       setPictures([]);
+      setFiles([]);
       return;
     }
     // A plain yes or no answers the cards waiting for an OK, as their buttons do; anything else is a question.
@@ -136,6 +155,7 @@ export default function Ask() {
                   chat.newChat();
                   setDraft('');
                   setPictures([]);
+                  setFiles([]);
                 }}
               >
                 <Icon as={SquarePen} className="size-[21px] text-text-2" />
@@ -206,6 +226,9 @@ export default function Ask() {
               pictures={pictures}
               onPickPictures={(source) => void pickPictures(source)}
               onRemovePicture={(id) => setPictures((all) => all.filter((p) => p.id !== id))}
+              files={files}
+              onPickFiles={() => void pickFiles()}
+              onRemoveFile={(id) => setFiles((all) => all.filter((f) => f.id !== id))}
             />
           </View>
         )}

@@ -38,6 +38,7 @@ import {
   turnText,
   type PromptContext,
 } from './prompt';
+import { fileContent, type AssistantModelFile } from './attachments';
 import * as store from './store';
 import {
   addonActionStep,
@@ -103,6 +104,8 @@ export interface ToolContext {
    * passes them on, so the form builder sees the screenshot it's building from. None when there were none.
    */
   readonly pictures?: readonly AssistantModelPicture[];
+  /** The files that came with the question, as the model read them (attachments.ts): passed on the same way. */
+  readonly files?: readonly AssistantModelFile[];
 }
 
 /** A picture as the model is shown it: the worker has already turned it upright and into a JPEG (routes.ts). */
@@ -198,6 +201,8 @@ export interface AskInput {
   readonly text: string;
   /** Pictures sent with the question, already upright JPEGs. The model sees them with this question only. */
   readonly pictures?: readonly AssistantModelPicture[];
+  /** Files sent with the question, read for the model (attachments.ts). The model reads them with this question only. */
+  readonly files?: readonly AssistantModelFile[];
   readonly page: { readonly type: string; readonly id: string } | null;
   /**
    * The tools this person may use: core's their permissions allow, and those of the add-ons running here whose
@@ -345,7 +350,10 @@ const PICTURES_GONE = (n: number) =>
   `(${n === 1 ? 'A picture' : `${n} pictures`} came with this. ${
     n === 1 ? 'It isn’t' : 'They aren’t'
   } kept, so ask them to send ${n === 1 ? 'it' : 'them'} again if you need to look again.)`;
-/** Said with a question that is only pictures. */
+/** Said beside a question whose files the model can no longer read: like pictures, they aren't kept. */
+const FILES_GONE = (names: readonly string[]) =>
+  `(${names.length === 1 ? `A file came with this: ${names[0]}. It isn’t` : `Files came with this: ${names.join(', ')}. They aren’t`} kept, so ask them to send ${names.length === 1 ? 'it' : 'them'} again if you need to read ${names.length === 1 ? 'it' : 'them'} again.)`;
+/** Said with a question that is only pictures or files. */
 const PICTURES_ONLY = '(They sent only this, with no words.)';
 
 /**
@@ -355,12 +363,13 @@ const PICTURES_ONLY = '(They sent only this, with no words.)';
 export function modelMessages(
   history: readonly store.HistoryItem[],
   pictures: readonly AssistantModelPicture[] = [],
+  files: readonly AssistantModelFile[] = [],
 ): AiMessage[] {
   const out: AiMessage[] = [];
   const newest = history.findLastIndex((h) => h.role === 'user');
   history.forEach((h, i) => {
     if (h.role === 'user') {
-      if (i === newest && pictures.length) {
+      if (i === newest && (pictures.length || files.length)) {
         const images: AiContent[] = pictures.map((p) => ({
           type: 'image',
           mediaType: p.mediaType,
@@ -368,11 +377,21 @@ export function modelMessages(
         }));
         out.push({
           role: 'user',
-          content: [...images, { type: 'text', text: h.text || PICTURES_ONLY }],
+          content: [
+            ...images,
+            ...files.flatMap(fileContent),
+            { type: 'text', text: h.text || PICTURES_ONLY },
+          ],
         });
       } else {
-        const gone = h.pictures > 0 ? PICTURES_GONE(h.pictures) : '';
-        out.push({ role: 'user', content: [h.text, gone].filter(Boolean).join('\n') || '…' });
+        const gone = [
+          h.pictures > 0 ? PICTURES_GONE(h.pictures) : '',
+          h.files.length ? FILES_GONE(h.files) : '',
+        ];
+        out.push({
+          role: 'user',
+          content: [h.text, ...gone].filter(Boolean).join('\n') || '…',
+        });
       }
       return;
     }
@@ -418,6 +437,7 @@ export async function ask(
     ...(input.threadId ? { threadId: input.threadId } : {}),
     question: input.text,
     pictures: input.pictures?.length ?? 0,
+    files: input.files?.map((f) => f.name) ?? [],
     // The screen too (its route words and ids only), so a message to support says where they asked from.
     context: {
       page: input.page,
@@ -435,6 +455,7 @@ export async function ask(
     correlationId,
     timezone: input.prompt.timezone,
     ...(input.pictures?.length ? { pictures: input.pictures } : {}),
+    ...(input.files?.length ? { files: input.files } : {}),
   };
   // What was offered is all that can be called: anything else the model asks for is refused below.
   const offered = new Map<string, OfferedTool>(input.tools.map((t) => [t.name, t]));
@@ -442,6 +463,7 @@ export async function ask(
   const messages = modelMessages(
     await store.history(deps.db, scope, run.threadId),
     input.pictures ?? [],
+    input.files ?? [],
   );
   const cards: AssistantCard[] = [];
   // Look-ups asked for together run at once (`reads`), but their cards still go out, and their calls are kept, in

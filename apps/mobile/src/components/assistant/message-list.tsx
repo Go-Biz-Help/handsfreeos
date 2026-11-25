@@ -2,7 +2,7 @@ import { ASSISTANT_WORDS } from '@hfos/core';
 import * as React from 'react';
 import { ActivityIndicator, Image, View } from 'react-native';
 
-import { Check, CircleAlert, Image as ImageIcon } from '@/components/icons';
+import { Check, CircleAlert, FileText, Image as ImageIcon } from '@/components/icons';
 import { BrandMark } from '@/components/shell/brand';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -150,6 +150,17 @@ export function MessageRow({
               <Icon as={ImageIcon} className="size-3.5 text-white/80" />
               <Text className="text-xs text-white/80">
                 {ASSISTANT_WORDS.pictures.sent(message.pictures)}
+              </Text>
+            </View>
+          ) : null}
+          {message.files.length ? (
+            <View
+              className={cn('flex-row items-center gap-1.5', !!message.text && 'mb-1')}
+              testID="assistant-question-files"
+            >
+              <Icon as={FileText} className="size-3.5 text-white/80" />
+              <Text numberOfLines={1} className="shrink text-xs text-white/80">
+                {ASSISTANT_WORDS.files.sent(message.files)}
               </Text>
             </View>
           ) : null}

@@ -220,6 +220,25 @@ export const ASSISTANT_WORDS = {
     /** Beside the pictures waiting to go. */
     hint: 'The AI sees these with this question. They aren’t kept.',
   },
+  /**
+   * Files sent with a question (a price list, a contract, a spreadsheet): up to ASSISTANT_FILES_MAX, read by the AI
+   * with that question only and not kept, so a saved chat says only their names. The same button adds pictures.
+   */
+  files: {
+    /** The one button that adds a picture or a file. */
+    add: 'Add a picture or a file',
+    choose: 'Choose a file',
+    remove: (name: string) => `Remove ${name}`,
+    /** On a saved question whose files aren't kept. */
+    sent: (names: readonly string[]) =>
+      names.length === 1 ? `Sent with ${names[0]}` : `Sent with ${names.length} files`,
+    tooMany: (max: number) => `Up to ${max} files go with one question. The rest were left out.`,
+    tooBig: (mb: number) =>
+      `Files sent with one question can come to ${mb} MB together. That one was left out.`,
+    unreadable: (name: string) => `${name} couldn’t be opened. Try it again, or save it as a PDF.`,
+    /** Beside the pictures and files waiting to go. */
+    hint: 'The AI reads these with this question. They aren’t kept.',
+  },
   stopped: 'Stopped. Anything that needs your OK did not happen.',
   /**
    * Under an answer still coming that this screen isn't streaming: the person came back while it was being worked

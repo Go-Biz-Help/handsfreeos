@@ -35,6 +35,7 @@ import {
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { AI_BUSY_MESSAGE, AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
+import { fileContent, type AssistantModelFile } from '../assistant/attachments';
 import { slidesFromRead, slidesLines } from './poll-cue-routes';
 import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import type { TenantScope, WorkerServices } from '../services';
@@ -56,7 +57,7 @@ How to work:
 - A question that only applies sometimes gets showIfJson naming a question asked EARLIER. Never a later one.
 - A quiz: set mode to quiz, mark right answers with points, and set the pass mark with set_scoring.
 - A live poll (mode poll) pops its questions up one at a time during a webinar or video call, when the presenter reaches them. It takes only pick one (choice), pick any (checkboxes), yes_no, rating, scale, short_text, and buttons (type button, json {"action": "talk", "label": "Talk to someone"}; "link" with an https "url", or "book" with a "calendarId"). No rules, nothing required, no mapTo, one page. Give every question when-to-ask phrases with update_question {"live": {"cues": [...]}}: three or four short things the presenter might say just before asking it. A poll with slides (the form's "slides" says how many pages) can tie a question to the slide it goes with: update_question {"live": {"slide": 4}}, counted from 1. Slides are added by the person in the editor, never by you.
-- When pictures come with the request (a paper form, a screenshot of another form), build the form they show: the same questions in the same order, with the same choices, rows and prices, then make the changes the words ask for. Rows of sizes or kinds with a box for how many are one quantities question, never a number question per row. Leave out what HandsFreeOS does itself or a customer never fills in: a box to agree to texts, "office use only", a staff signature, the business's own logo and address.
+- When pictures or files come with the request (a paper form, a screenshot of another form, a PDF or Word file of one), build the form they show: the same questions in the same order, with the same choices, rows and prices, then make the changes the words ask for. Rows of sizes or kinds with a box for how many are one quantities question, never a number question per row. Leave out what HandsFreeOS does itself or a customer never fills in: a box to agree to texts, "office use only", a staff signature, the business's own logo and address.
 - When a form read from a web page comes with the request, build that form the same way. Its outline has each box in square brackets with every dropdown's choices, "(pick one)" before each radio choice, "--- Step 2 ---" where the page goes to its next step (a new page here), and "{Shows only when an earlier answer fits: … }" around a part the page hides until then: give those questions showIfJson when the page makes plain which answer shows them, and otherwise leave them showing. Leave out boxes a page hides for robots, its search and sign-in, and its own buttons.
 - A quantities question for something on the price list below takes its rows from it: one row per choice of the product's option (its sizes), each with the product's productId, the choice's optionChoiceId, and the label and price the list gives it; or a row per product with its productId. That way orders count the business's stock. Rows for anything not on the list get a label and a price only.
 - When you are done, call finish once with one sentence about what the form does.
@@ -129,6 +130,8 @@ export async function draftForm(
     prompt: string;
     /** Pictures the form is built from (a paper form, a screenshot), as the Assistant's model saw them: JPEGs. */
     pictures?: readonly { readonly mediaType: 'image/jpeg'; readonly data: string }[];
+    /** Files the form is built from (a PDF of a paper form, a Word file of the questions), as the Assistant read them. */
+    files?: readonly AssistantModelFile[];
     /** A form read from a web page (core's `formsOnPage`): where, and its outline. */
     page?: { readonly url: string; readonly outline: string };
   },
@@ -215,19 +218,25 @@ export async function draftForm(
     : '';
   const asked = `${fromPage}<request>\n${quoteData(input.prompt)}\n</request>\nChange the form the request above asks for.`;
   const pictures = input.pictures ?? [];
+  const files = input.files ?? [];
+  const sent = [
+    pictures.length ? (pictures.length === 1 ? 'the picture' : 'the pictures') : '',
+    files.length ? (files.length === 1 ? 'the file' : 'the files') : '',
+  ].filter(Boolean);
   const messages: AiMessage[] = [
     {
       role: 'user',
-      content: pictures.length
+      content: sent.length
         ? [
             ...pictures.map((p) => ({
               type: 'image' as const,
               mediaType: p.mediaType,
               data: p.data,
             })),
+            ...files.flatMap(fileContent),
             {
               type: 'text' as const,
-              text: `${pictures.length === 1 ? 'The picture above came' : 'The pictures above came'} with the request.\n${asked}`,
+              text: `${sent.join(' and ').replace(/^t/, 'T')} above came with the request.\n${asked}`,
             },
           ]
         : asked,

@@ -18,9 +18,9 @@ describe('what the Assistant’s model is shown', () => {
   it('shows the newest question’s pictures before its words, and only mentions older ones', () => {
     const messages = modelMessages(
       [
-        { role: 'user', text: 'Make this form', pictures: 2, actions: [] },
-        { role: 'assistant', text: 'Done.', pictures: 0, actions: [] },
-        { role: 'user', text: '', pictures: 1, actions: [] },
+        { role: 'user', text: 'Make this form', pictures: 2, files: [], actions: [] },
+        { role: 'assistant', text: 'Done.', pictures: 0, files: [], actions: [] },
+        { role: 'user', text: '', pictures: 1, files: [], actions: [] },
       ],
       [PICTURE],
     );
@@ -40,9 +40,9 @@ describe('what the Assistant’s model is shown', () => {
   });
 
   it('sends plain words when no picture came', () => {
-    expect(modelMessages([{ role: 'user', text: 'Hi', pictures: 0, actions: [] }])).toEqual([
-      { role: 'user', content: 'Hi' },
-    ]);
+    expect(
+      modelMessages([{ role: 'user', text: 'Hi', pictures: 0, files: [], actions: [] }]),
+    ).toEqual([{ role: 'user', content: 'Hi' }]);
   });
 });
 

@@ -1,6 +1,12 @@
 'use client';
-import { ASSISTANT_PICTURES_MAX, ASSISTANT_WORDS, VOICE_WORDS } from '@hfos/core';
-import { ArrowUp, ImagePlus, Mic, Square, X } from 'lucide-react';
+import {
+  ASSISTANT_FILE_ACCEPT,
+  ASSISTANT_FILES_MAX,
+  ASSISTANT_PICTURES_MAX,
+  ASSISTANT_WORDS,
+  VOICE_WORDS,
+} from '@hfos/core';
+import { ArrowUp, FileText, Mic, Paperclip, Square, X } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -57,10 +63,10 @@ function OffComposer({ phone, paused }: { phone: boolean; paused: boolean }) {
   );
 }
 
-/** The pictures waiting to go with the question, each with a way to take it off. */
+/** The pictures and files waiting to go with the question, each with a way to take it off. */
 function DraftPictures() {
   const a = useAssistant();
-  if (!a.draftPictures.length) return null;
+  if (!a.draftPictures.length && !a.draftFiles.length) return null;
   return (
     <div
       className="flex flex-wrap items-center gap-2 px-2.5 pt-2.5"
@@ -84,7 +90,30 @@ function DraftPictures() {
           </button>
         </div>
       ))}
-      <span className="min-w-0 flex-1 text-xs text-text-3">{ASSISTANT_WORDS.pictures.hint}</span>
+      {a.draftFiles.map((f) => (
+        <div
+          key={f.id}
+          className="flex h-14 max-w-[220px] items-center gap-2 rounded-[10px] border border-border bg-card-2 pl-2.5 pr-1.5"
+          data-testid="assistant-draft-file"
+        >
+          <FileText className="h-4 w-4 flex-none text-text-2" strokeWidth={1.5} />
+          <span className="min-w-0 flex-1 truncate text-[13px] text-text" title={f.name}>
+            {f.name}
+          </span>
+          <button
+            type="button"
+            onClick={() => a.removeFile(f.id)}
+            aria-label={ASSISTANT_WORDS.files.remove(f.name)}
+            title={ASSISTANT_WORDS.files.remove(f.name)}
+            className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-text-2 hover:text-text"
+          >
+            <X className="h-3 w-3" strokeWidth={2} />
+          </button>
+        </div>
+      ))}
+      <span className="min-w-0 flex-1 text-xs text-text-3">
+        {a.draftFiles.length ? ASSISTANT_WORDS.files.hint : ASSISTANT_WORDS.pictures.hint}
+      </span>
     </div>
   );
 }
@@ -102,9 +131,10 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
   const ref = a.composerRef;
   const off = a.setup === 'missing' || a.paused;
   const pictures = a.draftPictures;
-  const canSend = (!!a.draft.trim() || pictures.length > 0) && !a.running;
+  const files = a.draftFiles;
+  const canSend = (!!a.draft.trim() || pictures.length > 0 || files.length > 0) && !a.running;
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const full = pictures.length >= ASSISTANT_PICTURES_MAX;
+  const full = pictures.length >= ASSISTANT_PICTURES_MAX && files.length >= ASSISTANT_FILES_MAX;
   const [dragging, setDragging] = useState(false);
 
   // The box grows with the question, up to about six lines.
@@ -124,10 +154,11 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
     if (!canSend) return;
     const text = a.draft;
     a.setDraft('');
-    // With pictures it's a question about them (a form to build from a screenshot), never a yes or no to a card.
-    if (pictures.length) {
-      a.ask(text, { pictures });
-      a.clearPictures();
+    // With pictures or files it's a question about them (a form to build from a screenshot), never a yes or no
+    // to a card.
+    if (pictures.length || files.length) {
+      a.ask(text, { pictures, files });
+      a.clearAttachments();
       return;
     }
     // A plain yes or no answers the cards waiting for an OK, as their buttons do; anything else is a question.
@@ -136,12 +167,12 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
     });
   }
 
-  // A screenshot pasted into the box goes with the question; pasted words stay words.
+  // A screenshot or a file pasted into the box goes with the question; pasted words stay words.
   function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
-    const files = [...e.clipboardData.files].filter((f) => f.type.startsWith('image/'));
-    if (!files.length) return;
+    const pasted = [...e.clipboardData.files];
+    if (!pasted.length) return;
     e.preventDefault();
-    void a.addPictures(files);
+    void a.addAttachments(pasted);
   }
   const drop = {
     onDragOver: (e: DragEvent<HTMLDivElement>) => {
@@ -154,29 +185,27 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
       setDragging(false);
       if (!e.dataTransfer.files.length) return;
       e.preventDefault();
-      void a.addPictures(e.dataTransfer.files);
+      void a.addAttachments(e.dataTransfer.files);
     },
   };
   const filePicker = (
     <input
       ref={fileRef}
       type="file"
-      accept="image/*"
+      accept={`image/*,${ASSISTANT_FILE_ACCEPT}`}
       multiple
       hidden
       data-testid="assistant-picture-input"
       onChange={(e) => {
-        const files = [...(e.target.files ?? [])];
+        const chosen = [...(e.target.files ?? [])];
         e.target.value = '';
-        void a.addPictures(files);
+        void a.addAttachments(chosen);
       }}
     />
   );
   const pictureButton = {
-    title: full
-      ? ASSISTANT_WORDS.pictures.tooMany(ASSISTANT_PICTURES_MAX)
-      : ASSISTANT_WORDS.pictures.add,
-    'aria-label': ASSISTANT_WORDS.pictures.add,
+    title: full ? ASSISTANT_WORDS.files.tooMany(ASSISTANT_FILES_MAX) : ASSISTANT_WORDS.files.add,
+    'aria-label': ASSISTANT_WORDS.files.add,
     disabled: full,
     onClick: () => fileRef.current?.click(),
     'data-testid': 'assistant-add-picture',
@@ -238,7 +267,7 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
             {...pictureButton}
             className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-border-strong text-text-2 disabled:opacity-45"
           >
-            <ImagePlus className="h-[18px] w-[18px]" strokeWidth={1.5} />
+            <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </button>
           <button
             type="button"
@@ -310,7 +339,7 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
             {a.running ? ASSISTANT_WORDS.hintWhileAnswering : ASSISTANT_WORDS.hint}
           </span>
           <Button variant="ghost" size="icon" {...pictureButton}>
-            <ImagePlus className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} />
           </Button>
           <Button
             variant={talking ? 'secondary' : 'ghost'}

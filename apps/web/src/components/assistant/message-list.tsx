@@ -14,6 +14,7 @@ import {
   CalendarDays,
   Check,
   Copy,
+  FileText,
   Image as ImageIcon,
   KanbanSquare,
   LoaderCircle,
@@ -427,6 +428,16 @@ export function MessageList({
                 >
                   <ImageIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
                   {ASSISTANT_WORDS.pictures.sent(m.pictures)}
+                </div>
+              ) : null}
+              {m.files.length ? (
+                <div
+                  className={cn('flex items-center gap-1.5 text-xs text-text-3', m.text && 'mb-1')}
+                  data-testid="assistant-question-files"
+                  title={m.files.join(', ')}
+                >
+                  <FileText className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
+                  <span className="min-w-0 truncate">{ASSISTANT_WORDS.files.sent(m.files)}</span>
                 </div>
               ) : null}
               {m.text}
