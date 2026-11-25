@@ -630,7 +630,7 @@ export const RECIPE_CARDS: Readonly<
 > = {
   speed_to_lead: {
     category: 'Leads',
-    short: 'Text new leads within a minute.',
+    short: 'Text new leads right away.',
     note: 'Stops as soon as they reply or book.',
   },
   missed_call_text_back: {

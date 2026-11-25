@@ -19,6 +19,8 @@ import {
   TeammateConfig,
   teammateConfigFromPreset,
   TeammateConfigVersionError,
+  newLeadWaitMs,
+  newLeadWaitWords,
   upgradeTeammateConfig,
   type TeammatePatch,
 } from '../src/ai-team/index';
@@ -36,7 +38,7 @@ import {
 describe('defaults', () => {
   it('fills every module with the plan’s defaults', () => {
     const c = emptyTeammateConfig();
-    expect(c.version).toBe(3);
+    expect(c.version).toBe(4);
     expect(c.identity).toEqual({
       name: 'Ava',
       disclosure: 'first_message',
@@ -52,7 +54,12 @@ describe('defaults', () => {
     });
     expect(c.respond).toEqual({
       enabled: true,
-      newLeads: { enabled: true, channel: 'sms', delayMinutes: 1 },
+      newLeads: {
+        enabled: true,
+        channel: 'sms',
+        wait: { after: 8, unit: 'seconds' },
+        afterHours: 'same',
+      },
     });
     expect(c.answer).toEqual({ enabled: true, whenUnsure: 'hand_off' });
     expect(c.qualify).toEqual({
@@ -335,6 +342,51 @@ describe('parse and upgrade', () => {
     ).toHaveLength(20);
   });
 
+  it('moves a version 3 wait in minutes to one with a unit, the old default to 8 seconds', () => {
+    const waitOf = (delayMinutes?: number) =>
+      parseTeammateConfig({
+        version: 3,
+        respond: {
+          newLeads: { channel: 'email', ...(delayMinutes === undefined ? {} : { delayMinutes }) },
+        },
+      }).respond.newLeads;
+    expect(waitOf(1)).toEqual({
+      enabled: true,
+      channel: 'email',
+      wait: { after: 8, unit: 'seconds' },
+      afterHours: 'same',
+    });
+    expect(waitOf().wait).toEqual({ after: 8, unit: 'seconds' });
+    expect(waitOf(0).wait).toEqual({ after: 0, unit: 'seconds' });
+    expect(waitOf(15).wait).toEqual({ after: 15, unit: 'minutes' });
+    expect(waitOf(120).wait).toEqual({ after: 2, unit: 'hours' });
+    expect(parseTeammateConfig({ version: 3 }).respond.newLeads.wait).toEqual({
+      after: 8,
+      unit: 'seconds',
+    });
+  });
+
+  it('takes a wait from none to 30 days, and nothing past it', () => {
+    const waitOf = (wait: unknown) =>
+      parseTeammateConfig({ version: TEAMMATE_CONFIG_VERSION, respond: { newLeads: { wait } } })
+        .respond.newLeads.wait;
+    expect(waitOf({ after: 0, unit: 'seconds' })).toEqual({ after: 0, unit: 'seconds' });
+    expect(waitOf({ after: 30, unit: 'days' })).toEqual({ after: 30, unit: 'days' });
+    for (const wait of [
+      { after: 31, unit: 'days' },
+      { after: 721, unit: 'hours' },
+      { after: -1, unit: 'seconds' },
+      { after: 1.5, unit: 'minutes' },
+      { after: 1, unit: 'weeks' },
+    ])
+      expect(() => waitOf(wait), JSON.stringify(wait)).toThrow(ZodError);
+    expect(newLeadWaitMs({ after: 8, unit: 'seconds' })).toBe(8_000);
+    expect(newLeadWaitMs({ after: 2, unit: 'days' })).toBe(2 * 86_400_000);
+    expect(newLeadWaitWords({ after: 1, unit: 'minutes' })).toBe('1 minute');
+    expect(newLeadWaitWords({ after: 8, unit: 'seconds' })).toBe('8 seconds');
+    expect(newLeadWaitWords({ after: 0, unit: 'hours' })).toBe('no wait');
+  });
+
   it('runs upgrade steps in order up to the target version', () => {
     const steps = {
       1: (doc: Record<string, unknown>) => ({ ...doc, renamed: doc.old, old: undefined }),
@@ -461,7 +513,7 @@ describe('applyTeammatePatch', () => {
     });
     const next = applyTeammatePatch(base, {
       book: { calendarIds: [] },
-      respond: { newLeads: { delayMinutes: 5 } },
+      respond: { newLeads: { wait: { after: 5, unit: 'minutes' } } },
     });
     expect(next.book).toMatchObject({
       enabled: true,
@@ -469,7 +521,12 @@ describe('applyTeammatePatch', () => {
       reschedule: true,
       cancel: true,
     });
-    expect(next.respond.newLeads).toEqual({ enabled: true, channel: 'sms', delayMinutes: 5 });
+    expect(next.respond.newLeads).toEqual({
+      enabled: true,
+      channel: 'sms',
+      wait: { after: 5, unit: 'minutes' },
+      afterHours: 'same',
+    });
     expect(base.book.calendarIds).toEqual([SERVICE_CAL]);
   });
 
@@ -603,7 +660,15 @@ describe('labels never gate a setting', () => {
       channels: { sms: false, email: true, emailAddressId: OFFICE, chat: false, widgetId: null },
     },
     respond: {
-      respond: { enabled: false, newLeads: { enabled: false, channel: 'email', delayMinutes: 30 } },
+      respond: {
+        enabled: false,
+        newLeads: {
+          enabled: false,
+          channel: 'email',
+          wait: { after: 30, unit: 'minutes' },
+          afterHours: 'wait',
+        },
+      },
     },
     answer: { answer: { enabled: false, whenUnsure: 'take_message' } },
     qualify: {

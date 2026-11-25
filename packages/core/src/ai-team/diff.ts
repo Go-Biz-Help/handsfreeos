@@ -8,6 +8,8 @@ import type { NotifyWho } from '../workflows/actions';
 import type { TeammateCatalogs } from './catalogs';
 import {
   followUpLadderWords,
+  NEW_LEAD_AFTER_HOURS_NAMES,
+  newLeadWaitWords,
   type DisclosureMode,
   type HoursMode,
   type PhoneAnswerMode,
@@ -133,9 +135,14 @@ export function diffTeammateConfigs(
   );
   change(
     'Waits before the first message',
-    a.respond.newLeads.delayMinutes,
-    b.respond.newLeads.delayMinutes,
-    (v) => (v === 0 ? 'no wait' : formatDuration(v)),
+    newLeadWaitWords(a.respond.newLeads.wait),
+    newLeadWaitWords(b.respond.newLeads.wait),
+  );
+  change(
+    'Outside working hours, the first message',
+    a.respond.newLeads.afterHours,
+    b.respond.newLeads.afterHours,
+    (v) => NEW_LEAD_AFTER_HOURS_NAMES[v],
   );
   change('Answers questions', a.answer.enabled, b.answer.enabled, onOff);
   change('When unsure', a.answer.whenUnsure, b.answer.whenUnsure, (v) => UNSURE_NAMES[v]);

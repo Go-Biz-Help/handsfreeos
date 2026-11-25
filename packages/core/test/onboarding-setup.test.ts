@@ -863,7 +863,7 @@ describe('the summary', () => {
       'Texts will come from (512) 555-0142 once the carriers approve it, usually in 1 to 3 weeks. Calls work now.',
       'Customers pay by card through Stripe.',
       'Thank-you texts ask for a Google review.',
-      'Ava replies to new leads within a minute, with training wheels.',
+      'Ava replies to new leads within 8 seconds, with training wheels.',
     ]);
   });
 

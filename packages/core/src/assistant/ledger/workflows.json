@@ -1,7 +1,7 @@
 {
   "area": "workflows",
   "title": "Workflows, their runs and approvals",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-25",
   "files": {
     "apps/web/src/app/app/w/[workspaceId]/workflows/[workflowId]/page.tsx": "74d293e77c9b",
     "apps/web/src/app/app/w/[workspaceId]/workflows/approvals/page.tsx": "cdf5052c4dd4",
@@ -29,7 +29,7 @@
     "apps/web/src/components/workflows/checks.tsx": "312c8bfcc33f",
     "apps/web/src/components/workflows/chips.tsx": "2cc3eb523a28",
     "apps/web/src/components/workflows/contact-workflows.tsx": "c02d89fd21dd",
-    "apps/web/src/components/workflows/describe-new.tsx": "5371897b9a84",
+    "apps/web/src/components/workflows/describe-new.tsx": "656740eb8a85",
     "apps/web/src/components/workflows/describe.tsx": "8e00c1bc3304",
     "apps/web/src/components/workflows/editor-context.tsx": "fb4d0a83d9a0",
     "apps/web/src/components/workflows/editor.tsx": "19830cd2b8bb",
@@ -52,7 +52,7 @@
     "apps/web/src/components/workflows/subnav.tsx": "15fe747c7b7d",
     "apps/web/src/components/workflows/test-panel.tsx": "9d48bda36130",
     "apps/web/src/components/workflows/variable-field.tsx": "2282b4fc14f8",
-    "apps/web/src/components/workflows/workflow-list.tsx": "1cce90428c6e",
+    "apps/web/src/components/workflows/workflow-list.tsx": "4bbf2a07024f",
     "apps/web/src/components/workflows/workflow-stats.tsx": "7daa04ad7355"
   },
   "items": [

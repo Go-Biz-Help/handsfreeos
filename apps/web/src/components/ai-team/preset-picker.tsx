@@ -42,7 +42,7 @@ interface PresetCopy {
 export const PRESET_COPY: Record<TeammatePresetKey, PresetCopy> = {
   lead_responder: {
     title: 'Lead Responder',
-    description: 'Replies to new leads within a minute and answers their questions.',
+    description: 'Replies to new leads in seconds and answers their questions.',
     icon: Zap,
   },
   lead_qualifier: {
