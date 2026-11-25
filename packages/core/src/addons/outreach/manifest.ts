@@ -334,6 +334,7 @@ export const outreachAddon = defineAddon({
     'partner_leads',
     'partner_searches',
     'partners',
+    'plan_days',
     'playbooks',
     'posts',
     'profiles',

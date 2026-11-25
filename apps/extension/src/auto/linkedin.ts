@@ -61,7 +61,7 @@ import { chatCollect, NOTHING_TO_ANSWER, yoursLast } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../jobs/chats';
-import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
+import { lookForResearch, researchNext } from '../jobs/comment-research';
 import {
   pause as settle,
   valueOf,
@@ -139,10 +139,8 @@ import {
   workKey,
   workLeft,
   type AutoState,
-  type DailyJob,
   type DoneKind,
   type NetworkDay,
-  type OwnDailyJob,
   type Work,
   listSays,
   retryWake,
@@ -150,44 +148,24 @@ import {
 import { helpAfter, stepHelp } from './helper';
 import { askInLine, inTurn } from './turns';
 import { haltAsk } from '../asks/run';
+import {
+  LINKEDIN_AUTO,
+  LINKEDIN_DAILY,
+  LINKEDIN_DAILY_NAMES,
+  LINKEDIN_FINDING,
+  LINKEDIN_GAP_MS,
+  type LinkedInDaily,
+} from '@hfos/core/addons/outreach/runners';
 
 const PLATFORM: Platform = 'linkedin';
 const NAME = NETWORKS.linkedin.name;
 
 export const LINKEDIN_ALARM = 'hfos-auto-linkedin';
 
-/**
- * The kinds it does on its own on LinkedIn, in order. From 0.99.0 a comment on a good post is drafted and sent through
- * `sends` (decision 102), as Instagram's and Alignable's are, never as a step. From 0.118.0 the invitations they got
- * that HandsFreeOS says to accept, as they pressed or the AI said (decision 136), are accepted from each profile.
- */
-export const LINKEDIN_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'friend_request'];
-/**
- * The once-a-day jobs on LinkedIn, in order. From 0.97.0 it withdraws old invitations on its own after checking the
- * new ones (`tidy`, decision 98), as the person chose; from 0.100.0 it then reads Catch up for birthdays and new jobs
- * (`occasions`, decision 108), for a note on Today that waits for the person's OK. From 0.95.0 (decision 92) who reacted to and commented on the good posts
- * its search found is read after the helpful post (`post_people`), and the people found are checked last
- * (`found_checks`), inside its 40 profiles read, found people first. From 0.109.0 who engaged with their helpful posts
- * is read on its own after the day's post is asked for (`engaged`), as that read needs its window in front, so waits
- * till they're away from their computer (decision 120) while the post goes up as ever. From 0.144.0 HandsFreeOS's own
- * comment research before the profile (`comment_research`, decision 172), only for whoever of its staff started one.
- */
-export const LINKEDIN_DAILY = [
-  'requests',
-  'tidy',
-  'occasions',
-  'checks',
-  'chats',
-  'posts',
-  'partners',
-  'helpful',
-  'engaged',
-  'post_people',
-  'found_checks',
-  'comment_research',
-  'profile',
-] as const satisfies readonly (DailyJob | OwnDailyJob)[];
-type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
+// What it does on its own on LinkedIn, its once-a-day jobs in order, their names and its pace are HandsFreeOS's from
+// 0.155.0 (packages/core/src/addons/outreach/runners.ts, decision 195), so the app plans the same day.
+export { LINKEDIN_AUTO, LINKEDIN_DAILY, LINKEDIN_FINDING, LINKEDIN_GAP_MS };
+const DAILY_NAMES = LINKEDIN_DAILY_NAMES;
 
 const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Checking your invitations on LinkedIn…',
@@ -204,24 +182,6 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   comment_research: 'Reading comments under posts on LinkedIn for HandsFreeOS’s comment research…',
   profile: 'Reading your LinkedIn profile, as it does on the 1st of each month…',
 };
-const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
-  requests: 'Invitations',
-  occasions: 'Birthdays and new jobs',
-  tidy: 'Tidy up',
-  checks: 'Check my connections',
-  chats: 'Read my chats',
-  posts: 'Find posts',
-  partners: 'Find partners',
-  helpful: 'Helpful posts',
-  engaged: 'Who engaged with your posts',
-  post_people: 'Who reacted and commented',
-  found_checks: 'Check the people found',
-  comment_research: 'Comment research',
-  profile: 'Read my profile',
-};
-
-/** LinkedIn's pace between steps: slower than Facebook's, a person's. */
-export const LINKEDIN_GAP_MS = { least: 2 * 60_000, most: 6 * 60_000 } as const;
 /** While LinkedIn draws what a press opened. */
 const SETTLE_MS = 2_000;
 /** After something went wrong, it tries again this much later. */
@@ -1182,12 +1142,6 @@ export const nextLinkedInDaily = (
       state.daily?.[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now),
   ) ?? null;
 
-/**
- * LinkedIn's jobs that find people, done again in a round while it needs more good fits (decision 126, plan.ts
- * `nextRound`): LinkedIn’s post search with the next words, who reacted to and commented on good posts, and their checks.
- */
-export const LINKEDIN_FINDING: readonly LinkedInDaily[] = ['posts', 'post_people', 'found_checks'];
-
 /** A job that notes a page it couldn't read with its outline (decision 74): its own way to, or the runner's. */
 const reporting = (job: Job, kind: LinkedInDaily): Job => ({
   ...job,
@@ -1313,17 +1267,22 @@ async function go(): Promise<void> {
     random,
   });
   const tomorrow = () => nextStart(settings.hours, timezone, Date.now(), random);
+  const researchAsk = {
+    hfos: answer as Hfos,
+    businessId: to.businessId,
+    platform: PLATFORM,
+    setState,
+  } as const;
   if (!own.go) {
     await setState({ started: false, stopped: own.stopped });
     // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 133): never after
     // Stop for today or a warning, nor while noting's off or an ask of theirs is in line.
-    const answering =
+    const free =
       own.stopped === null &&
       !(await warnedNow(PLATFORM)) &&
       (await isNoting()) &&
-      !askInLine(PLATFORM)
-        ? await listNow(to.businessId, state.tried, state.replied)
-        : null;
+      !askInLine(PLATFORM);
+    const answering = free ? await listNow(to.businessId, state.tried, state.replied) : null;
     const answers = answering?.left.filter(answersAnyTime) ?? [];
     if (answers[0])
       return workNext(answers, {
@@ -1334,17 +1293,41 @@ async function go(): Promise<void> {
         reading: false,
         random,
       });
+    // A comment research this person started reads outside the hours too, as it only reads (decision 194): never
+    // after Stop for today or a warning, as nothing does.
+    const passOut = free && choices.collect ? putOff.passOver(await awayNow()) : [];
+    if (free && choices.collect) {
+      const research = await researchNext({ ...researchAsk, state, now: at, passOver: passOut });
+      state = research.state;
+      if (research.reads) {
+        const end = await inTurn(
+          'runner',
+          () => collect('comment_research', to.businessId),
+          PLATFORM,
+        );
+        const line = `${DAILY_NAMES.comment_research}: ${end.line}`;
+        if (end.warned) {
+          await closeWindow();
+          await say(end.line, { stopped: 'warning' });
+          return goAt(tomorrow());
+        }
+        await say(line);
+        if (end.away) putOff.off('comment_research');
+        else void feed(jobKind(end), `${NAME}: ${line}`);
+        return goAt(Date.now() + pickGap(random));
+      }
+    }
     await closeWindow();
     await say(networkWaitWords(NAME, own, settings.hours, timezone, at));
-    // The beat says when it's pressed (`days.linkedin`), and wakes this before then; a reply waiting for an OK, or a message tried again, sooner.
-    return goAt(
-      lookOutsideAt(
-        !!answering && replyWaiting(answering.list),
-        at,
-        own.next,
-        answering ? retryWake(await stateNow(), at) : [],
-      ),
+    // The beat says when it's pressed (`days.linkedin`), and wakes this before then; a reply waiting for an OK, or a message tried again, sooner; and the comment research’s next batch.
+    const latest = await stateNow();
+    const look = lookOutsideAt(
+      !!answering && replyWaiting(answering.list),
+      at,
+      own.next,
+      answering ? retryWake(latest, at) : [],
     );
+    return goAt(free && choices.collect ? lookForResearch(look, latest, at, passOut) : look);
   }
   if (own.started && !state.started) state = await setState({ started: true, stopped: null });
   if (state.stopped === 'warning' || (await warnedNow(PLATFORM))) {
@@ -1382,13 +1365,12 @@ async function go(): Promise<void> {
   const passOver = putOff.passOver(away);
   let daily = choices.collect ? nextLinkedInDaily(state, passOver, at) : null;
   // HandsFreeOS's own comment research (decision 172) is only for whoever of its staff started one: asked without a
-  // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
-  if (
-    daily === 'comment_research' &&
-    !(await researchRuns(answer as Hfos, to.businessId, PLATFORM))
-  ) {
-    state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
-    daily = nextLinkedInDaily(state, passOver, at);
+  // word, and for anyone else it's done for the day before a line of it is ever shown. While one runs, its batch goes
+  // first whenever it's due (decision 194).
+  if (choices.collect) {
+    const research = await researchNext({ ...researchAsk, state, now: at, passOver });
+    state = research.state;
+    daily = research.reads ? 'comment_research' : nextLinkedInDaily(state, passOver, at);
   }
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.

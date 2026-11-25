@@ -483,6 +483,37 @@ If you see `MaxClientsInSessionMode` or `max clients reached in session mode` in
 
    You should see the check as passing. Then open **Contacts** at `https://app.handsfreeos.com`. You should see your customer list.
 
+#### Round trips to the database
+
+Every statement an app runs is a trip to the database and back, about 3 ms through the pooler. A page asks hundreds of statements, so the trips cost more than the statements' own work.
+
+The pooler can't keep prepared statements, so the driver (`postgres`) runs with `prepare: false`. Left alone, it then asks the database about every statement that takes values before running it: two trips for one statement, and nothing else is sent meanwhile. Since the speed audit (Nov 2026) the apps remember what the database said:
+
+- `patches/postgres@3.4.9.patch` is a small change to the driver, applied by `pnpm install` (`patchedDependencies` in `pnpm-workspace.yaml`). `createDb` in `packages/db/src/client.ts` gives the driver a place to remember each statement's value types (`StatementTypes`).
+- A statement is asked about the first time each machine runs it. After that it goes out in one trip, with its values written exactly as before.
+- Statements started together on one transaction (`Promise.all`) are sent together, and answered in the order they were started.
+- A transaction that is over takes nothing more. Its connection is the next request's by then, so a statement from code that kept going (one of several branches, after another failed) would have run as that request. The patch refuses it: `A query was sent on a transaction that has ended`. If that ever shows in a log, some code used a transaction after its work returned or failed: fix that code, the refusal is right.
+- The same guard keeps a process alive when the database closes a connection with a transaction open: the driver alone wrote its COMMIT to the closed socket when the work came back, which stopped the process.
+- `packages/db/test/statement-trips.test.ts` reads the driver's messages and holds all of this, with `worker-limits.test.ts` for the last point. The "Server images" check proves the patch is in both images.
+
+**Turn it off** if the apps ever misbehave in a way that points here. The apps go back to two trips a statement; the guard on finished transactions stays. Each command restarts the app.
+
+```bash
+fly secrets set HFOS_DB_REMEMBER_TYPES=off --app handsfreeos-api
+```
+
+```bash
+fly secrets set HFOS_DB_REMEMBER_TYPES=off --app handsfreeos-worker
+```
+
+Turn it back on with `fly secrets unset HFOS_DB_REMEMBER_TYPES --app handsfreeos-api`, and the same for `handsfreeos-worker`.
+
+**A migration that changes a column's type.** The database's answer is checked on every run. The first run of each statement that takes the column, on each machine, is still written by the old type, then the statement is asked about again. For nearly every change (a number to a bigger number, text to another kind of text) the value is written the same, so nothing fails. Only a change between a yes/no, bytes or list column and another kind is refused once by the database, and running code would not survive that change anyway. A deploy restarts both apps, which forgets everything.
+
+**Upgrading the driver.** `packages/db/package.json` pins `postgres` to the exact version the patch is for, and `pnpm install` refuses a patch whose version is gone. To move to a newer version, either write the patch again for it (`pnpm patch postgres@<version>`, make the same changes in `src/connection.js` and `src/index.js` and their twins under `cjs/`, `pnpm patch-commit <folder>`), or drop the `patchedDependencies` entry: the apps then run as the driver does on its own, two trips a statement and no guard, and `statement-trips.test.ts` fails to say so. Version 4 of the driver still asks first with `prepare: false`.
+
+**Checking it through a real pooler.** CI runs against the database directly. To check a change here through the pooler, set `enabled = true` under `[db.pooler]` in `supabase/config.toml` (don't commit that), restart the local stack, and connect as `hfos_api.pooler-dev` on port `54429`.
+
 ### Change an app role password
 
 Change a role's password in any of these cases:
@@ -1504,7 +1535,7 @@ Delete the decrypted `database.dump` when you're done: it holds every client's i
 The worker does two jobs in the database at night, spread out so they never compete with the day's work. There is nothing to set up.
 
 - **The phones' window** (`sync_window.plan`, then one `sync_window.sweep` per business). The phone app keeps a business's recent history: messages, calls and the timeline from the last 12 months, appointments from 90 days back, and documents closed within the year. Each night the worker marks what aged out, and phones drop it on their next sync. Businesses start between 08:00 and 11:00 UTC (3 to 6 AM in Chicago in summer), each at its own time. A business hides at most 2,000 rows per table per round, runs up to 25 rounds with a short pause between, and carries on 5 minutes later if more is left. Something that comes back into range, like an old appointment moved to next week, shows on phones again straight away.
-- **Command receipts** (`command_receipts.clean_up`). Every change the phone app sends leaves a receipt, so a change sent twice happens once; the browser extension's heartbeat (`outreach.live.beat`) and its word on how an ask is going (`outreach.ask.progress`) leave none, since a repeat does no harm and a lost answer is asked again with the next call. Receipts older than 90 days are deleted every day at 07:30 UTC, 5,000 at a time.
+- **Command receipts** (`command_receipts.clean_up`). Every change the phone app sends leaves a receipt, so a change sent twice happens once; the browser extension's heartbeat (`outreach.live.beat`), its word on where a network's day is up to (`outreach.plan.note`) and on how an ask is going (`outreach.ask.progress`) leave none, since a repeat does no harm and a lost answer is asked again with the next call. Receipts older than 90 days are deleted every day at 07:30 UTC, 5,000 at a time.
 
 Both are ordinary jobs in `app.scheduled_jobs`, so a failure shows as `job failed` in the worker's log, and the job is tried again.
 

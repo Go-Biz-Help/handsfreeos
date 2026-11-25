@@ -35,6 +35,8 @@ export type Automation = Ok<'/v1/queries/outreach.automation'>;
 export type AutomationPeople = Ok<'/v1/queries/outreach.automation.people'>;
 /** The person's extension right now, their day and today's steps (packages/core/src/addons/outreach/live.ts). */
 export type Live = Ok<'/v1/queries/outreach.live'>;
+/** What their computer will do today on a network, and about when (packages/core/src/addons/outreach/plan.ts). */
+export type Plan = Ok<'/v1/queries/outreach.plan'>;
 /**
  * A network's status card at the top of its page in Settings (decision 170): its live view, how many things wait on
  * the person there under Needs you, and how many of Autopilot's people there wait for their OK.

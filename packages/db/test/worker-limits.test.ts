@@ -4,8 +4,9 @@
  *   - `asWorker` gives a statement a minute, for that transaction only.
  *   - A statement over its limit fails, and the next transaction runs as if nothing happened.
  *   - `noStatementLimit` lifts it, for the one statement that deletes a whole business.
- *   - An open worker transaction with nothing running is given no limit, and the last two tests are why: when the
- *     database ends one, the driver stops the process as soon as the work comes back.
+ *   - An open worker transaction with nothing running is given no limit: a file import honestly leaves one open
+ *     for minutes. The last two tests hold what happens if the database ever ends one: the transaction is told at
+ *     once, and the process carries on when the work comes back (the driver alone stopped it; its patch doesn't).
  */
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -88,16 +89,16 @@ describe('a worker’s open transaction with nothing running', () => {
   });
 
   /**
-   * Why there is no limit. The work coming back (a provider answering late) has the driver write COMMIT to the
-   * socket the database closed, which throws outside any promise. If this fails after the driver is updated, the
-   * driver has stopped doing that, and a limit on the worker's idle transactions can be thought about again
-   * (`WORKER_STATEMENT_TIMEOUT` in client.ts says what else stands in its way).
+   * The work coming back (a provider answering late) had the driver write COMMIT to the socket the database closed,
+   * which threw outside any promise and stopped the process. `patches/postgres@3.4.9.patch` ends that: nothing goes
+   * out on a transaction that is over. If this fails after the driver is updated, the patch is gone
+   * ("Round trips to the database" in `docs/operations.md`).
    */
-  it('would stop the process when the work came back', () => {
+  it('carries on when the work comes back after the database ended it', () => {
     const ran = idleEnded('returns');
     expect(ran.stdout).toContain('rejected CONNECTION_CLOSED');
-    expect(ran.stdout).not.toContain('next 1');
-    expect(ran.status).not.toBe(0);
-    expect(ran.stderr).toContain('TypeError');
+    expect(ran.stdout).toContain('next 1');
+    expect(ran.stderr).not.toContain('TypeError');
+    expect(ran.status).toBe(0);
   });
 });

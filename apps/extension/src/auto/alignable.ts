@@ -91,7 +91,7 @@ import { ALIGNABLE, readAlignableIn, type AlignablePage } from '../jobs/alignabl
 import { withdrawOnItsOwn } from '../jobs/alignable/withdraw';
 import { answerOne } from '../jobs/alignable/answer';
 import { readAlignableComments } from '../jobs/alignable/comment-research';
-import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
+import { lookForResearch, researchNext } from '../jobs/comment-research';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { chatMemory } from '../jobs/chats';
 import { checkFound } from '../jobs/found-checks';
@@ -150,64 +150,32 @@ import {
   workKey,
   workLeft,
   type AutoState,
-  type DailyJob,
   type DoneKind,
   type NetworkDay,
-  type OwnDailyJob,
   type Work,
   listSays,
   retryWake,
 } from './plan';
 import { helpAfter, stepHelp } from './helper';
 import { askInLine, inTurn } from './turns';
+import {
+  ALIGNABLE_AUTO,
+  ALIGNABLE_DAILY,
+  ALIGNABLE_DAILY_NAMES,
+  ALIGNABLE_FINDING,
+  ALIGNABLE_GAP_MS,
+  type AlignableDaily,
+} from '@hfos/core/addons/outreach/runners';
 
 const PLATFORM: Platform = 'alignable';
 const NAME = NETWORKS.alignable.name;
 
 export const ALIGNABLE_ALARM = 'hfos-auto-alignable';
 
-/**
- * The kinds it does on its own on Alignable, in order (its kit's `runs.auto`): comments and forum answers go through
- * `sends`, as messages do (./comments.ts). From 0.118.0 the requests they got that HandsFreeOS says to accept, as they
- * pressed or the AI said (decision 136), are accepted on My Network's Requests (../jobs/alignable/answer.ts).
- */
-export const ALIGNABLE_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'friend_request'];
-/**
- * The once-a-day jobs on Alignable, in order, as Instagram's: the requests, the connections checked, their chats
- * (0.84.0), Find partners, their town's posts, and who engaged with them, from their notifications (`helpful`: who
- * engaged, here with no helpful post of their own). From 0.95.0 (decision 92) the person's own groups go first
- * (`my_groups`), before any search or join; after the town's posts, the search for businesses like their clients
- * (`search`), the groups found and checked, joined, their members read and their posts (`group_checks`, `join`,
- * `members`, `group_posts`); and the businesses found by topic are checked last (`found_checks`). From 0.97.0 old
- * connection requests are withdrawn after the new ones are checked, as the person chose (`tidy`, decision 98). From
- * 0.101.0 the week's helpful post is asked for after who engaged (`weekly_post`, decision 109), and from 0.104.0 the
- * events near them are read once a week before the businesses found are checked (`events`, decision 112). From
- * 0.108.0 who liked and answered the good posts found is read after the groups' posts (`post_people`, decision 116).
- * From 0.144.0 HandsFreeOS's own comment research before the profile (`comment_research`, decision 172), only for
- * whoever of its staff started one.
- */
-export const ALIGNABLE_DAILY = [
-  'my_groups',
-  'requests',
-  'tidy',
-  'checks',
-  'chats',
-  'partners',
-  'posts',
-  'search',
-  'group_checks',
-  'join',
-  'members',
-  'group_posts',
-  'post_people',
-  'helpful',
-  'weekly_post',
-  'events',
-  'found_checks',
-  'comment_research',
-  'profile',
-] as const satisfies readonly (DailyJob | OwnDailyJob)[];
-type AlignableDaily = (typeof ALIGNABLE_DAILY)[number];
+// What it does on its own on Alignable, its once-a-day jobs in order, their names and its pace are HandsFreeOS's from
+// 0.155.0 (packages/core/src/addons/outreach/runners.ts, decision 195), so the app plans the same day.
+export { ALIGNABLE_AUTO, ALIGNABLE_DAILY, ALIGNABLE_FINDING, ALIGNABLE_GAP_MS };
+const DAILY_NAMES = ALIGNABLE_DAILY_NAMES;
 
 const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
   my_groups: 'Reading your groups on Alignable…',
@@ -230,30 +198,6 @@ const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
   comment_research: 'Reading answers under posts on Alignable for HandsFreeOS’s comment research…',
   profile: 'Reading your Alignable profile, as it does on the 1st of each month…',
 };
-const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
-  my_groups: 'Your groups',
-  requests: 'Connection requests',
-  tidy: 'Tidy up',
-  checks: 'Check my connections',
-  chats: 'Read my chats',
-  partners: 'Find partners',
-  posts: 'Find posts in your town',
-  search: 'Search for businesses',
-  group_checks: 'Check groups',
-  join: 'Join groups',
-  members: 'Group members',
-  group_posts: 'Posts in your groups',
-  post_people: 'Who liked and answered',
-  helpful: 'Who engaged with you',
-  weekly_post: 'This week’s helpful post',
-  events: 'Events near you',
-  found_checks: 'Check the businesses found',
-  comment_research: 'Comment research',
-  profile: 'Read my profile',
-};
-
-/** Alignable's pace between steps: LinkedIn's, a person's (the plan's "The risk, said plainly"). */
-export const ALIGNABLE_GAP_MS = { least: 2 * 60_000, most: 6 * 60_000 } as const;
 /** While Alignable draws what a press opened. */
 const SETTLE_MS = 2_000;
 /** After something went wrong, or Alignable asked them to sign in, it tries again this much later. */
@@ -1247,19 +1191,6 @@ export const nextAlignableDaily = (
   ) ?? null;
 
 /**
- * Alignable's jobs that find people, done again in a round while it needs more good fits (decision 126, plan.ts
- * `nextRound`): its search with the next kinds of business, groups and their members, who commented on good posts, and their checks.
- */
-export const ALIGNABLE_FINDING: readonly AlignableDaily[] = [
-  'search',
-  'group_checks',
-  'join',
-  'members',
-  'post_people',
-  'found_checks',
-];
-
-/**
  * A job that says what it couldn't find with the page's outline (decision 74): the jobs from 0.95.0, whose pages are
  * drawn from guessed markup till the owner's next Check (decision 92).
  */
@@ -1378,17 +1309,22 @@ async function go(): Promise<void> {
     random,
   });
   const tomorrow = () => nextStart(settings.hours, timezone, Date.now(), random);
+  const researchAsk = {
+    hfos: answer as Hfos,
+    businessId: to.businessId,
+    platform: PLATFORM,
+    setState,
+  } as const;
   if (!own.go) {
     await setState({ started: false, stopped: own.stopped });
     // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 133): never after
     // Stop for today or a warning, nor while noting's off or an ask of theirs is in line.
-    const answering =
+    const free =
       own.stopped === null &&
       !(await warnedNow(PLATFORM)) &&
       (await isNoting()) &&
-      !askInLine(PLATFORM)
-        ? await listNow(to.businessId, state.tried, state.replied)
-        : null;
+      !askInLine(PLATFORM);
+    const answering = free ? await listNow(to.businessId, state.tried, state.replied) : null;
     const answers = answering?.left.filter(answersAnyTime) ?? [];
     if (answers[0])
       return workNext(answers, {
@@ -1399,17 +1335,41 @@ async function go(): Promise<void> {
         reading: false,
         random,
       });
+    // A comment research this person started reads outside the hours too, as it only reads (decision 194): never
+    // after Stop for today or a warning, as nothing does.
+    const passOut = free && choices.collect ? putOff.passOver(await awayNow()) : [];
+    if (free && choices.collect) {
+      const research = await researchNext({ ...researchAsk, state, now: at, passOver: passOut });
+      state = research.state;
+      if (research.reads) {
+        const end = await inTurn(
+          'runner',
+          () => collect('comment_research', to.businessId),
+          PLATFORM,
+        );
+        const line = `${DAILY_NAMES.comment_research}: ${end.line}`;
+        if (end.warned) {
+          await closeWindow();
+          await say(end.line, { stopped: 'warning' });
+          return goAt(tomorrow());
+        }
+        await say(line);
+        if (end.away) putOff.off('comment_research');
+        else void feed(jobKind(end), `${NAME}: ${line}`);
+        return goAt(Date.now() + pickGap(random));
+      }
+    }
     await closeWindow();
     await say(networkWaitWords(NAME, own, settings.hours, timezone, at));
-    // The beat says when it's pressed (`days.alignable`), and wakes this before then; a reply waiting for an OK, or a message tried again, sooner.
-    return goAt(
-      lookOutsideAt(
-        !!answering && replyWaiting(answering.list),
-        at,
-        own.next,
-        answering ? retryWake(await stateNow(), at) : [],
-      ),
+    // The beat says when it's pressed (`days.alignable`), and wakes this before then; a reply waiting for an OK, or a message tried again, sooner; and the comment research’s next batch.
+    const latest = await stateNow();
+    const look = lookOutsideAt(
+      !!answering && replyWaiting(answering.list),
+      at,
+      own.next,
+      answering ? retryWake(latest, at) : [],
     );
+    return goAt(free && choices.collect ? lookForResearch(look, latest, at, passOut) : look);
   }
   if (own.started && !state.started) state = await setState({ started: true, stopped: null });
   if (state.stopped === 'warning' || (await warnedNow(PLATFORM))) {
@@ -1447,13 +1407,12 @@ async function go(): Promise<void> {
   const passOver = putOff.passOver(away);
   let daily = choices.collect ? nextAlignableDaily(state, passOver, at) : null;
   // HandsFreeOS's own comment research (decision 172) is only for whoever of its staff started one: asked without a
-  // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
-  if (
-    daily === 'comment_research' &&
-    !(await researchRuns(answer as Hfos, to.businessId, PLATFORM))
-  ) {
-    state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
-    daily = nextAlignableDaily(state, passOver, at);
+  // word, and for anyone else it's done for the day before a line of it is ever shown. While one runs, its batch goes
+  // first whenever it's due (decision 194).
+  if (choices.collect) {
+    const research = await researchNext({ ...researchAsk, state, now: at, passOver });
+    state = research.state;
+    daily = research.reads ? 'comment_research' : nextAlignableDaily(state, passOver, at);
   }
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.

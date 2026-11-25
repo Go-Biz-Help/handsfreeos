@@ -133,6 +133,7 @@ import type {
   Openers,
   Partners,
   Pipeline,
+  Plan,
   PlaybookList,
   Readiness,
   Setup,
@@ -158,6 +159,8 @@ export type OutreachShown =
        */
       readonly networks: readonly NetworkLive[];
       readonly today: TodayList;
+      /** What their computer will do today on the network shown (decision 195): on Plan, else null. */
+      readonly plan?: Plan | null;
       /** The helpful post: on Posts and events, else null. */
       readonly helpful: HelpfulList | null;
       /** Referrals waiting for the person on the network shown (decision 174); left out, none. */
@@ -705,8 +708,8 @@ function NeedsParts({
 }
 
 /**
- * Today's parts (decision 193), the way People has its views: Overview, Your list with its count, Posts and events, Done
- * today with its count, and Your team for owners and admins. Each keeps the network shown.
+ * Today's parts (decision 193), the way People has its views: Overview, Plan (decision 195), Your list with its count,
+ * Posts and events, Done today with its count, and Your team for owners and admins. Each keeps the network shown.
  */
 function TodayParts({
   workspaceId,
@@ -940,6 +943,7 @@ export function OutreachHome({
           nets={shown.nets}
           networks={shown.networks}
           today={shown.today}
+          plan={shown.plan ?? null}
           helpful={shown.helpful}
           referrals={shown.referrals ?? []}
           referAsks={shown.referAsks ?? []}

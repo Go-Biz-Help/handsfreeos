@@ -38,6 +38,11 @@ export interface DbHandle {
 export interface CreateDbOptions {
   readonly max?: number;
   readonly applicationName?: string;
+  /**
+   * Whether the driver remembers the types of each statement's values (`StatementTypes`). On unless
+   * `HFOS_DB_REMEMBER_TYPES` is `off`, the switch for a live app; a test passes `false` to compare the two.
+   */
+  readonly rememberTypes?: boolean;
 }
 
 /**
@@ -74,14 +79,76 @@ const USER_IDLE_IN_TRANSACTION_TIMEOUT = '30s';
  *
  * - The outbox runs its handlers inside one transaction, and honest work leaves it idle for minutes: a file import
  *   runs from start to end inside its handler (handlers/import-run.ts), in transactions of its own.
- * - When the database ends an idle transaction, this driver (postgres 3.4.9) rejects the transaction at once, and
- *   then writes its COMMIT or ROLLBACK to the closed socket when the work at last returns: a TypeError outside any
- *   promise, which stops the process. `packages/db/test/worker-limits.test.ts` keeps both halves in view.
+ * - When the database ends an idle transaction, this driver (postgres 3.4.9) rejects the transaction at once. Left
+ *   alone it then wrote its COMMIT or ROLLBACK to the closed socket when the work at last returned: a TypeError
+ *   outside any promise, which stopped the process. `patches/postgres@3.4.9.patch` ends that (nothing goes out on a
+ *   transaction that is over), and `packages/db/test/worker-limits.test.ts` keeps both halves in view. So a limit
+ *   could be thought about again, but the first reason stands on its own.
  *
  * What bounds an idle worker transaction is each provider call's own time limit (Twilio, Postmark, Meta and the
  * rest), so a call made from inside the outbox's transaction always ends.
  */
 export const WORKER_STATEMENT_TIMEOUT = '60s';
+
+/** How many statements' types are kept, and how many characters of statement text in all. */
+const REMEMBERED_STATEMENTS = 4000;
+const REMEMBERED_CHARACTERS = 6_000_000;
+/** A statement longer than this is not kept: a many-row insert is a different statement for every count of rows. */
+const LONGEST_REMEMBERED = 30_000;
+
+/**
+ * The types of the values each statement takes, as the database described them the first time it ran (the speed
+ * audit, Nov 2026).
+ *
+ * The pooler can't keep prepared statements, so the driver runs with `prepare: false`. Then it asked the database
+ * about every statement with values before running it: two round trips where one would do, and nothing else sent
+ * meanwhile, so statements started together on one transaction still went one at a time. Through the pooler a round
+ * trip is about 3 ms, and a page asks hundreds of statements. That waiting was more than the statements' own work.
+ *
+ * `patches/postgres@3.4.9.patch` lets the driver look here first. A statement it has seen goes out in one piece,
+ * its values written by the remembered types, exactly as they were written before; and statements started together
+ * are sent together, in the order they were started. The statement itself is sent as it always was, so the
+ * database still works the types out afresh every time, and its answer is checked against what was remembered: after
+ * a column changes type, the first run of each statement that takes it forgets, and the next asks first again. That
+ * first run is written by the old type. It only matters between a yes/no, bytes or list column and another kind,
+ * where the database refuses the value; every other value is written the same for any type.
+ *
+ * Sending early has a price the patch pays too: a transaction that is over takes nothing more. Its connection is
+ * the next request's by then, and where a late statement used to wait its turn (and mostly never ran), it would now
+ * go straight out and run as that request. The driver refuses it instead (`TRANSACTION_OVER`).
+ *
+ * Kept per client, by the statement's text and the types its values show, oldest out first.
+ * `packages/db/test/statement-trips.test.ts` holds all of it; "Round trips to the database" in
+ * `docs/operations.md` says how to turn it off and what to do when the driver is upgraded.
+ */
+export class StatementTypes {
+  readonly #known = new Map<string, number[]>();
+  #characters = 0;
+
+  get size(): number {
+    return this.#known.size;
+  }
+
+  get(statement: string): number[] | undefined {
+    return this.#known.get(statement);
+  }
+
+  set(statement: string, types: number[]): void {
+    if (statement.length > LONGEST_REMEMBERED) return;
+    this.delete(statement);
+    this.#known.set(statement, types);
+    this.#characters += statement.length;
+    for (const oldest of this.#known.keys()) {
+      if (this.#known.size <= REMEMBERED_STATEMENTS && this.#characters <= REMEMBERED_CHARACTERS)
+        break;
+      this.delete(oldest);
+    }
+  }
+
+  delete(statement: string): void {
+    if (this.#known.delete(statement)) this.#characters -= statement.length;
+  }
+}
 
 export function createDb(url: string, opts: CreateDbOptions = {}): DbHandle {
   const client = postgres(url, {
@@ -92,6 +159,12 @@ export function createDb(url: string, opts: CreateDbOptions = {}): DbHandle {
     onnotice: () => {},
     connection: { application_name: opts.applicationName ?? 'hfos' },
   });
+  if (opts.rememberTypes ?? process.env.HFOS_DB_REMEMBER_TYPES !== 'off') {
+    // The driver's `options.shared` is one object for every connection of this client; `remembered` is the field
+    // the patch reads. An unpatched driver never looks at it, and asks first every time, as before.
+    (client.options as unknown as { shared: { remembered?: StatementTypes } }).shared.remembered =
+      new StatementTypes();
+  }
   const db = drizzle(client, { schema });
   return { db, client, close: () => client.end({ timeout: 5 }) };
 }

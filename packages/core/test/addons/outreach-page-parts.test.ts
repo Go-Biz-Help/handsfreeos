@@ -87,10 +87,10 @@ describe('Needs you’s parts', () => {
 });
 
 describe('Today’s parts', () => {
-  it('are Overview, Your list, Posts and events, Done today, and Your team for owners and admins', () => {
-    expect(TODAY_PART_KEYS).toEqual(['overview', 'list', 'posts', 'done', 'team']);
-    expect(todayPartsFor(true)).toEqual(['overview', 'list', 'posts', 'done', 'team']);
-    expect(todayPartsFor(false)).toEqual(['overview', 'list', 'posts', 'done']);
+  it('are Overview, Plan, Your list, Posts and events, Done today, and Your team for owners and admins', () => {
+    expect(TODAY_PART_KEYS).toEqual(['overview', 'plan', 'list', 'posts', 'done', 'team']);
+    expect(todayPartsFor(true)).toEqual(['overview', 'plan', 'list', 'posts', 'done', 'team']);
+    expect(todayPartsFor(false)).toEqual(['overview', 'plan', 'list', 'posts', 'done']);
   });
 
   it('open on the Overview, and never on Your team for someone who doesn’t manage', () => {

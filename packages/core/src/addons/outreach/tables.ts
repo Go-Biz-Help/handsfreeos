@@ -62,6 +62,7 @@ import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
 import type { ProfileCheck } from './profile-check';
 import type { ProfileTicks } from './readiness';
 import type { ListMark } from './lists';
+import type { PlanState } from './plan';
 import type { PartnerFit, PartnerKind, PartnerSearchKind, PartnerStage } from './partners';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { CommentFindings, ResearchPlatform, ResearchState } from './comment-research';
@@ -1117,6 +1118,29 @@ export const days = addonOutreach.table(
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   // One a person and network (`days_user_platform_idx`).
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
+);
+
+/**
+ * Where the person's day is up to on one network, as their working computer last said (./plan.ts, decision 195):
+ * what's done, what was tried, what waits to be looked at again and when it next works. HandsFreeOS works the rest
+ * of the day out from it, to show the plan. One a person and network, their own; it holds nobody's words.
+ */
+export const planDays = addonOutreach.table(
+  'plan_days',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<Platform>(),
+    day: date('day', { mode: 'string' }).notNull(),
+    state: jsonb('state').notNull().$type<PlanState>(),
+    notedAt: ts('noted_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
 );
 
@@ -2205,6 +2229,7 @@ export const OUTREACH_TABLES = {
   partnerLeads,
   partnerSearches,
   partners,
+  planDays,
   playbooks,
   posts,
   profiles,

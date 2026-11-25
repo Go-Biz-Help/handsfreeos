@@ -79,6 +79,7 @@ import {
   todayOpenOf,
 } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { PLAN_WORDS } from '@hfos/core/addons/outreach/plan';
 import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import {
   leftForToday,
@@ -123,6 +124,7 @@ import { HelpfulCard } from './helpful-card';
 import { EventsCard } from './events-card';
 import { ReferralCards } from './referral-card';
 import { PersonName } from './person-menu';
+import { PlanCard } from './plan-view';
 import { PostQuote } from './post-quote';
 import { GoalNote, goalNoteOn } from './goal-note';
 import { OutreachCounters } from './counters';
@@ -133,6 +135,7 @@ import type {
   HelpfulList,
   Live,
   LiveTeam,
+  Plan,
   Readiness,
   TodayItem,
   TodayList,
@@ -183,6 +186,7 @@ export function TodayView({
   nets,
   networks,
   today,
+  plan = null,
   helpful,
   referrals = [],
   referAsks = [],
@@ -208,6 +212,8 @@ export function TodayView({
   networks: readonly NetworkLive[];
   /** The network's list for today. */
   today: TodayList;
+  /** What their computer will do today on the network shown (decision 195): the Plan part's, else null. */
+  plan?: Plan | null;
   /**
    * Get ready on the network shown (decisions 63 and 90): what's left, the profile's advice among it; null when it
    * couldn't be had, or on a part without it. Whether anything holds the day is `today.ready`. Get ready itself is on
@@ -283,6 +289,19 @@ export function TodayView({
       ready={ready}
     />
   ) : null;
+  if (part === 'plan') {
+    return (
+      <div data-testid="outreach-today" data-part={part}>
+        {plan ? (
+          <PlanCard workspaceId={workspaceId} platform={platform} plan={plan} many={many} />
+        ) : (
+          <p className="text-[13px] text-text-2" data-testid="today-plan-none">
+            {PLAN_WORDS.notLoaded}
+          </p>
+        )}
+      </div>
+    );
+  }
   if (part === 'posts') {
     // The helpful post on the network shown, and the events near them coming up (decision 188).
     const events = today.events ?? [];
