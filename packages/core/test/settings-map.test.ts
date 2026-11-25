@@ -16,6 +16,7 @@ import {
   CUSTOMER_PAGES,
   DOCUMENT_SCREEN_WORDS,
   EVERY_PAGE,
+  EXPENSES_TAB_LABEL,
   IDEAS_WORDS,
   NOT_ANYWHERE,
   LOOK_ALIKES,
@@ -52,7 +53,9 @@ const MENUS: Readonly<Record<string, ReadonlySet<string>>> = {
   Knowledge: labelsIn('components/knowledge/subnav.tsx'),
   Workflows: labelsIn('components/workflows/subnav.tsx'),
   'AI teammate': labelsIn('components/ai-team/header.tsx'),
-  Money: new Set(Object.values(MONEY_TAB_LABELS)),
+  // The phone's tabs, plus Expenses (20261027036800), which the web's tabs (components/money/subnav.tsx) and the
+  // phone's Money screen both show whoever manages money.
+  Money: new Set([...Object.values(MONEY_TAB_LABELS), EXPENSES_TAB_LABEL]),
   Contacts: labelsIn('components/crm/customers-list.tsx'),
   Ideas: new Set(Object.values(IDEAS_WORDS.tabs)),
   // Its tabs are core's words (documents-home.tsx draws them from DOCUMENT_SCREEN_WORDS), so no label: '…' names them.
