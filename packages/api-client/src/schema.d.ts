@@ -78103,6 +78103,7 @@ export interface operations {
                             })[];
                             /** Format: date-time */
                             createdAt: string;
+                            files: string[];
                             /** Format: uuid */
                             id: string;
                             pictures: number;

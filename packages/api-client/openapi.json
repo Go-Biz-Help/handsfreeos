@@ -171013,6 +171013,12 @@
                             "minimum": 0,
                             "maximum": 9007199254740991
                           },
+                          "files": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
                           "cards": {
                             "type": "array",
                             "items": {
@@ -172221,6 +172227,7 @@
                           "role",
                           "text",
                           "pictures",
+                          "files",
                           "cards",
                           "createdAt"
                         ],

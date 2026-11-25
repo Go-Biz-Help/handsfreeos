@@ -40,12 +40,20 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, signInTestUser, testDbs } from '@hfos/db/testing';
 import { degrees, PDFDocument, StandardFonts } from 'pdf-lib';
 import { extractText, getDocumentProxy } from 'unpdf';
+import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ToolContext } from '../src/assistant/runtime';
 import { screenActionToolByName } from '../src/assistant/tools-screen-actions';
 import { allScreenReadTools } from '../src/assistant/tools-screen-reads';
 import { createToolExecutor } from '../src/assistant/tools-write';
+import type { AssistantModelFile } from '../src/assistant/attachments';
 import { documentsSweep } from '../src/documents/jobs';
+import {
+  cleanUpStaged,
+  STAGING_BUCKET,
+  STAGING_FOLDER,
+  stagedPath,
+} from '../src/housekeeping/assistant-staging';
 import { resolveSignerToken, signerToken } from '../src/documents/links';
 import type { JobContext, JobRow } from '../src/jobs';
 import {
@@ -1087,5 +1095,245 @@ describe('the Assistant', () => {
         ctx(),
       ),
     ).rejects.toMatchObject({ rule: 'documents_unavailable' });
+  });
+
+  describe('a new template from a contract sent with the question', () => {
+    const sentCtx = (
+      sent: {
+        files?: AssistantModelFile[];
+        pictures?: { mediaType: 'image/jpeg'; data: string }[];
+      } = {},
+    ): ToolContext => ({ ...ctx(), ...sent });
+    const madeTemplate = async (name: string) => {
+      const found = await rows<{
+        id: string;
+        source_file_id: string | null;
+        definition: {
+          pages: { width: number; height: number }[];
+          roles: { key: string; label: string; kind: string }[];
+        };
+      }>(
+        admin(),
+        sql`select id, source_file_id, definition from app.document_templates
+          where workspace_id = ${w.workspaceId} and name = ${name}`,
+      );
+      return found;
+    };
+    const staged = (callId: string) =>
+      w.s.store.exists(STAGING_BUCKET, stagedPath(w.workspaceId, callId));
+
+    it('makes it from a PDF on Confirm, keeping the PDF only until then', async () => {
+      const pdf = Buffer.from(await leasePdf()).toString('base64');
+      const files: AssistantModelFile[] = [
+        { kind: 'pdf', name: 'Lease 2027.pdf', data: pdf, pages: 2 },
+        { kind: 'text', name: 'notes.txt', text: 'Rent is due on the 1st.', cut: false },
+      ];
+      const args = argsOf('make_document_template', {
+        name: 'Lease 2027',
+        fromFile: 1,
+        signers: [
+          { label: 'Tenant', kind: 'customer' },
+          { label: 'Us', kind: 'team' },
+        ],
+      });
+      const callId = randomUUID();
+      const out = await tools().prepare(
+        tool('make_document_template'),
+        args,
+        sentCtx({ files }),
+        callId,
+      );
+      expect(AssistantCard.safeParse(out.card).success).toBe(true);
+      expect(out.card).toMatchObject({
+        title: 'Make the template “Lease 2027”?',
+        confirmLabel: 'Make the template',
+        fields: [
+          { label: 'Name', value: 'Lease 2027' },
+          { label: 'PDF', value: 'Lease 2027.pdf, 2 pages' },
+          { label: 'Who signs', value: 'Tenant, then Us (your team)' },
+          { label: 'Fields', value: 'Added on the template' },
+        ],
+      });
+      // Nothing is made before Confirm; the PDF waits where only the worker reaches it.
+      expect(await madeTemplate('Lease 2027')).toEqual([]);
+      expect(await staged(callId)).toBe(true);
+
+      // Confirm comes in another request, after the question's files are gone.
+      const done = await tools().commit(tool('make_document_template'), args, ctx(), {
+        toolCallId: callId,
+      });
+      expect(done).toMatchObject({
+        outcome: expect.stringMatching(
+          /^Made the template “Lease 2027” with its 2 pages\. The AI can’t place fields just now\./,
+        ),
+        command: 'document_template.create',
+      });
+      const [made] = await madeTemplate('Lease 2027');
+      expect(done.href).toBe(`/app/w/${w.workspaceId}/documents/templates/${made!.id}`);
+      expect(made!.source_file_id).not.toBeNull();
+      expect(made!.definition.pages).toHaveLength(2);
+      expect(made!.definition.roles).toEqual([
+        { key: 'tenant', label: 'Tenant', kind: 'customer' },
+        { key: 'us', label: 'Us', kind: 'team' },
+      ]);
+      const [file] = await rows<{ name: string; status: string }>(
+        admin(),
+        sql`select name, status from app.files where id = ${made!.source_file_id}`,
+      );
+      expect(file).toEqual({ name: 'Lease 2027.pdf', status: 'ready' });
+      expect(await staged(callId)).toBe(false);
+      // A second go at the same card has nothing left to make it from.
+      await expect(
+        tools().commit(tool('make_document_template'), args, ctx(), { toolCallId: callId }),
+      ).rejects.toMatchObject({ rule: 'assistant_file_gone' });
+    });
+
+    it('makes it from photos, a page each, and with no PDF when nothing was sent', async () => {
+      const photo = (
+        await sharp({
+          create: { width: 600, height: 800, channels: 3, background: '#ffffff' },
+        })
+          .jpeg()
+          .toBuffer()
+      ).toString('base64');
+      const pictures = [
+        { mediaType: 'image/jpeg' as const, data: photo },
+        { mediaType: 'image/jpeg' as const, data: photo },
+      ];
+      const args = argsOf('make_document_template', { name: 'Fence quote', fromPictures: true });
+      const callId = randomUUID();
+      const out = await tools().prepare(
+        tool('make_document_template'),
+        args,
+        sentCtx({ pictures }),
+        callId,
+      );
+      expect(out.card).toMatchObject({
+        fields: [
+          { label: 'Name', value: 'Fence quote' },
+          { label: 'PDF', value: 'Made from 2 photos, a page each' },
+          { label: 'Who signs', value: 'Customer' },
+          { label: 'Fields', value: 'Added on the template: a photo has no lines the AI can find' },
+        ],
+      });
+      const done = await tools().commit(tool('make_document_template'), args, ctx(), {
+        toolCallId: callId,
+      });
+      expect(done.outcome).toBe(
+        'Made the template “Fence quote” from 2 photos, a page each. Add the fields on the template.',
+      );
+      const [fence] = await madeTemplate('Fence quote');
+      expect(fence!.definition.pages).toEqual([
+        { width: 612, height: 792 },
+        { width: 612, height: 792 },
+      ]);
+
+      const blank = argsOf('make_document_template', { name: 'Blank agreement' });
+      const card = await prepare('make_document_template', blank);
+      expect(card.card.fields).toContainEqual({
+        label: 'PDF',
+        value: 'None yet: add it on the template',
+      });
+      expect(await commit('make_document_template', blank)).toMatchObject({
+        outcome:
+          'Made the template “Blank agreement”. Add its PDF on the template, then place the fields.',
+      });
+      const [empty] = await madeTemplate('Blank agreement');
+      expect(empty!.source_file_id).toBeNull();
+    });
+
+    it('says what to send instead when the file won’t make one', async () => {
+      const files: AssistantModelFile[] = [
+        { kind: 'text', name: 'Contract.docx', text: 'This agreement…', cut: false },
+      ];
+      const make = (args: Record<string, unknown>, sent = sentCtx({ files })) =>
+        tools().prepare(
+          tool('make_document_template'),
+          argsOf('make_document_template', { name: 'Contract', ...args }),
+          sent,
+          randomUUID(),
+        );
+      await expect(make({ fromFile: 1 })).rejects.toMatchObject({
+        rule: 'document_template_not_pdf',
+      });
+      await expect(make({ fromFile: 2 })).rejects.toMatchObject({
+        message: 'Only 1 file came with this question.',
+      });
+      await expect(make({ fromPictures: true })).rejects.toMatchObject({
+        message: expect.stringContaining('No picture came with this question'),
+      });
+      const long: AssistantModelFile[] = [
+        { kind: 'pdf', name: 'Handbook.pdf', data: 'JVBERi0=', pages: 40, of: 120 },
+      ];
+      await expect(make({ fromFile: 1 }, sentCtx({ files: long }))).rejects.toMatchObject({
+        rule: 'document_template_too_long',
+      });
+      expect(await madeTemplate('Contract')).toEqual([]);
+    });
+
+    it('clears away nightly the PDFs of cards nobody will confirm', async () => {
+      const [thread] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into app.assistant_threads (workspace_id, user_id)
+          values (${w.workspaceId}, ${w.owner.id}) returning id`,
+      );
+      const [ran] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into app.assistant_runs (workspace_id, user_id, thread_id, model, correlation_id)
+          values (${w.workspaceId}, ${w.owner.id}, ${thread!.id}, 'test', gen_random_uuid()) returning id`,
+      );
+      const call = (status: string) =>
+        rows<{ id: string }>(
+          admin(),
+          sql`insert into app.assistant_tool_calls (workspace_id, user_id, thread_id, run_id, tool, autonomy, status)
+            values (${w.workspaceId}, ${w.owner.id}, ${thread!.id}, ${ran!.id}, 'make_document_template', 'confirm',
+              ${status}::app.assistant_tool_status) returning id`,
+        ).then((r) => r[0]!.id);
+      const waiting = await call('awaiting_confirmation');
+      const replaced = await call('expired');
+      const gone = randomUUID();
+      const pdf = Buffer.from(await leasePdf());
+      for (const id of [waiting, replaced, gone])
+        await w.s.store.upload(
+          STAGING_BUCKET,
+          stagedPath(w.workspaceId, id),
+          pdf,
+          'application/pdf',
+          {
+            upsert: true,
+          },
+        );
+      await w.s.store.upload(
+        STAGING_BUCKET,
+        `${STAGING_FOLDER}/stray.pdf`,
+        pdf,
+        'application/pdf',
+        {
+          upsert: true,
+        },
+      );
+
+      const job = (now = Date.now()) =>
+        ({
+          ...w.s,
+          job: {
+            id: randomUUID(),
+            kind: 'assistant_staging.clean_up',
+            payload: {},
+          } as unknown as JobRow,
+          scope: {},
+          attempt: 1,
+          now,
+        }) as JobContext;
+      const next = await cleanUpStaged(job());
+      expect(next).toMatchObject({ rescheduleAt: expect.any(Date) });
+      expect(await staged(waiting)).toBe(true);
+      expect(await staged(replaced)).toBe(false);
+      expect(await staged(gone)).toBe(false);
+      expect(await w.s.store.exists(STAGING_BUCKET, `${STAGING_FOLDER}/stray.pdf`)).toBe(false);
+      // A card left waiting more than two weeks goes too.
+      await cleanUpStaged(job(Date.now() + 15 * 24 * 60 * 60_000));
+      expect(await staged(waiting)).toBe(false);
+    });
   });
 });

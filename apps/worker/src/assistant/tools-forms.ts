@@ -609,10 +609,11 @@ async function buildForm(
   // The pictures that came with the question (a paper order form, a screenshot of another form's page), which the
   // builder sees too.
   const pictures = args['fromPictures'] === true ? (ctx.pictures ?? []) : [];
-  if (args['fromPictures'] === true && !pictures.length)
+  const files = args['fromPictures'] === true ? (ctx.files ?? []) : [];
+  if (args['fromPictures'] === true && !pictures.length && !files.length)
     throw HfosError.validation(
       undefined,
-      'No picture came with this question, so there’s nothing to build from. Ask them to send it again with their question.',
+      'No picture or file came with this question, so there’s nothing to build from. Ask them to send it again with their question.',
     );
   // A form on a web page they linked: read before anything is made, so a page that can't be read starts nothing.
   const link = str(args['fromLink']);
@@ -648,8 +649,8 @@ async function buildForm(
     );
   const description =
     str(args['description']) ??
-    (pictures.length
-      ? 'Build the form in the pictures, as close to it as it can be.'
+    (pictures.length || files.length
+      ? `Build the form in the ${pictures.length ? 'pictures' : 'files'}, as close to it as it can be.`
       : pageForm
         ? 'Build the form read from the page, as close to it as it can be.'
         : null);
@@ -696,6 +697,7 @@ async function buildForm(
           formId,
           prompt: description,
           ...(pictures.length ? { pictures } : {}),
+          ...(files.length ? { files } : {}),
           ...(pageForm ? { page: { url: pageForm.url, outline: pageForm.outline } } : {}),
         })
       : null;

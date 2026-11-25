@@ -5,6 +5,7 @@ import {
   ADDON_SERVER_MODULES,
   addonAiToolByName,
   ASSISTANT_PICTURE_EDGE,
+  ASSISTANT_FILES_MAX_BASE64,
   ASSISTANT_PICTURE_MAX_BASE64,
   ASSISTANT_PICTURES_MAX,
   AssistantAskInput,
@@ -26,6 +27,7 @@ import { authenticate, parseBody, requirePermission, type HttpDeps } from '../ht
 import { openStream } from '../http/sse';
 import { ADDON_WORKER_MODULES } from '../addons/modules';
 import type { AddonWorkerModule } from '../addons/types';
+import { filesForModel } from './attachments';
 import { personQuery, questionContext } from './context';
 import { uprightJpeg } from '../contacts/card-picture';
 import {
@@ -93,8 +95,9 @@ export const WARMS_PER_MINUTE = 12;
  */
 export const ASKS_PER_MINUTE = 30;
 
-/** The most a question may weigh: its pictures, and room for the words and everything else it carries. */
-export const ASK_BODY_LIMIT = ASSISTANT_PICTURES_MAX * ASSISTANT_PICTURE_MAX_BASE64 + 256 * 1024;
+/** The most a question may weigh: its pictures and files, and room for the words and everything else it carries. */
+export const ASK_BODY_LIMIT =
+  ASSISTANT_PICTURES_MAX * ASSISTANT_PICTURE_MAX_BASE64 + ASSISTANT_FILES_MAX_BASE64 + 256 * 1024;
 
 /**
  * Pictures sent with a question, as the model is shown them: turned upright (a phone photo's EXIF), no bigger than
@@ -180,6 +183,7 @@ export function registerAssistantRoutes(
     if (!assistant) throw notConfigured();
     await assertConsented(deps, actor);
     const pictures = await picturesForModel(input.pictures);
+    const files = await filesForModel(input.files);
     const context = await questionContext(
       deps.httpDb,
       actor,
@@ -232,6 +236,7 @@ export function registerAssistantRoutes(
             ...(input.threadId ? { threadId: input.threadId } : {}),
             text: input.text,
             ...(pictures.length ? { pictures } : {}),
+            ...(files.length ? { files } : {}),
             page: input.page,
             tools: context.tools,
             prompt,

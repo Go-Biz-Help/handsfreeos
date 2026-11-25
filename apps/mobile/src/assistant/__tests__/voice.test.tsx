@@ -106,6 +106,7 @@ it('asks what was said, reads the answer as it arrives, and listens again', asyn
     role: 'user',
     text: 'What’s on today?',
     pictures: 0,
+    files: [],
     createdAt: NOW,
   };
   await rerender({
@@ -186,7 +187,14 @@ it('a plain yes confirms every card still waiting, even after a follow-up questi
   const chat = chatWith(
     [
       answer('I set it up in two parts.', false, cards),
-      { key: 'q-2', role: 'user', text: 'Is it at 3:30 or 4?', pictures: 0, createdAt: NOW },
+      {
+        key: 'q-2',
+        role: 'user',
+        text: 'Is it at 3:30 or 4?',
+        pictures: 0,
+        files: [],
+        createdAt: NOW,
+      },
       { ...answer('It’s at 4.', false), key: 'a-2' },
     ],
     { setCall },

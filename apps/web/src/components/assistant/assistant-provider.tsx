@@ -1,7 +1,10 @@
 'use client';
 import {
   ASSISTANT_CONSENT_VERSION,
+  ASSISTANT_FILES_MAX,
+  ASSISTANT_FILES_MAX_BYTES,
   ASSISTANT_PICTURES_MAX,
+  assistantFileRefusal,
   ASSISTANT_WORDS,
   assistantAnswerAfterLastQuestion,
   assistantChatToReopen,
@@ -33,8 +36,15 @@ import type {
   AssistantToolStatus,
 } from '@/lib/api/types';
 import { usePageRecord, useScreenPath, type PageRecord } from '@/lib/assistant/page-record';
+import { readDraftFile, type DraftFile } from '@/lib/assistant/files';
 import { picturesAmong, shrinkPicture, type DraftPicture } from '@/lib/assistant/pictures';
-import { stopRun, streamAnswer, warmAssistant, type AskPicture } from '@/lib/assistant/stream';
+import {
+  stopRun,
+  streamAnswer,
+  warmAssistant,
+  type AskFile,
+  type AskPicture,
+} from '@/lib/assistant/stream';
 import { isMac, isShortcut } from '@/lib/keys';
 import { useMatches } from '@/lib/use-media';
 
@@ -69,6 +79,8 @@ export interface QuestionMessage {
   readonly pictures: number;
   /** The pictures themselves, while this screen still has them (they aren't kept, so a reopened chat has none). */
   readonly previews?: readonly string[];
+  /** The names of the files that came with it. */
+  readonly files: readonly string[];
   readonly createdAt: string;
 }
 export interface AnswerMessage {
@@ -85,6 +97,8 @@ export interface AnswerMessage {
   readonly question: string | null;
   /** The pictures that came with that question, for Try again, while this screen has them. */
   readonly questionPictures?: readonly AskPicture[];
+  /** …and its files. */
+  readonly questionFiles?: readonly AskFile[];
   readonly createdAt: string;
 }
 export type ChatMessage = QuestionMessage | AnswerMessage;
@@ -148,11 +162,17 @@ export interface AssistantValue {
   readonly draft: string;
   /** Pictures waiting to go with the next question (ASSISTANT_PICTURES_MAX at most). */
   readonly draftPictures: readonly DraftPicture[];
-  /** Adds pictures chosen, pasted or dropped, shrunk first; the ones past the most, or that won't open, say so. */
-  addPictures(files: Iterable<File>): Promise<void>;
+  /** Files waiting to go with it (ASSISTANT_FILES_MAX at most). */
+  readonly draftFiles: readonly DraftFile[];
+  /**
+   * Adds pictures and files chosen, pasted or dropped: pictures shrunk first, files read. The ones past the most,
+   * that won't open, or that aren't a kind the Assistant reads, say so.
+   */
+  addAttachments(files: Iterable<File>): Promise<void>;
   removePicture(id: string): void;
-  /** The question went: its pictures leave the box. */
-  clearPictures(): void;
+  removeFile(id: string): void;
+  /** The question went: its pictures and files leave the box. */
+  clearAttachments(): void;
   readonly composerRef: RefObject<HTMLTextAreaElement | null>;
   /** The H in the phone header: focus goes back to it when the full-screen panel closes. */
   readonly triggerRef: RefObject<HTMLButtonElement | null>;
@@ -166,7 +186,11 @@ export interface AssistantValue {
    */
   ask(
     text: string,
-    opts?: { readonly spoken?: boolean; readonly pictures?: readonly AskPicture[] },
+    opts?: {
+      readonly spoken?: boolean;
+      readonly pictures?: readonly AskPicture[];
+      readonly files?: readonly AskFile[];
+    },
   ): boolean;
   /** Asks an answer's question again (Try again). */
   retry(answerKey: string): void;
@@ -199,9 +223,11 @@ const NONE: AssistantValue = {
   page: null,
   draft: '',
   draftPictures: [],
-  addPictures: async () => undefined,
+  draftFiles: [],
+  addAttachments: async () => undefined,
   removePicture: noop,
-  clearPictures: noop,
+  removeFile: noop,
+  clearAttachments: noop,
   composerRef: { current: null },
   triggerRef: { current: null },
   setDraft: noop,
@@ -311,7 +337,14 @@ const STILL_WORKING: Step = {
 
 const fromSaved = (m: AssistantSavedMessage): ChatMessage =>
   m.role === 'user'
-    ? { key: m.id, role: 'user', text: m.text, pictures: m.pictures ?? 0, createdAt: m.createdAt }
+    ? {
+        key: m.id,
+        role: 'user',
+        text: m.text,
+        pictures: m.pictures ?? 0,
+        files: m.files ?? [],
+        createdAt: m.createdAt,
+      }
     : {
         key: m.id,
         role: 'assistant',
@@ -390,6 +423,7 @@ export function AssistantProvider({
   const waitingQuestionRef = useRef<{
     readonly text: string;
     readonly pictures: readonly AskPicture[];
+    readonly files: readonly AskFile[];
   } | null>(null);
   const [open, setOpenState] = useState(false);
   const [view, setView] = useState<View>('chat');
@@ -404,6 +438,9 @@ export function AssistantProvider({
   const [draftPictures, setDraftPictures] = useState<readonly DraftPicture[]>([]);
   const draftPicturesRef = useRef(draftPictures);
   draftPicturesRef.current = draftPictures;
+  const [draftFiles, setDraftFiles] = useState<readonly DraftFile[]>([]);
+  const draftFilesRef = useRef(draftFiles);
+  draftFilesRef.current = draftFiles;
   const [mac, setMac] = useState<boolean | null>(null);
 
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -549,15 +586,25 @@ export function AssistantProvider({
   const ask = useCallback(
     (
       raw: string,
-      opts: { readonly spoken?: boolean; readonly pictures?: readonly AskPicture[] } = {},
+      opts: {
+        readonly spoken?: boolean;
+        readonly pictures?: readonly AskPicture[];
+        readonly files?: readonly AskFile[];
+      } = {},
     ): boolean => {
       const text = raw.trim();
       // Only what's sent: a draft picture's preview stays on this screen.
       const pictures = (opts.pictures ?? []).map((p) => ({ data: p.data, mediaType: p.mediaType }));
-      if ((!text && !pictures.length) || !enabled || streamRef.current) return false;
+      const files = (opts.files ?? []).map((f) => ({
+        name: f.name,
+        mediaType: f.mediaType,
+        data: f.data,
+      }));
+      if ((!text && !pictures.length && !files.length) || !enabled || streamRef.current)
+        return false;
       // Nothing goes to the AI service before the person's OK: the question waits for it.
       if (consentNeeded) {
-        waitingQuestionRef.current = { text, pictures };
+        waitingQuestionRef.current = { text, pictures, files };
         setView('chat');
         return false;
       }
@@ -576,6 +623,7 @@ export function AssistantProvider({
           text,
           pictures: pictures.length,
           ...(previews.length ? { previews } : {}),
+          files: files.map((f) => f.name),
           createdAt: now,
         },
         {
@@ -588,6 +636,7 @@ export function AssistantProvider({
           notice: null,
           question: text,
           ...(pictures.length ? { questionPictures: pictures } : {}),
+          ...(files.length ? { questionFiles: files } : {}),
           createdAt: now,
         },
       ]);
@@ -681,6 +730,7 @@ export function AssistantProvider({
               path: screenRef.current,
               ...(opts.spoken ? { spoken: true } : {}),
               ...(pictures.length ? { pictures } : {}),
+              ...(files.length ? { files } : {}),
             },
             onEvent,
             controller.signal,
@@ -713,7 +763,7 @@ export function AssistantProvider({
           if (e instanceof ApiError && e.rule === 'assistant_consent_required') {
             forgetWaiting(workspaceId, threadRef.current);
             setMessages((all) => all.filter((m) => m.key !== userKey && m.key !== answerKey));
-            waitingQuestionRef.current = { text, pictures };
+            waitingQuestionRef.current = { text, pictures, files };
             setConsentNeeded(true);
             return;
           }
@@ -737,8 +787,14 @@ export function AssistantProvider({
   const retry = useCallback(
     (answerKey: string) => {
       const m = messages.find((x) => x.key === answerKey);
-      if (m?.role === 'assistant' && (m.question || m.questionPictures?.length))
-        ask(m.question ?? '', { pictures: m.questionPictures ?? [] });
+      if (
+        m?.role === 'assistant' &&
+        (m.question || m.questionPictures?.length || m.questionFiles?.length)
+      )
+        ask(m.question ?? '', {
+          pictures: m.questionPictures ?? [],
+          files: m.questionFiles ?? [],
+        });
     },
     [ask, messages],
   );
@@ -782,6 +838,7 @@ export function AssistantProvider({
     setView('chat');
     setDraft('');
     setDraftPictures([]);
+    setDraftFiles([]);
   }, [detach, endLoading, setThread]);
 
   const openThread = useCallback(
@@ -966,27 +1023,71 @@ export function AssistantProvider({
     if (consentNeeded || !waitingQuestionRef.current) return;
     const waiting = waitingQuestionRef.current;
     waitingQuestionRef.current = null;
-    ask(waiting.text, { pictures: waiting.pictures });
+    ask(waiting.text, { pictures: waiting.pictures, files: waiting.files });
   }, [ask, consentNeeded]);
 
-  const addPictures = useCallback(async (files: Iterable<File>) => {
-    const chosen = picturesAmong(files);
-    if (!chosen.length) return;
-    const room = ASSISTANT_PICTURES_MAX - draftPicturesRef.current.length;
-    if (chosen.length > room) toast(ASSISTANT_WORDS.pictures.tooMany(ASSISTANT_PICTURES_MAX));
-    const shrunk = await Promise.all(
-      chosen.slice(0, Math.max(0, room)).map((f) => shrinkPicture(f).catch(() => null)),
-    );
-    if (shrunk.some((p) => !p)) toast.error(ASSISTANT_WORDS.pictures.unreadable);
-    const fine = shrunk.filter((p): p is DraftPicture => !!p);
-    if (fine.length) setDraftPictures((all) => [...all, ...fine].slice(0, ASSISTANT_PICTURES_MAX));
+  const addAttachments = useCallback(async (added: Iterable<File>) => {
+    const all = [...added];
+    const chosen = picturesAmong(all);
+    const others = all.filter((f) => !chosen.includes(f));
+    if (!chosen.length && !others.length) return;
+    if (chosen.length) {
+      const room = ASSISTANT_PICTURES_MAX - draftPicturesRef.current.length;
+      if (chosen.length > room) toast(ASSISTANT_WORDS.pictures.tooMany(ASSISTANT_PICTURES_MAX));
+      const shrunk = await Promise.all(
+        chosen.slice(0, Math.max(0, room)).map((f) => shrinkPicture(f).catch(() => null)),
+      );
+      if (shrunk.some((p) => !p)) toast.error(ASSISTANT_WORDS.pictures.unreadable);
+      const fine = shrunk.filter((p): p is DraftPicture => !!p);
+      if (fine.length)
+        setDraftPictures((now) => [...now, ...fine].slice(0, ASSISTANT_PICTURES_MAX));
+    }
+    if (others.length) {
+      const read: DraftFile[] = [];
+      let bytes = draftFilesRef.current.reduce((n, f) => n + f.bytes, 0);
+      let full = false;
+      for (const f of others) {
+        if (draftFilesRef.current.length + read.length >= ASSISTANT_FILES_MAX) {
+          full = true;
+          continue;
+        }
+        let file: DraftFile | null;
+        try {
+          file = await readDraftFile(f);
+        } catch {
+          if (f.size > ASSISTANT_FILES_MAX_BYTES)
+            toast.error(ASSISTANT_WORDS.files.tooBig(ASSISTANT_FILES_MAX_BYTES / 1024 / 1024));
+          else toast.error(ASSISTANT_WORDS.files.unreadable(f.name));
+          continue;
+        }
+        if (!file) {
+          toast.error(assistantFileRefusal(f.name));
+          continue;
+        }
+        if (bytes + file.bytes > ASSISTANT_FILES_MAX_BYTES) {
+          toast.error(ASSISTANT_WORDS.files.tooBig(ASSISTANT_FILES_MAX_BYTES / 1024 / 1024));
+          continue;
+        }
+        bytes += file.bytes;
+        read.push(file);
+      }
+      if (full) toast(ASSISTANT_WORDS.files.tooMany(ASSISTANT_FILES_MAX));
+      if (read.length) setDraftFiles((now) => [...now, ...read].slice(0, ASSISTANT_FILES_MAX));
+    }
     composerRef.current?.focus({ preventScroll: true });
   }, []);
   const removePicture = useCallback(
     (id: string) => setDraftPictures((all) => all.filter((p) => p.id !== id)),
     [],
   );
-  const clearPictures = useCallback(() => setDraftPictures([]), []);
+  const removeFile = useCallback(
+    (id: string) => setDraftFiles((all) => all.filter((f) => f.id !== id)),
+    [],
+  );
+  const clearAttachments = useCallback(() => {
+    setDraftPictures([]);
+    setDraftFiles([]);
+  }, []);
 
   const shortcut = useMemo<Shortcut | null>(
     () =>
@@ -1018,9 +1119,11 @@ export function AssistantProvider({
       page,
       draft,
       draftPictures,
-      addPictures,
+      draftFiles,
+      addAttachments,
       removePicture,
-      clearPictures,
+      removeFile,
+      clearAttachments,
       composerRef,
       triggerRef,
       setDraft,
@@ -1060,9 +1163,11 @@ export function AssistantProvider({
       page,
       draft,
       draftPictures,
-      addPictures,
+      draftFiles,
+      addAttachments,
       removePicture,
-      clearPictures,
+      removeFile,
+      clearAttachments,
       setOpen,
       toggle,
       ask,

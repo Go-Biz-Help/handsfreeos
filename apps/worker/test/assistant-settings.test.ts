@@ -153,7 +153,7 @@ describe('the settings map', () => {
       ...Object.keys(settingsMoneyConfirmTools),
       ...Object.keys(settingsMeConfirmTools),
     ];
-    expect(settingsTools.length).toBe(26);
+    expect(settingsTools.length).toBe(27);
     for (const name of settingsTools) expect(assistantToolByName.get(name), name).toBeTruthy();
     for (const name of settingsTools)
       expect(TEAMMATE_TOOL_NAMES as readonly string[], name).not.toContain(name);
@@ -2021,6 +2021,73 @@ describe('Settings → Products', () => {
     prepareOn(createToolExecutor(api()), 'manage_product', args);
   const catalogue = async () =>
     (await q<{ products: ProductRow[] }>('product.list', { includeArchived: true })).products;
+
+  it('adds a whole price list on one card, leaving out what’s there already or listed twice', async () => {
+    const tee = `Event tee ${suffix}`;
+    const hoodie = `Hoodie ${suffix}`;
+    const cap = `Cap ${suffix}`;
+    const add = (items: Record<string, unknown>[]) =>
+      prepareOn(createToolExecutor(api()), 'add_products', { items });
+    const first = await add([
+      {
+        name: tee,
+        priceDollars: 12,
+        options: [
+          {
+            name: 'Size',
+            choices: [
+              { label: 'Youth S', priceChangeDollars: -2 },
+              { label: 'Adult M' },
+              { label: 'Adult 2XL', priceChangeDollars: 2 },
+            ],
+          },
+        ],
+      },
+      { name: hoodie, priceDollars: 30 },
+      { name: `  ${hoodie.toUpperCase()} `, priceDollars: 30 },
+    ]);
+    expect(first.card.title).toBe('Add 2 items to the price list');
+    expect(first.card.confirmLabel).toBe('Add all 2');
+    expect(fieldOf(first.card, 'Items')).toBe('2 new on the price list');
+    expect(first.card.body).toBe(
+      `${tee}: $12 each · Size: Youth S (−$2), Adult M, Adult 2XL (+$2)\n${hoodie}: $30 each`,
+    );
+    expect(first.card.warnings.map((w) => w.text)).toContain(
+      `Listed twice, so added once: ${hoodie.toUpperCase()}.`,
+    );
+    // Nothing is made until Confirm.
+    expect((await catalogue()).some((p) => p.name === tee)).toBe(false);
+    expect((await first.done()).outcome).toBe('2 items are on the price list.');
+    const items = await catalogue();
+    expect(items.find((p) => p.name === tee)).toMatchObject({ unitPriceCents: 1200 });
+    expect(items.find((p) => p.name === hoodie)).toMatchObject({ unitPriceCents: 3000 });
+
+    const again = await add([
+      { name: tee, priceDollars: 12 },
+      { name: cap, priceDollars: 15, unitLabel: 'cap' },
+    ]);
+    expect(again.card.title).toBe(`Add ${cap} to the price list`);
+    expect(again.card.confirmLabel).toBe('Add it');
+    expect(again.card.body).toBe(`${cap}: $15 per cap`);
+    expect(again.card.warnings.map((w) => w.text)).toContain(
+      `Already on the price list, so left out: ${tee}.`,
+    );
+    expect((await again.done()).outcome).toBe(`${cap} is on the price list.`);
+
+    await expect(add([{ name: cap, priceDollars: 15 }])).rejects.toThrow(
+      `${cap} is already on the price list, so there’s nothing to add.`,
+    );
+    // A choice that would cost less than nothing is refused before a card, naming the item.
+    await expect(
+      add([
+        {
+          name: `Sticker ${suffix}`,
+          priceDollars: 1,
+          options: [{ name: 'Size', choices: [{ label: 'Small', priceChangeDollars: -5 }] }],
+        },
+      ]),
+    ).rejects.toThrow(`Sticker ${suffix}`);
+  });
 
   it('adds an item with its code and kind, reprices it, archives it and puts it back, each on Confirm', async () => {
     const name = `Duct sealing ${suffix}`;

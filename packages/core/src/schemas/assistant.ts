@@ -279,6 +279,8 @@ export const AssistantMessageOut = z.object({
   text: z.string(),
   /** How many pictures came with a question. The pictures themselves aren't kept: the model saw them while it answered. */
   pictures: z.int().min(0),
+  /** The names of the files that came with a question. Like pictures, the files themselves aren't kept. */
+  files: z.array(z.string()),
   cards: z.array(AssistantCard),
   createdAt: isoDateTime,
 });
@@ -387,6 +389,43 @@ export const AssistantPicture = z.object({
 });
 export type AssistantPicture = z.infer<typeof AssistantPicture>;
 
+/** The most files one question can carry: a price list, a contract, a spreadsheet of leads. */
+export const ASSISTANT_FILES_MAX = 3;
+/** A question's files together at most, before base64: a scanned contract fits, a whole catalogue of photos doesn't. */
+export const ASSISTANT_FILES_MAX_BYTES = 10 * 1024 * 1024;
+/** The same, as the base64 the apps send. */
+export const ASSISTANT_FILES_MAX_BASE64 = Math.ceil(ASSISTANT_FILES_MAX_BYTES / 3) * 4;
+export const ASSISTANT_DOCX_TYPE =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+export const ASSISTANT_XLSX_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+/**
+ * The files a question can carry. A PDF is shown to the model page by page; the worker reads the words out of the
+ * rest (a Word file's paragraphs and tables, a spreadsheet's rows) and shows it those.
+ */
+export const ASSISTANT_FILE_TYPES = [
+  'application/pdf',
+  ASSISTANT_DOCX_TYPE,
+  ASSISTANT_XLSX_TYPE,
+  'text/csv',
+  'text/plain',
+  'text/markdown',
+] as const;
+export type AssistantFileType = (typeof ASSISTANT_FILE_TYPES)[number];
+
+/**
+ * A file sent with a question. The model reads it while it answers that question (and a tool that builds from it,
+ * like the form builder, reads it too); it isn't kept, so the chat says only its name.
+ */
+export const AssistantFile = z.object({
+  /** Its name as it was on their computer or phone, like "Price list.pdf". */
+  name: z.string().trim().min(1).max(200),
+  mediaType: z.enum(ASSISTANT_FILE_TYPES),
+  /** The file's bytes, base64, with no `data:` prefix. */
+  data: z.string().min(1).max(ASSISTANT_FILES_MAX_BASE64),
+});
+export type AssistantFile = z.infer<typeof AssistantFile>;
+
 /** What the browser sends to the worker for one question. */
 export const AssistantAskInput = z
   .object({
@@ -395,6 +434,7 @@ export const AssistantAskInput = z
     /** What they asked. It may be empty when a picture came with it ("make this form" is often the picture alone). */
     text: z.string().trim().max(4000).default(''),
     pictures: z.array(AssistantPicture).max(ASSISTANT_PICTURES_MAX).default([]),
+    files: z.array(AssistantFile).max(ASSISTANT_FILES_MAX).default([]),
     page: AssistantPageRecord.nullable().default(null),
     /**
      * The screen they asked from, inside the business: the address after /app/w/<workspaceId>, with its query string
@@ -421,10 +461,17 @@ export const AssistantAskInput = z
      */
     deviceChanges: AssistantDeviceChanges.nullable().default(null).catch(null),
   })
-  .refine((input) => input.text.length > 0 || input.pictures.length > 0, {
+  .refine((input) => input.text.length > 0 || input.pictures.length > 0 || input.files.length > 0, {
     path: ['text'],
-    error: 'Type a question, or add a picture, then send it.',
-  });
+    error: 'Type a question, or add a picture or a file, then send it.',
+  })
+  .refine(
+    (input) => input.files.reduce((n, f) => n + f.data.length, 0) <= ASSISTANT_FILES_MAX_BASE64,
+    {
+      path: ['files'],
+      error: `Files sent with one question can come to ${ASSISTANT_FILES_MAX_BYTES / 1024 / 1024} MB together. Send fewer, or smaller ones.`,
+    },
+  );
 
 /** The panel opened: the worker has the AI read the instructions ahead of the person's question. */
 export const AssistantWarmInput = z.object({ workspaceId: uuid });

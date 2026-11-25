@@ -43,7 +43,7 @@
       "kind": "do",
       "file": "apps/web/src/app/app/w/[workspaceId]/documents/page.tsx:39",
       "covered": "yes",
-      "by": "do_document_template_create"
+      "by": "make_document_template"
     },
     {
       "path": "Documents → Send a document (when you can send and a template is ready)",
@@ -106,7 +106,7 @@
       "kind": "do",
       "file": "apps/web/src/components/documents/documents-home.tsx:154",
       "covered": "yes",
-      "by": "do_document_send; do_document_template_create"
+      "by": "do_document_send; make_document_template"
     },
     {
       "path": "Documents (phone) → Sent → No template is ready to send yet… (in place of Send)",
@@ -176,14 +176,14 @@
       "kind": "see",
       "file": "apps/web/src/components/documents/new-template.tsx:71",
       "covered": "yes",
-      "by": "do_document_template_create description"
+      "by": "make_document_template description"
     },
     {
       "path": "New template → Choose the PDF (its name names the template)",
       "kind": "do",
       "file": "apps/web/src/components/documents/new-template.tsx:89",
-      "covered": "person",
-      "by": "a file from their own device; NEVER document_template.begin_upload"
+      "covered": "yes",
+      "by": "make_document_template fromFile (a PDF sent with the question) or fromPictures"
     },
     {
       "path": "New template → Up to 25 MB. You can also add it later.",
@@ -204,14 +204,14 @@
       "kind": "do",
       "file": "apps/web/src/components/documents/new-template.tsx:97",
       "covered": "yes",
-      "by": "do_document_template_create input name"
+      "by": "make_document_template input name"
     },
     {
       "path": "New template → Make the template",
       "kind": "do",
       "file": "apps/web/src/components/documents/new-template.tsx:112",
       "covered": "yes",
-      "by": "do_document_template_create; the PDF stays the person’s"
+      "by": "make_document_template, with a PDF or photos sent with the question"
     },
     {
       "path": "New template → Cancel",
@@ -295,7 +295,7 @@
       "kind": "do",
       "file": "apps/web/src/components/documents/template-editor.tsx:517",
       "covered": "person",
-      "by": "a file from their own device; NEVER document_template.begin_upload"
+      "by": "a file from their own device; make_document_template only makes a new template from one sent with a question"
     },
     {
       "path": "Template → More → Make a copy (Copied. You’re in the copy now.)",
@@ -351,7 +351,7 @@
       "kind": "do",
       "file": "apps/web/src/components/documents/template-editor.tsx:671",
       "covered": "person",
-      "by": "a file from their own device; NEVER document_template.begin_upload"
+      "by": "a file from their own device; make_document_template only makes a new template from one sent with a question"
     },
     {
       "path": "Template → The PDF didn’t open. Refresh the page to try again.",

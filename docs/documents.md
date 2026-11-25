@@ -100,8 +100,22 @@ hours.
 Both can be changed per role and per person. The link the team copies is asked for as them, so a customer they
 can't see is "not there".
 
-**The Assistant does what a screen does.** Making, changing, archiving and sending are screen actions, each on a
-Confirm card. Uploading a PDF is the person's own file, so it isn't the Assistant's. It never deletes for good.
+**The Assistant does what a screen does.** Changing, archiving and sending are screen actions, each on a Confirm
+card. It never deletes for good. New template is `make_document_template`, also on a Confirm card: a contract the
+person sends with their question (the owner, 24 Nov 2026), as a PDF (`fromFile`) or photos of its pages
+(`fromPictures`), or no PDF yet.
+
+- **The PDF waits for Confirm.** What's sent with a question isn't kept, so the card's PDF waits in the attachments
+  bucket under `assistant-staging/`, where only the worker's own key reaches it. Confirm uploads it as New template
+  does (`document_template.begin_upload`, `file.confirm`, `document_template.set_source`) and removes the waiting
+  copy. A nightly job removes the rest: each whose card was answered or replaced, and each older than 14 days
+  (`apps/worker/src/housekeeping/assistant-staging.ts`).
+- **Photos become a PDF,** a Letter page each, the photo as big as fits. They have no lines for the AI to find, so the
+  person adds the fields.
+- **From a PDF, the AI places the fields** as Place fields for me does. When it can't (no AI just now, the daily
+  limit), the template is still made and the outcome says to add them or press Place fields for me later.
+- **Only a PDF.** A Word file is read for the question but can't be made into a template: the Assistant asks for a PDF.
+  A PDF longer than the 40 pages it reads at once is refused with where to make it instead (Documents → New template).
 
 **The browser reads PDFs with pdf.js's legacy build, on the page's own thread.** It runs on the older phones
 customers sign on, and nothing has to be served from a separate address. Fonts, character maps and image decoders a

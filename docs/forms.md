@@ -240,6 +240,11 @@ won't open is refused as `picture_unreadable`, naming which). The newest questio
 its words (`modelMessages` in `assistant/runtime.ts`), and with `fromPictures` they go to the form builder too. A
 question with pictures is never read as a yes or no to a card waiting for an OK.
 
+**A file.** The same button takes a PDF, Word, Excel, CSV or text file (the owner, 2026-11-24): a paper form scanned
+to PDF, or a Word file of the questions. `fromPictures` hands the builder the question's files too, as the model read
+them (`filesForModel` in `assistant/attachments.ts`): a PDF whole, the rest as their words. See "Pictures and files
+sent to the Assistant" in `docs/operations.md`.
+
 **A link.** `fromLink` reads the page in `apps/worker/src/forms/page-forms.ts` through the worker's safe fetch (10
 seconds, 3 MB), then opens up to 3 forms framed on it (a JotForm or Google Form pasted into a page, or a Typeform put
 there with Typeform's embed code, found by its `data-tf-…` id or a `typeform.com/to/…` link). Core's

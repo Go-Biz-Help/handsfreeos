@@ -85,6 +85,8 @@ export const assistantThreadGet = defineQuery({
         cards: assistantMessages.cards,
         // How many pictures came with a question (the worker's startRun keeps the count, never the pictures).
         pictures: dsql<number>`coalesce((${assistantMessages.context}->>'pictures')::int, 0)`,
+        // The names of the files that came with it, kept the same way.
+        files: dsql<unknown>`${assistantMessages.context}->'files'`,
         createdAt: assistantMessages.createdAt,
       })
       .from(assistantMessages)
@@ -127,6 +129,9 @@ export const assistantThreadGet = defineQuery({
         role: m.role,
         text: m.text,
         pictures: Math.max(0, Number(m.pictures) || 0),
+        files: Array.isArray(m.files)
+          ? m.files.filter((n): n is string => typeof n === 'string').slice(0, 10)
+          : [],
         // A card that no longer fits the schema is dropped rather than failing the whole chat.
         cards: m.cards.flatMap((c) => {
           const parsed = AssistantCard.safeParse(c);

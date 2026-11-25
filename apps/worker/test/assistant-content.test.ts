@@ -1004,7 +1004,7 @@ describe('forms', () => {
         'Build the form in the pictures, as close to it as it can be.',
       );
       // Asked to build from a picture that didn't come: nothing to build from.
-      await expect(build({ fromPictures: true })).rejects.toThrow(/No picture came/);
+      await expect(build({ fromPictures: true })).rejects.toThrow(/No picture or file came/);
     });
   });
 

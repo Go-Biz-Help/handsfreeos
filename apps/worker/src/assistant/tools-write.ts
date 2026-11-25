@@ -1403,6 +1403,30 @@ const moveLead: ConfirmTool = {
 const fullNameOf = (args: Args) =>
   [str(args['firstName']), str(args['lastName'])].filter(Boolean).join(' ');
 
+/** The follow-up a new contact's card carries, as the model asked for it. */
+interface FollowUp {
+  title: string;
+  dueAt?: string;
+  assigneeUserId?: string;
+}
+const followUpOf = (args: Args): FollowUp | null => {
+  const f = args['followUp'] as FollowUp | undefined;
+  return f && typeof f.title === 'string' && f.title.trim() ? f : null;
+};
+
+/** One of the business's companies with this name, ignoring case and spaces, or null. */
+async function companyNamed(db: Db, ctx: ToolContext, name: string) {
+  const said = name.trim().replace(/\s+/g, ' ');
+  const key = said.toLowerCase();
+  const { items } = await query<{ items: { id: string; name: string }[] }>(
+    db,
+    ctx,
+    'company.list',
+    { q: said.slice(0, 120), limit: 25 },
+  );
+  return items.find((c) => c.name.trim().replace(/\s+/g, ' ').toLowerCase() === key) ?? null;
+}
+
 const createCustomer: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const name = fullNameOf(args);
@@ -1422,6 +1446,16 @@ const createCustomer: ConfirmTool = {
         email: str(args['email']) ?? null,
       },
     );
+    const companyName = str(args['companyName']);
+    const company = companyName ? await companyNamed(db, ctx, companyName) : null;
+    const followUp = followUpOf(args);
+    const due = followUp ? dueOf(followUp.dueAt, ctx.timezone) : null;
+    const who =
+      followUp?.assigneeUserId && followUp.assigneeUserId !== ctx.actor.userId
+        ? ((await teammate(db, ctx, followUp.assigneeUserId)) ?? 'A teammate')
+        : 'You';
+    const note = str(args['timelineNote']);
+    const notes = str(args['notes']);
     return {
       card: confirmCard(toolCallId, 'create_customer', {
         title: `Add ${name} as a new customer?`,
@@ -1429,8 +1463,27 @@ const createCustomer: ConfirmTool = {
           { label: 'Name', value: name },
           ...(str(args['phone']) ? [{ label: 'Phone', value: String(args['phone']) }] : []),
           ...(str(args['email']) ? [{ label: 'Email', value: String(args['email']) }] : []),
+          ...(companyName
+            ? [
+                {
+                  label: 'Company',
+                  value: company ? company.name : `${companyName} (a new company)`,
+                },
+              ]
+            : []),
+          ...(str(args['source']) ? [{ label: 'Came from', value: String(args['source']) }] : []),
+          ...(notes && note ? [{ label: 'Contact notes', value: notes }] : []),
+          ...(followUp
+            ? [
+                {
+                  label: 'Follow-up task',
+                  value: `${followUp.title.trim()} · ${who} · ${dueRow(due?.dueAt ?? null, due?.allDay ?? true, ctx.timezone)}`,
+                },
+              ]
+            : []),
         ],
-        body: str(args['notes']) ?? null,
+        // The note on their timeline when there is one, otherwise what goes in their Notes box.
+        body: note ? `Note on their timeline: ${note}` : (notes ?? null),
         stageFrom: null,
         stageTo: null,
         warnings: matches.slice(0, 3).map((m) => ({
@@ -1441,10 +1494,28 @@ const createCustomer: ConfirmTool = {
         confirmLabel: matches.length ? 'Add anyway' : 'Add customer',
         editable: false,
       }),
-      result: { name, possibleDuplicates: matches.map((m) => m.name) },
+      result: {
+        name,
+        possibleDuplicates: matches.map((m) => m.name),
+        ...(companyName ? { company: company ? 'already in Contacts' : 'new' } : {}),
+        ...(note ? { timelineNote: true } : {}),
+        ...(followUp ? { followUpTask: followUp.title.trim() } : {}),
+      },
     };
   },
   async commit(db, ctx, args) {
+    // In the order Add contact makes them: the company (one already there by name is used), the person, then what
+    // goes on their timeline.
+    const companyName = str(args['companyName']);
+    const companyId = companyName
+      ? ((await companyNamed(db, ctx, companyName))?.id ??
+        (
+          await command<{ companyId: string }>(db, ctx, 'company.create', {
+            name: companyName,
+            ignoreDuplicates: true,
+          })
+        ).companyId)
+      : undefined;
     const { personId } = await command<{ personId: string }>(
       db,
       ctx,
@@ -1455,13 +1526,42 @@ const createCustomer: ConfirmTool = {
         phone: str(args['phone']),
         email: str(args['email']),
         notes: str(args['notes']),
+        source: str(args['source']),
+        companyId,
         ignoreDuplicates: true,
       }),
     );
+    const added = [`Added ${fullNameOf(args)} to Contacts`];
+    const note = str(args['timelineNote']);
+    if (note) {
+      await command(db, ctx, 'activity.log', { kind: 'note', body: note, personId });
+      added.push('a note');
+    }
+    const followUp = followUpOf(args);
+    if (followUp) {
+      const due = dueOf(followUp.dueAt, ctx.timezone);
+      await command(db, ctx, 'task.create', {
+        title: followUp.title.trim(),
+        notes: null,
+        dueAt: due?.dueAt ?? null,
+        allDay: due?.allDay ?? true,
+        assigneeUserId: followUp.assigneeUserId ?? ctx.actor.userId,
+        personId,
+        companyId: companyId ?? null,
+        leadId: null,
+        customRecordId: null,
+      });
+      added.push(
+        due?.dueAt
+          ? `a follow-up task due ${dueWords({ dueAt: due.dueAt, allDay: due.allDay ?? true }, ctx.timezone)}`
+          : 'a follow-up task',
+      );
+    }
     return {
-      outcome: `Added ${fullNameOf(args)} to Contacts`,
+      outcome: added.length === 1 ? added[0]! : `${added[0]}, with ${added.slice(1).join(' and ')}`,
       href: paths(ctx.workspaceId).person(personId),
       command: 'person.create',
+      answer: { personId },
     };
   },
 };
