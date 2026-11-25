@@ -4,11 +4,13 @@
  * as done for the day, and passed over meanwhile so likes, requests and messages go on unseen. It's tried again once
  * they're away, or in 10 minutes. Instagram's, LinkedIn's and Alignable's runners; Facebook's has none.
  */
+import { AWAY_AGAIN_MS } from '@hfos/core/addons/outreach/plan-rules';
 import { NotAway } from '../away';
 import type { JobEnd } from '../jobs/job';
 
-/** While a job that needs the screen waits, once the rest of the day is done the runner looks again this often. */
-export const AWAY_AGAIN_MS = 10 * 60_000;
+// While a job that needs the screen waits, once the rest of the day is done the runner looks again this often:
+// HandsFreeOS's from 0.156.0, as it decides the runner's next move (decision 195).
+export { AWAY_AGAIN_MS };
 
 /** Whether what went wrong is a read put off till the person is away. */
 export const isNotAway = (error: unknown): error is NotAway => error instanceof NotAway;

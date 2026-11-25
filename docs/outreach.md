@@ -5338,9 +5338,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       the web app/phone app has the knowledge and schedule and tasks etc and the extension just knows how to do the
       things that the app send it … then we could also see the schedule of things in the app and see what it plans to
       do when"; "yes" to building it). Built in five steps, a pull request each, so nothing changes all at once:
-      1. **See the plan in the app** (this step, extension 0.155.0, built below).
+      1. **See the plan in the app** (extension 0.155.0, built below).
       2. **The app decides, the extension does:** the extension asks HandsFreeOS for its next move, one network at a
-         time, the smallest first and Facebook last.
+         time, the smallest first and Facebook last. Threads and X are built (extension 0.156.0, below).
       3. **Buttons on the plan:** do now, skip today, move to a time.
       4. **The Assistant changes the plan,** as it already reads it.
       5. **Clean-up:** the extension's own planning goes.
@@ -5375,6 +5375,33 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         whole page. Before the extension has said anything it lists nothing: an older build is told to update to
         0.155.0, a newer one that it says within a minute. Nothing on it is pressed yet (step 3).
       - **The Assistant reads it** (`outreach_plan`), and knows the part (`ai-places.ts`).
+
+      **Step 2, Threads and X first** (extension 0.156.0). On these two networks HandsFreeOS decides each move and
+      the extension does it. Every other network's runner still plans for itself. Built, and **switched off for
+      now**: the build goes out first, and the two are switched on (`PLAN_DECIDES`, in HandsFreeOS alone) once a
+      day's plan has been checked against what the owner's computer really did.
+      - **The runner asks** (`outreach.plan.next`, `planNext` in the extension's `src/hfos/plan.ts`): where its day
+        is up to, its own clock, and what only its computer knows (`PlanHere`): whether the person is away from it
+        (decision 120), the reads put off till they are, whether a comment research of theirs reads now (decision
+        194), and whether something they asked is in line (decision 43).
+      - **HandsFreeOS answers with the move** by the same rules the plan is shown from (`nextMove`), on its own
+        settings, hours, day, warning, lists and today's list: a wait and why, a step before the day, a once-a-day
+        read, the hour's search, or a piece of the list's work by its key, with today's list. Times come back on the
+        runner's clock. What the move changed in the day comes with it (a round of finding again begun).
+      - **Only where it decides** (`PLAN_DECIDES`: nowhere yet, then Threads and X), only the person's working
+        computer, and only a build from 0.156.0. Anyone else is told to plan for itself (`decides: false`). Taking a
+        network out of `PLAN_DECIDES` hands its order back to the extension at its next go.
+      - **The extension does the move as it does its own** (`asTold` in `src/auto/follows.ts`): the same read, the
+        same press, its own words, its own pace between steps and every daily limit. Its own checks stay first and
+        unchanged (the working computer, Sending, a warning, noting, Stop for today, an ask in line), and while one
+        holds it, it never asks.
+      - **By itself whenever it must:** when HandsFreeOS can't be reached, doesn't answer in 15 seconds, or sends a
+        move this build can't do, the runner plans that go with the code it had. It never saves the person's lists
+        while they're at their computer, whatever it's sent.
+      - **What they asked that no computer took yet holds nothing.** HandsFreeOS counts everything open that the
+        person asked, for the plan that's shown; a runner waits only for one in line on its own computer, as before,
+        so it says so itself (`here.asking`).
+      - No migration. Nothing on the Plan is pressed yet (step 3), and nothing a person sees changes.
 
 196.  **Comments and messages, a part each on Needs you** (Chris, 25 Nov 2026: "separate comments and messages into
       different menued pages", with a picture of one "Messages 85" part holding both). Needs you's row has

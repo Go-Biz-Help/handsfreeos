@@ -188,6 +188,7 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.live.beat': EXTENSION,
     'outreach.lists.saved': EXTENSION,
     'outreach.plan.note': EXTENSION,
+    'outreach.plan.next': EXTENSION,
     'outreach.need.note': EXTENSION,
     'outreach.ask.take': EXTENSION,
     'outreach.ask.progress': EXTENSION,

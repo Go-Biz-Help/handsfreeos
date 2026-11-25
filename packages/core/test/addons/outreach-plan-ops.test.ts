@@ -1,19 +1,38 @@
 /**
  * Social Outreach: the plan, kept and shown (docs/outreach.md, decision 195). The extension says where its day is up
  * to on a network and only the working computer's word is kept, each person's their own; the plan is worked out from
- * it for today, says to update an older build, and puts what the person asked for first.
+ * it for today, says to update an older build, and puts what the person asked for first. A runner of a network
+ * HandsFreeOS decides asks for its next move (step 2): only the working computer is answered, by the day's rules,
+ * with every time on its own clock.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { askNameOn } from '../../src/addons/outreach/asks';
-import { AUTOMATION_DEFAULTS, businessDay } from '../../src/addons/outreach/automation';
+import {
+  AUTOMATION_DEFAULTS,
+  businessDay,
+  NETWORK_CHOICES_DEFAULTS,
+  NETWORKS_DEFAULTS,
+} from '../../src/addons/outreach/automation';
+import { LIST_MARKS_ON } from '../../src/addons/outreach/lists';
 import { PLAN_SINCE, PLAN_WORDS } from '../../src/addons/outreach/plan';
+import { NEXT_SINCE, NOT_DECIDING, PLAN_DECIDES } from '../../src/addons/outreach/plan-next';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { RUNNERS } from '../../src/addons/outreach/runners';
 import { zonedParts } from '../../src/calendar/engine/zoned';
 import { outreachBusiness, runAs, runWith } from './outreach-fixture';
+
+/**
+ * Threads and X switched on, as they will be: the switch itself (`PLAN_DECIDES`) is off until a day's plan has been
+ * checked against a real day, so what a runner is answered once it's on is held here.
+ */
+vi.mock('../../src/addons/outreach/plan-next', async (original) => ({
+  ...(await original<object>()),
+  PLAN_DECIDES: ['threads', 'x'],
+}));
 
 const admin = () => testDbs().admin.db;
 const MIN = 60_000;
@@ -202,5 +221,154 @@ describe('the plan, kept and shown', () => {
     expect(plan.stand).toBe('asks');
     // Another network's plan isn't held up by it.
     expect((await runAs(member, ws, 'outreach.plan', { platform: 'linkedin' })).asked).toEqual([]);
+  });
+
+  // ------------------------------------------------------------------------------------------------- the next move
+
+  /** What only the computer knows: the person is at it, nothing is put off, and nothing they asked is in line. */
+  const HERE = { away: false, passOver: [] as string[], asking: false };
+  /** A runner's ask for its next move, its clock at `now`. */
+  const next = (
+    u: TestUser,
+    installId: string,
+    platform: string,
+    more: Record<string, unknown> = {},
+    here: Record<string, unknown> = HERE,
+    now = Date.now(),
+    version = NEXT_SINCE,
+  ) =>
+    runWith(
+      u,
+      ws,
+      'outreach.plan.next',
+      {
+        platform,
+        computer: installId,
+        state: state({ done: {}, daily: {}, before: {}, ...more }),
+        now,
+        random: 0.5,
+        here,
+      },
+      { channel: 'extension', appVersion: version },
+    );
+
+  it('leaves a network it doesn’t decide yet, and any computer but the one that works, to plan for itself', async () => {
+    expect(await next(member, home, 'facebook')).toEqual(NOT_DECIDING);
+    expect(await next(member, home, 'linkedin')).toEqual(NOT_DECIDING);
+    for (const platform of PLAN_DECIDES) {
+      // On standby, or one HandsFreeOS never heard from.
+      expect(await next(member, office, platform)).toEqual(NOT_DECIDING);
+      expect(await next(member, randomUUID(), platform)).toEqual(NOT_DECIDING);
+      // Somebody else's computer.
+      expect(await next(owner, home, platform)).toEqual(NOT_DECIDING);
+    }
+  });
+
+  it('tells the working computer to wait while the network is off for the person, and an older build nothing', async () => {
+    // A build from before runners asked isn't told what to do, whatever it sends.
+    expect(await next(member, home, 'x', {}, HERE, Date.now(), PLAN_SINCE)).toEqual(NOT_DECIDING);
+    expect(await next(member, home, 'x')).toEqual({
+      decides: true,
+      move: { do: 'wait', why: 'off', until: null },
+      change: null,
+      list: null,
+    });
+  });
+
+  it('answers by the day’s rules, with what only the computer knows, each time on the runner’s clock', async () => {
+    // X on, every hour of every day: the day is going whenever this runs.
+    await runAs(member, ws, 'outreach.automation.save', {
+      settings: {
+        ...AUTOMATION_DEFAULTS,
+        sending: 'steps',
+        hours: { start: 0, end: 24, days: [0, 1, 2, 3, 4, 5, 6] },
+        networks: {
+          ...NETWORKS_DEFAULTS,
+          x: { ...NETWORK_CHOICES_DEFAULTS, on: true, sending: 'everything' },
+        },
+      },
+    });
+    // Its clock runs 10 minutes behind HandsFreeOS's.
+    const theirs = Date.now() - 10 * MIN;
+    // A first day's lists are saved with the window on screen: it waits till the person's away.
+    expect(await next(member, home, 'x', {}, HERE, theirs)).toEqual({
+      decides: true,
+      move: { do: 'wait', why: 'screen', until: theirs + 10 * MIN },
+      change: null,
+      list: null,
+    });
+    const away = await next(member, home, 'x', {}, { away: true, passOver: [] }, theirs);
+    expect(away).toMatchObject({
+      decides: true,
+      move: { do: 'before', step: { do: 'save', list: 'friends', first: true } },
+      change: null,
+      list: null,
+    });
+    expect(Number.isInteger(away.move.gap)).toBe(true);
+
+    // Their lists saved and the day's reading done, with nothing on the list: it looks again when its search is due.
+    for (const list of LIST_MARKS_ON.x)
+      await runAs(member, ws, 'outreach.lists.saved', { platform: 'x', list });
+    const read = Object.fromEntries(RUNNERS.x.daily.map((job) => [job, 'Done.']));
+    const rest = { daily: read, watchAt: theirs + 40 * MIN, round: 2, roundAt: theirs };
+    expect(await next(member, home, 'x', rest, HERE, theirs)).toEqual({
+      decides: true,
+      move: { do: 'wait', why: 'idle', until: theirs + 40 * MIN },
+      change: null,
+      list: null,
+    });
+    // A read put off till they're away is tried again in a few minutes.
+    const { tidy: _put, ...others } = read;
+    const putOff = await next(
+      member,
+      home,
+      'x',
+      { ...rest, daily: others },
+      { away: false, passOver: ['tidy'] },
+      theirs,
+    );
+    expect(putOff.move).toEqual({ do: 'wait', why: 'idle', until: theirs + 10 * MIN });
+  });
+
+  it('holds its own work for what the person asked only as the runner says it’s in line, and says nothing while Sending is off', async () => {
+    const [ask] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.asks (workspace_id, user_id, platform, kind, via, asked_at, task)
+          values (${ws}, ${member.id}, 'x', 'checkup', 'web', now(), '{}')
+          returning id`,
+    );
+    // Its clock runs 5 minutes ahead of HandsFreeOS's.
+    const theirs = Date.now() + 5 * MIN;
+    const read = Object.fromEntries(RUNNERS.x.daily.map((job) => [job, 'Done.']));
+    const rest = { daily: read, watchAt: theirs + 40 * MIN, round: 2, roundAt: theirs };
+    // One no computer took yet holds no runner: it's in line once its computer takes it.
+    expect((await next(member, home, 'x', rest, HERE, theirs)).move).toEqual({
+      do: 'wait',
+      why: 'idle',
+      until: theirs + 40 * MIN,
+    });
+    expect((await next(member, home, 'x', rest, { ...HERE, asking: true }, theirs)).move).toEqual({
+      do: 'wait',
+      why: 'asks',
+      until: theirs + 2 * MIN,
+    });
+    // Left unsaid, HandsFreeOS's own count of what they asked says.
+    const unsaid = await next(member, home, 'x', rest, { away: false, passOver: [] }, theirs);
+    expect(unsaid.move).toEqual({ do: 'wait', why: 'asks', until: theirs + 2 * MIN });
+    await rows(admin(), sql`delete from addon_outreach.asks where id = ${ask!.id}`);
+    await runAs(member, ws, 'outreach.automation.save', {
+      settings: {
+        ...AUTOMATION_DEFAULTS,
+        networks: {
+          ...NETWORKS_DEFAULTS,
+          x: { ...NETWORK_CHOICES_DEFAULTS, on: true, sending: 'off' },
+        },
+      },
+    });
+    expect((await next(member, home, 'x', rest)).move).toEqual({
+      do: 'wait',
+      why: 'off',
+      until: null,
+    });
   });
 });
