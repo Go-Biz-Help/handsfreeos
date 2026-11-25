@@ -43,7 +43,7 @@ describe('the route map', () => {
       'money/payments': { href: 'money', later: false },
       'money/plans': { href: 'money', later: false },
       'workflows/approvals': { href: 'approvals', later: false },
-      // Ask HandsFreeOS: the app's own links only, since the web has no page for the panel.
+      // Ask HandsFreeOS: the web's panel, the phone's full screen.
       assistant: { href: 'ask', later: false },
       settings: { href: 'settings', later: false },
       // Its Notifications section, where the Assistant's alert cards land: the phone's Notifications screen.
@@ -98,6 +98,12 @@ describe('the route map', () => {
     expect(routeFor(`/app/w/${WS}/inbox/${ID}`)).toMatchObject({
       href: `/app/w/${WS}/inbox/${ID}`,
       params: { conversationId: ID },
+    });
+    // A scheduled question's answer opens its own chat.
+    expect(routeFor(`/app/w/${WS}/assistant?chat=${ID}`)).toMatchObject({
+      href: `/app/w/${WS}/ask?chat=${ID}`,
+      later: null,
+      params: { chat: ID },
     });
     // Home opens on the item, and Approvals on the AI teammate's drafts: the query stays on their addresses.
     expect(routeFor(`/app/w/${WS}?item=${ID}`)).toMatchObject({

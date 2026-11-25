@@ -12,6 +12,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { reviewConnections } from '@hfos/db/schema';
 import { asWorker, rows } from '@hfos/db/client';
 import type { JobHandler, JobResult } from '../jobs';
+import { alertOnReview } from '../reminders/alerts';
 import type { TenantScope, WorkerServices } from '../services';
 import { tenantOf } from '../services';
 import { ReviewAuthError, ReviewError, type ReviewProvider, type TokenSet } from './provider';
@@ -22,6 +23,11 @@ const REFRESH_AHEAD_MS = 5 * 60_000;
 const MAX_PAGES = 5;
 /** A place that keeps failing is asked less often, up to a day apart. */
 const BACKOFF_MS = [5 * 60_000, 30 * 60_000, 2 * 3_600_000, 6 * 3_600_000, 24 * 3_600_000];
+/**
+ * A review new here and written this recently tells anyone who asked the Assistant to hear about one
+ * (reminders/alerts.ts). Older ones are the back catalogue a new connection reads, which is nobody's news.
+ */
+const REVIEW_ALERT_MS = 3 * 24 * 3_600_000;
 
 type Connection = typeof reviewConnections.$inferSelect;
 
@@ -119,8 +125,10 @@ export const reviewsSync: JobHandler = async (ctx): Promise<JobResult> => {
       );
       if (!got) break;
       for (const r of got.reviews) {
-        await asWorker(ctx.db, scope, (tx) =>
-          tx.execute(sql`
+        const [row] = await asWorker(ctx.db, scope, (tx) =>
+          rows<{ id: string; inserted: boolean }>(
+            tx,
+            sql`
             insert into app.reviews (workspace_id, connection_id, provider, external_id, author_name,
               author_photo_url, rating, sentiment, body, posted_at, source_updated_at, url,
               reply_body, reply_posted_at, created_at, updated_at)
@@ -150,9 +158,31 @@ export const reviewsSync: JobHandler = async (ctx): Promise<JobResult> => {
                * the right way round: a stale answer on a screen is a smaller harm than a lost one.
                */
               reply_body = coalesce(excluded.reply_body, app.reviews.reply_body),
-              reply_posted_at = coalesce(excluded.reply_posted_at, app.reviews.reply_posted_at)`),
+              reply_posted_at = coalesce(excluded.reply_posted_at, app.reviews.reply_posted_at)
+            returning id, (xmax = 0) as inserted`,
+          ),
         );
         written += 1;
+        if (
+          row?.inserted &&
+          r.rating !== null &&
+          Date.now() - r.postedAt.getTime() < REVIEW_ALERT_MS
+        ) {
+          // On its own: an alert that fails is logged, and the reviews go on being read.
+          await asWorker(ctx.db, scope, (tx) =>
+            alertOnReview(ctx.db, tx, scope, {
+              id: row.id,
+              rating: r.rating,
+              authorName: r.authorName,
+              body: r.body,
+            }),
+          ).catch((e: unknown) =>
+            ctx.log.warn(
+              { connectionId: c.id, err: e instanceof Error ? e.message : String(e) },
+              'a review alert did not go',
+            ),
+          );
+        }
       }
       cursor = got.cursor;
       if (!cursor) break;

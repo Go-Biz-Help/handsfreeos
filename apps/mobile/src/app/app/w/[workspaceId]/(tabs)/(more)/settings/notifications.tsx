@@ -4,6 +4,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { useStaff } from '@/admin/staff';
+import { RoutineList } from '@/components/assistant/routine-list';
 import { Info, Smartphone } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { ListLabel } from '@/components/shell/list';
@@ -141,6 +142,8 @@ export default function NotificationSettings() {
           header={false}
           testID="notification-email-only"
         />
+
+        <RoutineList workspaceId={business.id} />
 
         <View className="flex-row items-start gap-[9px] rounded-[10px] bg-card-2 px-3 py-[11px]">
           <Icon as={Info} className="mt-px size-4 text-text-2" />

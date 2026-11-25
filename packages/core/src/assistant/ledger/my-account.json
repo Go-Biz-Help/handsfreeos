@@ -1,7 +1,7 @@
 {
   "area": "my-account",
   "title": "My account: profile, appearance, notifications, the side menu, my cell, my businesses and the More menu",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-25",
   "files": {
     "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "41fb49747e27",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx": "cc0007aa5c1d",
@@ -10,7 +10,8 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx": "54f26bd0b071",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "4f114178dc72",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell.tsx": "717ec190b6de",
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx": "68b409d36fcc",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx": "66db533f3d67",
+    "apps/mobile/src/components/assistant/routine-list.tsx": "cfd1c032adfa",
     "apps/mobile/src/components/inbox/my-cell-card.tsx": "292ae0ecad2a",
     "apps/mobile/src/components/links/link-gate.tsx": "bdad099a27a6",
     "apps/mobile/src/components/onboarding-setup/look.tsx": "94e41896520a",
@@ -21,17 +22,17 @@
     "apps/mobile/src/components/shell/sign-out-sheet.tsx": "fc7991c49743",
     "apps/mobile/src/components/shell/this-phone.tsx": "b92c33a0dfd5",
     "apps/mobile/src/links/decide.ts": "8c590c3d63ff",
-    "apps/mobile/src/links/route-map.ts": "559125b08be5",
+    "apps/mobile/src/links/route-map.ts": "edbf8e0c79d8",
     "apps/mobile/src/look/calls.ts": "839009430923",
     "apps/mobile/src/push/bell.ts": "05eae2e42ce5",
-    "apps/mobile/src/push/buttons.ts": "53fafdb6a0c6",
+    "apps/mobile/src/push/buttons.ts": "ab7af1d54d9d",
     "apps/mobile/src/push/present.ts": "a1e0d43f60dd",
     "apps/mobile/src/push/press.ts": "cbc8c6ba0536",
     "apps/mobile/src/push/registration.ts": "52b901d92474",
     "apps/mobile/src/push/switches.ts": "ac0a0f304155",
     "apps/mobile/src/settings/about-you-interview.tsx": "2ad28a6ec941",
     "apps/web/src/app/(auth)/delete-account/page.tsx": "7e6cbf1364af",
-    "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx": "0916b2f663fa",
+    "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx": "69a1e2678fb5",
     "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
     "apps/web/src/components/account/extension-sign-in-prompt.tsx": "ce696d72bb25",
     "apps/web/src/components/calls/calls-pill.tsx": "8819d72926f6",
@@ -41,6 +42,7 @@
     "apps/web/src/components/settings/about-you-interview.tsx": "5dc198d488bc",
     "apps/web/src/components/settings/about-you-section.tsx": "889a667beaa6",
     "apps/web/src/components/settings/appearance-section.tsx": "383c3fcbfc5b",
+    "apps/web/src/components/settings/assistant-routines-section.tsx": "5108ab64da24",
     "apps/web/src/components/settings/google-section.tsx": "8e40854795d2",
     "apps/web/src/components/settings/menu-section.tsx": "2e927c40840b",
     "apps/web/src/components/settings/my-cell-section.tsx": "bcce54a8161d",
@@ -58,7 +60,7 @@
     "apps/web/src/components/shell/workspace-switcher.tsx": "a94cb85f3c21",
     "apps/web/src/components/support/get-help.tsx": "a753e0577cbd",
     "packages/core/src/account/about-you.ts": "7893be08878a",
-    "packages/core/src/account/notification-rows.ts": "274b05c79aa2"
+    "packages/core/src/account/notification-rows.ts": "933ff8a50b1b"
   },
   "items": [
     {
@@ -1119,6 +1121,55 @@
       "by": "update_my_alerts stock"
     },
     {
+      "path": "Notifications → Tasks due → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:105",
+      "covered": "yes",
+      "by": "update_my_alerts tasks"
+    },
+    {
+      "path": "Notifications → What you asked the Assistant for → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:114",
+      "covered": "yes",
+      "by": "update_my_alerts assistant"
+    },
+    {
+      "path": "Notifications → What you asked the Assistant for → the list, each with its question and when, or what it watches for, and whether it's paused",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/assistant-routines-section.tsx:67",
+      "covered": "yes",
+      "by": "read_assistant_routine_list"
+    },
+    {
+      "path": "Notifications → What you asked the Assistant for → Nothing yet",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/assistant-routines-section.tsx:73",
+      "covered": "yes",
+      "by": "read_assistant_routine_list items empty"
+    },
+    {
+      "path": "Notifications → What you asked the Assistant for → Pause / Turn on again",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/assistant-routines-section.tsx:118",
+      "covered": "yes",
+      "by": "do_assistant_routine_update paused"
+    },
+    {
+      "path": "Notifications → What you asked the Assistant for → Delete, then Delete it or Keep it",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/assistant-routines-section.tsx:127",
+      "covered": "yes",
+      "by": "do_assistant_routine_delete"
+    },
+    {
+      "path": "Notifications → What you asked the Assistant for → a new question on a schedule or alert (asked of the Assistant)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/assistant-routines-section.tsx:73",
+      "covered": "yes",
+      "by": "schedule_question; set_alert"
+    },
+    {
       "path": "Notifications → A customer pays → push and email",
       "kind": "do",
       "file": "packages/core/src/account/notification-rows.ts:124",
@@ -1222,6 +1273,27 @@
       "file": "apps/mobile/src/push/switches.ts:71",
       "covered": "yes",
       "by": "tool outcome"
+    },
+    {
+      "path": "Phone Settings → Notifications → What you asked the Assistant for: the list",
+      "kind": "see",
+      "file": "apps/mobile/src/components/assistant/routine-list.tsx:53",
+      "covered": "yes",
+      "by": "read_assistant_routine_list"
+    },
+    {
+      "path": "Phone Settings → Notifications → What you asked the Assistant for: Pause / Turn on again",
+      "kind": "do",
+      "file": "apps/mobile/src/components/assistant/routine-list.tsx:102",
+      "covered": "yes",
+      "by": "do_assistant_routine_update paused"
+    },
+    {
+      "path": "Phone Settings → Notifications → What you asked the Assistant for: Delete, then Delete it or Keep it",
+      "kind": "do",
+      "file": "apps/mobile/src/components/assistant/routine-list.tsx:111",
+      "covered": "yes",
+      "by": "do_assistant_routine_delete"
     },
     {
       "path": "This phone → Notifications on this phone status (On, Off, Not turned on, Waiting for signal, Not added, Setting up)",

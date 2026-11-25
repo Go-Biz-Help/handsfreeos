@@ -6,7 +6,7 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/get-help.tsx": "a1fa8bee58ff",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx": "242f970f8798",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/index.tsx": "4994d7e95370",
-    "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx": "3eeaf384d7fd",
+    "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx": "ec9a588d56b7",
     "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx": "b0639b60a073",
     "apps/mobile/src/app/app/w/[workspaceId]/search.tsx": "1a959c92bf8a",
     "apps/mobile/src/components/add-ons/news-card.tsx": "6d1402bba2e5",
@@ -36,6 +36,7 @@
     "apps/mobile/src/home/actions.ts": "80e1442f9475",
     "apps/mobile/src/search/recent.ts": "6d3884953cf1",
     "apps/mobile/src/search/rows.tsx": "4c8fee7ac09c",
+    "apps/web/src/app/app/w/[workspaceId]/assistant/page.tsx": "d7df2e66b948",
     "apps/web/src/app/app/w/[workspaceId]/audit/page.tsx": "5db2ac771c35",
     "apps/web/src/app/app/w/[workspaceId]/page.tsx": "756b080539a0",
     "apps/web/src/app/app/w/[workspaceId]/search/page.tsx": "f23d0369d4f7",
@@ -2304,6 +2305,20 @@
       "file": "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx:25",
       "covered": "never",
       "by": "shown when the Assistant can’t be reached"
+    },
+    {
+      "path": "Ask (phone) → a scheduled question's answer opens in its own chat (its push, ?chat=)",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx:58",
+      "covered": "never",
+      "by": "the panel opening a chat the person tapped; the answer itself is the Assistant's"
+    },
+    {
+      "path": "Assistant panel (web) → /assistant and ?chat= open the panel on that chat (a scheduled answer's push or email)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/assistant/page.tsx:1",
+      "covered": "never",
+      "by": "the panel opening a chat the person tapped; the answer itself is the Assistant's"
     },
     {
       "path": "Phone Home → card → Approve with no signal (queued)",

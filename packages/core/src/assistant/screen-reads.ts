@@ -25,6 +25,8 @@ export const SCREEN_READS = [
   'addon.suggestion',
   'addon_connection.list',
   'affiliate.mine',
+  // What the person asked the Assistant to do on its own here: questions on a schedule, and alerts (25 Nov 2026).
+  'assistant_routine.list',
   'billing.pay_day_quote',
   'billing.status',
   'ai_setup.get',

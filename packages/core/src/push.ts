@@ -51,6 +51,13 @@ export const PUSH_SWITCHES = [
   'documents',
   /** Stock (20261027034600): a product the business counts is down to its number to hear at. */
   'stock',
+  /** Tasks due (20261027036600): a task with a time, at that time, to whoever has it. */
+  'tasks',
+  /**
+   * What you asked the Assistant for (20261027036600): the answer to a question it asks on a schedule, and an alert
+   * someone set ("tell me when Dana writes").
+   */
+  'assistant',
 ] as const;
 export type PushSwitch = (typeof PUSH_SWITCHES)[number];
 /** The kinds nobody turns off (a check-in's): not a switch in Settings, and always on (`private.push_on`). */
@@ -83,6 +90,8 @@ export const PushSwitches = z.object({
   qualifying: z.boolean(),
   documents: z.boolean(),
   stock: z.boolean(),
+  tasks: z.boolean(),
+  assistant: z.boolean(),
 });
 export type PushSwitches = z.infer<typeof PushSwitches>;
 
@@ -157,6 +166,10 @@ export const PUSH_BUTTONS = {
     opensApp: false,
   },
   open: { title: 'Open', commands: [], unlock: false, opensApp: true },
+  // A task that came due (20261027036600): ticked off, or asked about again in an hour, from the lock screen. Neither
+  // reaches a customer, so neither needs the phone unlocked.
+  task_done: { title: 'Done', commands: ['task.complete'], unlock: false, opensApp: false },
+  task_later: { title: 'In 1 hour', commands: ['task.update'], unlock: false, opensApp: false },
   // A check-in's "Still there?" (round six): answered from the lock screen, never needing an unlock.
   im_ok: { title: 'I’m OK', commands: ['safety.check_out'], unlock: false, opensApp: false },
   add_15: { title: '+15 min', commands: ['safety.extend'], unlock: false, opensApp: false },
@@ -166,6 +179,8 @@ export const PUSH_BUTTON_IDS = Object.keys(PUSH_BUTTONS) as [PushButton, ...Push
 
 /** How long Snooze 1 hour snoozes for, from when it was pressed. */
 export const PUSH_SNOOZE_MS = 60 * 60_000;
+/** How much later In 1 hour makes a task that came due, from when it was pressed. */
+export const TASK_LATER_MS = 60 * 60_000;
 
 /**
  * Each kind of push: the switch that decides whether a person gets it, and its buttons in order.
@@ -219,6 +234,17 @@ export const PUSH_CATEGORIES = {
    * up or delivered, to the people who manage money. Open goes to Settings → Payments → Products.
    */
   stock_low: { switch: 'stock', buttons: ['open'] },
+  /**
+   * A task with a time came due (20261027036600), to whoever has it (else whoever made it): Done ticks it off, and
+   * In 1 hour makes it due an hour from then, so it comes back. Opens Tasks.
+   */
+  task_due: { switch: 'tasks', buttons: ['task_done', 'task_later'] },
+  /**
+   * What someone asked the Assistant for (20261027036600), to them alone: the answer to a question it asks on a
+   * schedule (Open goes to its chat), or an alert they set (Open goes to what it's about).
+   */
+  assistant_answer: { switch: 'assistant', buttons: ['open'] },
+  assistant_alert: { switch: 'assistant', buttons: ['open'] },
   /**
    * Someone wrote to HandsFreeOS support, in the app or by email: a new ticket, to the support people. It belongs to
    * no business; Open goes to the ticket on the support desk.

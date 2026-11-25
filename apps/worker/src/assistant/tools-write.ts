@@ -62,6 +62,7 @@ import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from '
 import { billingAutoTools, billingConfirmTools, billingLinkTools } from './tools-billing';
 import { contentAutoTools, contentConfirmTools, knowledgeServiceTools } from './tools-content';
 import { extraAutoTools, extraConfirmTools, extraWebTools } from './tools-extra';
+import { routineConfirmTools } from './tools-routines';
 import { documentConfirmTools, documentServiceTools } from './tools-documents';
 import { mainOfferAutoTools, mainOfferConfirmTools } from './tools-main-offer';
 import { inboxCrmAutoTools, inboxCrmConfirmTools } from './tools-inbox-crm';
@@ -1833,6 +1834,8 @@ const confirmTools: Record<string, ConfirmTool> = {
   ...setupConfirmTools,
   ...moreSettingsConfirmTools,
   ...extraConfirmTools,
+  // A question on a schedule and an alert, for the person alone.
+  ...routineConfirmTools,
   ...documentConfirmTools,
   ...safetyConfirmTools,
 };

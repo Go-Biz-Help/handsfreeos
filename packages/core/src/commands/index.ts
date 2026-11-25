@@ -12,6 +12,13 @@ import { ideaCommands } from './ideas';
 import { activityDelete, activityLog, activityUpdate } from './activity';
 import { assistantThreadArchive, assistantThreadRename } from './assistant';
 import {
+  assistantRoutineCreate,
+  assistantRoutineDelete,
+  assistantRoutineRecordAlert,
+  assistantRoutineRecordRun,
+  assistantRoutineUpdate,
+} from './assistant-routine';
+import {
   appointmentAddAttendee,
   appointmentCancel,
   appointmentCreate,
@@ -748,6 +755,11 @@ export {
   workspaceDelete,
   assistantThreadArchive,
   assistantThreadRename,
+  assistantRoutineCreate,
+  assistantRoutineUpdate,
+  assistantRoutineDelete,
+  assistantRoutineRecordRun,
+  assistantRoutineRecordAlert,
   calendarCreate,
   calendarSave,
   calendarRestoreRevision,
@@ -983,6 +995,11 @@ export const commands: readonly CommandDef[] = [
   emailSuppressionRecord,
   assistantThreadRename,
   assistantThreadArchive,
+  assistantRoutineCreate,
+  assistantRoutineUpdate,
+  assistantRoutineDelete,
+  assistantRoutineRecordRun,
+  assistantRoutineRecordAlert,
   calendarCreate,
   calendarSave,
   calendarRestoreRevision,

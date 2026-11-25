@@ -99,6 +99,26 @@ const handedOver = () => {
   wake.jobs?.();
 };
 
+/**
+ * The Assistant: the questions people ask on the web and the phone (the HTTP routes), and the ones they asked it to
+ * ask for them on a schedule (reminders/questions.ts, a job).
+ */
+const assistant = model
+  ? {
+      provider: model,
+      tools: createToolExecutor(
+        httpHandle.db,
+        { ai, log, wallet },
+        // Match my website reads the site through the worker's safe fetch, as the Design tab's route does.
+        { ai, log, wallet, fetchUrl: services.fetchUrl },
+        env.webUrl,
+        undefined,
+        // The add-ons' worker actions run as the route runs them, with the worker's services.
+        { services },
+      ),
+    }
+  : null;
+
 // Cloudflare Turnstile: one widget for app.handsfreeos.com serves booking pages, our forms and the website chat.
 const botCheck = createBotCheck(env.turnstileSecretKey);
 const app = await buildHttpServer({
@@ -131,21 +151,7 @@ const app = await buildHttpServer({
     !env.production && env.telephonyProvider === 'fake'
       ? { jobs, fetchTestOrigins: env.fetchTestOrigins }
       : null,
-  assistant: model
-    ? {
-        provider: model,
-        tools: createToolExecutor(
-          httpHandle.db,
-          { ai, log, wallet },
-          // Match my website reads the site through the worker's safe fetch, as the Design tab's route does.
-          { ai, log, wallet, fetchUrl: services.fetchUrl },
-          env.webUrl,
-          undefined,
-          // The add-ons' worker actions run as the route runs them, with the worker's services.
-          { services },
-        ),
-      }
-    : null,
+  assistant,
   migrationAdapters,
 });
 await app.listen({ port: env.httpPort, host: env.httpHost });
@@ -251,6 +257,7 @@ const migrationLoop = runLoop(
  */
 const jobRunner = createJobRunner({
   ...services,
+  assistant,
   workerId,
   jobs,
   slots: env.jobSlots,

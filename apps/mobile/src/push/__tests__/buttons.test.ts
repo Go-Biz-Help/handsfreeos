@@ -15,6 +15,8 @@ import {
   LONE_STAR,
   safetyCheck,
   supportTicket,
+  TASK,
+  taskDue,
   TICKET,
   urgentLead,
 } from './fixtures';
@@ -56,6 +58,9 @@ describe('the notification categories', () => {
       safety_alert: ['Open'],
       document: ['Open'],
       stock_low: ['Open'],
+      task_due: ['Done', 'In 1 hour'],
+      assistant_answer: ['Open'],
+      assistant_alert: ['Open'],
     });
     expect(Object.keys(titles).sort()).toEqual([...PUSH_CATEGORY_IDS].sort());
   });
@@ -101,6 +106,17 @@ describe('the notification categories', () => {
       // A check-in's "Still there?", answered from the lock screen: whoever holds the phone is the one asked.
       im_ok: { opensAppToForeground: false, isAuthenticationRequired: false, isDestructive: false },
       add_15: {
+        opensAppToForeground: false,
+        isAuthenticationRequired: false,
+        isDestructive: false,
+      },
+      // A reminder's Done and In 1 hour, from the lock screen, as the phone's own Reminders app does.
+      task_done: {
+        opensAppToForeground: false,
+        isAuthenticationRequired: false,
+        isDestructive: false,
+      },
+      task_later: {
         opensAppToForeground: false,
         isAuthenticationRequired: false,
         isDestructive: false,
@@ -297,6 +313,44 @@ describe('what a press does', () => {
       }),
     ).toEqual({ kind: 'nothing', reason: 'This notification isn’t about a check-in.' });
     expect(PushData.safeParse(safetyCheck()).success).toBe(true);
+  });
+
+  it('ticks a reminder’s task off with Done, and moves it an hour on from the press with In 1 hour', () => {
+    expect(
+      pressAction({ data: taskDue(), actionId: 'task_done', typed: null, pressedAt: PRESSED }),
+    ).toEqual({
+      kind: 'command',
+      button: 'task_done',
+      commandId: COMMAND_IDS.task_done,
+      unlock: false,
+      command: { name: 'task.complete', input: { workspaceId: LONE_STAR, taskId: TASK } },
+    });
+    expect(
+      pressAction({ data: taskDue(), actionId: 'task_later', typed: null, pressedAt: PRESSED }),
+    ).toEqual({
+      kind: 'command',
+      button: 'task_later',
+      commandId: COMMAND_IDS.task_later,
+      unlock: false,
+      command: {
+        name: 'task.update',
+        input: {
+          workspaceId: LONE_STAR,
+          taskId: TASK,
+          dueAt: '2026-09-16T23:40:00.000Z',
+          allDay: false,
+        },
+      },
+    });
+    expect(
+      pressAction({
+        data: taskDue({ refs: {} }),
+        actionId: 'task_done',
+        typed: null,
+        pressedAt: PRESSED,
+      }),
+    ).toEqual({ kind: 'nothing', reason: 'This notification isn’t about a task.' });
+    expect(PushData.safeParse(taskDue()).success).toBe(true);
   });
 
   it('opens the push’s path for a tap, Call, Review and Open', () => {

@@ -317,6 +317,9 @@ describe('pushSwitchOn', () => {
       documents: true,
       // 20261027034600: a product the business counts is running low.
       stock: true,
+      // 20261027036600: a task's time, and what the person asked the Assistant for.
+      tasks: true,
+      assistant: true,
     });
   });
 });

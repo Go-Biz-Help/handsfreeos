@@ -102,6 +102,24 @@ const PUSH_ROWS = [
     email: null,
   },
   {
+    key: 'notifications.tasks',
+    title: 'Tasks due',
+    detail: 'A task with a time, when that time comes',
+    description:
+      'When a task you have comes due at the time it’s set for, like a reminder you asked the Assistant for. Tap Done, or In 1 hour to hear again later. A task due on a day, with no time, doesn’t ping.',
+    push: 'tasks',
+    email: null,
+  },
+  {
+    key: 'notifications.assistant',
+    title: 'What you asked the Assistant for',
+    detail: 'Answers on a schedule, and alerts you set',
+    description:
+      'The answer to a question you asked the Assistant to ask on a schedule, like “Every Monday, who owes me money?”, and the alerts you asked it for, like “Tell me when Dana writes.” They’re listed below, where you can pause or stop each one.',
+    push: 'assistant',
+    email: null,
+  },
+  {
     key: 'notifications.qualifying',
     title: 'Your AI teammate’s qualifying',
     detail: 'A lead qualifies, or a customer sends a file',

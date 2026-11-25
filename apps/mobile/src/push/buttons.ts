@@ -2,6 +2,7 @@ import {
   PUSH_BUTTONS,
   PUSH_CATEGORIES,
   PUSH_SNOOZE_MS,
+  TASK_LATER_MS,
   type PushButton,
   type PushData,
 } from '@hfos/core';
@@ -123,6 +124,21 @@ function commandOf(
       return {
         name: 'safety.extend',
         input: { workspaceId, checkInId: refs.checkInId, minutes: 15 },
+      };
+    // A task's reminder at its time: Done ticks it off; In 1 hour moves its time an hour on from now, to ping again.
+    case 'task_done':
+      if (!refs.taskId) return 'This notification isn’t about a task.';
+      return { name: 'task.complete', input: { workspaceId, taskId: refs.taskId } };
+    case 'task_later':
+      if (!refs.taskId) return 'This notification isn’t about a task.';
+      return {
+        name: 'task.update',
+        input: {
+          workspaceId,
+          taskId: refs.taskId,
+          dueAt: new Date(pressedAt + TASK_LATER_MS).toISOString(),
+          allDay: false,
+        },
       };
     default:
       return 'That button doesn’t run anything.';

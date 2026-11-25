@@ -34,6 +34,7 @@ import { billingTools } from './tools-billing';
 import { contentTools } from './tools-content';
 import { documentTools } from './tools-documents';
 import { extraTools } from './tools-extra';
+import { routineTools } from './tools-routines';
 import { inboxCrmTools } from './tools-inbox-crm';
 import { mainOfferTools } from './tools-main-offer';
 import { safetyTools } from './tools-safety';
@@ -2454,6 +2455,8 @@ export const assistantTools = [
   ...mainOfferTools,
   ...moreSettingsTools,
   ...extraTools,
+  // A question on a schedule and an alert, for the person alone (25 Nov 2026).
+  ...routineTools,
   ...documentTools,
   ...safetyTools,
   // What HandsFreeOS can do here, core and add-ons alike (the add-ons' own tools are derived from their operations).

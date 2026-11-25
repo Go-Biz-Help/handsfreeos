@@ -66,6 +66,11 @@ export const PUSH_TTL_SECONDS: Readonly<Record<PushCategory, number>> = {
   safety_alert: HOUR_S,
   // A sign-in prompt lasts two minutes: after that it's only noise.
   extension_sign_in: 120,
+  // "Remind me at 3 PM": a few hours late it's still worth seeing, and the task list has it either way.
+  task_due: 6 * HOUR_S,
+  // A scheduled answer or an alert someone asked for: the Assistant's chat and the record have it tomorrow too.
+  assistant_answer: 24 * HOUR_S,
+  assistant_alert: 24 * HOUR_S,
 };
 
 /**
@@ -82,6 +87,8 @@ const TIME_SENSITIVE: ReadonlySet<PushCategory> = new Set([
   'customer_waiting_no_ai',
   'urgent_lead',
   'urgent_lead_no_ai',
+  // A reminder someone set for this very time, as the phone's own Reminders app does.
+  'task_due',
 ]);
 
 /** One moment, ready for every phone that should hear it. */

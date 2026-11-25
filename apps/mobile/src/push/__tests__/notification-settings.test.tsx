@@ -10,6 +10,7 @@ import { change, ChangeError, NEEDS_SIGNAL } from '@/changes';
 import type { Me } from '@/lib/businesses';
 import type { RegistrationSnapshot } from '@/push/registration';
 import type { Staff } from '@/admin/staff';
+import { deleteRoutine, pauseRoutine } from '@/assistant/routines';
 
 /**
  * Settings → Notifications: the push switches beside email, saved whole through `user.update_profile` as the web saves
@@ -35,6 +36,20 @@ jest.mock('@/changes', () => {
 let mockStaff: Staff | null = null;
 jest.mock('@/admin/staff', () => ({
   useStaff: () => ({ staff: mockStaff, status: 'ready', error: null, reload: () => undefined }),
+}));
+
+// What you asked the Assistant for: online, so a stand-in list here.
+let mockRoutines: unknown[] = [];
+const mockPatch = jest.fn();
+jest.mock('@/assistant/routines', () => ({
+  useRoutines: () => ({
+    items: mockRoutines,
+    error: null,
+    reload: () => undefined,
+    patch: mockPatch,
+  }),
+  pauseRoutine: jest.fn(async () => null),
+  deleteRoutine: jest.fn(async () => undefined),
 }));
 
 let mockRegistration: RegistrationSnapshot;
@@ -103,6 +118,8 @@ const ALL_ON = {
   qualifying: true,
   documents: true,
   stock: true,
+  tasks: true,
+  assistant: true,
 };
 
 beforeEach(() => {
@@ -118,6 +135,8 @@ beforeEach(() => {
     message: null,
   };
   jest.mocked(change).mockReset();
+  mockRoutines = [];
+  mockPatch.mockReset();
   jest.spyOn(toast, 'show').mockImplementation(() => 1);
   jest.spyOn(toast, 'error').mockImplementation(() => 1);
 });
@@ -292,5 +311,59 @@ describe('this phone', () => {
       ),
     ).toBeTruthy();
     expect(screen.queryByTestId('turn-on-notifications')).toBeNull();
+  });
+
+  it('lists what you asked the Assistant for, with Pause and a Delete that asks first', async () => {
+    const MONDAYS = '33333333-3333-4333-8333-333333333333';
+    const BOB = '44444444-4444-4444-8444-444444444444';
+    mockRoutines = [
+      {
+        id: MONDAYS,
+        kind: 'question',
+        when: 'Every Monday at 8:00 AM',
+        question: 'Who owes me money?',
+        cadence: { every: 'weekly', days: [1], at: '08:00' },
+        watch: null,
+        email: true,
+        once: false,
+        paused: false,
+        nextRunAt: null,
+        lastRunAt: null,
+        lastFiredAt: null,
+        firedCount: 0,
+        threadId: null,
+      },
+      {
+        id: BOB,
+        kind: 'alert',
+        when: 'When Bob Ortiz writes',
+        question: null,
+        cadence: null,
+        watch: { on: 'reply', personId: '55555555-5555-4555-8555-555555555555' },
+        email: false,
+        once: true,
+        paused: false,
+        nextRunAt: null,
+        lastRunAt: null,
+        lastFiredAt: null,
+        firedCount: 0,
+        threadId: null,
+      },
+    ];
+    await show();
+    expect(screen.getByText('Who owes me money?')).toBeTruthy();
+    expect(screen.getByText(/Every Monday at 8:00 AM · .*By email too/)).toBeTruthy();
+    expect(screen.getByText('When Bob Ortiz writes')).toBeTruthy();
+    expect(screen.getByText('Tells you once, then stops')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId(`routine-pause-${MONDAYS}`));
+    expect(pauseRoutine).toHaveBeenCalledWith(LONE_STAR, MONDAYS, true);
+    expect(mockPatch).toHaveBeenCalledWith(MONDAYS, { paused: true, nextRunAt: null });
+
+    await fireEvent.press(screen.getByTestId(`routine-delete-${BOB}`));
+    expect(deleteRoutine).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId(`routine-delete-yes-${BOB}`));
+    expect(deleteRoutine).toHaveBeenCalledWith(LONE_STAR, BOB);
+    expect(mockPatch).toHaveBeenCalledWith(BOB, null);
   });
 });
