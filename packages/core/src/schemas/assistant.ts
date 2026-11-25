@@ -399,9 +399,11 @@ export const ASSISTANT_DOCX_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 export const ASSISTANT_XLSX_TYPE =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+/** A contacts file (.vcf), as a phone's or a mail app's contacts export it. */
+export const ASSISTANT_VCARD_TYPE = 'text/vcard';
 /**
  * The files a question can carry. A PDF is shown to the model page by page; the worker reads the words out of the
- * rest (a Word file's paragraphs and tables, a spreadsheet's rows) and shows it those.
+ * rest (a Word file's paragraphs and tables, a spreadsheet's rows, a contacts file's people) and shows it those.
  */
 export const ASSISTANT_FILE_TYPES = [
   'application/pdf',
@@ -410,6 +412,7 @@ export const ASSISTANT_FILE_TYPES = [
   'text/csv',
   'text/plain',
   'text/markdown',
+  ASSISTANT_VCARD_TYPE,
 ] as const;
 export type AssistantFileType = (typeof ASSISTANT_FILE_TYPES)[number];
 

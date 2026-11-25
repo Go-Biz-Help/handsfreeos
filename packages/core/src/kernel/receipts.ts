@@ -55,8 +55,8 @@ export const inputHashOf = (rawInput: unknown): string =>
 
 /**
  * A person's command that carries the app's id has a receipt, unless the command says it keeps none
- * (`receipt: false`: `outreach.live.beat` and `outreach.ask.progress`, where a repeat does no harm and a lost answer
- * is asked again with the next call); nothing else does.
+ * (`receipt: false`: `outreach.live.beat`, `outreach.plan.note` and `outreach.ask.progress`, where a repeat does no
+ * harm and a lost answer is asked again with the next call); nothing else does.
  */
 export function receiptClaim(
   cmd: CommandDef,

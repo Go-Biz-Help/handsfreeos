@@ -16,6 +16,7 @@ import { chatLinksAnswer, retryOutcome } from '../ai-answers';
 import { outreachAddon } from '../manifest';
 import {
   choicesFor,
+  POST_SEND_KINDS,
   readsRequests,
   requestAnswerOf,
   requestModeOf,
@@ -70,7 +71,7 @@ import {
 } from './common';
 import { playbooksInUse } from './friends';
 import { openNeed, retrySince } from './needs';
-import { commentHoldOf, draftedNow, listed, mine, notHeldNow, sendsAgain } from './sends';
+import { commentHoldOf, draftedNow, listed, mine, notHeldNow, sendsAgain, sortOf } from './sends';
 import { handsAsks } from './in-hands';
 import { notNever, requestFit, type RequestAnswered } from './today';
 
@@ -87,14 +88,18 @@ const iso = (at: Date | string | null) => (at === null ? null : new Date(at).toI
  */
 const shownSince = (now: number) => new Date(now - NEED_SHOWN_DAYS * DAY).toISOString();
 
-/** Each person's messages waiting, split into replies handed over and the rest, and their needs shown. */
+/**
+ * Each person's messages waiting, split into replies handed over and the rest, and how many of the rest are comments
+ * on posts or answers in groups (Needs you's Comments part, decision 196); and their needs shown.
+ */
 async function sendAndNeedKinds(
   ctx: Ctx,
   userIds: readonly string[],
   now: number,
-): Promise<Map<string, WaitingKinds>> {
+): Promise<{ kinds: Map<string, WaitingKinds>; comments: Map<string, number> }> {
   const kinds = new Map(userIds.map((id) => [id, structuredClone(NO_KINDS) as WaitingKinds]));
-  if (!userIds.length) return kinds;
+  const comments = new Map<string, number>();
+  if (!userIds.length) return { kinds, comments };
   const ws = ctx.scope.workspaceId!;
   const [sent, needed] = await Promise.all([
     rows<{
@@ -103,13 +108,18 @@ async function sendAndNeedKinds(
       replied_at: Date | string | null;
       messages: number;
       messaged_at: Date | string | null;
+      comments: number;
     }>(
       ctx.tx,
       sql`select user_id,
             count(*) filter (where handed_over)::int as replies,
             max(created_at) filter (where handed_over) as replied_at,
             count(*) filter (where not handed_over)::int as messages,
-            max(created_at) filter (where not handed_over) as messaged_at
+            max(created_at) filter (where not handed_over) as messaged_at,
+            count(*) filter (where not handed_over and kind in (${sql.join(
+              POST_SEND_KINDS.map((k) => sql`${k}`),
+              sql`, `,
+            )}))::int as comments
           from addon_outreach.sends
           where workspace_id = ${ws} and state = 'waiting' and user_id = any (${ids(userIds)}::uuid[])
             -- One drafted under older rules is written again first (decision 157).
@@ -129,11 +139,12 @@ async function sendAndNeedKinds(
     const k = kinds.get(s.user_id)!;
     k.reply = { count: s.replies, newestAt: iso(s.replied_at) };
     k.message = { count: s.messages, newestAt: iso(s.messaged_at) };
+    comments.set(s.user_id, s.comments);
   }
   for (const n of needed) kinds.get(n.user_id)!.need = { count: n.n, newestAt: iso(n.newest) };
   for (const [userId, counted] of (await asksNeedingYou(ctx, userIds, now)).counts)
     kinds.get(userId)!.ask = counted;
-  return kinds;
+  return { kinds, comments };
 }
 
 /**
@@ -280,14 +291,18 @@ async function kindsFor(
   userIds: readonly string[],
   now: number,
   playbooks: readonly FitPlaybook[],
-): Promise<{ kinds: Map<string, WaitingKinds>; requests: Map<string, WaitingRequest[]> }> {
-  const [kinds, requests] = await Promise.all([
+): Promise<{
+  kinds: Map<string, WaitingKinds>;
+  comments: Map<string, number>;
+  requests: Map<string, WaitingRequest[]>;
+}> {
+  const [{ kinds, comments }, requests] = await Promise.all([
     sendAndNeedKinds(ctx, userIds, now),
     requestsToDecide(ctx, userIds, now, playbooks),
   ]);
   for (const [userId, list] of requests)
     kinds.get(userId)!.request = { count: list.length, newestAt: list[0]?.since ?? null };
-  return { kinds, requests };
+  return { kinds, comments, requests };
 }
 
 /**
@@ -392,7 +407,7 @@ export const waiting = defineAddonQuery(outreachAddon, {
     if (!me) throw HfosError.forbidden('Only a person has things waiting for them.');
     const now = Date.now();
     const playbooks = await playbooksInUse(ctx);
-    const [{ kinds, requests }, auto, timezone] = await Promise.all([
+    const [{ kinds, comments, requests }, auto, timezone] = await Promise.all([
       kindsFor(ctx, [me], now, playbooks),
       automationOf(ctx, me, now),
       zoneOf(ctx),
@@ -403,11 +418,22 @@ export const waiting = defineAddonQuery(outreachAddon, {
     const items: WaitingItem[] = [];
     const commentHolds: Platform[] = [];
     if (input.items) {
-      const [waitingSends, needed, asked] = await Promise.all([
-        listed(ctx, and(mine(ctx, me), eq(sends.state, 'waiting'), draftedNow, notHeldNow)),
+      // The messages and the comments are listed apart, the oldest of each (decision 196), so each of Needs you's
+      // parts has its own; then together, oldest first, as the list has always been.
+      const waitingOf = (only: 'messages' | 'comments') =>
+        listed(
+          ctx,
+          and(mine(ctx, me), eq(sends.state, 'waiting'), draftedNow, notHeldNow, sortOf(only)),
+        );
+      const [chatSends, postSends, needed, asked] = await Promise.all([
+        waitingOf('messages'),
+        waitingOf('comments'),
         neededOf(ctx, me, now),
         asksNeedingYou(ctx, [me], now, me),
       ]);
+      const waitingSends = [...chatSends, ...postSends].sort(
+        (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt),
+      );
       for (const ask of asked.items)
         items.push({ kind: 'ask', at: ask.startedAt ?? ask.askedAt, ask });
       for (const send of waitingSends.filter((s) => s.handedOver))
@@ -426,6 +452,7 @@ export const waiting = defineAddonQuery(outreachAddon, {
     return {
       count: waitingCount(counted) + handsAsked.length,
       kinds: counted,
+      comments: comments.get(me) ?? 0,
       items,
       hands: input.items ? handsAsked : [],
       wheels: auto.wheels,

@@ -98,6 +98,11 @@ beforeAll(async () => {
     );
     await rows(
       admin(),
+      sql`insert into addon_outreach.plan_days (workspace_id, user_id, platform, day, state, noted_at)
+          values (${ws}, ${u.id}, 'facebook', current_date, '{}', now())`,
+    );
+    await rows(
+      admin(),
       sql`insert into addon_outreach.asks (workspace_id, user_id, kind, via, asked_at, task)
           values (${ws}, ${u.id}, 'unfriend', 'web', now(), '{"names": ["Avery Lane"]}')`,
     );
@@ -121,6 +126,18 @@ describe('computers, days and the feed, on the database', () => {
       await tried(
         riley,
         sql`update addon_outreach.list_saves set sent_at = now()
+            where workspace_id = ${ws} and user_id = ${dana.id} returning id`,
+      ),
+    ).toBe(0);
+  });
+
+  it('keep where each person’s day is up to their own, even from owners', async () => {
+    expect(await seenBy(riley, 'plan_days')).toEqual([riley.id]);
+    expect(await seenBy(owner, 'plan_days')).toEqual([owner.id]);
+    expect(
+      await tried(
+        riley,
+        sql`update addon_outreach.plan_days set noted_at = now()
             where workspace_id = ${ws} and user_id = ${dana.id} returning id`,
       ),
     ).toBe(0);
@@ -391,6 +408,7 @@ describe('through a view of someone, on the database', () => {
       'live_steps',
       'needs',
       'list_saves',
+      'plan_days',
       'waiting_pushes',
       'asks',
     ]) {

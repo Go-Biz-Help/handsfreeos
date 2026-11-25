@@ -9,7 +9,8 @@
  * checked for good fits once (decision 46); after that the group checks and friend checks run daily with their caps
  * (./daily.ts). The step under way is kept in the state (`beforeNow`) for the panel's live checklist.
  *
- * The runner that works on its own (./run.ts) asks `beforeDay` what's next and does it with `doBeforeDay`.
+ * The runner that works on its own (./run.ts) asks `beforeDay` what's next (HandsFreeOS's rule from 0.155.0,
+ * packages/core/src/addons/outreach/plan-rules.ts) and does it with `doBeforeDay`.
  *
  * Each network has its own lists and its own first day (packages/core/src/addons/outreach/lists.ts, `LIST_SAVES_ON`):
  * LinkedIn's runner (./linkedin.ts) saves the person's connections, then the invitations they've got and the ones
@@ -25,16 +26,12 @@ import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { GROUP_CHECKS_DAILY } from '@hfos/core/addons/outreach/group-checks';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
-  afterFirstSave,
-  atKey,
-  firstSaveDone,
   LIST_DOING,
   LIST_NAMES,
-  listsDue,
   type ListMark,
   type ListSave,
-  type ListsSaved,
 } from '@hfos/core/addons/outreach/lists';
+import type { BeforeDay } from '@hfos/core/addons/outreach/plan-rules';
 import { checkConnections as checkAlignableConnections } from '../jobs/alignable/checks';
 import {
   checkRequests as saveAlignableRequests,
@@ -52,6 +49,15 @@ import { saveConnections, saveInvitations } from '../jobs/linkedin/people';
 import { checkRequests, checkSent, FRIENDS_SCROLLS, saveFriends } from '../jobs/people';
 import type { FollowPlatform } from '../networks/follows/types';
 import { counted } from '../words';
+
+// What's due before the day, and whether it holds the day, are HandsFreeOS's rules from 0.155.0 (decision 195).
+export {
+  beforeDay,
+  holdsTheDay,
+  markOf,
+  type BeforeDay,
+  type TriedBefore,
+} from '@hfos/core/addons/outreach/plan-rules';
 
 /**
  * Threads' and X's (decision 163): their newest followers, then who to unfollow worked out. Nobody there is checked from
@@ -169,46 +175,6 @@ const LISTS_ON: Readonly<Record<Platform, ListsOn>> = {
   x: followListsOn('x'),
 };
 
-/** What to do before the day: save a list, check the groups, work out Tidy up, or check friends once. */
-export type BeforeDay =
-  | { readonly do: 'save'; readonly list: ListSave; readonly first: boolean }
-  | { readonly do: 'group_checks' }
-  | { readonly do: 'tidy' }
-  | { readonly do: 'checks' };
-
-/** What it tried before the day today, by list: a refresh that went wrong isn't tried again till tomorrow. */
-export type TriedBefore = Readonly<Partial<Record<ListMark, string>>>;
-
-/**
- * What to do next before the day, or null when the day can go: a list due (any never saved, the requests each
- * morning, the friends list weekly), then, once the first full save is done, the tidy-up and the first check. A
- * refresh tried today already waits for tomorrow; one never saved is tried again till it's saved.
- */
-export function beforeDay(
-  lists: ListsSaved,
-  tried: TriedBefore,
-  now: number,
-  timeZone: string,
-  platform: Platform = 'facebook',
-): BeforeDay | null {
-  const first = !firstSaveDone(lists, platform);
-  const due = listsDue(lists, now, timeZone, platform).filter(
-    (list) => tried[list] === undefined || (first && lists[atKey(list)] === null),
-  );
-  if (due[0]) return { do: 'save', list: due[0], first };
-  const after = afterFirstSave(lists, platform);
-  // The first check of the groups holds the day like the lists do: tried again till it's done.
-  return after && (after === 'group_checks' || tried[after] === undefined) ? { do: after } : null;
-}
-
-/**
- * Whether what's due before the day holds the whole day: the first full save of the person's lists, and the first
- * check of their groups, as the list can't be worked out without them. Anything else before the day takes turns with
- * the list (decision 123).
- */
-export const holdsTheDay = (step: BeforeDay | null): boolean =>
-  step !== null && ((step.do === 'save' && step.first) || step.do === 'group_checks');
-
 /** What it says while it does each, on its network (Facebook's unless said). */
 export function beforeDayDoing(step: BeforeDay, platform: Platform = 'facebook'): string {
   const on = LISTS_ON[platform];
@@ -283,6 +249,3 @@ export async function doBeforeDay(
   if (!end.warned && !end.failed) await mark('checks');
   return end;
 }
-
-/** What's noted when the step is done: for the live checklist, the step under way. */
-export const markOf = (step: BeforeDay): ListMark => (step.do === 'save' ? step.list : step.do);

@@ -26,6 +26,7 @@ const views = Object.values(PEOPLE_VIEWS).join(', ');
 const needsParts = Object.values(NEEDS_PARTS).join(', ');
 const todayParts = [
   TODAY_PARTS.overview,
+  TODAY_PARTS.plan,
   TODAY_PARTS.list,
   TODAY_PARTS.posts,
   TODAY_PARTS.done,
@@ -59,16 +60,18 @@ export const OUTREACH_PLACES: readonly AppPlace[] = [
       `A row of parts, each with how many wait, one part shown at a time: ${needsParts}; only those with something in them are on the row, and it opens on the first`,
       'Replies handed over to you, each with OK, Change and Skip',
       'Messages to OK, with Approve all, and each message’s OK, Change and Skip',
+      'Comments to OK (comments on posts and answers in groups), with an Approve all of their own, and each comment’s post, OK, Change and Skip',
       'Steps it needs you for: each with its link, I did it or Let it go, and Retry; Retry all',
       'Friend requests to decide: Confirm, Delete or Leave',
     ],
     howTo: [
       `OK every message at once: ${NAME} → ${P['needs-you']} → ${NEEDS_PARTS.message}, Approve all`,
+      `OK every comment at once: ${NAME} → ${P['needs-you']} → ${NEEDS_PARTS.comment}, Approve all`,
       `Try the steps it couldn’t do again: ${NAME} → ${P['needs-you']} → ${NEEDS_PARTS.need}, Retry all (or Retry on one)`,
       `Decide friend requests: ${NAME} → ${P['needs-you']} → ${NEEDS_PARTS.request}`,
     ],
     canChange: [
-      'OK, change or skip a message or reply, approve them all, retry or clear a step, and confirm, delete or leave a friend request',
+      'OK, change or skip a message, comment or reply, approve all the messages or all the comments, retry or clear a step, and confirm, delete or leave a friend request',
     ],
     path: 'needs-you',
   },
@@ -80,10 +83,12 @@ export const OUTREACH_PLACES: readonly AppPlace[] = [
       `A row of parts, one shown at a time: ${todayParts}, and ${TODAY_PARTS.team} for owners and admins`,
       'The network picker at the top (the networks the person works)',
       `${TODAY_PARTS.overview}: what it did, Heads up (why no new friend requests, the day’s goal), how many things need the person, and each network’s card with what the computer is doing now, the daily limits, and Start my day or Stop for today`,
+      `${TODAY_PARTS.plan}: what their computer will do today on the network shown and about when (what they asked for first, then what’s coming in order), and what it has done so far; it only shows, nothing there is pressed`,
       `${TODAY_PARTS.list}: each row’s name (its person menu), open their page, the post or their chat, and Copy for a draft; partners and referrals`,
       `${TODAY_PARTS.posts}: the helpful post and events near you; ${TODAY_PARTS.done}: every step today`,
     ],
     howTo: [
+      `See what the extension will do today and when: ${NAME} → ${P.today} → ${TODAY_PARTS.plan}`,
       `Start or stop the extension’s day: ${NAME} → ${P.today} → ${TODAY_PARTS.overview}, Start my day or Stop for today`,
       `See today’s list: ${NAME} → ${P.today} → ${TODAY_PARTS.list}`,
       `Do more for someone on the list: ${PERSON_MENU}`,

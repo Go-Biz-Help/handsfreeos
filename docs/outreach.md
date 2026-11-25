@@ -755,6 +755,7 @@ became.
 | The icon's number, the panel's line, and the pop-ups     | `apps/extension/src/hfos/waiting.ts`, `src/hfos/needs-you.ts`, `src/panel/needs.ts`, `src/background.ts`                                                                                                                                                                            |
 | Lists first, before the day (decision 60)                | `lists.ts`, `ops/lists.ts`, `apps/extension/src/auto/lists.ts`, `src/jobs/people.ts`, `src/jobs/groups.ts`, `src/jobs/groups-check.ts`, the web's `pre-day-list.tsx`, `supabase/migrations/20261027002800_outreach_list_saves.sql`, `20261027002830_outreach_list_saves_groups.sql` |
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/auto/turns.ts`, `src/facebook/auto.ts`, `src/panel/status.ts`, `src/tab.ts`                                                                                                                                              |
+| The plan, and the day's rules (decision 195)             | `plan-rules.ts` and `runners.ts` (the day's rules, the extension's own), `plan.ts`, `ops/plan.ts`, `apps/extension/src/hfos/plan.ts`, the web's `plan-view.tsx`, the phone's `plan.tsx`, `supabase/migrations/20261027036200_outreach_plan_days.sql`                                |
 | Stages and the pitch (decision 47)                       | `stages.ts`, `ops/stages.ts`, `apps/web/src/addons/outreach/pipeline-view.tsx`, `apps/mobile/src/addons/outreach/pipeline.tsx`, `supabase/migrations/20261027002100_outreach_stages.sql`                                                                                            |
 | The fits among friends and chats (decision 46)           | `checks.ts`, `ops/checks.ts`, `apps/worker/src/addons/outreach/checks.ts`, `apps/extension/src/jobs/checks.ts`, `supabase/migrations/20261027002000_outreach_fit_checks.sql`                                                                                                        |
 | Groups, theirs first, then new ones (decisions 48, 148)  | `group-checks.ts`, `ops/group-checks.ts`, `apps/worker/src/addons/outreach/groups.ts`, `apps/extension/src/jobs/groups-check.ts`, `src/jobs/join.ts`, `src/facebook/join.ts`, `supabase/migrations/20261027002200_outreach_group_checks.sql`                                        |
@@ -850,6 +851,8 @@ Operations, all through the kernel:
 | `outreach.live.beat`                                  | `outreach.use`    | The extension's beat: this computer, what it's doing, new feed lines; answers whether it works, the day, and how many asks wait. Keeps no receipt                                                                                                                                                                                   |
 | `outreach.day.start`, `outreach.day.stop`             | `outreach.use`    | Start my day or Stop for today, the person's own; an older press never undoes a newer one, and one from another day changes nothing. Start after a warning: `outreach_warned_today`; with nothing on its own: `outreach_sending_off`                                                                                                |
 | `outreach.lists`, `outreach.lists.saved`              | `outreach.use`    | When the person's own friends list, requests got and sent, and groups were last saved, and the first group check, Tidy up and friend check after; the extension notes each (Lists first, decision 60)                                                                                                                               |
+| `outreach.plan.note`                                  | `outreach.use`    | Where the extension's day is up to on a network, as it changes; kept only from the person's working computer (decision 195). Keeps no receipt                                                                                                                                                                                       |
+| `outreach.plan`                                       | `outreach.use`    | The plan on a network: where the day stands, what the person asked for first, what's coming in order with about when, and what's done so far; worked out from the extension's word with its own rules (decision 195)                                                                                                                |
 | `outreach.computer.rename`                            | `outreach.use`    | Rename one of the person's computers                                                                                                                                                                                                                                                                                                |
 | `outreach.computer.remove`                            | `outreach.use`    | Remove the person's computers, one or every one standing by; never the one that works (`outreach_computer_working`)                                                                                                                                                                                                                 |
 | `outreach.live`                                       | `outreach.use`    | The Live tab: the computer that works and what it says, the day, counts, what waits, the warning, today's feed. `waiting: false` leaves the count of what waits out (0), for a page that shows it from `outreach.waiting`: the web's Today cards and Settings ask that way, so six cards don't each count it                        |
@@ -5288,7 +5291,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       command or query changed.
       - **Needs you's parts are the kinds that wait,** in decision 42's order: **People to OK** (Autopilot's list,
         decision 151, while anyone on it waits), **Your computer**, **In your hands** (decision 182), **Replies**,
-        **Messages** (comments among them, decision 92), **Steps**, **Requests** and **Where they live** (decision
+        **Messages** (comments among them, decision 92; since decision 196, **Messages** and **Comments**), **Steps**, **Requests** and **Where they live** (decision
         128's Not sure where they live). Each shows its count. Only the parts with something in them are on the row,
         and the one open even once it's emptied, saying to pick another. With nothing waiting there's no row, only
         "Nothing needs you right now". It's still never narrowed to a network.
@@ -5312,6 +5315,83 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         again. Off the Overview, whose cards pick the network, the networks the person works are a row at the top
         of the part.
       - The Assistant knows the parts (`ai-places.ts`: "Social Outreach → Needs you → Messages, Approve all").
+
+194.  **The comment research reads first, and outside the working hours** (Chris, 24 Nov 2026, after running it again
+      on Facebook and LinkedIn at 4:36 PM and finding nothing read that evening: "it should have started reading
+      comments", then "i just want the research to run now so it can finish"; the pick of "Yes, read it first" on
+      the card; extension 0.154.0). It was the 15th of Facebook's 16 once-a-day jobs, and the runner reached the 9th
+      before the hours ended at 6 PM.
+      - **First while one runs** (`researchNext` in the extension's `src/jobs/comment-research.ts`): every runner asks
+        before the day's other once-a-day jobs, and whenever its batch is due the research goes first. Its batches
+        still wait 35 to 60 minutes between them (decision 126's `again`), and the rest of the day takes turns
+        meanwhile.
+      - **Outside the hours too, as it only reads** (decision 133 lets nothing new go then): on every network, at the
+        same pace, after the replies that go any time, and never after Stop for today or a warning, with noting off
+        or an ask in line. The runner wakes for the next batch, or every hour once today's share is read
+        (`lookForResearch`), so the next day's starts soon after midnight.
+      - **For anyone else nothing changes:** the first look of the day asks HandsFreeOS once whether a research of
+        theirs runs (`researchRuns`) and keeps that none does, as before, only earlier in the day.
+      - No server change and no migration. The research's own pace and share (`researchRoom`, about a third of its
+        comments a day over 3 days) stay as they are.
+
+195.  **The app holds the schedule, and the extension does what it's sent** (Chris, 25 Nov 2026: "what i'd prefer is
+      the web app/phone app has the knowledge and schedule and tasks etc and the extension just knows how to do the
+      things that the app send it … then we could also see the schedule of things in the app and see what it plans to
+      do when"; "yes" to building it). Built in five steps, a pull request each, so nothing changes all at once:
+      1. **See the plan in the app** (this step, extension 0.155.0, built below).
+      2. **The app decides, the extension does:** the extension asks HandsFreeOS for its next move, one network at a
+         time, the smallest first and Facebook last.
+      3. **Buttons on the plan:** do now, skip today, move to a time.
+      4. **The Assistant changes the plan,** as it already reads it.
+      5. **Clean-up:** the extension's own planning goes.
+
+      Every safety limit stays the same through all of it: one page at a time, the warm-up, never a message to someone
+      on Instagram who doesn't follow the person (decision 159), and each network's daily limits.
+
+      **Step 1, the plan on Today.** The extension still works its day out itself, so nothing it does changes.
+      - **The rules are HandsFreeOS's own now.** The pure part of the runners' planning moved from
+        `apps/extension/src/auto/plan.ts` to core, unchanged (`plan-rules.ts`), and each network's job lists, names
+        and pace with it (`runners.ts`, `RUNNERS`). The extension re-exports them, so its runners work as before.
+      - **The extension says where each network's day is up to** (`outreach.plan.note`, `src/hfos/plan.ts`): what's
+        done, what was tried, the once-a-day jobs and what waits to be looked at again, and when it goes next. It sends
+        a couple of seconds after a runner's state changes in a way the plan can see (not at every line of a long
+        read), and after each answered beat for one that couldn't go. It remembers what HandsFreeOS kept by a short
+        mark while the browser is open, so it never sends the same twice. Only the working computer's word is kept: a
+        computer on standby has a day it isn't working. Times move onto HandsFreeOS's clock by how far apart the two
+        are. One row a person and network, their own (`addon_outreach.plan_days`); it holds nobody's words.
+      - **HandsFreeOS works the rest of the day out** (`outreach.plan`, `nextMove` and `planAhead` in `plan.ts`): the
+        same order the runners follow (stopped, warned, noting off, outside the hours, an ask first, the lists before
+        the day, the once-a-day jobs, a round of finding again, the list's work in turns), each move taken as done in
+        about the time it takes, with the gap the runner would leave after it. The first time is the extension's own
+        next time when it said one; the rest say "About". It lists up to 40, counts the rest, and ends at the working
+        hours' end, or the day's after Start my day. What the person asked for goes first, listed apart.
+      - **Left out, and said so** (`planNotes`): the referral look, a helpful post going up on its own, the replies
+        read while the person's away, and how long a job really takes. Comment research shows only while a batch
+        waits, as it runs only for HandsFreeOS's own staff; then, as decision 194 has it, first when it's due, outside
+        the hours too.
+      - **Today's Plan part** sits after Overview (`page-parts.ts`, `/today/plan`, the web's `plan-view.tsx`, the
+        phone's `plan.tsx`): where the day stands in a chip and a line, You asked for these first, Coming up, and Done
+        so far today. It's asked for again every minute and when the computer, the day or an ask changes, never the
+        whole page. Before the extension has said anything it lists nothing: an older build is told to update to
+        0.155.0, a newer one that it says within a minute. Nothing on it is pressed yet (step 3).
+      - **The Assistant reads it** (`outreach_plan`), and knows the part (`ai-places.ts`).
+
+196.  **Comments and messages, a part each on Needs you** (Chris, 25 Nov 2026: "separate comments and messages into
+      different menued pages", with a picture of one "Messages 85" part holding both). Needs you's row has
+      **Messages** and **Comments** side by side now, in place of decision 193's one Messages part, on the web
+      (`/needs-you/comment`) and the phone (`&part=comment`), each with its own count (`page-parts.ts`).
+      - **Messages** is the messages to OK alone, headed Messages to OK, with the training wheels' line and an
+        Approve all that OKs only messages ("Approve all 25 messages").
+      - **Comments** is the comments on good posts (decision 92) and the answers in groups (decision 114), headed
+        Comments to OK, with the comments' hold line, why Approve all leaves forum answers, and an Approve all of its
+        own ("Approve all 60 comments").
+      - **Approve all takes one part** (`outreach.send.approve`'s new `only`: `messages` or `comments`; left out, every
+        one, as before, so Today's Approve all and older phones work unchanged). The phone names what its part shows,
+        as before.
+      - **`outreach.waiting` says how many of the messages are comments** (`comments`), and lists the oldest 100 of
+        each, so a long run of comments never pushes the messages off the list; the phone's copy does the same
+        (`waitingOfCopy`). The count, the pushes, the extension's icon and Today keep messages and comments one kind.
+      - No migration. The Assistant knows both parts (`ai-places.ts`) and can approve either (`only`).
 
 ## Rules worth knowing before changing anything
 
@@ -5414,6 +5494,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   reaches comments only through `platform.comment_guides` after staff press Use it, as quoted data
   (`commentGuideBlock`), never as an instruction, only on its own network, and every example in it is a comment
   really kept (`checkedFindings`). A research reads comments alone: never a box of who reacted.
+- **The comment research may read outside the working hours, and nothing else new may** (decisions 133 and 194):
+  it only reads, so a runner reads a research of the person's own outside them, first whenever its batch is due. Any
+  other job that wants the same must send nothing and press nothing, and asks the owner first.
 - **The research reaches messages only as its note** (decision 191, `writingNote`, `writingNoteBlock`): through
   `platform.writing_notes` after staff press **Use in everyone’s messages**, apart from the guide, as quoted data,
   only on its own network. The note is counts and single everyday words: never a comment, an example or how long a
@@ -6221,6 +6304,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   message checks `heldAmong` or `notHeldNow` (`ops/in-hands.ts`); likes and comments don't. What counts as typed by
   hand is `byHandAt` and `theAisLately`: widen what counts as the AI's freely, but never count an AI draft the person
   OK'd, edited or copied as theirs.
+- **The day's rules live once, in core** (decision 195): `plan-rules.ts` (what's next, the gaps, the turns, the day)
+  and `runners.ts` (each network's kinds, once-a-day jobs, names and pace). The extension's runners import them, and
+  the plan on Today works the day out with them (`nextMove` in `plan.ts`). A change to a runner's order in its `go()`
+  goes into `nextMove` too, or the plan shows a day the extension won't do. The plan only ever shows: nothing in it
+  tells the extension what to do until step 2 of decision 195.
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from
   outlines, never saved pages (apps/extension/README.md).
 

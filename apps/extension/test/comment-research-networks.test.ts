@@ -21,7 +21,9 @@ const { topPostSearchUrl, readLinkedInComments } =
   await import('../src/jobs/linkedin/comment-research');
 const { readAlignableComments } = await import('../src/jobs/alignable/comment-research');
 const { readFollowComments } = await import('../src/jobs/follows/comment-research');
-const { forgetSeenPosts, postKey, researchRuns } = await import('../src/jobs/comment-research');
+const { forgetSeenPosts, lookForResearch, NO_RESEARCH, postKey, researchNext, researchRuns } =
+  await import('../src/jobs/comment-research');
+const { freshState } = await import('../src/auto/plan');
 const { facebookPostSearch } = await import('../src/jobs/partner-search');
 const { FOLLOW_SPECS } = await import('../src/networks/follows/specs');
 const { MINE } = await import('../src/jobs/alignable/read');
@@ -441,5 +443,57 @@ describe('whether a runner reads for the research at all', () => {
       await researchRuns(says({ ok: false, problem: { message: 'No.' } }), BUSINESS, 'linkedin'),
     ).toBe(false);
     expect(await researchRuns(says(new Error('offline')), BUSINESS, 'alignable')).toBe(false);
+  });
+});
+
+describe('the research’s turn (decision 194)', () => {
+  const HOUR = 60 * 60_000;
+  const now = Date.UTC(2026, 10, 25, 9);
+  const running = (async () => ({
+    ok: true,
+    value: { research: { id: RESEARCH, tags: ['dinner'], postsEach: 5, kept: 0, target: 2_000 } },
+  })) as unknown as Hfos;
+  const none = (async () => ({ ok: true, value: { research: null } })) as unknown as Hfos;
+
+  it('reads whenever its batch is due and one this person started runs; for anyone else, none is kept once', async () => {
+    const changes: unknown[] = [];
+    const setState = async (change: object) => {
+      changes.push(change);
+      return { ...freshState('2026-11-25'), ...change } as never;
+    };
+    const ask = { businessId: BUSINESS, platform: 'facebook', now, setState } as const;
+    const fresh = freshState('2026-11-25');
+    expect(await researchNext({ ...ask, hfos: running, state: fresh })).toEqual({
+      reads: true,
+      state: fresh,
+    });
+    // Its next batch still to come, put off till they're away, or done today: not now, and nothing is asked.
+    const waiting = { ...fresh, againAt: { comment_research: now + HOUR } };
+    expect((await researchNext({ ...ask, hfos: running, state: waiting })).reads).toBe(false);
+    const putOff = ['comment_research'];
+    expect(
+      (await researchNext({ ...ask, hfos: running, state: fresh, passOver: putOff })).reads,
+    ).toBe(false);
+    expect(changes).toEqual([]);
+    const gone = await researchNext({ ...ask, hfos: none, state: fresh });
+    expect(gone.reads).toBe(false);
+    expect(gone.state.daily?.comment_research).toBe(NO_RESEARCH);
+    expect(changes).toEqual([{ daily: { comment_research: NO_RESEARCH } }]);
+  });
+
+  it('looks again outside the hours for its next batch, or in an hour once today’s share is read', () => {
+    const look = now + 10 * HOUR;
+    expect(
+      lookForResearch(look, { daily: {}, againAt: { comment_research: now + HOUR } }, now),
+    ).toBe(now + HOUR);
+    expect(lookForResearch(look, { daily: { comment_research: 'Read.' } }, now)).toBe(now + HOUR);
+    expect(lookForResearch(null, { daily: { comment_research: 'Read.' } }, now)).toBe(now + HOUR);
+    expect(lookForResearch(look, { daily: {} }, now, ['comment_research'])).toBe(now + 10 * 60_000);
+    // Nobody's research, or one not asked about: as it was.
+    expect(lookForResearch(look, { daily: { comment_research: NO_RESEARCH } }, now)).toBe(look);
+    expect(lookForResearch(null, { daily: {} }, now)).toBeNull();
+    expect(lookForResearch(now + 5 * 60_000, { daily: { comment_research: 'Read.' } }, now)).toBe(
+      now + 5 * 60_000,
+    );
   });
 });

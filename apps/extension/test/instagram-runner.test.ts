@@ -2276,6 +2276,37 @@ describe('its day', () => {
     expect(world.asked.filter((a) => a.type === 'hfos-comment-research-next')).toHaveLength(2);
     expect(world.asked.some((a) => a.type === 'hfos-comment-research-save')).toBe(false);
   });
+
+  it('reads a comment research this person started first in the day, before the rest (decision 194)', async () => {
+    keep(day('started'));
+    world.hours = ALL_DAY;
+    world.choices = { on: true, sending: 'steps', collect: true, warmUp: true };
+    world.hfos['hfos-lists'] = saved;
+    world.away = true;
+    store.set(INSTAGRAM_STATE_KEY, freshState(today()));
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [],
+      auto: ['warm_up', 'friend_request'],
+      messages: [],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
+    world.pages = (url) =>
+      url === `${IG}/` ? { html: `${MENU}<main><article></article></main>` } : null;
+    world.hfos['hfos-comment-research-next'] = () => ({
+      research: {
+        id: '1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b',
+        tags: [],
+        postsEach: 5,
+        kept: 700,
+        target: 2_000,
+      },
+    });
+    await instagramTick();
+    const state = () => store.get(INSTAGRAM_STATE_KEY) as { daily: Record<string, string> };
+    expect(Object.keys(state().daily)).toEqual(['comment_research']);
+  });
 });
 
 describe('Instagram’s growing (part 15)', () => {

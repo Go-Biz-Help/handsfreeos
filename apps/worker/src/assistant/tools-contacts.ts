@@ -1,22 +1,41 @@
 /**
  * Customers in bulk, by asking (0107): many at once with their tags; tags on or off many in one go; any detail of
- * one customer changed, added or taken off; and the AI's pass over the whole list, started or stopped. Each change
- * runs as the person, through the same commands as the screens, only after Confirm, marked as done through the
- * Assistant, with the reason they gave on every audit row.
+ * one customer changed, added or taken off; the AI's pass over the whole list, started or stopped; and a whole list
+ * of contacts sent with a question (a CSV, an Excel sheet or a .vcf) added through the import. Each change runs as
+ * the person, through the same commands as the screens, only after Confirm, marked as done through the Assistant,
+ * with the reason they gave on every audit row.
  */
 import {
   addressKey,
   addressLine,
+  ASSISTANT_DOCX_TYPE,
+  ASSISTANT_VCARD_TYPE,
+  ASSISTANT_XLSX_TYPE,
+  COMPANY_FIELDS,
   contactLabelWords,
   formatPhone,
+  guessMapping,
   HfosError,
+  IMPORT_FIELD_LABELS,
+  IMPORT_MAX_ROWS,
+  mapCompanyRow,
+  mapPersonRow,
   normalizePhone,
   otherAddressesStored,
+  parseVcards,
+  PERSON_FIELDS,
+  REPEATABLE_FIELDS,
+  SKIP,
+  vcardTable,
   type OtherAddressOut,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import Papa from 'papaparse';
+import { workbookRows } from '../files/office-text';
+import { STAGING_BUCKET, stagedPath } from '../housekeeping/assistant-staging';
+import { plainText } from './attachments';
 import type { ToolContext, ToolOutcome } from './runtime';
-import { command, paths, query, when } from './tools-read';
+import { command, paths, query, rehearse, when } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -1058,8 +1077,417 @@ const updateCustomer: SettingsConfirmTool = {
   },
 };
 
+// ---------- a whole list of contacts, sent with the question ----------
+
+type ImportKind = 'people' | 'companies';
+
+/** A list of contacts as the import reads it: a CSV's headings and rows, and where it came from. */
+interface ContactList {
+  readonly file: string;
+  readonly from: 'csv' | 'excel' | 'vcard';
+  /** The Excel tab it came from, when it has a name. */
+  readonly sheet: string | null;
+  readonly csv: string;
+  readonly headers: string[];
+  readonly rows: Record<string, string>[];
+}
+
+const notAList = (name: string, what: string) =>
+  HfosError.rule(
+    'contacts_not_a_list',
+    400,
+    `${name} is ${what}, and contacts are added from a list: a .csv, an Excel file or a contacts .vcf. Save the list as one of those and send it, or add each person on a card of their own.`,
+  );
+
+/** A CSV's headings and rows, read as the import reads them (handlers/import-run.ts), so a mapping fits both. */
+function csvTable(csv: string): { headers: string[]; rows: Record<string, string>[] } {
+  const parsed = Papa.parse<Record<string, string>>(csv, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (h) => h.trim(),
+  });
+  return { headers: (parsed.meta.fields ?? []).filter(Boolean), rows: parsed.data };
+}
+
+/** An Excel sheet's first row as headings (each once, a blank one "Column N"), and the rest as rows. */
+function excelTable(grid: string[][]): { headers: string[]; rows: string[][] } {
+  const [top = [], ...rest] = grid;
+  const width = rest.reduce((n, r) => Math.max(n, r.length), top.length);
+  const seen = new Map<string, number>();
+  const headers = Array.from({ length: width }, (_, i) => {
+    const base = top[i]?.trim() || `Column ${i + 1}`;
+    const n = (seen.get(base.toLowerCase()) ?? 0) + 1;
+    seen.set(base.toLowerCase(), n);
+    return n === 1 ? base : `${base} (${n})`;
+  });
+  return { headers, rows: rest.map((r) => headers.map((_, i) => r[i] ?? '')) };
+}
+
+/** The list sent with this question, read whole, ready to stage as the CSV the import reads. */
+function contactListOf(ctx: ToolContext, args: Args): ContactList {
+  const sent = ctx.files ?? [];
+  const file = sent[Number(args['fromFile'] ?? 1) - 1];
+  if (!file)
+    throw HfosError.validation(
+      [{ path: 'fromFile', message: 'No such file.' }],
+      sent.length
+        ? `Only ${count(sent.length, 'file')} came with this question.`
+        : 'No file came with this question. Ask them to send the list (a .csv, an Excel file or a contacts .vcf) with their question.',
+    );
+  if (file.kind === 'pdf') throw notAList(file.name, 'a PDF');
+  const bytes = Buffer.from(file.data, 'base64');
+  let out: Omit<ContactList, 'csv' | 'file'> & { csv?: string };
+  if (file.mediaType === ASSISTANT_VCARD_TYPE) {
+    const table = vcardTable(parseVcards(plainText(bytes)));
+    out = { from: 'vcard', sheet: null, headers: table.headers, rows: table.rows };
+  } else if (file.mediaType === ASSISTANT_XLSX_TYPE) {
+    const book = workbookRows(bytes);
+    if (!book.ok)
+      throw HfosError.rule(
+        'file_unreadable',
+        400,
+        book.why === 'none'
+          ? `${file.name} has nothing on any of its sheets.`
+          : `${file.name} couldn’t be opened. Open it in Excel to check it, or save the list as a .csv and send that.`,
+      );
+    const table = excelTable(book.rows);
+    const rows = table.rows.map((r) =>
+      Object.fromEntries(table.headers.map((h, i) => [h, r[i] ?? ''])),
+    );
+    out = { from: 'excel', sheet: book.sheet, headers: table.headers, rows };
+  } else if (file.mediaType === 'text/csv') {
+    const csv = plainText(bytes);
+    out = { from: 'csv', sheet: null, csv, ...csvTable(csv) };
+  } else
+    throw notAList(
+      file.name,
+      file.mediaType === ASSISTANT_DOCX_TYPE ? 'a Word file' : 'a text file',
+    );
+  if (!out.headers.length || !out.rows.length)
+    throw HfosError.rule(
+      'contacts_list_empty',
+      400,
+      `${file.name} has no rows of contacts under its headings, so there’s no one to add.`,
+    );
+  if (out.rows.length > IMPORT_MAX_ROWS)
+    throw HfosError.rule(
+      'contacts_list_too_long',
+      400,
+      `${file.name} has ${out.rows.length.toLocaleString('en-US')} rows, more than the ${IMPORT_MAX_ROWS.toLocaleString('en-US')} one import takes. Split it into smaller files and send each one.`,
+    );
+  return {
+    ...out,
+    file: file.name,
+    csv: out.csv ?? Papa.unparse({ fields: out.headers, data: out.rows }),
+  };
+}
+
+const kindOf = (args: Args): ImportKind => (args['kind'] === 'companies' ? 'companies' : 'people');
+
+/**
+ * Which field each heading fills: the import's own guess from its words, then the columns the AI said, a field that
+ * takes one column moving to the column it named. The same headings and the same columns give the same mapping on the
+ * card and on Confirm, which reads the staged CSV again.
+ */
+function mappingOf(file: string, headers: readonly string[], kind: ImportKind, columns: unknown) {
+  const mapping = guessMapping([...headers], kind);
+  const allowed = new Set<string>([...(kind === 'people' ? PERSON_FIELDS : COMPANY_FIELDS), SKIP]);
+  const said =
+    columns && typeof columns === 'object' ? Object.entries(columns as Record<string, string>) : [];
+  for (const [asked, field] of said) {
+    const header =
+      headers.find((h) => h === asked) ??
+      headers.find((h) => h.trim().toLowerCase() === asked.trim().toLowerCase());
+    if (!header)
+      throw HfosError.rule(
+        'contacts_no_such_column',
+        400,
+        `${file} has no column “${asked}”. Its columns are ${listWords([...headers], 12)}.`,
+      );
+    if (!allowed.has(field))
+      throw HfosError.validation(
+        [{ path: `columns.${asked}`, message: 'Not a field for this kind of list.' }],
+        `“${IMPORT_FIELD_LABELS[field] ?? field}” isn’t something a list of ${kind} fills in.`,
+      );
+    if (field !== SKIP && !REPEATABLE_FIELDS.includes(field))
+      for (const h of headers) if (mapping[h] === field) mapping[h] = SKIP;
+    mapping[header] = field;
+  }
+  return mapping;
+}
+
+/** A field as the card says it: the import's words, with their hints left off. */
+const fieldWords = (field: string) => (IMPORT_FIELD_LABELS[field] ?? field).replace(/ \(.*\)$/, '');
+
+/** What the card checks before it's drawn, as import.start would refuse it, in words for the person. */
+function checkMapping(
+  file: string,
+  headers: readonly string[],
+  kind: ImportKind,
+  mapping: Record<string, string>,
+  args: Args,
+) {
+  const mapped = new Set(Object.values(mapping));
+  if (
+    kind === 'people' &&
+    !mapped.has('first_name') &&
+    !mapped.has('last_name') &&
+    !mapped.has('full_name')
+  )
+    throw HfosError.rule(
+      'contacts_no_name_column',
+      400,
+      `None of the columns in ${file} looks like their names. Its columns are ${listWords([...headers], 12)}. Say which one has the names (or the first and last names) in columns.`,
+    );
+  if (kind === 'companies' && !mapped.has('name'))
+    throw HfosError.rule(
+      'contacts_no_name_column',
+      400,
+      `None of the columns in ${file} looks like the companies’ names. Its columns are ${listWords([...headers], 12)}. Say which one has them in columns.`,
+    );
+  if (
+    mapped.has('call_consent') &&
+    !mapped.has('call_consent_source') &&
+    !str(args['callConsentSource'])
+  )
+    throw HfosError.rule(
+      'contacts_call_consent_where',
+      400,
+      `${file} has a column saying who agreed to calls. Ask them where those people agreed in writing, like “Website form, Oct 2026”, and pass it as callConsentSource, or skip that column.`,
+    );
+}
+
+/** The rows as the import will see them: each one's name, and how many have nothing to add (no name, email or phone). */
+function preview(
+  kind: ImportKind,
+  rows: readonly Record<string, string>[],
+  mapping: Record<string, string>,
+) {
+  const names: string[] = [];
+  let empty = 0;
+  for (const row of rows) {
+    const m = kind === 'people' ? mapPersonRow(row, mapping) : mapCompanyRow(row, mapping);
+    const name = 'firstName' in m ? [m.firstName, m.lastName].filter(Boolean).join(' ') : m.name;
+    if (!name && !m.email && !m.phone) {
+      empty++;
+      continue;
+    }
+    if (names.length < 3) names.push(name || m.email || m.phone || '');
+  }
+  return { names, adding: rows.length - empty, empty };
+}
+
+const howMany = (kind: ImportKind, n: number) =>
+  kind === 'people'
+    ? `${n.toLocaleString('en-US')} ${n === 1 ? 'person' : 'people'}`
+    : `${n.toLocaleString('en-US')} ${n === 1 ? 'company' : 'companies'}`;
+
+/** What every contact in a .vcf brings, in words: "their names, phone numbers, emails and companies". */
+function vcardBrings(rows: readonly Record<string, string>[]): string {
+  const has = (test: (r: Record<string, string>) => boolean) => rows.some(test);
+  const parts = [
+    'their names',
+    has((r) => !!r['Phone']) ? 'phone numbers' : '',
+    has((r) => !!r['Email']) ? 'emails' : '',
+    has((r) => !!r['Company']) ? 'companies' : '',
+    has((r) => !!(r['Address'] || r['City'] || r['ZIP'])) ? 'addresses' : '',
+    has((r) => !!r['Notes']) ? 'notes (job title, website and birthday go there too)' : '',
+  ].filter(Boolean);
+  return parts.length === 1
+    ? parts[0]!
+    : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+const importUnavailable = () =>
+  HfosError.rule(
+    'contacts_import_unavailable',
+    503,
+    'Contacts can’t be added from a file here just now. Add them under Settings → Imports instead, or try again in a minute.',
+  );
+
+const listGone = () =>
+  HfosError.rule(
+    'assistant_file_gone',
+    410,
+    'The list from that question isn’t kept anymore, so nobody was added. Send it again with your question.',
+  );
+
+const importsPath = (ws: string, importId: string) => `/app/w/${ws}/imports/${importId}`;
+
+/**
+ * The list as it waits for Confirm: the file's name on the first line (encoded, so it's one line), then the CSV.
+ * Confirm has only the card's arguments, and the import is named for the file the person sent.
+ */
+const staging = (file: string, csv: string) =>
+  Buffer.from(`${encodeURIComponent(file)}\n${csv}`, 'utf8');
+function unstaged(bytes: Buffer): { file: string; csv: string } {
+  const text = bytes.toString('utf8');
+  const cut = text.indexOf('\n');
+  let file = 'Contacts.csv';
+  try {
+    file = decodeURIComponent(text.slice(0, cut)).trim().slice(0, 200) || file;
+  } catch {
+    // A name that won't decode keeps the plain one.
+  }
+  return { file, csv: text.slice(cut + 1) };
+}
+
+const importContacts: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId, deps) {
+    const list = contactListOf(ctx, args);
+    if (list.from === 'vcard' && kindOf(args) === 'companies')
+      throw HfosError.validation(
+        [{ path: 'kind', message: 'A contacts file holds people.' }],
+        'A contacts file holds people, so add it as people.',
+      );
+    const kind = kindOf(args);
+    const mapping = mappingOf(list.file, list.headers, kind, args['columns']);
+    checkMapping(list.file, list.headers, kind, mapping, args);
+    const { names, adding, empty } = preview(kind, list.rows, mapping);
+    if (!adding)
+      throw HfosError.rule(
+        'contacts_list_empty',
+        400,
+        `None of the rows in ${list.file} has a name, an email or a phone number, so there’s no one to add.`,
+      );
+    await rehearse(db, ctx, 'import.create', { kind, fileName: list.file });
+    // What's sent is gone after this answer: the list waits for Confirm, as the CSV the import reads.
+    if (!deps?.services?.store) throw importUnavailable();
+    await deps.services.store.upload(
+      STAGING_BUCKET,
+      stagedPath(ctx.workspaceId, toolCallId, 'csv'),
+      staging(list.file, list.csv),
+      'text/csv',
+      { upsert: true },
+    );
+    const used = list.headers.filter((h) => mapping[h] && mapping[h] !== SKIP);
+    const leftOut = list.headers.filter((h) => !mapping[h] || mapping[h] === SKIP);
+    const consentColumn = list.headers.find((h) => mapping[h] === 'call_consent');
+    const where = str(args['callConsentSource']);
+    const update = args['onMatch'] === 'update';
+    const total = howMany(kind, adding);
+    return {
+      card: settingsCard(toolCallId, 'import_contacts', {
+        title: `Add ${total} from ${list.file}?`,
+        fields: [
+          {
+            label: 'File',
+            value:
+              list.sheet && list.from === 'excel'
+                ? `${list.file}, sheet “${list.sheet}”`
+                : list.file,
+          },
+          {
+            label: kind === 'people' ? 'People' : 'Companies',
+            value:
+              adding > names.length
+                ? `${names.join(', ')} and ${(adding - names.length).toLocaleString('en-US')} more`
+                : names.join(', '),
+          },
+          list.from === 'vcard'
+            ? { label: 'Each one brings', value: vcardBrings(list.rows) }
+            : {
+                label: 'Columns',
+                value: listWords(
+                  used.map((h) =>
+                    fieldWords(mapping[h]!).toLowerCase() === h.toLowerCase()
+                      ? h
+                      : `${h} → ${fieldWords(mapping[h]!)}`,
+                  ),
+                  10,
+                ),
+              },
+          ...(list.from !== 'vcard' && leftOut.length
+            ? [{ label: 'Left out', value: listWords(leftOut, 6) }]
+            : []),
+          ...(empty
+            ? [
+                {
+                  label: 'Rows with nothing to add',
+                  value: `${empty.toLocaleString('en-US')}: no name, email or phone`,
+                },
+              ]
+            : []),
+          {
+            label: 'Already in Contacts',
+            value: update
+              ? 'Updated with what the file has'
+              : `Left as they are (matched by email, then phone${kind === 'companies' ? ', then name' : ''})`,
+          },
+          ...(consentColumn
+            ? [
+                {
+                  label: 'Agreed to calls',
+                  value: `From “${consentColumn}”: each yes is marked agreed in writing${where ? `, at ${where}` : ''}`,
+                },
+              ]
+            : []),
+        ],
+        confirmLabel: `Add ${total}`,
+        warnings: [
+          { kind: 'note', text: 'Nobody is messaged: adding them sends nothing.' },
+          {
+            kind: 'note',
+            text: 'It runs in the background. Settings → Imports shows how it went, and any row it couldn’t add.',
+          },
+        ],
+      }),
+      result: {
+        waiting: true,
+        file: list.file,
+        kind,
+        rows: list.rows.length,
+        adding,
+        columns: Object.fromEntries(used.map((h) => [h, mapping[h]])),
+        ...(list.from !== 'vcard' && leftOut.length ? { leftOut } : {}),
+      },
+    };
+  },
+  async commit(db, ctx, args, extra) {
+    const s = extra.services ?? null;
+    if (!s) throw importUnavailable();
+    const staged = stagedPath(ctx.workspaceId, extra.toolCallId, 'csv');
+    const bytes = await s.store.download(STAGING_BUCKET, staged).catch(() => null);
+    if (!bytes) throw listGone();
+    try {
+      const kind = kindOf(args);
+      const { file: fileName, csv } = unstaged(bytes);
+      const { headers, rows } = csvTable(csv);
+      const mapping = mappingOf(fileName, headers, kind, args['columns']);
+      checkMapping(fileName, headers, kind, mapping, args);
+      const made = await command<{ importId: string; bucket: string; objectPath: string }>(
+        db,
+        ctx,
+        'import.create',
+        { kind, fileName },
+      );
+      await s.store.upload(made.bucket, made.objectPath, Buffer.from(csv, 'utf8'), 'text/csv');
+      await command(db, ctx, 'import.start', {
+        importId: made.importId,
+        mapping,
+        options: {
+          onMatch: args['onMatch'] === 'update' ? 'update' : 'skip',
+          ...(str(args['callConsentSource'])
+            ? { callConsentSource: str(args['callConsentSource']) }
+            : {}),
+        },
+      });
+      const { adding } = preview(kind, rows, mapping);
+      return {
+        outcome: `Adding ${howMany(kind, adding)} from ${fileName} now, ${args['onMatch'] === 'update' ? 'and updating anyone already in Contacts' : 'leaving anyone already in Contacts as they are'}. They show in Contacts as they’re added; this import’s page shows how it went.`,
+        href: importsPath(ctx.workspaceId, made.importId),
+        command: 'import.start',
+        answer: { importId: made.importId, rows: rows.length, adding },
+      };
+    } finally {
+      await s.store.remove(STAGING_BUCKET, staged).catch(() => undefined);
+    }
+  },
+};
+
 export const contactConfirmTools: Record<string, SettingsConfirmTool> = {
   tag_customers: tagCustomers,
   ai_tag_customers: aiTagCustomers,
   update_customer: updateCustomer,
+  import_contacts: importContacts,
 };

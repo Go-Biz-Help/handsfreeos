@@ -1,7 +1,7 @@
 {
   "area": "outreach",
   "title": "The Social Outreach add-on: every page",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-25",
   "files": {
     "apps/mobile/src/addons/outreach/actions.ts": "9d1266692122",
     "apps/mobile/src/addons/outreach/ai-help.tsx": "715ac076ab3b",
@@ -23,7 +23,7 @@
     "apps/mobile/src/addons/outreach/groups.tsx": "fecbf5a6ef5b",
     "apps/mobile/src/addons/outreach/hands.tsx": "f00a09725cd2",
     "apps/mobile/src/addons/outreach/home.tsx": "0a19980803e9",
-    "apps/mobile/src/addons/outreach/hub.tsx": "b62c9ec5ee71",
+    "apps/mobile/src/addons/outreach/hub.tsx": "089f326befe9",
     "apps/mobile/src/addons/outreach/kit.tsx": "233ecbb6272c",
     "apps/mobile/src/addons/outreach/like-yours.tsx": "90036aef3364",
     "apps/mobile/src/addons/outreach/live.tsx": "65dc89b2fc2f",
@@ -36,6 +36,7 @@
     "apps/mobile/src/addons/outreach/partners.tsx": "5fe0683e908d",
     "apps/mobile/src/addons/outreach/person-menu.tsx": "761d18d74433",
     "apps/mobile/src/addons/outreach/pipeline.tsx": "0e8ba9125d19",
+    "apps/mobile/src/addons/outreach/plan.tsx": "b39d7cdfe8e4",
     "apps/mobile/src/addons/outreach/playbook-script.tsx": "24be297de6fa",
     "apps/mobile/src/addons/outreach/playbook-test.tsx": "d508cf5f3f76",
     "apps/mobile/src/addons/outreach/playbook.tsx": "acf6ca058d28",
@@ -55,9 +56,9 @@
     "apps/mobile/src/addons/outreach/setup.tsx": "88dc516bdf04",
     "apps/mobile/src/addons/outreach/social-card.tsx": "9dfd419415b9",
     "apps/mobile/src/addons/outreach/ticker.tsx": "3ac4c69f8f42",
-    "apps/mobile/src/addons/outreach/today.tsx": "139838bd2c1a",
+    "apps/mobile/src/addons/outreach/today.tsx": "87ae8acd0cad",
     "apps/mobile/src/addons/outreach/video-library.tsx": "44d9f03cf97f",
-    "apps/mobile/src/addons/outreach/waiting.tsx": "74338a628f84",
+    "apps/mobile/src/addons/outreach/waiting.tsx": "d7ed3f689f5b",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/_layout.tsx": "182d0b21e1d1",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/index.tsx": "483afe3b9643",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/playbooks/[playbookId].tsx": "4bab1b31713e",
@@ -88,7 +89,7 @@
     "apps/web/src/addons/outreach/groups-view.tsx": "4a2b658eb365",
     "apps/web/src/addons/outreach/hands-view.tsx": "06268f235921",
     "apps/web/src/addons/outreach/helpful-card.tsx": "df3b34602d3e",
-    "apps/web/src/addons/outreach/home.tsx": "d2c379aba6b0",
+    "apps/web/src/addons/outreach/home.tsx": "b4d6d8daeaed",
     "apps/web/src/addons/outreach/install-pictures.tsx": "d328a02984f0",
     "apps/web/src/addons/outreach/like-yours.tsx": "8168753d9e13",
     "apps/web/src/addons/outreach/live-view.tsx": "d303b459bdab",
@@ -103,6 +104,7 @@
     "apps/web/src/addons/outreach/person-menu.tsx": "e8135d982fea",
     "apps/web/src/addons/outreach/person-panel.tsx": "12eb4039a5b3",
     "apps/web/src/addons/outreach/pipeline-view.tsx": "e1d6f4c59064",
+    "apps/web/src/addons/outreach/plan-view.tsx": "6e0fb292d897",
     "apps/web/src/addons/outreach/playbook-builder.tsx": "3697d7ab634c",
     "apps/web/src/addons/outreach/playbook-test.tsx": "24d6b30fe7c6",
     "apps/web/src/addons/outreach/playbooks-page.tsx": "f2b65fbff057",
@@ -126,11 +128,11 @@
     "apps/web/src/addons/outreach/status-strip.tsx": "cf43b1c1f4b5",
     "apps/web/src/addons/outreach/their-work.tsx": "96e7160240f3",
     "apps/web/src/addons/outreach/ticker.tsx": "3bf4c993fe11",
-    "apps/web/src/addons/outreach/today-view.tsx": "b96590bc8d31",
+    "apps/web/src/addons/outreach/today-view.tsx": "3e28082ffc0b",
     "apps/web/src/addons/outreach/touched-posts.tsx": "a25e60b0a355",
     "apps/web/src/addons/outreach/tracking-view.tsx": "6894838d24e1",
     "apps/web/src/addons/outreach/video-library.tsx": "de0fb2af8146",
-    "apps/web/src/addons/outreach/waiting-view.tsx": "d7fe4242491a",
+    "apps/web/src/addons/outreach/waiting-view.tsx": "d795909b3216",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/find/groups/page.tsx": "35561e380367",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/find/page.tsx": "9ef9941ecbc7",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/groups/page.tsx": "9620ac32b2ec",
@@ -151,8 +153,8 @@
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/settings/[part]/page.tsx": "cb082e95ac39",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/settings/page.tsx": "e0247a8457c3",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/setup/page.tsx": "3b4de50baa1d",
-    "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "f8d15a7e2a4d",
-    "apps/web/src/app/app/w/[workspaceId]/a/outreach/today/[part]/page.tsx": "d6558ea269b3",
+    "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "e4b7bab036a0",
+    "apps/web/src/app/app/w/[workspaceId]/a/outreach/today/[part]/page.tsx": "0dd371f2a0ba",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/today/page.tsx": "652469b89773",
     "apps/web/src/components/extension-download-button.tsx": "f437f7e74ef3",
     "packages/core/src/addons/outreach/manifest.ts": "dd9f74541115"
@@ -1295,84 +1297,91 @@
     {
       "path": "Needs you → N things wait for you, or nothing waiting",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:141",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:172",
       "covered": "yes",
       "by": "outreach_waiting count"
     },
     {
-      "path": "Needs you → which part (decision 193): People to OK, Your computer, In your hands, Replies, Messages, Steps, Requests, Where they live, each with its count; only those with something in them, and the one open; opens on the first with anything (web, phone)",
+      "path": "Needs you → which part (decisions 193 and 196): People to OK, Your computer, In your hands, Replies, Messages, Comments, Steps, Requests, Where they live, each with its count; only those with something in them, and the one open; opens on the first with anything (web, phone)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/home.tsx:678",
+      "file": "apps/web/src/addons/outreach/home.tsx:684",
       "covered": "yes",
-      "by": "outreach_waiting kinds + hands; outreach_autopilot people waiting; outreach_country_skipped list unsure total"
+      "by": "outreach_waiting kinds + comments + hands; outreach_autopilot people waiting; outreach_country_skipped list unsure total"
     },
     {
       "path": "Needs you → a part that's empty now, with others still waiting: Nothing waits here now; pick another part",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:189",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:195",
       "covered": "yes",
       "by": "outreach_waiting kinds"
     },
     {
       "path": "Needs you → Messages → training wheels line",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:201",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:364",
       "covered": "yes",
       "by": "outreach_waiting wheels"
     },
     {
-      "path": "Needs you → Messages → comments held on a network; answers to OK one at a time",
+      "path": "Needs you → Comments → comments held on a network; answers to OK one at a time",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:206",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:369",
       "covered": "yes",
-      "by": "outreach_waiting commentHolds, items"
+      "by": "outreach_waiting commentHolds, comments, items"
     },
     {
-      "path": "Needs you → Messages → Approve all N",
+      "path": "Needs you → Messages → Approve all N messages",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:289",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:474",
       "covered": "yes",
-      "by": "outreach_approve_messages (none named)"
+      "by": "outreach_approve_messages (none named, only messages)"
+    },
+    {
+      "path": "Needs you → Comments → Approve all N comments",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:474",
+      "covered": "yes",
+      "by": "outreach_approve_messages (none named, only comments)"
     },
     {
       "path": "Needs you → Replies → what replies handed to you are",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:216",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:379",
       "covered": "partly",
       "by": "outreach_waiting description; the note is the screen's"
     },
     {
       "path": "Needs you → N more not shown",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:254",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:418",
       "covered": "yes",
-      "by": "outreach_waiting kinds count vs items"
+      "by": "outreach_waiting kinds count and comments vs items"
     },
     {
       "path": "Needs you → Requests → All your requests",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:261",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:427",
       "covered": "yes",
       "by": "outreach_friends view requests"
     },
     {
       "path": "Needs you → Your computer → an ask's row: network and its line",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:234",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:399",
       "covered": "yes",
       "by": "outreach_waiting items ask; outreach_asks"
     },
     {
       "path": "Needs you → Messages / Replies → a message or reply: name, network, Handed over",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:353",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:538",
       "covered": "yes",
       "by": "outreach_waiting send name, handedOver"
     },
     {
       "path": "Needs you → Messages / Replies → a message or reply: Open their chat / Open their page",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:368",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:545",
       "covered": "yes",
       "by": "outreach_waiting chatUrl beside threadKey (ai.answer withChatLinks), the link Open in Messenger and the rest open"
     },
@@ -1433,14 +1442,14 @@
       "by": "search_customers; personId or add on outreach_save_chat_to_card, outreach_add_to_contacts, outreach_mark_client"
     },
     {
-      "path": "Needs you → Messages → a comment: Comment on X's post, network, Open the post",
+      "path": "Needs you → Comments → a comment: Comment on X's post, network, Open the post",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:409",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:582",
       "covered": "yes",
       "by": "outreach_waiting send postUrl, name"
     },
     {
-      "path": "Needs you → Messages → a comment: the post, More / Less",
+      "path": "Needs you → Comments → a comment: the post, More / Less",
       "kind": "see",
       "file": "apps/web/src/addons/outreach/post-quote.tsx:27",
       "covered": "yes",
@@ -1664,11 +1673,46 @@
       "by": "outreach_person_marks journey.steps, moreSteps"
     },
     {
-      "path": "Today → which part (decision 193): Overview, Your list with its count, Posts and events, Done today with its count, Your team (owners and admins); each keeps the network shown (web, phone)",
+      "path": "Today → which part (decision 193): Overview, Plan, Your list with its count, Posts and events, Done today with its count, Your team (owners and admins); each keeps the network shown (web, phone)",
       "kind": "do",
       "file": "apps/web/src/addons/outreach/home.tsx:709",
       "covered": "yes",
-      "by": "outreach_today items + partners; outreach_live steps; outreach_helpful; outreach_today events; outreach_team_live"
+      "by": "outreach_today items + partners; outreach_plan; outreach_live steps; outreach_helpful; outreach_today events; outreach_team_live"
+    },
+    {
+      "path": "Today → Plan → where the day stands (a chip and a line): no computer, signed out, offline, off, stopped, needs you, doing what you asked, starts later, working now with what it's doing, going with what's next, done for now; update the extension, or not heard yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/plan-view.tsx:72",
+      "covered": "yes",
+      "by": "outreach_plan stand, line, doing, reported"
+    },
+    {
+      "path": "Today → Plan → You asked for these first: each ask on the network, doing now or next",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/plan-view.tsx:93",
+      "covered": "yes",
+      "by": "outreach_plan asked"
+    },
+    {
+      "path": "Today → Plan → Coming up: each move in order with about when (now, a time, or about a time), what, who and what kind of message; and N more before the end; nothing more planned; what repeats and what it can't see",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/plan-view.tsx:109",
+      "covered": "yes",
+      "by": "outreach_plan coming, more, until, notes"
+    },
+    {
+      "path": "Today → Plan → Done so far today: the list's counts, and each part of the day's reading with how it went",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/plan-view.tsx:161",
+      "covered": "yes",
+      "by": "outreach_plan counts, done"
+    },
+    {
+      "path": "Today → Plan → the plan couldn't be loaded (web) or needs signal, Try again (phone)",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/today-view.tsx:292",
+      "covered": "partly",
+      "by": "the tool answers live; the screen’s loading and no-signal notes are its own"
     },
     {
       "path": "Today → Overview → What it did: total things done, since when counting started, none today",

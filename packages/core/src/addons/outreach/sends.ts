@@ -229,6 +229,10 @@ export const SendQueueInput = z
 export type SendQueueInput = z.input<typeof SendQueueInput>;
 export const SendQueueOutput = Send;
 
+/** What Approve all on one of Needs you's parts OKs (decision 196): the messages, or the comments. */
+export const APPROVE_ONLY = ['messages', 'comments'] as const;
+export type ApproveOnly = (typeof APPROVE_ONLY)[number];
+
 /**
  * The person OKs messages, as they are or changed; with no ids, every one waiting (Approve all) but those that wait for
  * an OK of their own (`oneByOne` in ./waiting-words.ts): a reply handed over, or one to someone who needs the person.
@@ -244,6 +248,11 @@ export const SendApproveInput = z.object({
    * what it showed, perhaps with no signal, while some were OK'd or skipped elsewhere meanwhile (decision 44).
    */
   partial: z.boolean().default(false),
+  /**
+   * Approve all on one of Needs you's parts (decision 196), with none named: only the messages, or only the comments on
+   * posts and answers in groups. Left out (or null), every one, as before. With sends named, it changes nothing.
+   */
+  only: z.enum(APPROVE_ONLY).nullable().default(null),
 });
 export type SendApproveInput = z.input<typeof SendApproveInput>;
 export const SendApproveOutput = z.object({

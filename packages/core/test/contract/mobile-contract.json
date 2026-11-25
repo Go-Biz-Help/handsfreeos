@@ -12023,6 +12023,18 @@
           "partial": {
             "default": false,
             "type": "boolean"
+          },
+          "only": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["messages", "comments"]
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["workspaceId"]
@@ -18741,6 +18753,23 @@
           }
         },
         "required": ["workspaceId", "personId"]
+      }
+    },
+    "outreach.plan": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
+          }
+        },
+        "required": ["workspaceId"]
       }
     },
     "outreach.playbook.list": {

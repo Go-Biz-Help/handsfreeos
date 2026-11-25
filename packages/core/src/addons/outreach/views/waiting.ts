@@ -10,9 +10,9 @@
  *
  * Browser-safe and pure.
  */
-import { SEND_KINDS, type SendKind } from '../automation';
+import { SEND_KINDS, underAPost, type SendKind } from '../automation';
 import { cellMs, cellObject, cellText, rowKey, type SyncedPhoneRow } from '../../phone-rows';
-import { SENDS_MOST, type Send } from '../sends';
+import { SENDS_MOST, type ApproveOnly, type Send } from '../sends';
 import { oneByOne, type WaitingKinds } from '../waiting-words';
 
 /** One of the person's messages waiting, as the phone keeps it. */
@@ -34,9 +34,12 @@ export type PhoneSend = Pick<
 /** What the phone shows with no signal: replies handed over, then messages to OK, each oldest first. */
 export interface PhoneWaiting {
   readonly replies: readonly PhoneSend[];
+  /** The messages to OK, comments on posts and answers in groups among them, as `outreach.waiting` lists them. */
   readonly messages: readonly PhoneSend[];
   /** How many of each wait, and when the newest began to, as `outreach.waiting` counts them. */
   readonly kinds: Pick<WaitingKinds, 'reply' | 'message'>;
+  /** Of the messages to OK, how many are comments (decision 196), as `outreach.waiting`'s `comments` counts them. */
+  readonly comments: number;
 }
 
 /** The phone's rows of Social Outreach's messages: `addon_phone_rows` of the add-on, source `sends`. */
@@ -87,8 +90,14 @@ export function waitingOfCopy(rows: readonly SyncedPhoneRow[], me: string): Phon
     .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
   const replies = all.filter((s) => s.handedOver);
   const messages = all.filter((s) => !s.handedOver);
-  // The server lists the oldest SENDS_MOST, then splits them.
-  const listed = new Set(all.slice(0, SENDS_MOST).map((s) => s.sendId));
+  // The server lists the oldest SENDS_MOST of the messages and of the comments (decision 196), then splits them.
+  const comments = all.filter((s) => underAPost(s.kind));
+  const listed = new Set(
+    [
+      ...all.filter((s) => !underAPost(s.kind)).slice(0, SENDS_MOST),
+      ...comments.slice(0, SENDS_MOST),
+    ].map((s) => s.sendId),
+  );
   return {
     replies: replies.filter((s) => listed.has(s.sendId)),
     messages: messages.filter((s) => listed.has(s.sendId)),
@@ -96,17 +105,21 @@ export function waitingOfCopy(rows: readonly SyncedPhoneRow[], me: string): Phon
       reply: { count: replies.length, newestAt: newest(replies) },
       message: { count: messages.length, newestAt: newest(messages) },
     },
+    comments: comments.filter((s) => !s.handedOver).length,
   };
 }
 
 /**
  * What the phone's Approve all names: every message it shows but those that wait for an OK of their own
- * (`oneByOne`), oldest first, at most `SENDS_MOST`. It's sent with `partial`, so any OK'd or skipped elsewhere
- * meanwhile is passed over.
+ * (`oneByOne`), oldest first, at most `SENDS_MOST`; on one of Needs you's parts (decision 196), only its messages, or
+ * only its comments. It's sent with `partial`, so any OK'd or skipped elsewhere meanwhile is passed over.
  */
-export function approveAllFromPhone(waiting: PhoneWaiting): { sendId: string }[] {
+export function approveAllFromPhone(
+  waiting: PhoneWaiting,
+  only: ApproveOnly | null = null,
+): { sendId: string }[] {
   return waiting.messages
-    .filter((s) => !oneByOne(s))
+    .filter((s) => !oneByOne(s) && (only === null || underAPost(s.kind) === (only === 'comments')))
     .slice(0, SENDS_MOST)
     .map((s) => ({ sendId: s.sendId }));
 }

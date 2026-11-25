@@ -628,7 +628,7 @@ export async function showOutreach(
   const cards = todayPart === 'overview' ? nets : [net];
   // Get ready is the Overview's and the list's (decisions 63 and 90).
   const readyShown = todayPart === 'overview' || todayPart === 'list';
-  const [today, lives, helpful, readies, refer, team, asks, waiting] = await Promise.all([
+  const [today, lives, helpful, readies, refer, team, plan, asks, waiting] = await Promise.all([
     api
       .POST('/v1/queries/outreach.today', { body: { workspaceId, platform: net } })
       .then(unwrapPage),
@@ -653,6 +653,14 @@ export async function showOutreach(
     todayPart === 'team'
       ? api
           .POST('/v1/queries/outreach.live.team', { body: { workspaceId, platform: net } })
+          .then((r) => r.data ?? null)
+          .catch(() => null)
+      : null,
+    // What their computer will do today on the network shown, and about when (decision 195): a line says so when it
+    // can't be had.
+    todayPart === 'plan'
+      ? api
+          .POST('/v1/queries/outreach.plan', { body: { workspaceId, platform: net } })
           .then((r) => r.data ?? null)
           .catch(() => null)
       : null,
@@ -691,6 +699,7 @@ export async function showOutreach(
         nets,
         networks,
         today,
+        plan,
         helpful,
         referrals: refer.referrals,
         referAsks: refer.asks,

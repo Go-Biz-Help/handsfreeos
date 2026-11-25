@@ -254,8 +254,8 @@ const ONLINE_COMMANDS = [
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
- * Outreach's steps taken on Facebook, and answers to friend requests). No phone screen sends them, so they're no
- * part of what an old app build sends.
+ * Outreach's steps taken on Facebook, answers to friend requests, and where each network's day is up to, decision
+ * 195). No phone screen sends them, so they're no part of what an old app build sends.
  */
 const EXTENSION_COMMANDS = [
   'outreach.touch.save',
@@ -264,6 +264,7 @@ const EXTENSION_COMMANDS = [
   'outreach.warning.note',
   'outreach.requests.pause',
   'outreach.live.beat',
+  'outreach.plan.note',
   'outreach.need.note',
   'outreach.ask.end',
 ];
@@ -359,6 +360,8 @@ const QUERIES = [
   'outreach.countries.skipped',
   // Autopilot's day's list, first on Needs you (decision 151).
   'outreach.autopilot',
+  // Today's Plan: what the extension will do today and about when, asked again every minute (decision 195).
+  'outreach.plan',
   // The extension's sign-ins waiting for the person's number, for the screen its push opens (20261027002910).
   'extension_sign_in.pending',
   // The feedback on the AI teammate's replies on a screen, and what came of it, asked again while it's being read.
