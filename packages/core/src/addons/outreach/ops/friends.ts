@@ -539,7 +539,7 @@ const VIEW_ORDER: Readonly<Record<FriendView, ReturnType<typeof sql>>> = {
 const REQUESTS_MOST = 1000;
 
 /** Every playbook in use that reads, a partner playbook too. */
-function playbooksKept(
+export function playbooksKept(
   ctx: QueryContext | CommandContext,
 ): Promise<(FitPlaybook & { readonly details: PlaybookDetails })[]> {
   return readOnce(ctx, 'playbooks', async () => {

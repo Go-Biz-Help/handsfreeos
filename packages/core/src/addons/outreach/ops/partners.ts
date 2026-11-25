@@ -65,7 +65,7 @@ import {
   type PartnerRow,
   type PartnerStage,
 } from '../partners';
-import { forPartners, PlaybookDetails, upgradePlaybookDetails } from '../playbooks';
+import { forPartners } from '../playbooks';
 import {
   isPartnerMessage,
   PARTNER_MESSAGE_KINDS,
@@ -76,7 +76,7 @@ import {
   type TodayItem,
 } from '../today';
 import { linesCountry, lookedCountry } from '../countries';
-import { demos, partnerLeads, partners, partnerSearches, playbooks, profiles } from '../tables';
+import { demos, partnerLeads, partners, partnerSearches, profiles } from '../tables';
 import { perDayFor } from './checks';
 import {
   countryFateSql,
@@ -97,7 +97,7 @@ import {
   LOOKED_UP,
 } from './common';
 import { tally } from './tallies';
-import { partnerPlaybooksInUse } from './friends';
+import { partnerPlaybooksInUse, playbooksKept } from './friends';
 import { wantLead } from './leads';
 import { claimProfile } from './owners';
 import { startOfToday } from './tidy';
@@ -1242,24 +1242,18 @@ export async function partnerToday(
   const ws = ctx.scope.workspaceId!;
   const ago = (days: number) => new Date(o.now - days * DAY).toISOString();
   // The partner link for the details: the partner playbook's booking link, with who it's from and to.
-  const kept = await ctx.tx
-    .select({ id: playbooks.id, name: playbooks.name, details: playbooks.details })
-    .from(playbooks)
-    .where(and(eq(playbooks.workspaceId, ws), sql`${playbooks.archivedAt} is null`));
-  const partnerBooks = kept.flatMap((p) => {
-    const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
-    return read.success && forPartners(read.data) ? [{ id: p.id, name: p.name, ...read.data }] : [];
-  });
+  // The playbooks as the day's list read them already (speed audit, Nov 2026).
+  const kept = await playbooksKept(ctx);
+  const partnerBooks = kept.flatMap((p) =>
+    forPartners(p.details) ? [{ id: p.id, name: p.name, ...p.details }] : [],
+  );
   const bookOf = (id: string | null) =>
     partnerBooks.find((b) => b.id === id) ??
     [...partnerBooks].sort((a, b) => a.name.localeCompare(b.name))[0];
   // Someone the person marked may be offered a demo (decision 130): with no partner playbook's link, any playbook's.
   const anyLink =
     kept
-      .flatMap((p) => {
-        const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
-        return read.success && read.data.link ? [{ name: p.name, link: read.data.link }] : [];
-      })
+      .flatMap((p) => (p.details.link ? [{ name: p.name, link: p.details.link }] : []))
       .sort((a, b) => a.name.localeCompare(b.name))[0]?.link ?? null;
   const select = sql`select pa.id, pa.stage, pa.marked_at is not null as marked, pa.details_at, pa.profile_id, p.name,
       p.url, p.platform_id, pa.kind, pa.audience, pa.why, pa.next_step, pa.playbook_id, p.person_id`;

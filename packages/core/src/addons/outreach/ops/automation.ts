@@ -65,7 +65,7 @@ import { outreachAddon } from '../manifest';
 import { networkLimitsNow, PLATFORM_KEYS, type Platform } from '../networks';
 import { networksOn } from '../network-words';
 import { automation, networkStarts, profiles, setup, type NetworkWheelKept } from '../tables';
-import { inWorkspace, outreachSettingsOf, zoneOf, type Ctx } from './common';
+import { inWorkspace, outreachSettingsOf, readOnce, zoneOf, type Ctx } from './common';
 
 type Row = typeof automation.$inferSelect;
 
@@ -230,10 +230,12 @@ export async function automationOf(
   slower: boolean;
   rules: BusinessRules;
 }> {
+  // A query reads the person's row and first steps once, whichever network each of its parts asks about: one day's
+  // list asked twice, for its own network and for Get ready (speed audit, Nov 2026).
   const [row, rules, steps] = await Promise.all([
-    rowOf(ctx, userId),
+    readOnce(ctx, `automation:${userId}`, () => rowOf(ctx, userId)),
     rulesOf(ctx),
-    firstStepsOf(ctx, [userId]),
+    readOnce(ctx, `starts:${userId}`, () => firstStepsOf(ctx, [userId])),
   ]);
   const settings = settingsOf(row, rules);
   const wheels = stateOf(row, rules, now, platform);

@@ -6069,9 +6069,20 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **A query reads the business's small facts once** (`ops/common.ts`). The add-on's settings (`outreachSettingsOf`,
   and the rules through it) and the playbooks in use (`playbooksInUse`) are read once for a query however many of its
   parts ask (`readOnce`), and the time zone once a transaction (`zoneOf`): one Today read the settings seven times,
-  the zone six and the playbooks four (the speed audit, Nov 2026). A command reads the settings and the playbooks
+  the zone six and the playbooks four (the speed audit, Nov 2026). So are the person's own choices and first steps
+  (`automationOf`), a network's latest warning (`warningOf`), its pause on requests (`requestsPauseOf`) and their
+  computer's build (`workingBuild`): a day's list asked for each two or three times. A command reads all of these
   each time it asks, since it may have just changed them. What comes back is shared, so nothing changes it in place;
-  a new small fact that many parts want goes through `readOnce` too.
+  a new small fact that many parts want goes through `readOnce` too. `readOnce` keeps the answer, never the question:
+  a query builder runs again each time it's awaited, so it is turned into a promise first.
+  `test/addons/outreach-facts-read-once.test.ts` watches the statements a day's list sends and names any of these
+  asked twice.
+- **A day's list asks together for what needs nothing from each other** (`todayFor`, `ops/today.ts`). Its first reads
+  and its last are each one `Promise.all`, so their statements leave for the database at once and nothing waits for
+  the answer before it ("Round trips to the database" in `docs/operations.md`). Keep to `await Promise.all([...])`:
+  a read started early and awaited later is left asking if something between fails, and a statement on a transaction
+  that has ended is refused (`TRANSACTION_OVER`), which nothing would catch. The lists in between stay in order: each
+  takes what the one before left of the day's limits.
 - **Where everyone stands is worked out once for an answer** (`outreach.stages`, `ops/stages.ts`). One statement
   works out every person's stage, and the counts, the page asked for and the board's columns all read that. The
   web's board asks once, with `columns`, and each column is how that stage's own page starts (its first
