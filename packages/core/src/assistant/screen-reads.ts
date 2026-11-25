@@ -59,6 +59,8 @@ export const SCREEN_READS = [
   'funnel.of_person',
   'funnel.people',
   'funnel.suggestions',
+  // What the business spent, and each month's money in and out (Money → Expenses, 25 Nov 2026).
+  'expense.list',
   'guided_setup.get_draft',
   'idea.areas',
   'idea.roadmap',
@@ -71,6 +73,7 @@ export const SCREEN_READS = [
   'maintenance.for_person',
   'meeting_connection.list',
   'meta_account.test_messages',
+  'money.in_and_out',
   'migration.get',
   'migration.review_queue',
   'my_calendar_setup.get',

@@ -7464,6 +7464,16 @@ What a person asks the Assistant to do on its own (the owner, 25 Nov 2026). Each
 - **Where they're kept:** the attachments bucket under `assistant-files/`, named `<day>_<business>_<person>_<file>.<ext>`, where only the worker's key reaches them. The card carries only the file's key (`<day>_<file>.<ext>`); **Download** asks the worker for a link (`POST /v1/assistant/files/link`, 30 a minute), which checks the person's own business and name are in the path, and gives a link good for 5 minutes that saves the file under its name. The nightly `assistant_staging.clean_up` job removes files past 30 days. An old card's **Download** then says the file is gone and to ask again.
 - **Emailing it:** `emailMe` sends it to the person's own email straight away. `email_file` sends it to anyone else on a Confirm card, from "_business_ via HandsFreeOS", with replies going to the person and a copy to them. A file over 10 MB isn't emailed; the card says to download it instead.
 
+### Expenses and receipts
+
+"I snap a receipt, it gets filed, and each month I see money in and money out" (the owner, 25 Nov 2026). **Money** → **Expenses** on the web, and **Money** → **Expenses** under the figures on the phone. Only people with **Manage money** see it; anyone else is told to ask an owner.
+
+- **Filing one:** send the Assistant a photo or a PDF of the receipt (or just say what was spent). It reads the day, amount, tax, who was paid and the category, and shows them on a Confirm card (`add_expense`). **File it** adds the expense as the person and keeps the photo as its receipt. The photo waits for Confirm in the attachments bucket under `assistant-staging/` as `<business>_<card>.jpg`, and the nightly `assistant_staging.clean_up` job removes the ones whose card was answered or replaced. The screens' **Add expense** does the same by hand, and the phone's takes the receipt's photo there and then.
+- **Money in, money out and what's left,** for each of the last six months (`money.in_and_out`): money in is payments that went through, less refunds, by the day they happened in the business's time zone; money out is the month's expenses. The figures and their words are worked out once in `packages/core/src/money/expenses.ts`.
+- **Where they're kept:** `app.expenses` (migration `20261027036800`), US dollars only, up to $1 billion each. A receipt is a business file (`app.files`, record type `expense`, migration `20261027036700`), up to 25 MB, a photo or a PDF; a new one takes the old one's place. Row security and Storage's rules let only people with **Manage money** read or add either. Receipts aren't in search, and their words aren't read out.
+- **Removing one** is for good, with its receipt (`expense.delete`, after a second press). The Assistant never removes one; it says where the button is.
+- **Not on the phone's copy:** the phone asks the API each time, and says it needs a signal without one, like the balance.
+
 ### When a question fails
 
 Every failed question writes an `assistant run failed` line to the worker's log. Its `err` field says why. To read the recent log:

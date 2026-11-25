@@ -255,6 +255,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
     offeredTo: 'assistant.use',
     about: 'routineId from read_assistant_routine_list. Gone for good; pausing keeps it.',
   },
+  // What the business spent (25 Nov 2026): add_expense files one on a card, with its receipt; this changes one.
+  'expense.update': {
+    about:
+      'expenseId from read_expense_list. Only what changes: spentOn, amountCents (the whole amount paid, in cents), taxCents, vendor, category, paidWith or note.',
+  },
   // ---- Settings → Workspace, Add-ons and Safety ----
   'look.find': {},
   'look.set': {},
@@ -614,6 +619,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
     'deleting a file for good: it skips the Deleted bin and its stored copy is erased, which stays the person’s (the owner, 2026-10-26)',
   'form_response.delete':
     'deleting someone’s answers to a form for good: they skip the Deleted bin, which stays the person’s (the owner, 2026-10-26)',
+  'expense.delete':
+    'removing an expense for good: its receipt is erased and it can’t be brought back, which stays the person’s (the owner, 2026-10-26)',
   'addon.purge': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'addon.start_fresh': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'migration.rollback':

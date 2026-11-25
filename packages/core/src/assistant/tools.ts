@@ -35,6 +35,7 @@ import { contentTools } from './tools-content';
 import { documentTools } from './tools-documents';
 import { extraTools } from './tools-extra';
 import { filesOutTools } from './tools-files-out';
+import { expenseTools } from './tools-expenses';
 import { routineTools } from './tools-routines';
 import { inboxCrmTools } from './tools-inbox-crm';
 import { mainOfferTools } from './tools-main-offer';
@@ -2466,6 +2467,8 @@ export const assistantTools = [
   ...routineTools,
   // A spreadsheet or a PDF report of what they can see, and emailing it on (25 Nov 2026).
   ...filesOutTools,
+  // Receipts and expenses: a purchase filed on a card, with its receipt.
+  ...expenseTools,
   ...documentTools,
   ...safetyTools,
   // What HandsFreeOS can do here, core and add-ons alike (the add-ons' own tools are derived from their operations).

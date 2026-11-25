@@ -1,7 +1,7 @@
 /**
  * A file the Assistant keeps between a card and its Confirm (docs/operations.md, "Pictures and files sent to the
  * Assistant"). What's sent with a question is gone once it's answered (assistant/attachments.ts), but a template made
- * from a contract, or contacts added from a list, happen on Confirm, which can come later: so the card's PDF or CSV
+ * from a contract, contacts added from a list, or an expense filed with its receipt, happen on Confirm, which can come later: so the card's PDF or CSV
  * waits in the attachments bucket, under STAGING_FOLDER, named by the business and the card. Only the worker's own key
  * reaches it there.
  *
@@ -25,18 +25,18 @@ export const STAGING_JOBS = {
 export const STAGING_CLEAN_UP_KEY = 'clean-up:assistant_staging';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const STAGED = /^([0-9a-f-]{36})_([0-9a-f-]{36})\.(?:pdf|csv)$/;
+const STAGED = /^([0-9a-f-]{36})_([0-9a-f-]{36})\.(?:pdf|csv|jpg)$/;
 const MIN = 60_000;
 const DAY = 24 * 60 * MIN;
 
 /**
  * Where a card's file waits: one place a card, so asking again for the same card finds the same file. A contract
- * waits as a PDF, a list of contacts as a CSV.
+ * waits as a PDF, a list of contacts as a CSV, a receipt as the photo (a JPEG) or the PDF that was sent.
  */
 export function stagedPath(
   workspaceId: string,
   toolCallId: string,
-  kind: 'pdf' | 'csv' = 'pdf',
+  kind: 'pdf' | 'csv' | 'jpg' = 'pdf',
 ): string {
   if (!UUID.test(workspaceId) || !UUID.test(toolCallId))
     throw new Error('A staged file is named by its business and its card.');
