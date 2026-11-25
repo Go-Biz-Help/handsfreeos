@@ -73,6 +73,7 @@ import {
   once,
   outreachSettingsOf,
   pitchable,
+  readOnce,
   requestAnswerColumns,
   type Ctx,
   LOOKED_UP,
@@ -103,19 +104,23 @@ export async function warningOf(
   todayFrom: Date,
   now = Date.now(),
 ): Promise<WarningState | null> {
-  const [latest] = await ctx.tx
-    .select({ at: warnings.at, words: warnings.words })
-    .from(warnings)
-    .where(
-      and(
-        eq(warnings.workspaceId, ctx.scope.workspaceId!),
-        eq(warnings.userId, me),
-        eq(warnings.platform, platform),
-        gte(warnings.at, new Date(now - WARNING_SLOWER_DAYS * DAY)),
-      ),
-    )
-    .orderBy(desc(warnings.at))
-    .limit(1);
+  // A query looks once for a network at a moment, however many of its parts ask: one day's list asked for its
+  // limits, and again for how many it may check (speed audit, Nov 2026).
+  const [latest] = await readOnce(ctx, `warning:${me}:${platform}:${now}`, () =>
+    ctx.tx
+      .select({ at: warnings.at, words: warnings.words })
+      .from(warnings)
+      .where(
+        and(
+          eq(warnings.workspaceId, ctx.scope.workspaceId!),
+          eq(warnings.userId, me),
+          eq(warnings.platform, platform),
+          gte(warnings.at, new Date(now - WARNING_SLOWER_DAYS * DAY)),
+        ),
+      )
+      .orderBy(desc(warnings.at))
+      .limit(1),
+  );
   if (!latest) return null;
   return stateOf(latest.at, latest.words, todayFrom);
 }

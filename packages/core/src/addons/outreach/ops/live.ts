@@ -57,7 +57,7 @@ import { computers, days, liveSteps } from '../tables';
 import { todayLimits } from '../today';
 import { automationOf, everyoneAutomation } from './automation';
 import { asksWaiting } from './ask-rows';
-import { inWorkspace, type Ctx } from './common';
+import { inWorkspace, readOnce, type Ctx } from './common';
 import { listsOf } from './lists';
 import { readinessFor } from './readiness';
 import { businessToday, dayOf, daysOf, dayShown, keepDay, writeLine } from './day';
@@ -120,9 +120,16 @@ export async function findsByTopic(ctx: Ctx, me: string): Promise<boolean> {
   return foundByTopicOn(await workingBuild(ctx, me));
 }
 
-/** The build of the person's working computer: null with none, or one that didn't say its build. */
-export async function workingBuild(ctx: Ctx, me: string): Promise<string | null> {
-  return workingOf(await myComputers(ctx, me))?.version ?? null;
+/**
+ * The build of the person's working computer: null with none, or one that didn't say its build. A query looks once
+ * however many of its parts ask: one day's list asked three times (speed audit, Nov 2026).
+ */
+export function workingBuild(ctx: Ctx, me: string): Promise<string | null> {
+  return readOnce(
+    ctx,
+    `build:${me}`,
+    async () => workingOf(await myComputers(ctx, me))?.version ?? null,
+  );
 }
 
 /**

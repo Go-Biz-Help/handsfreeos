@@ -25,7 +25,7 @@ import {
   RequestsPauseOutput,
 } from '../request-pause';
 import { requestPauses } from '../tables';
-import { inWorkspace, type Ctx, zoneOf } from './common';
+import { inWorkspace, readOnce, type Ctx, zoneOf } from './common';
 
 /** A pause on now: till when, the business day it ends on ("2026-12-01"), and the network's words. */
 export interface RequestsPause {
@@ -43,21 +43,24 @@ export async function requestsPauseOf(
 ): Promise<RequestsPause | null> {
   if (!pausesRequests(platform)) return null;
   const ws = ctx.scope.workspaceId!;
-  const [kept] = await ctx.tx
-    .select({
-      until: requestPauses.until,
-      endedAt: requestPauses.endedAt,
-      words: requestPauses.words,
-    })
-    .from(requestPauses)
-    .where(
-      and(
-        eq(requestPauses.workspaceId, ws),
-        eq(requestPauses.userId, me),
-        eq(requestPauses.platform, platform),
-      ),
-    )
-    .limit(1);
+  // A query looks once, however many of its parts ask: one day's list asked twice (speed audit, Nov 2026).
+  const [kept] = await readOnce(ctx, `pause:${me}:${platform}`, () =>
+    ctx.tx
+      .select({
+        until: requestPauses.until,
+        endedAt: requestPauses.endedAt,
+        words: requestPauses.words,
+      })
+      .from(requestPauses)
+      .where(
+        and(
+          eq(requestPauses.workspaceId, ws),
+          eq(requestPauses.userId, me),
+          eq(requestPauses.platform, platform),
+        ),
+      )
+      .limit(1),
+  );
   if (!kept || kept.endedAt !== null || kept.until.getTime() <= now) return null;
   const timeZone = await zoneOf(ctx);
   return { until: kept.until, day: localDateOf(kept.until.getTime(), timeZone), words: kept.words };
