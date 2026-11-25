@@ -1,16 +1,16 @@
 {
   "area": "inbox",
   "title": "Inbox, a conversation, phone calls and video calls",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-25",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx": "cac42d727c12",
     "apps/mobile/src/app/app/w/[workspaceId]/call/[callId].tsx": "1113c4963af3",
-    "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx": "39dd3beab725",
+    "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx": "7a70269c0e84",
     "apps/mobile/src/components/inbox/call-sheet.tsx": "80613ce5fecf",
     "apps/mobile/src/components/inbox/composer.tsx": "bac1d11d4cf7",
     "apps/mobile/src/components/inbox/conversation-parts.tsx": "ecc181d39b8f",
     "apps/mobile/src/components/inbox/my-cell-card.tsx": "292ae0ecad2a",
-    "apps/mobile/src/components/inbox/new-message-sheet.tsx": "fab1a243e439",
+    "apps/mobile/src/components/inbox/new-message-sheet.tsx": "ade3961be7d2",
     "apps/mobile/src/components/inbox/own-mail-draft.tsx": "35d7eda8bc1d",
     "apps/mobile/src/components/inbox/pending-reply.tsx": "aaf7f03fba24",
     "apps/mobile/src/components/inbox/show-picker.tsx": "7884770e88af",
@@ -21,13 +21,13 @@
     "apps/mobile/src/inbox/contact-card.ts": "a7d21deead69",
     "apps/mobile/src/inbox/fixers.ts": "1667a9ef260a",
     "apps/mobile/src/inbox/outbox.ts": "3882e6442c7d",
-    "apps/mobile/src/inbox/queries.ts": "7ca7681df7b3",
+    "apps/mobile/src/inbox/queries.ts": "c9318e0e2787",
     "apps/mobile/src/inbox/send.ts": "07bde52e7e84",
     "apps/mobile/src/inbox/storage.ts": "3283e09712d4",
     "apps/mobile/src/inbox/thread-entries.ts": "e3dc464a9723",
     "apps/mobile/src/inbox/use-conversation.ts": "c67133e71c09",
     "apps/mobile/src/inbox/use-email.ts": "e6a732688797",
-    "apps/mobile/src/inbox/use-inbox.ts": "468cc806ce2d",
+    "apps/mobile/src/inbox/use-inbox.ts": "016097c53aa1",
     "apps/mobile/src/inbox/use-own-mail-draft.ts": "bc06fa6c1ab1",
     "apps/mobile/src/inbox/use-sender.ts": "201fd753bcd9",
     "apps/mobile/src/video-call/phone-call.tsx": "50f4c5dc00ff",
@@ -36,9 +36,9 @@
     "apps/web/src/app/app/w/[workspaceId]/inbox/layout.tsx": "728fdb23305c",
     "apps/web/src/app/app/w/[workspaceId]/inbox/page.tsx": "78fca14b2238",
     "apps/web/src/components/ai-team/reply-feedback.tsx": "661ebf8bbc3e",
-    "apps/web/src/components/attention/bits.tsx": "782802130a33",
+    "apps/web/src/components/attention/bits.tsx": "eb7a0dd4e7ac",
     "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
-    "apps/web/src/components/calendar/appointment-dialog.tsx": "58903c5b87de",
+    "apps/web/src/components/calendar/appointment-dialog.tsx": "203927cbd1b4",
     "apps/web/src/components/calendar/call-review.tsx": "f69afb7ea4c8",
     "apps/web/src/components/calls/active-call-bar.tsx": "14856343b4f3",
     "apps/web/src/components/calls/call-card.tsx": "43066603d3b5",
@@ -55,19 +55,19 @@
     "apps/web/src/components/crm/record-money.tsx": "a55e39f309ec",
     "apps/web/src/components/funnels/person-funnel.tsx": "6d463f0e6e10",
     "apps/web/src/components/inbox/ai-bits.tsx": "b096a99a8984",
-    "apps/web/src/components/inbox/ai-handling.tsx": "39e9975ca69d",
+    "apps/web/src/components/inbox/ai-handling.tsx": "7305bcd1226c",
     "apps/web/src/components/inbox/attachment-chip.tsx": "ebcdf73e5026",
-    "apps/web/src/components/inbox/bits.tsx": "531002310df2",
+    "apps/web/src/components/inbox/bits.tsx": "1a1a9f417558",
     "apps/web/src/components/inbox/composer.tsx": "f8c80ff6917e",
     "apps/web/src/components/inbox/contact-fields.tsx": "7d30c27cd9bb",
     "apps/web/src/components/inbox/context-panel.tsx": "eb2bcff29f71",
     "apps/web/src/components/inbox/conversation-row.tsx": "7a0eec380561",
-    "apps/web/src/components/inbox/conversation-view.tsx": "e89eae63a2bc",
+    "apps/web/src/components/inbox/conversation-view.tsx": "9cd218738263",
     "apps/web/src/components/inbox/conversations-card.tsx": "f83a51270af2",
     "apps/web/src/components/inbox/draft-card.tsx": "7ec45d4ba7f9",
-    "apps/web/src/components/inbox/hooks.ts": "f08d1f604e13",
-    "apps/web/src/components/inbox/inbox-shell.tsx": "19357ba4810d",
-    "apps/web/src/components/inbox/lane-switcher.tsx": "22d907e03a2f",
+    "apps/web/src/components/inbox/hooks.ts": "533b62ac2be6",
+    "apps/web/src/components/inbox/inbox-shell.tsx": "7ee9ba9a0e80",
+    "apps/web/src/components/inbox/lane-switcher.tsx": "413638277229",
     "apps/web/src/components/inbox/link-person-dialog.tsx": "e4b3f3895ca0",
     "apps/web/src/components/inbox/mail-body.tsx": "20c0903ff378",
     "apps/web/src/components/inbox/mail-card.tsx": "58e4e0c6c664",
@@ -94,7 +94,7 @@
     "apps/web/src/components/video-call/coach-float.tsx": "f4d4132cb46e",
     "apps/web/src/components/video-call/customer-call.tsx": "95df1e2ea086",
     "apps/web/src/components/video-call/link-call.tsx": "463d1bf669c9",
-    "apps/web/src/components/video-call/mic.tsx": "87d8aebc2eba",
+    "apps/web/src/components/video-call/mic.tsx": "b240072282ea",
     "apps/web/src/components/video-call/poll-panel.tsx": "e0c0aae73199",
     "apps/web/src/components/video-call/poll-popup.tsx": "e772074533b3",
     "apps/web/src/components/video-call/pre-join.tsx": "0951bedd2674",
@@ -445,8 +445,8 @@
       "path": "Conversation → All lines view",
       "kind": "see",
       "file": "apps/web/src/components/inbox/conversation-view.tsx:542",
-      "covered": "partly",
-      "by": "get_conversation otherLanes, one lane at a time"
+      "covered": "yes",
+      "by": "get_conversation allLines (every lane woven together)"
     },
     {
       "path": "Conversation → channel line (number, address)",
@@ -710,9 +710,9 @@
     {
       "path": "Conversation → person took over banner",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/ai-handling.tsx:182",
-      "covered": "partly",
-      "by": "answeredBy person"
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:184",
+      "covered": "yes",
+      "by": "get_conversation tookOver: who took over, and the AI stays quiet with them everywhere"
     },
     {
       "path": "Conversation → Hand back to AI + confirm",
@@ -809,8 +809,8 @@
       "path": "Thread → which line it came on (all lines)",
       "kind": "see",
       "file": "apps/web/src/components/inbox/message-log.tsx:200",
-      "covered": "no",
-      "by": "no line per message"
+      "covered": "yes",
+      "by": "get_conversation allLines: each message says its line"
     },
     {
       "path": "Thread → team notes",
@@ -893,8 +893,8 @@
       "path": "Thread → media can't play",
       "kind": "see",
       "file": "apps/web/src/components/inbox/media-viewer.tsx:77",
-      "covered": "no",
-      "by": "media not read"
+      "covered": "person",
+      "by": "whether a video plays is this browser’s; get_conversation lists each file’s name and kind"
     },
     {
       "path": "Thread → attachment chips",
@@ -991,8 +991,8 @@
       "path": "Thread → call card → recording player",
       "kind": "do",
       "file": "apps/web/src/components/calls/call-card.tsx:42",
-      "covered": "no",
-      "by": "audio not available"
+      "covered": "person",
+      "by": "listening is the person’s own; get_conversation says recorded and gives the transcript"
     },
     {
       "path": "Thread → call card → transcript",
@@ -1033,8 +1033,8 @@
       "path": "Thread → email → Load images",
       "kind": "do",
       "file": "apps/web/src/components/inbox/mail-body.tsx:107",
-      "covered": "no",
-      "by": "images not read"
+      "covered": "person",
+      "by": "a privacy choice in the person’s own view; the Assistant reads the email’s words"
     },
     {
       "path": "Thread → email → attachments",
@@ -1089,8 +1089,8 @@
       "path": "Draft card → safety and knowledge notes",
       "kind": "see",
       "file": "apps/web/src/components/inbox/draft-card.tsx:488",
-      "covered": "no",
-      "by": "not returned"
+      "covered": "yes",
+      "by": "list_teammate_drafts safety, usedKnowledge"
     },
     {
       "path": "Draft card → who decides",
@@ -1103,8 +1103,8 @@
       "path": "Draft card → text segment count",
       "kind": "see",
       "file": "apps/web/src/components/inbox/draft-card.tsx:511",
-      "covered": "no",
-      "by": "not returned"
+      "covered": "yes",
+      "by": "list_teammate_drafts length"
     },
     {
       "path": "Draft card → Approve",
@@ -1138,8 +1138,8 @@
       "path": "Draft card → sending bubble",
       "kind": "see",
       "file": "apps/web/src/components/inbox/draft-card.tsx:662",
-      "covered": "no",
-      "by": "not returned"
+      "covered": "yes",
+      "by": "get_conversation aiTeammateDraft.sending"
     },
     {
       "path": "Draft card → rejected → I'll reply",
@@ -1159,8 +1159,8 @@
       "path": "Draft card → expired / dropped notes",
       "kind": "see",
       "file": "apps/web/src/components/inbox/conversation-view.tsx:683",
-      "covered": "no",
-      "by": "only waiting drafts listed"
+      "covered": "yes",
+      "by": "get_conversation aiTeammateDraft expired, dropped, rejected"
     },
     {
       "path": "Thread → your own mail → Ava’s draft: the words, Only you see this, Nothing is sent until you send it",
@@ -1376,8 +1376,8 @@
       "path": "Composer → segment counter",
       "kind": "see",
       "file": "apps/web/src/components/inbox/composer.tsx:1241",
-      "covered": "no",
-      "by": "not returned"
+      "covered": "yes",
+      "by": "send_text card Length, result length"
     },
     {
       "path": "Composer → quiet hours → Send now / Keep",
@@ -1397,8 +1397,8 @@
       "path": "Phone composer → offline reply (waiting, Still send?, Edit, Discard, Retry)",
       "kind": "do",
       "file": "apps/mobile/src/components/inbox/pending-reply.tsx:1",
-      "covered": "no",
-      "by": "phone outbox only"
+      "covered": "person",
+      "by": "the phone’s own outbox while it has no signal; the Assistant runs on the server"
     },
     {
       "path": "Context → unknown sender → who, first wrote",
@@ -1740,8 +1740,8 @@
       "path": "Timeline → Delete an entry",
       "kind": "do",
       "file": "apps/web/src/components/timeline/timeline.tsx:183",
-      "covered": "no",
-      "by": "no tool"
+      "covered": "never",
+      "by": "deletes the entry for good (activity.delete): never for the Assistant; only Undo of a note add_note just made"
     },
     {
       "path": "Timeline → Show older",
@@ -1845,8 +1845,8 @@
       "path": "Video → captions",
       "kind": "see",
       "file": "apps/web/src/components/video-call/call-room.tsx:964",
-      "covered": "no",
-      "by": "live captions not read"
+      "covered": "person",
+      "by": "live captions in the room for whoever turns them on; the Assistant isn’t in the call (read_appointment_transcripts after)"
     },
     {
       "path": "Video → People → waiting → Let in / Turn away",
@@ -1894,8 +1894,8 @@
       "path": "Video → Chat → send",
       "kind": "do",
       "file": "apps/web/src/components/video-call/call-panels.tsx:133",
-      "covered": "no",
-      "by": "no chat send tool"
+      "covered": "person",
+      "by": "said in the room by someone in the call; the Assistant isn’t in it"
     },
     {
       "path": "Video → Polls → pick, None, unpublished",
@@ -2048,8 +2048,8 @@
       "path": "Video → 'Mic blocked' / 'No sound from their mic' on a tile and in People",
       "kind": "see",
       "file": "apps/web/src/components/video-call/call-stage.tsx:328",
-      "covered": "no",
-      "by": "read_video_call_get has no mic state"
+      "covered": "person",
+      "by": "a participant’s own microphone, shown in the room; the Assistant isn’t in the call"
     },
     {
       "path": "Video link → customer's upload page",
@@ -2316,6 +2316,36 @@
       "fix": "In packages/core/src/addons/capabilities.ts:75-80, change inbox.messaging's label to 'Texting, email, website chat, Messenger and Instagram' and its description to 'One shared inbox for texts, email, website chat, a client’s portal messages, and Messenger and Instagram direct messages, on the business’s own number.' Add { id: 'inbox.video_calls', label: 'Video calls', description: 'Start a HandsFreeOS video call with a customer from their conversation (⋯ → Video call) or their page; their link goes by text or email.', permission: 'appointments.write' }.",
       "status": "fixed",
       "pr": null
+    },
+    {
+      "id": "inbox-26",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Conversation → under the newest message: the AI teammate’s draft (waiting, Sending…, rejected, expired, dropped); Draft card → Safety check passed, Used …, 1 text",
+      "gap": "get_conversation said nothing of the AI teammate’s newest draft in the thread, so the Assistant couldn’t say an approved reply was on its way, or that a draft expired and went to a person, or was dropped because the customer wrote again. list_teammate_drafts left out the card’s safety note and how many texts a text draft takes.",
+      "fix": "get_conversation reads ai_teammate.draft_list for the conversation (newest, not on older pages) and says aiTeammateDraft in DRAFT_AFTER’s words: waiting (with draftId), sending (approved in the last 10 minutes and not in the thread yet), rejected, expired or dropped, only while no newer message came. list_teammate_drafts adds safety (DRAFT_WORDS.safetyPassed, not for an ask) and length (draftSegmentsLabel) for a text draft.",
+      "status": "fixed",
+      "pr": 785
+    },
+    {
+      "id": "inbox-27",
+      "severity": "low",
+      "kind": "read",
+      "where": "Conversation → lane switcher → All lines; person took over banner",
+      "gap": "get_conversation read one lane at a time with no way to read All lines, where each message says which of the business’s lines it came on. Its answeredBy named who took over, but not that the AI teammate now stays quiet with that customer on every channel (In your hands).",
+      "fix": "get_conversation takes allLines (conversation.thread allLanes) and each message carries line; it adds tookOver in the banner’s words when a person has it and there is a teammate.",
+      "status": "fixed",
+      "pr": 785
+    },
+    {
+      "id": "inbox-28",
+      "severity": "low",
+      "kind": "read",
+      "where": "Composer → segment counter (52 / 160 · 1 text)",
+      "gap": "send_text’s card didn’t say how many texts the words take, which the composer’s counter shows as you type.",
+      "fix": "send_text’s card has Length (segmentCounterLabel) and its result length, left out with buttons (written out for a phone without RCS) or when it can’t send.",
+      "status": "fixed",
+      "pr": 785
     }
   ]
 }

@@ -106,6 +106,11 @@ export const WaitingOutput = z.object({
   /** Everything waiting: what the icon, the tab and the Live tab show. */
   count: z.number().int().min(0),
   kinds: z.object({ ask: kind, reply: kind, message: kind, need: kind, request: kind }),
+  /**
+   * Of the messages to OK (`kinds.message`), how many are comments on posts or answers in groups: Needs you's Comments
+   * part (decision 196), the rest its Messages. Left out by servers from before it.
+   */
+  comments: z.number().int().min(0).default(0),
   /** In the list's order (`WAITING_KIND_KEYS`): empty when only the counts were asked for. */
   items: z.array(WaitingItem),
   /**

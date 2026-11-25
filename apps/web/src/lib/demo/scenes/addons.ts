@@ -170,6 +170,8 @@ function waitingOf(w: DemoWorld): Ok<'/v1/queries/outreach.waiting'> {
   return {
     count: open.length,
     kinds: { ask: none, reply: of('reply'), message: of('opener'), need: none, request: none },
+    // First messages only: no comments wait (decision 196).
+    comments: 0,
     items: open.map((s) =>
       s.kind === 'reply'
         ? { kind: 'reply' as const, at: iso(s.at), send: outreachSend(w, s) }

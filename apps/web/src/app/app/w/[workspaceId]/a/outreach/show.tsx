@@ -589,17 +589,21 @@ export async function showOutreach(
     );
   }
   // Today.
-  const [got, mine, asks, waiting] = await Promise.all([
+  // These two are started now and awaited with the day's list below: the list waits only on the networks the person
+  // works, never on them (speed audit, Nov 2026).
+  const asked = asksOf('today');
+  // Nothing awaits it till then, so a failure in between is never left unhandled: the await below still throws it.
+  asked.catch(() => {});
+  // What needs the person: its count leads to Needs you, and a message waiting there stays off the list here.
+  const waits = api
+    .POST('/v1/queries/outreach.waiting', { body: { workspaceId, items: true } })
+    .then((r) => r.data ?? null)
+    .catch(() => null);
+  const [got, mine] = await Promise.all([
     workspace,
     // The networks the person works, for their cards and the list shown: Facebook's alone when they can't be had.
     api
       .POST('/v1/queries/outreach.automation', { body: { workspaceId } })
-      .then((r) => r.data ?? null)
-      .catch(() => null),
-    asksOf('today'),
-    // What needs the person: its count leads to Needs you, and a message waiting there stays off the list here.
-    api
-      .POST('/v1/queries/outreach.waiting', { body: { workspaceId, items: true } })
       .then((r) => r.data ?? null)
       .catch(() => null),
   ]);
@@ -624,7 +628,7 @@ export async function showOutreach(
   const cards = todayPart === 'overview' ? nets : [net];
   // Get ready is the Overview's and the list's (decisions 63 and 90).
   const readyShown = todayPart === 'overview' || todayPart === 'list';
-  const [today, lives, helpful, readies, refer, team, plan] = await Promise.all([
+  const [today, lives, helpful, readies, refer, team, plan, asks, waiting] = await Promise.all([
     api
       .POST('/v1/queries/outreach.today', { body: { workspaceId, platform: net } })
       .then(unwrapPage),
@@ -660,6 +664,8 @@ export async function showOutreach(
           .then((r) => r.data ?? null)
           .catch(() => null)
       : null,
+    asked,
+    waits,
   ]);
   const networks = cards.flatMap((platform, i) => {
     const live = lives[i];

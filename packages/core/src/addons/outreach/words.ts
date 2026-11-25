@@ -134,6 +134,9 @@ export const OUTREACH_WORDS = {
     comments
       ? `OK’d ${things(n, 'message or comment', 'messages and comments')}. The extension sends and posts them, at a person’s pace.`
       : `OK’d ${things(n, 'message', 'messages')}. The extension sends them in Messenger, at a person’s pace.`,
+  /** Approve all on Needs you's Comments part (decision 196): the comments alone, each posted under its post. */
+  okdComments: (n: number) =>
+    `OK’d ${things(n, 'comment', 'comments')}. The extension posts them, at a person’s pace.`,
   skipped: 'Skipped. They’re off your list for today.',
   /**
    * A comment on a good post waiting for the person's OK (decision 92): it goes under the post, on the network it's

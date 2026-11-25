@@ -341,22 +341,73 @@ export async function todayFor(
   if (!me) throw HfosError.forbidden('Only a person has a list for today.');
   const ws = ctx.scope.workspaceId!;
   const now = Date.now();
-  // Who the rules leave out, read once for every list below: building the day changes nobody's marks.
-  const ruled = await ruledOut(ctx);
-  const todayStart = await startOfToday(ctx, now);
+  // A network's cap on requests in any 7 days (LinkedIn's 80 invitations): today's limit never goes past what's left.
+  const weekly = NETWORKS[input.platform].weeklyRequests;
+  // What needs nothing from another read is asked together: the questions leave for the database at once, where each
+  // used to wait for the answer before it (speed audit, Nov 2026). They're awaited together too, so one that fails
+  // ends the day's list here, with nothing left asking behind it.
+  const [
+    ruled,
+    todayStart,
+    { settings: everything, choices: settings, wheels, fresh, slower, rules },
+    sentThisWeek,
+    readiness,
+    [mine],
+    paused,
+    playbooks,
+    countryRule,
+  ] = await Promise.all([
+    // Who the rules leave out, read once for every list below: building the day changes nobody's marks.
+    ruledOut(ctx),
+    startOfToday(ctx, now),
+    // The person's choices, training wheels and limits on this network: each network's are its own.
+    automationOf(ctx, me, now, input.platform),
+    weekly === null
+      ? null
+      : rows<{ n: number }>(
+          ctx.tx,
+          sql`select count(*)::int as n from addon_outreach.touches t
+                join addon_outreach.profiles p on p.id = t.profile_id
+                where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'friend_request'
+                  and p.platform = ${input.platform} and t.at >= ${new Date(now - 7 * DAY).toISOString()}::timestamptz`,
+        ),
+    // Until they're ready (decision 63), the list keeps only replies owed to people who wrote to them, and nothing is
+    // done on its own: Get ready shows in place of the rest. Their profile never holds it (decision 90).
+    readinessFor(ctx, me, input.platform),
+    // No new friend requests while 200 of theirs wait for an answer there, or their friends there near its cap
+    // (decision 97): nor the likes before them, as after a warning.
+    // With how many of those the extension sent, and Cancel all's left (decision 121), for the note's buttons.
+    rows<{
+      waiting: number;
+      friends: number;
+      extension: number;
+      cancelling: number;
+    }>(
+      ctx.tx,
+      sql`select count(*) filter (where f.state = 'request_sent')::int as waiting,
+              count(*) filter (where f.state = 'friends')::int as friends,
+              count(*) filter (where f.state = 'request_sent' and exists (
+                select 1 from addon_outreach.touches t where t.profile_id = p.id and t.user_id = ${me}
+                  and t.kind = 'friend_request' and t.auto))::int as extension,
+              count(*) filter (where f.state = 'request_sent' and f.cancel_at is not null
+                and f.cancel_at >= f.since)::int as cancelling
+            from addon_outreach.friends f
+            join addon_outreach.profiles p on p.id = f.profile_id
+            where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}`,
+    ),
+    // The network said they reached their monthly limit there (decision 147): none till the day it ends, whatever
+    // else would hold them, as only that day lets them start again.
+    requestsPauseOf(ctx, me, input.platform, now),
+    playbooksInUse(ctx, input.platform),
+    countryRuleOf(ctx),
+  ]);
   const todayFrom = todayStart.toISOString();
   // The network's own warning and steps: another network's never slow this one or use up its limits.
-  const warning = await warningOf(ctx, me, input.platform, todayStart, now);
-  const done = (await dayCounts(ctx, [me], input.platform, todayStart)).get(me)!;
-  // The person's choices, training wheels and limits on this network: each network's are its own.
-  const {
-    settings: everything,
-    choices: settings,
-    wheels,
-    fresh,
-    slower,
-    rules,
-  } = await automationOf(ctx, me, now, input.platform);
+  const [warning, counts] = await Promise.all([
+    warningOf(ctx, me, input.platform, todayStart, now),
+    dayCounts(ctx, [me], input.platform, todayStart),
+  ]);
+  const done = counts.get(me)!;
   // Working only the groups they're in (decision 148): nobody found in another group is theirs to reach.
   const onlyMine = onlyMyGroups(settings);
   // The business's own on this network, halved after a warning there, on training wheels there, and while new there.
@@ -368,18 +419,9 @@ export async function todayFor(
       businessLimitsOn(rules, input.platform),
     ),
   );
-  // A network's cap on requests in any 7 days (LinkedIn's 80 invitations): today's limit never goes past what's left.
-  const weekly = NETWORKS[input.platform].weeklyRequests;
   let week: { done: number; most: number } | null = null;
   if (weekly !== null) {
-    const [sent] = await rows<{ n: number }>(
-      ctx.tx,
-      sql`select count(*)::int as n from addon_outreach.touches t
-            join addon_outreach.profiles p on p.id = t.profile_id
-            where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'friend_request'
-              and p.platform = ${input.platform} and t.at >= ${new Date(now - 7 * DAY).toISOString()}::timestamptz`,
-    );
-    week = { done: sent?.n ?? 0, most: weekly };
+    week = { done: sentThisWeek?.[0]?.n ?? 0, most: weekly };
     const r = limits.friend_request;
     r.most = Math.min(r.most, r.done + Math.max(0, weekly - week.done));
   }
@@ -389,9 +431,6 @@ export async function todayFor(
     number
   >;
   if (plan) for (const step of DAILY_STEPS) limits[step].most += autopilotSpares(most[step]);
-  // Until they're ready (decision 63), the list keeps only replies owed to people who wrote to them, and nothing is
-  // done on its own: Get ready shows in place of the rest. Their profile never holds it (decision 90).
-  const readiness = await readinessFor(ctx, me, input.platform);
   const ready = readiness.ready;
   // Their profile there, read on its own on the 1st: what the AI suggests waits for their OK (decision 99).
   const suggested = ownSuggestions(readiness.profileCheck);
@@ -399,31 +438,7 @@ export async function todayFor(
     suggested && readiness.profileCheck
       ? { at: readiness.profileCheck.at, parts: suggested }
       : null;
-  // No new friend requests while 200 of theirs wait for an answer there, or their friends there near its cap
-  // (decision 97): nor the likes before them, as after a warning.
-  // With how many of those the extension sent, and Cancel all's left (decision 121), for the note's buttons.
-  const [mine] = await rows<{
-    waiting: number;
-    friends: number;
-    extension: number;
-    cancelling: number;
-  }>(
-    ctx.tx,
-    sql`select count(*) filter (where f.state = 'request_sent')::int as waiting,
-            count(*) filter (where f.state = 'friends')::int as friends,
-            count(*) filter (where f.state = 'request_sent' and exists (
-              select 1 from addon_outreach.touches t where t.profile_id = p.id and t.user_id = ${me}
-                and t.kind = 'friend_request' and t.auto))::int as extension,
-            count(*) filter (where f.state = 'request_sent' and f.cancel_at is not null
-              and f.cancel_at >= f.since)::int as cancelling
-          from addon_outreach.friends f
-          join addon_outreach.profiles p on p.id = f.profile_id
-          where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}`,
-  );
   const held = requestsHeldOn(input.platform, mine ?? { waiting: 0, friends: 0 });
-  // The network said they reached their monthly limit there (decision 147): none till the day it ends, whatever
-  // else would hold them, as only that day lets them start again.
-  const paused = await requestsPauseOf(ctx, me, input.platform, now);
   // Cancel all's pace now, for the note (decision 126, answer 9a).
   const requestsHeld = paused
     ? requestsLimitHeld(paused.day)
@@ -438,10 +453,9 @@ export async function todayFor(
       };
   const requestsOff =
     (warning !== null && new Date(warning.requestsFrom).getTime() > now) || requestsHeld !== null;
-  const playbooks = await playbooksInUse(ctx, input.platform);
   // Who the business's country setting lets be reached (decision 61): everything new on the list but a reply owed.
   // Only this network's people: every list of the day is one network's (Chris: each network on its own).
-  const lets = sql`(${countryLetsSql(await countryRuleOf(ctx), 'p')} and p.platform = ${input.platform})`;
+  const lets = sql`(${countryLetsSql(countryRule, 'p')} and p.platform = ${input.platform})`;
   // Under Autopilot (decision 151), nobody new is reached till the person OKs them on the day's list, nor anyone
   // further along till they're OK'd once: `reach` is `lets` with that. A reply owed, an answer to their comment, a
   // request to confirm and Recommend them go as ever. The day's list itself is worked out without it (`plan`).
@@ -2216,61 +2230,96 @@ export async function todayFor(
     ),
   );
 
-  const readAdmins = await rows<{ id: string; name: string | null; url: string }>(
-    ctx.tx,
-    sql`select g.id, g.name, g.url from addon_outreach.groups g
-          where g.workspace_id = ${ws} and g.platform = ${input.platform} and g.admins_read_at is null
-            and exists (select 1 from addon_outreach.group_people gp
-              where gp.group_id = g.id and not gp.runs_group)
-          order by g.seen_at desc nulls last limit 10`,
-  );
-  // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list. A
-  // comment drafted is its post's, and a writer with one open isn't offered a second till it's sent or skipped.
-  const drafted = await sendsToday(ctx, me, todayFrom, new Date(now));
+  // A message's chat, where it's going, to see beside it.
+  const isMessage = (i: TodayItem) => (MESSAGE_KINDS as readonly string[]).includes(i.kind);
+  const profileIds = [...new Set(items.map((i) => i.profileId).filter((id) => id !== null))];
+  // The list is worked out. What's read about it from here needs nothing from each other, so it's asked together: the
+  // questions leave for the database at once, where each used to wait for the answer before it (speed audit, Nov 2026).
+  const [
+    readAdmins,
+    drafted,
+    known,
+    recent,
+    local,
+    okd,
+    inHands,
+    stock,
+    facts,
+    callWeeks,
+    events,
+    zone,
+  ] = await Promise.all([
+    rows<{ id: string; name: string | null; url: string }>(
+      ctx.tx,
+      sql`select g.id, g.name, g.url from addon_outreach.groups g
+            where g.workspace_id = ${ws} and g.platform = ${input.platform} and g.admins_read_at is null
+              and exists (select 1 from addon_outreach.group_people gp
+                where gp.group_id = g.id and not gp.runs_group)
+            order by g.seen_at desc nulls last limit 10`,
+    ),
+    // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list. A
+    // comment drafted is its post's, and a writer with one open isn't offered a second till it's sent or skipped.
+    sendsToday(ctx, me, todayFrom, new Date(now)),
+    // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each. What the
+    // AI read in an answer of theirs not answered yet, for a reply's why, and whether they look more like a partner.
+    profileIds.length
+      ? rows<{
+          id: string;
+          person_id: string | null;
+          platform_id: string | null;
+          marked: boolean;
+          answer: Answer | null;
+          partner_hint: string | null;
+          town: string | null;
+        }>(
+          ctx.tx,
+          sql`select p.id, p.person_id, p.platform_id, p.town, exists (select 1 from addon_outreach.demos d
+                  where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked,
+                  (select f.answer from addon_outreach.follow_ups f
+                    where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer,
+                  -- The check's word that they look more like a partner (decision 130), till they're on the person's
+                  -- Partners list or said not to be one.
+                  (select ch.partner_hint from addon_outreach.checks ch
+                    where ch.profile_id = p.id and ch.user_id = ${me} and ch.partner_hint is not null
+                      and not exists (select 1 from addon_outreach.partners pa
+                        where pa.profile_id = p.id and pa.user_id = ${me}
+                          and (pa.stage is not null or pa.fit = 'not'))) as partner_hint
+                from addon_outreach.profiles p
+                where p.workspace_id = ${ws} and p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
+        )
+      : [],
+    recentOf(ctx, me, items.filter(isMessage)),
+    // Within a kind, while the person focuses on local groups (decision 177), people who work near them go first.
+    localOf(ctx, me),
+    // Under Autopilot, whatever's left for someone not OK'd yet waits for the day's list (decision 151): a step tried
+    // again, a demo's reminder, a note for their day. Someone with nobody kept for them can't be on it, so waits too.
+    gate ? okdAmong(ctx, me, items) : null,
+    // Someone in a person's hands gets no message from the AI (decision 182): likes, comments and the rest still go.
+    heldAmong(
+      ctx,
+      items.filter(isMessage).flatMap((i) => (i.profileId ? [i.profileId] : [])),
+    ),
+    // The day's goal (decision 126): the good fits ready, and what the day's checks and requests say of why it's short.
+    goalStock(ctx, me, input.platform, now),
+    goalFacts(ctx, me, input.platform, todayStart, now),
+    // The person's 1-on-1s this week and last (decision 187, the owner's 6a), the same on every network's list.
+    oneOnOnesOf(ctx.tx, ws, me, new Date(now)),
+    // The events near them coming up (decision 188, the owner's 7a), on the networks whose events are read.
+    input.platform === 'facebook' || input.platform === 'alignable'
+      ? todayEvents(ctx, me, input.platform, now)
+      : [],
+    zoneOf(ctx),
+  ]);
   const commentOpenElsewhere = (i: TodayItem) => {
     const on = i.kind === 'comment' ? drafted.commentOn(i.profileId) : undefined;
     return on !== undefined && on !== i.postId;
   };
   const sentOf = (i: TodayItem) =>
     drafted.open(i.profileId, i.kind, underAPost(i.kind) ? i.postId : null);
-  // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each. What the AI
-  // read in an answer of theirs not answered yet, for a reply's why, and whether they look more like a partner.
-  const profileIds = [...new Set(items.map((i) => i.profileId).filter((id) => id !== null))];
-  const known = profileIds.length
-    ? await rows<{
-        id: string;
-        person_id: string | null;
-        platform_id: string | null;
-        marked: boolean;
-        answer: Answer | null;
-        partner_hint: string | null;
-        town: string | null;
-      }>(
-        ctx.tx,
-        sql`select p.id, p.person_id, p.platform_id, p.town, exists (select 1 from addon_outreach.demos d
-                where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked,
-                (select f.answer from addon_outreach.follow_ups f
-                  where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer,
-                -- The check's word that they look more like a partner (decision 130), till they're on the person's
-                -- Partners list or said not to be one.
-                (select ch.partner_hint from addon_outreach.checks ch
-                  where ch.profile_id = p.id and ch.user_id = ${me} and ch.partner_hint is not null
-                    and not exists (select 1 from addon_outreach.partners pa
-                      where pa.profile_id = p.id and pa.user_id = ${me}
-                        and (pa.stage is not null or pa.fit = 'not'))) as partner_hint
-              from addon_outreach.profiles p
-              where p.workspace_id = ${ws} and p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
-      )
-    : [];
   const knownOf = new Map(known.map((k) => [k.id, k]));
-  // A message's chat, where it's going, to see beside it.
-  const isMessage = (i: TodayItem) => (MESSAGE_KINDS as readonly string[]).includes(i.kind);
-  const recent = await recentOf(ctx, me, items.filter(isMessage));
   // A post asking for what the business offers tops the list (decision 49): answered fast, before anything else.
   // The rest go in the kinds' order (../today.ts `TODAY_KINDS`), each kind as it was worked out.
   const order = new Map(TODAY_KIND_KEYS.map((k, i) => [k, i] as const));
-  // Within a kind, while the person focuses on local groups (decision 177), people who work near them go first.
-  const local = await localOf(ctx, me);
   const near = new Set(
     local.localFocus && local.town
       ? known
@@ -2281,9 +2330,6 @@ export async function todayFor(
   const isNear = (i: TodayItem) => Number(i.profileId !== null && near.has(i.profileId));
   const byKind = (a: TodayItem, b: TodayItem) =>
     order.get(a.kind)! - order.get(b.kind)! || isNear(b) - isNear(a);
-  // Under Autopilot, whatever's left for someone not OK'd yet waits for the day's list (decision 151): a step tried
-  // again, a demo's reminder, a note for their day. Someone with nobody kept for them can't be on it, so waits too.
-  const okd = gate ? await okdAmong(ctx, me, items) : null;
   const passes = (i: Pick<TodayItem, 'kind' | 'profileId'>) =>
     okd === null || !waitsForPeopleOk(i.kind) || (i.profileId !== null && okd.has(i.profileId));
   // A step no playbook in use here ticks isn't done (decision 164): its kinds stay off the list. An answer to
@@ -2297,11 +2343,6 @@ export async function todayFor(
       return playbooks.some((p) => p.details.steps.includes('message') && hasWays(p.details));
     return takesStep(playbooks, step);
   };
-  // Someone in a person's hands gets no message from the AI (decision 182): likes, comments and the rest still go.
-  const inHands = await heldAmong(
-    ctx,
-    items.filter(isMessage).flatMap((i) => (i.profileId ? [i.profileId] : [])),
-  );
   const notHeld = (i: TodayItem) =>
     !(isMessage(i) && i.profileId !== null && inHands.has(i.profileId));
   const listedItems = [
@@ -2334,20 +2375,38 @@ export async function todayFor(
         ...(send ? { send } : {}),
       };
     });
-  // Partners' steps (decision 81), after the customers': within what those left of each daily limit.
-  const partnerItems = (
-    await partnerToday(ctx, me, {
+  // The day's goal (decision 126): first messages sent and on the list against the limit, the good fits ready, and
+  // why it's short. Those waiting for an OK count as found (answer 8a).
+  const firsts = listedItems.filter((i) => TODAY_LIMIT[i.kind] === 'first_message');
+  const short = Math.max(0, limits.first_message.most - limits.first_message.done - firsts.length);
+  const requestsListed = listedItems.filter(
+    (i) => i.kind === 'friend_request' || i.kind === 'warm_up',
+  ).length;
+  const requestsRoom = requestsOff ? 0 : leftToday(limits, 'friend_request');
+  // More checks and searches today (answer 6a): ready, and under two days of good fits ready.
+  const more =
+    ready &&
+    (fewAhead(stock.messages, limits.first_message.most) ||
+      (!requestsOff && fewAhead(stock.requests, limits.friend_request.most)));
+  // Partners' steps (decision 81), after the customers': within what those left of each daily limit. Asked with the
+  // day's reads, which need nothing of them.
+  const [partnersFound, reads] = await Promise.all([
+    partnerToday(ctx, me, {
       platform: input.platform,
       now,
       todayFrom,
       left: partnerRoom(limits, listedItems),
-    })
-  ).filter((i) => !drafted.off(i.profileId, i.kind));
-  const partnersHeld = await heldAmong(
-    ctx,
-    partnerItems.filter(isMessage).flatMap((i) => (i.profileId ? [i.profileId] : [])),
-  );
-  const partnersOkd = gate ? await okdAmong(ctx, me, partnerItems) : null;
+    }),
+    perDayFor(ctx, me, now, input.platform, more),
+  ]);
+  const partnerItems = partnersFound.filter((i) => !drafted.off(i.profileId, i.kind));
+  const [partnersHeld, partnersOkd] = await Promise.all([
+    heldAmong(
+      ctx,
+      partnerItems.filter(isMessage).flatMap((i) => (i.profileId ? [i.profileId] : [])),
+    ),
+    gate ? okdAmong(ctx, me, partnerItems) : null,
+  ]);
   const partnersPass = partnerItems.filter(
     (i) =>
       !(isMessage(i) && i.profileId !== null && partnersHeld.has(i.profileId)) &&
@@ -2365,24 +2424,6 @@ export async function todayFor(
       ...(send ? { send } : {}),
     };
   });
-  // The day's goal (decision 126): first messages sent and on the list against the limit, the good fits ready, and
-  // why it's short. Those waiting for an OK count as found (answer 8a).
-  const firsts = listedItems.filter((i) => TODAY_LIMIT[i.kind] === 'first_message');
-  const short = Math.max(0, limits.first_message.most - limits.first_message.done - firsts.length);
-  const requestsListed = listedItems.filter(
-    (i) => i.kind === 'friend_request' || i.kind === 'warm_up',
-  ).length;
-  const requestsRoom = requestsOff ? 0 : leftToday(limits, 'friend_request');
-  const [stock, facts] = await Promise.all([
-    goalStock(ctx, me, input.platform, now),
-    goalFacts(ctx, me, input.platform, todayStart, now),
-  ]);
-  // More checks and searches today (answer 6a): ready, and under two days of good fits ready.
-  const more =
-    ready &&
-    (fewAhead(stock.messages, limits.first_message.most) ||
-      (!requestsOff && fewAhead(stock.requests, limits.friend_request.most)));
-  const reads = await perDayFor(ctx, me, now, input.platform, more);
   const why = goalWhy({
     short,
     ready,
@@ -2409,8 +2450,6 @@ export async function todayFor(
     ),
     facts,
   };
-  // The person's 1-on-1s this week and last (decision 187, the owner's 6a), the same on every network's list.
-  const callWeeks = await oneOnOnesOf(ctx.tx, ws, me, new Date(now));
   const list = {
     limits,
     items: ready ? listedItems : listedItems.filter((i) => i.kind === 'reply'),
@@ -2432,18 +2471,14 @@ export async function todayFor(
     week,
     fresh: settings.fullSpeed ? { ...fresh, on: false } : fresh,
     fullSpeed: settings.fullSpeed,
-    newMessagesWait: newMessagesWait(everything.hours, await zoneOf(ctx), now),
+    newMessagesWait: newMessagesWait(everything.hours, zone, now),
     requestsHeld,
     profileOwn,
     goal,
     oneOnOnes: oneOnOnesShown(callWeeks)
       ? { week: callWeeks.week, lastWeek: callWeeks.lastWeek }
       : null,
-    // The events near them coming up (decision 188, the owner's 7a), on the networks whose events are read.
-    events:
-      input.platform === 'facebook' || input.platform === 'alignable'
-        ? await todayEvents(ctx, me, input.platform, now)
-        : [],
+    events,
     retryAt: drafted.retryAt(input.platform),
   };
   return { list, most };

@@ -5291,7 +5291,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       command or query changed.
       - **Needs you's parts are the kinds that wait,** in decision 42's order: **People to OK** (Autopilot's list,
         decision 151, while anyone on it waits), **Your computer**, **In your hands** (decision 182), **Replies**,
-        **Messages** (comments among them, decision 92), **Steps**, **Requests** and **Where they live** (decision
+        **Messages** (comments among them, decision 92; since decision 196, **Messages** and **Comments**), **Steps**, **Requests** and **Where they live** (decision
         128's Not sure where they live). Each shows its count. Only the parts with something in them are on the row,
         and the one open even once it's emptied, saying to pick another. With nothing waiting there's no row, only
         "Nothing needs you right now". It's still never narrowed to a network.
@@ -5375,6 +5375,23 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         whole page. Before the extension has said anything it lists nothing: an older build is told to update to
         0.155.0, a newer one that it says within a minute. Nothing on it is pressed yet (step 3).
       - **The Assistant reads it** (`outreach_plan`), and knows the part (`ai-places.ts`).
+
+196.  **Comments and messages, a part each on Needs you** (Chris, 25 Nov 2026: "separate comments and messages into
+      different menued pages", with a picture of one "Messages 85" part holding both). Needs you's row has
+      **Messages** and **Comments** side by side now, in place of decision 193's one Messages part, on the web
+      (`/needs-you/comment`) and the phone (`&part=comment`), each with its own count (`page-parts.ts`).
+      - **Messages** is the messages to OK alone, headed Messages to OK, with the training wheels' line and an
+        Approve all that OKs only messages ("Approve all 25 messages").
+      - **Comments** is the comments on good posts (decision 92) and the answers in groups (decision 114), headed
+        Comments to OK, with the comments' hold line, why Approve all leaves forum answers, and an Approve all of its
+        own ("Approve all 60 comments").
+      - **Approve all takes one part** (`outreach.send.approve`'s new `only`: `messages` or `comments`; left out, every
+        one, as before, so Today's Approve all and older phones work unchanged). The phone names what its part shows,
+        as before.
+      - **`outreach.waiting` says how many of the messages are comments** (`comments`), and lists the oldest 100 of
+        each, so a long run of comments never pushes the messages off the list; the phone's copy does the same
+        (`waitingOfCopy`). The count, the pushes, the extension's icon and Today keep messages and comments one kind.
+      - No migration. The Assistant knows both parts (`ai-places.ts`) and can approve either (`only`).
 
 ## Rules worth knowing before changing anything
 
@@ -6052,9 +6069,20 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **A query reads the business's small facts once** (`ops/common.ts`). The add-on's settings (`outreachSettingsOf`,
   and the rules through it) and the playbooks in use (`playbooksInUse`) are read once for a query however many of its
   parts ask (`readOnce`), and the time zone once a transaction (`zoneOf`): one Today read the settings seven times,
-  the zone six and the playbooks four (the speed audit, Nov 2026). A command reads the settings and the playbooks
+  the zone six and the playbooks four (the speed audit, Nov 2026). So are the person's own choices and first steps
+  (`automationOf`), a network's latest warning (`warningOf`), its pause on requests (`requestsPauseOf`) and their
+  computer's build (`workingBuild`): a day's list asked for each two or three times. A command reads all of these
   each time it asks, since it may have just changed them. What comes back is shared, so nothing changes it in place;
-  a new small fact that many parts want goes through `readOnce` too.
+  a new small fact that many parts want goes through `readOnce` too. `readOnce` keeps the answer, never the question:
+  a query builder runs again each time it's awaited, so it is turned into a promise first.
+  `test/addons/outreach-facts-read-once.test.ts` watches the statements a day's list sends and names any of these
+  asked twice.
+- **A day's list asks together for what needs nothing from each other** (`todayFor`, `ops/today.ts`). Its first reads
+  and its last are each one `Promise.all`, so their statements leave for the database at once and nothing waits for
+  the answer before it ("Round trips to the database" in `docs/operations.md`). Keep to `await Promise.all([...])`:
+  a read started early and awaited later is left asking if something between fails, and a statement on a transaction
+  that has ended is refused (`TRANSACTION_OVER`), which nothing would catch. The lists in between stay in order: each
+  takes what the one before left of the day's limits.
 - **Where everyone stands is worked out once for an answer** (`outreach.stages`, `ops/stages.ts`). One statement
   works out every person's stage, and the counts, the page asked for and the board's columns all read that. The
   web's board asks once, with `columns`, and each column is how that stage's own page starts (its first
