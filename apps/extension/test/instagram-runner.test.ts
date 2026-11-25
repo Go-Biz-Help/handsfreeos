@@ -2614,7 +2614,7 @@ describe('Instagram’s growing (part 15)', () => {
    * writer, someone they follow, someone they asked to, and two others, closed by its own Close. `warning` draws an
    * Instagram warning over the page as the box opens.
    */
-  const goodPost = (warning = false) => ({
+  const goodPost = (warning = false, likers?: string) => ({
     html: `${MENU}<main role="main"><article>
       <div><a role="link" href="/quinn.tiles/"><span dir="auto">quinn.tiles</span></a>
         <div role="button"><svg aria-label="More options"></svg></div></div>
@@ -2644,9 +2644,12 @@ describe('Instagram’s growing (part 15)', () => {
         doc.body.insertAdjacentHTML(
           'beforeend',
           `<div role="dialog" id="likers"><h2>Likes</h2><div role="button" aria-label="Close"></div><div>
-            ${liker('rio.tanaka', 'Rio Tanaka', 'Follow')}${liker('me.owner', 'Me Owner', '')}
+            ${
+              likers ??
+              `${liker('rio.tanaka', 'Rio Tanaka', 'Follow')}${liker('me.owner', 'Me Owner', '')}
             ${liker('quinn.tiles', 'Quinn Tiles', 'Follow')}${liker('pat.quinn', 'Pat Quinn', 'Following')}
-            ${liker('lou.marsh', 'Lou Marsh', 'Requested')}${liker('ada.finch', 'Ada Finch', 'Follow Back')}
+            ${liker('lou.marsh', 'Lou Marsh', 'Requested')}${liker('ada.finch', 'Ada Finch', 'Follow Back')}`
+            }
           </div></div>${warning ? '<div role="dialog"><h3>Action blocked</h3><p>Try again later.</p></div>' : ''}`,
         );
         const box = doc.querySelector('#likers')!;
@@ -2736,6 +2739,32 @@ describe('Instagram’s growing (part 15)', () => {
       line: 'Done. Read who liked and commented on 1 good post on Instagram: 4 new people to check for good fits.',
       warned: false,
     });
+  });
+
+  it('notes nobody read in the Likes box only when it showed nobody, never when you alone liked it', async () => {
+    const noted: string[] = [];
+    const report = async (n?: { job?: string }) => void (n?.job && noted.push(n.job));
+    // The owner's problem reports of 19, 20 and 25 Nov 2026: the box listed the person alone.
+    for (const [likers, expected] of [
+      [liker('me.owner', 'Me Owner', ''), []],
+      ['', ['post_people.likers']],
+    ] as const) {
+      noted.length = 0;
+      const closed = { box: false };
+      const post = goodPost(false, likers);
+      world.pages = (url) => (url === `${IG}/p/C7aaaaaaa/` ? { html: post.html } : null);
+      world.behave = (doc) => post.behave(doc, closed);
+      peopleNext('C7aaaaaaa');
+      const end = await runInstagramDaily('post_people', { ...job(), report });
+      expect(noted).toEqual(expected);
+      expect(closed.box).toBe(true);
+      expect(end).toMatchObject({ warned: false, line: expect.stringContaining('Done.') });
+      // Its commenters still go, and nobody as having liked it.
+      const hows = world.asked
+        .filter((a) => a.type === 'hfos-finds-save')
+        .map((a) => (a.input as { how: string }).how);
+      expect(hows.at(-1)).toBe('commented');
+    }
   });
 
   it('stops for the day on an Instagram warning in the Likes box, saving nothing of that post', async () => {

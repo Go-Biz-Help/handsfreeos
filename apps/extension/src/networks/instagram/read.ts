@@ -249,6 +249,8 @@ export type InstagramFound = {
   readonly post: InstagramPost | null;
   /** Who liked the post, in its Likes box over it (decision 92): never the person. */
   readonly likers: readonly Liker[];
+  /** Set when the post's Likes box shows the person among who liked it: their own row, left out of `likers`. */
+  readonly likedByYou?: boolean;
   readonly tag: PostsPage | null;
   readonly place: PostsPage | null;
   readonly engaged: readonly Engaged[];
@@ -604,6 +606,18 @@ export function likersOn(doc: Document, base: string, own = ownOf(doc, base)): L
   return rowsIn(box, base)
     .filter(({ account }) => account.username.toLowerCase() !== own?.toLowerCase())
     .map(({ row, account, name }) => ({ ...account, name, following: followingIn(row) }));
+}
+
+/**
+ * Whether the post's Likes box shows the person among who liked it: their own row, which `likersOn` leaves out. A box
+ * with them alone has nobody in it to read, which is no fault of the reader: Instagram often lists only the person in
+ * the Likes box of a post they liked (the owner's problem reports of 19, 20 and 25 Nov 2026).
+ */
+export function likedByYouIn(doc: Document, base: string, own = ownOf(doc, base)): boolean {
+  const box = likersBox(doc, base);
+  if (!box || !own) return false;
+  const you = own.toLowerCase();
+  return rowsIn(box, base).some(({ account }) => account.username.toLowerCase() === you);
 }
 
 // ------------------------------------------------------------------------------------------------ a post
@@ -1305,6 +1319,7 @@ export function readInstagram(doc: Document, href: string): InstagramFound {
     followers: followersOn(doc, href),
     post,
     likers: likersOn(doc, href, own),
+    ...(likedByYouIn(doc, href, own) ? { likedByYou: true } : {}),
     tag: tagOn(doc, href),
     place: placeOn(doc, href),
     engaged: engagedOn(doc, href).filter((e) => e.username.toLowerCase() !== own?.toLowerCase()),

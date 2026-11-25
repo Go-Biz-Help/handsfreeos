@@ -16,8 +16,9 @@
  * Each post's people go to HandsFreeOS (`outreach.finds.save`): its commenters even when it showed none, so the post
  * counts as read, then its likers. Nothing is pressed but the post's View all comments, its count of likes and the
  * box's Close, and nothing is written. It goes at a person's pace, 20 to 40 seconds between posts, and stops for the
- * day on any Instagram warning, in the Likes box too. A post it couldn't read, or whose Likes box didn't open, is noted
- * with the page's outline (decision 74), once a day each.
+ * day on any Instagram warning, in the Likes box too. A post it couldn't read, or whose Likes box didn't open or showed
+ * nobody (the person alone in it is nobody to read, not a problem), is noted with the page's outline (decision 74),
+ * once a day each.
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import type { PostsPeopleNext } from '../../hfos/messages';
@@ -108,7 +109,8 @@ async function readPost(
     (likers) => likers.length >= LIKERS_MOST,
   );
   if (ended(got)) return got;
-  if (!got.items.length)
+  // Nobody read is a problem only when the box showed nobody at all: with the person alone in it, nobody else is there.
+  if (!got.items.length && !got.page.found.likedByYou)
     await note('likers', 'Nobody read in the post’s Likes box.', { likers: 0 });
   await job.tab.ask({ type: 'hfos-close-dialog' });
   const liked = got.items

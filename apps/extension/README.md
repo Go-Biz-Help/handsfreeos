@@ -1307,6 +1307,17 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### An Instagram Likes box with only you in it (0.157.1)
+
+The problem checks of 19, 20 and 25 Nov 2026 found "Nobody read in the post’s Likes box" on Instagram three times. Each
+time the box had opened over the post (a reel in the reels player the last time) and listed one row: the person's own,
+with no button beside it, which the reader rightly never reads (`likersOn`). Nobody else was in it to read, so nothing
+was wrong, but each went to the problem reports as a fault.
+
+From 0.157.1 the read says when the Likes box shows the person (`likedByYou`, from `likedByYouIn` in
+`src/networks/instagram/read.ts`), and Who liked and commented notes nobody read only when the box showed nobody at
+all (`src/jobs/instagram/post-people.ts`). The post's commenters still go to HandsFreeOS, and nobody as having liked it.
+
 ### Alignable asks HandsFreeOS what to do next (0.157.0)
 
 Step 2 of decision 195 (`docs/outreach.md`) for the next network: Alignable's runner asks as Threads' and X's does
