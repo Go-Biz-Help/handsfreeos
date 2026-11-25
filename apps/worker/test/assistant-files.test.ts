@@ -12,17 +12,25 @@ import {
   assistantFileType,
 } from '@hfos/core/server';
 import { PDFDocument } from 'pdf-lib';
+import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import {
   ASSISTANT_PDF_PAGES,
-  docxText,
   fileContent,
   filesForModel,
   plainText,
-  unzip,
-  xlsxText,
 } from '../src/assistant/attachments';
 import { modelMessages } from '../src/assistant/runtime';
+import { photosAsPdf, signersOf } from '../src/assistant/tools-documents';
+import { officeLayout, wordLayout } from '../src/files/office-text';
+import { stagedOf, stagedPath } from '../src/housekeeping/assistant-staging';
+
+const docxText = (file: Buffer) => {
+  const read = officeLayout(file);
+  if (!read.ok) throw new Error(read.why);
+  return read.text;
+};
+const xlsxText = docxText;
 
 /** A zip of the given parts, deflated, as Word and Excel write them. */
 function zip(parts: Record<string, string>): Buffer {
@@ -163,26 +171,28 @@ describe('reading a file for the model', () => {
   });
 
   it('reads text as UTF-8, or as Latin-1 when it isn’t', () => {
-    expect(plainText(Buffer.from('﻿Café, $4', 'utf8'))).toBe('Café, $4');
+    expect(plainText(Buffer.from('\uFEFFCafé, $4', 'utf8'))).toBe('Café, $4');
     expect(plainText(Buffer.from('Caf\xe9 '.repeat(20), 'latin1'))).toContain('Café');
   });
 
-  it('refuses a zip part that unpacks to more than it says, and one that isn’t a zip', () => {
-    const honest = zip({ 'word/document.xml': 'x'.repeat(10_000) });
-    // Say the part is 10 bytes: unpacking stops there rather than trusting it.
+  it('refuses a zip part that says it unpacks to too much, and one that isn’t a zip', () => {
+    const honest = zip({ 'word/document.xml': `<w:document ${W}>${para('Hello')}</w:document>` });
+    expect(officeLayout(honest)).toMatchObject({ ok: true, text: 'Hello' });
+    // Say the part unpacks to 30 MB: it's refused before anything is unpacked.
     const at = honest.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
     const lying = Buffer.from(honest);
-    lying.writeUInt32LE(10, at + 24);
-    expect(() => unzip(lying, () => true)).toThrow();
-    expect(() => unzip(Buffer.from('not a zip at all, just words'), () => true)).toThrow(
-      /Not a zip/,
-    );
+    lying.writeUInt32LE(30 * 1024 * 1024, at + 24);
+    expect(officeLayout(lying)).toEqual({ ok: false, why: 'refused' });
+    expect(officeLayout(Buffer.from('not a zip at all, just words'))).toEqual({
+      ok: false,
+      why: 'not_zip',
+    });
   });
 
   it('walks a huge run of odd XML in one pass', () => {
-    const odd = `<w:document ${W}><w:body><w:p><w:r><w:t>${'&amp'.repeat(200_000)}${'<a b="'.repeat(20_000)}</w:t></w:r></w:p></w:body></w:document>`;
+    const odd = `<w:document ${W}><w:body><w:tbl><w:tr><w:tc><w:p><w:r><w:t>${'&amp'.repeat(200_000)}${'<a b="'.repeat(20_000)}</w:t></w:r></w:p></w:tc></w:tr></w:tbl></w:body></w:document>`;
     const started = Date.now();
-    docxText(zip({ 'word/document.xml': odd }));
+    wordLayout(odd);
     expect(Date.now() - started).toBeLessThan(2_000);
   });
 
@@ -299,5 +309,49 @@ describe('what the model is shown with a file', () => {
         { type: 'text', text: '(They sent only this, with no words.)' },
       ],
     });
+  });
+});
+
+describe('a contract sent to make a template from', () => {
+  it('makes photos of its pages one PDF, a Letter page each, in the order sent', async () => {
+    const photo = async (width: number, height: number) => ({
+      mediaType: 'image/jpeg' as const,
+      data: (
+        await sharp({ create: { width, height, channels: 3, background: '#ffffff' } })
+          .jpeg()
+          .toBuffer()
+      ).toString('base64'),
+    });
+    const pdf = await PDFDocument.load(
+      await photosAsPdf([await photo(600, 800), await photo(1200, 400)]),
+    );
+    expect(pdf.getPages().map((p) => p.getSize())).toEqual([
+      { width: 612, height: 792 },
+      { width: 612, height: 792 },
+    ]);
+  });
+
+  it('gives each signer a key of their own, and one customer when none are named', () => {
+    expect(signersOf({})).toEqual([{ key: 'customer', label: 'Customer', kind: 'customer' }]);
+    expect(
+      signersOf({
+        signers: [
+          { label: 'Tenant', kind: 'customer' },
+          { label: 'Tenant', kind: 'customer' },
+          { label: 'Sender', kind: 'team' },
+          { label: '2nd signer!', kind: 'customer' },
+          { label: '¿Qué?', kind: 'team' },
+        ],
+      }).map((r) => r.key),
+    ).toEqual(['tenant', 'tenant_2', 'sender_2', 'nd_signer', 'que']);
+  });
+
+  it('keeps it under a name of its business and its card only', () => {
+    const ws = '7b0c3c1e-8a7d-4a54-9a3a-0c1b2d3e4f50';
+    const call = '0f1e2d3c-4b5a-4968-8776-655443322110';
+    expect(stagedPath(ws, call)).toBe(`assistant-staging/${ws}_${call}.pdf`);
+    expect(stagedOf(`${ws}_${call}.pdf`)).toEqual({ workspaceId: ws, toolCallId: call });
+    expect(stagedOf('stray.pdf')).toBeNull();
+    expect(() => stagedPath(ws, '../other')).toThrow();
   });
 });

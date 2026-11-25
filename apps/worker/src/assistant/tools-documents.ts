@@ -1,7 +1,8 @@
 /**
- * Documents to sign, for the Assistant (docs/documents.md): a template changed a piece at a time and its fields placed
- * by the AI, each on a card; a PDF's words read and its signed copy opened; sending, voiding and reminding drawn on
- * cards as their screens say them; and the screens' look-ups read in the screens' words.
+ * Documents to sign, for the Assistant (docs/documents.md): a template made from a contract sent with the question,
+ * changed a piece at a time and its fields placed by the AI, each on a card; a PDF's words read and its signed copy
+ * opened; sending, voiding and reminding drawn on cards as their screens say them; and the screens' look-ups read in
+ * the screens' words.
  *
  * - **As the person.** Each reads and changes through the kernel as them, so the template's and the document's own
  *   permissions decide, and a document about a customer they can't see isn't there for them.
@@ -19,6 +20,8 @@ import {
   HfosError,
   addPlacedFields,
   applyTemplateChange,
+  blankDocumentDefinition,
+  DocumentDefinition,
   documentBadge,
   documentDay,
   documentGet,
@@ -36,9 +39,9 @@ import {
   signerIsUp,
   signerStatusLabel,
   templateChangeWords,
-  type DocumentDefinition,
   type DocumentField,
   type DocumentGetOutput,
+  type DocumentRole,
   type DocumentListOutput,
   type DocumentPrefillOutput,
   type DocumentSettings,
@@ -48,12 +51,15 @@ import {
   type FillSource,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import { PDFDocument } from 'pdf-lib';
 import type { z } from 'zod';
 import { placeFields } from '../documents/place';
-import { documentPages, PAGES_AT_ONCE } from '../documents/pages';
+import { documentPages, PAGES_AT_ONCE, pdfPageSizes } from '../documents/pages';
+import { STAGING_BUCKET, stagedPath } from '../housekeeping/assistant-staging';
 import type { WorkerServices } from '../services';
+import { ASSISTANT_PDF_PAGES } from './attachments';
 import { atLabel, dayLabel } from './calendar-format';
-import type { ToolContext, ToolOutcome } from './runtime';
+import type { AssistantModelPicture, ToolContext, ToolOutcome } from './runtime';
 import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 import type { ScreenActionCard } from './tools-workflow';
@@ -806,7 +812,321 @@ const placeTemplateFields: SettingsConfirmTool = {
   },
 };
 
+// ---------- a new template, from a contract sent with the question ----------
+
+/** A page of a template made from photos: US Letter, in points. */
+const LETTER = { width: 612, height: 792 } as const;
+
+/** Photos of a contract's pages as one PDF: a Letter page each, its photo as big as fits, in the order sent. */
+export async function photosAsPdf(pictures: readonly AssistantModelPicture[]): Promise<Buffer> {
+  const pdf = await PDFDocument.create();
+  for (const picture of pictures) {
+    const image = await pdf.embedJpg(Buffer.from(picture.data, 'base64'));
+    const page = pdf.addPage([LETTER.width, LETTER.height]);
+    const scale = Math.min(LETTER.width / image.width, LETTER.height / image.height);
+    const width = image.width * scale;
+    const height = image.height * scale;
+    page.drawImage(image, {
+      x: (LETTER.width - width) / 2,
+      y: (LETTER.height - height) / 2,
+      width,
+      height,
+    });
+  }
+  return Buffer.from(await pdf.save());
+}
+
+/** The contract a new template is made from, as the card shows it. */
+interface Contract {
+  readonly from: 'file' | 'pictures';
+  readonly bytes: Buffer;
+  readonly pages: number;
+  /** The card's PDF row. */
+  readonly label: string;
+}
+
+const which = (args: Args): 'file' | 'pictures' | null =>
+  typeof args['fromFile'] === 'number' ? 'file' : args['fromPictures'] === true ? 'pictures' : null;
+
+/** The PDF or the photos sent with this question, ready to keep; null when it's made with no PDF yet. */
+async function contractOf(ctx: ToolContext, args: Args): Promise<Contract | null> {
+  if (typeof args['fromFile'] === 'number' && args['fromPictures'] === true)
+    throw HfosError.validation(
+      [{ path: 'fromPictures', message: 'From the file or the pictures, one of them.' }],
+      'Make it from the file or from the pictures, one of them.',
+    );
+  if (which(args) === 'file') {
+    const sent = ctx.files ?? [];
+    const file = sent[(args['fromFile'] as number) - 1];
+    if (!file)
+      throw HfosError.validation(
+        [{ path: 'fromFile', message: 'No such file.' }],
+        sent.length
+          ? `Only ${plural(sent.length, 'file')} came with this question.`
+          : 'No file came with this question. Ask them to send the contract as a PDF with their question.',
+      );
+    if (file.kind !== 'pdf')
+      throw HfosError.rule(
+        'document_template_not_pdf',
+        400,
+        `${file.name} isn’t a PDF, and a template is made from one. Save it as a PDF and send that.`,
+      );
+    if (file.of)
+      throw HfosError.rule(
+        'document_template_too_long',
+        400,
+        `${file.name} has ${file.of} pages, more than the ${ASSISTANT_PDF_PAGES} the Assistant reads at once. Make the template from it under Documents → New template instead.`,
+      );
+    return {
+      from: 'file',
+      bytes: Buffer.from(file.data, 'base64'),
+      pages: file.pages,
+      label: `${file.name}, ${W.pages(file.pages)}`,
+    };
+  }
+  if (which(args) === 'pictures') {
+    const pictures = ctx.pictures ?? [];
+    if (!pictures.length)
+      throw HfosError.validation(
+        [{ path: 'fromPictures', message: 'No picture came.' }],
+        'No picture came with this question. Ask them to send a photo of each page, or the contract as a PDF.',
+      );
+    return {
+      from: 'pictures',
+      bytes: await photosAsPdf(pictures),
+      pages: pictures.length,
+      label: `Made from ${plural(pictures.length, 'photo')}, a page each`,
+    };
+  }
+  return null;
+}
+
+/** Who signs, as given, each with a key of its own; one customer when none are given. */
+export function signersOf(args: Args): DocumentRole[] {
+  const given = Array.isArray(args['signers'])
+    ? (args['signers'] as { label: string; kind: 'customer' | 'team' }[])
+    : [];
+  if (!given.length) return blankDocumentDefinition().roles;
+  const taken = new Set<string>(['sender']);
+  const roles = given.map((s) => {
+    const base =
+      s.label
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^[^a-z]+/, '')
+        .slice(0, 30)
+        .replace(/_+$/, '') || (s.kind === 'team' ? 'team' : 'customer');
+    let key = base;
+    for (let n = 2; taken.has(key); n++) key = `${base}_${n}`;
+    taken.add(key);
+    return { key, label: s.label.trim(), kind: s.kind };
+  });
+  const parsed = DocumentDefinition.safeParse({ ...blankDocumentDefinition(), roles });
+  if (!parsed.success)
+    throw HfosError.validation(
+      [{ path: 'signers', message: parsed.error.issues[0]?.message ?? 'That doesn’t fit.' }],
+      parsed.error.issues[0]?.message ?? 'Who signs doesn’t fit a template.',
+    );
+  return parsed.data.roles;
+}
+
+const signerWords = (roles: readonly DocumentRole[]) =>
+  roles.map((r) => (r.kind === 'team' ? `${r.label} (your team)` : r.label)).join(', then ');
+
+const noStore = () =>
+  HfosError.rule(
+    'documents_unavailable',
+    503,
+    'A template can’t be made from a file here just now. Make it under Documents → New template instead, or try again in a minute.',
+  );
+
+const fileGone = () =>
+  HfosError.rule(
+    'assistant_file_gone',
+    410,
+    'The contract from that question isn’t kept anymore, so the template wasn’t made. Send it again with your question.',
+  );
+
+/** A file name of the template's own name, for its PDF. */
+const pdfName = (name: string) => `${name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Contract'}.pdf`;
+
+const makeDocumentTemplate: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId, deps) {
+    const name = str(args['name']) ?? '';
+    const contract = await contractOf(ctx, args);
+    const roles = signersOf(args);
+    await rehearse(db, ctx, 'document_template.create', { name });
+    // What's sent is gone after this answer: the PDF waits for Confirm where only the worker reaches it.
+    if (contract) {
+      if (!deps?.services?.store) throw noStore();
+      await deps.services.store.upload(
+        STAGING_BUCKET,
+        stagedPath(ctx.workspaceId, toolCallId),
+        contract.bytes,
+        'application/pdf',
+        { upsert: true },
+      );
+    }
+    const placing = contract?.from === 'file' && !!deps?.services?.ai.provider;
+    return {
+      card: settingsCard(toolCallId, 'make_document_template', {
+        title: `Make the template “${name}”?`,
+        fields: [
+          { label: 'Name', value: name },
+          { label: 'PDF', value: contract?.label ?? 'None yet: add it on the template' },
+          { label: E.whoSigns, value: signerWords(roles) },
+          {
+            label: 'Fields',
+            value: !contract
+              ? ''
+              : placing
+                ? 'The AI places one on each line, box and label that looks like one'
+                : contract.from === 'pictures'
+                  ? 'Added on the template: a photo has no lines the AI can find'
+                  : 'Added on the template',
+          },
+        ],
+        confirmLabel: 'Make the template',
+        warnings: [
+          { kind: 'note', text: 'Nothing goes to a customer: sending it is its own step.' },
+          ...(placing
+            ? [
+                {
+                  kind: 'note',
+                  text: 'Placing the fields counts toward your daily AI limit. Check each one and who it’s for after.',
+                },
+              ]
+            : []),
+        ],
+      }),
+      result: {
+        waiting: true,
+        template: name,
+        pages: contract?.pages ?? 0,
+        signers: roles.map((r) => r.label),
+      },
+    };
+  },
+  async commit(db, ctx, args, extra) {
+    const s = extra.services ?? null;
+    const name = str(args['name']) ?? '';
+    const roles = signersOf(args);
+    const from = which(args);
+    const staged = from ? stagedPath(ctx.workspaceId, extra.toolCallId) : null;
+    let bytes: Buffer | null = null;
+    if (staged) {
+      if (!s) throw noStore();
+      bytes = await s.store.download(STAGING_BUCKET, staged).catch(() => null);
+      if (!bytes) throw fileGone();
+    }
+    try {
+      const made = await command<{ templateId: string; revision: number }>(
+        db,
+        ctx,
+        'document_template.create',
+        { name },
+      );
+      const templateId = made.templateId;
+      let revision = made.revision;
+      let pages: { width: number; height: number }[] = [];
+      let pdfProblem: string | null = null;
+      if (bytes && s) {
+        try {
+          // As New template does with a PDF: reserved, uploaded, confirmed, then its pages read in.
+          const sizes = await pdfPageSizes(bytes);
+          const spot = await command<{ fileId: string; bucket: string; objectPath: string }>(
+            db,
+            ctx,
+            'document_template.begin_upload',
+            {
+              templateId,
+              name: pdfName(name),
+              mimeType: 'application/pdf',
+              sizeBytes: bytes.length,
+            },
+          );
+          await s.store.upload(spot.bucket, spot.objectPath, bytes, 'application/pdf');
+          await command(db, ctx, 'file.confirm', { fileId: spot.fileId });
+          const set = await command<{ revision: number }>(db, ctx, 'document_template.set_source', {
+            templateId,
+            fileId: spot.fileId,
+            pages: sizes,
+            baseRevision: revision,
+          });
+          revision = set.revision;
+          pages = sizes;
+        } catch (e) {
+          pdfProblem = e instanceof HfosError ? e.message : 'It didn’t upload.';
+        }
+      }
+      let definition = DocumentDefinition.parse({ ...blankDocumentDefinition(), roles, pages });
+      let placed = 0;
+      // Said when the AI placed nothing: why, and what to do instead.
+      let placeNote = 'The AI found no fields to place, so add them on the template.';
+      if (pages.length && from === 'file') {
+        if (!s?.ai.provider)
+          placeNote =
+            'The AI can’t place fields just now. Press Place fields for me on the template later, or add them yourself.';
+        else
+          try {
+            const { fields } = await placeFields(
+              { httpDb: db, store: s.store, ai: s.ai, log: s.log, wallet: s.wallet },
+              ctx.actor,
+              { workspaceId: ctx.workspaceId, templateId, roles },
+            );
+            const added = addPlacedFields(definition, fields);
+            definition = added.definition;
+            placed = added.added;
+          } catch (e) {
+            // Nothing that looks like a field is the note as it is; a limit says itself; the rest, try again later.
+            if (
+              e instanceof HfosError &&
+              (e.rule === 'budget_reached' || e.rule === 'wallet_empty')
+            )
+              placeNote = `${e.message} Add the fields on the template instead.`;
+            else if (!(e instanceof HfosError && e.code === 'validation'))
+              placeNote =
+                'The AI couldn’t place the fields just now. Press Place fields for me on the template later, or add them yourself.';
+          }
+      }
+      const ownSigners = JSON.stringify(roles) !== JSON.stringify(blankDocumentDefinition().roles);
+      if (ownSigners || placed) {
+        const saved = await command<{ revision: number }>(db, ctx, 'document_template.save', {
+          templateId,
+          baseRevision: revision,
+          definition,
+        });
+        revision = saved.revision;
+      }
+      const lead = `Made the template “${name}”`;
+      const outcome = pdfProblem
+        ? `${lead}, but its PDF didn’t go on: ${pdfProblem} Add the PDF on the template.`
+        : !pages.length
+          ? `${lead}. Add its PDF on the template, then place the fields.`
+          : from === 'pictures'
+            ? `${lead} from ${plural(pages.length, 'photo')}, a page each. Add the fields on the template.`
+            : `${lead} with its ${plural(pages.length, 'page')}. ${placed ? E.placed(placed) : placeNote}`;
+      return {
+        outcome,
+        href: templatePath(ctx, templateId),
+        command: 'document_template.create',
+        answer: {
+          templateId,
+          revision,
+          pages: pages.length,
+          fieldsPlaced: placed,
+          signers: roles.map((r) => r.label),
+        },
+      };
+    } finally {
+      if (staged && s) await s.store.remove(STAGING_BUCKET, staged).catch(() => undefined);
+    }
+  },
+};
+
 export const documentConfirmTools: Record<string, SettingsConfirmTool> = {
+  make_document_template: makeDocumentTemplate,
   change_document_template: changeDocumentTemplate,
   place_template_fields: placeTemplateFields,
 };
@@ -907,6 +1227,7 @@ export const documentServiceTools: Record<
 
 /** What the panel says while each one runs. */
 export const documentStepLabels: Record<string, string> = {
+  make_document_template: 'Getting the new template ready',
   change_document_template: 'Getting the template change ready',
   place_template_fields: 'Getting the fields ready to place',
   get_document_pages: 'Reading the PDF',

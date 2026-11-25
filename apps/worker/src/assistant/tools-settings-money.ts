@@ -21,7 +21,9 @@ import {
   money as exactMoney,
   numberingAtCounter,
   PRODUCT_KIND_WORDS,
+  ProductCreateInput,
   choiceBumpWords,
+  optionsProblem,
   stockRows,
   type ProductStock,
   reminderSchedule,
@@ -648,6 +650,175 @@ const manageProduct: SettingsConfirmTool = {
       ...stockInput(args, current),
     });
     return { outcome: `${saved.product.name} saved.`, href, command: 'product.update' };
+  },
+};
+
+// ---------- many items at once (a price list or a menu they sent) ----------
+
+interface NewItem {
+  name: string;
+  priceDollars: number;
+  kind?: ProductKind;
+  description?: string;
+  unitLabel?: string;
+  code?: string;
+  taxable?: boolean;
+  options?: { name: string; choices: { label: string; priceChangeDollars?: number }[] }[];
+}
+
+const nameKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+
+/** One item as product.create takes it. */
+const newItemInput = (item: NewItem): Record<string, unknown> =>
+  productInput(item as unknown as Args);
+
+/** "T-shirt: $12 each · Size: Youth S (−$2), Adult M, Adult 2XL (+$2)", as the card lists each item. */
+function newItemLine(item: NewItem): string {
+  const price = priceWords({
+    unitPriceCents: cents(item.priceDollars),
+    unitLabel: item.unitLabel?.trim() || 'each',
+  });
+  const options = (item.options ?? []).map(
+    (o) =>
+      `${o.name}: ${o.choices
+        .map((c) => {
+          const bump = cents(c.priceChangeDollars ?? 0);
+          return bump ? `${c.label} (${choiceBumpWords(bump)})` : c.label;
+        })
+        .join(', ')}`,
+  );
+  return [`${item.name.trim()}: ${price}`, ...options].join(' · ');
+}
+
+/**
+ * The items to add and the ones left out: each checked as product.create would check it (its options' names, a
+ * choice that would cost less than nothing), and any already on the price list by name, or twice in the list, left
+ * out. Nothing is saved.
+ */
+async function addProductsPlan(db: Db, ctx: ToolContext, args: Args) {
+  const items = list<NewItem>(args['items']) ?? [];
+  if (!items.length)
+    throw HfosError.validation([], 'List the items to add, each with its name and price.');
+  const { products } = await query<{ products: Product[] }>(db, ctx, 'product.list', {
+    includeArchived: true,
+  });
+  const existing = new Map(products.map((p) => [nameKey(p.name), p]));
+  const seen = new Set<string>();
+  const adding: NewItem[] = [];
+  const already: Product[] = [];
+  const twice: string[] = [];
+  for (const [i, item] of items.entries()) {
+    const key = nameKey(item.name);
+    const there = existing.get(key);
+    if (there) {
+      already.push(there);
+      continue;
+    }
+    if (seen.has(key)) {
+      twice.push(item.name.trim());
+      continue;
+    }
+    seen.add(key);
+    const input = newItemInput(item);
+    const checked = ProductCreateInput.safeParse({ workspaceId: ctx.workspaceId, ...input });
+    if (!checked.success)
+      throw HfosError.validation(
+        [],
+        `Item ${i + 1}, ${item.name.trim()}, doesn’t fit: ${checked.error.issues[0]?.message ?? 'check its price and choices'}.`,
+      );
+    const problem = checked.data.options
+      ? optionsProblem(checked.data.unitPriceCents, checked.data.options)
+      : null;
+    if (problem) throw HfosError.validation([], `${item.name.trim()}: ${problem.message}`);
+    adding.push(item);
+  }
+  return { adding, already, twice };
+}
+
+const addProducts: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const { adding, already, twice } = await addProductsPlan(db, ctx, args);
+    if (!adding.length)
+      throw nothingChanges(
+        `${already.length === 1 ? `${already[0]!.name} is` : 'Every one of them is'} already on the price list, so there’s nothing to add. Say what to change on one instead.`,
+      );
+    // The first is tried as the person and rolled back, so a role that can't add items is refused in the command's
+    // own words before a card is drawn.
+    await rehearse(db, ctx, 'product.create', newItemInput(adding[0]!));
+    const taxed = adding.some((i) => i.taxable === true);
+    const untaxed = adding.some((i) => i.taxable === false);
+    const fields: Field[] = [
+      { label: 'Items', value: `${adding.length} new on the price list` },
+      {
+        label: 'Sales tax',
+        value:
+          taxed && untaxed
+            ? 'Charged on some, as listed'
+            : taxed
+              ? 'Charged'
+              : untaxed
+                ? 'Not charged'
+                : 'As Settings → Payments says for new items',
+      },
+    ];
+    const warnings: Warning[] = [];
+    if (already.length)
+      warnings.push({
+        kind: 'note',
+        text: `Already on the price list, so left out: ${already
+          .slice(0, 8)
+          .map((p) => (p.archivedAt ? `${p.name} (archived)` : p.name))
+          .join(', ')}${already.length > 8 ? ` and ${already.length - 8} more` : ''}.`,
+      });
+    if (twice.length)
+      warnings.push({
+        kind: 'note',
+        text: `Listed twice, so added once: ${twice.slice(0, 8).join(', ')}.`,
+      });
+    const card = settingsCard(toolCallId, 'add_products', {
+      title: `Add ${adding.length === 1 ? adding[0]!.name.trim() : `${adding.length} items`} to the price list`,
+      fields,
+      confirmLabel: adding.length === 1 ? 'Add it' : `Add all ${adding.length}`,
+      warnings,
+    });
+    return {
+      card: { ...card, body: adding.map(newItemLine).join('\n') },
+      result: {
+        waiting: true,
+        adding: adding.length,
+        ...(already.length ? { leftOutAlreadyThere: already.map((p) => p.name) } : {}),
+        ...(twice.length ? { leftOutListedTwice: twice } : {}),
+      },
+    };
+  },
+
+  async commit(db, ctx, args) {
+    const { adding } = await addProductsPlan(db, ctx, args);
+    const href = `/app/w/${ctx.workspaceId}/settings/payments/products`;
+    const added: string[] = [];
+    const failed: string[] = [];
+    // One at a time, each its own change: one that no longer fits doesn't stop the rest.
+    for (const item of adding) {
+      try {
+        await command(db, ctx, 'product.create', newItemInput(item));
+        added.push(item.name.trim());
+      } catch (e) {
+        if (!(e instanceof HfosError)) throw e;
+        failed.push(item.name.trim());
+      }
+    }
+    if (!added.length)
+      throw HfosError.validation([], 'None of the items could be added. Try again.');
+    return {
+      outcome: `${added.length === 1 ? `${added[0]} is` : `${added.length} items are`} on the price list.${
+        failed.length
+          ? ` ${failed.join(', ')} couldn’t be added: add ${failed.length === 1 ? 'it' : 'them'} again.`
+          : ''
+      }`,
+      href,
+      command: 'product.create',
+      answer: { added: added.length, ...(failed.length ? { notAdded: failed } : {}) },
+    };
   },
 };
 
@@ -1389,6 +1560,7 @@ async function saveTeammate(
 export const settingsMoneyConfirmTools: Record<string, SettingsConfirmTool> = {
   update_money_settings: updateMoneySettings,
   manage_product: manageProduct,
+  add_products: addProducts,
   manage_payment_account: managePaymentAccount,
   update_action_center_settings: updateActionCenterSettings,
   manage_ai_teammate: manageAiTeammate,

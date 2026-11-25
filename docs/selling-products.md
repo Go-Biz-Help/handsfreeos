@@ -43,6 +43,11 @@ below, browser-safe, so the web, the server, the Assistant and the AI teammate r
   owner approves.
 - **The Assistant** sets them with `manage_product` `options` (each choice's `priceChangeDollars`), shows them on its
   card, and takes `choices` on a `write_estimate` / `write_invoice` line.
+- **A whole price list at once:** `add_products` (the owner, 24 Nov 2026), for a price list or menu sent as a picture
+  or a file. Up to 80 items, each with its sizes and prices, on one card that lists every one. An item already on the
+  price list by name (archived ones too) or listed twice is left out and said on the card; each is checked as
+  `product.create` checks it before the card. On Confirm each is added on its own, so one that no longer fits doesn't
+  stop the rest.
 - **Not on the phone yet.** The phone has no product screens and its sync stream names the product columns it sends,
   so it doesn't get options; a document's lines carry the choices in their names.
 - **Not per choice yet:** a code (SKU) or a picture. Stock counts by one option's choices ("Stock" below).

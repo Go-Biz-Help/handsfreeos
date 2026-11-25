@@ -172,8 +172,9 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'workflow_proposal.apply': {},
   // ---- Documents to sign (20261027015200): sending waits for a Confirm card, like every change ----
   // Changing what's on a template is change_document_template, a piece at a time, and Place fields for me is
-  // place_template_fields: both save it, so the whole definition is never the model's to copy back.
-  'document_template.create': {},
+  // place_template_fields: both save it, so the whole definition is never the model's to copy back. New template is
+  // make_document_template, which also uploads a PDF sent with the question (document_template.begin_upload,
+  // file.confirm and document_template.set_source, for that PDF only: other uploads stay the person's own).
   'document_template.rename': {},
   'document_template.archive': {},
   'document_template.restore': {},
@@ -628,10 +629,6 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'live_meeting.claim': 'done from HandsFreeOS’s app inside Zoom',
   'form.begin_slides_upload':
     'uploading a live poll’s slides, a PDF from the person’s own computer; they add it on the poll',
-  'document_template.begin_upload':
-    'uploading a template’s PDF, a file from the person’s own computer; they add it on the template',
-  'document_template.set_source':
-    'reading in the pages of a PDF the person just uploaded, which goes with the upload',
   'document.sign_now':
     'handing the person’s own phone or computer to a customer who’s with them, to sign on it there',
   'user_phone.start_verification': 'confirming a cell by answering a call on it',
@@ -649,7 +646,6 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'rcs_request.pay_renewal': 'paying on Stripe’s page, which only the person can do',
   'texting_fee.pay': 'paying on Stripe’s page, which only the person can do',
   'file.begin_upload': 'a file from the person’s own computer or phone',
-  'file.confirm': 'a file from the person’s own computer or phone',
   'knowledge_document.begin_upload': 'a file from the person’s own computer or phone',
   'knowledge_document.add': 'a file from the person’s own computer or phone',
   'import.create': 'a spreadsheet from the person’s own computer',

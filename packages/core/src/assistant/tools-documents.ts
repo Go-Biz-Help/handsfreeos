@@ -9,10 +9,51 @@
  */
 import { z } from 'zod';
 import { DocumentTemplateChange } from '../documents/change';
+import { MAX_DOCUMENT_ROLES } from '../documents/definition';
 import { uuid } from '../schemas/common';
 import { define, type AssistantTool } from './tool-kit';
 
 export const documentTools: readonly AssistantTool[] = [
+  define({
+    name: 'make_document_template',
+    description:
+      'Make a new document template to sign, as New template does. From a contract or agreement they sent with this question: a PDF (fromFile) or photos of its pages (fromPictures, a page a photo). The card shows its name, pages and who signs; on yes it is made with that PDF, and the AI places a field on each line, box and label that looks like one (a photo has no lines to find, so they add those fields on the template). With neither, it is made with no PDF yet, which they add on the template. A Word file can’t be made into one: ask them to save it as a PDF and send that. Nothing goes to a customer: sending is its own step.',
+    input: z.object({
+      name: z
+        .string()
+        .trim()
+        .min(1)
+        .max(120)
+        .describe(
+          'What to call it, like “Lawn care agreement”: what they called it, or the contract’s own title',
+        ),
+      fromFile: z
+        .int()
+        .min(1)
+        .max(3)
+        .optional()
+        .describe('Which file they sent, 1 for the first: a PDF'),
+      fromPictures: z
+        .boolean()
+        .optional()
+        .describe('Make it from the pictures they sent instead, a page each, in order'),
+      signers: z
+        .array(
+          z.object({
+            label: z.string().trim().min(1).max(60).describe('Customer, Second signer, Us…'),
+            kind: z
+              .enum(['customer', 'team'])
+              .describe('customer: someone the business sends it to; team: the business’s own'),
+          }),
+        )
+        .min(1)
+        .max(MAX_DOCUMENT_ROLES)
+        .optional()
+        .describe('Who signs, in order, as its signature lines say; left out, one customer'),
+    }),
+    autonomy: 'confirm',
+    permission: 'documents.manage',
+  }),
   define({
     name: 'change_document_template',
     description:

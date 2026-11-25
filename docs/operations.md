@@ -7403,6 +7403,16 @@ Someone can ask and leave straight away: close the panel, the tab or the phone a
 
 The rules the web and the phone share live once, in `packages/core/src/assistant/catch-up.ts`. `assistant_thread.get` says when an answer is still coming (`answering`).
 
+### Pictures and files sent to the Assistant
+
+The paperclip on Ask HandsFreeOS (web and phone) takes pictures and files: PDF, Word (.docx), Excel (.xlsx), CSV and plain text, up to 3 files of 10 MB each with a question. Older Word and Excel files, Pages and Numbers are refused with what to save them as. Nothing is kept: like a picture, a file is read with that one question, and later questions only mention it by name.
+
+- **A PDF goes to the model whole,** so it sees the layout, tables and handwriting. All the PDFs of one question come to 40 pages at most (about 2,500 tokens a page); a longer one is cut to its first pages, and the model is told so. A password-protected PDF is refused.
+- **Word, Excel, CSV and text are read out as words** (`apps/worker/src/assistant/attachments.ts`), up to 60,000 characters a file: a Word table's row on one line, a sheet's cells in their columns under the sheet's name. Word and Excel are opened by the same reader as search (`apps/worker/src/files/office-text.ts`), with its limits on what a zip may hold.
+- **What it does with them** (the owner, 24 Nov 2026): a form like the one sent (`build_form`), a price list or menu onto the price list (`add_products`), a lead from a screenshot into Contacts with a note and a follow-up task (`create_customer`), and a contract into a template to sign (`make_document_template`). Each change is on a Confirm card.
+- **A contract waits for Confirm** in the attachments bucket under `assistant-staging/`, where only the worker's key reaches it. Confirm uses it and removes it; the nightly `assistant_staging.clean_up` job removes the ones whose card was answered or replaced, and any older than 14 days. See "The Assistant" in `docs/documents.md`.
+- **What a picture or file says is data,** never instructions to the Assistant.
+
 ### When a question fails
 
 Every failed question writes an `assistant run failed` line to the worker's log. Its `err` field says why. To read the recent log:

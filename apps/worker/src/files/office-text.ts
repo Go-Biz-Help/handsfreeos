@@ -352,11 +352,19 @@ export function sheetText(xml: string, shared: readonly string[], room = Infinit
 
 /** The workbook's worksheets, in its own order: each sheet's part, through the workbook's relationships. */
 function sheetPartsOf(read: (name: string) => string | null, names: readonly string[]): string[] {
+  return sheetsOf(read, names).map((s) => s.part);
+}
+
+/** The workbook's worksheets in its own order, each with its tab's name (null when it can't be found). */
+function sheetsOf(
+  read: (name: string) => string | null,
+  names: readonly string[],
+): { part: string; name: string | null }[] {
   const numbered = names
     .map((n) => ({ n, at: /^xl\/worksheets\/sheet(\d+)\.xml$/.exec(n) }))
     .filter((x) => x.at)
     .sort((a, b) => Number(a.at![1]) - Number(b.at![1]))
-    .map((x) => x.n);
+    .map((x) => ({ part: x.n, name: null }));
   const workbook = read('xl/workbook.xml');
   const rels = read('xl/_rels/workbook.xml.rels');
   if (!workbook || !rels) return numbered;
@@ -371,13 +379,14 @@ function sheetPartsOf(read: (name: string) => string | null, names: readonly str
           target.startsWith('/') ? target.slice(1) : `xl/${target.replace(/^\.\//, '')}`,
         );
     }
-  const ordered: string[] = [];
+  const ordered: { part: string; name: string | null }[] = [];
   for (const part of xmlParts(workbook))
     if (typeof part !== 'string' && part.name === 'sheet' && !part.close) {
       const target = targets.get(attrOf(part, 'id') ?? '');
       // A chart sheet has no cells; a sheet whose part can't be found falls back to the parts' own order.
       if (!target) return numbered;
-      if (/^xl\/worksheets\//.test(target) && names.includes(target)) ordered.push(target);
+      if (/^xl\/worksheets\//.test(target) && names.includes(target))
+        ordered.push({ part: target, name: attrOf(part, 'name') });
     }
   return ordered.length ? ordered : numbered;
 }
@@ -406,6 +415,226 @@ export function officeText(file: Buffer): OfficeText {
       left -= words.length;
     }
     return { ok: true, kind: 'excel', parts, cut: left <= 0 };
+  } catch {
+    return { ok: false, why: 'refused' };
+  }
+}
+
+// ---------- laid out for a model ----------
+
+/**
+ * A Word document's words laid out for the Assistant's model (a file sent with a question): a line a paragraph, and
+ * each table row on one line with its cells between bars, so a price list made as a table keeps each item beside its
+ * price. A table inside a table runs on in its cell. `room` characters at most.
+ */
+export function wordLayout(xml: string, room = Infinity): string {
+  const lines: string[] = [];
+  let line = '';
+  let used = 0;
+  let inText = false;
+  let inTabStops = 0;
+  let tables = 0;
+  let cells: string[] | null = null;
+  const push = (text: string) => {
+    if (!text && !lines[lines.length - 1]) return;
+    lines.push(text);
+    used += text.length + 1;
+  };
+  for (const part of xmlParts(xml)) {
+    if (used + line.length >= room) break;
+    if (typeof part === 'string') {
+      if (inText) line += part;
+      continue;
+    }
+    switch (part.name) {
+      case 't':
+        inText = !part.close && !part.empty;
+        break;
+      case 'tabs':
+        if (!part.empty) inTabStops = Math.max(0, inTabStops + (part.close ? -1 : 1));
+        break;
+      case 'tab':
+        if (!part.close && inTabStops === 0) line += '\t';
+        break;
+      case 'br':
+      case 'cr':
+        if (!part.close) {
+          if (tables) line += ' ';
+          else {
+            push(line.trimEnd());
+            line = '';
+          }
+        }
+        break;
+      case 'p':
+        if (!part.close && !part.empty) break;
+        // In a table cell a paragraph runs on; elsewhere it ends the line.
+        if (tables) {
+          if (line && !line.endsWith(' ')) line += ' ';
+        } else {
+          push(line.trimEnd());
+          line = '';
+        }
+        break;
+      case 'tbl':
+        if (!part.empty) tables = Math.max(0, tables + (part.close ? -1 : 1));
+        break;
+      case 'tr':
+        if (tables > 1 || part.empty) break;
+        if (!part.close) {
+          if (line.trim()) push(line.trimEnd());
+          line = '';
+          cells = [];
+        } else if (cells) {
+          while (cells.length && !cells[cells.length - 1]) cells.pop();
+          if (cells.length) push(cells.join(' | '));
+          cells = null;
+          line = '';
+        }
+        break;
+      case 'tc':
+        if (tables > 1 || !part.close || !cells) break;
+        cells.push(line.replace(/\s+/g, ' ').trim());
+        line = '';
+        break;
+    }
+  }
+  if (line.trim()) push(line.trimEnd());
+  return within(lines.join('\n').trim(), room);
+}
+
+/** A column's letters (A, B… AA) as a number from 0, or -1. */
+function columnOf(ref: string): number {
+  let n = 0;
+  for (const ch of ref) {
+    const c = ch.charCodeAt(0);
+    if (c < 65 || c > 90) break;
+    n = n * 26 + (c - 64);
+  }
+  return n - 1;
+}
+
+/**
+ * A sheet laid out for the model: a line a row, each cell in its own column between bars, so a price stays under
+ * its heading even with a cell left empty before it. Formulas show what they last worked out to; true or false as
+ * TRUE or FALSE. `room` characters at most.
+ */
+export function sheetLayout(xml: string, shared: readonly string[], room = Infinity): string {
+  const lines: string[] = [];
+  let used = 0;
+  let row: string[] | null = null;
+  let cell: { col: number; type: string; value: string; inline: string } | null = null;
+  let inValue = false;
+  let inText = false;
+  let inInline = 0;
+  let phonetic = 0;
+  const endRow = () => {
+    if (!row) return;
+    while (row.length && !row[row.length - 1]) row.pop();
+    if (row.length) {
+      const text = row.join(' | ');
+      lines.push(text);
+      used += text.length + 1;
+    }
+    row = null;
+  };
+  for (const part of xmlParts(xml)) {
+    if (used >= room) break;
+    if (typeof part === 'string') {
+      if (!cell) continue;
+      if (inValue) cell.value += part;
+      else if (inText && inInline > 0 && phonetic === 0) cell.inline += part;
+      continue;
+    }
+    switch (part.name) {
+      case 'row':
+        endRow();
+        if (!part.close && !part.empty) row = [];
+        break;
+      case 'c':
+        if (part.close) {
+          if (cell && row && cell.col >= 0 && cell.col < 200) {
+            const text =
+              cell.type === 's'
+                ? (shared[Number(cell.value.trim())] ?? '')
+                : cell.type === 'inlineStr'
+                  ? cell.inline
+                  : cell.type === 'b'
+                    ? cell.value.trim() === '1'
+                      ? 'TRUE'
+                      : 'FALSE'
+                    : cell.type === 'e'
+                      ? ''
+                      : cell.value;
+            while (row.length < cell.col) row.push('');
+            row[cell.col] = within(text, room).replace(/\s+/g, ' ').trim();
+          }
+          cell = null;
+        } else if (!part.empty) {
+          const ref = attrOf(part, 'r');
+          cell = {
+            col: ref ? columnOf(ref) : (row?.length ?? 0),
+            type: attrOf(part, 't') ?? 'n',
+            value: '',
+            inline: '',
+          };
+        }
+        break;
+      case 'v':
+        inValue = !part.close && !part.empty;
+        break;
+      case 'is':
+        if (!part.empty) inInline += part.close ? -1 : 1;
+        break;
+      case 't':
+        inText = !part.close && !part.empty;
+        break;
+      case 'rPh':
+        if (!part.empty) phonetic += part.close ? -1 : 1;
+        break;
+    }
+  }
+  endRow();
+  return within(lines.join('\n'), room);
+}
+
+/**
+ * A Word document or an Excel workbook laid out for the Assistant's model, its sheets each under its tab's name, opened
+ * with the same checks as `officeText`. `room` characters at most.
+ */
+export function officeLayout(
+  file: Buffer,
+  room: number = OFFICE_LIMITS.chars,
+):
+  | {
+      readonly ok: true;
+      readonly kind: 'word' | 'excel';
+      readonly text: string;
+      readonly cut: boolean;
+    }
+  | { readonly ok: false; readonly why: 'not_zip' | 'not_office' | 'refused' } {
+  if (file.length < 4 || file.readUInt32LE(0) !== LOCAL) return { ok: false, why: 'not_zip' };
+  try {
+    const entries = entriesOf(file);
+    const read = partReader(file, entries);
+    const document = read('word/document.xml');
+    if (document !== null) {
+      const text = wordLayout(document, room);
+      return { ok: true, kind: 'word', text, cut: text.length >= room };
+    }
+    if (!entries.has('xl/workbook.xml')) return { ok: false, why: 'not_office' };
+    const shared = sharedStrings(read('xl/sharedStrings.xml') ?? '', room);
+    const sheets: string[] = [];
+    let left = room;
+    for (const sheet of sheetsOf(read, [...entries.keys()])) {
+      if (left <= 0) break;
+      const rows = sheetLayout(read(sheet.part) ?? '', shared, left);
+      if (!rows) continue;
+      const text = `Sheet “${sheet.name ?? `${sheets.length + 1}`}”:\n${rows}`;
+      sheets.push(text);
+      left -= text.length + 2;
+    }
+    return { ok: true, kind: 'excel', text: sheets.join('\n\n'), cut: left <= 0 };
   } catch {
     return { ok: false, why: 'refused' };
   }
