@@ -457,6 +457,47 @@ export const lookOutsideAt = (
   return retry.length ? Math.min(look ?? Infinity, ...retry) : look;
 };
 
+/**
+ * While a read that needs its window on screen waits for the person to be away from their computer (decision 120),
+ * how often a runner looks again.
+ */
+export const AWAY_AGAIN_MS = 10 * 60_000;
+
+/** What a day keeps for the comment research once HandsFreeOS said none of this person's runs (decision 172). */
+export const NO_RESEARCH = 'No comment research is running.';
+
+/**
+ * Outside the working hours, once today's share of a research it read is done, how often a runner looks again: the
+ * next day's share starts soon after the day turns.
+ */
+export const RESEARCH_LOOK_MS = 60 * 60_000;
+
+/**
+ * When a runner outside its working hours looks next (decision 194): at `look` (null for no time), or sooner for a
+ * comment research it reads: its next batch today; in a few minutes while a batch waits for the person to be away
+ * (`passOver`); or, once today's share is done, in an hour (`RESEARCH_LOOK_MS`).
+ */
+export function lookForResearch(
+  look: number | null,
+  state: Pick<AutoState, 'daily' | 'againAt'>,
+  now: number,
+  passOver: readonly string[] = [],
+): number | null {
+  const done = state.daily?.comment_research;
+  const again = state.againAt?.comment_research;
+  const next =
+    done === undefined
+      ? again !== undefined && again > now
+        ? again
+        : passOver.includes('comment_research')
+          ? now + AWAY_AGAIN_MS
+          : null
+      : done === NO_RESEARCH
+        ? null
+        : now + RESEARCH_LOOK_MS;
+  return next === null ? look : Math.min(look ?? Infinity, next);
+}
+
 /** The most kept as having written back: a day's worth, far more than a list carries. */
 const REPLIED_MOST = 50;
 

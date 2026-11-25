@@ -27,9 +27,13 @@ import {
   sortComments,
   type ResearchPlatform,
 } from '@hfos/core/addons/outreach/comment-research';
+import {
+  lookForResearch,
+  NO_RESEARCH,
+  RESEARCH_LOOK_MS,
+} from '@hfos/core/addons/outreach/plan-rules';
 import type { Hfos } from './job';
 import { waitsAgain, type AutoState } from '../auto/plan';
-import { AWAY_AGAIN_MS } from '../auto/on-screen';
 import { counted } from '../words';
 import { onScreen, paced, pause, valueOf, type Job, type JobEnd } from './job';
 
@@ -149,8 +153,10 @@ export function forgetSeenPosts(): void {
 
 // ------------------------------------------------------------------------------------------- the day's reading
 
-/** What the day keeps for the comment research when none is this person's to read for: never shown. */
-export const NO_RESEARCH = 'No comment research is running.';
+// What the day keeps for the comment research when none is this person's to read for (never shown), how often a
+// runner looks again outside its hours, and when it wakes for a research there (`lookForResearch`) are HandsFreeOS's
+// from 0.156.0, as it decides the runner's next move (decision 195).
+export { lookForResearch, NO_RESEARCH, RESEARCH_LOOK_MS };
 
 /**
  * Whether a comment research this person started is reading on the network (decisions 166 and 172). Anything else, a
@@ -173,12 +179,6 @@ export async function researchRuns(
 }
 
 // ------------------------------------------------------------------------------------------- its turn (decision 194)
-
-/**
- * Outside the working hours, once today's share of a research it read is done, how often a runner looks again: the
- * next day's share starts soon after the day turns.
- */
-export const RESEARCH_LOOK_MS = 60 * 60_000;
 
 /**
  * Whether the comment research reads next on a network (decision 194): its batch is due (not done today, not waiting
@@ -207,32 +207,6 @@ export async function researchNext(input: {
     return { reads: true, state };
   const now = await input.setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
   return { reads: false, state: now };
-}
-
-/**
- * When a runner outside its working hours looks next (decision 194): at `look` (null for no time), or sooner for a
- * comment research it reads: its next batch today; in a few minutes while a batch waits for the person to be away
- * (`passOver`); or, once today's share is done, in an hour (`RESEARCH_LOOK_MS`).
- */
-export function lookForResearch(
-  look: number | null,
-  state: Pick<AutoState, 'daily' | 'againAt'>,
-  now: number,
-  passOver: readonly string[] = [],
-): number | null {
-  const done = state.daily?.comment_research;
-  const again = state.againAt?.comment_research;
-  const next =
-    done === undefined
-      ? again !== undefined && again > now
-        ? again
-        : passOver.includes('comment_research')
-          ? now + AWAY_AGAIN_MS
-          : null
-      : done === NO_RESEARCH
-        ? null
-        : now + RESEARCH_LOOK_MS;
-  return next === null ? look : Math.min(look ?? Infinity, next);
 }
 
 /** One search's posts read: each one's comments sorted, or the day's end. */

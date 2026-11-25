@@ -42,12 +42,14 @@ import { todayKindsOn } from './network-words';
 import { NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
 import {
   answersAnyTime,
+  AWAY_AGAIN_MS,
   beforeDay,
   gapAfter,
   holdsTheDay,
   IDLE_MS,
   listSays,
   listTurn,
+  lookForResearch,
   lookOutsideAt,
   markOf,
   networkDay,
@@ -304,8 +306,28 @@ export interface PlanFacts<I extends PlanItem = PlanItem> {
   };
 }
 
-/** Why nothing goes now. */
-export type PlanWait = 'off' | 'stopped' | 'warned' | 'noting' | 'asks' | 'hours' | 'idle';
+/**
+ * What only the person's computer knows as its runner goes (decision 195, step 2), sent with its ask for its next
+ * move. Left out, as for the plan that's shown, the day is worked out as if they're away and nothing is put off.
+ */
+export interface PlanHere {
+  /** They've been away from their computer: a read that needs its window on screen can go (decision 120). */
+  readonly away: boolean;
+  /** The once-a-day jobs put off till they're away, passed over meanwhile. */
+  readonly passOver: readonly string[];
+  /**
+   * Whether a comment research of theirs reads its batch now, as HandsFreeOS told the runner (decision 194). Left
+   * out, it's read from the state: a batch of it waiting, and due.
+   */
+  readonly research?: boolean | undefined;
+}
+
+/**
+ * Why nothing goes now. `screen` is a first day's lists waiting for the person to be away, as saving them needs the
+ * window on screen: only a runner's own ask says so (`PlanHere`).
+ */
+export type PlanWait =
+  'off' | 'stopped' | 'warned' | 'noting' | 'asks' | 'hours' | 'screen' | 'idle';
 
 /** What the runner does next, by the rules: a wait, a part of the day's reading, or a piece of the list's work. */
 export type PlanMove<I extends PlanItem = PlanItem> =
@@ -321,6 +343,12 @@ export type PlanMove<I extends PlanItem = PlanItem> =
       readonly left: number;
       /** How long it waits after it before the next go. */
       readonly gap: number;
+      /** A part of the day's reading is left too: the list and the reading go by turns, at a person's pace. */
+      readonly reading: boolean;
+      /** The day it goes in: started by the person, and when its hours end (null with no end to spread over). */
+      readonly day: { readonly started: boolean; readonly until: number | null };
+      /** Outside the working hours: only replies to those who wrote back go (decision 133). */
+      readonly answering: boolean;
     };
 
 /** What's left on the network's list for its runner: only the kinds it does there, and messages where it writes them. */
@@ -356,11 +384,15 @@ export function standsFor(platform: Platform, step: BeforeDay): RunnerJob | null
  * hour or two (decision 49); and the list, its steps spread over what's left of the hours. `random` is from 0 to 1,
  * for every wait it picks. The state comes back as the move leaves it before it's done (a new day begun, a round of
  * finding again begun).
+ *
+ * From 0.156.0 this is a runner's own order too, a network at a time (decision 195, step 2): it asks with what only
+ * its computer knows (`here`), and does the move it's given. Threads' and X's first.
  */
 export function nextMove<I extends PlanItem>(
   facts: PlanFacts<I>,
   kept: PlanDay,
   random: number = LIKELY,
+  here?: PlanHere,
 ): { readonly move: PlanMove<I>; readonly state: PlanDay } {
   const { platform, now, timeZone, hours, choices, list } = facts;
   const kit = RUNNERS[platform];
@@ -377,10 +409,13 @@ export function nextMove<I extends PlanItem>(
   const own = networkDay({ day: facts.day, today, hours, timeZone, now, random });
   const tomorrow = () => nextStart(hours, timeZone, now, random);
   const pace = Math.round(kit.pace.least + random * (kit.pace.most - kit.pace.least));
+  const away = here?.away ?? true;
+  const passOver = (here?.passOver ?? []) as readonly RunnerJob[];
   const work = (
     all: readonly Work<I>[],
     reading: boolean,
     day: Extract<NetworkDay, { go: true }>,
+    answering = false,
   ) => {
     const spread = gapAfter({
       now,
@@ -396,6 +431,9 @@ export function nextMove<I extends PlanItem>(
         work: all[0]!,
         left: all.length - 1,
         gap: kit.paced ? Math.max(pace, spread) : spread,
+        reading,
+        day: { started: day.started, until: day.until },
+        answering,
       },
       state,
     } as const;
@@ -410,56 +448,71 @@ export function nextMove<I extends PlanItem>(
     state.daily.comment_research === undefined
       ? (state.againAt.comment_research ?? null)
       : null;
-  const researchDue = researchAt !== null && researchAt <= now;
+  // Whether it reads now: as HandsFreeOS told the runner, when it says; else a batch of it waiting, and due.
+  const researchDue =
+    choices.collect && (here?.research ?? (researchAt !== null && researchAt <= now));
 
   if (!own.go) {
     if (own.stopped !== null)
       return wait(own.stopped === 'warning' ? 'warned' : 'stopped', own.next);
     if (facts.warned) return wait('warned', own.next);
     if (!facts.noting) return wait('noting', own.next);
+    // What the person asked goes first, and nothing of the runner's own meanwhile.
+    if (facts.asks > 0) return wait('hours', own.next);
     // Outside the hours a reply to someone who wrote back still goes, where it writes in their messages, and nothing
-    // new does (decision 133); what the person asked goes first.
-    if (kit.messages && facts.asks === 0) {
+    // new does (decision 133).
+    if (kit.messages) {
       const answers = leftOn(kit, list, state).filter(answersAnyTime);
-      if (answers[0]) return work(answers, false, { go: true, started: true, until: null });
+      if (answers[0]) return work(answers, false, { go: true, started: true, until: null }, true);
     }
     // A comment research reads outside the hours too, as it only reads (decision 194).
-    if (researchDue && facts.asks === 0)
-      return { move: { do: 'daily', job: 'comment_research', gap: pace }, state };
+    if (researchDue) return { move: { do: 'daily', job: 'comment_research', gap: pace }, state };
     const look = lookOutsideAt(
       kit.messages && replyWaiting(list),
       now,
       own.next,
-      retryWake({ retryAt: says.retryAt }, now),
+      kit.messages ? retryWake({ retryAt: says.retryAt }, now) : [],
     );
-    return wait('hours', researchAt !== null ? Math.min(look ?? Infinity, researchAt) : look);
+    return wait('hours', choices.collect ? lookForResearch(look, state, now, passOver) : look);
   }
   if (facts.warned || state.stopped === 'warning') return wait('warned', tomorrow());
   if (!facts.noting) return wait('noting', now + LOOK_AGAIN_MS);
   if (facts.asks > 0) return wait('asks', now + ASK_FIRST_MS);
 
   const before = beforeDay(facts.lists, state.before, now, timeZone, platform);
-  // The comment research is HandsFreeOS's own staff's (decision 172): planned only while one of its batches waits.
+  // A first day's lists are saved with the window on screen: it waits till the person's away (decision 120).
+  if (before?.do === 'save' && before.first && !away) return wait('screen', now + AWAY_AGAIN_MS);
+  // The comment research is HandsFreeOS's own staff's (decision 172): planned only while one of its batches waits,
+  // or as the runner was told.
   const jobs = choices.collect
     ? kit.daily.filter(
-        (job) => job !== 'comment_research' || state.againAt.comment_research !== undefined,
+        (job) =>
+          job !== 'comment_research' ||
+          (here?.research === undefined && state.againAt.comment_research !== undefined),
       )
     : [];
   const nextJob = () =>
-    jobs.find((job) => state.daily[job] === undefined && !waitsAgain(state, job, now)) ?? null;
+    jobs.find(
+      (job) =>
+        state.daily[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now),
+    ) ?? null;
   let daily: RunnerJob | null = researchDue ? 'comment_research' : nextJob();
-  // Short of good fits once the day's reading is done (decision 126): it finds people again, and checks them.
+  // Short of good fits once the day's reading is done (decision 126): it finds people again, and checks them. Never
+  // while a job put off till the person's away is still to do.
   if (
     choices.collect &&
     !before &&
     !daily &&
+    !passOver.some((job) => state.daily[job] === undefined) &&
     roundDue({ more: says.more, round: state.round, roundAt: state.roundAt }, now)
   ) {
     state = { ...state, ...nextRound(state, kit.finding, now) };
     daily = nextJob();
   }
   const searching = kit.searches && choices.collect && !holdsTheDay(before) && watchDue(state, now);
-  const reading = before !== null || daily !== null || searching;
+  // A save of their lists is read only while they're away: till then it isn't part of what's left to read.
+  const beforeGoes = before !== null && (away || before.do !== 'save');
+  const reading = beforeGoes || daily !== null || searching;
   // The day's reading and the list take turns (decision 123): a step on the list now, when there's one, after a part
   // of the reading went last.
   if (listTurn(state, reading, holdsTheDay(before))) {
@@ -469,7 +522,7 @@ export function nextMove<I extends PlanItem>(
     if (all[0]) return work(all, reading, own);
   }
   if (searching) return { move: { do: 'search', gap: pace }, state };
-  if (before) return { move: { do: 'before', step: before, gap: pace }, state };
+  if (before && beforeGoes) return { move: { do: 'before', step: before, gap: pace }, state };
   if (daily) return { move: { do: 'daily', job: daily, gap: pace }, state };
 
   const window = workWindow(workHours(hours), timeZone, now);
@@ -484,10 +537,12 @@ export function nextMove<I extends PlanItem>(
   // message tried again is due, whichever is first. Facebook's sleeps till its next hours once they're over.
   if (!kit.paced && !inHours) return wait('idle', tomorrow());
   const again = choices.collect ? soonestAgain(state, now) : null;
+  // A job put off till the person's away is tried again in a few minutes.
+  const putOff = choices.collect && passOver.some((job) => state.daily[job] === undefined);
   return wait(
     'idle',
     Math.min(
-      now + IDLE_MS,
+      now + (putOff ? AWAY_AGAIN_MS : IDLE_MS),
       ...(inHours ? [window.to] : []),
       ...(again !== null ? [again] : []),
       ...(watches && state.watchAt !== null ? [Math.max(state.watchAt, now)] : []),
