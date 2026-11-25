@@ -1,0 +1,502 @@
+/**
+ * The day's plan on a network, worked out in HandsFreeOS (src/addons/outreach/plan.ts, docs/outreach.md decision 195):
+ * the runner's own rules (src/addons/outreach/plan-rules.ts) decide the next move, and the rest of the day follows
+ * from it, each move in about its time. The extension's tests hold the rules themselves (apps/extension/test).
+ */
+import { describe, expect, it } from 'vitest';
+import { NO_LISTS, type ListsSaved } from '../../src/addons/outreach/lists';
+import {
+  freshPlanDay,
+  leftOn,
+  nextMove,
+  onPlanClock,
+  PLAN_LINE_MOST,
+  PLAN_ROWS_MOST,
+  PLAN_SINCE,
+  PLAN_WORDS,
+  planAhead,
+  planCounts,
+  planMoreWords,
+  planNoteKey,
+  planRow,
+  planShown,
+  PlanState,
+  planStateOf,
+  planWhen,
+  rowWords,
+  standsFor,
+  type PlanDay,
+  type PlanFacts,
+} from '../../src/addons/outreach/plan';
+import { freshState, itemKey, type PlanItem } from '../../src/addons/outreach/plan-rules';
+import { RUNNERS } from '../../src/addons/outreach/runners';
+import type { TodayKind } from '../../src/addons/outreach/today';
+
+const TZ = 'America/Chicago';
+/** 10 a.m. on Tuesday, October 13 2026, in Chicago: an hour into the working hours. */
+const NOW = Date.parse('2026-10-13T15:00:00Z');
+const TODAY = '2026-10-13';
+const FIVE_PM = Date.parse('2026-10-13T22:00:00Z');
+const MIN = 60_000;
+const at = (ms: number) => new Date(ms).toISOString();
+const HOURS = { start: 9, end: 17, days: [1, 2, 3, 4, 5] };
+
+/** Every list saved today, and the first checks done: nothing's due before the day. */
+const SAVED: ListsSaved = {
+  friendsAt: at(NOW),
+  requestsAt: at(NOW),
+  sentAt: at(NOW),
+  groupsAt: at(NOW),
+  groupChecksAt: at(NOW),
+  tidyAt: at(NOW),
+  checksAt: at(NOW),
+};
+
+let made = 0;
+const item = (kind: TodayKind, name: string, more: Partial<PlanItem> = {}): PlanItem => ({
+  kind,
+  name,
+  profileId: `00000000-0000-4000-8000-${String(++made).padStart(12, '0')}`,
+  profileUrl: `https://www.facebook.com/${name.replace(/\s+/g, '.').toLowerCase()}`,
+  threadKey: null,
+  postId: null,
+  postUrl: null,
+  asking: false,
+  send: null,
+  ...more,
+});
+
+const DANA = item('friend_request', 'Dana Reyes');
+const SAM = item('friend_request', 'Sam Lee');
+const KIM = item('warm_up', 'Kim Park');
+
+const facts = (more: Partial<PlanFacts> = {}): PlanFacts => ({
+  platform: 'facebook',
+  now: NOW,
+  timeZone: TZ,
+  hours: HOURS,
+  choices: { on: true, sending: 'steps', collect: true, watchPosts: true },
+  noting: true,
+  day: { date: TODAY, state: 'none', why: null },
+  warned: false,
+  asks: 0,
+  lists: SAVED,
+  list: {
+    items: [DANA, SAM, KIM],
+    partners: [],
+    auto: ['friend_request', 'warm_up'],
+    messages: [],
+    sending: 'steps',
+  },
+  ...more,
+});
+const fresh = (more: Partial<PlanDay> = {}): PlanDay => ({ ...freshPlanDay(TODAY), ...more });
+/** A day with all of Facebook's reading done. */
+const read = (more: Partial<PlanDay> = {}): PlanDay =>
+  fresh({
+    daily: Object.fromEntries(RUNNERS.facebook.daily.map((job) => [job, 'Done.'])),
+    watchAt: NOW + 90 * MIN,
+    ...more,
+  });
+
+describe('the next move, by the runner’s rules', () => {
+  it('is nothing while the network is off for the person, or Sending is', () => {
+    const off = facts({ choices: { on: true, sending: 'off', collect: true, watchPosts: true } });
+    expect(nextMove(off, fresh()).move).toEqual({ do: 'wait', why: 'off', until: null });
+    const notOn = facts({
+      choices: { on: false, sending: 'steps', collect: true, watchPosts: true },
+    });
+    expect(nextMove(notOn, fresh()).move).toMatchObject({ do: 'wait', why: 'off' });
+  });
+
+  it('starts the day with its reading, then takes turns with the list (decision 123)', () => {
+    const first = nextMove(facts(), fresh());
+    expect(first.move).toMatchObject({ do: 'daily', job: 'requests' });
+    // A part of the reading went last: the list has its turn, a friend request first (decision 138).
+    const second = nextMove(facts(), fresh({ daily: { requests: 'None new.' }, readLast: true }));
+    expect(second.move).toMatchObject({ do: 'work', work: { do: 'step', item: DANA }, left: 2 });
+    // And back to the reading.
+    const third = nextMove(
+      facts(),
+      fresh({ daily: { requests: 'None new.' }, tried: [itemKey(DANA)], readLast: false }),
+    );
+    expect(third.move).toMatchObject({ do: 'daily', job: 'tidy' });
+  });
+
+  it('never plans the comment research, HandsFreeOS’s own staff’s, unless a batch of it waits', () => {
+    const all = Object.fromEntries(
+      RUNNERS.facebook.daily.filter((j) => j !== 'comment_research').map((j) => [j, 'Done.']),
+    );
+    const none = nextMove(facts({ list: { ...facts().list, items: [] } }), fresh({ daily: all }));
+    expect(none.move).not.toMatchObject({ do: 'daily' });
+    const waits = nextMove(
+      facts({ list: { ...facts().list, items: [] } }),
+      fresh({ daily: all, againAt: { comment_research: NOW - MIN } }),
+    );
+    expect(waits.move).toMatchObject({ do: 'daily', job: 'comment_research' });
+  });
+
+  it('spreads the list over what’s left of the hours once the reading is done', () => {
+    const { move } = nextMove(facts(), read());
+    expect(move).toMatchObject({ do: 'work', left: 2 });
+    // Seven hours shared among the three left, give or take: far more than a person's pace, never over 45 minutes.
+    expect(move.do === 'work' && move.gap).toBe(45 * MIN);
+    // After Start my day it goes at a person's pace.
+    const started = nextMove(facts({ day: { date: TODAY, state: 'started', why: null } }), read());
+    expect(started.move.do === 'work' && started.move.gap).toBe(2 * MIN);
+  });
+
+  it('holds everything for the first save of the person’s lists', () => {
+    const { move } = nextMove(facts({ lists: NO_LISTS }), fresh({ readLast: true }));
+    expect(move).toMatchObject({
+      do: 'before',
+      step: { do: 'save', list: 'friends', first: true },
+    });
+  });
+
+  it('waits for the working hours, where only a reply to someone who wrote back goes (decision 133)', () => {
+    const seven = Date.parse('2026-10-13T12:00:00Z');
+    const early = nextMove(facts({ now: seven }), fresh());
+    expect(early.move).toMatchObject({ do: 'wait', why: 'hours' });
+    // The hours' start, and a little after it: never on the hour.
+    const nine = Date.parse('2026-10-13T14:00:00Z');
+    expect(early.move.do === 'wait' && early.move.until).toBe(nine + 10 * MIN);
+
+    const reply = item('reply', 'Lee Ortiz', { threadKey: 't-1' });
+    const list = { ...facts().list, items: [DANA, reply], messages: ['reply'] };
+    const answering = nextMove(facts({ now: seven, list }), fresh());
+    expect(answering.move).toMatchObject({ do: 'work', work: { do: 'draft', item: reply } });
+    // What the person asked of the extension goes before it.
+    expect(nextMove(facts({ now: seven, list, asks: 1 }), fresh()).move).toMatchObject({
+      do: 'wait',
+      why: 'hours',
+    });
+  });
+
+  it('stops for the day on Stop for today or a warning, till the next working hours', () => {
+    const wednesdayNine = Date.parse('2026-10-14T14:00:00Z');
+    const stopped = nextMove(facts({ day: { date: TODAY, state: 'stopped', why: null } }), fresh());
+    expect(stopped.move).toEqual({ do: 'wait', why: 'stopped', until: wednesdayNine + 10 * MIN });
+    const warning = nextMove(
+      facts({ day: { date: TODAY, state: 'stopped', why: 'warning' } }),
+      fresh(),
+    );
+    expect(warning.move).toMatchObject({ do: 'wait', why: 'warned' });
+    expect(nextMove(facts({ warned: true }), fresh()).move).toMatchObject({ why: 'warned' });
+  });
+
+  it('gives way to what the person asked, and to noting being off', () => {
+    expect(nextMove(facts({ asks: 2 }), fresh()).move).toEqual({
+      do: 'wait',
+      why: 'asks',
+      until: NOW + 2 * MIN,
+    });
+    expect(nextMove(facts({ noting: false }), fresh()).move).toMatchObject({ why: 'noting' });
+  });
+
+  it('starts a new day afresh when the state kept is yesterday’s', () => {
+    const yesterday = fresh({
+      day: '2026-10-12',
+      tried: [itemKey(DANA)],
+      daily: { requests: 'x' },
+    });
+    const { move, state } = nextMove(facts(), yesterday);
+    expect(state.day).toBe(TODAY);
+    expect(state.tried).toEqual([]);
+    expect(move).toMatchObject({ do: 'daily', job: 'requests' });
+  });
+
+  it('looks at the newest posts when that’s due, and again within the hour when nothing’s left', () => {
+    const empty = facts({ list: { ...facts().list, items: [] } });
+    expect(nextMove(empty, read({ watchAt: NOW - MIN })).move).toMatchObject({ do: 'watch' });
+    expect(nextMove(empty, read({ watchAt: NOW + 20 * MIN })).move).toEqual({
+      do: 'wait',
+      why: 'idle',
+      until: NOW + 20 * MIN,
+    });
+    expect(nextMove(empty, read({ watchAt: NOW + 3 * 60 * MIN })).move).toEqual({
+      do: 'wait',
+      why: 'idle',
+      until: NOW + 60 * MIN,
+    });
+  });
+
+  it('searches every hour on Threads and X, and writes no messages on X', () => {
+    const threads = facts({
+      platform: 'threads',
+      lists: { ...NO_LISTS, friendsAt: at(NOW), tidyAt: at(NOW) },
+    });
+    expect(nextMove(threads, fresh()).move).toMatchObject({ do: 'search' });
+    expect(nextMove(threads, fresh({ watchAt: NOW + 30 * MIN })).move).toMatchObject({
+      do: 'daily',
+      job: 'requests',
+    });
+    const opener = item('opener', 'Ana Ruiz', { threadKey: 't-2' });
+    const list = { ...facts().list, items: [opener, KIM], messages: ['opener'] };
+    const state = { tried: [], replied: [], requestsOff: false };
+    expect(leftOn(RUNNERS.threads, list, state).map((w) => w.do)).toEqual(['step', 'draft']);
+    expect(leftOn(RUNNERS.x, list, state).map((w) => w.do)).toEqual(['step']);
+  });
+
+  it('knows which once-a-day job a step before the day stands for', () => {
+    expect(standsFor('facebook', { do: 'save', list: 'requests', first: false })).toBe('requests');
+    expect(standsFor('facebook', { do: 'save', list: 'friends', first: false })).toBeNull();
+    expect(standsFor('facebook', { do: 'group_checks' })).toBe('group_checks');
+    expect(standsFor('instagram', { do: 'save', list: 'friends', first: true })).toBe('requests');
+    expect(standsFor('linkedin', { do: 'checks' })).toBe('checks');
+  });
+});
+
+describe('the rest of the day, worked out', () => {
+  it('goes move by move, the reading and the list by turns, each later than the last', () => {
+    const { moves, until } = planAhead(facts(), fresh());
+    expect(until).toBe(FIVE_PM);
+    expect(moves.slice(0, 6).map((m) => m.move.do)).toEqual([
+      'daily',
+      'work',
+      'daily',
+      'work',
+      'daily',
+      'work',
+    ]);
+    expect(moves[0]).toMatchObject({ at: NOW, about: true, now: false });
+    for (let i = 1; i < moves.length; i++) expect(moves[i]!.at).toBeGreaterThan(moves[i - 1]!.at);
+    expect(moves.every((m) => m.at < until)).toBe(true);
+    // Each of the three on the list once, and every once-a-day job but the comment research once.
+    expect(moves.filter((m) => m.move.do === 'work')).toHaveLength(3);
+    const jobs = moves.flatMap((m) => (m.move.do === 'daily' ? [m.move.job] : []));
+    expect(jobs).toEqual(RUNNERS.facebook.daily.filter((job) => job !== 'comment_research'));
+    // Then the newest posts, every hour or two, till the hours end.
+    expect(moves.filter((m) => m.move.do === 'watch').length).toBeGreaterThan(1);
+  });
+
+  it('takes the extension’s own time for the next move, and says the rest are about', () => {
+    const nextAt = NOW + 7 * MIN;
+    const { moves } = planAhead(facts(), read({ nextAt }));
+    expect(moves[0]).toMatchObject({ at: nextAt, about: false, now: false });
+    expect(moves[1]).toMatchObject({ about: true });
+    // A step under way is now.
+    const working = planAhead(facts(), read({ working: true, nextAt: null }));
+    expect(working.moves[0]).toMatchObject({ at: NOW, about: false, now: true });
+  });
+
+  it('plans from the hours’ start before they begin, and nothing after Stop for today', () => {
+    const seven = Date.parse('2026-10-13T12:00:00Z');
+    const nine = Date.parse('2026-10-13T14:00:00Z');
+    const early = planAhead(facts({ now: seven }), fresh());
+    expect(early.first).toMatchObject({ do: 'wait', why: 'hours' });
+    expect(early.moves[0]!.at).toBe(nine + 10 * MIN);
+    const stopped = planAhead(
+      facts({ day: { date: TODAY, state: 'stopped', why: null } }),
+      fresh(),
+    );
+    expect(stopped.moves).toEqual([]);
+  });
+
+  it('lists only so many, and counts the rest', () => {
+    const many = Array.from({ length: 60 }, (_, i) => item('friend_request', `Person ${i}`));
+    const list = { ...facts().list, items: many };
+    const { moves, more } = planAhead(
+      facts({ list, day: { date: TODAY, state: 'started', why: null } }),
+      read({ watchAt: NOW + 24 * 60 * MIN }),
+    );
+    expect(moves).toHaveLength(PLAN_ROWS_MOST);
+    expect(more).toBe(60 - PLAN_ROWS_MOST);
+  });
+});
+
+describe('the plan as the app shows it', () => {
+  const computer = { state: 'working' as const, lastSeenAt: at(NOW - 30_000), version: PLAN_SINCE };
+
+  it('says so when there’s no computer, or it’s signed out or offline', () => {
+    expect(planShown({ facts: facts(), reported: fresh(), computer: null })).toMatchObject({
+      stand: 'none',
+      coming: [],
+    });
+    expect(
+      planShown({
+        facts: facts(),
+        reported: fresh(),
+        computer: { ...computer, state: 'signed_out' },
+      }).stand,
+    ).toBe('signed_out');
+    const offline = planShown({
+      facts: facts(),
+      reported: fresh({ daily: { requests: 'None new.' } }),
+      computer: { ...computer, lastSeenAt: at(NOW - 20 * MIN) },
+    });
+    expect(offline).toMatchObject({ stand: 'offline', coming: [] });
+    // What it did before it went offline still shows.
+    expect(offline.done).toEqual([{ title: 'Friend requests', line: 'None new.' }]);
+  });
+
+  it('asks for an update while the extension is from before it says where its day is up to', () => {
+    const old = planShown({
+      facts: facts(),
+      reported: null,
+      computer: { ...computer, version: '0.154.0' },
+    });
+    expect(old).toMatchObject({ reported: false, line: PLAN_WORDS.update, coming: [] });
+    const soon = planShown({ facts: facts(), reported: null, computer });
+    expect(soon.line).toBe(PLAN_WORDS.notYet);
+  });
+
+  it('shows what’s next, what’s coming, and what’s done so far', () => {
+    const plan = planShown({
+      facts: facts(),
+      reported: read({
+        nextAt: NOW + 7 * MIN,
+        tried: [itemKey(SAM)],
+        done: { friend_request: 1, warm_up: 2, drafted: 1 },
+      }),
+      computer,
+    });
+    expect(plan.stand).toBe('going');
+    // A friend request went last, so a like has the next turn (decision 138).
+    expect(plan.line).toBe('Next at 10:07 AM: Like a post first (Kim Park).');
+    expect(plan.coming[0]).toMatchObject({
+      kind: 'step',
+      title: 'Like a post first',
+      who: 'Kim Park',
+      about: false,
+    });
+    expect(plan.coming[1]).toMatchObject({
+      kind: 'step',
+      title: 'Send a friend request',
+      who: 'Dana Reyes',
+      about: true,
+    });
+    expect(plan.until).toBe(at(FIVE_PM));
+    expect(plan.done[0]).toEqual({ title: 'Friend requests', line: 'Done.' });
+    expect(plan.counts).toEqual([
+      { label: 'friend request sent', count: 1 },
+      { label: 'likes', count: 2 },
+      { label: 'message written', count: 1 },
+    ]);
+  });
+
+  it('says what it’s doing while a step is under way', () => {
+    const plan = planShown({
+      facts: facts(),
+      reported: read({ working: true, line: 'Sending Dana Reyes a friend request…' }),
+      computer,
+    });
+    expect(plan).toMatchObject({
+      stand: 'working',
+      doing: 'Sending Dana Reyes a friend request…',
+    });
+    expect(plan.coming[0]).toMatchObject({ now: true, about: false, who: 'Dana Reyes' });
+  });
+
+  it('says when it starts on its own, why it stopped, and what it waits for', () => {
+    const seven = Date.parse('2026-10-13T12:00:00Z');
+    const early = planShown({
+      facts: facts({ now: seven }),
+      reported: fresh(),
+      computer: { ...computer, lastSeenAt: at(seven) },
+    });
+    expect(early.stand).toBe('waiting');
+    expect(early.line).toContain('Starts on its own on Facebook at 9:00 AM.');
+    expect(early.coming.length).toBeGreaterThan(0);
+
+    const stopped = planShown({
+      facts: facts({ day: { date: TODAY, state: 'stopped', why: null } }),
+      reported: fresh(),
+      computer,
+    });
+    expect(stopped.stand).toBe('stopped');
+    expect(stopped.line).toBe(
+      'Stopped on Facebook for today. It starts again on its own tomorrow at 9:00 AM.',
+    );
+
+    const asked = planShown({ facts: facts({ asks: 1 }), reported: fresh(), computer });
+    expect(asked.stand).toBe('asks');
+    expect(asked.notes[0]).toContain('What you asked for goes first');
+    // The rest of the day is still listed after it.
+    expect(asked.coming.length).toBeGreaterThan(0);
+
+    const idle = planShown({
+      facts: facts({ list: { ...facts().list, items: [] } }),
+      reported: read({ tried: ['x'], watchAt: NOW + 20 * MIN }),
+      computer,
+    });
+    expect(idle.stand).toBe('idle');
+    expect(idle.line).toBe('Done for now. It looks again by 10:20 AM.');
+  });
+
+  it('names each row, each network in its own words', () => {
+    const row = (platform: 'facebook' | 'linkedin', move: Parameters<typeof planRow>[1]['move']) =>
+      planRow(platform, { at: NOW, about: true, now: false, move });
+    expect(row('linkedin', { do: 'daily', job: 'requests', gap: 0 }).title).toBe('Invitations');
+    expect(
+      row('facebook', { do: 'before', step: { do: 'save', list: 'friends', first: true }, gap: 0 }),
+    ).toMatchObject({ kind: 'lists', title: 'Save your friends list' });
+    const reply = item('reply', 'Lee Ortiz');
+    expect(
+      row('facebook', { do: 'work', work: { do: 'draft', item: reply }, left: 0, gap: 0 }),
+    ).toMatchObject({ kind: 'draft', title: 'Write a message', who: 'Lee Ortiz', detail: 'Reply' });
+    const comment = item('comment', 'Ana Ruiz');
+    expect(
+      row('facebook', { do: 'work', work: { do: 'send', item: comment }, left: 0, gap: 0 }),
+    ).toMatchObject({ kind: 'send', title: 'Post the comment', detail: null });
+    expect(rowWords({ title: 'Check my friends', who: null })).toBe('Check my friends');
+  });
+
+  it('says when, and how many more', () => {
+    const base = { at: at(NOW + 15 * MIN), about: true, now: false };
+    expect(planWhen(base, TZ)).toBe('About 10:15 AM');
+    expect(planWhen({ ...base, about: false }, TZ)).toBe('10:15 AM');
+    expect(planWhen({ ...base, now: true }, TZ)).toBe('Now');
+    expect(planMoreWords(14, at(FIVE_PM), TZ)).toBe('And 14 more before 5:00 PM.');
+    expect(planMoreWords(0, at(FIVE_PM), TZ)).toBe('');
+    expect(planCounts('linkedin', { friend_request: 2 })).toEqual([
+      { label: 'invitations to connect sent', count: 2 },
+    ]);
+  });
+});
+
+describe('what the extension says of its day', () => {
+  const state = {
+    ...freshState(TODAY, 12),
+    tried: ['friend_request:a'],
+    done: { friend_request: 1 },
+    daily: { requests: 'None new.', comment_research: 'No comment research is running.' },
+    line: 'Reading chat 3 of 60…',
+    lineAt: NOW,
+    nextAt: NOW + MIN,
+  };
+
+  it('is the part the day is planned from, and nothing of its window', () => {
+    const said = planStateOf(state, { comment_research: 'No comment research is running.' });
+    expect(said).not.toHaveProperty('tabId');
+    expect(said).not.toHaveProperty('lists');
+    // A job that didn't run for this person is left out.
+    expect(said.daily).toEqual({ requests: 'None new.' });
+    const kept = PlanState.parse(said);
+    expect(kept).toMatchObject({ day: TODAY, tried: ['friend_request:a'], nextAt: NOW + MIN });
+  });
+
+  it('is worth sending again only when more than its line changed', () => {
+    const before = planNoteKey(planStateOf(state));
+    expect(
+      planNoteKey(planStateOf({ ...state, line: 'Reading chat 4 of 60…', lineAt: NOW + 5 })),
+    ).toBe(before);
+    expect(planNoteKey(planStateOf({ ...state, working: true }))).not.toBe(before);
+    expect(planNoteKey(planStateOf({ ...state, nextAt: NOW + 2 * MIN }))).not.toBe(before);
+  });
+
+  it('cuts a long line, and keeps the newest of a very long day', () => {
+    const long = planStateOf({ ...state, daily: { requests: 'x'.repeat(2000) } });
+    expect(long.daily!.requests).toHaveLength(PLAN_LINE_MOST);
+    expect(PlanState.safeParse(long).success).toBe(true);
+  });
+
+  it('moves its times onto HandsFreeOS’s clock', () => {
+    const kept = PlanState.parse(planStateOf({ ...state, againAt: { checks: NOW + 40 * MIN } }));
+    const moved = onPlanClock(kept, -5000);
+    expect(moved.nextAt).toBe(NOW + MIN - 5000);
+    expect(moved.againAt.checks).toBe(NOW + 40 * MIN - 5000);
+    expect(moved.roundAt).toBeNull();
+    expect(onPlanClock(kept, 0)).toBe(kept);
+  });
+});
