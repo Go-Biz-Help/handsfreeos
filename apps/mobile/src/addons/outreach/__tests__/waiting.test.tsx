@@ -228,6 +228,45 @@ describe('Needs you’s parts on the phone (decision 193)', () => {
     expect(screen.queryByTestId('needs-part-need')).toBeNull();
     expect(screen.getByTestId('waiting-empty')).toBeTruthy();
   });
+
+  it('puts the messages and the comments on the row apart, each with its count (decision 196)', async () => {
+    const h = handlers();
+    const onPick = jest.fn();
+    const phone = waitingOfCopy(
+      [
+        sendRow(1, { name: 'Dana Reyes' }),
+        sendRow(2, { kind: 'comment', name: 'Avery Cole' }),
+        sendRow(3, { kind: 'group_reply', name: 'Quinn Harper' }),
+      ],
+      ME,
+    );
+    const body = (asked: NeedsPart | null) => (
+      <WaitingBody
+        phone={phone}
+        server={null}
+        serverError={null}
+        online={false}
+        timeZone={TZ}
+        now={NOW}
+        parts={{ asked, onPick }}
+        {...h}
+      />
+    );
+    const { rerender } = await render(body(null));
+    expect(screen.getByText(`${NEEDS_PARTS.message} 1`)).toBeTruthy();
+    expect(screen.getByText(`${NEEDS_PARTS.comment} 2`)).toBeTruthy();
+    // The messages first: only Dana's message, none of the comments.
+    expect(within(screen.getByTestId('waiting-message')).getByText('Dana Reyes')).toBeTruthy();
+    expect(screen.queryByTestId('waiting-comments')).toBeNull();
+    await fireEvent.press(screen.getByTestId('needs-part-comment'));
+    expect(onPick).toHaveBeenCalledWith('comment');
+    await rerender(body('comment'));
+    expect(screen.queryByTestId('waiting-message')).toBeNull();
+    const comments = screen.getByTestId('waiting-comments');
+    expect(within(comments).getAllByTestId('waiting-comment')).toHaveLength(2);
+    await fireEvent.press(within(comments).getByTestId('waiting-approve-comments'));
+    expect(h.onOkAll).toHaveBeenCalledWith([{ sendId: id(2) }, { sendId: id(3) }]);
+  });
 });
 
 describe('Autopilot’s day’s list on the phone (decision 151)', () => {
@@ -452,7 +491,7 @@ describe('Waiting for you on the phone', () => {
     );
   });
 
-  it('lists comments among the messages, each under its post, and Approve all leaves a forum answer', async () => {
+  it('lists comments as a part of their own, each under its post, and their Approve all leaves a forum answer', async () => {
     const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     const postUrl = 'https://www.instagram.com/p/CxAveryBakes1/';
     const phone = waitingOfCopy(
@@ -470,9 +509,16 @@ describe('Waiting for you on the phone', () => {
           profile_url: 'https://www.alignable.com/austin-tx/pike-roofing',
           needs_you: COMMENT_NEEDS_YOU.answer,
         }),
+        sendRow(4, {
+          kind: 'comment',
+          name: 'Quinn Harper',
+          profile_url: 'https://www.instagram.com/quinn.harper/',
+        }),
+        sendRow(5, { name: 'Sam Riley' }),
       ],
       ME,
     );
+    expect(phone.comments).toBe(3);
     const h = handlers();
     await render(
       <WaitingBody
@@ -489,14 +535,20 @@ describe('Waiting for you on the phone', () => {
         {...h}
       />,
     );
+    // The messages and the comments are a part each (decision 196), each with its own heading and Approve all.
     const messages = screen.getByTestId('waiting-message');
-    expect(within(messages).getByText(/^Messages and comments to OK/)).toBeTruthy();
+    expect(within(messages).getByText(/^Messages to OK/)).toBeTruthy();
+    expect(within(messages).getAllByTestId('waiting-send')).toHaveLength(2);
+    expect(within(messages).queryByTestId('waiting-comment')).toBeNull();
+    expect(within(messages).queryByText(new RegExp(`^${COMMENT_HOLD_WORDS}`))).toBeNull();
+    const comments = screen.getByTestId('waiting-comments');
+    expect(within(comments).getByText(/^Comments to OK/)).toBeTruthy();
+    expect(within(comments).queryByTestId('waiting-send')).toBeNull();
     // The comments' hold, and why Approve all leaves the forum answer, under the heading.
-    expect(within(messages).getByText(new RegExp(`^${COMMENT_HOLD_WORDS}`))).toBeTruthy();
-    expect(within(messages).getByText(/Approve all leaves the forum answer: /)).toBeTruthy();
-    expect(screen.getAllByTestId('waiting-send')).toHaveLength(1);
+    expect(within(comments).getByText(new RegExp(`^${COMMENT_HOLD_WORDS}`))).toBeTruthy();
+    expect(within(comments).getByText(/Approve all leaves the forum answer: /)).toBeTruthy();
 
-    const [avery, pike] = screen.getAllByTestId('waiting-comment');
+    const [avery, pike] = within(comments).getAllByTestId('waiting-comment');
     expect(within(avery!).getByTestId('waiting-comment-title').props.children).toBe(
       'Comment on Avery Cole’s post',
     );
@@ -512,9 +564,12 @@ describe('Waiting for you on the phone', () => {
     ).toBeTruthy();
     expect(within(pike!).queryByTestId('waiting-comment-post')).toBeNull();
 
+    await fireEvent.press(screen.getByTestId('waiting-approve-comments'));
+    expect(h.onOkAll).toHaveBeenLastCalledWith([{ sendId: id(2) }, { sendId: id(4) }]);
+    expect(screen.getByText('Approve all 2 comments')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('waiting-approve-all'));
-    expect(h.onOkAll).toHaveBeenCalledWith([{ sendId: id(1) }, { sendId: id(2) }]);
-    expect(screen.getByText('Approve all 2')).toBeTruthy();
+    expect(h.onOkAll).toHaveBeenLastCalledWith([{ sendId: id(1) }, { sendId: id(5) }]);
+    expect(screen.getByText('Approve all 2 messages')).toBeTruthy();
 
     await fireEvent.press(within(avery!).getByTestId('waiting-ok'));
     expect(h.onOk).toHaveBeenLastCalledWith(

@@ -28,13 +28,13 @@ import type { WaitingOutput } from '@hfos/core/addons/outreach/waiting';
 import { HANDS_OUTREACH_WORDS as HW, type HandsAsk } from '@hfos/core/addons/outreach/in-hands';
 import { AUTOPILOT_WORDS, type AutopilotOutput } from '@hfos/core/addons/outreach/autopilot';
 import {
-  approveAllTakesComments,
   approveAllWords,
+  approveCommentsWords,
   commentHoldShown,
+  COMMENTS_TITLE,
   commentTitle,
   forumAnswer,
   forumAnswersLeftWords,
-  messagesTitle,
   moreWords,
   NEED_CLEARS,
   NEED_RETRY,
@@ -123,8 +123,9 @@ import {
  * Comments on good posts (decision 92, Instagram's and Alignable's) wait among the messages, from the same copy, so they
  * too are OK'd, changed, skipped and Approved all with no signal: "Comment on Dana Reyes’s post", with the post's
  * first words above it and Open the post once HandsFreeOS has said them (the copy keeps no post; one the copy brings
- * while the screen is open has HandsFreeOS asked again, `unheardOf`). Approve all leaves an
- * answer to a post asking for what the business offers, and says why.
+ * while the screen is open has HandsFreeOS asked again, `unheardOf`). They're a part of their own, Comments to OK
+ * (decision 196), with an Approve all of their own, which leaves an answer to a post asking for what the business
+ * offers, and says why.
  */
 
 type Asked = Extract<WaitingOutput['items'][number], { kind: 'ask' }>['ask'];
@@ -328,10 +329,14 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
     onOkAll: async (sends) => {
       try {
         await okAll(ws, sends);
-        const comments = phone.messages.some(
-          (m) => underAPost(m.kind) && sends.some((s) => s.sendId === m.sendId),
-        );
-        toast.show(saidOf(ctx.online, W.okdAll(sends.length, comments), W.okdQueued));
+        // The Comments part's (decision 196) says comments; any other, messages, or both together.
+        const named = new Set(sends.map((s) => s.sendId));
+        const posts = phone.messages.filter((m) => underAPost(m.kind) && named.has(m.sendId));
+        const said =
+          posts.length && posts.length === sends.length
+            ? W.okdComments(sends.length)
+            : W.okdAll(sends.length, posts.length > 0);
+        toast.show(saidOf(ctx.online, said, W.okdQueued));
       } catch (e) {
         failed(e);
       }
@@ -468,9 +473,12 @@ export function WaitingBody({
   parts?: { readonly asked: NeedsPart | null; readonly onPick: (part: NeedsPart) => void };
 }) {
   const [changing, setChanging] = React.useState<PhoneSend | null>(null);
-  const all = approveAllFromPhone(phone);
-  // Comments wait among the messages (decision 92): the heading says so, and Approve all leaves forum answers.
+  // The messages and the comments are a part each (decision 196), each with its own Approve all.
+  const messages = phone.messages.filter((s) => !underAPost(s.kind));
   const comments = phone.messages.filter((s) => underAPost(s.kind));
+  const allMessages = approveAllFromPhone(phone, 'messages');
+  const allComments = approveAllFromPhone(phone, 'comments');
+  // Approve all leaves forum answers, and says why.
   const answers = comments.filter(forumAnswer).length;
   // A comment Approve all takes, on a network whose comments-only hold is on: the hold's note says what it is.
   const held = server ? commentHoldShown(comments, server.commentHolds) : false;
@@ -491,6 +499,7 @@ export function WaitingBody({
       message: phone.kinds.message,
       ...(server ? server.kinds : {}),
     },
+    comments: phone.comments,
     ...(server ? { hands: server.hands?.length ?? 0 } : {}),
     autopilot: autopilotWaitingOf(autopilot),
     ...(unsure ? { unsure: unsure.count } : {}),
@@ -588,36 +597,60 @@ export function WaitingBody({
         </Group>
       ) : null}
 
-      {phone.messages.length && shows('message') ? (
+      {messages.length && shows('message') ? (
         <Group
-          title={messagesTitle(comments.length > 0)}
-          count={phone.kinds.message.count}
-          shown={phone.messages.length}
+          title={WAITING_KINDS.message}
+          count={counts.message ?? messages.length}
+          shown={messages.length}
           kind="message"
-          note={
-            [
-              server?.wheels.on ? wheelsWords(server.wheels) : null,
-              held ? COMMENT_HOLD_WORDS : null,
-              all.length >= 2 && answers ? forumAnswersLeftWords(answers) : null,
-            ]
-              .filter(Boolean)
-              .join(' ') || null
-          }
+          note={server?.wheels.on ? wheelsWords(server.wheels) : null}
           testID="waiting-message"
           action={
-            all.length >= 2 ? (
+            allMessages.length >= 2 ? (
               <Button
                 size="md"
                 icon={CheckCheck}
-                onPress={() => onOkAll(all)}
+                onPress={() => onOkAll(allMessages)}
                 testID="waiting-approve-all"
               >
-                {approveAllWords(all.length, approveAllTakesComments(comments))}
+                {approveAllWords(allMessages.length)}
               </Button>
             ) : null
           }
         >
-          {phone.messages.map(sendRow)}
+          {messages.map(sendRow)}
+        </Group>
+      ) : null}
+
+      {comments.length && shows('comment') ? (
+        <Group
+          title={COMMENTS_TITLE}
+          count={counts.comment ?? comments.length}
+          shown={comments.length}
+          kind="message"
+          note={
+            [
+              held ? COMMENT_HOLD_WORDS : null,
+              allComments.length >= 2 && answers ? forumAnswersLeftWords(answers) : null,
+            ]
+              .filter(Boolean)
+              .join(' ') || null
+          }
+          testID="waiting-comments"
+          action={
+            allComments.length >= 2 ? (
+              <Button
+                size="md"
+                icon={CheckCheck}
+                onPress={() => onOkAll(allComments)}
+                testID="waiting-approve-comments"
+              >
+                {approveCommentsWords(allComments.length)}
+              </Button>
+            ) : null
+          }
+        >
+          {comments.map(sendRow)}
         </Group>
       ) : null}
 
