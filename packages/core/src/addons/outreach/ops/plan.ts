@@ -2,7 +2,9 @@
  * The plan (../plan.ts, docs/outreach.md decision 195): what the person's computer will do today on a network, and
  * about when. The extension says where its day is up to there, as that changes (`outreach.plan.note`), and
  * HandsFreeOS works the rest of the day out from it with the rules the extension itself follows (`outreach.plan`).
- * Nothing here tells the extension what to do: that's the next step of the same decision.
+ *
+ * From 0.156.0 a network's runner asks for its next move and does it (`outreach.plan.next`, ../plan-next.ts): the
+ * same rules, on what HandsFreeOS knows and what only the runner's computer does. A network at a time.
  */
 import { and, eq, inArray } from 'drizzle-orm';
 import { requireHuman } from '../../../kernel/actor';
@@ -14,6 +16,7 @@ import { outreachAddon } from '../manifest';
 import type { Platform } from '../networks';
 import {
   freshPlanDay,
+  nextMove,
   onPlanClock,
   planDayOf,
   PlanInput,
@@ -22,7 +25,16 @@ import {
   PlanOutput,
   planShown,
   type PlanDay,
+  type PlanFacts,
 } from '../plan';
+import {
+  changeSent,
+  moveSent,
+  NOT_DECIDING,
+  PLAN_DECIDES,
+  PlanNextInput,
+  PlanNextOutput,
+} from '../plan-next';
 import { asks, planDays } from '../tables';
 import { shownAsks } from './ask-rows';
 import { automationOf } from './automation';
@@ -55,6 +67,54 @@ export async function reportedDay(
     );
   if (!row) return null;
   return row.day >= today ? planDayOf(row.state) : freshPlanDay(today);
+}
+
+/**
+ * What HandsFreeOS knows of the person's day on a network, for the rules: their choices and hours, their day as
+ * pressed, a warning today, what they asked of the extension that's still open (oldest first), their lists as last
+ * saved, today's list, and their computers.
+ */
+async function knownOf(
+  ctx: Ctx,
+  me: string,
+  input: { workspaceId: string; platform: Platform },
+  now: number,
+) {
+  const { platform } = input;
+  const { today, timezone } = await businessToday(ctx, now);
+  const todayStart = await startOfToday(ctx, now);
+  const [warning, auto, computers, day, lists, open, { list }] = await Promise.all([
+    warningOf(ctx, me, platform, todayStart, now),
+    automationOf(ctx, me, now, platform),
+    myComputers(ctx, me),
+    dayOf(ctx, me, platform, today),
+    listsOf(ctx, me, platform),
+    shownAsks(
+      ctx,
+      me,
+      and(eq(asks.platform, platform), inArray(asks.state, [...OPEN_ASK_STATES])),
+      now,
+    ),
+    todayFor(ctx, { workspaceId: input.workspaceId, platform }),
+  ]);
+  // Open still, as the lists show them: one whose computer went away, or that waited a day, goes before nothing.
+  const asked = open
+    .filter((a) => (OPEN_ASK_STATES as readonly string[]).includes(a.state))
+    .reverse();
+  const facts = {
+    platform,
+    now,
+    timeZone: timezone,
+    hours: auto.settings.hours,
+    choices: auto.choices,
+    noting: auto.settings.noting,
+    day,
+    warned: warning?.today ?? false,
+    asks: asked.length,
+    lists,
+    list,
+  } satisfies PlanFacts;
+  return { today, facts, asked, computers, list };
 }
 
 export const planNote = defineAddonCommand(outreachAddon, {
@@ -125,42 +185,11 @@ export const plan = defineAddonQuery(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const now = Date.now();
     const { platform } = input;
-    const { today, timezone } = await businessToday(ctx, now);
-    const todayStart = await startOfToday(ctx, now);
-    const [warning, auto, all, day, lists, reported, open, { list }] = await Promise.all([
-      warningOf(ctx, me, platform, todayStart, now),
-      automationOf(ctx, me, now, platform),
-      myComputers(ctx, me),
-      dayOf(ctx, me, platform, today),
-      listsOf(ctx, me, platform),
-      reportedDay(ctx, me, platform, today),
-      shownAsks(
-        ctx,
-        me,
-        and(eq(asks.platform, platform), inArray(asks.state, [...OPEN_ASK_STATES])),
-        now,
-      ),
-      todayFor(ctx, { workspaceId: input.workspaceId, platform }),
-    ]);
-    const working = workingOf(all);
-    // Open still, as the lists show them: one whose computer went away, or that waited a day, goes before nothing.
-    const asked = open
-      .filter((a) => (OPEN_ASK_STATES as readonly string[]).includes(a.state))
-      .reverse();
+    const { today, facts, asked, computers } = await knownOf(ctx, me, input, now);
+    const reported = await reportedDay(ctx, me, platform, today);
+    const working = workingOf(computers);
     const shown = planShown({
-      facts: {
-        platform,
-        now,
-        timeZone: timezone,
-        hours: auto.settings.hours,
-        choices: auto.choices,
-        noting: auto.settings.noting,
-        day,
-        warned: warning?.today ?? false,
-        asks: asked.length,
-        lists,
-        list,
-      },
+      facts,
       reported,
       computer: working
         ? { state: working.state, lastSeenAt: working.lastSeenAt, version: working.version }
@@ -177,5 +206,35 @@ export const plan = defineAddonQuery(outreachAddon, {
   },
 });
 
+export const planNext = defineAddonQuery(outreachAddon, {
+  name: 'outreach.plan.next',
+  description:
+    'The browser extension asks what a network’s runner does next: it says where its day is up to and what only its computer knows (whether the person is away, the reads put off till they are), and HandsFreeOS answers with the move by the day’s rules, from its own settings, list, asks, warnings and day. Only for the networks HandsFreeOS decides, and only the person’s working computer: any other is told to plan for itself.',
+  input: PlanNextInput,
+  output: PlanNextOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const { platform } = input;
+    if (!PLAN_DECIDES.includes(platform)) return NOT_DECIDING;
+    const now = Date.now();
+    const { facts, computers, list } = await knownOf(ctx, me, input, now);
+    // A computer on standby works nothing: its runner stands down by itself.
+    const working = workingOf(computers);
+    if (!working || working.installId !== input.computer) return NOT_DECIDING;
+    // Its times are on its own clock: moved onto HandsFreeOS's to work the move out, and back for the answer.
+    const skew = now - input.now;
+    const kept = planDayOf(onPlanClock(input.state, skew));
+    const { move, state } = nextMove(facts, kept, input.random, input.here);
+    return {
+      decides: true,
+      move: moveSent(move, skew),
+      change: changeSent(kept, state, skew),
+      list: move.do === 'work' ? list : null,
+    };
+  },
+});
+
 export const planCommands = [planNote] as const;
-export const planQueries = [plan] as const;
+export const planQueries = [plan, planNext] as const;

@@ -28,7 +28,15 @@ import {
   type PlanDay,
   type PlanFacts,
 } from '../../src/addons/outreach/plan';
-import { freshState, itemKey, type PlanItem } from '../../src/addons/outreach/plan-rules';
+import {
+  changeSent,
+  moveSent,
+  NEXT_SINCE,
+  PLAN_DECIDES,
+  PlanNextInput,
+  PlanNextOutput,
+} from '../../src/addons/outreach/plan-next';
+import { freshState, itemKey, workKey, type PlanItem } from '../../src/addons/outreach/plan-rules';
 import { RUNNERS } from '../../src/addons/outreach/runners';
 import type { TodayKind } from '../../src/addons/outreach/today';
 
@@ -428,6 +436,124 @@ describe('a runner’s own ask for its next move (decision 195, step 2)', () => 
       why: 'hours',
       until: nine + 10 * MIN,
     });
+  });
+});
+
+describe('the move as it’s sent to a runner (decision 195, step 2)', () => {
+  /** HandsFreeOS's clock is 10 minutes ahead of the runner's. */
+  const SKEW = 10 * MIN;
+
+  it('is for Threads’ and X’s runners first, from the build that asks', () => {
+    expect(PLAN_DECIDES).toEqual(['threads', 'x']);
+    expect(NEXT_SINCE).toBe('0.156.0');
+  });
+
+  it('names a piece of the list’s work by its key, and says how it goes', () => {
+    const { move } = nextMove(facts(), read({ readLast: true }));
+    if (move.do !== 'work') throw new Error('a step on the list was expected');
+    const sent = moveSent(move, SKEW);
+    expect(sent).toEqual({
+      do: 'work',
+      key: workKey({ do: 'step', item: DANA }),
+      left: 2,
+      gap: Math.round(move.gap),
+      reading: false,
+      day: { started: false, until: FIVE_PM - SKEW },
+      answering: false,
+    });
+    // It goes over the wire as it is.
+    expect(
+      PlanNextOutput.parse({ decides: true, move: sent, change: null, list: null }).move,
+    ).toEqual(sent);
+  });
+
+  it('puts every time on the runner’s clock, and keeps a wait with no end', () => {
+    expect(moveSent({ do: 'wait', why: 'asks', until: NOW + 2 * MIN }, SKEW)).toEqual({
+      do: 'wait',
+      why: 'asks',
+      until: NOW - 8 * MIN,
+    });
+    expect(moveSent({ do: 'wait', why: 'off', until: null }, SKEW)).toEqual({
+      do: 'wait',
+      why: 'off',
+      until: null,
+    });
+    // A clock behind the runner's moves them the other way.
+    expect(moveSent({ do: 'wait', why: 'idle', until: NOW }, -SKEW)).toMatchObject({
+      until: NOW + SKEW,
+    });
+  });
+
+  it('sends the reading’s moves as they are, each gap a whole number', () => {
+    const step = { do: 'save', list: 'friends', first: true } as const;
+    expect(moveSent({ do: 'before', step, gap: 1200.4 }, SKEW)).toEqual({
+      do: 'before',
+      step,
+      gap: 1200,
+    });
+    expect(moveSent({ do: 'daily', job: 'requests', gap: 90_000.6 }, SKEW)).toEqual({
+      do: 'daily',
+      job: 'requests',
+      gap: 90_001,
+    });
+    expect(moveSent({ do: 'search', gap: 5 }, SKEW)).toEqual({ do: 'search', gap: 5 });
+    expect(moveSent({ do: 'watch', gap: 5 }, SKEW)).toEqual({ do: 'watch', gap: 5 });
+  });
+
+  it('says only what the move changed in the day: a round of finding again begun, who still waits', () => {
+    const day = fresh({
+      daily: { requests: 'Done.', post_people: 'Read 3.' },
+      replied: ['a', 'b'],
+    });
+    expect(changeSent(day, day, SKEW)).toBeNull();
+    expect(changeSent(day, { ...day }, SKEW)).toBeNull();
+    const round = { ...day, daily: { requests: 'Done.' }, round: 1, roundAt: NOW };
+    expect(changeSent(day, round, SKEW)).toEqual({
+      daily: { requests: 'Done.' },
+      round: 1,
+      roundAt: NOW - SKEW,
+    });
+    expect(changeSent(day, { ...day, replied: ['b'] }, SKEW)).toEqual({ replied: ['b'] });
+    // HandsFreeOS's day isn't the runner's, around midnight: the runner begins its own new day itself.
+    expect(changeSent(fresh({ day: '2026-10-12' }), round, SKEW)).toBeNull();
+  });
+
+  it('begins a round of finding again in what it sends, as the runner did for itself', () => {
+    const short = facts({
+      platform: 'threads',
+      lists: { ...NO_LISTS, friendsAt: at(NOW), tidyAt: at(NOW) },
+      list: { ...facts().list, items: [], goal: { more: true } },
+    });
+    const kept = fresh({
+      daily: Object.fromEntries(RUNNERS.threads.daily.map((job) => [job, 'Done.'])),
+      watchAt: NOW + 40 * MIN,
+    });
+    const { move, state } = nextMove(short, kept, 0.5, { away: false, passOver: [] });
+    expect(moveSent(move, SKEW)).toMatchObject({ do: 'daily', job: RUNNERS.threads.finding[0] });
+    const change = changeSent(kept, state, SKEW)!;
+    expect(change).toMatchObject({ round: 1, roundAt: NOW - SKEW });
+    for (const job of RUNNERS.threads.finding) expect(change.daily).not.toHaveProperty(job);
+    expect(change.daily).toHaveProperty('requests', 'Done.');
+    expect(change.replied).toBeUndefined();
+  });
+
+  it('takes a runner’s ask with what only its computer knows, and nothing it couldn’t say', () => {
+    const ask = {
+      workspaceId: '00000000-0000-4000-8000-000000000001',
+      platform: 'x',
+      computer: '00000000-0000-4000-8000-000000000002',
+      state: planStateOf(freshState(TODAY, null)),
+      now: NOW,
+      random: 0.25,
+      here: { away: true },
+    };
+    expect(PlanNextInput.parse(ask).here).toEqual({ away: true, passOver: [] });
+    expect(PlanNextInput.safeParse({ ...ask, random: 1.5 }).success).toBe(false);
+    expect(PlanNextInput.safeParse({ ...ask, computer: 'home' }).success).toBe(false);
+    expect(
+      PlanNextInput.safeParse({ ...ask, here: { away: false, passOver: ['tidy'], research: true } })
+        .success,
+    ).toBe(true);
   });
 });
 

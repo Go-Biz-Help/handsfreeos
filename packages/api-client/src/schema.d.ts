@@ -23997,6 +23997,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.plan.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The browser extension asks what a network’s runner does next: it says where its day is up to and what only its computer knows (whether the person is away, the reads put off till they are), and HandsFreeOS answers with the move by the day’s rules, from its own settings, list, asks, warnings and day. Only for the networks HandsFreeOS decides, and only the person’s working computer: any other is told to plan for itself.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_plan_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.playbook.list": {
         parameters: {
             query?: never;
@@ -94731,6 +94751,408 @@ export interface operations {
                         stand: "none" | "signed_out" | "offline" | "off" | "stopped" | "warned" | "noting" | "asks" | "waiting" | "working" | "going" | "idle";
                         timezone: string;
                         until: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_plan_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    computer: string;
+                    here: {
+                        away: boolean;
+                        /** @default [] */
+                        passOver?: string[];
+                        research?: boolean;
+                    };
+                    now: number;
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                    random: number;
+                    state: {
+                        /** @default {} */
+                        againAt?: {
+                            [key: string]: number;
+                        };
+                        before?: {
+                            [key: string]: string;
+                        };
+                        daily?: {
+                            [key: string]: string;
+                        };
+                        day: string | null;
+                        /** @default {} */
+                        done?: {
+                            [key: string]: number;
+                        };
+                        /** @default null */
+                        helpfulAt?: number | null;
+                        /** @default false */
+                        helpfulUp?: boolean;
+                        line?: string | null;
+                        /** @default null */
+                        lineAt?: number | null;
+                        /** @default false */
+                        needs?: boolean;
+                        /** @default null */
+                        nextAt?: number | null;
+                        /** @default false */
+                        readLast?: boolean;
+                        /** @default null */
+                        referAt?: number | null;
+                        /** @default [] */
+                        replied?: string[];
+                        /** @default false */
+                        requestsOff?: boolean;
+                        /** @default 0 */
+                        round?: number;
+                        /** @default null */
+                        roundAt?: number | null;
+                        started: boolean;
+                        stopped: string | null;
+                        tried: string[];
+                        /** @default null */
+                        watchAt?: number | null;
+                        /** @default false */
+                        working?: boolean;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        change: {
+                            daily?: {
+                                [key: string]: string;
+                            };
+                            replied?: string[];
+                            round?: number;
+                            roundAt?: number | null;
+                        } | null;
+                        decides: boolean;
+                        list: {
+                            auto: ("reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up")[];
+                            /** @default [] */
+                            events: {
+                                hosts: string[];
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                people: number;
+                                place: string | null;
+                                startsAt: string | null;
+                                url: string;
+                                when: string | null;
+                            }[];
+                            /**
+                             * @default {
+                             *       "on": false,
+                             *       "from": null,
+                             *       "until": null,
+                             *       "days": 14
+                             *     }
+                             */
+                            fresh: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
+                            /** @default false */
+                            fullSpeed: boolean;
+                            /** @default null */
+                            goal: {
+                                ahead: number;
+                                done: number;
+                                facts: {
+                                    accepted: number;
+                                    checked: number;
+                                    fit: number;
+                                    sent: number;
+                                    unchecked: number;
+                                    weekChecked: number;
+                                    weekFit: number;
+                                };
+                                listed: number;
+                                more: boolean;
+                                most: number;
+                                requests: {
+                                    left: number;
+                                    listed: number;
+                                };
+                                short: number;
+                                tries: ("niche" | "playbook" | "groups" | "words" | "profile" | "networks")[];
+                                waitingOk: number;
+                                why: ("not_ready" | "few_fits" | "checking" | "requests_held" | "few_accepts" | "few_found" | "waiting_accepts") | null;
+                            } | null;
+                            hasPlaybook: boolean;
+                            items: {
+                                asking: boolean;
+                                chatId: string | null;
+                                demoBooked: boolean;
+                                demoLink: string | null;
+                                keepWarm?: {
+                                    hi?: boolean;
+                                    likes: number;
+                                    /** Format: date-time */
+                                    until: string;
+                                };
+                                /** @enum {string} */
+                                kind: "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                                likeComment?: boolean;
+                                name: string;
+                                nextStep: string | null;
+                                partnerHint?: string | null;
+                                partnerId?: string | null;
+                                personId: string | null;
+                                platformId?: string | null;
+                                playbookName: string | null;
+                                post: string | null;
+                                posted: string | null;
+                                postId: string | null;
+                                postUrl: string | null;
+                                /** @default null */
+                                postWhole: string | null;
+                                profileId: string | null;
+                                profileUrl: string | null;
+                                recent: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    fromMe: boolean;
+                                    text: string;
+                                }[];
+                                requests?: boolean;
+                                retry?: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    /** Format: uuid */
+                                    needId: string;
+                                };
+                                send: {
+                                    handedOver: boolean;
+                                    needsYou: string | null;
+                                    /** Format: uuid */
+                                    sendId: string;
+                                    /** @enum {string} */
+                                    state: "waiting" | "approved";
+                                    text: string;
+                                } | null;
+                                summary: string | null;
+                                threadKey: string | null;
+                                videoLink: string | null;
+                                why: string[];
+                            }[];
+                            limits: {
+                                comment: {
+                                    done: number;
+                                    most: number;
+                                };
+                                first_message: {
+                                    done: number;
+                                    most: number;
+                                };
+                                follow_up: {
+                                    done: number;
+                                    most: number;
+                                };
+                                friend_request: {
+                                    done: number;
+                                    most: number;
+                                };
+                                like: {
+                                    done: number;
+                                    most: number;
+                                };
+                            };
+                            messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply")[];
+                            /** @default false */
+                            newMessagesWait: boolean;
+                            /** @default null */
+                            oneOnOnes: {
+                                lastWeek: number;
+                                week: number;
+                            } | null;
+                            /** @default [] */
+                            partners: {
+                                asking: boolean;
+                                chatId: string | null;
+                                demoBooked: boolean;
+                                demoLink: string | null;
+                                keepWarm?: {
+                                    hi?: boolean;
+                                    likes: number;
+                                    /** Format: date-time */
+                                    until: string;
+                                };
+                                /** @enum {string} */
+                                kind: "reply" | "demo_reminder" | "rebook" | "thank_you" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                                likeComment?: boolean;
+                                name: string;
+                                nextStep: string | null;
+                                partnerHint?: string | null;
+                                partnerId?: string | null;
+                                personId: string | null;
+                                platformId?: string | null;
+                                playbookName: string | null;
+                                post: string | null;
+                                posted: string | null;
+                                postId: string | null;
+                                postUrl: string | null;
+                                /** @default null */
+                                postWhole: string | null;
+                                profileId: string | null;
+                                profileUrl: string | null;
+                                recent: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    fromMe: boolean;
+                                    text: string;
+                                }[];
+                                requests?: boolean;
+                                retry?: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    /** Format: uuid */
+                                    needId: string;
+                                };
+                                send: {
+                                    handedOver: boolean;
+                                    needsYou: string | null;
+                                    /** Format: uuid */
+                                    sendId: string;
+                                    /** @enum {string} */
+                                    state: "waiting" | "approved";
+                                    text: string;
+                                } | null;
+                                summary: string | null;
+                                threadKey: string | null;
+                                videoLink: string | null;
+                                why: string[];
+                            }[];
+                            /** @default null */
+                            profileOwn: {
+                                /** Format: date-time */
+                                at: string;
+                                parts: number;
+                            } | null;
+                            readAdmins: {
+                                /** Format: uuid */
+                                groupId: string;
+                                name: string | null;
+                                url: string;
+                            }[];
+                            ready: boolean;
+                            /** @default null */
+                            requestsHeld: {
+                                /** @default 0 */
+                                cancelling: number;
+                                /** @default null */
+                                cancelMost: number | null;
+                                count: number;
+                                /** @default 0 */
+                                extension: number;
+                                most: number;
+                                /** @default null */
+                                until: string | null;
+                                /** @enum {string} */
+                                why: "waiting" | "cap" | "limit";
+                            } | null;
+                            /** @default null */
+                            retryAt: string | null;
+                            /** @enum {string} */
+                            sending: "off" | "steps" | "approve_all" | "everything";
+                            warning: {
+                                /** Format: date-time */
+                                at: string;
+                                /** Format: date-time */
+                                requestsFrom: string;
+                                /** Format: date-time */
+                                slowerUntil: string;
+                                today: boolean;
+                                words: string;
+                            } | null;
+                            /** @default null */
+                            week: {
+                                done: number;
+                                most: number;
+                            } | null;
+                            wheels: {
+                                daysLeft: number;
+                                edits: number;
+                                from: string | null;
+                                ok: number;
+                                on: boolean;
+                            };
+                        } | null;
+                        move: ({
+                            /** @enum {string} */
+                            do: "wait";
+                            until: number | null;
+                            /** @enum {string} */
+                            why: "off" | "stopped" | "warned" | "noting" | "asks" | "hours" | "screen" | "idle";
+                        } | {
+                            /** @enum {string} */
+                            do: "before";
+                            gap: number;
+                            step: {
+                                /** @enum {string} */
+                                do: "save";
+                                first: boolean;
+                                /** @enum {string} */
+                                list: "friends" | "requests" | "sent" | "groups";
+                            } | {
+                                /** @enum {string} */
+                                do: "group_checks";
+                            } | {
+                                /** @enum {string} */
+                                do: "tidy";
+                            } | {
+                                /** @enum {string} */
+                                do: "checks";
+                            };
+                        } | {
+                            /** @enum {string} */
+                            do: "daily";
+                            gap: number;
+                            job: string;
+                        } | {
+                            /** @enum {string} */
+                            do: "search";
+                            gap: number;
+                        } | {
+                            /** @enum {string} */
+                            do: "watch";
+                            gap: number;
+                        } | {
+                            answering: boolean;
+                            day: {
+                                started: boolean;
+                                until: number | null;
+                            };
+                            /** @enum {string} */
+                            do: "work";
+                            gap: number;
+                            key: string;
+                            left: number;
+                            reading: boolean;
+                        }) | null;
                     };
                 };
             };
