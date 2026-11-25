@@ -26,6 +26,7 @@
  * Browser-safe: the web, the phone and the extension read these.
  */
 import { z } from 'zod';
+import { zonedParts } from '../../calendar/engine/zoned';
 import { clockWords } from './live';
 import { NETWORKS, PLATFORM_KEYS } from './networks';
 import { itemKey, workKey, type PlanItem, type Work } from './plan-rules';
@@ -106,21 +107,9 @@ export const PLAN_CHANGE_UI = {
 
 /** A moment on the business's clock: its day there, and the minutes into it. */
 function localAt(at: string | Date | number, timeZone: string): { day: string; minutes: number } {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: timeZone || 'UTC',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(at));
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((p) => p.type === type)?.value ?? '00';
-  return {
-    day: `${part('year')}-${part('month')}-${part('day')}`,
-    minutes: Number(part('hour')) * 60 + Number(part('minute')),
-  };
+  const { year, month, day, hour, minute } = zonedParts(new Date(at).getTime(), timeZone || 'UTC');
+  const two = (n: number) => String(n).padStart(2, '0');
+  return { day: `${year}-${two(month)}-${two(day)}`, minutes: hour * 60 + minute };
 }
 
 const asClock = (minutes: number): string =>
