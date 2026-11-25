@@ -1,7 +1,7 @@
 /**
  * What the driver does once the database has ended a transaction for sitting idle, run in a process of its own
- * because one of the two outcomes stops it (worker-limits.test.ts). `returns`: the work comes back afterwards, as a
- * slow provider call would. `never`: it doesn't.
+ * because the driver alone stopped the process in one of the two outcomes (worker-limits.test.ts). `returns`: the
+ * work comes back afterwards, as a slow provider call would. `never`: it doesn't.
  */
 import { setTimeout as pause } from 'node:timers/promises';
 import postgres from 'postgres';

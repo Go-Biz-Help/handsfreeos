@@ -75,7 +75,9 @@ jobs:
         run: |
           docker run --rm --entrypoint sh hfos-${{ matrix.app }}:check -c \
             "grep -q 'options.shared.remembered' /app/node_modules/postgres/src/connection.js \
-              && grep -q 'options.shared.remembered' /app/node_modules/postgres/cjs/src/connection.js" || {
+              && grep -q 'options.shared.remembered' /app/node_modules/postgres/cjs/src/connection.js \
+              && grep -q 'TRANSACTION_OVER' /app/node_modules/postgres/src/index.js \
+              && grep -q 'TRANSACTION_OVER' /app/node_modules/postgres/cjs/src/index.js" || {
             echo "::error::The ${{ matrix.app }} image's postgres driver is not patched (patches/postgres@3.4.9.patch)."
             exit 1
           }

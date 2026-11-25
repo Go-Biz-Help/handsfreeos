@@ -11,6 +11,8 @@
  *   - Values are written exactly as before: lists, ids, documents, yes/no, bytes, times.
  *   - A column that changes type is noticed on the next run, and the statement is asked about again.
  *   - Requests never see each other's sign-in, however many run at once.
+ *   - A transaction that is over takes nothing more. Its connection is the next request's by then, so a statement
+ *     from code that kept going would have run as that request. The patch refuses it instead.
  *
  * These read the messages the driver sends, through a relay between it and the database. If the first test fails
  * after the driver was upgraded, the patch is gone: "Round trips to the database" in `docs/operations.md`.
@@ -18,7 +20,7 @@
 import { randomUUID } from 'node:crypto';
 import { connect, createServer, type Server, type Socket } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { asUser, createDb, rows, sql, StatementTypes, type DbHandle } from '../src/client';
+import { asUser, createDb, rows, sql, StatementTypes, type DbHandle, type Tx } from '../src/client';
 import { closeAll, testEnv } from './harness';
 
 /** One message the driver sent, and how many statements the database had finished answering by then. */
@@ -351,6 +353,99 @@ describe('many requests at once', () => {
       ),
     );
     expect(left.every(([row]) => row!.claims === null && row!.who !== 'authenticated')).toBe(true);
+  });
+});
+
+describe('a transaction that is over', () => {
+  const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+  it('takes nothing more, after a commit or after a failure', async () => {
+    const handle = createDb(testEnv.apiDbUrl, { max: 1, applicationName: 'hfos-test-trips' });
+    open.push(handle);
+    let kept: Tx | undefined;
+
+    await handle.db.transaction(async (tx) => {
+      kept = tx;
+      await rows(tx, sql`select ${1}::int as n`);
+    });
+    await expect(rows(kept!, sql`select ${2}::int as n`)).rejects.toMatchObject({
+      cause: { code: 'TRANSACTION_OVER' },
+    });
+
+    const failed = handle.db.transaction(async (tx) => {
+      kept = tx;
+      await rows(tx, sql`select ${'not a number'}::int as n`);
+    });
+    await expect(failed).rejects.toMatchObject({ cause: { code: '22P02' } });
+    await expect(rows(kept!, sql`select ${3}::int as n`)).rejects.toMatchObject({
+      cause: { code: 'TRANSACTION_OVER' },
+    });
+
+    // The connection is as good as before.
+    expect(await rows(handle.db, sql`select ${4}::int as n`)).toEqual([{ n: 4 }]);
+  });
+
+  it('never answers code that keeps asking as the next request', async () => {
+    // One of a request's branches fails while another keeps asking, whatever it is told: as code with a wait of
+    // its own in it could (a provider's answer, a timer). The connection is another person's request by then.
+    const handle = createDb(testEnv.apiDbUrl, { max: 2, applicationName: 'hfos-test-trips' });
+    open.push(handle);
+    const others = Array.from({ length: 12 }, () => randomUUID());
+    const failing = Array.from({ length: 12 }, () => randomUUID());
+    const stubborn: Promise<void>[] = [];
+    const answeredLate: string[] = [];
+    const othersWrong: string[] = [];
+    let refused = 0;
+
+    for (let round = 0; round < 4; round++) {
+      await Promise.all([
+        ...others.map((sub) =>
+          asUser(handle.db, { sub }, async (tx) => {
+            for (let i = 0; i < 4; i++) {
+              const together = await Promise.all(
+                [1, 2, 3].map((k) =>
+                  rows<{ uid: string }>(tx, sql`select auth.uid()::text as uid, ${k}::int as k`),
+                ),
+              );
+              for (const [row] of together) if (row!.uid !== sub) othersWrong.push(row!.uid);
+            }
+          }),
+        ),
+        ...failing.map((sub) =>
+          asUser(handle.db, { sub }, async (tx) => {
+            let over = false;
+            stubborn.push(
+              (async () => {
+                for (let i = 0; i < 10; i++) {
+                  const late = over;
+                  try {
+                    const [row] = await rows<{ uid: string | null; who: string }>(
+                      tx,
+                      sql`select auth.uid()::text as uid, current_user::text as who, ${i}::int as i`,
+                    );
+                    if (late) answeredLate.push(`${row!.uid} as ${row!.who}`);
+                  } catch (e) {
+                    if ((e as { cause?: { code?: string } }).cause?.code === 'TRANSACTION_OVER')
+                      refused++;
+                  }
+                  await pause(1);
+                }
+              })(),
+            );
+            try {
+              await rows(tx, sql`select ${'not a number'}::int as n`);
+            } finally {
+              over = true;
+            }
+          }).catch(() => {}),
+        ),
+      ]);
+    }
+    await Promise.all(stubborn);
+
+    expect(answeredLate).toEqual([]);
+    expect(othersWrong).toEqual([]);
+    expect(refused).toBeGreaterThan(100);
   });
 });
 

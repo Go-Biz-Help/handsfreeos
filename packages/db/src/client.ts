@@ -79,9 +79,11 @@ const USER_IDLE_IN_TRANSACTION_TIMEOUT = '30s';
  *
  * - The outbox runs its handlers inside one transaction, and honest work leaves it idle for minutes: a file import
  *   runs from start to end inside its handler (handlers/import-run.ts), in transactions of its own.
- * - When the database ends an idle transaction, this driver (postgres 3.4.9) rejects the transaction at once, and
- *   then writes its COMMIT or ROLLBACK to the closed socket when the work at last returns: a TypeError outside any
- *   promise, which stops the process. `packages/db/test/worker-limits.test.ts` keeps both halves in view.
+ * - When the database ends an idle transaction, this driver (postgres 3.4.9) rejects the transaction at once. Left
+ *   alone it then wrote its COMMIT or ROLLBACK to the closed socket when the work at last returned: a TypeError
+ *   outside any promise, which stopped the process. `patches/postgres@3.4.9.patch` ends that (nothing goes out on a
+ *   transaction that is over), and `packages/db/test/worker-limits.test.ts` keeps both halves in view. So a limit
+ *   could be thought about again, but the first reason stands on its own.
  *
  * What bounds an idle worker transaction is each provider call's own time limit (Twilio, Postmark, Meta and the
  * rest), so a call made from inside the outbox's transaction always ends.
@@ -110,6 +112,10 @@ const LONGEST_REMEMBERED = 30_000;
  * a column changes type, the first run of each statement that takes it forgets, and the next asks first again. That
  * first run is written by the old type. It only matters between a yes/no, bytes or list column and another kind,
  * where the database refuses the value; every other value is written the same for any type.
+ *
+ * Sending early has a price the patch pays too: a transaction that is over takes nothing more. Its connection is
+ * the next request's by then, and where a late statement used to wait its turn (and mostly never ran), it would now
+ * go straight out and run as that request. The driver refuses it instead (`TRANSACTION_OVER`).
  *
  * Kept per client, by the statement's text and the types its values show, oldest out first.
  * `packages/db/test/statement-trips.test.ts` holds all of it; "Round trips to the database" in

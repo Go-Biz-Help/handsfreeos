@@ -59,6 +59,61 @@ index 07f6716702ac888215c86ad6e0071aaf55ae519c..3e66cc60250981f371f0ee711437c6c3
      query.describeFirst && !query.onlyDescribe && (write(prepared(query)), query.describeFirst = false)
    }
  
+diff --git a/cjs/src/index.js b/cjs/src/index.js
+index f09c61c7e998f411560b95c9a8e1ed6a97972c11..4f1a73a519fe7336938a29161b8c9c86965bed94 100644
+--- a/cjs/src/index.js
++++ b/cjs/src/index.js
+@@ -237,6 +237,8 @@ function Postgres(a, b) {
+     let savepoints = 0
+       , connection
+       , prepare = null
++      , last = null
++      , over = false
+ 
+     try {
+       await sql.unsafe('begin ' + options.replace(/[^a-z ]/ig, ''), [], { onexecute }).execute()
+@@ -246,6 +248,8 @@ function Postgres(a, b) {
+       ])
+     } catch (error) {
+       throw error
++    } finally {
++      over = true
+     }
+ 
+     async function scope(c, fn, name) {
+@@ -267,15 +271,15 @@ function Postgres(a, b) {
+       } catch (e) {
+         await (name
+           ? sql`rollback to ${ sql(name) }`
+-          : sql`rollback`
++          : (last = sql`rollback`)
+         )
+         throw e instanceof PostgresError && e.code === '25P02' && uncaughtError || e
+       }
+ 
+       if (!name) {
+         prepare
+-          ? await sql`prepare transaction '${ sql.unsafe(prepare) }'`
+-          : await sql`commit`
++          ? await (last = sql`prepare transaction '${ sql.unsafe(prepare) }'`)
++          : await (last = sql`commit`)
+       }
+ 
+       return result
+@@ -289,6 +293,13 @@ function Postgres(a, b) {
+       }
+ 
+       function handler(q) {
++        // HandsFreeOS (patches/postgres@3.4.9.patch): once the transaction's commit or rollback has been sent,
++        // nothing else goes out on it. Its connection is the next transaction's by then, so a query from code
++        // that kept going (one of several branches, after another failed) would run as that one, signed in as
++        // whoever it belongs to.
++        if (over || (last && q !== last))
++          return q.reject(Errors.generic('TRANSACTION_OVER', 'A query was sent on a transaction that has ended'))
++
+         q.catch(e => uncaughtError || (uncaughtError = e))
+         c.queue === full
+           ? queries.push(q)
 diff --git a/src/connection.js b/src/connection.js
 index 1b1cccde43b4570d5d071d6ffaab2669b3c2065a..4e3ccda8db3d3dd8f02a2e37f23d58556b3bf081 100644
 --- a/src/connection.js
@@ -120,3 +175,58 @@ index 1b1cccde43b4570d5d071d6ffaab2669b3c2065a..4e3ccda8db3d3dd8f02a2e37f23d5855
      query.describeFirst && !query.onlyDescribe && (write(prepared(query)), query.describeFirst = false)
    }
  
+diff --git a/src/index.js b/src/index.js
+index c7fba3dace20173f4cb13f3f138bb6d213b43683..c0ac72000fdfe476e7c42b2e86f4c71eea4842bc 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -237,6 +237,8 @@ function Postgres(a, b) {
+     let savepoints = 0
+       , connection
+       , prepare = null
++      , last = null
++      , over = false
+ 
+     try {
+       await sql.unsafe('begin ' + options.replace(/[^a-z ]/ig, ''), [], { onexecute }).execute()
+@@ -246,6 +248,8 @@ function Postgres(a, b) {
+       ])
+     } catch (error) {
+       throw error
++    } finally {
++      over = true
+     }
+ 
+     async function scope(c, fn, name) {
+@@ -267,15 +271,15 @@ function Postgres(a, b) {
+       } catch (e) {
+         await (name
+           ? sql`rollback to ${ sql(name) }`
+-          : sql`rollback`
++          : (last = sql`rollback`)
+         )
+         throw e instanceof PostgresError && e.code === '25P02' && uncaughtError || e
+       }
+ 
+       if (!name) {
+         prepare
+-          ? await sql`prepare transaction '${ sql.unsafe(prepare) }'`
+-          : await sql`commit`
++          ? await (last = sql`prepare transaction '${ sql.unsafe(prepare) }'`)
++          : await (last = sql`commit`)
+       }
+ 
+       return result
+@@ -289,6 +293,13 @@ function Postgres(a, b) {
+       }
+ 
+       function handler(q) {
++        // HandsFreeOS (patches/postgres@3.4.9.patch): once the transaction's commit or rollback has been sent,
++        // nothing else goes out on it. Its connection is the next transaction's by then, so a query from code
++        // that kept going (one of several branches, after another failed) would run as that one, signed in as
++        // whoever it belongs to.
++        if (over || (last && q !== last))
++          return q.reject(Errors.generic('TRANSACTION_OVER', 'A query was sent on a transaction that has ended'))
++
+         q.catch(e => uncaughtError || (uncaughtError = e))
+         c.queue === full
+           ? queries.push(q)
