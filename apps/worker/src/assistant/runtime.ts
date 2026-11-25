@@ -53,6 +53,7 @@ import { billingStepLabels } from './tools-billing';
 import { documentStepLabels } from './tools-documents';
 import { contentStepLabels } from './tools-content';
 import { extraStepLabels } from './tools-extra';
+import { filesOutStepLabels } from './tools-files-out';
 import { routineStepLabels } from './tools-routines';
 import { inboxCrmStepLabels } from './tools-inbox-crm';
 import { mainOfferStepLabels } from './tools-main-offer';
@@ -334,6 +335,7 @@ const MORE_STEP_LABELS: Record<string, string> = {
   ...moreSettingsStepLabels,
   ...extraStepLabels,
   ...routineStepLabels,
+  ...filesOutStepLabels,
   ...documentStepLabels,
   ...safetyStepLabels,
   ...addonStepLabels,

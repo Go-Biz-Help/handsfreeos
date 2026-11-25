@@ -35,6 +35,7 @@ import {
   ChoicesCard,
   CustomerCard,
   DoneCard,
+  FileCard,
   LeadCard,
   ListCard,
   NumbersCard,
@@ -287,6 +288,8 @@ function AnswerCardView({
       return <ListCard card={card} />;
     case 'done':
       return <DoneCard card={card} />;
+    case 'file':
+      return <FileCard card={card} />;
     case 'confirm':
       return <ConfirmCard card={card} onEdit={onEdit} />;
     case 'call':

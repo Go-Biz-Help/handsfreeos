@@ -64,6 +64,8 @@ const LINK_ROUTES: Readonly<Record<string, string>> = {
 const NOT_A_LINK: Readonly<Record<string, string>> = {
   '/v1/zoom-live/link':
     'connects the person’s own Zoom account once they have signed in to Zoom, which only they can do',
+  '/v1/assistant/files/link':
+    'the Download button on a file the Assistant made, opened by the person it’s for; email_file sends the file itself',
 };
 
 /**

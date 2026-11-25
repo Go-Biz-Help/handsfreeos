@@ -2610,3 +2610,45 @@ export function routineAnswerEmail(input: {
   );
   return { subject, text, html };
 }
+
+/**
+ * A spreadsheet or report the Assistant made (assistant/tools-files-out.ts), attached: to the person who asked, when
+ * they said to email it (`toSelf`), or to someone they chose on a Confirm card, with their note, in their name.
+ */
+export function madeFileEmail(input: {
+  business: string;
+  /** "Who owes money". */
+  title: string;
+  /** As attached: "Who owes money 2026-11-25.xlsx". */
+  fileName: string;
+  /** Who sent it, for someone else: "Dale Ortiz". Null when it's to the person who asked. */
+  from: string | null;
+  note: string | null;
+}): EmailContent {
+  const subject = input.from
+    ? `${input.title} · from ${input.from} at ${input.business}`
+    : `${input.title} · ${input.business}`;
+  const lead = input.from
+    ? `${input.from} at ${input.business} sent you ${input.fileName}. It’s attached.`
+    : `Here’s ${input.fileName}, which you asked the Assistant for. It’s attached.`;
+  const note = input.note?.trim() || null;
+  const text = [
+    lead,
+    ...(note ? ['', note] : []),
+    ...(input.from ? ['', 'Reply to this email to answer them.'] : []),
+  ].join('\n');
+  const html = shell(
+    preheader(lead) +
+      wordmark +
+      `<p style="font-size: 17px; font-weight: 600; line-height: 1.4; margin: 0 0 14px;">${escapeHtml(input.title)}</p>` +
+      para(escapeHtml(lead)) +
+      (note
+        ? note
+            .split(/\n{2,}/)
+            .map((p) => para(escapeHtml(p).replace(/\n/g, '<br>')))
+            .join('')
+        : '') +
+      (input.from ? small('Reply to this email to answer them.') : ''),
+  );
+  return { subject, text, html };
+}

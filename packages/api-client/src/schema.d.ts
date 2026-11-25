@@ -78482,6 +78482,15 @@ export interface operations {
                                 type: "done";
                                 undoable: boolean;
                             } | {
+                                detail: string;
+                                emailedTo: string | null;
+                                fileKey: string;
+                                /** @enum {string} */
+                                format: "excel" | "csv" | "pdf";
+                                name: string;
+                                /** @enum {string} */
+                                type: "file";
+                            } | {
                                 body: string | null;
                                 confirmLabel: string;
                                 conversationId: string | null;

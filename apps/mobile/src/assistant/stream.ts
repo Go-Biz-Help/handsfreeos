@@ -249,4 +249,8 @@ export const cancelToolCall = (id: string, workspaceId: string) =>
 export const undoToolCall = (id: string, workspaceId: string) =>
   post<DecisionOut>(`/v1/assistant/tool-calls/${encodeURIComponent(id)}/undo`, { workspaceId });
 
+/** Download on a file the Assistant made: a link to it for five minutes (404 once it's past keeping). */
+export const madeFileLink = (workspaceId: string, fileKey: string) =>
+  post<{ url: string; name: string }>('/v1/assistant/files/link', { workspaceId, fileKey });
+
 export type { AssistantCard };

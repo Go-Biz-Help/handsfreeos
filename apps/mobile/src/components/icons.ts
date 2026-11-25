@@ -67,6 +67,7 @@ export { default as ExternalLink } from 'lucide-react-native/icons/external-link
 export { default as Eye } from 'lucide-react-native/icons/eye';
 export { default as EyeOff } from 'lucide-react-native/icons/eye-off';
 export { default as FilePenLine } from 'lucide-react-native/icons/file-pen-line';
+export { default as FileSpreadsheet } from 'lucide-react-native/icons/file-spreadsheet';
 export { default as FileText } from 'lucide-react-native/icons/file-text';
 export { default as FileUp } from 'lucide-react-native/icons/file-up';
 export { default as Fingerprint } from 'lucide-react-native/icons/fingerprint-pattern';
