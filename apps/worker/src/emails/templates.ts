@@ -2566,3 +2566,47 @@ export function emailDomainStepsEmail(input: {
   );
   return { subject, text, html };
 }
+
+/**
+ * The answer to a question someone asked the Assistant to ask on a schedule (reminders/questions.ts), when they said
+ * to email it too. The answer as the Assistant wrote it, as plain paragraphs: the chat has it with its links.
+ */
+export function routineAnswerEmail(input: {
+  business: string;
+  question: string;
+  /** "Every Monday at 8:00 AM". */
+  when: string;
+  answer: string;
+  link: string;
+  /** Settings → Notifications, where it's paused or stopped. */
+  manage: string;
+}): EmailContent {
+  const plain = input.answer
+    .replace(/\*\*|__|`/g, '')
+    .replace(/^#+\s*/gm, '')
+    .trim();
+  const subject = `${input.question.length > 70 ? `${input.question.slice(0, 69)}…` : input.question} · ${input.business}`;
+  const stop = `You asked the Assistant to answer this ${input.when.charAt(0).toLowerCase()}${input.when.slice(1)}. To pause or stop it, go to Settings, then Notifications: ${input.manage}`;
+  const text = [
+    input.question,
+    '',
+    plain,
+    '',
+    `See it in HandsFreeOS: ${input.link}`,
+    '',
+    stop,
+  ].join('\n');
+  const html = shell(
+    preheader(plain.slice(0, 140)) +
+      wordmark +
+      `<p style="font-size: 13px; color: #5b616a; margin: 0 0 6px;">${escapeHtml(input.when)} · ${escapeHtml(input.business)}</p>` +
+      `<p style="font-size: 17px; font-weight: 600; line-height: 1.4; margin: 0 0 14px;">${escapeHtml(input.question)}</p>` +
+      plain
+        .split(/\n{2,}/)
+        .map((p) => para(escapeHtml(p).replace(/\n/g, '<br>')))
+        .join('') +
+      button(input.link, 'See it in HandsFreeOS') +
+      small(escapeHtml(stop)),
+  );
+  return { subject, text, html };
+}

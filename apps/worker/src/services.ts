@@ -4,6 +4,7 @@ import type { RequestMeta, SystemActor } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import type { AuthAdmin } from './account/auth-admin';
+import type { AssistantServices } from './assistant/routes';
 import type { AiSwitchboard } from './ai/switch';
 import type { BookingLinks } from './booking/links';
 import type { CalendarServices } from './calendar/index';
@@ -139,6 +140,11 @@ export interface WorkerServices {
    * business's own daily AI limit, shared with the Assistant, is in the database (ai/budget.ts).
    */
   readonly ai: { readonly provider: AiProvider | null };
+  /**
+   * The Assistant, for the questions people ask it to ask on a schedule (reminders/questions.ts): the same model and
+   * tools as Ask HandsFreeOS. Absent where it isn't set up, and those questions wait.
+   */
+  readonly assistant?: AssistantServices | null;
   /**
    * Which AI answers, Claude or OpenAI while Claude is in trouble (ai/switch.ts): what the 5-minute check works
    * on. Missing without OPENAI_API_KEY, and then there is no backup.

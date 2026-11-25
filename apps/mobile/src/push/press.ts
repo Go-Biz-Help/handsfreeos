@@ -180,6 +180,17 @@ export const BUTTON_WORDS: Readonly<Record<PushButton, Words>> = {
     waiting: 'Fifteen more minutes on this phone; HandsFreeOS hears it once it can be reached.',
     refused: 'No time was added. Open HandsFreeOS and add time, or check out.',
   },
+  // A task's reminder at its time, from the lock screen.
+  task_done: {
+    unlock: '',
+    waiting: 'It’s ticked off as soon as HandsFreeOS can be reached.',
+    refused: 'It wasn’t ticked off. Open Tasks to do it there.',
+  },
+  task_later: {
+    unlock: '',
+    waiting: 'It’s moved an hour on as soon as HandsFreeOS can be reached.',
+    refused: 'It wasn’t moved. Open Tasks to change its time.',
+  },
 };
 
 /**
@@ -425,6 +436,8 @@ export const SENT_WORDS: Readonly<Record<PushButton, string>> = {
   open: '',
   im_ok: 'Checked out. Glad you’re OK.',
   add_15: 'Fifteen more minutes.',
+  task_done: 'Done. It’s ticked off.',
+  task_later: 'You’ll be reminded again in an hour.',
 };
 
 /** A press that was already done, on this phone or another. */

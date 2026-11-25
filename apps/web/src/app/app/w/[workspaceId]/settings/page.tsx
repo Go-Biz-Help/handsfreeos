@@ -7,6 +7,7 @@ import { GoogleSection } from '@/components/settings/google-section';
 import { MenuSection } from '@/components/settings/menu-section';
 import { MyCellSection } from '@/components/settings/my-cell-section';
 import { NotificationsSection } from '@/components/settings/notifications-section';
+import { AssistantRoutinesSection } from '@/components/settings/assistant-routines-section';
 import { PasskeysSection } from '@/components/settings/passkeys-section';
 import { PasswordSection } from '@/components/settings/password-section';
 import { ProfileForm } from '@/components/settings/profile-form';
@@ -24,7 +25,7 @@ export default async function SettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const [me, devices, cell, about, deletion, phone, platform] = await Promise.all([
+  const [me, devices, cell, about, deletion, phone, platform, routines] = await Promise.all([
     getMe(),
     api.POST('/v1/queries/push_device.list', { body: {} }).then(unwrap),
     api.POST('/v1/queries/user_phone.get', { body: {} }).then(unwrap),
@@ -38,6 +39,11 @@ export default async function SettingsPage({
       .catch(() => null),
     // Whether they answer HandsFreeOS support: only then is New support tickets a row of theirs.
     getPlatformMe(),
+    // What they asked the Assistant to do on its own here, under Notifications: theirs alone.
+    api
+      .POST('/v1/queries/assistant_routine.list', { body: { workspaceId } })
+      .then(unwrap)
+      .catch(() => ({ items: [] })),
   ]);
   // The business as the shell draws it, not from the person's own list: the founder working in one as its owner
   // (20261013002100) isn't in that list.
@@ -112,6 +118,11 @@ export default async function SettingsPage({
               },
               push: pushSwitchesOf(me.user.settings),
             }}
+          />
+          <AssistantRoutinesSection
+            workspaceId={workspaceId}
+            timeZone={current.timezone}
+            initial={routines.items}
           />
         </Card>
         <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">

@@ -16,6 +16,8 @@ const ids = {
   approve: '10000000-0000-4000-8000-000000000005',
   im_ok: '10000000-0000-4000-8000-000000000006',
   add_15: '10000000-0000-4000-8000-000000000007',
+  task_done: '10000000-0000-4000-8000-000000000008',
+  task_later: '10000000-0000-4000-8000-000000000009',
 } as const;
 
 export function customerMessage(overrides: Partial<PushData> = {}): PushData {
@@ -137,6 +139,27 @@ export function extensionSignIn(overrides: Partial<PushData> = {}): PushData {
     collapseId: `sign-in-${SIGN_IN}`,
     title: 'Signing in to the extension on Chrome?',
     body: 'Open to pick the number the extension shows. It ends in 2 minutes.',
+    ...overrides,
+  };
+}
+
+/** A task's reminder at its time (apps/worker/src/reminders/task-due.ts), to whoever has it. */
+export const TASK = '55555555-5555-4555-8555-555555555555';
+export function taskDue(overrides: Partial<PushData> = {}): PushData {
+  return {
+    v: 1,
+    notificationId: '20000000-0000-4000-8000-000000000010',
+    category: 'task_due',
+    workspaceId: LONE_STAR,
+    business: 'Lone Star HVAC & Roofing',
+    path: `/app/w/${LONE_STAR}/tasks`,
+    sentAt: '2026-11-25T21:00:00.000Z',
+    refs: { taskId: TASK },
+    commandIds: { task_done: ids.task_done, task_later: ids.task_later },
+    collapseId: `task-${TASK}`,
+    title: 'Reminder',
+    subtitle: 'Task · Lone Star HVAC & Roofing',
+    body: 'Call Bob back about the quote',
     ...overrides,
   };
 }

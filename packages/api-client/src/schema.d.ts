@@ -1277,6 +1277,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/assistant_routine.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the Assistant to do something on its own, for you alone: a question it asks on a schedule (its answer to your phone, and email if you say), or an alert when something happens.
+         * @description Risk level 1. Requires assistant.use. Emits assistant_routine.changed.
+         */
+        post: operations["command_assistant_routine_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/assistant_routine.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop one of the things you asked the Assistant for, for good. The answers it already gave stay in its chat.
+         * @description Risk level 1. Emits assistant_routine.changed.
+         */
+        post: operations["command_assistant_routine_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/assistant_routine.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change one of the things you asked the Assistant for: pause or resume it, or change its question, when it runs, the email, or what it watches for.
+         * @description Risk level 1. Requires assistant.use. Emits assistant_routine.changed.
+         */
+        post: operations["command_assistant_routine_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/assistant_thread.archive": {
         parameters: {
             query?: never;
@@ -20157,6 +20217,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/assistant_routine.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What you asked the Assistant to do on its own here: questions it asks on a schedule, and alerts, with when each runs next.
+         * @description Any signed-in user.
+         */
+        post: operations["query_assistant_routine_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/assistant_thread.get": {
         parameters: {
             query?: never;
@@ -30601,6 +30681,171 @@ export interface operations {
                         /** @default [] */
                         notApplied: string[];
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_assistant_routine_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cadence?: {
+                        at: string;
+                        days: number[];
+                        /** @enum {string} */
+                        every: "weekly";
+                    } | {
+                        at: string;
+                        day: number | "last";
+                        /** @enum {string} */
+                        every: "monthly";
+                    };
+                    email?: boolean;
+                    /** @enum {string} */
+                    kind: "question" | "alert";
+                    once?: boolean;
+                    question?: string;
+                    watch?: {
+                        /** @enum {string} */
+                        on: "reply";
+                        /** Format: uuid */
+                        personId: string;
+                    } | {
+                        /** @enum {string} */
+                        on: "booking";
+                        /** Format: uuid */
+                        personId: string;
+                    } | {
+                        atMost: number;
+                        /** @enum {string} */
+                        on: "review";
+                    } | {
+                        atLeastCents: number;
+                        /** @enum {string} */
+                        on: "payment";
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        nextRunAt: string | null;
+                        /** Format: uuid */
+                        routineId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_assistant_routine_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    routineId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        routineId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_assistant_routine_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cadence?: {
+                        at: string;
+                        days: number[];
+                        /** @enum {string} */
+                        every: "weekly";
+                    } | {
+                        at: string;
+                        day: number | "last";
+                        /** @enum {string} */
+                        every: "monthly";
+                    };
+                    email?: boolean;
+                    once?: boolean;
+                    paused?: boolean;
+                    question?: string;
+                    /** Format: uuid */
+                    routineId: string;
+                    watch?: {
+                        /** @enum {string} */
+                        on: "reply";
+                        /** Format: uuid */
+                        personId: string;
+                    } | {
+                        /** @enum {string} */
+                        on: "booking";
+                        /** Format: uuid */
+                        personId: string;
+                    } | {
+                        atMost: number;
+                        /** @enum {string} */
+                        on: "review";
+                    } | {
+                        atLeastCents: number;
+                        /** @enum {string} */
+                        on: "payment";
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        nextRunAt: string | null;
+                        /** Format: uuid */
+                        routineId: string;
                     };
                 };
             };
@@ -77981,6 +78226,80 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             provider: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_assistant_routine_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            cadence: ({
+                                at: string;
+                                days: number[];
+                                /** @enum {string} */
+                                every: "weekly";
+                            } | {
+                                at: string;
+                                day: number | "last";
+                                /** @enum {string} */
+                                every: "monthly";
+                            }) | null;
+                            email: boolean;
+                            firedCount: number;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "question" | "alert";
+                            lastFiredAt: string | null;
+                            lastRunAt: string | null;
+                            nextRunAt: string | null;
+                            once: boolean;
+                            paused: boolean;
+                            question: string | null;
+                            threadId: string | null;
+                            watch: ({
+                                /** @enum {string} */
+                                on: "reply";
+                                /** Format: uuid */
+                                personId: string;
+                            } | {
+                                /** @enum {string} */
+                                on: "booking";
+                                /** Format: uuid */
+                                personId: string;
+                            } | {
+                                atMost: number;
+                                /** @enum {string} */
+                                on: "review";
+                            } | {
+                                atLeastCents: number;
+                                /** @enum {string} */
+                                on: "payment";
+                            }) | null;
+                            when: string;
                         }[];
                     };
                 };

@@ -243,6 +243,18 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
       'This sets your hours and time off now, so customers can only book inside them. It never connects Google, Outlook or Zoom: only you can sign in, from Settings → My calendar.',
   },
   'live_meeting_account.disconnect': { offeredTo: 'assistant.use' },
+  // What the person asks the Assistant to do on its own (25 Nov 2026): a question on a schedule, or an alert, made by
+  // schedule_question and set_alert. Theirs alone, listed on Settings → Account under Notifications (and the phone's
+  // Notifications), where each pauses or goes.
+  'assistant_routine.update': {
+    about:
+      'routineId from read_assistant_routine_list. paused true pauses it, false turns it on again; or change its question, cadence or email (a question), or its watch or once (an alert).',
+  },
+  // Anyone may delete their own, even after losing the Assistant; it's offered to those who have it.
+  'assistant_routine.delete': {
+    offeredTo: 'assistant.use',
+    about: 'routineId from read_assistant_routine_list. Gone for good; pausing keeps it.',
+  },
   // ---- Settings → Workspace, Add-ons and Safety ----
   'look.find': {},
   'look.set': {},
@@ -728,6 +740,8 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   'notifications.qualifying': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'qualifying' }],
   'notifications.documents': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'documents' }],
   'notifications.stock': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'stock' }],
+  'notifications.tasks': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'tasks' }],
+  'notifications.assistant': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'assistant' }],
   'notifications.payments': [
     { tool: 'update_my_alerts', field: 'turnOn', value: 'payment' },
     { tool: 'update_my_account', field: 'emailWhenPaid' },

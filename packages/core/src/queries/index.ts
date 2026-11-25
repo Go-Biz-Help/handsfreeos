@@ -50,6 +50,7 @@ import {
   attentionSummary,
 } from './attention';
 import { assistantThreadGet, assistantThreadList } from './assistant';
+import { assistantRoutineList } from './assistant-routine';
 import { chatWidgetGet, chatWidgetList } from './chat';
 import { auditList } from './audit.list';
 import { appointmentTranscriptList, meetingConnectionList } from '../commands/meeting-connection';
@@ -208,6 +209,7 @@ export {
   brandedDomainGet,
   assistantThreadGet,
   assistantThreadList,
+  assistantRoutineList,
   auditList,
   companyGet,
   companyList,
@@ -378,6 +380,7 @@ export const queries: readonly QueryDef[] = [
   emailComposeOptions,
   assistantThreadList,
   assistantThreadGet,
+  assistantRoutineList,
   calendarList,
   calendarGet,
   calendarAvailability,

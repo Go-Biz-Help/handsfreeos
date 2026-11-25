@@ -150,9 +150,10 @@ export const ROUTES: readonly Rule[] = [
   // Raising a document (`…/new`) and one plan's own page have no rule, so the map's own fallback opens the web:
   // making and editing documents, and managing a plan, are the web's in M10.
   { web: 'workflows/approvals', phone: 'approvals', query: ['filter'] },
-  // Ask HandsFreeOS. The web has no page of its own for it (it's a panel over whatever page you're on), so this is
-  // for the app's own links — `handsfreeos://app/w/<business>/assistant` opens the Assistant full screen.
-  { web: 'assistant', phone: 'ask' },
+  // Ask HandsFreeOS. On the web it's a panel over whatever page you're on, which `/assistant` opens; on the phone
+  // `handsfreeos://app/w/<business>/assistant` opens the Assistant full screen. A scheduled question's answer
+  // (`?chat=<id>`, its push and email) opens in its own chat.
+  { web: 'assistant', phone: 'ask', query: ['chat'] },
   // Settings → Account on the web is you and your notifications: the phone's own Settings, and its Notifications
   // section (`#notifications`, where the Assistant's alert cards land) the phone's Notifications screen.
   { web: 'settings', phone: 'settings/notifications', hash: 'notifications' },

@@ -401,6 +401,10 @@ export function assistantCancelledText(card: ConfirmCard): string {
       return 'Not answered. It’s still waiting for a decision.';
     case 'add_knowledge_item':
       return 'Nothing added.';
+    case 'schedule_question':
+      return 'Not set up. Nothing will be asked.';
+    case 'set_alert':
+      return 'No alert set.';
     case 'handle_attention_item':
       return 'Not handled. It’s still on Home.';
     case 'update_attention_item':

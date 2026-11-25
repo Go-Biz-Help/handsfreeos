@@ -36,7 +36,12 @@ export default function Ask() {
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardHeight();
   const { online } = useNetwork();
-  const params = useLocalSearchParams<{ type?: string; id?: string; from?: string }>();
+  const params = useLocalSearchParams<{
+    type?: string;
+    id?: string;
+    from?: string;
+    chat?: string;
+  }>();
   const page = React.useMemo(() => pageRecordOf(params), [params.type, params.id]);
   // Changes on this phone go with each question: they never reached HandsFreeOS, so only the phone can say.
   const changeList = useChangeList();
@@ -54,6 +59,16 @@ export default function Ask() {
   const [files, setFiles] = React.useState<readonly DraftFile[]>([]);
   const [view, setView] = React.useState<'chat' | 'history'>('chat');
   const listRef = React.useRef<FlatList<ChatMessage>>(null);
+
+  // A scheduled question's answer (its push, `?chat=<id>`): that chat, opened once for each link.
+  const openedChat = React.useRef<string | null>(null);
+  const linkedChat = typeof params.chat === 'string' ? params.chat : null;
+  React.useEffect(() => {
+    if (!linkedChat || openedChat.current === linkedChat || !online) return;
+    openedChat.current = linkedChat;
+    setView('chat');
+    void chat.openThread(linkedChat);
+  }, [linkedChat, online, chat.openThread]);
 
   /** Not now, and Close: back where the mark was pressed. */
   const close = () => {

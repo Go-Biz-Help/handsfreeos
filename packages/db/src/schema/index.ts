@@ -2180,6 +2180,32 @@ export const assistantToolCalls = app.table('assistant_tool_calls', {
   ...timestamps(),
 });
 
+/**
+ * What a person asked the Assistant to do on its own (20261027036600): a question on a schedule, answered in its own
+ * chat and sent to their phone; or an alert when something happens. Private to its person, as their chats are.
+ */
+export const assistantRoutineKind = app.enum('assistant_routine_kind', ['question', 'alert']);
+export const assistantRoutines = app.table('assistant_routines', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  kind: assistantRoutineKind('kind').notNull(),
+  question: text('question'),
+  /** core's RoutineCadence. */
+  cadence: jsonb('cadence').$type<Json>(),
+  email: boolean('email').notNull().default(false),
+  threadId: uuid('thread_id').references(() => assistantThreads.id, { onDelete: 'set null' }),
+  nextRunAt: ts('next_run_at'),
+  lastRunAt: ts('last_run_at'),
+  /** core's RoutineWatch. */
+  watch: jsonb('watch').$type<Json>(),
+  once: boolean('once').notNull().default(false),
+  firedCount: integer('fired_count').notNull().default(0),
+  lastFiredAt: ts('last_fired_at'),
+  pausedAt: ts('paused_at'),
+  ...timestamps(),
+});
+
 // ---------- Milestone 5: the calendar (0015-0017) ----------
 export const scheduleOwnerKind = app.enum('schedule_owner_kind', [
   'user',

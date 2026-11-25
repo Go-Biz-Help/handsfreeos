@@ -37,6 +37,7 @@ import { settingsCard } from './tools-settings-calendar';
 import { funnelScreenCards } from './tools-funnels';
 import { documentScreenCards } from './tools-documents';
 import { emailScreenCards } from './tools-settings-channels';
+import { routineScreenCards } from './tools-routines';
 import { workflowScreenCards, type ScreenActionCard } from './tools-workflow';
 
 type Args = Record<string, unknown>;
@@ -49,6 +50,8 @@ const OWN_CARDS: Readonly<Record<string, ScreenActionCard>> = {
   ...documentScreenCards,
   // Giving a left person's address to the team or someone else, saying what that changes.
   ...emailScreenCards,
+  // A question on a schedule or an alert, in words: the question and when, or what it watches for.
+  ...routineScreenCards,
 };
 
 /** A choice the Assistant is never offered (coverage.ts), refused by name whatever the model asked. */

@@ -29,6 +29,7 @@ import { onAiSetupReadRequested } from '../ai-setup/read-site';
 import { onLookFindRequested, onLookUploadReady } from '../look/jobs';
 import { onScheduleCancelled, onTextScheduled } from '../messaging/scheduled';
 import { withPush } from '../push/moments';
+import { withReminders } from '../reminders/index';
 import { withWorkflows } from '../workflows/index';
 import { onPackPushed, onTemplatePushed } from '../workflows/templates';
 import {
@@ -556,7 +557,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
 // so there is no teammate to wake, no workflow to start and nothing to put on anyone's Home.
 export const handlers: HandlerMap = {
   // withContactAi appends the AI's look at a customer's tags and details to what happened with them (contact-ai/).
-  ...withAddons(withPush(withAttention(withContactAi(ownTeammateAndWorkflows)))),
+  // withReminders appends a task's ping at its time, a scheduled question's next run and alerts (reminders/).
+  ...withAddons(withPush(withReminders(withAttention(withContactAi(ownTeammateAndWorkflows))))),
   ...supportHandlers,
   // Support asking to see a business's private records (Real Estate step 4).
   'support_access.requested': [onSupportAccessRequested],

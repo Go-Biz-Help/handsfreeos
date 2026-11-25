@@ -959,6 +959,29 @@ export function AssistantProvider({
     })();
   }, [open, openThread, workspaceId]);
 
+  // A link that opens the panel (`/assistant` lands on Home with it): `?chat=<id>` on that chat, a scheduled
+  // question's answer from its push or email, or `?assistant=open`. Taken off the address once read.
+  useEffect(() => {
+    if (!enabled) return;
+    const url = new URL(window.location.href);
+    const chat = url.searchParams.get('chat');
+    const wanted = url.searchParams.get('assistant') === 'open';
+    if (!chat && !wanted) return;
+    url.searchParams.delete('chat');
+    url.searchParams.delete('assistant');
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+    if (chat && /^[0-9a-f-]{36}$/i.test(chat)) {
+      restoredRef.current = true;
+      setView('chat');
+      void openThread(chat);
+    }
+    setOpenState(true);
+  }, [enabled, openThread, pathname]);
+
   // Opening the panel has the AI read ahead while they type, so their first answer starts sooner. Not before
   // their OK to use the AI (the worker checks too), and it keeps for a few minutes, so once in a while is enough.
   const warmedAtRef = useRef(0);
