@@ -4,6 +4,8 @@
  * web, the phone and the Assistant all show. Pure and browser-safe, like the rest of money/.
  */
 
+import { monthOf } from './usage-keys';
+
 /** The categories an expense goes under: plain words a small business and its accountant both read. */
 export const EXPENSE_CATEGORIES = [
   { id: 'materials', label: 'Materials and supplies' },
@@ -68,13 +70,25 @@ export const expensePaidWithLabel = (id: string | null | undefined): string | nu
 /** "2026-11", the month a day falls in. */
 export const monthOfDay = (day: string): string => day.slice(0, 7);
 
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
 /** "November 2026", or "November" when it's this year. */
 export function monthLabel(month: string, thisYear?: number): string {
   const [y, m] = month.split('-').map(Number) as [number, number];
-  const name = new Date(Date.UTC(y, m - 1, 15)).toLocaleString('en-US', {
-    month: 'long',
-    timeZone: 'UTC',
-  });
+  const name = MONTH_NAMES[m - 1] ?? month;
   return thisYear === y ? name : `${name} ${y}`;
 }
 
@@ -96,16 +110,12 @@ export function monthBounds(month: string): { from: string; to: string } {
   return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, '0')}` };
 }
 
-/** "This month" in a time zone, as "2026-11". */
+/**
+ * "This month" in a time zone, as "2026-11". The wallet's month key works it out, through `intlTimeZone`, so a
+ * device whose time-zone data lacks the business's zone still gets a month.
+ */
 export function monthNow(timeZone: string, now: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-  }).formatToParts(now);
-  const y = parts.find((p) => p.type === 'year')?.value ?? '1970';
-  const m = parts.find((p) => p.type === 'month')?.value ?? '01';
-  return `${y}-${m}`;
+  return monthOf(now, timeZone);
 }
 
 export interface MonthInOut {
