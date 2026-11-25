@@ -13,7 +13,8 @@
  *
  * The second step: HandsFreeOS decides. From 0.156.0 a network's runner asks for its next move (`outreach.plan.next`,
  * ./plan-next.ts) with what only its computer knows (`PlanHere`), and does the move `nextMove` gives. A network at a
- * time: Threads' and X's first; every other still decides each move itself, by the same rules.
+ * time: Threads' and X's first, Alignable's from 0.157.0; every other still decides each move itself, by the same
+ * rules.
  *
  * What the plan that's shown can't see, and says so in its own words rather than guess: whether the person is away
  * from their computer (some reads wait for that, decision 120), a referral to do (decision 185), the helpful post
@@ -396,7 +397,7 @@ export function standsFor(platform: Platform, step: BeforeDay): RunnerJob | null
  * finding again begun).
  *
  * From 0.156.0 this is a runner's own order too, a network at a time (decision 195, step 2): it asks with what only
- * its computer knows (`here`), and does the move it's given. Threads' and X's first.
+ * its computer knows (`here`), and does the move it's given. Threads' and X's first, then Alignable's (0.157.0).
  */
 export function nextMove<I extends PlanItem>(
   facts: PlanFacts<I>,
@@ -491,8 +492,10 @@ export function nextMove<I extends PlanItem>(
   if (asking) return wait('asks', now + ASK_FIRST_MS);
 
   const before = beforeDay(facts.lists, state.before, now, timeZone, platform);
-  // A first day's lists are saved with the window on screen: it waits till the person's away (decision 120).
-  if (before?.do === 'save' && before.first && !away) return wait('screen', now + AWAY_AGAIN_MS);
+  // Where a save of their lists is never begun while they're at their computer (Threads and X), a first day's waits
+  // till they're away (decision 120). Anywhere else the save is tried, and puts itself off.
+  const held = kit.savesAway && !away;
+  if (before?.do === 'save' && before.first && held) return wait('screen', now + AWAY_AGAIN_MS);
   // The comment research is HandsFreeOS's own staff's (decision 172): planned only while one of its batches waits,
   // or as the runner was told.
   const jobs = choices.collect
@@ -521,8 +524,8 @@ export function nextMove<I extends PlanItem>(
     daily = nextJob();
   }
   const searching = kit.searches && choices.collect && !holdsTheDay(before) && watchDue(state, now);
-  // A save of their lists is read only while they're away: till then it isn't part of what's left to read.
-  const beforeGoes = before !== null && (away || before.do !== 'save');
+  // A save held till they're away isn't part of what's left to read meanwhile: the rest of the day goes on.
+  const beforeGoes = before !== null && (!held || before.do !== 'save');
   const reading = beforeGoes || daily !== null || searching;
   // The day's reading and the list take turns (decision 123): a step on the list now, when there's one, after a part
   // of the reading went last.
@@ -545,7 +548,8 @@ export function nextMove<I extends PlanItem>(
   const all = leftOn(kit, list, state);
   if (all[0]) return work(all, reading, own);
   // Nothing left: it looks again within the hour, or when the next batch of checks, the newest posts, its search or a
-  // message tried again is due, whichever is first. Facebook's sleeps till its next hours once they're over.
+  // message tried again is due, whichever is first. Facebook's looks when its hours end too, and sleeps till its next
+  // ones once they're over; any other's next look finds the hours over by itself.
   if (!kit.paced && !inHours) return wait('idle', tomorrow());
   const again = choices.collect ? soonestAgain(state, now) : null;
   // A job put off till the person's away is tried again in a few minutes.
@@ -554,7 +558,7 @@ export function nextMove<I extends PlanItem>(
     'idle',
     Math.min(
       now + (putOff ? AWAY_AGAIN_MS : IDLE_MS),
-      ...(inHours ? [window.to] : []),
+      ...(inHours && !kit.paced ? [window.to] : []),
       ...(again !== null ? [again] : []),
       ...(watches && state.watchAt !== null ? [Math.max(state.watchAt, now)] : []),
       ...(kit.searches && choices.collect && state.watchAt !== null ? [state.watchAt] : []),
