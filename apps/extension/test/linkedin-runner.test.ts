@@ -1292,6 +1292,61 @@ describe('its day', () => {
     );
   });
 
+  it('reads for a comment research this person started outside the working hours too, as it only reads (decision 194)', async () => {
+    keep(day('none'));
+    world.choices = { on: true, sending: 'steps', collect: true, posting: 'after_ok' };
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [item({})],
+      auto: ['warm_up', 'friend_request'],
+      messages: [],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
+    const state = () =>
+      store.get(LINKEDIN_STATE_KEY) as { line: string; daily: Record<string, string> };
+    const researchAsks = () =>
+      world.asked.filter((a) => a.type === 'hfos-comment-research-next').length;
+    // Nobody's research: asked once for the day, kept as none, and it waits for the hours as ever.
+    await linkedInTick();
+    expect(researchAsks()).toBe(1);
+    expect(state().daily.comment_research).toBe('No comment research is running.');
+    expect(alarms.get('hfos-auto-linkedin')).toBeGreaterThan(Date.now() + 60 * 60_000);
+    await linkedInTick();
+    expect(researchAsks()).toBe(1);
+    // One they started, on a new day: its batch goes now, hours or not, and nothing else of the day does.
+    store.delete(LINKEDIN_STATE_KEY);
+    world.asked.length = 0;
+    world.hfos['hfos-comment-research-next'] = () => ({
+      research: {
+        id: '1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b',
+        tags: [],
+        postsEach: 5,
+        kept: 700,
+        target: 2_000,
+      },
+    });
+    await linkedInTick();
+    const shareRead =
+      'Today’s share of the comment research is read: 700 of about 2,000 comments kept so far. It carries on tomorrow.';
+    expect(state().daily.comment_research).toBe(shareRead);
+    expect(state().line).toBe(`Comment research: ${shareRead}`);
+    expect(world.noted).toEqual([]);
+    expect(state().daily.requests).toBeUndefined();
+    // Today's share read: it waits for the hours, and looks again within the hour for the next day's share.
+    await linkedInTick();
+    expect(state().line).toBe(
+      'Starts on its own on LinkedIn tomorrow at 9:00 AM. To start now, press Start my day for LinkedIn on Today in HandsFreeOS.',
+    );
+    expect(alarms.get('hfos-auto-linkedin')).toBeLessThanOrEqual(Date.now() + 60 * 60_000);
+    // After Stop for today, nothing reads, the research included.
+    store.delete(LINKEDIN_STATE_KEY);
+    world.asked.length = 0;
+    keep(day('stopped'));
+    await linkedInTick();
+    expect(researchAsks()).toBe(0);
+  });
+
   it('waits after Stop for today till the working hours of a later day', async () => {
     keep(day('stopped'));
     world.hours = ALL_DAY;

@@ -70,7 +70,7 @@ import type { FetchStep } from '../networks/facebook/fetch';
 import { facebook } from '../networks/facebook/kit';
 import { FRIENDSHIP_WORDS, NO_ADD_FRIEND } from '../networks/facebook/tidy';
 import type { ProfileRef, ReadResult, ThreadRef } from '../networks/facebook/types';
-import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
+import { lookForResearch, researchNext } from '../jobs/comment-research';
 import { valueOf, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { nameForms, sameName } from '../networks/facebook/people';
 import { FACEBOOK, facebookUrl, profileFromUrl } from '../networks/facebook/urls';
@@ -1561,6 +1561,12 @@ async function go(): Promise<void> {
   // Every day while the person keeps working on other days, new messages only on their days (decision 139).
   const window = workWindow(workHours(settings.hours), timezone, at);
   const inHours = window !== null && at >= window.from && at < window.to;
+  const researchAsk = {
+    hfos: answer as Hfos,
+    businessId: to.businessId,
+    platform: 'facebook',
+    setState,
+  } as const;
   if (!state.started && !inHours) {
     // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 133). What the
     // person asked from HandsFreeOS goes first.
@@ -1576,10 +1582,35 @@ async function go(): Promise<void> {
         window,
         reading: false,
       });
+    // A comment research this person started reads outside the hours too, as it only reads (decision 194).
+    if (settings.collect) {
+      const research = await researchNext({ ...researchAsk, state, now: at });
+      state = research.state;
+      if (research.reads) {
+        const end = await inTurn('runner', () => collect('comment_research', to.businessId));
+        const line = `${DAILY_NAMES.comment_research}: ${end.line}`;
+        if (end.warned) {
+          await closeWindow();
+          await say(end.line, { stopped: 'warning' });
+          return goAt(tomorrow());
+        }
+        await say(line);
+        void feed(jobKind(end), line);
+        return goAt(
+          Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
+        );
+      }
+    }
     await closeWindow();
-    // A reply waiting for an OK goes once it's given, and one tried again at its turn: it looks again by then.
+    // A reply waiting for an OK goes once it's given, and one tried again at its turn: it looks again by then; and the
+    // comment research's next batch.
+    const latest = await stateNow();
     return goAt(
-      lookOutsideAt(replyWaiting(answering.list), at, tomorrow(), retryWake(await stateNow(), at)),
+      lookForResearch(
+        lookOutsideAt(replyWaiting(answering.list), at, tomorrow(), retryWake(latest, at)),
+        latest,
+        at,
+      ),
     );
   }
 
@@ -1596,13 +1627,12 @@ async function go(): Promise<void> {
   const before = beforeDay(lists, state.before ?? {}, at, timezone);
   let daily = settings.collect ? nextDaily(state, at) : null;
   // HandsFreeOS's own comment research (decision 172) is only for whoever of its staff started one: asked without a
-  // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
-  if (
-    daily === 'comment_research' &&
-    !(await researchRuns(answer as Hfos, to.businessId, 'facebook'))
-  ) {
-    state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
-    daily = nextDaily(state, at);
+  // word, and for anyone else it's done for the day before a line of it is ever shown. While one runs, its batch goes
+  // first whenever it's due (decision 194).
+  if (settings.collect) {
+    const research = await researchNext({ ...researchAsk, state, now: at });
+    state = research.state;
+    daily = research.reads ? 'comment_research' : nextDaily(state, at);
   }
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.

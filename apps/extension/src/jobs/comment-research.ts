@@ -16,6 +16,10 @@
  *   ./facebook-research.ts, ./linkedin/comment-research.ts, ./alignable/comment-research.ts and
  *   ./follows/comment-research.ts (Threads and X).
  *
+ * - **Its turn** (decision 194, `researchNext`): from 0.154.0 each runner asks before the day's other once-a-day
+ *   jobs, so a research that runs goes first whenever its batch is due, and outside the working hours too, as it only
+ *   reads (`lookForResearch` says when the runner wakes for it there).
+ *
  * Nothing is written. It goes at a person's pace and stops for the day on any warning from the network.
  */
 import {
@@ -24,6 +28,8 @@ import {
   type ResearchPlatform,
 } from '@hfos/core/addons/outreach/comment-research';
 import type { Hfos } from './job';
+import { waitsAgain, type AutoState } from '../auto/plan';
+import { AWAY_AGAIN_MS } from '../auto/on-screen';
 import { counted } from '../words';
 import { onScreen, paced, pause, valueOf, type Job, type JobEnd } from './job';
 
@@ -164,6 +170,69 @@ export async function researchRuns(
   } catch {
     return false;
   }
+}
+
+// ------------------------------------------------------------------------------------------- its turn (decision 194)
+
+/**
+ * Outside the working hours, once today's share of a research it read is done, how often a runner looks again: the
+ * next day's share starts soon after the day turns.
+ */
+export const RESEARCH_LOOK_MS = 60 * 60_000;
+
+/**
+ * Whether the comment research reads next on a network (decision 194): its batch is due (not done today, not waiting
+ * for its next batch, not put off till the person's away) and a research this person started reads there. While one
+ * does, it goes before the day's other once-a-day jobs, then takes turns with them as its batches wait, and outside the
+ * working hours too, as it only reads. For anyone else the day keeps that none runs, asked once a day. `state` comes
+ * back as it now is.
+ */
+export async function researchNext(input: {
+  readonly hfos: Hfos;
+  readonly businessId: string;
+  readonly platform: ResearchPlatform;
+  readonly state: AutoState;
+  readonly now: number;
+  readonly passOver?: readonly string[];
+  readonly setState: (change: Partial<AutoState>) => Promise<AutoState>;
+}): Promise<{ readonly reads: boolean; readonly state: AutoState }> {
+  const { state } = input;
+  if (
+    state.daily?.comment_research !== undefined ||
+    waitsAgain(state, 'comment_research', input.now) ||
+    input.passOver?.includes('comment_research')
+  )
+    return { reads: false, state };
+  if (await researchRuns(input.hfos, input.businessId, input.platform))
+    return { reads: true, state };
+  const now = await input.setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
+  return { reads: false, state: now };
+}
+
+/**
+ * When a runner outside its working hours looks next (decision 194): at `look` (null for no time), or sooner for a
+ * comment research it reads: its next batch today; in a few minutes while a batch waits for the person to be away
+ * (`passOver`); or, once today's share is done, in an hour (`RESEARCH_LOOK_MS`).
+ */
+export function lookForResearch(
+  look: number | null,
+  state: Pick<AutoState, 'daily' | 'againAt'>,
+  now: number,
+  passOver: readonly string[] = [],
+): number | null {
+  const done = state.daily?.comment_research;
+  const again = state.againAt?.comment_research;
+  const next =
+    done === undefined
+      ? again !== undefined && again > now
+        ? again
+        : passOver.includes('comment_research')
+          ? now + AWAY_AGAIN_MS
+          : null
+      : done === NO_RESEARCH
+        ? null
+        : now + RESEARCH_LOOK_MS;
+  return next === null ? look : Math.min(look ?? Infinity, next);
 }
 
 /** One search's posts read: each one's comments sorted, or the day's end. */
