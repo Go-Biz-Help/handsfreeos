@@ -37,6 +37,8 @@ import {
   executeQuery,
   formatDuration,
   HfosError,
+  errandFacts,
+  errandGoal,
   isLocalDate,
   loadTeammate,
   loadTerritories,
@@ -248,12 +250,13 @@ export async function prepareTest(
   const [ws] = await asWorker(deps.db, { workspaceId: input.workspaceId }, (tx) =>
     rows<{
       organization_id: string;
+      name: string;
       timezone: string | null;
       phone_model: string | null;
       phone_listener: string | null;
     }>(
       tx,
-      sql`select organization_id, timezone, phone_model, phone_listener from app.workspaces
+      sql`select organization_id, name, timezone, phone_model, phone_listener from app.workspaces
           where id = ${input.workspaceId}`,
     ),
   );
@@ -303,6 +306,7 @@ export async function prepareTest(
               firstName,
               timeZone,
               now,
+              business: ws.name,
             })
           : null,
     };
@@ -383,6 +387,7 @@ async function outboundFor(
     readonly firstName: string | null;
     readonly timeZone: string;
     readonly now: number;
+    readonly business: string;
   },
 ): Promise<TestOutbound> {
   const base = { purpose: o.purpose, firstName: o.firstName };
@@ -438,6 +443,16 @@ async function outboundFor(
         ...base,
         goal: /[.!?]$/.test(goal) ? goal : `${goal}.`,
         brief: playbookFacts({ findOut: '', offer: '', book: 'when_ready' }),
+      };
+    }
+    case 'errand': {
+      // A call for someone: the manager types what it calls to ask, as the Assistant's card would.
+      const ask = o.goal?.trim() || 'if you have what we need in stock';
+      return {
+        ...base,
+        firstName: null,
+        goal: errandGoal(/^to\b/i.test(ask) ? ask : `to ask ${ask}`),
+        brief: errandFacts({ ask, say: '', asker: '' }, o.business),
       };
     }
   }

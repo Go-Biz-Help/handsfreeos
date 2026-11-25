@@ -77,6 +77,8 @@ import { setupAutoTools, setupConfirmTools } from './tools-setup';
 import { testAiTeammate } from './teammate-test';
 import { filesOutConfirmTools, makeFile } from './tools-files-out';
 import { expenseConfirmTools } from './tools-expenses';
+import { errandConfirmTools } from './tools-errand';
+import { searchWeb } from './tools-web';
 
 /** Tools that run on the worker's own services: trying the AI teammate as a customer, as its Test console does. */
 const serviceTools = {
@@ -1848,6 +1850,8 @@ const confirmTools: Record<string, ConfirmTool> = {
   // A file they made, emailed on to someone else.
   ...filesOutConfirmTools,
   ...expenseConfirmTools,
+  // The AI teammate phones a supplier with their questions.
+  ...errandConfirmTools,
   ...documentConfirmTools,
   ...safetyConfirmTools,
 };
@@ -1874,6 +1878,7 @@ export const executorFor = (name: string) =>
   knowledgeServiceTools[name] ??
   serviceTools[name as keyof typeof serviceTools] ??
   (name === 'make_file' ? makeFile : undefined) ??
+  (name === 'search_web' ? searchWeb : undefined) ??
   confirmTools[name];
 
 /** `workflows`: the model drafting workflows talks to (without it, draft_workflow says the AI isn't set up). */
@@ -1926,6 +1931,8 @@ export function createToolExecutor(
     // A spreadsheet or report of what they can see: kept in the file store for them alone, emailed by its mailer.
     if (tool.name === 'make_file')
       return makeFile(db, ctx, args, addonActions?.services ?? null, coreLookUp(ctx));
+    // A look-up on the web, on the worker's AI and wallet.
+    if (tool.name === 'search_web') return searchWeb(db, ctx, args, addonActions?.services ?? null);
     // Or one of its worker actions, through the door its screens use.
     if (isAddonActionTool(tool))
       return runAddonActionTool(addonActions, db, tool, await addressed(args, ctx), ctx);

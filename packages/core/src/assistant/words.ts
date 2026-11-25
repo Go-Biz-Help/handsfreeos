@@ -409,6 +409,8 @@ export function assistantCancelledText(card: ConfirmCard): string {
       return 'Not sent. The file is still in the chat.';
     case 'add_expense':
       return 'Not filed. Nothing was added to your expenses.';
+    case 'call_for_me':
+      return 'Not called. Nobody was phoned.';
     case 'handle_attention_item':
       return 'Not handled. It’s still on Home.';
     case 'update_attention_item':

@@ -8629,7 +8629,7 @@ export const aiCalls = app.table('ai_calls', {
   personId: uuid('person_id')
     .notNull()
     .references(() => people.id, { onDelete: 'cascade' }),
-  /** confirm_visit, missed_call, quote, campaign or workflow. */
+  /** confirm_visit, missed_call, quote, campaign, workflow or errand. */
   purpose: text('purpose').notNull(),
   attendeeId: uuid('attendee_id').references(() => appointmentAttendees.id, {
     onDelete: 'cascade',
@@ -8656,6 +8656,11 @@ export const aiCalls = app.table('ai_calls', {
   tries: smallint('tries').notNull().default(0),
   /** A call to a lead: why it could go, `written` (a yes) or `business_landline` (AI calls, part 5). */
   consentBasis: text('consent_basis'),
+  /** A call for someone (purpose `errand`, 20261027036900): who asked, the chat it was asked in, and what to ask. */
+  askedBy: userRef('asked_by'),
+  threadId: uuid('thread_id').references(() => assistantThreads.id, { onDelete: 'set null' }),
+  errand: jsonb('errand'),
+  reportedAt: ts('reported_at'),
   placedAt: ts('placed_at'),
   finishedAt: ts('finished_at'),
   ...timestamps(),

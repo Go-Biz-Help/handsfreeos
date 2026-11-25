@@ -77788,7 +77788,7 @@ export interface operations {
                                     aiCallId: string;
                                     goal: string;
                                     /** @enum {string} */
-                                    purpose: "confirm_visit" | "missed_call" | "quote" | "campaign" | "workflow";
+                                    purpose: "confirm_visit" | "missed_call" | "quote" | "campaign" | "workflow" | "errand";
                                     to: string;
                                     toDisplay: string;
                                 } | null;

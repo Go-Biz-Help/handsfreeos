@@ -117,10 +117,25 @@ function outboundLines(o: OutboundWhy): string[] {
           'The business’s workflow placed this call, and they agreed to calls in writing. Work from the playbook in the facts above: ask what it says to find out, one question at a time; offer only what it says, never more; and book as it says. If they’re not interested, thank them and end_call; don’t push.',
         ]
       : []),
+    ...(o.purpose === 'errand' ? ERRAND_LINES : []),
     ...(o.script ? scriptLines(o.script) : []),
     'If they ask not to be called again, use no_more_calls, say sorry for the trouble and end_call. If it’s a bad time, offer that they can call back or text, and end_call.',
   ];
 }
+
+/**
+ * A call for someone (20261027036900): the person at the business asked the Assistant to have it phone a supplier or
+ * a store with their questions. Here the business is the customer: it asks, listens and reports back, and never
+ * commits the business to anything.
+ */
+const ERRAND_LINES: readonly string[] = [
+  'This call is for someone at the business, who asked you to phone this supplier or store with their questions (in the facts above). They’re not a customer of the business, and the business’s own customers, prices and booking don’t come into it.',
+  'Ask what the facts say to find out, one question at a time, and make sure you have each answer clearly: repeat numbers, prices, dates and names back to check them. Ask a short follow-up when an answer needs one (how many are in stock, until when a price holds).',
+  'Never order, buy, reserve, pay, give a card or account number, agree to a price or a delivery, or promise anything for the business. If they offer to do any of that, thank them and say the person you’re calling for will get back to them.',
+  'Tell them only what the facts say you may. Never make up a detail about the business or the person you’re calling for; if they ask something you don’t know, say the person will get back to them.',
+  'If they put you on hold or transfer you, wait. If they need to talk to the person themselves, say that person will call them back. There’s no one to connect them to on this call.',
+  'Once you have the answers, or they can’t help, thank them and end_call.',
+];
 
 /**
  * A call to a lead with the business's sales script (Sales Coach, round five part three): follow it, in order, as far
@@ -150,9 +165,14 @@ export function outboundGreetingOf(
   goal: string,
   purpose: string,
 ): string {
-  const hi = firstName ? `Hi ${firstName}` : 'Hi';
+  // A call for someone goes to a business, whose contact's first name is often the store's: no name, just hello.
+  const hi = firstName && purpose !== 'errand' ? `Hi ${firstName}` : 'Hi';
   const why = /[.!?]$/.test(goal.trim()) ? goal.trim() : `${goal.trim()}.`;
-  return `${hi}, this is ${config.identity.name}, an AI assistant for ${business}. This call is recorded. I’m calling ${why} ${CALL_QUESTION[purpose] ?? ''}`.trim();
+  const who =
+    purpose === 'errand'
+      ? `an AI assistant calling for ${business}`
+      : `an AI assistant for ${business}`;
+  return `${hi}, this is ${config.identity.name}, ${who}. This call is recorded. I’m calling ${why} ${CALL_QUESTION[purpose] ?? ''}`.trim();
 }
 
 /** What it asks right after saying why it's calling. */
@@ -162,6 +182,7 @@ export const CALL_QUESTION: Readonly<Record<string, string>> = {
   quote: 'Do you have any questions about it?',
   campaign: 'Is now a good time?',
   workflow: 'Is now a good time?',
+  errand: 'Do you have a minute?',
 };
 
 /**

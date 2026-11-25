@@ -36,6 +36,8 @@ import {
   automationSettingsOf,
   businessLineOf,
   callPlacesOf,
+  errandFacts,
+  errandOf,
   callsBusinessLandlines,
   callRecord,
   defaultNumber,
@@ -67,6 +69,7 @@ import { recordSystemEvent } from '../system-event';
 import { loadAccount } from '../telephony/accounts';
 import { isPermanentProviderError } from '../telephony/provider';
 import { voiceUrls } from '../telephony/voice';
+import { ERRAND_REPORT_JOB, errandReportJob, reportErrandSoon } from './errand';
 import { askPhoneCompany } from './line-check';
 
 export const AI_CALL_JOBS = {
@@ -102,6 +105,7 @@ const SWITCH_OF: Readonly<Record<AiCallPurpose, AutomationSwitch | null>> = {
   quote: 'callQuotes',
   campaign: null,
   workflow: null,
+  errand: null,
 };
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
@@ -570,8 +574,9 @@ async function sinceCallQueued(
 
 /**
  * The facts a quote, campaign, workflow or confirm call is about, for the AI on the call (data, not instructions):
- * the quote's name, total and last day; the campaign's goal and its offer; the workflow step's playbook; or what
- * the visit being confirmed was booked as. Null for the other reasons.
+ * the quote's name, total and last day; the campaign's goal and its offer; the workflow step's playbook; what
+ * the visit being confirmed was booked as; or, on a call for someone, who it's for and what to find out. Null for
+ * the other reasons.
  */
 export async function callBrief(tx: Tx, aiCallId: string): Promise<string | null> {
   const [c] = await rows<{
@@ -586,12 +591,15 @@ export async function callBrief(tx: Tx, aiCallId: string): Promise<string | null
     offer_ends: string | null;
     playbook: unknown;
     visit_title: string | null;
+    errand: unknown;
+    business: string;
   }>(
     tx,
-    sql`select a.purpose, a.playbook, e.number, e.title, e.total_cents, e.expires_on::text as expires_on,
+    sql`select a.purpose, a.playbook, a.errand, w.name as business, e.number, e.title, e.total_cents, e.expires_on::text as expires_on,
           k.goal, o.name as offer_name, o.details as offer_details, o.ends_on::text as offer_ends,
           p.title as visit_title
         from app.ai_calls a
+        join app.workspaces w on w.id = a.workspace_id
         left join app.estimates e on e.id = a.estimate_id
         left join app.appointment_attendees aa on aa.id = a.attendee_id
         left join app.appointments p on p.id = aa.appointment_id
@@ -606,6 +614,7 @@ export async function callBrief(tx: Tx, aiCallId: string): Promise<string | null
   if (c.purpose === 'campaign' && c.goal) return campaignFacts({ ...c, goal: c.goal });
   if (c.purpose === 'workflow') return playbookFacts(playbookOf(c.playbook));
   if (c.purpose === 'confirm_visit' && c.visit_title?.trim()) return visitFacts(c.visit_title);
+  if (c.purpose === 'errand') return errandFacts(errandOf(c.errand), c.business);
   return null;
 }
 
@@ -723,6 +732,8 @@ const skip = async (tx: Tx, id: string, reason: string) => {
           where id = (select campaign_recipient_id from app.ai_calls where id = ${id}) and status = 'sent'`,
     );
   else await recipientFailed(tx, id, reason);
+  // A call for someone: they're told why it didn't go.
+  await reportErrandSoon(tx, id);
 };
 
 /**
@@ -792,11 +803,24 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
         // Deleting a customer cancels their calls waiting to go; one queued since isn't made either.
         if (c.deleted) return skip(tx, c.id, 'deleted').then(() => null);
         if (c.call_consent === 'opted_out') return skip(tx, c.id, 'no_calls').then(() => null);
-        // Someone on the team has them (core's messaging/hands.ts): the AI doesn't call them.
-        if (await inHands(tx, c.person_id)) return skip(tx, c.id, 'in_your_hands').then(() => null);
+        // Someone on the team has them (core's messaging/hands.ts): the AI doesn't call them. A call for someone
+        // was asked for by a person on the team, who has them in hand if anyone does.
+        if (c.purpose !== 'errand' && (await inHands(tx, c.person_id)))
+          return skip(tx, c.id, 'in_your_hands').then(() => null);
         // A call to a lead needs the written yes, still, or a business landline while the business calls those.
         let basis: 'written' | 'business_landline' | 'check' | null = null;
-        if (TO_LEADS.has(c.purpose)) {
+        if (c.purpose === 'errand') {
+          // A call for someone: the written yes, or a number the phone company says is a business landline, asked
+          // whatever the business's own switch for leads says (the person OKd the ask on the Assistant's card).
+          if (c.call_consent === 'opted_in') basis = 'written';
+          else {
+            const line = businessLineOf(
+              await lineFactsOf(tx, scope.workspaceId, c.to_e164, new Date(now)),
+            );
+            if (line === 'other') return skip(tx, c.id, 'not_business_landline').then(() => null);
+            basis = line === 'business' ? 'business_landline' : 'check';
+          }
+        } else if (TO_LEADS.has(c.purpose)) {
           if (c.call_consent === 'opted_in') basis = 'written';
           else if (!(await callsBusinessLandlines(tx, scope.workspaceId)))
             return skip(tx, c.id, 'no_call_consent').then(() => null);
@@ -880,7 +904,11 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
             id: c.id,
             to: c.to_e164,
             from: number.e164,
-            voicemail: automationSettingsOf(m.rawSettings).calls.voicemail,
+            // A call for someone just hangs up on a voicemail box, so it needn't wait for the beep.
+            voicemail:
+              c.purpose === 'errand'
+                ? 'hang_up'
+                : automationSettingsOf(m.rawSettings).calls.voicemail,
           },
         };
       },
@@ -906,6 +934,7 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
             where id = ${p.id} and status = 'calling'`,
       );
       await recipientFailed(tx, p.id, reason);
+      await reportErrandSoon(tx, p.id);
     });
   const account = await asWorker(ctx.db, scope, (tx) =>
     loadAccount(tx, scope.workspaceId, ctx.sealer),
@@ -1047,6 +1076,10 @@ export const onAiCallEnded: EventHandler = async (ctx) => {
     .voicemail;
   if (unanswered && TO_LEADS.has(ai.purpose) && voicemail === 'text')
     await textAfterLastTry(ctx.tx, scope, ai.id);
+  // A call for someone: they're told how it went. A talked call's words come from the voice agent as it hangs up
+  // (finishCall brings this forward then); the wait is for when they don't.
+  if (ai.purpose === 'errand')
+    await reportErrandSoon(ctx.tx, ai.id, outcome === 'talked' ? 60_000 : 0);
 };
 
 /**
@@ -1112,4 +1145,5 @@ export const aiCallJobs = {
   [AI_CALL_JOBS.consider]: aiCallConsiderJob,
   [AI_CALL_JOBS.place]: aiCallPlaceJob,
   [AI_CALL_JOBS.voicemailText]: aiCallVoicemailTextJob,
+  [ERRAND_REPORT_JOB]: errandReportJob,
 } as const;

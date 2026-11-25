@@ -760,6 +760,16 @@ export const OUTBOUND_CALL_ONLY: ReadonlySet<TeammateToolName> = new Set([
 ]);
 
 /**
+ * All a call for someone has (purpose `errand`, 20261027036900): it asks, listens and says goodbye. It never books,
+ * quotes, looks a customer up or hands the call to the team: the person it's calling for isn't on the line.
+ */
+export const ERRAND_CALL_TOOLS: ReadonlySet<TeammateToolName> = new Set([
+  'reply',
+  'end_call',
+  'no_more_calls',
+]);
+
+/**
  * Never on a live phone call: a caller always gets an answer, and there are no photos on a call. (A caller's number
  * proves nothing by itself, AI1: a call the phone company couldn't vouch for is answered as unverified, with a code.)
  */
@@ -818,6 +828,7 @@ export function teammateTools(
     plans: config.money.plans,
   };
   return TEAMMATE_TOOLS.filter((t) => {
+    if (opts.phone && opts.outbound === 'errand') return ERRAND_CALL_TOOLS.has(t.name);
     if (!on[t.skill]) return false;
     if (t.name === 'reschedule' && !config.book.reschedule) return false;
     if (t.name === 'cancel' && !config.book.cancel) return false;
