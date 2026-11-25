@@ -729,6 +729,10 @@ describe('live status and control', () => {
     expect(shown.limits).toEqual(today.limits);
     expect(shown.limits.friend_request.done).toBe(1);
     expect(shown.waiting).toBe(1);
+    // A page that shows the count from Needs you's own answer leaves it out: the rest is the same answer.
+    const uncounted = await runAs(member, ws, 'outreach.live', { waiting: false });
+    expect(uncounted.waiting).toBe(0);
+    expect(uncounted).toMatchObject({ limits: shown.limits, status: shown.status, day: shown.day });
     expect(shown.computer).toMatchObject({ working: true });
     expect(shown.status).toMatchObject({ state: 'waiting', line: 'Next: Eli Brook' });
     expect(shown.computers.length).toBeGreaterThanOrEqual(2);

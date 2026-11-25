@@ -77,11 +77,12 @@ export async function showOutreach(
       })
       .then(unwrapPage);
   // What the person's computer is doing, and their day on a network: Today's cards, and Settings' Your computer. Left
-  // out when it can't be had.
+  // out when it can't be had. Without its count of what waits for the person: these pages show that from
+  // `outreach.waiting`, and six cards would each count it again.
   const liveOf = (platform?: Platform) =>
     api
       .POST('/v1/queries/outreach.live', {
-        body: { workspaceId, ...(platform ? { platform } : {}) },
+        body: { workspaceId, waiting: false, ...(platform ? { platform } : {}) },
       })
       .then((r) => r.data ?? null)
       .catch(() => null);

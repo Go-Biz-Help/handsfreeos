@@ -252175,6 +252175,10 @@
                       "threads",
                       "x"
                     ]
+                  },
+                  "waiting": {
+                    "default": true,
+                    "type": "boolean"
                   }
                 },
                 "required": [

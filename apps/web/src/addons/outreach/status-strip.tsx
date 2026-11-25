@@ -179,6 +179,7 @@ export function StatusStrip({
 }) {
   // Each network's live view, asked again every minute and when a day is pressed somewhere else: only that goes out
   // on the clock, never the whole page (the owner's pick, 23 Nov 2026). The newer of it and the page's own shows.
+  // Without its count of what waits for the person, which the strip never shows (Needs you has it).
   const dayPressed = useLiveVersion(['outreach_day'], 1500);
   const asked = useAskedAgain(
     `${workspaceId}:${drawn.map((n) => n.platform).join(',')}`,
@@ -186,7 +187,9 @@ export function StatusStrip({
       Promise.all(
         drawn.map((n) =>
           apiBrowser()
-            .POST('/v1/queries/outreach.live', { body: { workspaceId, platform: n.platform } })
+            .POST('/v1/queries/outreach.live', {
+              body: { workspaceId, platform: n.platform, waiting: false },
+            })
             .then((r) => r.data ?? null)
             .catch(() => null),
         ),
