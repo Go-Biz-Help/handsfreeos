@@ -240,13 +240,16 @@ const factsRead = new WeakMap<object, Map<string, Promise<unknown>>>();
  * Reads one of the business's small facts once for a query, however many of its parts ask: one day's list read the
  * add-on's settings seven times and the playbooks four (speed audit, Nov 2026). A command reads it each time it
  * asks, since it may have just changed it. What comes back is shared, so nobody changes it in place.
+ *
+ * What's kept is a promise of the answer, never the question: a query builder runs again each time it's awaited, so
+ * keeping one would ask the database every time after all.
  */
-export function readOnce<T>(ctx: Ctx, fact: string, read: () => Promise<T>): Promise<T> {
-  if ('emit' in ctx) return read();
+export function readOnce<T>(ctx: Ctx, fact: string, read: () => PromiseLike<T>): Promise<T> {
+  if ('emit' in ctx) return Promise.resolve(read());
   let had = factsRead.get(ctx);
   if (!had) factsRead.set(ctx, (had = new Map()));
   let found = had.get(fact) as Promise<T> | undefined;
-  if (!found) had.set(fact, (found = read()));
+  if (!found) had.set(fact, (found = Promise.resolve(read())));
   return found;
 }
 

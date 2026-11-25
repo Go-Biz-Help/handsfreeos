@@ -10,6 +10,7 @@ import {
   isScreenActionTool,
   isScreenReadTool,
   normalizePhone,
+  segmentCounterLabel,
   SOCIAL_CHANNEL_NAMES,
   taskDueBucket,
   dueLabel,
@@ -717,6 +718,9 @@ const sendText: ConfirmTool = {
         kind: 'note',
         text: `A link goes under your words for ${first} to send you a video at full quality. It lasts ${VIDEO_LINK_DAYS} days, and what they send lands in this conversation.`,
       });
+    // The composer's counter: how many texts the words take ("52 / 160 · 1 text"). Buttons are written out for a
+    // phone without RCS, so with them the count is the card's buttons' to say.
+    const length = t.blocked || args['rich'] ? null : segmentCounterLabel(String(args['body']));
     return {
       card: confirmCard(toolCallId, 'send_text', {
         personId: t.personId,
@@ -740,6 +744,7 @@ const sendText: ConfirmTool = {
             : []),
           ...(video ? [{ label: 'Adds', value: 'A link for them to send you a video' }] : []),
           ...richFields(args['rich'] as RichText | undefined),
+          ...(length ? [{ label: 'Length', value: length }] : []),
         ],
         body: String(args['body']),
         stageFrom: null,
@@ -759,6 +764,7 @@ const sendText: ConfirmTool = {
       }),
       result: {
         to: t.name,
+        ...(length ? { length } : {}),
         ...(t.blocked ? { cannotSend: cannotText(t.blocked, first) } : {}),
         ...(t.blocked && REPLIED_IN_PLACE.has(t.blocked)
           ? { next: 'Reply with reply_in_conversation and this conversationId.' }

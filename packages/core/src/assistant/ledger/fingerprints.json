@@ -809,7 +809,7 @@
   "apps/web/src/app/app/w/[workspaceId]/a/outreach/settings/[part]/page.tsx": "cb082e95ac39",
   "apps/web/src/app/app/w/[workspaceId]/a/outreach/settings/page.tsx": "e0247a8457c3",
   "apps/web/src/app/app/w/[workspaceId]/a/outreach/setup/page.tsx": "370c750c98ee",
-  "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "e4b7bab036a0",
+  "apps/web/src/app/app/w/[workspaceId]/a/outreach/show.tsx": "35aecf54cddb",
   "apps/web/src/app/app/w/[workspaceId]/a/outreach/today/[part]/page.tsx": "0dd371f2a0ba",
   "apps/web/src/app/app/w/[workspaceId]/a/outreach/today/page.tsx": "652469b89773",
   "apps/web/src/app/app/w/[workspaceId]/a/realestate/coordinate/page.tsx": "7ab3a6b09500",
@@ -1703,9 +1703,9 @@
   "packages/core/src/assistant/coverage.ts": "36cf1bfd2e73",
   "packages/core/src/assistant/screen-reads.ts": "167f1dd91bea",
   "packages/core/src/assistant/settings-map.ts": "0a438679bde8",
-  "packages/core/src/assistant/tools-content.ts": "59c81ea10785",
+  "packages/core/src/assistant/tools-content.ts": "4cfbf65db921",
   "packages/core/src/assistant/tools-extra.ts": "67de5a73d92a",
-  "packages/core/src/assistant/tools.ts": "a41d08cccb88",
+  "packages/core/src/assistant/tools.ts": "4654e87cc362",
   "packages/core/src/automations/catalog.ts": "e61bb9bc9c68",
   "packages/core/src/bin-words.ts": "d60313191585"
 }
