@@ -63,13 +63,15 @@ import type { LiveBody } from './live';
 import { StartRefusedNote, StepsPart, TeamPart, useLiveProps } from './live';
 import { NetworkFilter, useNetworksOn } from './networks';
 import { PersonMenuScope } from './person-menu';
+import { PlanPart } from './plan';
 import { useReadyProps } from './ready';
 import { TodayBody, useTodayProps } from './today';
 import { useWaitingProps } from './waiting';
 
 /**
  * Social Outreach's Today on the phone (decisions 59 and 127), as the web's, a part at a time (decision 193): a row under
- * the title switches between Overview, Your list, Posts and events, Done today and, for owners and admins, Your team.
+ * the title switches between Overview, Plan (what their computer will do today and about when, decision 195,
+ * ./plan.tsx), Your list, Posts and events, Done today and, for owners and admins, Your team.
  * In all: how many things need the person, with the
  * way to Needs you (its own page, ./waiting.tsx's `NeedsYouScreen`, which works with no signal), what their computer
  * is doing with Start my day and Stop for today in a card for each network, their list for the day, Done today (every
@@ -245,6 +247,7 @@ export function TodayHub({
           {getReady}
         </>
       ) : null}
+      {part === 'plan' ? <PlanPart platform={net} many={many} /> : null}
       {part === 'list' ? (
         <>
           {getReady}

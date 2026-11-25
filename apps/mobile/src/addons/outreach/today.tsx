@@ -359,7 +359,7 @@ export function TodayBody({
    * Today's part shown (decision 193): Overview has what to know, Your list the list, partners and referrals, Posts and
    * events the helpful post and the events, and Your team who's on training wheels. Left out, all of it.
    */
-  part?: Exclude<TodayPart, 'done'>;
+  part?: Exclude<TodayPart, 'done' | 'plan'>;
   /** The network whose list it is. */
   platform?: Platform;
   today: TodayOutput | null;
@@ -418,7 +418,7 @@ export function TodayBody({
         partners: leftForToday(today.partners, hideSends),
       }
     : today;
-  const at = (p: Exclude<TodayPart, 'done'>) => part === undefined || part === p;
+  const at = (p: Exclude<TodayPart, 'done' | 'plan'>) => part === undefined || part === p;
   const kinds = TODAY_KIND_KEYS.filter((k) => list.items.some((i) => i.kind === k && !i.asking));
   // Posts asking for what the business offers come first, apart (decision 49).
   const asking = list.items.filter((i) => i.asking);
