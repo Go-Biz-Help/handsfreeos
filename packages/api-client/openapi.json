@@ -104796,7 +104796,7 @@
     "/v1/commands/outreach.send.approve": {
       "post": {
         "operationId": "command_outreach_send_approve",
-        "summary": "The person OKs messages and comments the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them, messages to someone who needs them and answers to Alignable posts asking for what the business offers, which wait to be OK’d one at a time. The extension sends them. On training wheels, each message counts toward coming off them; each comment counts toward the comments’ own wait.",
+        "summary": "The person OKs messages and comments the extension drafted, as they are or changed; with none named, every one waiting (Approve all), or only the messages or only the comments (only: Needs you’s Messages and Comments parts each have their own Approve all), except replies handed over to them, messages to someone who needs them and answers to Alignable posts asking for what the business offers, which wait to be OK’d one at a time. The extension sends them. On training wheels, each message counts toward coming off them; each comment counts toward the comments’ own wait.",
         "tags": [
           "commands"
         ],
@@ -104838,6 +104838,21 @@
                   "partial": {
                     "default": false,
                     "type": "boolean"
+                  },
+                  "only": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "messages",
+                          "comments"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -257137,6 +257152,12 @@
                       ],
                       "additionalProperties": false
                     },
+                    "comments": {
+                      "default": 0,
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
                     "items": {
                       "type": "array",
                       "items": {
@@ -258429,6 +258450,7 @@
                   "required": [
                     "count",
                     "kinds",
+                    "comments",
                     "items",
                     "hands",
                     "wheels",

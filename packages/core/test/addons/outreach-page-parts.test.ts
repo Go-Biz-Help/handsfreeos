@@ -1,11 +1,12 @@
 /**
- * Needs you's and Today's parts (docs/outreach.md, decision 193): a row at the top of each, the way People has its
- * views, on the web and the phone alike.
+ * Needs you's and Today's parts (docs/outreach.md, decisions 193 and 196): a row at the top of each, the way People
+ * has its views, on the web and the phone alike.
  */
 import { describe, expect, it } from 'vitest';
 import {
   autopilotWaitingOf,
   leftForToday,
+  NEEDS_LIST_PARTS,
   NEEDS_PART_KEYS,
   needsCountsOf,
   needsPartOpen,
@@ -26,10 +27,13 @@ describe('Needs you’s parts', () => {
       'hands',
       'reply',
       'message',
+      'comment',
       'need',
       'request',
       'unsure',
     ]);
+    // The parts that list the waiting items: each kind, with the messages in two (decision 196).
+    expect(NEEDS_LIST_PARTS).toEqual(['ask', 'reply', 'message', 'comment', 'need', 'request']);
     // Every kind that waits has a part, in the list's own order.
     expect(
       NEEDS_PART_KEYS.filter((k) => (WAITING_KIND_KEYS as readonly string[]).includes(k)),
@@ -53,6 +57,19 @@ describe('Needs you’s parts', () => {
     // Asked for, and empty now: it stays on the row while it's open.
     expect(needsPartOpen('request', counts)).toBe('request');
     expect(needsPartsShown('request', counts)).toEqual(['message', 'need', 'request']);
+  });
+
+  it('split the messages to OK into Messages and Comments, each with its count (decision 196)', () => {
+    const counts = needsCountsOf({ kinds: { message: { count: 85 } }, comments: 60 });
+    expect(counts).toEqual({ message: 25, comment: 60 });
+    expect(needsPartsShown(null, counts)).toEqual(['message', 'comment']);
+    // Only comments: the Messages part is off the row, and the page opens on Comments.
+    const only = needsCountsOf({ kinds: { message: { count: 4 } }, comments: 4 });
+    expect(only).toEqual({ message: 0, comment: 4 });
+    expect(needsPartOpen(null, only)).toBe('comment');
+    expect(readNeedsPart('comment')).toBe('comment');
+    // Without how many are comments, the messages' count is all of them, and Comments shows only once asked for.
+    expect(needsCountsOf({ kinds: { message: { count: 5 } } })).toEqual({ message: 5 });
   });
 
   it('have no row, and nothing open, while nothing waits', () => {

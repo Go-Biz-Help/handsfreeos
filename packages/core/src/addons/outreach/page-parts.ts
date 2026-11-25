@@ -4,7 +4,8 @@
  *
  * - **Needs you** has a part for each kind of thing that waits, in decision 42's order: Autopilot's people to OK for
  *   today (decision 151, while anyone on it waits), what the computer needs the person for, the asks about people in
- *   their hands (decision 182), replies handed over, messages (and comments) to OK, steps it couldn't do, friend
+ *   their hands (decision 182), replies handed over, messages to OK, comments to OK (comments on posts and answers in
+ *   groups, decision 196: they wait among the messages, and have a part of their own), steps it couldn't do, friend
  *   requests to decide, and Not sure where they live (decision 128). Only the parts with something in them are on the
  *   row, each with its count, and the one open; the page opens on the first with anything, so nothing waiting is ever
  *   out of sight for long. With nothing at all, there's no row.
@@ -25,6 +26,7 @@ export const NEEDS_PARTS = {
   hands: 'In your hands',
   reply: 'Replies',
   message: 'Messages',
+  comment: 'Comments',
   need: 'Steps',
   request: 'Requests',
   unsure: 'Where they live',
@@ -53,18 +55,38 @@ export function needsPartsShown(open: NeedsPart | null, counts: NeedsCounts): Ne
 }
 
 /**
- * Each part's count from what the page knows: each kind's count (`outreach.waiting`'s `kinds`), the asks about people
- * in the person's hands, Autopilot's people still waiting for the OK, and how many the country setting isn't sure of.
- * Anything left out isn't known, so its part shows only while it's open.
+ * The parts that are a list of `outreach.waiting`'s items, in the row's order: each kind that waits, with the messages
+ * to OK in two, the messages and the comments (decision 196).
+ */
+export const NEEDS_LIST_PARTS = [
+  'ask',
+  'reply',
+  'message',
+  'comment',
+  'need',
+  'request',
+] as const satisfies readonly NeedsPart[];
+export type NeedsListPart = (typeof NEEDS_LIST_PARTS)[number];
+
+/**
+ * Each part's count from what the page knows: each kind's count (`outreach.waiting`'s `kinds`), how many of the
+ * messages are comments (its `comments`, decision 196), the asks about people in the person's hands, Autopilot's people
+ * still waiting for the OK, and how many the country setting isn't sure of. Anything left out isn't known, so its part
+ * shows only while it's open: without how many are comments, the messages' count is all of them.
  */
 export function needsCountsOf(known: {
   readonly kinds?: Partial<Record<WaitingKind, { readonly count: number }>>;
+  readonly comments?: number;
   readonly hands?: number;
   readonly autopilot?: number;
   readonly unsure?: number;
 }): NeedsCounts {
   const counts: Record<string, number> = {};
   for (const [kind, of] of Object.entries(known.kinds ?? {})) if (of) counts[kind] = of.count;
+  if (known.comments !== undefined && counts.message !== undefined) {
+    counts.comment = Math.min(known.comments, counts.message);
+    counts.message -= counts.comment;
+  }
   if (known.hands !== undefined) counts.hands = known.hands;
   if (known.autopilot !== undefined) counts.autopilot = known.autopilot;
   if (known.unsure !== undefined) counts.unsure = known.unsure;

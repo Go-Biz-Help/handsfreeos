@@ -10,9 +10,14 @@
  */
 import {
   ASSISTANT_DOCX_TYPE,
+  ASSISTANT_VCARD_TYPE,
   ASSISTANT_XLSX_TYPE,
   HfosError,
+  looksLikeVcard,
+  parseVcards,
+  vcardName,
   type AssistantFile,
+  type AssistantFileType,
 } from '@hfos/core/server';
 import type { AiContent } from '@hfos/ai';
 import { PDFDocument } from 'pdf-lib';
@@ -40,6 +45,12 @@ export type AssistantModelFile =
       readonly text: string;
       /** Only the start was kept: the file has more. */
       readonly cut: boolean;
+      /**
+       * The file as it was sent, and its kind (a .vcf is a contacts file even when it came as text): what a tool
+       * that reads the whole of it works from, like the contacts import. Never shown to the model, never kept.
+       */
+      readonly mediaType: AssistantFileType;
+      readonly data: string;
     };
 
 const unreadable = (name: string, why = 'couldn’t be opened') =>
@@ -69,12 +80,22 @@ export async function filesForModel(
     }
     let text: string;
     let cut = false;
+    let mediaType: AssistantFileType = file.mediaType;
     if (file.mediaType === ASSISTANT_DOCX_TYPE || file.mediaType === ASSISTANT_XLSX_TYPE) {
       const office = officeLayout(bytes, ASSISTANT_FILE_TEXT);
       if (!office.ok) throw unreadable(file.name);
       text = office.text;
       cut = office.cut;
-    } else text = plainText(bytes);
+    } else {
+      text = plainText(bytes);
+      if (
+        file.mediaType === ASSISTANT_VCARD_TYPE ||
+        (file.mediaType === 'text/plain' && looksLikeVcard(text))
+      ) {
+        mediaType = ASSISTANT_VCARD_TYPE;
+        text = contactsLayout(file.name, text);
+      }
+    }
     text = text.trim();
     if (!text) throw unreadable(file.name, 'has no words in it to read');
     cut ||= text.length > ASSISTANT_FILE_TEXT;
@@ -83,6 +104,8 @@ export async function filesForModel(
       name: file.name,
       text: text.slice(0, ASSISTANT_FILE_TEXT),
       cut,
+      mediaType,
+      data: file.data,
     });
   }
   return out;
@@ -152,6 +175,38 @@ export function fileContent(file: AssistantModelFile): AiContent[] {
       text: `--- The file ${file.name}${file.cut ? ' (only its start: it goes on)' : ''} ---\n${file.text}\n--- End of ${file.name} ---`,
     },
   ];
+}
+
+// ---------- contacts ----------
+
+/**
+ * A contacts file laid out for the model: how many, then a line each with its name, numbers, emails and company. Its
+ * raw lines (and any photos in them) never go: the contacts import reads the file itself.
+ */
+export function contactsLayout(name: string, text: string): string {
+  const contacts = parseVcards(text);
+  if (!contacts.length)
+    throw HfosError.rule(
+      'file_unreadable',
+      400,
+      `${name} has no contacts in it. Export the contacts again from your phone or contacts app, and send that file.`,
+    );
+  const lines = contacts.map((c) => {
+    const cells = [
+      vcardName(c),
+      c.phones.join(', '),
+      c.emails.join(', '),
+      c.company ?? '',
+      c.jobTitle ?? '',
+    ];
+    while (cells.length > 1 && !cells[cells.length - 1]) cells.pop();
+    return cells.join(' | ');
+  });
+  return [
+    `A contacts file with ${contacts.length === 1 ? '1 contact' : `${contacts.length} contacts`}.`,
+    'Name | Phones | Emails | Company | Job title',
+    ...lines,
+  ].join('\n');
 }
 
 // ---------- plain text ----------

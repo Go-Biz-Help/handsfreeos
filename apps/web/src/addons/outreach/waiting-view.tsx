@@ -9,10 +9,11 @@
  *   password typed (./asks.tsx), with **Carry on**, **Skip** and **Stop**;
  * - **Replies handed over to you**: replies that need the person, each with why, to change, send or skip;
  * - **Messages to OK**: **Approve all** OKs them, except one to someone who needs the person, which waits on its own;
- *   with comments on good posts among them (decision 92, Instagram's and Alignable's), **Messages and comments to OK**,
- *   each comment headed "Comment on Dana Reyes’s post" with the post's first words above it. Approve all takes them
- *   too, never an answer to a post asking for what the business offers, and says why. While comments wait for the
- *   person under their own hold, it says how long that lasts;
+ * - **Comments to OK** (decision 196, a part of their own since the messages and comments were one long list): the
+ *   comments on good posts (decision 92) and the answers in groups (decision 114), each headed "Comment on Dana Reyes’s
+ *   post" with the post's first words above it, and an Approve all of their own, which never takes an answer to a post
+ *   asking for what the business offers, and says why. While comments wait for the person under their own hold, it
+ *   says how long that lasts;
  * - **Steps it needs you for**: a step the extension couldn't do, in its network's words, to do there (**I did it**)
  *   or **Let it go**; **Open** goes to their page on that network (or the post, or the chat), and a message that
  *   didn't go has its words to copy. Every step that can be tried again has **Retry** (decisions 132 and 145), with
@@ -43,14 +44,15 @@ import {
 } from '@hfos/core/addons/outreach/network-words';
 import { answersRequests, networkOfLink, PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { COMMENT_HOLD_WORDS } from '@hfos/core/addons/outreach/sends';
+import type { ApproveOnly } from '@hfos/core/addons/outreach/sends';
 import {
   approveAllCount,
-  approveAllTakesComments,
   approveAllWords,
+  approveCommentsWords,
   commentHoldShown,
+  COMMENTS_TITLE,
   forumAnswer,
   forumAnswersLeftWords,
-  messagesTitle,
   moreWords,
   needClearedWords,
   needPageOf,
@@ -63,7 +65,6 @@ import {
   NEED_RETRY,
   postTitleAround,
   retriedWords,
-  WAITING_KIND_KEYS,
   WAITING_KINDS,
   waitingWords,
   type NeedClear,
@@ -71,8 +72,10 @@ import {
 } from '@hfos/core/addons/outreach/waiting-words';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
+  NEEDS_LIST_PARTS,
   PAGE_PART_WORDS,
   type NeedsCounts,
+  type NeedsListPart,
   type NeedsPart,
 } from '@hfos/core/addons/outreach/page-parts';
 import { HANDS_OUTREACH_WORDS as HW, type HandsAsk } from '@hfos/core/addons/outreach/in-hands';
@@ -172,8 +175,8 @@ export function NeedsYou({
           {shows('hands') ? (
             <HandsAsks workspaceId={workspaceId} asks={waiting.hands ?? []} />
           ) : null}
-          {WAITING_KIND_KEYS.filter(shows).map((kind) => (
-            <Group key={kind} workspaceId={workspaceId} kind={kind} waiting={waiting} />
+          {NEEDS_LIST_PARTS.filter(shows).map((p) => (
+            <Group key={p} workspaceId={workspaceId} part={p} waiting={waiting} />
           ))}
         </>
       ) : part === null || part === undefined ? (
@@ -302,57 +305,77 @@ function HandsAsks({ workspaceId, asks }: { workspaceId: string; asks: readonly 
   );
 }
 
+/**
+ * How many of the messages to OK are comments (decision 196): HandsFreeOS says; an API from before it doesn't, and then
+ * it's those listed.
+ */
+export function commentsWaitingOf(waiting: Waiting): number {
+  return (
+    (waiting.comments as number | undefined) ??
+    waiting.items.filter((i) => i.kind === 'message' && underAPost(i.send.kind)).length
+  );
+}
+
+/**
+ * One part's list (decision 193): a kind that waits, the messages to OK in two (decision 196), the messages and the
+ * comments, each with its own Approve all.
+ */
 function Group({
   workspaceId,
-  kind,
+  part,
   waiting,
 }: {
   workspaceId: string;
-  kind: WaitingKind;
+  part: NeedsListPart;
   waiting: Waiting;
 }) {
-  const items = waiting.items.filter((item) => item.kind === kind);
-  const count = waiting.kinds[kind].count;
+  const kind: WaitingKind = part === 'comment' ? 'message' : part;
+  const ofPart = (item: WaitingItem) =>
+    item.kind === kind &&
+    (item.kind !== 'message' || underAPost(item.send.kind) === (part === 'comment'));
+  const items = waiting.items.filter(ofPart);
+  const comments = commentsWaitingOf(waiting);
+  const count =
+    part === 'comment'
+      ? comments
+      : part === 'message'
+        ? Math.max(0, waiting.kinds.message.count - comments)
+        : waiting.kinds[kind].count;
   if (!count) return null;
-  // Comments on good posts wait among the messages (decision 92): the heading says so, and Approve all leaves forum
-  // answers, saying why.
+  // The comments' part (decision 196): Approve all leaves forum answers, saying why.
   const sends = items.flatMap((item) => (item.kind === 'message' ? [item.send] : []));
-  const comments = sends.filter((send) => underAPost(send.kind));
-  const answers = comments.filter(forumAnswer).length;
+  const answers = part === 'comment' ? sends.filter(forumAnswer).length : 0;
   // A comment Approve all takes, on a network whose comments-only hold is on: the hold's note says what it is.
-  const held = commentHoldShown(comments, waiting.commentHolds);
+  const held = part === 'comment' && commentHoldShown(sends, waiting.commentHolds);
+  const testId = part === 'comment' ? 'waiting-comments' : `waiting-${part}`;
   return (
-    <Card className="p-0" data-testid={`waiting-${kind}`}>
+    <Card className="p-0" data-testid={testId}>
       <div className="flex flex-wrap items-baseline justify-between gap-3 px-5 pt-4">
-        <h3 className="text-[15px] font-semibold" data-testid={`waiting-${kind}-title`}>
-          {kind === 'message' ? messagesTitle(comments.length > 0) : WAITING_KINDS[kind]}{' '}
+        <h3 className="text-[15px] font-semibold" data-testid={`${testId}-title`}>
+          {part === 'comment' ? COMMENTS_TITLE : WAITING_KINDS[kind]}{' '}
           <span className="text-text-3">· {count.toLocaleString()}</span>
         </h3>
-        {kind === 'message' ? (
-          <ApproveAll
-            workspaceId={workspaceId}
-            waiting={waiting}
-            comments={approveAllTakesComments(comments)}
-          />
+        {part === 'message' || part === 'comment' ? (
+          <ApproveAll workspaceId={workspaceId} items={items} count={count} only={`${part}s`} />
         ) : null}
-        {kind === 'need' ? <RetryAll workspaceId={workspaceId} items={items} /> : null}
+        {part === 'need' ? <RetryAll workspaceId={workspaceId} items={items} /> : null}
       </div>
-      {kind === 'message' && waiting.wheels.on ? (
+      {part === 'message' && waiting.wheels.on ? (
         <p className="px-5 pt-1.5 text-[12.5px] text-text-2" data-testid="waiting-wheels">
           {wheelsWords(waiting.wheels)}
         </p>
       ) : null}
-      {kind === 'message' && held ? (
+      {held ? (
         <p className="px-5 pt-1.5 text-[12.5px] text-text-2" data-testid="waiting-comment-hold">
           {COMMENT_HOLD_WORDS}
         </p>
       ) : null}
-      {kind === 'message' && answers && approveAllCount(waiting.items, count) >= 2 ? (
+      {answers && approveAllCount(items, count) >= 2 ? (
         <p className="px-5 pt-1.5 text-[12.5px] text-text-2" data-testid="waiting-answers-left">
           {forumAnswersLeftWords(answers)}
         </p>
       ) : null}
-      {kind === 'reply' ? (
+      {part === 'reply' ? (
         <p className="px-5 pt-1.5 text-[12.5px] text-text-2">{W.repliesNote}</p>
       ) : null}
       <ul className="mt-2">
@@ -395,7 +418,7 @@ function Group({
           {moreWords(kind, count - items.length)}
         </p>
       ) : null}
-      {kind === 'request' ? (
+      {part === 'request' ? (
         <p className="border-t border-border px-5 py-3 text-[13px]">
           <Link
             className="font-medium text-accent-text underline-offset-2 hover:underline"
@@ -409,40 +432,49 @@ function Group({
   );
 }
 
-/** OKs every message, and comment, waiting but those that wait on their own. */
+/**
+ * OKs every message waiting, or every comment (decision 196: each part has its own), but those that wait on their
+ * own.
+ */
 function ApproveAll({
   workspaceId,
-  waiting,
-  comments,
+  items,
+  count,
+  only,
 }: {
   workspaceId: string;
-  waiting: Waiting;
-  /** Comments it takes wait among the messages (decision 92): they go together. */
-  comments: boolean;
+  /** The part's items listed. */
+  items: readonly WaitingItem[];
+  /** How many wait in the part. */
+  count: number;
+  only: ApproveOnly;
 }) {
   const { busy, act } = useAct();
   // More may wait than are listed: the count, less those listed that wait on their own.
-  const all = approveAllCount(waiting.items, waiting.kinds.message.count);
+  const all = approveAllCount(items, count);
   if (all < 2) return null;
+  const comments = only === 'comments';
   return (
     <Button
       size="sm"
       disabled={busy !== null}
       onClick={() =>
-        void act('all', async () => {
+        void act(`all-${only}`, async () => {
           // The number the server OK'd: more may have come in since the page loaded.
           const out = unwrap(
             await apiBrowser().POST('/v1/commands/outreach.send.approve', {
-              body: { workspaceId },
+              body: { workspaceId, only },
             }),
           );
-          toast.success(W.okdAll(out.approved.length, comments));
+          toast.success(
+            comments ? W.okdComments(out.approved.length) : W.okdAll(out.approved.length),
+          );
         })
       }
-      data-testid="waiting-approve-all"
+      data-testid={comments ? 'waiting-approve-comments' : 'waiting-approve-all'}
     >
       <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-      {approveAllWords(all, comments)}
+      {comments ? approveCommentsWords(all) : approveAllWords(all)}
     </Button>
   );
 }

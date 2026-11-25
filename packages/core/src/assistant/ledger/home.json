@@ -160,8 +160,8 @@
       "path": "Home → Intro → Import a spreadsheet",
       "kind": "do",
       "file": "apps/web/src/components/home/action-center-intro.tsx:60",
-      "covered": "never",
-      "by": "import.create NEVER: a file from their computer"
+      "covered": "yes",
+      "by": "import_contacts: a CSV, Excel sheet or .vcf sent with the question, added on one card by the same import"
     },
     {
       "path": "Home → Header → greeting with first name",

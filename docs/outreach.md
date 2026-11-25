@@ -5291,7 +5291,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       command or query changed.
       - **Needs you's parts are the kinds that wait,** in decision 42's order: **People to OK** (Autopilot's list,
         decision 151, while anyone on it waits), **Your computer**, **In your hands** (decision 182), **Replies**,
-        **Messages** (comments among them, decision 92), **Steps**, **Requests** and **Where they live** (decision
+        **Messages** (comments among them, decision 92; since decision 196, **Messages** and **Comments**), **Steps**, **Requests** and **Where they live** (decision
         128's Not sure where they live). Each shows its count. Only the parts with something in them are on the row,
         and the one open even once it's emptied, saying to pick another. With nothing waiting there's no row, only
         "Nothing needs you right now". It's still never narrowed to a network.
@@ -5400,6 +5400,23 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         person asked, for the plan that's shown; a runner waits only for one in line on its own computer, as before,
         so it says so itself (`here.asking`).
       - No migration. Nothing on the Plan is pressed yet (step 3), and nothing a person sees changes.
+
+196.  **Comments and messages, a part each on Needs you** (Chris, 25 Nov 2026: "separate comments and messages into
+      different menued pages", with a picture of one "Messages 85" part holding both). Needs you's row has
+      **Messages** and **Comments** side by side now, in place of decision 193's one Messages part, on the web
+      (`/needs-you/comment`) and the phone (`&part=comment`), each with its own count (`page-parts.ts`).
+      - **Messages** is the messages to OK alone, headed Messages to OK, with the training wheels' line and an
+        Approve all that OKs only messages ("Approve all 25 messages").
+      - **Comments** is the comments on good posts (decision 92) and the answers in groups (decision 114), headed
+        Comments to OK, with the comments' hold line, why Approve all leaves forum answers, and an Approve all of its
+        own ("Approve all 60 comments").
+      - **Approve all takes one part** (`outreach.send.approve`'s new `only`: `messages` or `comments`; left out, every
+        one, as before, so Today's Approve all and older phones work unchanged). The phone names what its part shows,
+        as before.
+      - **`outreach.waiting` says how many of the messages are comments** (`comments`), and lists the oldest 100 of
+        each, so a long run of comments never pushes the messages off the list; the phone's copy does the same
+        (`waitingOfCopy`). The count, the pushes, the extension's icon and Today keep messages and comments one kind.
+      - No migration. The Assistant knows both parts (`ai-places.ts`) and can approve either (`only`).
 
 ## Rules worth knowing before changing anything
 

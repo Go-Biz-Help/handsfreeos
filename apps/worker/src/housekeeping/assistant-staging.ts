@@ -1,8 +1,9 @@
 /**
  * A file the Assistant keeps between a card and its Confirm (docs/operations.md, "Pictures and files sent to the
  * Assistant"). What's sent with a question is gone once it's answered (assistant/attachments.ts), but a template made
- * from a contract is made on Confirm, which can come later: so the card's PDF waits in the attachments bucket, under
- * STAGING_FOLDER, named by the business and the card. Only the worker's own key reaches it there.
+ * from a contract, or contacts added from a list, happen on Confirm, which can come later: so the card's PDF or CSV
+ * waits in the attachments bucket, under STAGING_FOLDER, named by the business and the card. Only the worker's own key
+ * reaches it there.
  *
  * Confirm takes it and removes it. Daily, at night, the rest go: each one whose card was answered, replaced or is
  * gone, and each one older than STAGING_DAYS, so a card left waiting for weeks says to send the file again.
@@ -22,15 +23,22 @@ export const STAGING_JOBS = {
 export const STAGING_CLEAN_UP_KEY = 'clean-up:assistant_staging';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const STAGED = /^([0-9a-f-]{36})_([0-9a-f-]{36})\.pdf$/;
+const STAGED = /^([0-9a-f-]{36})_([0-9a-f-]{36})\.(?:pdf|csv)$/;
 const MIN = 60_000;
 const DAY = 24 * 60 * MIN;
 
-/** Where a card's PDF waits: one place a card, so asking again for the same card finds the same file. */
-export function stagedPath(workspaceId: string, toolCallId: string): string {
+/**
+ * Where a card's file waits: one place a card, so asking again for the same card finds the same file. A contract
+ * waits as a PDF, a list of contacts as a CSV.
+ */
+export function stagedPath(
+  workspaceId: string,
+  toolCallId: string,
+  kind: 'pdf' | 'csv' = 'pdf',
+): string {
   if (!UUID.test(workspaceId) || !UUID.test(toolCallId))
     throw new Error('A staged file is named by its business and its card.');
-  return `${STAGING_FOLDER}/${workspaceId}_${toolCallId}.pdf`;
+  return `${STAGING_FOLDER}/${workspaceId}_${toolCallId}.${kind}`;
 }
 
 /** The business and the card a staged file's name says, or null for a name the Assistant never writes. */

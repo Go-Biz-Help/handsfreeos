@@ -284,6 +284,48 @@ describe('Social Outreach on the phone', () => {
     await phone(owner, 'outreach.send.skip', { sendId: message });
   });
 
+  it('splits the comments from the messages, counted alike, and Approve all on one part OKs only its own (decision 196)', async () => {
+    const post = async (url: string, of: string) =>
+      (
+        await rows<{ id: string }>(
+          admin(),
+          sql`insert into addon_outreach.posts (workspace_id, user_id, profile_id, url, body, found, check_state, seen_at)
+              values (${ws}, ${owner.id}, ${of}, ${url}, 'Looking for a simple CRM', 'search', 'good', now())
+              returning id`,
+        )
+      )[0]!.id;
+    const first = await drafted(owner, dana, 'Hi Dana!', { ago: 3 * HOUR });
+    const second = await drafted(owner, riley, 'Hi Sam!', { ago: 2 * HOUR });
+    const c1 = await drafted(owner, dana, 'We keep every call in one list.', {
+      ago: HOUR,
+      kind: 'comment',
+      postId: await post('https://www.facebook.com/groups/1/posts/31/', dana),
+    });
+    const c2 = await drafted(owner, riley, 'Same here, a shared list works.', {
+      kind: 'comment',
+      postId: await post('https://www.facebook.com/groups/1/posts/32/', riley),
+    });
+    const server = await runAs(owner, ws, 'outreach.waiting', {});
+    expect(server.kinds.message.count).toBe(4);
+    expect(server.comments).toBe(2);
+    const mine = await phoneWaiting(owner);
+    expect(mine.comments).toBe(server.comments);
+    expect(approveAllFromPhone(mine, 'comments')).toEqual([{ sendId: c1 }, { sendId: c2 }]);
+    expect(approveAllFromPhone(mine, 'messages')).toEqual([{ sendId: first }, { sendId: second }]);
+
+    // The web's Approve all on Comments OKs the comments alone; on Messages, the messages alone.
+    const comments = await runAs(owner, ws, 'outreach.send.approve', { only: 'comments' });
+    expect(comments.approved).toEqual([c1, c2]);
+    expect(await stateOf(first)).toBe('waiting');
+    expect((await runAs(owner, ws, 'outreach.waiting', {})).comments).toBe(0);
+    const messages = await runAs(owner, ws, 'outreach.send.approve', { only: 'messages' });
+    expect(messages.approved).toEqual([first, second]);
+    for (const sendId of [first, second])
+      await runAs(owner, ws, 'outreach.send.done', { sendId, sent: true });
+    for (const sendId of [c1, c2])
+      await runAs(owner, ws, 'outreach.send.done', { sendId, sent: true });
+  });
+
   it('passes over, with Approve all from the phone, a message handled elsewhere meanwhile', async () => {
     const a = await drafted(owner, dana, 'Hi Dana!');
     const b = await drafted(owner, riley, 'Hi Sam!');

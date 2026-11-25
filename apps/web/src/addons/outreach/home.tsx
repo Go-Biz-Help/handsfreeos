@@ -114,7 +114,7 @@ import { SetupHub } from './setup-hub';
 import type { NetworkLive } from './status-strip';
 import { OutreachTicker } from './ticker';
 import { TodayView, underNeedsOf } from './today-view';
-import { NeedsYou } from './waiting-view';
+import { commentsWaitingOf, NeedsYou } from './waiting-view';
 import type {
   Activity,
   Asks,
@@ -670,6 +670,7 @@ function PeopleViews({ workspaceId, shown }: { workspaceId: string; shown: Outre
 function needsCountsShown(shown: Extract<OutreachShown, { view: 'needs' }>): NeedsCounts {
   return needsCountsOf({
     kinds: shown.waiting.kinds,
+    comments: commentsWaitingOf(shown.waiting),
     hands: shown.waiting.hands?.length ?? 0,
     autopilot: autopilotWaitingOf(shown.autopilot ?? null),
     ...(typeof shown.unsure === 'number' ? { unsure: shown.unsure } : {}),

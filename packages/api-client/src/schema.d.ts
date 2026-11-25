@@ -10527,7 +10527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person OKs messages and comments the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them, messages to someone who needs them and answers to Alignable posts asking for what the business offers, which wait to be OK’d one at a time. The extension sends them. On training wheels, each message counts toward coming off them; each comment counts toward the comments’ own wait.
+         * The person OKs messages and comments the extension drafted, as they are or changed; with none named, every one waiting (Approve all), or only the messages or only the comments (only: Needs you’s Messages and Comments parts each have their own Approve all), except replies handed over to them, messages to someone who needs them and answers to Alignable posts asking for what the business offers, which wait to be OK’d one at a time. The extension sends them. On training wheels, each message counts toward coming off them; each comment counts toward the comments’ own wait.
          * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved, outreach.times.check. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_outreach_send_approve"];
@@ -55057,6 +55057,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @default null */
+                    only?: ("messages" | "comments") | null;
                     /** @default false */
                     partial?: boolean;
                     sends?: {
@@ -97464,6 +97466,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         commentHolds: ("facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x")[];
+                        /** @default 0 */
+                        comments: number;
                         count: number;
                         /** @default [] */
                         hands: {
