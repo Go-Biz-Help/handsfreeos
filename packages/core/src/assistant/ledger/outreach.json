@@ -58,7 +58,7 @@
     "apps/mobile/src/addons/outreach/ticker.tsx": "3ac4c69f8f42",
     "apps/mobile/src/addons/outreach/today.tsx": "87ae8acd0cad",
     "apps/mobile/src/addons/outreach/video-library.tsx": "44d9f03cf97f",
-    "apps/mobile/src/addons/outreach/waiting.tsx": "74338a628f84",
+    "apps/mobile/src/addons/outreach/waiting.tsx": "d7ed3f689f5b",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/_layout.tsx": "182d0b21e1d1",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/index.tsx": "483afe3b9643",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/playbooks/[playbookId].tsx": "4bab1b31713e",
@@ -89,7 +89,7 @@
     "apps/web/src/addons/outreach/groups-view.tsx": "4a2b658eb365",
     "apps/web/src/addons/outreach/hands-view.tsx": "06268f235921",
     "apps/web/src/addons/outreach/helpful-card.tsx": "df3b34602d3e",
-    "apps/web/src/addons/outreach/home.tsx": "9ff2897c4ecd",
+    "apps/web/src/addons/outreach/home.tsx": "b4d6d8daeaed",
     "apps/web/src/addons/outreach/install-pictures.tsx": "d328a02984f0",
     "apps/web/src/addons/outreach/like-yours.tsx": "8168753d9e13",
     "apps/web/src/addons/outreach/live-view.tsx": "d303b459bdab",
@@ -132,7 +132,7 @@
     "apps/web/src/addons/outreach/touched-posts.tsx": "a25e60b0a355",
     "apps/web/src/addons/outreach/tracking-view.tsx": "6894838d24e1",
     "apps/web/src/addons/outreach/video-library.tsx": "de0fb2af8146",
-    "apps/web/src/addons/outreach/waiting-view.tsx": "d7fe4242491a",
+    "apps/web/src/addons/outreach/waiting-view.tsx": "d795909b3216",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/find/groups/page.tsx": "35561e380367",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/find/page.tsx": "9ef9941ecbc7",
     "apps/web/src/app/app/w/[workspaceId]/a/outreach/groups/page.tsx": "9620ac32b2ec",
@@ -1297,84 +1297,91 @@
     {
       "path": "Needs you → N things wait for you, or nothing waiting",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:141",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:172",
       "covered": "yes",
       "by": "outreach_waiting count"
     },
     {
-      "path": "Needs you → which part (decision 193): People to OK, Your computer, In your hands, Replies, Messages, Steps, Requests, Where they live, each with its count; only those with something in them, and the one open; opens on the first with anything (web, phone)",
+      "path": "Needs you → which part (decisions 193 and 196): People to OK, Your computer, In your hands, Replies, Messages, Comments, Steps, Requests, Where they live, each with its count; only those with something in them, and the one open; opens on the first with anything (web, phone)",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/home.tsx:678",
+      "file": "apps/web/src/addons/outreach/home.tsx:684",
       "covered": "yes",
-      "by": "outreach_waiting kinds + hands; outreach_autopilot people waiting; outreach_country_skipped list unsure total"
+      "by": "outreach_waiting kinds + comments + hands; outreach_autopilot people waiting; outreach_country_skipped list unsure total"
     },
     {
       "path": "Needs you → a part that's empty now, with others still waiting: Nothing waits here now; pick another part",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:189",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:195",
       "covered": "yes",
       "by": "outreach_waiting kinds"
     },
     {
       "path": "Needs you → Messages → training wheels line",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:201",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:364",
       "covered": "yes",
       "by": "outreach_waiting wheels"
     },
     {
-      "path": "Needs you → Messages → comments held on a network; answers to OK one at a time",
+      "path": "Needs you → Comments → comments held on a network; answers to OK one at a time",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:206",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:369",
       "covered": "yes",
-      "by": "outreach_waiting commentHolds, items"
+      "by": "outreach_waiting commentHolds, comments, items"
     },
     {
-      "path": "Needs you → Messages → Approve all N",
+      "path": "Needs you → Messages → Approve all N messages",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:289",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:474",
       "covered": "yes",
-      "by": "outreach_approve_messages (none named)"
+      "by": "outreach_approve_messages (none named, only messages)"
+    },
+    {
+      "path": "Needs you → Comments → Approve all N comments",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:474",
+      "covered": "yes",
+      "by": "outreach_approve_messages (none named, only comments)"
     },
     {
       "path": "Needs you → Replies → what replies handed to you are",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:216",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:379",
       "covered": "partly",
       "by": "outreach_waiting description; the note is the screen's"
     },
     {
       "path": "Needs you → N more not shown",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:254",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:418",
       "covered": "yes",
-      "by": "outreach_waiting kinds count vs items"
+      "by": "outreach_waiting kinds count and comments vs items"
     },
     {
       "path": "Needs you → Requests → All your requests",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:261",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:427",
       "covered": "yes",
       "by": "outreach_friends view requests"
     },
     {
       "path": "Needs you → Your computer → an ask's row: network and its line",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:234",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:399",
       "covered": "yes",
       "by": "outreach_waiting items ask; outreach_asks"
     },
     {
       "path": "Needs you → Messages / Replies → a message or reply: name, network, Handed over",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:353",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:538",
       "covered": "yes",
       "by": "outreach_waiting send name, handedOver"
     },
     {
       "path": "Needs you → Messages / Replies → a message or reply: Open their chat / Open their page",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:368",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:545",
       "covered": "yes",
       "by": "outreach_waiting chatUrl beside threadKey (ai.answer withChatLinks), the link Open in Messenger and the rest open"
     },
@@ -1435,14 +1442,14 @@
       "by": "search_customers; personId or add on outreach_save_chat_to_card, outreach_add_to_contacts, outreach_mark_client"
     },
     {
-      "path": "Needs you → Messages → a comment: Comment on X's post, network, Open the post",
+      "path": "Needs you → Comments → a comment: Comment on X's post, network, Open the post",
       "kind": "do",
-      "file": "apps/web/src/addons/outreach/waiting-view.tsx:409",
+      "file": "apps/web/src/addons/outreach/waiting-view.tsx:582",
       "covered": "yes",
       "by": "outreach_waiting send postUrl, name"
     },
     {
-      "path": "Needs you → Messages → a comment: the post, More / Less",
+      "path": "Needs you → Comments → a comment: the post, More / Less",
       "kind": "see",
       "file": "apps/web/src/addons/outreach/post-quote.tsx:27",
       "covered": "yes",

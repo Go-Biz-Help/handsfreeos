@@ -9,7 +9,8 @@
  * - **Messages to OK**: every other message waiting for the person's OK, and comments on good posts where a network's
  *   comments wait at first (decision 92). Approve all OKs them, except one to someone who needs the person, or an
  *   answer to an Alignable post asking for what the business offers (`needsYou`), which waits for an OK of its own
- *   too (`oneByOne`).
+ *   too (`oneByOne`). Needs you shows the comments as a part of their own (decision 196, `COMMENTS_TITLE`), each part
+ *   with its own Approve all; the count, the pushes and the extension keep them one kind.
  * - **Steps it needs you for**: a step the extension couldn't do there and then (a button or box it couldn't find, a
  *   different page, the network not taking it, a message that didn't go), handed to the person to do or let go. Each is
  *   marked with its network, in that network's words, and links to their page there (or the post, or the chat).
@@ -540,9 +541,13 @@ export const approveAllWords = (count: number, comments = false) =>
     ? `Approve all ${count.toLocaleString('en-US')}`
     : `Approve all ${count.toLocaleString('en-US')} ${count === 1 ? 'message' : 'messages'}`;
 
-/** Messages to OK's heading: "Messages and comments to OK" while a comment waits among them (decision 92). */
-export const messagesTitle = (comments: boolean): string =>
-  comments ? 'Messages and comments to OK' : WAITING_KINDS.message;
+/**
+ * Needs you's Comments part (decision 196): the comments on posts and the answers in groups waiting for the OK, apart
+ * from the messages. Its heading, and its Approve all's button: "Approve all 30 comments".
+ */
+export const COMMENTS_TITLE = 'Comments to OK';
+export const approveCommentsWords = (count: number) =>
+  `Approve all ${count.toLocaleString('en-US')} ${count === 1 ? 'comment' : 'comments'}`;
 
 /**
  * A comment waiting's heading either side of the person's name, so a screen can put the name, the person menu's

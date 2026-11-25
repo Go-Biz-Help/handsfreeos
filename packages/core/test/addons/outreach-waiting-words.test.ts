@@ -11,6 +11,8 @@ import {
   approveAllCount,
   approveAllTakesComments,
   approveAllWords,
+  approveCommentsWords,
+  COMMENTS_TITLE,
   badgeText,
   bundleAt,
   bundleDue,
@@ -21,7 +23,6 @@ import {
   forumAnswer,
   forumAnswersLeftWords,
   handOverPushWords,
-  messagesTitle,
   messengerChatUrl,
   moreWords,
   needClearedWords,
@@ -472,9 +473,10 @@ describe('the words', () => {
       body: 'On Quinn Harper’s post. Tap to OK, change or skip it.',
     });
     expect(commentTitle('Dana Reyes')).toBe('Comment on Dana Reyes’s post');
-    expect(messagesTitle(false)).toBe('Messages to OK');
-    expect(messagesTitle(true)).toBe('Messages and comments to OK');
     expect(approveAllWords(5, true)).toBe('Approve all 5');
+    // Needs you's Comments part, apart from the messages (decision 196).
+    expect(COMMENTS_TITLE).toBe('Comments to OK');
+    expect(approveCommentsWords(30)).toBe('Approve all 30 comments');
     // An Alignable answer to a post asking for what the business offers says why it waits on its own.
     expect(
       oneByOneWords({ handedOver: false, needsYou: 'a forum answer always waits for your OK' }),

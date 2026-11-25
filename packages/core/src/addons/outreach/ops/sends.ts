@@ -4,7 +4,19 @@
  * person's groups (decision 114): each drafted one waits for the person's OK or goes as it is, and the extension says
  * when it went. Each person's are their own.
  */
-import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  notInArray,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
@@ -15,7 +27,13 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import { GROUP_REPLIES_SINCE, groupRepliesOn } from '../active';
 import { AUTOPILOT_WORDS, waitsForPeopleOk } from '../autopilot';
-import { MESSAGE_KINDS, underAPost, type PostSendKind, type SendKind } from '../automation';
+import {
+  MESSAGE_KINDS,
+  POST_SEND_KINDS,
+  underAPost,
+  type PostSendKind,
+  type SendKind,
+} from '../automation';
 import { chatUrlOn } from '../network-words';
 import { FOLLOW_PLATFORMS, NETWORKS, PLATFORMS, type Platform } from '../networks';
 import { type DraftOpener, kindStartsAChat } from '../openers';
@@ -44,6 +62,7 @@ import {
   SendSkipOutput,
   SendsInput,
   SendsOutput,
+  type ApproveOnly,
   type RecentMessage,
   type Send,
 } from '../sends';
@@ -163,6 +182,17 @@ export const notHeldNow = sql`(${sends.kind} not in (${sql.join(
   MESSAGE_KINDS.map((k) => sql`${k}`),
   sql`, `,
 )}) or not exists (select 1 from addon_outreach.profiles hp where hp.id = ${sends.profileId} and ${heldSql('hp')}))`;
+
+/**
+ * Needs you's two parts of the messages waiting (decision 196): the comments on posts and answers in groups
+ * (`underAPost`), or the messages. Null for both.
+ */
+export const sortOf = (only: ApproveOnly | null) =>
+  only === 'comments'
+    ? inArray(sends.kind, [...POST_SEND_KINDS])
+    : only === 'messages'
+      ? notInArray(sends.kind, [...POST_SEND_KINDS])
+      : undefined;
 
 /**
  * Whether a comment of the person's on a network waits for their OK under the comments-only hold (../sends.ts
@@ -642,7 +672,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
 export const sendApprove = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.approve',
   description:
-    'The person OKs messages and comments the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them, messages to someone who needs them and answers to Alignable posts asking for what the business offers, which wait to be OK’d one at a time. The extension sends them. On training wheels, each message counts toward coming off them; each comment counts toward the comments’ own wait.',
+    'The person OKs messages and comments the extension drafted, as they are or changed; with none named, every one waiting (Approve all), or only the messages or only the comments (only: Needs you’s Messages and Comments parts each have their own Approve all), except replies handed over to them, messages to someone who needs them and answers to Alignable posts asking for what the business offers, which wait to be OK’d one at a time. The extension sends them. On training wheels, each message counts toward coming off them; each comment counts toward the comments’ own wait.',
   risk: 1,
   input: SendApproveInput,
   output: SendApproveOutput,
@@ -692,7 +722,8 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
           // One drafted under older rules is written again first (decision 157).
           draftedNow,
           notHeldNow,
-          ...(named ? [inArray(sends.id, [...named.keys()])] : []),
+          // Approve all on one part of Needs you (decision 196): its messages, or its comments.
+          named ? inArray(sends.id, [...named.keys()]) : sortOf(input.only),
           ...(alone ? [] : [eq(sends.handedOver, false), isNull(sends.needsYou)]),
         ),
       )
