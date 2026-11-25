@@ -401,6 +401,16 @@ export function nextMove<I extends PlanItem>(
     } as const;
   };
   const says = listSays(list);
+  // A comment research that runs (HandsFreeOS's own staff's, decision 172) reads its next batch first whenever it's
+  // due, outside the working hours too (decision 194, the runners' `researchNext`). It's known to run once a batch
+  // of it waits: for anyone else none ever does.
+  const researchAt =
+    choices.collect &&
+    kit.daily.includes('comment_research') &&
+    state.daily.comment_research === undefined
+      ? (state.againAt.comment_research ?? null)
+      : null;
+  const researchDue = researchAt !== null && researchAt <= now;
 
   if (!own.go) {
     if (own.stopped !== null)
@@ -413,15 +423,16 @@ export function nextMove<I extends PlanItem>(
       const answers = leftOn(kit, list, state).filter(answersAnyTime);
       if (answers[0]) return work(answers, false, { go: true, started: true, until: null });
     }
-    return wait(
-      'hours',
-      lookOutsideAt(
-        kit.messages && replyWaiting(list),
-        now,
-        own.next,
-        retryWake({ retryAt: says.retryAt }, now),
-      ),
+    // A comment research reads outside the hours too, as it only reads (decision 194).
+    if (researchDue && facts.asks === 0)
+      return { move: { do: 'daily', job: 'comment_research', gap: pace }, state };
+    const look = lookOutsideAt(
+      kit.messages && replyWaiting(list),
+      now,
+      own.next,
+      retryWake({ retryAt: says.retryAt }, now),
     );
+    return wait('hours', researchAt !== null ? Math.min(look ?? Infinity, researchAt) : look);
   }
   if (facts.warned || state.stopped === 'warning') return wait('warned', tomorrow());
   if (!facts.noting) return wait('noting', now + LOOK_AGAIN_MS);
@@ -436,7 +447,7 @@ export function nextMove<I extends PlanItem>(
     : [];
   const nextJob = () =>
     jobs.find((job) => state.daily[job] === undefined && !waitsAgain(state, job, now)) ?? null;
-  let daily = nextJob();
+  let daily: RunnerJob | null = researchDue ? 'comment_research' : nextJob();
   // Short of good fits once the day's reading is done (decision 126): it finds people again, and checks them.
   if (
     choices.collect &&

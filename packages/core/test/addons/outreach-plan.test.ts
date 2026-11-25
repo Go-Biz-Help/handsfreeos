@@ -136,6 +136,34 @@ describe('the next move, by the runner’s rules', () => {
     expect(waits.move).toMatchObject({ do: 'daily', job: 'comment_research' });
   });
 
+  it('reads a comment research’s batch first when it’s due, and outside the hours too (decision 194)', () => {
+    const due = { againAt: { comment_research: NOW - MIN } };
+    // Before the day's other once-a-day jobs.
+    expect(nextMove(facts(), fresh(due)).move).toMatchObject({
+      do: 'daily',
+      job: 'comment_research',
+    });
+    // Outside the hours, as it only reads; and the plan waits for its next batch there.
+    const seven = Date.parse('2026-10-13T12:00:00Z');
+    const early = { againAt: { comment_research: seven - MIN } };
+    expect(nextMove(facts({ now: seven }), fresh(early)).move).toMatchObject({
+      do: 'daily',
+      job: 'comment_research',
+    });
+    const later = nextMove(
+      facts({ now: seven }),
+      fresh({ againAt: { comment_research: seven + 30 * MIN } }),
+    );
+    expect(later.move).toEqual({ do: 'wait', why: 'hours', until: seven + 30 * MIN });
+    // Never after Stop for today, nor before what the person asked.
+    const stopped = facts({ now: seven, day: { date: TODAY, state: 'stopped', why: 'person' } });
+    expect(nextMove(stopped, fresh(early)).move).toMatchObject({ do: 'wait', why: 'stopped' });
+    expect(nextMove(facts({ now: seven, asks: 1 }), fresh(early)).move).toMatchObject({
+      do: 'wait',
+      why: 'hours',
+    });
+  });
+
   it('spreads the list over what’s left of the hours once the reading is done', () => {
     const { move } = nextMove(facts(), read());
     expect(move).toMatchObject({ do: 'work', left: 2 });

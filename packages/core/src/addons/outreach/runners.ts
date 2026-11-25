@@ -57,7 +57,8 @@ export const LINKEDIN_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'frien
  * engaged with their helpful posts is read on its own after the day's post is asked for (`engaged`), as that read
  * needs its window in front, so waits till they're away from their computer (decision 120) while the post goes up as
  * ever. From 0.144.0 HandsFreeOS's own comment research before the profile (`comment_research`, decision 172), only
- * for whoever of its staff started one.
+ * for whoever of its staff started one: from 0.154.0 first whenever its batch is due, outside the working hours too
+ * (decision 194, `researchNext`).
  */
 export const LINKEDIN_DAILY = [
   'requests',
@@ -116,7 +117,8 @@ export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'
  * the warm leads (`weekly_post`, decision 109). From 0.102.0 accounts like the business's after the hashtags
  * (`like_yours`, decision 110): searched for, and one read, its posts and its followers. From 0.140.0 HandsFreeOS's
  * own comment research after the day's finding (`comment_research`, decision 166), in batches through the day: only
- * for whoever of HandsFreeOS's staff started one, and nothing for anyone else.
+ * for whoever of HandsFreeOS's staff started one, and nothing for anyone else; from 0.154.0 first whenever its batch is
+ * due, outside the working hours too (decision 194, `researchNext`).
  */
 export const INSTAGRAM_DAILY = [
   'requests',
@@ -185,7 +187,8 @@ export const ALIGNABLE_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'frie
  * events near them are read once a week before the businesses found are checked (`events`, decision 112). From
  * 0.108.0 who liked and answered the good posts found is read after the groups' posts (`post_people`, decision 116).
  * From 0.144.0 HandsFreeOS's own comment research before the profile (`comment_research`, decision 172), only for
- * whoever of its staff started one.
+ * whoever of its staff started one: from 0.154.0 first whenever its batch is due, outside the working hours too
+ * (decision 194, `researchNext`).
  */
 export const ALIGNABLE_DAILY = [
   'my_groups',
@@ -261,8 +264,8 @@ export const FOLLOW_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
  * followed back seen on their own profiles, unfollowing who didn't as the person chose (`tidy`), the person's chats
  * read for the AI where it writes in them (Threads', decision 167), who replied to good posts, the people found
  * checked for good fits, from 0.144.0 HandsFreeOS's own comment research for whoever of its staff started one
- * (`comment_research`, decision 172), and their own profile on the 1st of the month. Its search isn't one: it goes
- * every hour.
+ * (`comment_research`, decision 172; from 0.154.0 first whenever its batch is due, outside the working hours too,
+ * decision 194), and their own profile on the 1st of the month. Its search isn't one: it goes every hour.
  */
 export const FOLLOW_DAILY = [
   'requests',

@@ -5313,6 +5313,24 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         of the part.
       - The Assistant knows the parts (`ai-places.ts`: "Social Outreach → Needs you → Messages, Approve all").
 
+194.  **The comment research reads first, and outside the working hours** (Chris, 24 Nov 2026, after running it again
+      on Facebook and LinkedIn at 4:36 PM and finding nothing read that evening: "it should have started reading
+      comments", then "i just want the research to run now so it can finish"; the pick of "Yes, read it first" on
+      the card; extension 0.154.0). It was the 15th of Facebook's 16 once-a-day jobs, and the runner reached the 9th
+      before the hours ended at 6 PM.
+      - **First while one runs** (`researchNext` in the extension's `src/jobs/comment-research.ts`): every runner asks
+        before the day's other once-a-day jobs, and whenever its batch is due the research goes first. Its batches
+        still wait 35 to 60 minutes between them (decision 126's `again`), and the rest of the day takes turns
+        meanwhile.
+      - **Outside the hours too, as it only reads** (decision 133 lets nothing new go then): on every network, at the
+        same pace, after the replies that go any time, and never after Stop for today or a warning, with noting off
+        or an ask in line. The runner wakes for the next batch, or every hour once today's share is read
+        (`lookForResearch`), so the next day's starts soon after midnight.
+      - **For anyone else nothing changes:** the first look of the day asks HandsFreeOS once whether a research of
+        theirs runs (`researchRuns`) and keeps that none does, as before, only earlier in the day.
+      - No server change and no migration. The research's own pace and share (`researchRoom`, about a third of its
+        comments a day over 3 days) stay as they are.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -5414,6 +5432,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   reaches comments only through `platform.comment_guides` after staff press Use it, as quoted data
   (`commentGuideBlock`), never as an instruction, only on its own network, and every example in it is a comment
   really kept (`checkedFindings`). A research reads comments alone: never a box of who reacted.
+- **The comment research may read outside the working hours, and nothing else new may** (decisions 133 and 194):
+  it only reads, so a runner reads a research of the person's own outside them, first whenever its batch is due. Any
+  other job that wants the same must send nothing and press nothing, and asks the owner first.
 - **The research reaches messages only as its note** (decision 191, `writingNote`, `writingNoteBlock`): through
   `platform.writing_notes` after staff press **Use in everyone’s messages**, apart from the guide, as quoted data,
   only on its own network. The note is counts and single everyday words: never a comment, an example or how long a
