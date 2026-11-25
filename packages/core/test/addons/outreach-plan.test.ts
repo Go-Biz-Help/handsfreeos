@@ -377,6 +377,74 @@ describe('a runner’s own ask for its next move (decision 195, step 2)', () => 
     });
   });
 
+  it('sends a runner today’s helpful post once the day’s reading is done, where it posts on its own', () => {
+    const CHOICES = { on: true, sending: 'steps', collect: true, watchPosts: true } as const;
+    const posting = (more: Partial<PlanFacts> = {}) =>
+      facts({ platform: 'linkedin', choices: { ...CHOICES, posting: 'own' }, ...more });
+    const done = (platform: 'linkedin' | 'facebook' | 'instagram', more: Partial<PlanDay> = {}) =>
+      fresh({
+        daily: Object.fromEntries(RUNNERS[platform].daily.map((job) => [job, 'Done.'])),
+        watchAt: NOW + 90 * MIN,
+        ...more,
+      });
+    // After the reading, before the list, at LinkedIn's pace.
+    expect(nextMove(posting(), done('linkedin'), 0.5, HERE).move).toEqual({
+      do: 'post',
+      gap: 4 * MIN,
+    });
+    // Never while a part of the reading is left: the AI writes the post from what was read.
+    expect(nextMove(posting(), fresh(), 0.5, HERE).move).toMatchObject({ do: 'daily' });
+    // With Collect off there's no reading to wait for.
+    const noReading = posting({ choices: { ...CHOICES, collect: false, posting: 'own' } });
+    expect(nextMove(noReading, fresh(), 0.5, HERE).move).toMatchObject({ do: 'post' });
+    // Once it's up, or while none's written yet and it looks again later, the list goes on.
+    const up = done('linkedin', { helpfulUp: true });
+    expect(nextMove(posting(), up, 0.5, HERE).move).toMatchObject({ do: 'work', reading: false });
+    const later = done('linkedin', { helpfulAt: NOW + 20 * MIN });
+    expect(nextMove(posting(), later, 0.5, HERE).move).toMatchObject({ do: 'work' });
+    expect(
+      nextMove(posting(), done('linkedin', { helpfulAt: NOW - MIN }), 0.5, HERE).move,
+    ).toMatchObject({
+      do: 'post',
+    });
+    // Not where a post waits for their OK, which is how it starts, nor where the runner puts none up.
+    const afterOk = posting({ choices: { ...CHOICES, posting: 'after_ok' } });
+    expect(nextMove(afterOk, done('linkedin'), 0.5, HERE).move).toMatchObject({ do: 'work' });
+    expect(
+      nextMove(facts({ platform: 'linkedin' }), done('linkedin'), 0.5, HERE).move,
+    ).toMatchObject({
+      do: 'work',
+    });
+    const onInstagram = posting({ platform: 'instagram' });
+    expect(nextMove(onInstagram, done('instagram'), 0.5, HERE).move).toMatchObject({ do: 'work' });
+    // Facebook's goes only in its hours: with its day started by hand after them, the list goes on.
+    const onFacebook = posting({ platform: 'facebook' });
+    expect(nextMove(onFacebook, done('facebook'), 0.5, HERE).move).toMatchObject({ do: 'post' });
+    const pressed = posting({
+      platform: 'facebook',
+      now: FIVE_PM + 30 * MIN,
+      day: { date: TODAY, state: 'started', why: null },
+    });
+    expect(nextMove(pressed, done('facebook'), 0.5, HERE).move).not.toMatchObject({ do: 'post' });
+    // The plan that's shown leaves the post out, and says so.
+    expect(nextMove(posting(), done('linkedin')).move).toMatchObject({ do: 'work' });
+  });
+
+  it('sends the helpful post as it is, its gap a whole number', () => {
+    expect(moveSent({ do: 'post', gap: 240_000.4 }, 10 * MIN)).toEqual({
+      do: 'post',
+      gap: 240_000,
+    });
+    expect(
+      PlanNextOutput.parse({
+        decides: true,
+        move: { do: 'post', gap: 1 },
+        change: null,
+        list: null,
+      }).move,
+    ).toEqual({ do: 'post', gap: 1 });
+  });
+
   it('passes over a job put off till they’re away, and looks again in a few minutes for it', () => {
     const state = fresh({ watchAt: NOW + 40 * MIN });
     const putOff = { away: false, passOver: ['requests'] };

@@ -11,8 +11,9 @@
  * - **Only the computer that works** says anything: one on standby has a day it isn't working.
  *
  * From 0.156.0 a network's runner asks HandsFreeOS for its next move too (`planNext`, decision 195, step 2), a
- * network at a time: Threads' and X's first, Alignable's from 0.157.0, Instagram's from 0.158.0. It does the move
- * it's sent, and plans for itself, as it always has, whenever HandsFreeOS doesn't decide for it or can't be reached.
+ * network at a time: Threads' and X's first, Alignable's from 0.157.0, Instagram's from 0.158.0, LinkedIn's from
+ * 0.159.0. It does the move it's sent, and plans for itself, as it always has, whenever HandsFreeOS doesn't decide
+ * for it or can't be reached.
  */
 import { PLATFORM_KEYS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {

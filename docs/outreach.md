@@ -5341,7 +5341,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       1. **See the plan in the app** (extension 0.155.0, built below).
       2. **The app decides, the extension does:** the extension asks HandsFreeOS for its next move, one network at a
          time, the smallest first and Facebook last. Threads and X are built (extension 0.156.0), then Alignable
-         (0.157.0) and Instagram (0.158.0), all below.
+         (0.157.0), Instagram (0.158.0) and LinkedIn (0.159.0), all below.
       3. **Buttons on the plan:** do now, skip today, move to a time.
       4. **The Assistant changes the plan,** as it already reads it.
       5. **Clean-up:** the extension's own planning goes.
@@ -5434,6 +5434,25 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Compared, not assumed** (`apps/extension/test/instagram-plan-next.test.ts`): 26 situations of a day, each
         gone once as HandsFreeOS decides and once as the runner plans by itself, and the two must come to the same
         read, page, words, state and next time.
+      - No migration, and nothing a person sees changes.
+
+      **Step 2, LinkedIn** (extension 0.159.0). LinkedIn's runner asks and does the move it's sent, the same way
+      (`go` and `asTold` in `src/auto/linkedin.ts`). Built, and **switched off** like the others.
+      - **Its own checks stay first and unchanged,** in its hours and outside them. Then it asks, and does a step
+        before its day, a once-a-day read, a wait, or the piece of its list's work HandsFreeOS picked: the same pages,
+        pace and limits, the week's invitations and the day's 40 profiles among them. By itself whenever it must, as
+        above.
+      - **Today's helpful post is HandsFreeOS's to send too** (decision 50 stays as it is). Where the person lets
+        LinkedIn post on its own, the runner put the post up between the day's reading and the list, and the day's
+        rules had no move for that. They have one now (`post`), sent only to a runner that asks, under the same
+        conditions: Posting on its own, the day's post asked for, and not looked for in the last 30 minutes. With
+        none written yet, the runner asks once more in the same go and does what goes meanwhile. The plan that's
+        shown still leaves the post out, as it can't tell when the AI will have one written.
+      - **A save of their lists is tried whenever it's due,** as on Alignable: its tab puts a save off by itself
+        when a page needs the screen (`savesAway` stays `false` for LinkedIn).
+      - **Compared, not assumed** (`apps/extension/test/linkedin-plan-next.test.ts`): 38 situations of a day, 14 of
+        them about the helpful post, each gone once as HandsFreeOS decides and once as the runner plans by itself,
+        and the two must come to the same read, page, words, state and next time.
       - No migration, and nothing a person sees changes.
 
 196.  **Comments and messages, a part each on Needs you** (Chris, 25 Nov 2026: "separate comments and messages into

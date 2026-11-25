@@ -256256,6 +256256,27 @@
                                 "do": {
                                   "type": "string",
                                   "enum": [
+                                    "post"
+                                  ]
+                                },
+                                "gap": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 86400000
+                                }
+                              },
+                              "required": [
+                                "do",
+                                "gap"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "do": {
+                                  "type": "string",
+                                  "enum": [
                                     "work"
                                   ]
                                 },
