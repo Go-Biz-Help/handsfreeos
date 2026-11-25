@@ -13,6 +13,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - .pnpmfile.mjs
+      - patches/**
       - .dockerignore
       - apps/api/**
       - apps/worker/**
@@ -67,6 +68,17 @@ jobs:
           fi
           docker run --rm --entrypoint sh hfos-${{ matrix.app }}:check -c 'du -sh /app/node_modules'
           docker image ls hfos-${{ matrix.app }}:check --format 'Image size: {{.Size}}'
+
+      # The driver runs with a patch that saves a round trip on every statement (docs/operations.md, "Round trips
+      # to the database"). `pnpm deploy` builds the production tree afresh, so this is the proof it kept the patch.
+      - name: The database driver carries its patch
+        run: |
+          docker run --rm --entrypoint sh hfos-${{ matrix.app }}:check -c \
+            "grep -q 'options.shared.remembered' /app/node_modules/postgres/src/connection.js \
+              && grep -q 'options.shared.remembered' /app/node_modules/postgres/cjs/src/connection.js" || {
+            echo "::error::The ${{ matrix.app }} image's postgres driver is not patched (patches/postgres@3.4.9.patch)."
+            exit 1
+          }
 
       # The worker makes businesses' logos with sharp (src/look/logo.ts), whose native part must match the image's
       # C library (Debian's).

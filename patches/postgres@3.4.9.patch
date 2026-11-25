@@ -1,0 +1,122 @@
+diff --git a/cjs/src/connection.js b/cjs/src/connection.js
+index 07f6716702ac888215c86ad6e0071aaf55ae519c..3e66cc60250981f371f0ee711437c6c3f1bdaf12 100644
+--- a/cjs/src/connection.js
++++ b/cjs/src/connection.js
+@@ -215,7 +215,7 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
+ 
+   function unnamed(q) {
+     return Buffer.concat([
+-      Parse(q.statement.string, q.parameters, q.statement.types),
++      Parse(q.statement.string, q.parameters, q.statement.asked || q.statement.types),
+       DescribeUnnamed,
+       prepared(q)
+     ])
+@@ -235,10 +235,23 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
+     q.onlyDescribe && (delete statements[q.signature])
+     q.parameters = q.parameters || parameters
+     q.prepared = q.prepare && q.signature in statements
+-    q.describeFirst = q.onlyDescribe || (parameters.length && !q.prepared)
++
++    // HandsFreeOS (patches/postgres@3.4.9.patch): with `prepare: false`, a statement with values is described
++    // before it runs, a round trip of its own, to learn the types its values are written by. Where the app gave
++    // `options.shared.remembered` (get, set, delete), those types are kept by statement text and the next run is
++    // sent in one piece, as a statement with no values always was. Parse still asks with the types the values
++    // show (`asked`), so the server works the rest out afresh every time and ParameterDescription checks them.
++    q.typesKey = options.shared.remembered && !q.prepare && !q.onlyDescribe && !q.cursorFn && !q.options.simple && parameters.length
++      ? types + string
++      : null
++    const known = q.typesKey && options.shared.remembered.get(q.typesKey)
++
++    q.describeFirst = q.onlyDescribe || (parameters.length && !q.prepared && !known)
+     q.statement = q.prepared
+       ? statements[q.signature]
+-      : { string, types, name: q.prepare ? statementId + statementCount++ : '' }
++      : known
++        ? { string, types: known.slice(), asked: types, name: '' }
++        : { string, types, name: q.prepare ? statementId + statementCount++ : '' }
+ 
+     typeof options.debug === 'function' && options.debug(id, string, parameters, types)
+   }
+@@ -626,10 +639,21 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
+   function ParameterDescription(x) {
+     const length = x.readUInt16BE(5)
+ 
++    // HandsFreeOS: sent with remembered types. If the server now says otherwise (a column changed type), forget
++    // them, and the statement is described first again the next time it runs.
++    if (query.typesKey && !query.describeFirst) {
++      for (let i = 0; i < length; ++i) {
++        if (query.statement.types[i] !== x.readUInt32BE(7 + i * 4))
++          return options.shared.remembered.delete(query.typesKey)
++      }
++      return
++    }
++
+     for (let i = 0; i < length; ++i)
+       !query.statement.types[i] && (query.statement.types[i] = x.readUInt32BE(7 + i * 4))
+ 
+     query.prepare && (statements[query.signature] = query.statement)
++    query.typesKey && options.shared.remembered.set(query.typesKey, query.statement.types.slice())
+     query.describeFirst && !query.onlyDescribe && (write(prepared(query)), query.describeFirst = false)
+   }
+ 
+diff --git a/src/connection.js b/src/connection.js
+index 1b1cccde43b4570d5d071d6ffaab2669b3c2065a..4e3ccda8db3d3dd8f02a2e37f23d58556b3bf081 100644
+--- a/src/connection.js
++++ b/src/connection.js
+@@ -215,7 +215,7 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
+ 
+   function unnamed(q) {
+     return Buffer.concat([
+-      Parse(q.statement.string, q.parameters, q.statement.types),
++      Parse(q.statement.string, q.parameters, q.statement.asked || q.statement.types),
+       DescribeUnnamed,
+       prepared(q)
+     ])
+@@ -235,10 +235,23 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
+     q.onlyDescribe && (delete statements[q.signature])
+     q.parameters = q.parameters || parameters
+     q.prepared = q.prepare && q.signature in statements
+-    q.describeFirst = q.onlyDescribe || (parameters.length && !q.prepared)
++
++    // HandsFreeOS (patches/postgres@3.4.9.patch): with `prepare: false`, a statement with values is described
++    // before it runs, a round trip of its own, to learn the types its values are written by. Where the app gave
++    // `options.shared.remembered` (get, set, delete), those types are kept by statement text and the next run is
++    // sent in one piece, as a statement with no values always was. Parse still asks with the types the values
++    // show (`asked`), so the server works the rest out afresh every time and ParameterDescription checks them.
++    q.typesKey = options.shared.remembered && !q.prepare && !q.onlyDescribe && !q.cursorFn && !q.options.simple && parameters.length
++      ? types + string
++      : null
++    const known = q.typesKey && options.shared.remembered.get(q.typesKey)
++
++    q.describeFirst = q.onlyDescribe || (parameters.length && !q.prepared && !known)
+     q.statement = q.prepared
+       ? statements[q.signature]
+-      : { string, types, name: q.prepare ? statementId + statementCount++ : '' }
++      : known
++        ? { string, types: known.slice(), asked: types, name: '' }
++        : { string, types, name: q.prepare ? statementId + statementCount++ : '' }
+ 
+     typeof options.debug === 'function' && options.debug(id, string, parameters, types)
+   }
+@@ -626,10 +639,21 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
+   function ParameterDescription(x) {
+     const length = x.readUInt16BE(5)
+ 
++    // HandsFreeOS: sent with remembered types. If the server now says otherwise (a column changed type), forget
++    // them, and the statement is described first again the next time it runs.
++    if (query.typesKey && !query.describeFirst) {
++      for (let i = 0; i < length; ++i) {
++        if (query.statement.types[i] !== x.readUInt32BE(7 + i * 4))
++          return options.shared.remembered.delete(query.typesKey)
++      }
++      return
++    }
++
+     for (let i = 0; i < length; ++i)
+       !query.statement.types[i] && (query.statement.types[i] = x.readUInt32BE(7 + i * 4))
+ 
+     query.prepare && (statements[query.signature] = query.statement)
++    query.typesKey && options.shared.remembered.set(query.typesKey, query.statement.types.slice())
+     query.describeFirst && !query.onlyDescribe && (write(prepared(query)), query.describeFirst = false)
+   }
+ 
