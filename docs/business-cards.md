@@ -80,6 +80,35 @@ contact** fills in the number or email), claiming an email in Settings → Email
 same), and the test tools (workflow tests, the AI teammate's Test as), so testing never adds real contacts. Only someone
 who may add contacts (`records.write`) is offered it.
 
+## Many contacts at once, from the Assistant
+
+The owner's ask of 25 November 2026: "will this be able to add contacts via a csv file or vcf file?"
+
+A person sends a list with their question on Ask HandsFreeOS (web or phone): a CSV, an Excel sheet (.xlsx) or a
+contacts file (.vcf), as an iPhone, a Mac, Google Contacts, Outlook or an Android phone exports it. The Assistant adds
+everyone on one card (`import_contacts` in `apps/worker/src/assistant/tools-contacts.ts`), up to the 20,000 rows one
+import takes. One or two people in a picture or a message still go on their own card (`create_customer`).
+
+- **It's the same import as Settings → Imports.** On Confirm the card runs `import.create`, puts the CSV where the
+  import reads it, and runs `import.start`, as the person. The worker adds the rows in the background with the same
+  commands and the same rules (`apps/worker/src/handlers/import-run.ts`), and the card's link opens the import's own
+  page, with how far it's got and any row it couldn't add.
+- **The columns.** Each heading is matched by the import's own guess (`guessMapping` in
+  `packages/core/src/crm/import-mapping.ts`). The AI reads the file and says the ones the guess would miss ("Cell #" is
+  the phone), and the card shows each column's field and the ones left out.
+- **An Excel sheet** is read from its first sheet with anything on it, its first row as the headings
+  (`workbookRows` in `apps/worker/src/files/office-text.ts`).
+- **A .vcf** is read by `packages/core/src/crm/vcard.ts` into the import's columns: names, the preferred phone and
+  email first (else a mobile), the rest as other numbers and emails, company and address. What a person has no box for
+  leads their note, as a scanned card's does: job title, website and birthday. Photos are left out.
+- **People already in Contacts** (the same email, then phone) are left as they are, unless the person asks to update
+  them. Rows with no name, email or phone are left out, and the card counts them.
+- **The card checks what the import would refuse,** in words the person can act on: a list with no names column, a
+  column the AI named that isn't there, a "who agreed to calls" column with nowhere said for where they agreed.
+- **The list waits for Confirm** as a CSV in `attachments/assistant-staging/`, named for the business and the card,
+  with the file's name on its first line so the import is named for the file the person sent. Confirm removes it, and
+  the nightly sweep removes the rest (see "Pictures and files sent to the Assistant" in `docs/operations.md`).
+
 ## Rules worth knowing before changing anything
 
 - **Every contact picker offers Add new contact.** A new picker uses `useNewContact` (web) or `NewContactForm` (phone),
@@ -88,6 +117,11 @@ who may add contacts (`records.write`) is offered it.
   passes a submit up through the portal, so `PersonDialog` stops its own submit there.
 
 - **Nothing is saved before the person checks the form.** The AI fills boxes; it never adds anyone on its own.
+- **A list sent to the Assistant goes through the import,** never a person at a time from the Assistant's own code, so
+  matching, call consent and the import's page stay one copy (`import_contacts`).
+- **What the card stages, Confirm maps the same way.** Confirm has only the card's arguments and the staged CSV, so the
+  columns come from the import's guess plus what the AI said, both times. A .vcf's columns are named so the guess maps
+  them (`vcardTable`), and a test checks the two agree.
 - **The back fills only empty boxes** (`fillCardForm`). Never let a later side overwrite what's there.
 - **The picture kept is the card alone.** When the edges can't be found, the picture is kept as taken and the person
   is told to fix the edges.

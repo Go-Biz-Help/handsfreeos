@@ -377,6 +377,7 @@ export function assistantCancelledText(card: ConfirmCard): string {
         ? `Not changed. It stays in ${card.stageFrom}.`
         : `Not moved. It stays in ${card.stageFrom}.`;
     case 'create_customer':
+    case 'import_contacts':
       return 'Nothing added.';
     case 'create_lead':
       return 'No lead opened.';
@@ -422,6 +423,8 @@ const OPEN_LABELS: Record<string, string> = {
   add_knowledge_item: 'Open item',
   // The call itself, as the Video call button opens it.
   start_video_call: 'Join',
+  // The import's own page: how far it's got, and any row it couldn't add.
+  import_contacts: 'See the import',
 };
 
 /** An Action Center card opens where its result landed: the conversation, the lead, or Home. */

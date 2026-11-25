@@ -1,7 +1,7 @@
 {
   "area": "customers",
   "title": "Contacts: people, companies, a business's own kinds of records, leads, imports and files",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-25",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx": "b86a46e367a4",
     "apps/mobile/src/app/app/w/[workspaceId]/customers/companies/[companyId].tsx": "cb2d19dfb095",
@@ -71,7 +71,7 @@
     "apps/web/src/components/files/file-grid.tsx": "0b455a816429",
     "apps/web/src/components/files/upload-zone.tsx": "7a46c36f47d1",
     "apps/web/src/components/funnels/person-funnel.tsx": "6d463f0e6e10",
-    "apps/web/src/components/import/fields.ts": "c2639d2fba22",
+    "apps/web/src/components/import/fields.ts": "7b9f60f2fea1",
     "apps/web/src/components/import/import-progress.tsx": "7e4630e2d20c",
     "apps/web/src/components/import/import-wizard.tsx": "e3a7f56dff11",
     "apps/web/src/components/inbox/conversations-card.tsx": "f83a51270af2",
@@ -114,8 +114,8 @@
       "path": "Contacts → Import",
       "kind": "do",
       "file": "apps/web/src/components/crm/customers-list.tsx:184",
-      "covered": "person",
-      "by": "import.create NEVER: the person's own spreadsheet"
+      "covered": "yes",
+      "by": "import_contacts: a CSV, Excel sheet or .vcf sent with the question, added on one card by the same import"
     },
     {
       "path": "Contacts → Add person, company or record",
@@ -2249,8 +2249,8 @@
       "path": "New import → steps: Upload, Match columns, Preview, Run",
       "kind": "see",
       "file": "apps/web/src/components/import/import-wizard.tsx:192",
-      "covered": "person",
-      "by": "import.create, import.start NEVER: own spreadsheet"
+      "covered": "yes",
+      "by": "import_contacts: its card shows the file, how many, a few names, each column's field and what's left out"
     },
     {
       "path": "New import → People or Companies",
@@ -2298,8 +2298,8 @@
       "path": "New import → Run",
       "kind": "do",
       "file": "apps/web/src/components/import/import-wizard.tsx:513",
-      "covered": "person",
-      "by": "import.start NEVER"
+      "covered": "yes",
+      "by": "import_contacts: a CSV, Excel sheet or .vcf sent with the question, added on one card by the same import"
     },
     {
       "path": "Import page → status",

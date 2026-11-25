@@ -933,8 +933,8 @@
       "path": "Set up → Customers → import → steps Upload, Match, Preview, Run",
       "kind": "see",
       "file": "apps/web/src/components/import/import-wizard.tsx:192",
-      "covered": "person",
-      "by": "import.create, import.start NEVER: their own spreadsheet"
+      "covered": "yes",
+      "by": "import_contacts: its card shows the file, how many, a few names, each column's field and what's left out"
     },
     {
       "path": "Set up → Customers → import → People or Companies, Choose file",
@@ -954,8 +954,8 @@
       "path": "Set up → Customers → import → Run",
       "kind": "do",
       "file": "apps/web/src/components/import/import-wizard.tsx:513",
-      "covered": "person",
-      "by": "import.start NEVER"
+      "covered": "yes",
+      "by": "import_contacts: a CSV, Excel sheet or .vcf sent with the question, added on one card by the same import"
     },
     {
       "path": "Set up → Customers → import progress: status, rows done, counts, error rows",
@@ -2935,8 +2935,8 @@
       "path": "Setup wizard → Customers → spreadsheet import",
       "kind": "do",
       "file": "apps/web/src/components/onboarding/customers-setup.tsx:146",
-      "covered": "person",
-      "by": "import.create, import.start NEVER (items as above)"
+      "covered": "yes",
+      "by": "import_contacts: a CSV, Excel sheet or .vcf sent with the question, added on one card by the same import"
     },
     {
       "path": "Setup wizard → Customers → Add them as I go",

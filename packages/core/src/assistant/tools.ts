@@ -3,6 +3,7 @@ import { ABOUT_YOU_MOST } from '../account/about-you';
 import { ATTENTION_KINDS, AUTO_CANCEL_WINDOW_MINUTES } from '../attention/kinds';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { CALENDAR_COLORS, CALENDAR_PRESETS, PRESET_KEYS } from '../calendar/presets';
+import { COMPANY_FIELDS, PERSON_FIELDS, SKIP } from '../crm/import-mapping';
 import { FORM_STARTERS } from '../forms/starters';
 import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
 import { MANUAL_PAYMENT_METHODS } from '../money/status';
@@ -1845,6 +1846,45 @@ export const assistantTools = [
     }),
     autonomy: 'confirm',
     permission: 'records.write',
+  }),
+  define({
+    name: 'import_contacts',
+    description:
+      'Add a whole list of contacts they sent with this question, however many (up to 20,000), on one card: a CSV, an Excel sheet or a contacts .vcf file (a phone’s or Google’s contacts export). It runs the same import as Settings → Imports. Each column is matched to a field by its heading; read the file and pass columns for any heading the match would miss or get wrong (like “Cell #” → phone, “Customer” → full_name), and skip ones that aren’t contact details. A .vcf needs no columns. People already in Contacts (the same email or phone) are left as they are unless they ask to update them. Nobody is messaged. For one or two people in a picture or a message, use create_customer instead.',
+    input: z.object({
+      fromFile: z.int().min(1).max(3).describe('Which file they sent, 1 for the first'),
+      kind: z
+        .enum(['people', 'companies'])
+        .default('people')
+        .describe('people: a list of people; companies: a list of businesses'),
+      columns: z
+        .record(
+          z.string().max(200),
+          z.enum([...new Set([...PERSON_FIELDS, ...COMPANY_FIELDS, SKIP])] as [
+            string,
+            ...string[],
+          ]),
+        )
+        .optional()
+        .describe('A heading as the file has it → the field it is; only the ones to change'),
+      onMatch: z
+        .enum(['skip', 'update'])
+        .default('skip')
+        .describe(
+          'Someone already in Contacts: skip leaves them; update fills in what the file has',
+        ),
+      callConsentSource: z
+        .string()
+        .trim()
+        .min(1)
+        .max(120)
+        .optional()
+        .describe(
+          'Only when a column says they agreed to calls: where they agreed in writing, like “Website form, Oct 2026”, as they tell you',
+        ),
+    }),
+    autonomy: 'confirm',
+    permission: 'records.import',
   }),
   define({
     name: 'update_customer',

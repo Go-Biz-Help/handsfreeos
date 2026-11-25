@@ -6,6 +6,7 @@
 import {
   ASSISTANT_DOCX_TYPE,
   ASSISTANT_FILE_TYPES,
+  ASSISTANT_VCARD_TYPE,
   ASSISTANT_XLSX_TYPE,
   type AssistantFileType,
 } from '../schemas/assistant';
@@ -19,6 +20,8 @@ const BY_ENDING: Readonly<Record<string, AssistantFileType>> = {
   text: 'text/plain',
   md: 'text/markdown',
   markdown: 'text/markdown',
+  vcf: ASSISTANT_VCARD_TYPE,
+  vcard: ASSISTANT_VCARD_TYPE,
 };
 
 /** Other names some systems give the same kinds. */
@@ -27,6 +30,8 @@ const ALSO: Readonly<Record<string, AssistantFileType>> = {
   'text/x-csv': 'text/csv',
   'application/vnd.ms-excel.sheet.macroenabled.12': ASSISTANT_XLSX_TYPE,
   'text/x-markdown': 'text/markdown',
+  'text/x-vcard': ASSISTANT_VCARD_TYPE,
+  'text/directory': ASSISTANT_VCARD_TYPE,
 };
 
 /** Kinds the Assistant can't read, with what to do instead. */
@@ -75,5 +80,5 @@ export function assistantFileRefusal(name: string): string {
   if (kind === 'Excel' || kind === 'Numbers')
     return `${name} can’t be read as it is. Save it as an Excel .xlsx or a .csv file, then add it again.`;
   if (kind) return `${name} can’t be read as it is. Save it as a PDF, then add it again.`;
-  return `${name} isn’t a kind of file the Assistant reads. Send a PDF, a Word or Excel file, a .csv or a .txt, or a picture.`;
+  return `${name} isn’t a kind of file the Assistant reads. Send a PDF, a Word or Excel file, a .csv, a contacts .vcf or a .txt, or a picture.`;
 }

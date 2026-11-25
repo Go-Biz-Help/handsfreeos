@@ -648,8 +648,7 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'file.begin_upload': 'a file from the person’s own computer or phone',
   'knowledge_document.begin_upload': 'a file from the person’s own computer or phone',
   'knowledge_document.add': 'a file from the person’s own computer or phone',
-  'import.create': 'a spreadsheet from the person’s own computer',
-  'import.start': 'a spreadsheet from the person’s own computer',
+  // import.create and import.start run in import_contacts, for a list sent with the question (25 Nov 2026).
   'look.begin_upload': 'a picture from the person’s own computer or phone',
   'look.use_upload': 'a picture from the person’s own computer or phone',
   'number_port.begin_upload': 'a file from the person’s own computer or phone',

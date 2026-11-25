@@ -515,12 +515,12 @@ function columnOf(ref: string): number {
 }
 
 /**
- * A sheet laid out for the model: a line a row, each cell in its own column between bars, so a price stays under
- * its heading even with a cell left empty before it. Formulas show what they last worked out to; true or false as
- * TRUE or FALSE. `room` characters at most.
+ * A sheet's rows of cells, in order, each cell in its own column (an empty one where a row skips it), with empty
+ * cells at a row's end dropped and empty rows left out. Formulas show what they last worked out to; true or false as
+ * TRUE or FALSE. Stops once the rows laid out with bars between cells would come to `room` characters.
  */
-export function sheetLayout(xml: string, shared: readonly string[], room = Infinity): string {
-  const lines: string[] = [];
+export function sheetGrid(xml: string, shared: readonly string[], room = Infinity): string[][] {
+  const grid: string[][] = [];
   let used = 0;
   let row: string[] | null = null;
   let cell: { col: number; type: string; value: string; inline: string } | null = null;
@@ -532,9 +532,8 @@ export function sheetLayout(xml: string, shared: readonly string[], room = Infin
     if (!row) return;
     while (row.length && !row[row.length - 1]) row.pop();
     if (row.length) {
-      const text = row.join(' | ');
-      lines.push(text);
-      used += text.length + 1;
+      grid.push(row);
+      used += row.join(' | ').length + 1;
     }
     row = null;
   };
@@ -595,7 +594,45 @@ export function sheetLayout(xml: string, shared: readonly string[], room = Infin
     }
   }
   endRow();
-  return within(lines.join('\n'), room);
+  return grid;
+}
+
+/**
+ * A sheet laid out for the model: a line a row, each cell in its own column between bars, so a price stays under
+ * its heading even with a cell left empty before it. `room` characters at most.
+ */
+export function sheetLayout(xml: string, shared: readonly string[], room = Infinity): string {
+  return within(
+    sheetGrid(xml, shared, room)
+      .map((r) => r.join(' | '))
+      .join('\n'),
+    room,
+  );
+}
+
+/**
+ * A workbook's first sheet with anything on it, as rows of cells, opened with the same checks as `officeText`: what
+ * a list kept in Excel is to the contacts import. `none` when no sheet has a row.
+ */
+export function workbookRows(
+  file: Buffer,
+):
+  | { readonly ok: true; readonly sheet: string | null; readonly rows: string[][] }
+  | { readonly ok: false; readonly why: 'not_zip' | 'not_office' | 'refused' | 'none' } {
+  if (file.length < 4 || file.readUInt32LE(0) !== LOCAL) return { ok: false, why: 'not_zip' };
+  try {
+    const entries = entriesOf(file);
+    const read = partReader(file, entries);
+    if (!entries.has('xl/workbook.xml')) return { ok: false, why: 'not_office' };
+    const shared = sharedStrings(read('xl/sharedStrings.xml') ?? '');
+    for (const sheet of sheetsOf(read, [...entries.keys()])) {
+      const rows = sheetGrid(read(sheet.part) ?? '', shared);
+      if (rows.length) return { ok: true, sheet: sheet.name ?? null, rows };
+    }
+    return { ok: false, why: 'none' };
+  } catch {
+    return { ok: false, why: 'refused' };
+  }
 }
 
 /**
