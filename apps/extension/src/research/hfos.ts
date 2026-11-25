@@ -127,7 +127,13 @@ export const postWent = (
   workspaceId: string,
   postId: string,
   said: {
-    went: { place: PostPlace; posted: boolean; link: string | null; failure: string | null }[];
+    went: {
+      place: PostPlace;
+      posted: boolean;
+      link: string | null;
+      failure: string | null;
+      comment?: boolean | null;
+    }[];
     again: boolean;
     failure: string | null;
   },

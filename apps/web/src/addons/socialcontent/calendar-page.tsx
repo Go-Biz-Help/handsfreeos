@@ -671,6 +671,7 @@ export function CalendarPage({
           post={open}
           timeZone={c.timeZone}
           facebookPage={c.facebookPage}
+          link={c.link}
           onClose={() => show(null)}
         />
       ) : null}

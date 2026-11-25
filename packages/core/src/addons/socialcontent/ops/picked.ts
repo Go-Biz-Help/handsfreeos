@@ -157,7 +157,7 @@ export const contentApproveMany = defineAddonCommand(socialcontentAddon, {
   emits: ['socialcontent.content.approved'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
-    const facebookPage = (await settingsOf(ctx)).facebookPage;
+    const known = await settingsOf(ctx);
     const notApproved: LeftOut[] = [];
     let approved = 0;
     for (const c of await eachPicked(ctx, input.postIds, notApproved)) {
@@ -165,7 +165,7 @@ export const contentApproveMany = defineAddonCommand(socialcontentAddon, {
         notApproved.push({ postId: c.recordId, title: c.title, why: PICK_REFUSALS.notWaiting });
         continue;
       }
-      const needs = await okOne(ctx, c, me, facebookPage);
+      const needs = await okOne(ctx, c, me, known);
       if (needs) notApproved.push({ postId: c.recordId, title: c.title, why: needs });
       else approved++;
     }

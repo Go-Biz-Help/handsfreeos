@@ -26,6 +26,7 @@ import type {
   PostedTo,
 } from './calendar';
 import type { ContentNetwork } from './networks';
+import type { LinkPlace } from './links';
 import type { DoneWell, OwnNumbers } from './own';
 import type { RecentPost, SetupMarks } from './picking';
 import type { Angle } from './variety';
@@ -79,6 +80,12 @@ export const settings = addonSocialcontent.table('settings', {
   autoPick: boolean('auto_pick').notNull().default(true),
   /** The steps of setting itself up it has taken (decision 28; `SetupMarks`). */
   setup: jsonb('setup').notNull().$type<SetupMarks>().default({}),
+  /** The business's link for its posts, and where it goes on each network (the owner, 24 Nov; `links.ts`). */
+  link: text('link'),
+  linkPlaces: jsonb('link_places')
+    .notNull()
+    .$type<Partial<Record<string, LinkPlace>>>()
+    .default({}),
   updatedBy: userRef('updated_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -310,6 +317,8 @@ export const content = addonSocialcontent.table(
      * away, as a Check's does; a look on its own comes in front only while they're away (docs/outreach.md, decision 120).
      */
     lookAsked: boolean('look_asked').notNull().default(false),
+    /** Where its link goes, when its words point people to the business's link; null when it carries none. */
+    linkPlace: text('link_place').$type<LinkPlace>(),
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

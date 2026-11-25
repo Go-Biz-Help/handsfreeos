@@ -16727,7 +16727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change one of the business’s own posts: its title, network, format, words, hook, hashtags, slides, script, what its picture shows and how it’s made, its pictures (files on the post, in order), where on Facebook it goes, or when it goes (null for no day yet). What isn’t given stays as it is. Changing an OK’d post takes the OK back, so it waits for an OK again. A posted post can’t be changed.
+         * Change one of the business’s own posts: its title, network, format, words, hook, hashtags, slides, script, what its picture shows and how it’s made, its pictures (files on the post, in order), where on Facebook it goes, when it goes (null for no day yet), or where its link goes (linkPlace: "post" after its words, "bio" when its words say the link is in the bio, "comment" for the first comment under it once it’s up; null for no link; the link itself is the business’s, set on the Playbook page). What isn’t given stays as it is. Changing an OK’d post takes the OK back, so it waits for an OK again. A posted post can’t be changed.
          * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.content.saved.
          */
         post: operations["command_socialcontent_content_save"];
@@ -16871,6 +16871,26 @@ export interface paths {
          * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.idea.decided.
          */
         post: operations["command_socialcontent_idea_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.link.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the business’s link for its own posts (the Playbook page’s Your link), and where it goes on each network: "post" (on a line after the post’s words), "bio" (the words say the link is in the bio, where the business keeps it) or "comment" (the extension writes it as the first comment once the post is up; on Threads and X, a reply under it). The AI only points people to the link when the business has one, and says where it is. A link just added is carried by the posts not up yet whose words already point to one. What isn’t given stays as it is; a null or empty link takes it off.
+         * @description Risk level 1. Requires socialcontent.manage. Emits socialcontent.link.saved.
+         */
+        post: operations["command_socialcontent_link_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -26707,7 +26727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The Playbook: what works for the creators studied, written by the AI from its notes on their standout posts, in sections (hooks, formats, topics, captions, timing and the like), each with what to do, why it works and the standouts it came from (examples: each one’s link); when it was last written, and from how many of the noted standouts there are now.
+         * The Playbook: what works for the creators studied, written by the AI from its notes on their standout posts, in sections (hooks, formats, topics, captions, timing and the like), each with what to do, why it works and the standouts it came from (examples: each one’s link); when it was last written, and from how many of the noted standouts there are now; and the business’s link for its posts (link, null for none) with where it goes on each network (linkPlaces: "post" after the words, "bio" said to be in the bio, "comment" the first comment once it’s up, a reply on Threads and X).
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_playbook_get"];
@@ -67872,6 +67892,8 @@ export interface operations {
                         id: string;
                         ideaId: string | null;
                         /** @default null */
+                        linkPlace: ("post" | "bio" | "comment") | null;
+                        /** @default null */
                         lookAt: string | null;
                         /** @default null */
                         lookedAt: string | null;
@@ -67922,6 +67944,8 @@ export interface operations {
                         postedAt: string | null;
                         postedTo: {
                             at: string;
+                            /** @default null */
+                            comment: boolean | null;
                             link: string | null;
                             /** @enum {string} */
                             place: "profile" | "page" | "feed";
@@ -68187,6 +68211,8 @@ export interface operations {
                         id: string;
                         ideaId: string | null;
                         /** @default null */
+                        linkPlace: ("post" | "bio" | "comment") | null;
+                        /** @default null */
                         lookAt: string | null;
                         /** @default null */
                         lookedAt: string | null;
@@ -68237,6 +68263,8 @@ export interface operations {
                         postedAt: string | null;
                         postedTo: {
                             at: string;
+                            /** @default null */
+                            comment: boolean | null;
                             link: string | null;
                             /** @enum {string} */
                             place: "profile" | "page" | "feed";
@@ -68390,6 +68418,7 @@ export interface operations {
                     format?: "photo" | "carousel" | "video" | "text";
                     hashtags?: string[];
                     hook?: string | null;
+                    linkPlace?: ("post" | "bio" | "comment") | null;
                     /** @enum {string} */
                     network?: "instagram" | "facebook" | "linkedin" | "threads" | "x";
                     picture?: string | null;
@@ -68447,6 +68476,8 @@ export interface operations {
                         id: string;
                         ideaId: string | null;
                         /** @default null */
+                        linkPlace: ("post" | "bio" | "comment") | null;
+                        /** @default null */
                         lookAt: string | null;
                         /** @default null */
                         lookedAt: string | null;
@@ -68497,6 +68528,8 @@ export interface operations {
                         postedAt: string | null;
                         postedTo: {
                             at: string;
+                            /** @default null */
+                            comment: boolean | null;
                             link: string | null;
                             /** @enum {string} */
                             place: "profile" | "page" | "feed";
@@ -68580,6 +68613,8 @@ export interface operations {
                         id: string;
                         ideaId: string | null;
                         /** @default null */
+                        linkPlace: ("post" | "bio" | "comment") | null;
+                        /** @default null */
                         lookAt: string | null;
                         /** @default null */
                         lookedAt: string | null;
@@ -68630,6 +68665,8 @@ export interface operations {
                         postedAt: string | null;
                         postedTo: {
                             at: string;
+                            /** @default null */
+                            comment: boolean | null;
                             link: string | null;
                             /** @enum {string} */
                             place: "profile" | "page" | "feed";
@@ -68974,6 +69011,53 @@ export interface operations {
             };
         };
     };
+    command_socialcontent_link_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    link?: string | null;
+                    places?: {
+                        [key: string]: "post" | "bio" | "comment";
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default 0 */
+                        carried: number;
+                        link: string | null;
+                        places: {
+                            /** @enum {string} */
+                            facebook: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            instagram: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            linkedin: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            threads: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            x: "post" | "bio" | "comment";
+                        };
+                    };
+                };
+            };
+        };
+    };
     command_socialcontent_niche_add: {
         parameters: {
             query?: never;
@@ -69173,6 +69257,8 @@ export interface operations {
                         id: string;
                         ideaId: string | null;
                         /** @default null */
+                        linkPlace: ("post" | "bio" | "comment") | null;
+                        /** @default null */
                         lookAt: string | null;
                         /** @default null */
                         lookedAt: string | null;
@@ -69223,6 +69309,8 @@ export interface operations {
                         postedAt: string | null;
                         postedTo: {
                             at: string;
+                            /** @default null */
+                            comment: boolean | null;
                             link: string | null;
                             /** @enum {string} */
                             place: "profile" | "page" | "feed";
@@ -69353,6 +69441,8 @@ export interface operations {
                         id: string;
                         ideaId: string | null;
                         /** @default null */
+                        linkPlace: ("post" | "bio" | "comment") | null;
+                        /** @default null */
                         lookAt: string | null;
                         /** @default null */
                         lookedAt: string | null;
@@ -69403,6 +69493,8 @@ export interface operations {
                         postedAt: string | null;
                         postedTo: {
                             at: string;
+                            /** @default null */
+                            comment: boolean | null;
                             link: string | null;
                             /** @enum {string} */
                             place: "profile" | "page" | "feed";
@@ -69461,6 +69553,8 @@ export interface operations {
                         post: {
                             /** @default [] */
                             chain: string[];
+                            /** @default null */
+                            comment: string | null;
                             facebookPage: string | null;
                             files: {
                                 bucket: string;
@@ -69501,6 +69595,8 @@ export interface operations {
                     /** Format: uuid */
                     postId: string;
                     went: {
+                        /** @default null */
+                        comment?: boolean | null;
                         /** @default null */
                         failure?: string | null;
                         /** @default null */
@@ -69547,6 +69643,8 @@ export interface operations {
                         /** Format: uuid */
                         id: string;
                         ideaId: string | null;
+                        /** @default null */
+                        linkPlace: ("post" | "bio" | "comment") | null;
                         /** @default null */
                         lookAt: string | null;
                         /** @default null */
@@ -69598,6 +69696,8 @@ export interface operations {
                         postedAt: string | null;
                         postedTo: {
                             at: string;
+                            /** @default null */
+                            comment: boolean | null;
                             link: string | null;
                             /** @enum {string} */
                             place: "profile" | "page" | "feed";
@@ -106091,6 +106191,20 @@ export interface operations {
                                 own: number;
                             };
                         };
+                        /** @default null */
+                        link: string | null;
+                        linkPlaces?: {
+                            /** @enum {string} */
+                            facebook: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            instagram: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            linkedin: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            threads: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            x: "post" | "bio" | "comment";
+                        };
                         mayManage: boolean;
                         nextFillAt: string | null;
                         /** @default true */
@@ -106188,6 +106302,8 @@ export interface operations {
                             id: string;
                             ideaId: string | null;
                             /** @default null */
+                            linkPlace: ("post" | "bio" | "comment") | null;
+                            /** @default null */
                             lookAt: string | null;
                             /** @default null */
                             lookedAt: string | null;
@@ -106238,6 +106354,8 @@ export interface operations {
                             postedAt: string | null;
                             postedTo: {
                                 at: string;
+                                /** @default null */
+                                comment: boolean | null;
                                 link: string | null;
                                 /** @enum {string} */
                                 place: "profile" | "page" | "feed";
@@ -106293,6 +106411,8 @@ export interface operations {
                             id: string;
                             ideaId: string | null;
                             /** @default null */
+                            linkPlace: ("post" | "bio" | "comment") | null;
+                            /** @default null */
                             lookAt: string | null;
                             /** @default null */
                             lookedAt: string | null;
@@ -106343,6 +106463,8 @@ export interface operations {
                             postedAt: string | null;
                             postedTo: {
                                 at: string;
+                                /** @default null */
+                                comment: boolean | null;
                                 link: string | null;
                                 /** @enum {string} */
                                 place: "profile" | "page" | "feed";
@@ -106398,6 +106520,8 @@ export interface operations {
                             id: string;
                             ideaId: string | null;
                             /** @default null */
+                            linkPlace: ("post" | "bio" | "comment") | null;
+                            /** @default null */
                             lookAt: string | null;
                             /** @default null */
                             lookedAt: string | null;
@@ -106448,6 +106572,8 @@ export interface operations {
                             postedAt: string | null;
                             postedTo: {
                                 at: string;
+                                /** @default null */
+                                comment: boolean | null;
                                 link: string | null;
                                 /** @enum {string} */
                                 place: "profile" | "page" | "feed";
@@ -106530,6 +106656,8 @@ export interface operations {
                         id: string;
                         ideaId: string | null;
                         /** @default null */
+                        linkPlace: ("post" | "bio" | "comment") | null;
+                        /** @default null */
                         lookAt: string | null;
                         /** @default null */
                         lookedAt: string | null;
@@ -106580,6 +106708,8 @@ export interface operations {
                         postedAt: string | null;
                         postedTo: {
                             at: string;
+                            /** @default null */
+                            comment: boolean | null;
                             link: string | null;
                             /** @enum {string} */
                             place: "profile" | "page" | "feed";
@@ -106666,6 +106796,8 @@ export interface operations {
                             id: string;
                             ideaId: string | null;
                             /** @default null */
+                            linkPlace: ("post" | "bio" | "comment") | null;
+                            /** @default null */
                             lookAt: string | null;
                             /** @default null */
                             lookedAt: string | null;
@@ -106716,6 +106848,8 @@ export interface operations {
                             postedAt: string | null;
                             postedTo: {
                                 at: string;
+                                /** @default null */
+                                comment: boolean | null;
                                 link: string | null;
                                 /** @enum {string} */
                                 place: "profile" | "page" | "feed";
@@ -107203,6 +107337,22 @@ export interface operations {
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube";
                         }[];
+                        /** @default null */
+                        link: string | null;
+                        linkPlaces?: {
+                            /** @enum {string} */
+                            facebook: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            instagram: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            linkedin: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            threads: "post" | "bio" | "comment";
+                            /** @enum {string} */
+                            x: "post" | "bio" | "comment";
+                        };
+                        /** @default false */
+                        mayManage: boolean;
                         playbook: {
                             noted: number;
                             sections: {

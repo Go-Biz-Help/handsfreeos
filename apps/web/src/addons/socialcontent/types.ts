@@ -8,6 +8,7 @@ export type {
   Niche,
   Overview,
   Playbook,
+  PlaybookGet,
   Post,
   StandoutRef,
   Work,

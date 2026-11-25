@@ -1307,6 +1307,27 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### The business's link as the first comment under its own post (0.153.0)
+
+AI Social Media Content Creator's "Your link" (`docs/socialcontent.md`; the owner, 24 Nov 2026): the business sets its
+link on the Playbook page and picks, for each network, whether it goes in the post, in the bio, or in the first
+comment once the post is up. A post whose link goes in the first comment comes with it (`comment` on core's
+`socialcontent.post.next`), and once the post is up the extension writes it under the post from the person's own
+account, a Facebook Page's post too (the owner's pick) (`firstComment` in `src/research/posting.ts`, the `comment`
+hand in `src/research/post-comment.ts`):
+
+- **On the post's own page** when its link is known (LinkedIn's **View post**, the profile's or Page's newest posts,
+  Instagram's own newest): the post's own box to comment in, as Social Outreach's comments go
+  (`writeComment` on Facebook and LinkedIn, `writeTheirComment` on Instagram with the person's own name).
+- **Facebook without its link** (a new post's time link stays empty until it's pointed at): on the profile or Page,
+  the post that starts with its words, its **Comment** pressed to open it over the page, then that box. With no post
+  opened over the page nothing is written, so it's never another post's box.
+- **Once, never again:** `socialcontent.post.went` says whether it went (`comment` for each place), and the post's
+  sheet says so, with **Copy link** when it didn't. A comment that didn't go sends a problem report with job
+  `comment.profile`, `comment.page` or `comment.feed`.
+- **Threads and X** need none of this: the link goes as the last reply in the post's own chain.
+- Older builds put the post up and leave its first comment out: the sheet says it didn't go.
+
 ### Two friend requests Facebook says no to in a row, and no more that day (0.151.2)
 
 From 20 Nov 2026 Facebook answered Add friend with a box of its own over the profile: a heading of a few words, a line

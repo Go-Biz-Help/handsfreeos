@@ -1,4 +1,4 @@
-import type { Playbook, StandoutRef } from '@hfos/core/addons/socialcontent/shapes';
+import type { PlaybookGet } from '@hfos/core/addons/socialcontent/shapes';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -12,6 +12,7 @@ import { api, unwrap } from '@/lib/api';
 import { workerPost } from '@/lib/worker';
 
 import { NeedsSignal, Note, useAct, useSocialcontentAnswer, useSocialcontentContext } from './kit';
+import { LinkCard } from './link';
 import { StandoutLinks } from './post-card';
 
 /**
@@ -21,10 +22,9 @@ import { StandoutLinks } from './post-card';
  * It needs signal.
  */
 
-export interface PlaybookData {
-  readonly playbook: Playbook;
-  readonly examples: readonly StandoutRef[];
-}
+/** What the Playbook screen is drawn from: the Playbook, its examples, and Your link (docs/socialcontent.md). */
+export type PlaybookData = Pick<PlaybookGet, 'playbook' | 'examples'> &
+  Partial<Pick<PlaybookGet, 'link' | 'linkPlaces' | 'mayManage'>>;
 
 export function PlaybookScreen() {
   const ctx = useSocialcontentContext();
@@ -40,6 +40,7 @@ export function PlaybookScreen() {
   const { busy, act } = useAct(answer.reload);
   return (
     <PlaybookBody
+      workspaceId={ws}
       data={answer.data}
       error={answer.error}
       online={ctx.online}
@@ -61,6 +62,7 @@ export function PlaybookScreen() {
 }
 
 export function PlaybookBody({
+  workspaceId,
   data,
   error,
   online,
@@ -68,6 +70,8 @@ export function PlaybookBody({
   onRetry,
   onWrite,
 }: {
+  /** With it, Your link shows at the top. */
+  workspaceId?: string;
   data: PlaybookData | null;
   error: string | null;
   online: boolean;
@@ -84,6 +88,16 @@ export function PlaybookBody({
   return (
     <Screen title={W.playbook.title} leading="back" testID="socialcontent-playbook">
       <Note>{W.playbook.intro}</Note>
+      {playbook && data && workspaceId ? (
+        <LinkCard
+          workspaceId={workspaceId}
+          link={data.link ?? null}
+          places={data.linkPlaces}
+          mayManage={data.mayManage ?? false}
+          online={online}
+          onSaved={onRetry}
+        />
+      ) : null}
       {playbook ? (
         <>
           {playbook.noted > 0 ? (

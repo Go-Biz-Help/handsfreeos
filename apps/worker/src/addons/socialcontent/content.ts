@@ -61,6 +61,7 @@ import {
   writePrompt,
   type Design,
   type WriteInput,
+  type LinkForPost,
   type WrittenPost,
 } from '@hfos/core/addons/socialcontent/posts-ai';
 import type { AiContent } from '@hfos/ai';
@@ -69,6 +70,7 @@ import {
   type ContentPicturedInput,
 } from '@hfos/core/addons/socialcontent/content-shapes';
 import { SOCIALCONTENT_WORDS as W } from '@hfos/core/addons/socialcontent/words';
+import { isLinkPlace, linkPlacesOf } from '@hfos/core/addons/socialcontent/links';
 import {
   CHECKS,
   checkedPictureCheck,
@@ -186,6 +188,20 @@ async function hereOf(ctx: AddonScopeContext): Promise<Here> {
   });
 }
 
+/** The business's link and where it goes on a network, when it has one (the Playbook's Your link). */
+async function linkFor(
+  ctx: AddonScopeContext,
+  network: PostingNetwork,
+): Promise<LinkForPost | null> {
+  const [s] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ link: string | null; link_places: unknown }>(
+      tx,
+      sql`select link, link_places from addon_socialcontent.settings where workspace_id = ${ctx.scope.workspaceId}`,
+    ),
+  );
+  return s?.link ? { url: s.link, place: linkPlacesOf(s.link_places)[network] } : null;
+}
+
 type IdeaRow = {
   id: string;
   title: string;
@@ -241,14 +257,21 @@ async function openSlots(ctx: AddonScopeContext, here: Here) {
 /** The AI writes one post; null when what came back held nothing to keep. */
 async function writeOne(
   ctx: AddonScopeContext,
-  input: Omit<WriteInput, 'business'> & { readonly business?: string },
+  input: Omit<WriteInput, 'business' | 'link'> & { readonly business?: string },
 ): Promise<WrittenPost | null> {
+  // The business's link, where it goes on this network (docs/socialcontent.md, "Your link"): the post may point to
+  // it; with none, it never mentions one.
+  const link = isPostingNetwork(input.network) ? await linkFor(ctx, input.network) : null;
   const { value } = await askStructured(ctx, ctx.scope, {
     system: WRITE_SYSTEM,
     messages: [
       {
         role: 'user',
-        content: writePrompt({ ...input, business: input.business ?? (await businessText(ctx)) }),
+        content: writePrompt({
+          ...input,
+          business: input.business ?? (await businessText(ctx)),
+          link,
+        }),
       },
     ],
     schema: WRITE_SCHEMA,
@@ -256,7 +279,7 @@ async function writeOne(
     maxTokens: 3000,
     usage: { source: 'addon', addonId: ctx.manifest.id },
   });
-  const post = checkedPost(value, input.network, input.angle ?? null, input.look ?? null);
+  const post = checkedPost(value, input.network, input.angle ?? null, input.look ?? null, link);
   if (!post) return null;
   // Without OpenAI's image model here, a photo-style picture is designed instead.
   return post.pictureWay === 'photo' && !ctx.pictures ? { ...post, pictureWay: 'design' } : post;
@@ -323,6 +346,7 @@ async function keep(
         pictureWay: post.pictureWay,
         angle: post.angle,
         topic: opts.topic ?? null,
+        linkPlace: post.linkPlace,
       },
       askedBy: opts.askedBy ?? null,
     },
@@ -1144,6 +1168,8 @@ type PostForPictures = {
   slides: unknown;
   picture: string | null;
   state: string;
+  /** Where its link goes, or null when it carries none: its pictures never point to one that isn't there. */
+  link_place: string | null;
 };
 
 const slug = (s: string) =>
@@ -1267,6 +1293,7 @@ async function askDesign(
           ask,
           photo,
           choices,
+          link: isLinkPlace(p.link_place) ? p.link_place : null,
         }),
       },
     ],
@@ -1278,6 +1305,7 @@ async function askDesign(
   const design = checkedDesign(value, here.color, pagesWanted, {
     photo: !!photo,
     avoid: choices.avoid,
+    noLink: !isLinkPlace(p.link_place),
   });
   if (!design) throw new PictureError('The AI’s design had no words to put on the picture.', true);
   return design;
@@ -1719,7 +1747,8 @@ export const runPictures: AddonJobHandler = async (ctx) => {
   const [p] = await asWorker(ctx.db, ctx.scope, (tx) =>
     rows<PostForPictures & { picture_way: string }>(
       tx,
-      sql`select r.name as title, c.network, c.format, c.hook, c.words, c.slides, c.picture, c.state, c.picture_way
+      sql`select r.name as title, c.network, c.format, c.hook, c.words, c.slides, c.picture, c.state, c.picture_way,
+                 c.link_place
           from addon_socialcontent.content c
           join app.custom_records r on r.id = c.record_id and r.archived_at is null
           where c.record_id = ${postId}::uuid and c.workspace_id = ${ctx.scope.workspaceId}`,

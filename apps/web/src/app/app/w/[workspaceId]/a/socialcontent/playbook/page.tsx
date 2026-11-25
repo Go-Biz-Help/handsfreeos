@@ -17,7 +17,12 @@ export default async function Page({ params }: { params: Promise<{ workspaceId: 
       .POST('/v1/queries/socialcontent.playbook.get', { body: { workspaceId } })
       .then(unwrapPage);
     return (
-      <PlaybookPage workspaceId={workspaceId} playbook={found.playbook} examples={found.examples} />
+      <PlaybookPage
+        workspaceId={workspaceId}
+        playbook={found.playbook}
+        examples={found.examples}
+        link={found}
+      />
     );
   });
 }

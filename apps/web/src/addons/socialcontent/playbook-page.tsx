@@ -12,18 +12,22 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { LinkCard } from './link-card';
 import { StandoutLinks } from './standout-links';
-import type { Playbook, StandoutRef } from './types';
+import type { Playbook, PlaybookGet, StandoutRef } from './types';
 import { useAct } from './use-act';
 
 export function PlaybookPage({
   workspaceId,
   playbook,
   examples,
+  link,
 }: {
   workspaceId: string;
   playbook: Playbook;
   examples: readonly StandoutRef[];
+  /** Your link (docs/socialcontent.md, "Your link"), at the top. */
+  link: Pick<PlaybookGet, 'link' | 'linkPlaces' | 'mayManage'>;
 }) {
   useLiveRefresh(['socialcontent_playbook', 'socialcontent_post']);
   const { busy, act } = useAct();
@@ -58,6 +62,12 @@ export function PlaybookPage({
             </Button>
           ) : null
         }
+      />
+      <LinkCard
+        workspaceId={workspaceId}
+        link={link.link}
+        places={link.linkPlaces}
+        mayManage={link.mayManage}
       />
       {playbook.writtenAt === null || !playbook.sections.length ? (
         <Card>
