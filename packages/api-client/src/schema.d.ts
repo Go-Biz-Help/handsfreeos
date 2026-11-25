@@ -93798,6 +93798,8 @@ export interface operations {
                      * @enum {string}
                      */
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                    /** @default true */
+                    waiting?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };

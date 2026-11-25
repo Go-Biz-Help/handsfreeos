@@ -562,6 +562,9 @@ const NONE: Record<DailyStep, number> = {
   like: 0,
 };
 
+/** Nobody's count of what waits for them, for an asker that left it out. */
+const NOT_COUNTED: ReadonlyMap<string, number> = new Map();
+
 export const live = defineAddonQuery(outreachAddon, {
   name: 'outreach.live',
   description:
@@ -588,7 +591,8 @@ export const live = defineAddonQuery(outreachAddon, {
       myComputers(ctx, me),
       dayOf(ctx, me, platform, today),
       dayCounts(ctx, [me], platform, todayStart),
-      waitingFor(ctx, [me]),
+      // Counted unless the asker shows it from Needs you's own answer (`waiting: false`).
+      input.waiting ? waitingFor(ctx, [me]) : NOT_COUNTED,
       listsOf(ctx, me, platform),
     ]);
     const working = workingOf(all);

@@ -18649,6 +18649,10 @@
             "default": "facebook",
             "type": "string",
             "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
+          },
+          "waiting": {
+            "default": true,
+            "type": "boolean"
           }
         },
         "required": ["workspaceId"]

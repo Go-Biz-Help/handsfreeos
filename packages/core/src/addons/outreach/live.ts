@@ -321,6 +321,12 @@ export const LiveInput = z.object({
    * the working one says and the feed are the person's, the same for every network. Facebook's when left out.
    */
   platform: z.enum(PLATFORM_KEYS).default('facebook'),
+  /**
+   * False leaves out how many things wait for the person (`waiting` then answers 0), for a page that shows that number
+   * from `outreach.waiting`, as the web's Today and Settings do. The number is the person's, the same on every network,
+   * and counting it reads each request they've yet to decide: Today's six network cards counted it six times.
+   */
+  waiting: z.boolean().default(true),
 });
 export type LiveInput = z.input<typeof LiveInput>;
 
@@ -340,7 +346,10 @@ export const LiveOutput = z.object({
   /** The working computer's status, as it last said. */
   status: LiveStatus.nullable(),
   limits: LiveLimits,
-  /** Everything waiting for the person (Waiting for you, ./waiting.ts), counted as that list counts it. */
+  /**
+   * Everything waiting for the person (Waiting for you, ./waiting.ts), counted as that list counts it: 0 when the
+   * asker left it out (`waiting: false`).
+   */
   waiting: z.number().int().min(0),
   warning: WarningState.nullable(),
   /**

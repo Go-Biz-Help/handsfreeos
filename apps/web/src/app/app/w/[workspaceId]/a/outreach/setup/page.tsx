@@ -69,7 +69,7 @@ export default async function OutreachSetupPage({
       // A network's Start, and the end's first lists being read (decision 60).
       at === 'done' || (step?.net && step.step === 'start')
         ? api
-            .POST('/v1/queries/outreach.live', { body: { workspaceId, platform } })
+            .POST('/v1/queries/outreach.live', { body: { workspaceId, platform, waiting: false } })
             .then((r) => r.data ?? null)
             .catch(() => null)
         : null,
