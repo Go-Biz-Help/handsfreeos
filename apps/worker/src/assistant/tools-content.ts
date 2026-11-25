@@ -21,6 +21,7 @@ import {
   describeOps,
   describeSettings,
   DRAFT_WORDS,
+  draftSegmentsLabel,
   draftDecidedLine,
   describeStep,
   describeTrigger,
@@ -3813,8 +3814,14 @@ async function listTeammateDrafts(db: Db, ctx: ToolContext, args: Args): Promise
             }
           : {}),
         ...(flagsOf(d).length ? { flags: flagsOf(d) } : {}),
+        // The card's notes under the words: the safety check it passed before it waited for an OK (an add-on's ask
+        // has none), what it used from Knowledge, and how many texts a text takes.
+        ...(d.kind === 'ask' ? {} : { safety: DRAFT_WORDS.safetyPassed }),
         ...(d.preview.funnel ? { fromFunnel: funnelOf(d.preview.funnel) } : {}),
         ...(knowledgeOf(d).length ? { usedKnowledge: knowledgeOf(d) } : {}),
+        ...(d.preview.message && (d.channel === 'sms' || d.channel === null)
+          ? { length: draftSegmentsLabel(d.preview.message.body) }
+          : {}),
         waitingSince: when(d.createdAt, ctx.timezone),
         ...(d.expiresAt ? { expires: when(d.expiresAt, ctx.timezone) } : {}),
         canDecide: d.canDecide && !expired(d),
