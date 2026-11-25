@@ -1,7 +1,7 @@
 {
   "area": "ai-team",
   "title": "The AI teammate: setup, instructions, approvals, review, activity, funnels, AI setup and test chat",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-25",
   "files": {
     "apps/mobile/src/ai-setup/calls.ts": "881c51c1a351",
     "apps/mobile/src/ai-setup/use-ai-setup.ts": "4bec8c37baf1",
@@ -40,8 +40,8 @@
     "apps/web/src/components/ai-team/header.tsx": "cb364091d6bd",
     "apps/web/src/components/ai-team/history.tsx": "442221e6d917",
     "apps/web/src/components/ai-team/instructions-tab.tsx": "d8cac98535bb",
-    "apps/web/src/components/ai-team/modules.tsx": "d4f2612fbd72",
-    "apps/web/src/components/ai-team/preset-picker.tsx": "10b8ce6d8c58",
+    "apps/web/src/components/ai-team/modules.tsx": "216952b8bbe6",
+    "apps/web/src/components/ai-team/preset-picker.tsx": "009f65c50426",
     "apps/web/src/components/ai-team/qualify-module.tsx": "e577c68ec855",
     "apps/web/src/components/ai-team/rail.tsx": "31ba00f7e88a",
     "apps/web/src/components/ai-team/reply-feedback.tsx": "661ebf8bbc3e",
@@ -66,7 +66,7 @@
     "packages/core/src/assistant/screen-reads.ts": "167f1dd91bea",
     "packages/core/src/assistant/settings-map.ts": "54ae1e6da864",
     "packages/core/src/assistant/tools-content.ts": "59c81ea10785",
-    "packages/core/src/assistant/tools-extra.ts": "a6a36461844a",
+    "packages/core/src/assistant/tools-extra.ts": "2c12f46c8057",
     "packages/core/src/assistant/tools.ts": "74c944826a17"
   },
   "items": [
@@ -589,16 +589,23 @@
       "by": "update_ai_teammate_rules firstMessageBy"
     },
     {
-      "path": "Respond → wait before the first message",
+      "path": "Respond → wait before the first message (a number and seconds, minutes, hours or days)",
       "kind": "do",
-      "file": "apps/web/src/components/ai-team/modules.tsx:570",
+      "file": "apps/web/src/components/ai-team/modules.tsx:611",
       "covered": "yes",
-      "by": "update_ai_teammate_rules firstMessageAfterMinutes"
+      "by": "update_ai_teammate_rules firstMessageAfter firstMessageAfterUnit"
+    },
+    {
+      "path": "Respond → Outside working hours: Same wait / When hours start",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:639",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules firstMessageOutsideHours"
     },
     {
       "path": "Respond → warning: workflows also text new leads",
       "kind": "see",
-      "file": "apps/web/src/components/ai-team/modules.tsx:585",
+      "file": "apps/web/src/components/ai-team/modules.tsx:666",
       "covered": "yes",
       "by": "get_settings catalogs.newLeadTextWorkflows"
     },

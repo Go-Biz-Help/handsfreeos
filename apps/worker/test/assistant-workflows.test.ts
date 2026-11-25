@@ -878,7 +878,7 @@ describe('workflows and knowledge in the Assistant', () => {
     expect(recipes.find((r) => r['recipeKey'] === 'speed_to_lead')).toMatchObject({
       name: expect.any(String),
       category: 'Leads',
-      short: 'Text new leads within a minute.',
+      short: 'Text new leads right away.',
       note: 'Stops as soon as they reply or book.',
       startsWhen: expect.any(String),
       steps: expect.arrayContaining([expect.any(String)]),

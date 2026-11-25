@@ -7,11 +7,13 @@ import {
   formatClock,
   formatDuration,
   formatHours,
+  NEW_LEAD_WAIT_UNITS,
   PHONE_ANSWER_MODES,
   phoneVoiceSample,
   QUIET_FOLLOW_UP_MINUTES,
   TEAMMATE_LINKS,
   teammateUsesAddon,
+  type NewLeadWaitUnit,
   type NotifyWho,
   type PhoneAnswerMode,
   type TeammateCatalogs,
@@ -45,7 +47,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Select } from '@/components/ui/input';
+import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Stepper } from '@/components/ui/stepper';
 import { Switch } from '@/components/ui/switch';
@@ -114,7 +116,6 @@ const LINK = 'text-[13px] font-medium text-accent-text hover:underline';
 /** A calendar's colour as stored, or the accent when it isn't a plain hex colour. */
 const calendarColor = (c: string) => (/^#[0-9a-f]{3,8}$/i.test(c) ? c : 'var(--accent)');
 
-const DELAYS = [0, 1, 2, 5, 10, 15, 30, 60, 120];
 const EXPIRY = [15, 30, 60, 120, 240, 480, 720, 1440];
 const SHARES = [40, 60, 80];
 const DISCOUNTS = [5, 10, 15, 20, 25, 30, 40, 50];
@@ -512,6 +513,47 @@ function PhoneSettings({
 
 // ---------- Respond ----------
 
+/** A whole number typed in, saved when the box loses focus or Enter is pressed; a refused one goes back. */
+function WaitNumber({
+  value,
+  label,
+  testId,
+  onCommit,
+}: {
+  value: number;
+  label: string;
+  testId: string;
+  onCommit: (next: number) => string | null;
+}) {
+  const [text, setText] = useState(String(value));
+  const [shown, setShown] = useState(value);
+  if (shown !== value) {
+    setShown(value);
+    setText(String(value));
+  }
+  return (
+    <Input
+      inputSize="sm"
+      inputMode="numeric"
+      aria-label={label}
+      value={text}
+      onChange={(e) => setText(e.target.value.replace(/[^0-9]/g, ''))}
+      onBlur={() => {
+        const n = Number(text.trim() || '0');
+        if (n === value || onCommit(n) !== null) setText(String(value));
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+      className="w-16 px-2.5 tabular-nums"
+      data-testid={testId}
+    />
+  );
+}
+
 function RespondModule({ draft, patch, catalogs }: ModuleProps) {
   const r = draft.respond;
   const wf = catalogs.newLeadTextWorkflows;
@@ -560,27 +602,63 @@ function RespondModule({ draft, patch, catalogs }: ModuleProps) {
           <SetRow
             center
             title="Wait before the first message"
-            description="Imported leads and booking-page leads never get one."
+            description="0 sends it right away. Imported leads and booking-page leads never get one."
           >
-            <Select
-              selectSize="sm"
-              className="w-[150px]"
-              aria-label="Wait before the first message"
-              value={String(r.newLeads.delayMinutes)}
-              data-testid="respond-delay"
-              onChange={(e) =>
+            <span className="flex items-center gap-1.5">
+              <WaitNumber
+                value={r.newLeads.wait.after}
+                label="Wait before the first message"
+                testId="respond-delay"
+                onCommit={(after) =>
+                  patch({ respond: { newLeads: { wait: { after } } } }, 'Change the wait')
+                }
+              />
+              <Select
+                selectSize="sm"
+                className="w-[110px]"
+                aria-label="Wait before the first message: unit"
+                value={r.newLeads.wait.unit}
+                data-testid="respond-delay-unit"
+                onChange={(e) =>
+                  patch(
+                    {
+                      respond: { newLeads: { wait: { unit: e.target.value as NewLeadWaitUnit } } },
+                    },
+                    'Change the wait',
+                  )
+                }
+              >
+                {NEW_LEAD_WAIT_UNITS.map((u) => (
+                  <option key={u} value={u}>
+                    {r.newLeads.wait.after === 1 ? u.slice(0, -1) : u}
+                  </option>
+                ))}
+              </Select>
+            </span>
+          </SetRow>
+          <SetRow
+            center
+            title="Outside working hours"
+            description={
+              r.newLeads.afterHours === 'same'
+                ? 'Sends on the same wait at any hour, even at night, to someone who came in on their own.'
+                : 'Holds it until working hours (under Hours) start and quiet hours end.'
+            }
+          >
+            <Segmented
+              value={r.newLeads.afterHours}
+              ariaLabel="Outside working hours"
+              onChange={(v) =>
                 patch(
-                  { respond: { newLeads: { delayMinutes: Number(e.target.value) } } },
-                  'Change the wait',
+                  { respond: { newLeads: { afterHours: v } } },
+                  v === 'same' ? 'Send on the same wait at any hour' : 'Wait for working hours',
                 )
               }
-            >
-              {withCurrent(DELAYS, r.newLeads.delayMinutes).map((m) => (
-                <option key={m} value={m}>
-                  {m === 0 ? 'Right away' : formatDuration(m)}
-                </option>
-              ))}
-            </Select>
+              options={[
+                { value: 'same', label: 'Same wait', testId: 'respond-after-hours-same' },
+                { value: 'wait', label: 'When hours start', testId: 'respond-after-hours-wait' },
+              ]}
+            />
           </SetRow>
         </>
       ) : null}

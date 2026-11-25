@@ -104,7 +104,7 @@ test('agency AI setups: saved from quick setup, started from in another business
   await next.click();
   await at('jobs');
   await expect(page.getByTestId('ai-setup-job-qualify')).toHaveAttribute('aria-checked', 'true');
-  await expect(summary).toContainText('Max replies to new leads within a minute.');
+  await expect(summary).toContainText('Max replies to new leads within 8 seconds.');
   await expect(summary).toContainText('It works when you’re closed');
   await next.click();
   await at('about');
@@ -121,7 +121,7 @@ test('agency AI setups: saved from quick setup, started from in another business
   await next.click();
   await at('jobs');
   await expect(page.getByTestId('ai-setup-job-qualify')).toHaveAttribute('aria-checked', 'false');
-  await expect(summary).toContainText('Ava replies to new leads within a minute.');
+  await expect(summary).toContainText('Ava replies to new leads within 8 seconds.');
   await expect(summary).toContainText('It works all the time');
   // And it stays picked when the page is loaded again, which carries on after the furthest screen answered.
   await page.reload();

@@ -10,10 +10,11 @@
  */
 import { z } from 'zod';
 import { mergePatch, WeeklyHours } from '../calendar/config';
+import { QUIET_FIRST_MESSAGE_WINDOW_MS } from '../messaging/quiet-hours';
 import { NotifyWho } from '../workflows/actions';
 import { PHONE_VOICES } from './voices';
 
-export const TEAMMATE_CONFIG_VERSION = 3;
+export const TEAMMATE_CONFIG_VERSION = 4;
 
 const id = z.uuid();
 const uniqueList = (list: readonly string[]) => new Set(list).size === list.length;
@@ -73,6 +74,65 @@ const Channels = z.object({
 
 // ---- Skills ----
 
+/** How long the first message to a new lead waits: seconds to days (the owner, 25 Nov 2026). */
+export const NEW_LEAD_WAIT_UNITS = ['seconds', 'minutes', 'hours', 'days'] as const;
+export type NewLeadWaitUnit = (typeof NEW_LEAD_WAIT_UNITS)[number];
+const WAIT_UNIT_SECONDS: Readonly<Record<NewLeadWaitUnit, number>> = {
+  seconds: 1,
+  minutes: 60,
+  hours: 3_600,
+  days: 86_400,
+};
+export const NEW_LEAD_WAIT_MAX_DAYS = 30;
+
+export const NewLeadWait = z
+  .object({
+    after: z.int().min(0, 'Can’t be less than 0.'),
+    unit: z.enum(NEW_LEAD_WAIT_UNITS),
+  })
+  .refine((w) => w.after * WAIT_UNIT_SECONDS[w.unit] <= NEW_LEAD_WAIT_MAX_DAYS * 86_400, {
+    message: `At most ${NEW_LEAD_WAIT_MAX_DAYS} days.`,
+    path: ['after'],
+  });
+export type NewLeadWait = z.infer<typeof NewLeadWait>;
+
+/** Eight seconds, for every business (the owner, 25 Nov 2026). */
+export const DEFAULT_NEW_LEAD_WAIT: NewLeadWait = { after: 8, unit: 'seconds' };
+
+/**
+ * Outside the teammate's working hours (Hours) and the business's quiet hours: `same` sends on the same wait, at
+ * any hour, to a lead who came in on their own; `wait` holds it until working hours start and quiet hours end.
+ * A lead someone typed in always waits for quiet hours to end.
+ */
+export const NEW_LEAD_AFTER_HOURS = ['same', 'wait'] as const;
+export type NewLeadAfterHours = (typeof NEW_LEAD_AFTER_HOURS)[number];
+export const NEW_LEAD_AFTER_HOURS_NAMES: Readonly<Record<NewLeadAfterHours, string>> = {
+  same: 'sends on the same wait',
+  wait: 'waits for working hours',
+};
+
+/** The wait in milliseconds. */
+export const newLeadWaitMs = (w: NewLeadWait): number => w.after * WAIT_UNIT_SECONDS[w.unit] * 1000;
+
+/** "8 seconds", "1 minute", "2 days"; "no wait" for 0. */
+export function newLeadWaitWords(w: NewLeadWait): string {
+  if (w.after === 0) return 'no wait';
+  return `${w.after} ${w.after === 1 ? w.unit.slice(0, -1) : w.unit}`;
+}
+
+/**
+ * How long after a lead came in on its own its greeting may still go in quiet hours: the wait plus
+ * QUIET_FIRST_MESSAGE_WINDOW_MS, or null when the business holds it for working hours.
+ */
+export function newLeadQuietWindowMs(newLeads: {
+  readonly wait: NewLeadWait;
+  readonly afterHours: NewLeadAfterHours;
+}): number | null {
+  return newLeads.afterHours === 'wait'
+    ? null
+    : newLeadWaitMs(newLeads.wait) + QUIET_FIRST_MESSAGE_WINDOW_MS;
+}
+
 const Respond = z.object({
   /**
    * The switch on the whole section: off, new leads get no first message. Replies to people who write in don’t
@@ -84,8 +144,12 @@ const Respond = z.object({
     .object({
       enabled: z.boolean().default(true),
       channel: z.enum(['sms', 'email']).default('sms'),
-      /** How long after the lead comes in. */
-      delayMinutes: z.int().min(0).max(120, 'At most 2 hours.').default(1),
+      /**
+       * How long after the lead comes in: 8 seconds unless the business picks another wait, from none to 30 days.
+       * A workflow that started on the same lead still gets its first steps in first (ai-team/outreach.ts).
+       */
+      wait: NewLeadWait.default(() => ({ ...DEFAULT_NEW_LEAD_WAIT })),
+      afterHours: z.enum(NEW_LEAD_AFTER_HOURS).default('same'),
     })
     .prefault({}),
 });
@@ -508,6 +572,9 @@ export type TeammateConfigUpgrade = (doc: Record<string, unknown>) => Record<str
  *   business (Chris's call: the old default was off, and nobody could tell a choice from a default).
  * - 2 → 3: each follow-up keeps its own unit (minutes to years) instead of a count of hours. Whole days stay days
  *   and the rest hours, so the schedule reads as it did.
+ * - 3 → 4: the first message to a new lead waits seconds to days instead of a count of minutes. The old default,
+ *   a minute, becomes the new one, 8 seconds, for every business (the owner, 25 Nov 2026: nobody could tell a
+ *   choice from a default); whole hours stay hours and the rest minutes.
  */
 export const TEAMMATE_CONFIG_UPGRADES: Readonly<Record<number, TeammateConfigUpgrade>> = {
   1: (doc) => ({
@@ -535,6 +602,21 @@ export const TEAMMATE_CONFIG_UPGRADES: Readonly<Record<number, TeammateConfigUpg
         ),
       },
     };
+  },
+  3: (doc) => {
+    const r = doc['respond'];
+    if (!isPlainObject(r) || !isPlainObject(r['newLeads'])) return doc;
+    const { delayMinutes, ...rest } = r['newLeads'];
+    const m = typeof delayMinutes === 'number' && Number.isInteger(delayMinutes) ? delayMinutes : 1;
+    const wait =
+      m === 1
+        ? { ...DEFAULT_NEW_LEAD_WAIT }
+        : m <= 0
+          ? { after: 0, unit: 'seconds' }
+          : m % 60 === 0
+            ? { after: m / 60, unit: 'hours' }
+            : { after: m, unit: 'minutes' };
+    return { ...doc, respond: { ...r, newLeads: { ...rest, wait } } };
   },
 };
 

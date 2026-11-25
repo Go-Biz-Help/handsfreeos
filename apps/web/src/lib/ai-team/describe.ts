@@ -7,6 +7,7 @@ import {
   ADDON_CATALOG,
   followUpLadderWords,
   followUpScheduleMinutes,
+  newLeadWaitWords,
   formatHours,
   TEAMMATE_LABEL_NAMES,
   teammateUsesAddon,
@@ -190,7 +191,7 @@ export function moduleSummary(
       if (!r.enabled)
         return catalogs.newLeadTextWorkflows.length ? 'Off · a workflow does it' : 'Off';
       if (!r.newLeads.enabled) return 'No first message';
-      return `First ${r.newLeads.channel === 'sms' ? 'text' : 'email'} ${r.newLeads.delayMinutes ? `after ${shortDuration(r.newLeads.delayMinutes)}` : 'right away'}`;
+      return `First ${r.newLeads.channel === 'sms' ? 'text' : 'email'} ${r.newLeads.wait.after ? `after ${newLeadWaitWords(r.newLeads.wait)}` : 'right away'}`;
     }
     case 'answer':
       return config.answer.enabled
@@ -260,7 +261,7 @@ export function describeTeammate(config: TeammateConfig, catalogs: TeammateCatal
   const r = config.respond;
   if (r.enabled && r.newLeads.enabled)
     out.push(
-      `Messages new leads first by ${r.newLeads.channel === 'sms' ? 'text' : 'email'}${r.newLeads.delayMinutes ? `, ${shortDuration(r.newLeads.delayMinutes)} after they come in` : ', right away'}.`,
+      `Messages new leads first by ${r.newLeads.channel === 'sms' ? 'text' : 'email'}${r.newLeads.wait.after ? `, ${newLeadWaitWords(r.newLeads.wait)} after they come in` : ', right away'}${r.newLeads.afterHours === 'wait' ? ', in working hours' : ''}.`,
     );
 
   const q = config.qualify;
