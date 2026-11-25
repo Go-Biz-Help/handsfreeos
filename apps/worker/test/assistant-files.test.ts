@@ -2,7 +2,6 @@
  * Files sent to the Assistant (the owner, 2026-11-24: "we should include being able to add files as well"), without a
  * database: how each kind is read for the model, what it's shown, and how a file made to be huge or slow is refused.
  */
-import { crc32, deflateRawSync } from 'node:zlib';
 import {
   ASSISTANT_DOCX_TYPE,
   ASSISTANT_FILES_MAX_BASE64,
@@ -22,8 +21,9 @@ import {
 } from '../src/assistant/attachments';
 import { modelMessages } from '../src/assistant/runtime';
 import { photosAsPdf, signersOf } from '../src/assistant/tools-documents';
-import { officeLayout, wordLayout } from '../src/files/office-text';
+import { officeLayout, wordLayout, workbookRows } from '../src/files/office-text';
 import { stagedOf, stagedPath } from '../src/housekeeping/assistant-staging';
+import { workbook, zip } from './office-zip';
 
 const docxText = (file: Buffer) => {
   const read = officeLayout(file);
@@ -31,47 +31,6 @@ const docxText = (file: Buffer) => {
   return read.text;
 };
 const xlsxText = docxText;
-
-/** A zip of the given parts, deflated, as Word and Excel write them. */
-function zip(parts: Record<string, string>): Buffer {
-  const locals: Buffer[] = [];
-  const central: Buffer[] = [];
-  let offset = 0;
-  for (const [name, text] of Object.entries(parts)) {
-    const raw = Buffer.from(text, 'utf8');
-    const packed = deflateRawSync(raw);
-    const nameBytes = Buffer.from(name, 'utf8');
-    const local = Buffer.alloc(30);
-    local.writeUInt32LE(0x04034b50, 0);
-    local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(8, 8);
-    local.writeUInt32LE(crc32(raw), 14);
-    local.writeUInt32LE(packed.length, 18);
-    local.writeUInt32LE(raw.length, 22);
-    local.writeUInt16LE(nameBytes.length, 26);
-    const head = Buffer.alloc(46);
-    head.writeUInt32LE(0x02014b50, 0);
-    head.writeUInt16LE(20, 4);
-    head.writeUInt16LE(20, 6);
-    head.writeUInt16LE(8, 10);
-    head.writeUInt32LE(crc32(raw), 16);
-    head.writeUInt32LE(packed.length, 20);
-    head.writeUInt32LE(raw.length, 24);
-    head.writeUInt16LE(nameBytes.length, 28);
-    head.writeUInt32LE(offset, 42);
-    locals.push(local, nameBytes, packed);
-    central.push(head, nameBytes);
-    offset += local.length + nameBytes.length + packed.length;
-  }
-  const dir = Buffer.concat(central);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(Object.keys(parts).length, 8);
-  end.writeUInt16LE(Object.keys(parts).length, 10);
-  end.writeUInt32LE(dir.length, 12);
-  end.writeUInt32LE(offset, 16);
-  return Buffer.concat([...locals, dir, end]);
-}
 
 const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
 const para = (text: string) => `<w:p><w:r><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`;
@@ -122,12 +81,16 @@ describe('the files the Assistant takes', () => {
     expect(assistantFileType('book.xlsx', 'application/octet-stream')).toBe(ASSISTANT_XLSX_TYPE);
     expect(assistantFileType('contract', ASSISTANT_DOCX_TYPE)).toBe(ASSISTANT_DOCX_TYPE);
     expect(assistantFileType('old.doc', 'application/msword')).toBeNull();
+    // A phone's or Google's contacts export, however the system labels it.
+    expect(assistantFileType('Contacts.vcf', '')).toBe('text/vcard');
+    expect(assistantFileType('Contacts.vcf', 'text/x-vcard')).toBe('text/vcard');
+    expect(assistantFileType('card', 'text/directory')).toBe('text/vcard');
   });
 
   it('says what to do with a kind it can’t read', () => {
     expect(assistantFileRefusal('Contract.doc')).toMatch(/Save it as a PDF or a Word \.docx/);
     expect(assistantFileRefusal('Prices.xls')).toMatch(/\.xlsx or a \.csv/);
-    expect(assistantFileRefusal('movie.mov')).toMatch(/isn’t a kind of file/);
+    expect(assistantFileRefusal('movie.mov')).toMatch(/isn’t a kind of file.* a contacts \.vcf/);
   });
 
   it('takes a question that is only a file, and refuses files that come to too much together', () => {
@@ -168,6 +131,20 @@ describe('reading a file for the model', () => {
         '\n',
       ),
     );
+  });
+
+  it('reads a sheet’s rows of cells for the contacts import, from its first sheet with anything on it', () => {
+    expect(workbookRows(priceListXlsx())).toEqual({
+      ok: true,
+      sheet: 'Menu',
+      rows: [
+        ['Item', '', 'Price'],
+        ['Latte (16 oz)', '', '4.5'],
+        ['Tea <hot>', '', '3.5'],
+      ],
+    });
+    expect(workbookRows(workbook([], 'Empty'))).toEqual({ ok: false, why: 'none' });
+    expect(workbookRows(Buffer.from('Name,Phone'))).toEqual({ ok: false, why: 'not_zip' });
   });
 
   it('reads text as UTF-8, or as Latin-1 when it isn’t', () => {
@@ -272,6 +249,41 @@ describe('reading a file for the model', () => {
       rule: 'file_unreadable',
       message: expect.stringContaining('no words'),
     });
+    await expect(
+      filesForModel([
+        {
+          name: 'Contacts.vcf',
+          mediaType: 'text/vcard',
+          data: Buffer.from('BEGIN:VCARD\nVERSION:3.0\nEND:VCARD').toString('base64'),
+        },
+      ]),
+    ).rejects.toMatchObject({
+      rule: 'file_unreadable',
+      message:
+        'Contacts.vcf has no contacts in it. Export the contacts again from your phone or contacts app, and send that file.',
+    });
+  });
+
+  it('shows a contacts file as a list of its people, never its raw lines or photos', async () => {
+    const vcf = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      'FN:Dana Smith',
+      'TEL;TYPE=CELL:512-555-0101',
+      'PHOTO;ENCODING=b;TYPE=JPEG:/9j/4AAQSkZJRgABAQAAAQABAAD',
+      ' /2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHR',
+      'END:VCARD',
+    ].join('\r\n');
+    const [file] = await filesForModel([
+      { name: 'Dana.vcf', mediaType: 'text/vcard', data: Buffer.from(vcf).toString('base64') },
+    ]);
+    expect(file).toMatchObject({
+      kind: 'text',
+      mediaType: 'text/vcard',
+      text: 'A contacts file with 1 contact.\nName | Phones | Emails | Company | Job title\nDana Smith | 512-555-0101',
+      // The file as sent, for the import to read whole.
+      data: Buffer.from(vcf).toString('base64'),
+    });
   });
 });
 
@@ -352,6 +364,10 @@ describe('a contract sent to make a template from', () => {
     expect(stagedPath(ws, call)).toBe(`assistant-staging/${ws}_${call}.pdf`);
     expect(stagedOf(`${ws}_${call}.pdf`)).toEqual({ workspaceId: ws, toolCallId: call });
     expect(stagedOf('stray.pdf')).toBeNull();
+    // A list of contacts waits as the CSV the import reads, and the nightly sweep knows it too.
+    expect(stagedPath(ws, call, 'csv')).toBe(`assistant-staging/${ws}_${call}.csv`);
+    expect(stagedOf(`${ws}_${call}.csv`)).toEqual({ workspaceId: ws, toolCallId: call });
+    expect(stagedOf(`${ws}_${call}.exe`)).toBeNull();
     expect(() => stagedPath(ws, '../other')).toThrow();
   });
 });

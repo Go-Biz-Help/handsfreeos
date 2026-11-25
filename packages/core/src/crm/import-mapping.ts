@@ -47,6 +47,31 @@ export const SKIP = 'skip';
  */
 export const REPEATABLE_FIELDS: readonly string[] = ['phone_alt', 'email_alt'];
 
+/** Each field as the import's screens and the Assistant's card say it. */
+export const IMPORT_FIELD_LABELS: Readonly<Record<string, string>> = {
+  first_name: 'First name',
+  last_name: 'Last name',
+  full_name: 'Full name (split into first and last)',
+  name: 'Company name',
+  email: 'Email',
+  email_alt: 'Other email',
+  phone: 'Phone',
+  phone_alt: 'Other phone',
+  company: 'Company',
+  website: 'Website',
+  address_line1: 'Address',
+  address_line2: 'Address line 2',
+  city: 'City',
+  state: 'State',
+  postal_code: 'ZIP',
+  tags: 'Tags (comma separated)',
+  notes: 'Notes',
+  source: 'Source',
+  call_consent: 'Agreed to calls (yes or no)',
+  call_consent_source: 'Where they agreed to calls',
+  [SKIP]: 'Skip this column',
+};
+
 const GUESSES: Record<string, string[]> = {
   first_name: ['first name', 'firstname', 'first', 'given name'],
   last_name: ['last name', 'lastname', 'last', 'surname', 'family name'],
@@ -117,10 +142,18 @@ export function guessMapping(
   for (const header of headers) {
     const h = norm(header);
     let best = SKIP;
+    // A numbered extra ("Other phone 2", "Alt email 3") is one more of a field that takes several columns.
+    const unnumbered = h.replace(/ \d+$/, '');
     for (const field of fields) {
       if (taken.has(field)) continue;
-      const candidates = GUESSES[field] ?? [];
-      if (candidates.includes(h) || h === norm(field)) {
+      // Said the way the header is ("e-mail" reads "e mail"), so a hyphen or an underscore never hides one.
+      const candidates = (GUESSES[field] ?? []).map(norm);
+      const repeatable = REPEATABLE_FIELDS.includes(field);
+      if (
+        candidates.includes(h) ||
+        h === norm(field) ||
+        (repeatable && unnumbered !== h && candidates.includes(unnumbered))
+      ) {
         best = field;
         break;
       }

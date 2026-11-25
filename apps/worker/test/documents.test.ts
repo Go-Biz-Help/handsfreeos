@@ -16,6 +16,7 @@
  */
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import {
+  ASSISTANT_DOCX_TYPE,
   AssistantCard,
   assistantToolByName,
   documentRemind,
@@ -1126,7 +1127,14 @@ describe('the Assistant', () => {
       const pdf = Buffer.from(await leasePdf()).toString('base64');
       const files: AssistantModelFile[] = [
         { kind: 'pdf', name: 'Lease 2027.pdf', data: pdf, pages: 2 },
-        { kind: 'text', name: 'notes.txt', text: 'Rent is due on the 1st.', cut: false },
+        {
+          kind: 'text',
+          name: 'notes.txt',
+          text: 'Rent is due on the 1st.',
+          cut: false,
+          mediaType: 'text/plain',
+          data: Buffer.from('Rent is due on the 1st.').toString('base64'),
+        },
       ];
       const args = argsOf('make_document_template', {
         name: 'Lease 2027',
@@ -1244,7 +1252,14 @@ describe('the Assistant', () => {
 
     it('says what to send instead when the file won’t make one', async () => {
       const files: AssistantModelFile[] = [
-        { kind: 'text', name: 'Contract.docx', text: 'This agreement…', cut: false },
+        {
+          kind: 'text',
+          name: 'Contract.docx',
+          text: 'This agreement…',
+          cut: false,
+          mediaType: ASSISTANT_DOCX_TYPE,
+          data: Buffer.from('not really a docx').toString('base64'),
+        },
       ];
       const make = (args: Record<string, unknown>, sent = sentCtx({ files })) =>
         tools().prepare(
