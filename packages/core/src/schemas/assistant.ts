@@ -141,6 +141,22 @@ export const AssistantCard = z.discriminatedUnion('type', [
     /** Whether Undo can take it back (adding a task or a note, completing a task). */
     undoable: z.boolean(),
   }),
+  /**
+   * A file the Assistant made (assistant/files-out.ts): a spreadsheet or a PDF report. Download asks the worker for
+   * it by its key, which opens only for the person who asked, for 30 days.
+   */
+  z.object({
+    type: z.literal('file'),
+    /** As it downloads: "Who owes money 2026-11-25.xlsx". */
+    name: z.string(),
+    format: z.enum(['excel', 'csv', 'pdf']),
+    /** "Excel · 42 rows · Kept 30 days". */
+    detail: z.string(),
+    /** The day it was made and its id: "20261125_<id>.xlsx". */
+    fileKey: z.string().regex(/^\d{8}_[0-9a-f-]{36}\.(?:xlsx|csv|pdf)$/),
+    /** Where it was emailed, when it was. */
+    emailedTo: z.string().nullable(),
+  }),
   z.object({
     type: z.literal('confirm'),
     toolCallId: uuid,

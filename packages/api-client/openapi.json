@@ -172602,6 +172602,50 @@
                                     "type": {
                                       "type": "string",
                                       "enum": [
+                                        "file"
+                                      ]
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "format": {
+                                      "type": "string",
+                                      "enum": [
+                                        "excel",
+                                        "csv",
+                                        "pdf"
+                                      ]
+                                    },
+                                    "detail": {
+                                      "type": "string"
+                                    },
+                                    "fileKey": {
+                                      "type": "string",
+                                      "pattern": "^\\d{8}_[0-9a-f-]{36}\\.(?:xlsx|csv|pdf)$"
+                                    },
+                                    "emailedTo": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "type",
+                                    "name",
+                                    "format",
+                                    "detail",
+                                    "fileKey",
+                                    "emailedTo"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "type": {
+                                      "type": "string",
+                                      "enum": [
                                         "confirm"
                                       ]
                                     },

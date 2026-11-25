@@ -405,6 +405,8 @@ export function assistantCancelledText(card: ConfirmCard): string {
       return 'Not set up. Nothing will be asked.';
     case 'set_alert':
       return 'No alert set.';
+    case 'email_file':
+      return 'Not sent. The file is still in the chat.';
     case 'handle_attention_item':
       return 'Not handled. It’s still on Home.';
     case 'update_attention_item':

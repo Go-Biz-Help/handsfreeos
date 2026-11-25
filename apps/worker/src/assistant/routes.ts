@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
+import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import {
   ADDON_SERVER_MODULES,
@@ -13,6 +14,7 @@ import {
   AssistantWarmInput,
   assistantConsentOf,
   assistantToolByName,
+  FILE_KEEP_DAYS,
   HfosError,
   screenPlace,
   type AddonServerModule,
@@ -28,6 +30,8 @@ import { openStream } from '../http/sse';
 import { ADDON_WORKER_MODULES } from '../addons/modules';
 import type { AddonWorkerModule } from '../addons/types';
 import { filesForModel } from './attachments';
+import { FILES_BUCKET, madeFileGone, madeFilePath } from './files-out/store';
+import { madeFileName } from './tools-files-out';
 import { personQuery, questionContext } from './context';
 import { uprightJpeg } from '../contacts/card-picture';
 import {
@@ -89,6 +93,8 @@ const warmed = new Map<string, number>();
 const WARM_EVERY_MS = 4 * 60_000;
 /** Warm-ups one address may ask for a minute: it spends AI, like the worker's other AI routes. */
 export const WARMS_PER_MINUTE = 12;
+/** Downloads of files the Assistant made, a minute, from one address. */
+export const FILE_LINKS_PER_MINUTE = 30;
 /**
  * Questions one address may ask a minute. Each spends AI and may carry pictures to open and links to fetch; a person
  * has one answer going at a time, so this only stops a script, and leaves room for a busy office on one address.
@@ -310,6 +316,11 @@ export function registerAssistantRoutes(
       { config: { rateLimit: { max: WARMS_PER_MINUTE, timeWindow: 60_000 } } },
       (req) => warmRoute(req),
     );
+    scoped.post(
+      '/v1/assistant/files/link',
+      { config: { rateLimit: { max: FILE_LINKS_PER_MINUTE, timeWindow: 60_000 } } },
+      (req) => fileLinkRoute(req),
+    );
   });
 
   async function warmRoute(req: FastifyRequest) {
@@ -491,4 +502,31 @@ export function registerAssistantRoutes(
     });
     return out(call.id, call.tool, 'done', outcome, null, null, true);
   });
+
+  /**
+   * Download on a file the Assistant made (tools-files-out.ts): a link to it for five minutes, saving it under its
+   * name. Only the person who asked gets one: the file is kept under their own id (files-out/store.ts), so anyone
+   * else's key opens nothing.
+   */
+  async function fileLinkRoute(req: FastifyRequest) {
+    const actor = await authenticate(deps, req);
+    const input = parseBody(MadeFileLinkInput, req.body);
+    await requirePermission(deps, actor.userId, input.workspaceId, 'assistant.use');
+    const path = madeFilePath(input.workspaceId, actor.userId, input.fileKey);
+    if (
+      !path ||
+      madeFileGone(input.fileKey, Date.now()) ||
+      !(await deps.store.exists(FILES_BUCKET, path))
+    )
+      throw HfosError.notFound(
+        `That file is gone: files are kept ${FILE_KEEP_DAYS} days. Ask the Assistant for it again to make a fresh one.`,
+      );
+    const name = await madeFileName(deps.httpDb, actor.claims, input.workspaceId, input.fileKey);
+    return { url: await deps.store.signedUrl(FILES_BUCKET, path, 300, { download: name }), name };
+  }
 }
+
+const MadeFileLinkInput = z.object({
+  workspaceId: z.uuid(),
+  fileKey: z.string().regex(/^\d{8}_[0-9a-f-]{36}\.(?:xlsx|csv|pdf)$/),
+});

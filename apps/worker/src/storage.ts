@@ -19,8 +19,16 @@ export interface ObjectStore {
     contentType: string,
     opts?: { upsert?: boolean },
   ): Promise<void>;
-  /** A short-lived link a provider can fetch (outbound picture messages). */
-  signedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string>;
+  /**
+   * A short-lived link a provider can fetch (outbound picture messages). With `download`, the link saves the file
+   * under that name rather than showing it (a spreadsheet the Assistant made).
+   */
+  signedUrl(
+    bucket: string,
+    path: string,
+    expiresInSeconds: number,
+    opts?: { readonly download?: string },
+  ): Promise<string>;
   /**
    * A link a signed-out page can upload one file to, at this path only, for two hours: a customer's video sent
    * through a video link (http/video-links.ts). Nothing already there is replaced.
@@ -117,10 +125,14 @@ export function createSupabaseStore(url: string, secretKey: string): ObjectStore
         if ((data ?? []).length < 1000) return names;
       }
     },
-    async signedUrl(bucket, path, expiresInSeconds) {
+    async signedUrl(bucket, path, expiresInSeconds, opts) {
       const { data, error } = await client.storage
         .from(bucket)
-        .createSignedUrl(path, expiresInSeconds);
+        .createSignedUrl(
+          path,
+          expiresInSeconds,
+          opts?.download ? { download: opts.download } : undefined,
+        );
       if (error || !data?.signedUrl)
         throw new Error(
           `storage signed url failed: ${credentialError(error?.message ?? 'no url')}`,

@@ -6,9 +6,11 @@
  * reaches it there.
  *
  * Confirm takes it and removes it. Daily, at night, the rest go: each one whose card was answered, replaced or is
- * gone, and each one older than STAGING_DAYS, so a card left waiting for weeks says to send the file again.
+ * gone, and each one older than STAGING_DAYS, so a card left waiting for weeks says to send the file again. The same
+ * job takes away the spreadsheets and reports it made once they're past keeping (assistant/files-out/store.ts).
  */
 import { asWorker, rows, sql } from '@hfos/db/client';
+import { cleanUpMadeFiles } from '../assistant/files-out/store';
 import type { JobHandler } from '../jobs';
 import { nextReceiptCleanUp } from './receipts';
 
@@ -70,6 +72,7 @@ export const cleanUpStaged: JobHandler = async (ctx) => {
       ctx.log.warn({ err: e, name }, 'assistant staging: a staged file could not be checked');
     }
   }
+  await cleanUpMadeFiles(ctx);
   return { rescheduleAt: nextReceiptCleanUp(ctx.now + MIN) };
 };
 

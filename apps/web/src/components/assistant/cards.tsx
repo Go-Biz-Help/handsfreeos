@@ -1,6 +1,6 @@
 'use client';
 import type { AssistantCard } from '@hfos/core';
-import { Check, Clock, Pencil, Phone, Undo2 } from 'lucide-react';
+import { Check, Clock, FileSpreadsheet, FileText, Pencil, Phone, Undo2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { NextActionChip, StageBadge } from '@/components/crm/chips';
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { ApiError, errorMessage } from '@/lib/api/client';
 import { chatWhen } from '@/lib/assistant/format';
-import { undoToolCall } from '@/lib/assistant/stream';
+import { madeFileLink, undoToolCall } from '@/lib/assistant/stream';
 import { useCalls } from '@/lib/calls/call-provider';
 import { formatMoney } from '@/lib/format';
 import { minutesWaiting } from '@/lib/inbox';
@@ -316,6 +316,60 @@ export function ListCard({ card }: { card: CardOf<'list'> }) {
 }
 
 /** A task or note it added on its own; Undo takes back the ones the worker can (card.undoable). */
+/**
+ * A spreadsheet or report the Assistant made: its name, how many rows, and Download, which asks the worker for a
+ * five-minute link and saves it. Only the person who asked can download it, for 30 days.
+ */
+export function FileCard({ card }: { card: CardOf<'file'> }) {
+  const a = useAssistant();
+  const [busy, setBusy] = useState(false);
+  const [gone, setGone] = useState<string | null>(null);
+
+  async function download() {
+    setBusy(true);
+    try {
+      const { url } = await madeFileLink(a.workspaceId, card.fileKey);
+      window.location.assign(url);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) setGone(e.message);
+      else toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={cardShell} data-testid="assistant-card-file">
+      <div className={cardHead}>
+        <Tile icon={card.format === 'pdf' ? FileText : FileSpreadsheet} tone="accent" />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-[13px] font-medium">{card.name}</span>
+          <span className="text-xs text-text-3">
+            {card.detail}
+            {card.emailedTo ? ` · Emailed to ${card.emailedTo}` : ''}
+          </span>
+        </span>
+        {gone ? null : (
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={busy}
+            onClick={() => void download()}
+            className={touchButton}
+          >
+            Download
+          </Button>
+        )}
+      </div>
+      {gone ? (
+        <Result tone="no" icon={Clock}>
+          {gone}
+        </Result>
+      ) : null}
+    </div>
+  );
+}
+
 export function DoneCard({ card }: { card: CardOf<'done'> }) {
   const a = useAssistant();
   const state = a.calls[card.toolCallId];

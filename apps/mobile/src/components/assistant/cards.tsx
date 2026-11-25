@@ -6,6 +6,7 @@ import {
   money,
   type AssistantCard,
 } from '@hfos/core';
+import * as WebBrowser from 'expo-web-browser';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -13,6 +14,9 @@ import {
   BookOpen,
   CalendarDays,
   CircleCheck,
+  Clock,
+  FileSpreadsheet,
+  FileText,
   Phone,
   StickyNote,
   Undo2,
@@ -23,7 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
-import { undoToolCall } from '@/assistant/stream';
+import { AssistantError, madeFileLink, undoToolCall } from '@/assistant/stream';
 import type { CallState } from '@/assistant/chat';
 import { startCall } from '@/inbox/calls';
 import { errorMessage } from '@/lib/api';
@@ -473,6 +477,62 @@ function CallCard({ card, workspaceId }: { card: CardOf<'call'>; workspaceId: st
 }
 
 /** A task or note the Assistant added on its own, with Undo while it can still be taken back. */
+/**
+ * A spreadsheet or report the Assistant made: its name, how many rows, and Open, which asks the worker for a
+ * five-minute link and shows it in the phone's own viewer, where Share saves or sends it. Only the person who asked can
+ * open it, for 30 days.
+ */
+function FileCard({ card, workspaceId }: { card: CardOf<'file'>; workspaceId: string }) {
+  const [busy, setBusy] = React.useState(false);
+  const [gone, setGone] = React.useState<string | null>(null);
+  const open = async () => {
+    setBusy(true);
+    try {
+      const { url } = await madeFileLink(workspaceId, card.fileKey);
+      await WebBrowser.openBrowserAsync(url);
+    } catch (e) {
+      if (e instanceof AssistantError && e.status === 404) setGone(e.message);
+      else toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <CardShell testID="assistant-card-file">
+      <CardHead>
+        <Tile icon={card.format === 'pdf' ? FileText : FileSpreadsheet} tone="accent" />
+        <View className="min-w-0 flex-1">
+          <Text numberOfLines={1} className="text-sm font-medium">
+            {card.name}
+          </Text>
+          <Text numberOfLines={2} className="text-xs text-text-3">
+            {card.detail}
+            {card.emailedTo ? ` · Emailed to ${card.emailedTo}` : ''}
+          </Text>
+        </View>
+      </CardHead>
+      {gone ? (
+        <Result tone="no" icon={Clock}>
+          {gone}
+        </Result>
+      ) : (
+        <View className="flex-row items-center gap-2 border-t border-border px-3.5 py-2.5">
+          <View className="flex-1" />
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={busy}
+            onPress={() => void open()}
+            testID="assistant-file-open"
+          >
+            Open
+          </Button>
+        </View>
+      )}
+    </CardShell>
+  );
+}
+
 function DoneCard({
   card,
   workspaceId,
@@ -584,6 +644,8 @@ export function AnswerCard({
       return <KnowledgeCard card={card} />;
     case 'call':
       return <CallCard card={card} workspaceId={workspaceId} />;
+    case 'file':
+      return <FileCard card={card} workspaceId={workspaceId} />;
     case 'done':
       return (
         <DoneCard
