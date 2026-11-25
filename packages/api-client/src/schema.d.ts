@@ -95473,6 +95473,10 @@ export interface operations {
                             gap: number;
                         } | {
                             /** @enum {string} */
+                            do: "refer";
+                            gap: number;
+                        } | {
+                            /** @enum {string} */
                             do: "post";
                             gap: number;
                         } | {

@@ -13,8 +13,8 @@
  *
  * The second step: HandsFreeOS decides. From 0.156.0 a network's runner asks for its next move (`outreach.plan.next`,
  * ./plan-next.ts) with what only its computer knows (`PlanHere`), and does the move `nextMove` gives. A network at a
- * time: Threads' and X's first, Alignable's from 0.157.0, Instagram's from 0.158.0, LinkedIn's from 0.159.0;
- * Facebook's still decides each move itself, by the same rules.
+ * time: Threads' and X's first, Alignable's from 0.157.0, Instagram's from 0.158.0, LinkedIn's from 0.159.0, and
+ * Facebook's, the last, from 0.160.0.
  *
  * What the plan that's shown can't see, and says so in its own words rather than guess: whether the person is away
  * from their computer (some reads wait for that, decision 120), a referral to do (decision 185), the helpful post
@@ -63,6 +63,7 @@ import {
   nextRound,
   nextStart,
   nextWatch,
+  referDue,
   replyWaiting,
   retryWake,
   roundDue,
@@ -365,12 +366,14 @@ export type PlanMove<I extends PlanItem = PlanItem> =
     };
 
 /**
- * What a runner that asks may be sent beside the plan's moves (decision 195, step 2): today's helpful post put up on
- * its own (decision 50). The plan that's shown leaves it out, and says so: HandsFreeOS can't tell there when the AI
- * will have one written.
+ * What a runner that asks may be sent beside the plan's moves (decision 195, step 2): a look for a referral, or an
+ * ask after two, to do for the person (`refer`, decision 185), and today's helpful post put up on its own (`post`,
+ * decision 50). Each is the runner's to try: with nothing to do it looks again later, and its go goes on. The plan
+ * that's shown leaves both out, and says so: HandsFreeOS can't tell there whether a referral will be due, nor when
+ * the AI will have a post written.
  */
 export type RunnerMove<I extends PlanItem = PlanItem> =
-  PlanMove<I> | { readonly do: 'post'; readonly gap: number };
+  PlanMove<I> | { readonly do: 'refer' | 'post'; readonly gap: number };
 
 /** What's left on the network's list for its runner: only the kinds it does there, and messages where it writes them. */
 export function leftOn<I extends PlanItem>(
@@ -408,7 +411,8 @@ export function standsFor(platform: Platform, step: BeforeDay): RunnerJob | null
  *
  * From 0.156.0 this is a runner's own order too, a network at a time (decision 195, step 2): it asks with what only
  * its computer knows (`here`), and does the move it's given. Threads' and X's first, then Alignable's (0.157.0),
- * Instagram's (0.158.0) and LinkedIn's (0.159.0), which is sent today's helpful post to put up too (`RunnerMove`).
+ * Instagram's (0.158.0), LinkedIn's (0.159.0), which is sent today's helpful post to put up too, and Facebook's
+ * (0.160.0), which is sent that and a look for a referral to do (`RunnerMove`).
  */
 export function nextMove<I extends PlanItem>(
   facts: PlanFacts<I>,
@@ -564,6 +568,11 @@ export function nextMove<I extends PlanItem>(
 
   const window = workWindow(workHours(hours), timeZone, now);
   const inHours = window !== null && now >= window.from && now < window.to;
+  // A referral, or an ask after two, to do for the person (decision 185): looked for every half hour in the working
+  // hours, where its runner does them (Facebook's). Only a runner's own ask plans the look: the runner asks which is
+  // due and does it, or looks again later and goes on with the rest.
+  if (here !== undefined && kit.refers && inHours && referDue(state, now))
+    return { move: { do: 'refer', gap: pace }, state };
   // Today's helpful post, where the person lets it go up on its own (decision 50): once the day's reading is done, as
   // the AI writes it from what was read. Facebook's goes only in its hours. Only a runner's own ask plans it: with
   // none written yet the runner looks again in a while, and goes on with its list meanwhile.

@@ -5341,7 +5341,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       1. **See the plan in the app** (extension 0.155.0, built below).
       2. **The app decides, the extension does:** the extension asks HandsFreeOS for its next move, one network at a
          time, the smallest first and Facebook last. Threads and X are built (extension 0.156.0), then Alignable
-         (0.157.0), Instagram (0.158.0) and LinkedIn (0.159.0), all below.
+         (0.157.0), Instagram (0.158.0), LinkedIn (0.159.0) and Facebook (0.160.0), all below.
       3. **Buttons on the plan:** do now, skip today, move to a time.
       4. **The Assistant changes the plan,** as it already reads it.
       5. **Clean-up:** the extension's own planning goes.
@@ -5453,6 +5453,29 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Compared, not assumed** (`apps/extension/test/linkedin-plan-next.test.ts`): 38 situations of a day, 14 of
         them about the helpful post, each gone once as HandsFreeOS decides and once as the runner plans by itself,
         and the two must come to the same read, page, words, state and next time.
+      - No migration, and nothing a person sees changes.
+
+      **Step 2, Facebook** (extension 0.160.0). Facebook's runner, the last, asks and does the move it's sent, the
+      same way (`go` and `asTold` in `src/auto/run.ts`). Built, and **switched off** like the others: every
+      network's runner asks now, and none is decided for yet.
+      - **Its own checks stay first and unchanged,** in its hours and outside them: Sending not Off, the computer
+        that works, Stop for today, a warning, noting on, and nothing they asked in line. Then it asks, and does a
+        step before its day, a once-a-day read, the newest posts in their groups (decision 49), a wait, or the piece
+        of its list's work HandsFreeOS picked: the same pages, pace and limits. By itself whenever it must, as above.
+      - **A referral to do is HandsFreeOS's to send too** (decision 185 stays as it is). The runner looked for a
+        referral, or an ask after two, every half hour in its hours, once the day's reading was done, and the day's
+        rules had no move for that. They have one now (`refer`), sent only to Facebook's runner when it asks, under
+        the same conditions. One done, the go ends there. With none due, the runner asks once more in the same go and
+        does what goes meanwhile. The plan that's shown leaves the look out, as it can't tell whether one will be
+        due.
+      - **Today's helpful post goes the same way** (decision 50, as on LinkedIn), and only in its hours, as it
+        always has on Facebook. A go asks three times at most: a referral, the post, then what goes meanwhile.
+      - **Nothing new goes outside its hours, whatever it's sent:** a referral, the helpful post or the newest posts
+        sent then is turned down, after Start my day too.
+      - **Compared, not assumed** (`apps/extension/test/facebook-plan-next.test.ts`): 72 situations of a day, 10
+        about a referral, 18 about the helpful post and 9 about the newest posts, each gone once as HandsFreeOS
+        decides and once as the runner plans by itself, and the two must come to the same read, page, words, state
+        and next time.
       - No migration, and nothing a person sees changes.
 
 196.  **Comments and messages, a part each on Needs you** (Chris, 25 Nov 2026: "separate comments and messages into

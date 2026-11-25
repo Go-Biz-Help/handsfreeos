@@ -34,6 +34,13 @@
  *
  * It takes turns on Facebook with what the person asks of the extension from HandsFreeOS (../asks/run.ts, decision
  * 43), through ./turns.ts: an ask goes first, and the runner carries on after.
+ *
+ * HandsFreeOS says what's next (decision 195, step 2, from 0.160.0): once its own checks let it work, a go asks
+ * HandsFreeOS for its next move (../hfos/plan.ts `planNext`) and does it (`asTold`), each move as its own go does it:
+ * the same read, the same step on its list, the same wait, within every limit it keeps. A look for a referral to do
+ * and today's helpful post are its own to try when they're sent: done, the go ends there; with none to do it asks
+ * once more, for what goes meanwhile. It plans the go itself, by the same rules, as it always has, whenever
+ * HandsFreeOS leaves the order to it, can't be reached in time, or sends a move it can't do.
  */
 import {
   businessDay,
@@ -42,6 +49,7 @@ import {
   type MessageKind,
 } from '@hfos/core/addons/outreach/automation';
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
+import { LIST_MARKS_ON } from '@hfos/core/addons/outreach/lists';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { DAILY_STEPS, pastLimitWords, type DailyStep } from '@hfos/core/addons/outreach/limits';
 import {
@@ -105,6 +113,8 @@ import {
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { clearRetried, handsOver, retryAfterUpdate } from './retry';
 import { answer, answerWith, api, call, Refused, savingTo } from '../hfos/session';
+import { changeKept, planNext, type ToldNext } from '../hfos/plan';
+import { awayNow } from '../away';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { WorkTab } from '../tab';
 import { WATCH_GROUPS } from '@hfos/core/addons/outreach/posts';
@@ -139,6 +149,7 @@ import {
   AGAIN_WORDS,
   answersAnyTime,
   AUTO_STATE_KEY,
+  DAILY_JOBS,
   FINDING_JOBS,
   freshState,
   gapAfter,
@@ -161,6 +172,7 @@ import {
   replyWaiting,
   roundDue,
   soonestAgain,
+  STARTED_GAP_MS,
   stillReplied,
   watchDue,
   withReplied,
@@ -1492,7 +1504,337 @@ async function automationOf(businessId: string) {
   return found;
 }
 
-/** One go: works out where things stand, does the next step when it's time, and sets when to go next. */
+/** What's left on a list for the runner, in its order, with what the list says kept for its day (`listSays`). */
+async function leftOf(
+  list: TodayList,
+  tried: readonly string[],
+  replied: readonly string[] = [],
+): Promise<Work[]> {
+  // Whether Facebook needs more good fits today (decision 126): it finds people again once the day's reading is done.
+  // And when a message tried again may go (decision 132): it looks again by then.
+  const says = listSays(list);
+  const kept = await stateNow();
+  if (kept.more !== says.more || (kept.retryAt ?? null) !== says.retryAt) await setState(says);
+  // No friend requests once Facebook's said no to too many in a row today (decision 192).
+  return withoutRequests(workLeft(list, tried, replied), kept.requestsOff);
+}
+
+/** The list for today on Facebook, and what's left on it for the runner, in its order. */
+async function listNow(
+  businessId: string,
+  tried: readonly string[],
+  replied: readonly string[] = [],
+): Promise<{ readonly list: TodayList; readonly left: Work[] }> {
+  const list: TodayList = await call(
+    api().POST('/v1/queries/outreach.today', { body: { workspaceId: businessId } }),
+    businessId,
+  );
+  return { list, left: await leftOf(list, tried, replied) };
+}
+
+// ------------------------------------------------------------------------------------------------- a go's moves
+
+/** The person's choices, as HandsFreeOS last said them. */
+type Settings = Awaited<ReturnType<typeof automationOf>>['settings'];
+
+/** What a go works with, once its own checks let it work. */
+interface Going {
+  readonly businessId: string;
+  readonly settings: Settings;
+  readonly timezone: string;
+  /** From 0 to 1, the go's own: every wait it picks keeps one pace. */
+  readonly random: number;
+  /** When the go began. */
+  readonly at: number;
+  /** Today's working hours, and whether the go began in them. */
+  readonly window: ReturnType<typeof workWindow>;
+  readonly inHours: boolean;
+}
+
+/** When its next working hours start: where it goes next after a stop, a warning, or its hours' end. */
+const tomorrowFor = (g: Going) => nextStart(g.settings.hours, g.timezone, g.at, g.random);
+/**
+ * The next go after a part of the day's reading, a referral, the helpful post or the newest posts: a person's pace,
+ * as the list waits on these, or the wait HandsFreeOS sent with the move, never sooner than that pace's least.
+ */
+const goAfter = (g: Going, gap?: number) =>
+  goAt(
+    Date.now() +
+      (gap === undefined
+        ? gapAfter({ now: Date.now(), until: null, left: 0, started: true, random: g.random })
+        : Math.max(gap, STARTED_GAP_MS.least)),
+  );
+
+/** Facebook warned: it stops for the day. */
+async function warnedEnd(line: string, g: Going): Promise<void> {
+  await closeWindow();
+  await say(line, { stopped: 'warning' });
+  return goAt(tomorrowFor(g));
+}
+
+/** Stop for today, pressed while a part of the go went: it ends there, till its next working hours. */
+async function stoppedMeanwhile(g: Going): Promise<boolean> {
+  if (!(await stateNow()).stopped) return false;
+  await closeWindow();
+  await goAt(tomorrowFor(g));
+  return true;
+}
+
+/** A step before the day (their lists saved, the tidy-up, the first checks), and what follows it. */
+async function beforeGo(before: BeforeDay, g: Going, gap?: number): Promise<void> {
+  const end = await inTurn('runner', () => beforeTheDay(before, g.businessId));
+  if (end.warned) return warnedEnd(end.line, g);
+  const line = beforeDayLine(before, end);
+  void feed(jobKind(end), line);
+  if (((before.do === 'save' && before.first) || before.do === 'group_checks') && end.failed) {
+    // The first time, the day waits for the lists and the groups: it tries again in a few minutes.
+    await closeWindow();
+    await say(
+      `${line} Your day starts once your friends list, friend requests and groups are saved and checked, so it tries again in a few minutes.`,
+      { needs: true },
+    );
+    return goAt(Date.now() + AGAIN_MS);
+  }
+  await say(line, { readLast: true });
+  if (await stoppedMeanwhile(g)) return;
+  return goAfter(g, gap);
+}
+
+/**
+ * One of its once-a-day jobs, and what follows it. In its day it takes turns with the list (`turn`, decision 123);
+ * outside its hours only a comment research reads, and the list has no turn to take.
+ */
+async function dailyGo(daily: DailyJob, g: Going, turn: boolean, gap?: number): Promise<void> {
+  const end = await inTurn('runner', () => collect(daily, g.businessId));
+  if (end.warned) return warnedEnd(end.line, g);
+  const line = `${DAILY_NAMES[daily]}: ${end.line}`;
+  await say(line, turn ? { readLast: true } : {});
+  void feed(jobKind(end), line);
+  if (turn && (await stoppedMeanwhile(g))) return;
+  // A person's pace to the next: the list waits on these.
+  return goAfter(g, gap);
+}
+
+/**
+ * A referral or an ask after two to do for the person (decision 185): OK'd, or under Autopilot. One a go, looked for
+ * every half hour; one done is a step, with a person's pace after it, and the go ends there (true). None to do: it
+ * looks again in half an hour (`REFER_AGAIN_MS`), and the go goes on with what else there is (false).
+ */
+async function referGo(g: Going, gap?: number): Promise<boolean> {
+  let end: Outcome | null;
+  try {
+    end = await inTurn('runner', () => referNext(g.businessId, g.settings.voice?.split ?? true));
+  } finally {
+    await setState({ working: false, tabId: tab.tabId });
+  }
+  await setState({ referAt: end ? Date.now() : Date.now() + REFER_AGAIN_MS });
+  if (!end) return false;
+  if ('stop' in end) {
+    await warnedEnd(end.stop, g);
+    return true;
+  }
+  await say(end.line);
+  void feed(end.done ? 'done' : 'failed', end.line);
+  await goAfter(g, gap);
+  return true;
+}
+
+/**
+ * Today's helpful post, put up on its own (decision 50), once the AI has written it. Up, or it couldn't go: done for
+ * today, and the go ends there (true). None written yet: it looks again in a while (`HELPFUL_AGAIN_MS`), and the go
+ * goes on with what else there is (false).
+ */
+async function postGo(g: Going, gap?: number): Promise<boolean> {
+  await say('Looking for today’s helpful post…', { working: true });
+  let end: Awaited<ReturnType<typeof postHelpful>>;
+  try {
+    end = await inTurn('runner', () => postHelpful(jobFor(g.businessId), null));
+  } catch (error) {
+    if (error instanceof Refused) throw error;
+    end = { line: error instanceof Error ? error.message : String(error), warned: false };
+  } finally {
+    await setState({ working: false, tabId: tab.tabId });
+  }
+  const settled = end.posted === true || end.failed === true;
+  await setState({ helpfulUp: settled, helpfulAt: Date.now() + HELPFUL_AGAIN_MS });
+  if (end.warned) {
+    await warnedEnd(end.line, g);
+    return true;
+  }
+  if (!settled) return false;
+  await say(`Helpful post: ${end.line}`);
+  void feed(end.posted ? 'done' : 'failed', `Helpful post: ${end.line}`);
+  await goAfter(g, gap);
+  return true;
+}
+
+/** The newest posts at the top of their best groups (decision 49), and what follows the look. */
+async function watchGo(g: Going, gap?: number): Promise<void> {
+  const end = await inTurn('runner', () => watch(g.businessId));
+  if (end.warned) return warnedEnd(end.line, g);
+  await say(`Newest posts: ${end.line}`);
+  void feed(jobKind(end), `Newest posts: ${end.line}`);
+  if (await stoppedMeanwhile(g)) return;
+  return goAfter(g, gap);
+}
+
+/**
+ * Nothing's left for it now: it says so. In the hours it looks again within the hour, or when they end, the newest
+ * posts, the next checks or a message tried again are due, whichever is first; outside them, at its next hours. Or
+ * when HandsFreeOS said (`until`).
+ */
+async function idleGo(state: AutoState, g: Going, until?: number | null): Promise<void> {
+  const { settings, at, inHours, window } = g;
+  await closeWindow();
+  // The checks' next batch, when one's to come today (decision 126).
+  const again = settings.collect ? soonestAgain(await stateNow(), at) : null;
+  await say(
+    `${
+      state.tried.length
+        ? 'Done for today. It looks again later for new requests to confirm.'
+        : 'Nothing on your list for it to do yet.'
+    }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
+  );
+  const watchAt = settings.watchPosts ? ((await stateNow()).watchAt ?? null) : null;
+  return goAt(
+    until ??
+      (inHours
+        ? Math.min(
+            at + IDLE_MS,
+            window!.to,
+            ...(watchAt !== null ? [Math.max(watchAt, at)] : []),
+            ...(again !== null ? [again] : []),
+            // A message tried again that waits its turn (decision 132).
+            ...retryWake(await stateNow(), at),
+          )
+        : tomorrowFor(g)),
+  );
+}
+
+// ------------------------------------------------------------------------------------------------- as it's told
+
+const NOTING_OFF_WORDS =
+  'Turn on “Note my steps on Facebook” in Social Outreach → Settings in HandsFreeOS: the extension works on its own only while it notes.';
+const warnedWords = (warned: Awaited<ReturnType<typeof warnedNow>>) =>
+  `Stopped: Facebook warned you today${warned ? ` (“${warned.words[0]}”)` : ''}. The extension stops until tomorrow.`;
+
+/**
+ * Waits as HandsFreeOS said (decision 195, step 2), as its own go waits: with its words where it has some, and
+ * without a word outside its hours or after Stop for today. What HandsFreeOS knows and this computer doesn't yet (a
+ * warning noted on another of their computers, Stop for today pressed a moment ago) holds it till it's asked again:
+ * its own state is left to what this computer sees.
+ */
+async function waitAsTold(
+  why: Exclude<Extract<ToldNext['move'], { do: 'wait' }>['why'], 'screen'>,
+  until: number | null,
+  g: Going,
+  state: AutoState,
+): Promise<void> {
+  switch (why) {
+    case 'off':
+      await goAt(null);
+      return closeWindow();
+    case 'asks':
+      await say(ASK_FIRST_WORDS);
+      return goAt(until ?? g.at + ASK_FIRST_MS);
+    case 'noting':
+      await closeWindow();
+      await say(NOTING_OFF_WORDS, { needs: true });
+      return goAt(until ?? g.at + LOOK_AGAIN_MS);
+    case 'warned':
+      await closeWindow();
+      await say(warnedWords(await warnedNow()));
+      return goAt(until);
+    case 'idle':
+      return idleGo(state, g, until);
+    case 'stopped':
+    case 'hours':
+      await closeWindow();
+      return goAt(until);
+  }
+}
+
+/**
+ * Does the move HandsFreeOS sent (decision 195, step 2), each as its own go does it: the same read, the same step on
+ * the list, at its own pace, within every limit it keeps. False for a move this build can't do as it stands (a job
+ * that isn't Facebook's, a wait for the screen, which only Instagram, Threads and X keep, the newest posts outside
+ * its hours, a piece of work that isn't on its list): the runner then plans the go itself. A look for a referral and
+ * today's helpful post are the go's own to try (`go`, `referGo`, `postGo`), as the go goes on with nothing to do.
+ */
+async function asTold(
+  told: ToldNext,
+  g: Going,
+  here: {
+    readonly state: AutoState;
+    /** In its day, where the day's reading takes turns with the list. */
+    readonly turn: boolean;
+  },
+): Promise<boolean> {
+  const { move, change } = told;
+  const keep = async () => {
+    if (change) await setState(changeKept(here.state, change));
+  };
+  switch (move.do) {
+    case 'wait': {
+      const { why } = move;
+      // A save of their lists is tried here whenever it's due: it never waits for the screen.
+      if (why === 'screen') return false;
+      await keep();
+      await waitAsTold(why, move.until, g, here.state);
+      return true;
+    }
+    case 'before': {
+      const step = move.step as BeforeDay;
+      if (!LIST_MARKS_ON.facebook.includes(markOf(step))) return false;
+      await keep();
+      await beforeGo(step, g, move.gap);
+      return true;
+    }
+    case 'daily': {
+      const job = DAILY_JOBS.find((mine) => mine === move.job);
+      if (!job) return false;
+      await keep();
+      await dailyGo(job, g, here.turn, move.gap);
+      return true;
+    }
+    case 'watch': {
+      // Only in the working hours (decision 49).
+      if (!g.inHours) return false;
+      await keep();
+      await watchGo(g, move.gap);
+      return true;
+    }
+    case 'work': {
+      if (!told.list) return false;
+      const all = await leftOf(told.list, here.state.tried, here.state.replied);
+      // Outside its hours only a reply to someone who wrote back goes (decision 133).
+      const left = move.answering ? all.filter(answersAnyTime) : all;
+      const pick = left.find((work) => workKey(work) === move.key);
+      if (!pick) return false;
+      await keep();
+      await workNext([pick, ...left.filter((work) => work !== pick)], told.list, {
+        businessId: g.businessId,
+        settings: g.settings,
+        timezone: g.timezone,
+        until: move.day.until,
+        started: move.day.started,
+        reading: move.reading,
+      });
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+// ------------------------------------------------------------------------------------------------- a go
+
+/**
+ * One go: works out where things stand, does the next step when it's time, and sets when to go next. Its own checks
+ * come first; then, free to work, it asks HandsFreeOS for its next move (decision 195, step 2) and does it
+ * (`asTold`); and it plans the go itself, as it always has, whenever HandsFreeOS leaves the order to it, can't be
+ * reached, or sends a move it can't do.
+ */
 async function go(): Promise<void> {
   // A stop asked for before this go is in the day it reads below; one asked for from here on ends a job under way.
   stopAsked = false;
@@ -1534,43 +1876,55 @@ async function go(): Promise<void> {
     return goAt(null);
   }
   const random = Math.random();
-  const tomorrow = () => nextStart(settings.hours, timezone, at, random);
+  // Every day while the person keeps working on other days, new messages only on their days (decision 139).
+  const window = workWindow(workHours(settings.hours), timezone, at);
+  const inHours = window !== null && at >= window.from && at < window.to;
+  const g: Going = { businessId: to.businessId, settings, timezone, random, at, window, inHours };
   if (state.stopped) {
     await closeWindow();
-    return goAt(tomorrow());
+    return goAt(tomorrowFor(g));
   }
   const warned = await warnedNow();
   if (warned) {
     await closeWindow();
-    await say(
-      `Stopped: Facebook warned you today (“${warned.words[0]}”). The extension stops until tomorrow.`,
-      {
-        stopped: 'warning',
-      },
-    );
-    return goAt(tomorrow());
+    await say(warnedWords(warned), { stopped: 'warning' });
+    return goAt(tomorrowFor(g));
   }
   if (!(await isNoting())) {
     await closeWindow();
-    await say(
-      'Turn on “Note my steps on Facebook” in Social Outreach → Settings in HandsFreeOS: the extension works on its own only while it notes.',
-      { needs: true },
-    );
+    await say(NOTING_OFF_WORDS, { needs: true });
     return goAt(at + LOOK_AGAIN_MS);
   }
-  // Every day while the person keeps working on other days, new messages only on their days (decision 139).
-  const window = workWindow(workHours(settings.hours), timezone, at);
-  const inHours = window !== null && at >= window.from && at < window.to;
   const researchAsk = {
     hfos: answer as Hfos,
     businessId: to.businessId,
     platform: 'facebook',
     setState,
   } as const;
+  /** Its next move, asked of HandsFreeOS: with where its day is up to now, and the go's own clock and pace. */
+  const ask = async (now: AutoState, research: boolean) =>
+    planNext('facebook', to, {
+      state: now,
+      now: at,
+      random,
+      // None of its reads is put off till they're away: its window is its own, beside theirs.
+      here: { away: await awayNow(), passOver: [], research, asking: false },
+    });
   if (!state.started && !inHours) {
     // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 133). What the
     // person asked from HandsFreeOS goes first.
     if (askInLine()) return goAt(at + ASK_FIRST_MS);
+    // A comment research this person started reads outside the hours too, as it only reads (decision 194).
+    let reads = false;
+    if (settings.collect) {
+      const research = await researchNext({ ...researchAsk, state, now: at });
+      state = research.state;
+      reads = research.reads;
+    }
+    // Free to work: HandsFreeOS says what's next, where it decides (decision 195).
+    const told = await ask(state, reads);
+    if (told && (await asTold(told, g, { state, turn: false }))) return;
+    // By itself, as it always has.
     const answering = await listNow(to.businessId, state.tried, state.replied);
     const answers = answering.left.filter(answersAnyTime);
     if (answers[0])
@@ -1578,36 +1932,17 @@ async function go(): Promise<void> {
         businessId: to.businessId,
         settings,
         timezone,
-        inHours,
-        window,
+        until: null,
         reading: false,
       });
-    // A comment research this person started reads outside the hours too, as it only reads (decision 194).
-    if (settings.collect) {
-      const research = await researchNext({ ...researchAsk, state, now: at });
-      state = research.state;
-      if (research.reads) {
-        const end = await inTurn('runner', () => collect('comment_research', to.businessId));
-        const line = `${DAILY_NAMES.comment_research}: ${end.line}`;
-        if (end.warned) {
-          await closeWindow();
-          await say(end.line, { stopped: 'warning' });
-          return goAt(tomorrow());
-        }
-        await say(line);
-        void feed(jobKind(end), line);
-        return goAt(
-          Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
-        );
-      }
-    }
+    if (reads) return dailyGo('comment_research', g, false);
     await closeWindow();
     // A reply waiting for an OK goes once it's given, and one tried again at its turn: it looks again by then; and the
     // comment research's next batch.
     const latest = await stateNow();
     return goAt(
       lookForResearch(
-        lookOutsideAt(replyWaiting(answering.list), at, tomorrow(), retryWake(latest, at)),
+        lookOutsideAt(replyWaiting(answering.list), at, tomorrowFor(g), retryWake(latest, at)),
         latest,
         at,
       ),
@@ -1624,16 +1959,43 @@ async function go(): Promise<void> {
   // the requests each morning and the friends list weekly; and after the first full save, Tidy up and one check.
   const lists = valueOf(await (answer as Hfos)({ type: 'hfos-lists', workspaceId: to.businessId }));
   if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
-  const before = beforeDay(lists, state.before ?? {}, at, timezone);
-  let daily = settings.collect ? nextDaily(state, at) : null;
   // HandsFreeOS's own comment research (decision 172) is only for whoever of its staff started one: asked without a
   // word, and for anyone else it's done for the day before a line of it is ever shown. While one runs, its batch goes
   // first whenever it's due (decision 194).
+  let reads = false;
   if (settings.collect) {
     const research = await researchNext({ ...researchAsk, state, now: at });
     state = research.state;
-    daily = research.reads ? 'comment_research' : nextDaily(state, at);
+    reads = research.reads;
   }
+  // Free to work: HandsFreeOS says what's next, where it decides (decision 195).
+  let told = await ask(state, reads);
+  // A look for a referral to do, and today's helpful post, are the go's own to try, in its hours, each once a go:
+  // done, the go ends there. With none to do it looks again in a while, and HandsFreeOS is asked once more, for what
+  // goes meanwhile.
+  const looked = new Set<string>();
+  while (
+    told &&
+    inHours &&
+    (told.move.do === 'refer' || told.move.do === 'post') &&
+    !looked.has(told.move.do)
+  ) {
+    const { move, change } = told;
+    looked.add(move.do);
+    if (change) await setState(changeKept(state, change));
+    if (await (move.do === 'refer' ? referGo(g, move.gap) : postGo(g, move.gap))) return;
+    state = await stateNow();
+    told = await ask(state, reads);
+  }
+  if (told && (await asTold(told, g, { state, turn: true }))) return;
+
+  // By itself, as it always has.
+  const before = beforeDay(lists, state.before ?? {}, at, timezone);
+  let daily: DailyJob | null = !settings.collect
+    ? null
+    : reads
+      ? 'comment_research'
+      : nextDaily(state, at);
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.
   if (settings.collect && !before && !daily && roundDue(state, at)) {
@@ -1641,6 +2003,13 @@ async function go(): Promise<void> {
     daily = nextDaily(state, at);
   }
   const reading = before !== null || daily !== null;
+  const working = {
+    businessId: to.businessId,
+    settings,
+    timezone,
+    until: inHours ? window!.to : null,
+    reading,
+  };
   // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
   // part of the reading went last.
   if (listTurn(state, reading, holdsTheDay(before))) {
@@ -1648,196 +2017,32 @@ async function go(): Promise<void> {
     // Who wrote back and isn't on what's left gives the reading its turn back (decision 125).
     const replied = stillReplied(state.replied ?? [], left);
     if (replied.length !== (state.replied ?? []).length) state = await setState({ replied });
-    if (left[0])
-      return workNext(left, list, {
-        businessId: to.businessId,
-        settings,
-        timezone,
-        inHours,
-        window,
-        reading,
-      });
+    if (left[0]) return workNext(left, list, working);
   }
-  if (before) {
-    const end = await inTurn('runner', () => beforeTheDay(before, to.businessId));
-    if (end.warned) {
-      await closeWindow();
-      await say(end.line, { stopped: 'warning' });
-      return goAt(tomorrow());
-    }
-    const line = beforeDayLine(before, end);
-    void feed(jobKind(end), line);
-    if (((before.do === 'save' && before.first) || before.do === 'group_checks') && end.failed) {
-      // The first time, the day waits for the lists and the groups: it tries again in a few minutes.
-      await closeWindow();
-      await say(
-        `${line} Your day starts once your friends list, friend requests and groups are saved and checked, so it tries again in a few minutes.`,
-        { needs: true },
-      );
-      return goAt(Date.now() + AGAIN_MS);
-    }
-    await say(line, { readLast: true });
-    if ((await stateNow()).stopped) {
-      await closeWindow();
-      return goAt(tomorrow());
-    }
-    return goAt(
-      Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
-    );
-  }
+  if (before) return beforeGo(before, g);
+  if (daily) return dailyGo(daily, g, true);
 
-  if (daily) {
-    const end = await inTurn('runner', () => collect(daily, to.businessId));
-    if (end.warned) {
-      await closeWindow();
-      await say(end.line, { stopped: 'warning' });
-      return goAt(tomorrow());
-    }
-    await say(`${DAILY_NAMES[daily]}: ${end.line}`, { readLast: true });
-    void feed(jobKind(end), `${DAILY_NAMES[daily]}: ${end.line}`);
-    if ((await stateNow()).stopped) {
-      await closeWindow();
-      return goAt(tomorrow());
-    }
-    // A person's pace to the next: the list waits on these.
-    return goAt(
-      Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
-    );
-  }
+  // A referral or an ask after two to do for the person (decision 185): one a go, in the working hours, looked for
+  // every half hour. One HandsFreeOS sent this go for, with none to do, isn't looked for twice: it's due again later.
+  if (inHours && referDue(state, at) && (await referGo(g))) return;
 
-  // A referral or an ask after two to do for the person (decision 185): OK'd, or under Autopilot. One a go, in the
-  // working hours, looked for every half hour; one done is a step, with a person's pace after it.
-  if (inHours && referDue(state, at)) {
-    let end: Outcome | null;
-    try {
-      end = await inTurn('runner', () => referNext(to.businessId, settings.voice?.split ?? true));
-    } finally {
-      await setState({ working: false, tabId: tab.tabId });
-    }
-    await setState({ referAt: end ? Date.now() : Date.now() + REFER_AGAIN_MS });
-    if (end && 'stop' in end) {
-      await closeWindow();
-      await say(end.stop, { stopped: 'warning' });
-      return goAt(tomorrow());
-    }
-    if (end) {
-      await say(end.line);
-      void feed(end.done ? 'done' : 'failed', end.line);
-      return goAt(
-        Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
-      );
-    }
-  }
-
-  // Today's helpful post, when the person lets it post on its own (decision 50): once the AI has written it.
+  // Today's helpful post, when the person lets it post on its own (decision 50): once the AI has written it. The
+  // same holds for one looked for already this go.
   if (
     settings.posting === 'own' &&
     inHours &&
     (!settings.collect || state.daily?.helpful !== undefined) &&
-    helpfulDue(state, at)
-  ) {
-    await say('Looking for today’s helpful post…', { working: true });
-    let end: Awaited<ReturnType<typeof postHelpful>>;
-    try {
-      end = await inTurn('runner', () => postHelpful(jobFor(to.businessId), null));
-    } catch (error) {
-      if (error instanceof Refused) throw error;
-      end = { line: error instanceof Error ? error.message : String(error), warned: false };
-    } finally {
-      await setState({ working: false, tabId: tab.tabId });
-    }
-    // Up, or it couldn't go: done for today. None written yet: it looks again in a while.
-    const settled = end.posted === true || end.failed === true;
-    await setState({ helpfulUp: settled, helpfulAt: Date.now() + HELPFUL_AGAIN_MS });
-    if (end.warned) {
-      await closeWindow();
-      await say(end.line, { stopped: 'warning' });
-      return goAt(tomorrow());
-    }
-    if (settled) {
-      await say(`Helpful post: ${end.line}`);
-      void feed(end.posted ? 'done' : 'failed', `Helpful post: ${end.line}`);
-      return goAt(
-        Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
-      );
-    }
-  }
+    helpfulDue(state, at) &&
+    (await postGo(g))
+  )
+    return;
 
   // In the working hours, every hour or two, the newest posts at the top of the best groups (decision 49).
-  if (settings.watchPosts && inHours && watchDue(state, at)) {
-    const end = await inTurn('runner', () => watch(to.businessId));
-    if (end.warned) {
-      await closeWindow();
-      await say(end.line, { stopped: 'warning' });
-      return goAt(tomorrow());
-    }
-    await say(`Newest posts: ${end.line}`);
-    void feed(jobKind(end), `Newest posts: ${end.line}`);
-    if ((await stateNow()).stopped) {
-      await closeWindow();
-      return goAt(tomorrow());
-    }
-    return goAt(
-      Date.now() + gapAfter({ now: Date.now(), until: null, left: 0, started: true, random }),
-    );
-  }
+  if (settings.watchPosts && inHours && watchDue(state, at)) return watchGo(g);
 
   const { list, left } = await listNow(to.businessId, state.tried, state.replied);
-  if (!left[0]) {
-    await closeWindow();
-    // The checks' next batch, when one's to come today (decision 126).
-    const again = settings.collect ? soonestAgain(await stateNow(), at) : null;
-    await say(
-      `${
-        state.tried.length
-          ? 'Done for today. It looks again later for new requests to confirm.'
-          : 'Nothing on your list for it to do yet.'
-      }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
-    );
-    // In the hours, it looks again within the hour, or when the newest posts or the next checks are due, whichever is
-    // first.
-    const watchAt = settings.watchPosts ? ((await stateNow()).watchAt ?? null) : null;
-    return goAt(
-      inHours
-        ? Math.min(
-            at + IDLE_MS,
-            window!.to,
-            ...(watchAt !== null ? [Math.max(watchAt, at)] : []),
-            ...(again !== null ? [again] : []),
-            // A message tried again that waits its turn (decision 132).
-            ...retryWake(await stateNow(), at),
-          )
-        : tomorrow(),
-    );
-  }
-
-  return workNext(left, list, {
-    businessId: to.businessId,
-    settings,
-    timezone,
-    inHours,
-    window,
-    reading,
-  });
-}
-
-/** The list for today on Facebook, and what's left on it for the runner, in its order. */
-async function listNow(
-  businessId: string,
-  tried: readonly string[],
-  replied: readonly string[] = [],
-): Promise<{ readonly list: TodayList; readonly left: Work[] }> {
-  const list: TodayList = await call(
-    api().POST('/v1/queries/outreach.today', { body: { workspaceId: businessId } }),
-    businessId,
-  );
-  // Whether Facebook needs more good fits today (decision 126): it finds people again once the day's reading is done.
-  // And when a message tried again may go (decision 132): it looks again by then.
-  const says = listSays(list);
-  const kept = await stateNow();
-  if (kept.more !== says.more || (kept.retryAt ?? null) !== says.retryAt) await setState(says);
-  // No friend requests once Facebook's said no to too many in a row today (decision 192).
-  return { list, left: withoutRequests(workLeft(list, tried, replied), kept.requestsOff) };
+  if (!left[0]) return idleGo(state, g);
+  return workNext(left, list, working);
 }
 
 /**
@@ -1850,16 +2055,18 @@ async function workNext(
   list: TodayList,
   at: {
     readonly businessId: string;
-    readonly settings: Awaited<ReturnType<typeof automationOf>>['settings'];
+    readonly settings: Settings;
     readonly timezone: string;
-    readonly inHours: boolean;
-    readonly window: ReturnType<typeof workWindow>;
+    /** When the working hours end today: null outside them. */
+    readonly until: number | null;
+    /** Their day started by hand, as HandsFreeOS said with the move: left out, as this computer keeps it. */
+    readonly started?: boolean;
     /** Some of the morning's reading is left: the list's turn goes back to it. */
     readonly reading: boolean;
   },
 ): Promise<void> {
   const work = left[0]!;
-  const { businessId, settings, inHours, window } = at;
+  const { businessId, settings } = at;
   const tomorrow = () => nextStart(settings.hours, at.timezone, Date.now(), Math.random());
   commentsLeft = Math.max(0, list.limits.comment.most - list.limits.comment.done);
   const { item } = work;
@@ -1940,10 +2147,10 @@ async function workNext(
   }
   const gap = gapAfter({
     now: Date.now(),
-    until: inHours ? window!.to : null,
+    until: at.until,
     left: left.length - 1,
     // A person's pace while the morning's reading is left: the list's turn and the reading's go by turns.
-    started: state.started || at.reading,
+    started: (at.started ?? state.started) || at.reading,
     random: Math.random(),
   });
   await goAt(Date.now() + gap);

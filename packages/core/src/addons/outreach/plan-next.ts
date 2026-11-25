@@ -9,9 +9,9 @@
  *   last. For any other, and for a computer that isn't the one that works, the answer is `decides: false`, and the
  *   runner goes on by itself, as it does when HandsFreeOS can't be reached: by the same rules, with what it knows.
  * - **Switched on apart from the build.** A runner that asks (Threads' and X's from `NEXT_SINCE`, Alignable's from
- *   0.157.0, Instagram's from 0.158.0, LinkedIn's from 0.159.0) is answered `decides: false` until its network is in
- *   `PLAN_DECIDES`: the build goes out first, and a day's plan is checked against what a working computer really did
- *   before HandsFreeOS decides there.
+ *   0.157.0, Instagram's from 0.158.0, LinkedIn's from 0.159.0, Facebook's from 0.160.0) is answered
+ *   `decides: false` until its network is in `PLAN_DECIDES`: the build goes out first, and a day's plan is checked
+ *   against what a working computer really did before HandsFreeOS decides there.
  * - **Its own clock.** A runner's times are on its computer's clock. HandsFreeOS works the move out on its own
  *   (`now` says how far apart the two are) and sends each time back on the runner's.
  * - **A piece of the list's work** comes with today's list, as `outreach.today` gives it, so the runner asks once.
@@ -29,18 +29,18 @@ import { TodayOutput } from './today';
  * The networks HandsFreeOS decides for: their runner asks for its next move and does it. Taken off here, a runner
  * plans for itself at its next go.
  *
- * None yet. Threads' and X's runners ask from `NEXT_SINCE`, Alignable's from 0.157.0, Instagram's from 0.158.0 and
- * LinkedIn's from 0.159.0. Each waits to be put here: once the plan HandsFreeOS shows (step 1) has been checked
- * against what a working computer really did over a day.
+ * None yet. Threads' and X's runners ask from `NEXT_SINCE`, Alignable's from 0.157.0, Instagram's from 0.158.0,
+ * LinkedIn's from 0.159.0 and Facebook's from 0.160.0: every network's does now. Each waits to be put here: once the
+ * plan HandsFreeOS shows (step 1) has been checked against what a working computer really did over a day.
  */
 export const PLAN_DECIDES: readonly Platform[] = [];
 
 /**
  * The first build with a runner that asks and does what it's sent (Threads' and X's): an older one isn't answered.
- * A network whose runner began asking later (Alignable's, 0.157.0; Instagram's, 0.158.0; LinkedIn's, 0.159.0) needs
- * no gate of its own: an older build's runner there never asks. That holds for a move only a later runner knows
- * too: the helpful post (`post`) is sent only where the runner puts it up on its own, and LinkedIn's began asking
- * with the build that does.
+ * A network whose runner began asking later (Alignable's, 0.157.0; Instagram's, 0.158.0; LinkedIn's, 0.159.0;
+ * Facebook's, 0.160.0) needs no gate of its own: an older build's runner there never asks. That holds for a move
+ * only a later runner knows too: the helpful post (`post`) and the look for a referral (`refer`) are sent only where
+ * the runner does them, and LinkedIn's and Facebook's each began asking with the build that does.
  */
 export const NEXT_SINCE = '0.156.0';
 
@@ -87,7 +87,12 @@ export const PlanNextMove = z.discriminatedUnion('do', [
   z.object({ do: z.literal('daily'), job, gap }),
   z.object({ do: z.literal('search'), gap }),
   z.object({ do: z.literal('watch'), gap }),
-  /** Today's helpful post, put up on its own where the person lets it (decision 50): LinkedIn's, from 0.159.0. */
+  /** A look for a referral, or an ask after two, to do for the person (decision 185): Facebook's, from 0.160.0. */
+  z.object({ do: z.literal('refer'), gap }),
+  /**
+   * Today's helpful post, put up on its own where the person lets it (decision 50): LinkedIn's, from 0.159.0, and
+   * Facebook's, from 0.160.0.
+   */
   z.object({ do: z.literal('post'), gap }),
   z.object({
     do: z.literal('work'),

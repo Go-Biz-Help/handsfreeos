@@ -417,9 +417,13 @@ describe('a runner’s own ask for its next move (decision 195, step 2)', () => 
     });
     const onInstagram = posting({ platform: 'instagram' });
     expect(nextMove(onInstagram, done('instagram'), 0.5, HERE).move).toMatchObject({ do: 'work' });
-    // Facebook's goes only in its hours: with its day started by hand after them, the list goes on.
+    // Facebook's goes only in its hours: with its day started by hand after them, the list goes on. A referral
+    // looked for a moment ago leaves the post its turn.
     const onFacebook = posting({ platform: 'facebook' });
-    expect(nextMove(onFacebook, done('facebook'), 0.5, HERE).move).toMatchObject({ do: 'post' });
+    const referred = { referAt: NOW + 20 * MIN };
+    expect(nextMove(onFacebook, done('facebook', referred), 0.5, HERE).move).toMatchObject({
+      do: 'post',
+    });
     const pressed = posting({
       platform: 'facebook',
       now: FIVE_PM + 30 * MIN,
@@ -428,6 +432,61 @@ describe('a runner’s own ask for its next move (decision 195, step 2)', () => 
     expect(nextMove(pressed, done('facebook'), 0.5, HERE).move).not.toMatchObject({ do: 'post' });
     // The plan that's shown leaves the post out, and says so.
     expect(nextMove(posting(), done('linkedin')).move).toMatchObject({ do: 'work' });
+  });
+
+  it('sends Facebook’s runner to look for a referral to do, every half hour in its hours', () => {
+    const CHOICES = { on: true, sending: 'steps', collect: true, watchPosts: true } as const;
+    const onFacebook = (more: Partial<PlanFacts> = {}) =>
+      facts({ platform: 'facebook', choices: { ...CHOICES, posting: 'own' }, ...more });
+    const done = (more: Partial<PlanDay> = {}) =>
+      fresh({
+        daily: Object.fromEntries(RUNNERS.facebook.daily.map((job) => [job, 'Done.'])),
+        watchAt: NOW + 90 * MIN,
+        ...more,
+      });
+    // After the day's reading, before the helpful post, the newest posts and the list, at a person's pace.
+    expect(nextMove(onFacebook(), done(), 0.5, HERE).move).toEqual({ do: 'refer', gap: 2 * MIN });
+    expect(nextMove(onFacebook(), done({ watchAt: NOW - MIN }), 0.5, HERE).move).toMatchObject({
+      do: 'refer',
+    });
+    // Never while a part of the reading is left.
+    expect(nextMove(onFacebook(), fresh(), 0.5, HERE).move).not.toMatchObject({ do: 'refer' });
+    // One looked for in the last half hour isn't again: the post, the newest posts and the list have their turn.
+    const looked = done({ referAt: NOW + 20 * MIN });
+    expect(nextMove(onFacebook(), looked, 0.5, HERE).move).toMatchObject({ do: 'post' });
+    expect(nextMove(onFacebook(), done({ referAt: NOW - MIN }), 0.5, HERE).move).toMatchObject({
+      do: 'refer',
+    });
+    // Only in its hours: with its day started by hand after them, none is looked for.
+    const pressed = onFacebook({
+      now: FIVE_PM + 30 * MIN,
+      day: { date: TODAY, state: 'started', why: null },
+    });
+    expect(nextMove(pressed, done(), 0.5, HERE).move).not.toMatchObject({ do: 'refer' });
+    // Only Facebook's runner does them.
+    for (const platform of ['linkedin', 'instagram', 'alignable', 'threads', 'x'] as const) {
+      expect(RUNNERS[platform].refers).toBe(false);
+      const all = fresh({
+        daily: Object.fromEntries(RUNNERS[platform].daily.map((job) => [job, 'Done.'])),
+        watchAt: NOW + 90 * MIN,
+      });
+      expect(nextMove(facts({ platform }), all, 0.5, HERE).move).not.toMatchObject({ do: 'refer' });
+    }
+    // The plan that's shown leaves the look out, and says so.
+    expect(nextMove(onFacebook(), done()).move).not.toMatchObject({ do: 'refer' });
+    // And it's sent as it is.
+    expect(moveSent({ do: 'refer', gap: 120_000.4 }, 10 * MIN)).toEqual({
+      do: 'refer',
+      gap: 120_000,
+    });
+    expect(
+      PlanNextOutput.parse({
+        decides: true,
+        move: { do: 'refer', gap: 1 },
+        change: null,
+        list: null,
+      }).move,
+    ).toEqual({ do: 'refer', gap: 1 });
   });
 
   it('sends the helpful post as it is, its gap a whole number', () => {
