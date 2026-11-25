@@ -2049,6 +2049,9 @@ describe('the AI teammate’s drafts', () => {
       what: 'Ava’s text to Mike Draft',
       drafted: { ai_teammate_wrote: { words: 'Hi Mike, we have Tuesday at 10 open.' } },
       canDecide: true,
+      // The card's notes: the safety check it passed, and how many texts it takes.
+      safety: 'Safety check passed',
+      length: '36 of 160 · 1 text',
     });
   });
 

@@ -3,8 +3,11 @@ import {
   contactLabelWords,
   customerSince,
   customValueText,
+  DRAFT_AFTER,
+  DRAFT_WORDS,
   dueLabel,
   executeCommand,
+  firstNameOf,
   handoffWhy,
   money as coreMoney,
   plainSpaces,
@@ -276,6 +279,75 @@ export function handoffOf(c: Handling, timezone: string) {
   };
 }
 
+/**
+ * The person-took-over banner: once someone on the team takes a customer over, the AI teammate holds off with them on
+ * every channel (In your hands), not in this thread alone. Null unless a person has it and there is a teammate.
+ */
+export function tookOverLine(c: Handling): string | null {
+  if (c.handledBy !== 'person' || c.needsPersonSince || !c.teammate) return null;
+  return `${c.takenOverBy?.fullName ?? 'Someone on the team'} took over. ${c.teammate.name} stays quiet with them everywhere until someone hands them back.`;
+}
+
+/** The AI teammate's newest draft in a thread, as ai_teammate.draft_list gives it. */
+export interface ThreadDraft {
+  id: string;
+  kind: 'reply' | 'approval' | 'call' | 'ask';
+  status: string;
+  teammate: { id: string; name: string };
+  preview: { message: { channel: string; body: string; subject: string | null } | null };
+  reason: string | null;
+  decidedBy: { id: string; fullName: string } | null;
+  decidedAt: string | null;
+}
+
+/** How long an approved draft's message may take to arrive before the thread stops saying it's on its way. */
+const SENDING_FOR_MS = 10 * 60_000;
+
+/**
+ * What the thread says under its newest message about the AI teammate's newest draft (conversation-view.tsx): the
+ * one waiting for an OK, one approved and on its way, or what became of it since then (rejected, expired, or dropped
+ * because they wrote again). Null when there's nothing to say, as once newer messages came.
+ */
+export function draftLineOf(
+  d: ThreadDraft | undefined,
+  thread: { lastAt: string | null; sentDraftIds: ReadonlySet<string> },
+  first: string | null,
+  timezone: string,
+  now = Date.now(),
+): Record<string, unknown> | null {
+  if (!d) return null;
+  const name = d.teammate.name;
+  const since = (iso: string | null) =>
+    !!iso && (!thread.lastAt || Date.parse(iso) >= Date.parse(thread.lastAt) - 1000);
+  if (d.status === 'pending')
+    return {
+      draftId: d.id,
+      waiting: `${name}’s draft waits for an OK.`,
+      next: 'list_teammate_drafts shows it in full; decide_teammate_draft approves, edits or rejects it.',
+    };
+  if (
+    d.status === 'approved' &&
+    d.preview.message &&
+    d.decidedAt &&
+    now - Date.parse(d.decidedAt) < SENDING_FOR_MS &&
+    !thread.sentDraftIds.has(d.id)
+  )
+    return {
+      sending: `${name}’s reply${DRAFT_AFTER.sendingBy(d.decidedBy)} · ${DRAFT_WORDS.sending}`,
+    };
+  if (d.status === 'rejected' && since(d.decidedAt))
+    return {
+      draftId: d.id,
+      rejected: `${DRAFT_AFTER.rejectedBy(d.decidedBy?.fullName ?? 'Someone', name)} Nothing went to ${first ?? 'them'}.`,
+      next: `Reply yourself (manage_conversation take_over, then write), or do_ai_teammate_retry for a new draft.`,
+    };
+  if (d.status === 'expired' && since(d.decidedAt))
+    return { expired: DRAFT_AFTER.expired(name, d.decidedAt ? when(d.decidedAt, timezone) : null) };
+  if (d.status === 'cancelled' && d.reason === 'The customer wrote again.' && since(d.decidedAt))
+    return { dropped: DRAFT_AFTER.dropped(name, first) };
+  return null;
+}
+
 /** Where an email thread lives, beside the Inbox. */
 export const FOLDER_WORDS: Readonly<Record<string, string>> = { other: 'Other mail', spam: 'Spam' };
 
@@ -366,6 +438,10 @@ interface ThreadEntry {
   } | null;
   editedAt: string | null;
   unsentAt: string | null;
+  /** The AI teammate's draft this message sent, once approved. */
+  aiDraftId?: string | null;
+  /** Which of the business's lines it came on, in All lines. */
+  lineDisplay?: string | null;
 }
 
 const MAILBOX = { google: 'their own Gmail', microsoft: 'their own Outlook' } as const;
@@ -380,6 +456,7 @@ function threadEntryOut(i: ThreadEntry) {
   if (i.type === 'call')
     return {
       at: i.occurredAt,
+      ...(i.lineDisplay ? { line: i.lineDisplay } : {}),
       call: {
         callId: i.id,
         direction: i.direction,
@@ -399,6 +476,7 @@ function threadEntryOut(i: ThreadEntry) {
   return {
     id: i.id,
     at: i.occurredAt,
+    ...(i.lineDisplay ? { line: i.lineDisplay } : {}),
     from: inbound
       ? 'customer'
       : i.teammate
@@ -985,17 +1063,37 @@ export const readTools: Record<string, ReadTool> = {
         result: { messages: [], note: 'There is no conversation with them on that channel yet.' },
       };
     const before = typeof args['before'] === 'string' && args['before'] ? args['before'] : null;
-    const [got, thread] = await Promise.all([
+    const [got, thread, drafts] = await Promise.all([
       query<ConversationGot>(db, ctx, 'conversation.get', { conversationId }),
       query<{ items: ThreadEntry[]; nextCursor: string | null }>(db, ctx, 'conversation.thread', {
         conversationId,
         limit: Math.min(Number(args['limit'] ?? 20) || 20, 50),
         ...(before ? { cursor: before } : {}),
+        // All lines: every lane of theirs woven together, each message saying which line it was on.
+        ...(args['allLines'] === true ? { allLanes: true } : {}),
       }),
+      // The teammate's newest draft here, for what the thread says under its newest message; not on older pages.
+      before
+        ? { items: [] }
+        : query<{ items: ThreadDraft[] }>(db, ctx, 'ai_teammate.draft_list', {
+            conversationId,
+            status: 'all',
+            limit: 1,
+          }).catch(() => ({ items: [] as ThreadDraft[] })),
     ]);
     const c = got.conversation;
     const others = c.lanes.filter((l) => l.id !== conversationId);
     const handoff = handoffOf(c, ctx.timezone);
+    const tookOver = tookOverLine(c);
+    const draft = draftLineOf(
+      drafts.items[0],
+      {
+        lastAt: thread.items[0]?.occurredAt ?? null,
+        sentDraftIds: new Set(thread.items.flatMap((i) => (i.aiDraftId ? [i.aiDraftId] : []))),
+      },
+      c.person ? firstNameOf(c.person.fullName) : null,
+      ctx.timezone,
+    );
     const chat = got.chat;
     const social = got.social;
     return {
@@ -1015,7 +1113,10 @@ export const readTools: Record<string, ReadTool> = {
           : {}),
         assignee: c.assignee?.fullName ?? null,
         answeredBy: answeredBy(c),
+        ...(tookOver ? { tookOver } : {}),
         ...(handoff ? { handoff } : {}),
+        // The AI teammate's newest draft: waiting for an OK, on its way, or what became of it.
+        ...(draft ? { aiTeammateDraft: draft } : {}),
         waitingSince: c.awaitingReplySince,
         // Their other threads with the business (another number, email, chat), as the lane switcher has them.
         ...(others.length

@@ -277,6 +277,13 @@ describe('reading a conversation', () => {
       }),
     ]);
     expect(earlier.more).toBeUndefined();
+
+    // All lines: every lane of Dana's woven together, each message saying which of the business's lines it came on.
+    expect(out.line).toEqual(expect.any(String));
+    expect(out.messages.at(-1).line).toBeUndefined();
+    const all = await read('get_conversation', { conversationId: danaText, allLines: true });
+    expect(all.messages.at(-1)).toMatchObject({ id: lastWords, line: out.line });
+    expect(all.messages[0]).toMatchObject({ line: out.line, call: { callId: call } });
   });
 
   it('opens their website chat by customer, not only their texts', async () => {
@@ -449,6 +456,93 @@ describe('replying where the customer wrote', () => {
   });
 });
 
+describe('the AI teammate in a thread', () => {
+  it('says who took the customer over, and what became of the teammate’s newest draft', async () => {
+    // Ava, made in the test above.
+    const { id: teammateId } = await one<{ id: string }>(
+      sql`select id from app.ai_teammates where workspace_id = ${workspaceId} and name = 'Ava' limit 1`,
+    );
+    await rows(
+      admin(),
+      sql`update app.conversations set ai_teammate_id = ${teammateId}, handled_by = 'person', taken_over_by = ${dale.id}
+          where id = ${danaText}`,
+    );
+    const { id: draftId } = await one<{ id: string }>(
+      sql`insert into app.ai_teammate_drafts (workspace_id, teammate_id, person_id, conversation_id, kind, preview,
+            client_id, expires_at)
+          values (${workspaceId}, ${teammateId}, ${dana}, ${danaText}, 'reply',
+            ${JSON.stringify({ message: { channel: 'sms', body: 'Tuesday at 9 works.' }, actions: [] })}::jsonb,
+            ${`ai:${randomUUID()}`}, now() + interval '2 hours')
+          returning id`,
+    );
+    const decide = (status: string, reason: string | null = null) =>
+      rows(
+        admin(),
+        sql`update app.ai_teammate_drafts set status = ${status}::app.workflow_approval_status, reason = ${reason},
+              decided_at = now(), decided_by = ${status === 'approved' || status === 'rejected' ? dale.id : null}
+            where id = ${draftId}`,
+      );
+    const said = async () =>
+      (await read('get_conversation', { conversationId: danaText })) as Record<string, unknown>;
+    try {
+      // The banner's words: the teammate holds off with Dana on every channel, not in this thread alone.
+      const out = await said();
+      expect(out['tookOver']).toBe(
+        'Dale Owner took over. Ava stays quiet with them everywhere until someone hands them back.',
+      );
+      expect(out['answeredBy']).toBe('Dale Owner');
+      expect(out['aiTeammateDraft']).toMatchObject({
+        draftId,
+        waiting: 'Ava’s draft waits for an OK.',
+      });
+
+      await decide('approved');
+      // Approved a moment ago, and its message isn't in the thread yet: on its way, as the thread's bubble says.
+      expect((await said())['aiTeammateDraft']).toEqual({
+        sending: 'Ava’s reply · approved by Dale · Sending…',
+      });
+
+      await decide('rejected');
+      expect((await said())['aiTeammateDraft']).toMatchObject({
+        draftId,
+        rejected: 'Dale Owner rejected Ava’s draft. Nothing went to Dana.',
+      });
+
+      await decide('expired');
+      expect((await said())['aiTeammateDraft']).toEqual({
+        expired: expect.stringMatching(
+          /^Ava’s draft expired at .+ before anyone approved it, so this went to a person\.$/,
+        ),
+      });
+
+      await decide('cancelled', 'The customer wrote again.');
+      expect((await said())['aiTeammateDraft']).toEqual({
+        dropped: 'Dana wrote again, so Ava dropped its draft and answers the new message instead.',
+      });
+
+      // Once she writes again, the thread has moved on: nothing more to say of that draft.
+      const newer = await insertMessage(danaText, {
+        direction: 'inbound',
+        status: 'received',
+        body: 'Actually, can we do Wednesday?',
+        ago: '-1 minute',
+      });
+      try {
+        expect((await said())['aiTeammateDraft']).toBeUndefined();
+      } finally {
+        await rows(admin(), sql`delete from app.messages where id = ${newer}`);
+      }
+    } finally {
+      await rows(admin(), sql`delete from app.ai_teammate_drafts where id = ${draftId}`);
+      await rows(
+        admin(),
+        sql`update app.conversations set ai_teammate_id = null, handled_by = 'none', taken_over_by = null
+            where id = ${danaText}`,
+      );
+    }
+  });
+});
+
 describe('texting and emailing', () => {
   it('emails with a copy to someone else, and won’t send from an address it can’t', async () => {
     const args = {
@@ -527,6 +621,11 @@ describe('texting and emailing', () => {
       expect(held.card.confirmLabel).toBe(`Send at ${formatClock(end)}`);
       expect(field(held.card, 'Goes')).toBe(`When quiet hours end, at ${formatClock(end)}`);
       expect(held.card.warnings[0]?.kind).toBe('quiet_hours');
+      // The composer's counter: how many texts it takes.
+      expect(field(held.card, 'Length')).toBe('21 / 160 · 1 text');
+      expect(held.result['length']).toBe('21 / 160 · 1 text');
+      const long = await prepare('send_text', { conversationId: danaText, body: 'x'.repeat(161) });
+      expect(field(long.card, 'Length')).toBe('161 / 306 · 2 texts');
       const done = await commit('send_text', later);
       expect(done.outcome).toMatch(/^Held for Dana Park until quiet hours end: it goes /);
       expect(await lastMessage(danaText)).toMatchObject({
@@ -550,6 +649,8 @@ describe('texting and emailing', () => {
       expect(anyway.card.confirmLabel).toBe('Send anyway');
       expect(field(anyway.card, 'Goes')).toBe('Now, in quiet hours');
       expect(field(anyway.card, 'Buttons')).toBe('Yes · No');
+      // Written out for a phone without RCS, buttons make the count the buttons’ to say.
+      expect(field(anyway.card, 'Length')).toBeUndefined();
       expect((await commit('send_text', now)).outcome).toBe('Sent to Dana Park');
       const went = await lastMessage(danaText);
       expect(went.body_text).toMatch(/^Can you make it\?/);
