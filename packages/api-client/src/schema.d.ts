@@ -95472,6 +95472,14 @@ export interface operations {
                             do: "watch";
                             gap: number;
                         } | {
+                            /** @enum {string} */
+                            do: "refer";
+                            gap: number;
+                        } | {
+                            /** @enum {string} */
+                            do: "post";
+                            gap: number;
+                        } | {
                             answering: boolean;
                             day: {
                                 started: boolean;
