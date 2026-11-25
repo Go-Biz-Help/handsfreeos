@@ -26,8 +26,8 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
    same rules (`plan.ts`: `nextMove`, `planAhead`, `planShown`; `outreach.plan`). Today gets a **Plan** part on the
    web and the phone, and the Assistant reads it (`outreach_plan`). The extension still decides for itself, so the
    plan only shows.
-2. **The app decides, the extension does** (Threads and X built, extension 0.156.0, and switched off until a day's
-   plan is checked against a real day; the other networks to come).
+2. **The app decides, the extension does** (Threads and X built, extension 0.156.0, then Alignable, 0.157.0; all
+   switched off until a day's plan is checked against a real day; Instagram, LinkedIn and Facebook to come).
    Each runner's `go()` asks HandsFreeOS for its next move (`nextMove` on the server, with the list and the day it
    already has) and does it, saying how it went. One network at a time, the smallest first: Threads and X, then
    Alignable, Instagram, LinkedIn, and Facebook last. Each keeps its own pace, warnings and limits. With no
@@ -97,11 +97,34 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
 - **Not yet:** switched on (above). The runner's own planning is still there, used when HandsFreeOS can't be
   reached (step 5 takes it out). Nothing on the Plan is pressed yet (step 3).
 
+## Step 2, Alignable, as built
+
+- **The runner** (`apps/extension/src/auto/alignable.ts`, extension 0.157.0). `go` keeps its own checks first, in
+  its hours and outside them, then asks (`planNext`) and does the move (`asTold`) with the pieces its own planning
+  uses: `beforeGo`, `dailyGo`, `idleGo`, `waitAsTold` and `workNext`. Its own planning follows, unchanged, for a go
+  HandsFreeOS doesn't decide. `changeKept` moved to `src/hfos/plan.ts`, as every runner that asks needs it.
+- **Switched off** (`PLAN_DECIDES` is still empty). Alignable goes in by itself, after Threads and X, once a day's
+  plan there has matched what the computer did.
+- **`savesAway`** (`RunnerKit`, `runners.ts`): true only for Threads and X, whose runner never begins a save of the
+  person's lists while they're at their computer. Alignable's tab opens away from the front and puts a save off by
+  itself, so its save is sent whenever it's due, as its runner tries it, and it never waits for the screen
+  (`wait: screen` is one it turns down). Instagram, LinkedIn and Facebook start as `false`: check each against its
+  runner when its turn comes.
+- **The idle look.** With nothing left, `nextMove` capped the next look at the hours' end for every network. Only
+  Facebook's runner does that; the others look within the hour and find the hours over. Now the cap is Facebook's
+  alone, so a wait HandsFreeOS sends ends when the runner's own would.
+- **Tested** in core (`outreach-plan.test.ts`: the save rule, the idle look) and in the extension
+  (`alignable-plan-next.test.ts`): each kind of move done as sent, the moves it turns down, and 23 situations
+  compared, with when each goes next. A compared go must have done the move it was sent (`didAsSent`): a go that
+  turned its move down would match itself and compare nothing.
+
 ## Rules for the steps after
 
-- **A change to a runner's order goes into `nextMove` too**, and for Threads and X into `follows.ts` as well, until
-  step 5 makes `nextMove` the only order. Otherwise the plan shows a day the extension won't do, and a go planned
-  without HandsFreeOS differs from one it decides. `follows-plan-next.test.ts` compares the two.
+- **A change to a runner's order goes into `nextMove` too**, and for Threads and X into `follows.ts` as well (for
+  Alignable, `alignable.ts`), until step 5 makes `nextMove` the only order. Otherwise the plan shows a day the
+  extension won't do, and a go planned without HandsFreeOS differs from one it decides. `follows-plan-next.test.ts`
+  and `alignable-plan-next.test.ts` compare the two.
+- **Compare when a go wakes next, too,** as Alignable's test does: that's how the idle look's difference was found.
 - **A network joins step 2 by its own pull request:** its runner's `go` split the way `follows.ts` is (its own
   checks, the ask, `asTold`, then its own planning), its situations compared in a test. Its name goes into
   `PLAN_DECIDES` after, by itself, once its build is out and a day's plan has matched what it did. An older extension

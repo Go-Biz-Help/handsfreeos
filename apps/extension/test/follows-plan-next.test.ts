@@ -227,7 +227,8 @@ beforeAll(() => {
 });
 afterAll(() => vi.unstubAllGlobals());
 
-const { FOLLOW_RUNNERS, changeKept } = await import('../src/auto/follows');
+const { FOLLOW_RUNNERS } = await import('../src/auto/follows');
+const { changeKept } = await import('../src/hfos/plan');
 const { freshState, THREADS_STATE_KEY, workKey, X_STATE_KEY } = await import('../src/auto/plan');
 const { businessDay } = await import('@hfos/core/addons/outreach/automation');
 const { ASK_FIRST_WORDS } = await import('@hfos/core/addons/outreach/asks');

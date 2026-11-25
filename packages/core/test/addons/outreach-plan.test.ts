@@ -257,6 +257,20 @@ describe('the next move, by the runner’s rules', () => {
     });
   });
 
+  it('looks again when the hours end on Facebook, and within the hour anywhere else, as each runner does', () => {
+    // 4:40 p.m.: 20 minutes of the working hours are left.
+    const late = FIVE_PM - 20 * MIN;
+    const nothing = { ...facts().list, items: [] };
+    const idle = (platform: 'facebook' | 'alignable') => {
+      const daily = Object.fromEntries(RUNNERS[platform].daily.map((job) => [job, 'Done.']));
+      const state = fresh({ daily, watchAt: late + 3 * 60 * MIN });
+      return nextMove(facts({ platform, now: late, list: nothing }), state).move;
+    };
+    expect(idle('facebook')).toEqual({ do: 'wait', why: 'idle', until: FIVE_PM });
+    // Alignable's own next look finds the hours over, and waits for the next ones then.
+    expect(idle('alignable')).toEqual({ do: 'wait', why: 'idle', until: late + 60 * MIN });
+  });
+
   it('searches every hour on Threads and X, and writes no messages on X', () => {
     const threads = facts({
       platform: 'threads',
@@ -323,6 +337,28 @@ describe('a runner’s own ask for its next move (decision 195, step 2)', () => 
     // With nothing else to read, the save isn't reading that's left: the list goes at its own pace.
     const listOnly = nextMove(weekly, allRead('threads'), 0.5, HERE).move;
     expect(listOnly).toMatchObject({ do: 'work', reading: false, answering: false });
+  });
+
+  it('holds a save for the screen only on Threads and X: elsewhere it’s tried when due, and puts itself off', () => {
+    const held = Object.entries(RUNNERS).filter(([, kit]) => kit.savesAway);
+    expect(held.map(([platform]) => platform)).toEqual(['threads', 'x']);
+    // Alignable's first day, with the person at their computer: the save is sent, as its own runner tries it.
+    const onAlignable = (lists: ListsSaved) => facts({ platform: 'alignable', lists });
+    expect(nextMove(onAlignable(NO_LISTS), fresh(), 0.5, HERE).move).toMatchObject({
+      do: 'before',
+      step: { do: 'save', list: 'friends', first: true },
+    });
+    // And a later one, due again, goes before the rest of the day's reading, not after it.
+    const weekly = onAlignable({ ...SAVED, friendsAt: at(NOW - 8 * DAY) });
+    expect(nextMove(weekly, fresh(), 0.5, HERE).move).toMatchObject({
+      do: 'before',
+      step: { do: 'save', list: 'friends', first: false },
+    });
+    // It still takes turns with the list (decision 123): after a part of the reading, a step on the list goes.
+    expect(nextMove(weekly, fresh({ readLast: true }), 0.5, HERE).move).toMatchObject({
+      do: 'work',
+      reading: true,
+    });
   });
 
   it('passes over a job put off till they’re away, and looks again in a few minutes for it', () => {
@@ -462,7 +498,8 @@ describe('the move as it’s sent to a runner (decision 195, step 2)', () => {
   const SKEW = 10 * MIN;
 
   it('is switched on for no network yet, and answers only a build that asks', () => {
-    // Threads' and X's runners ask from 0.156.0. They go in here once a day's plan is checked against a real day.
+    // Threads' and X's runners ask from 0.156.0, and Alignable's from 0.157.0. Each goes in here by itself, once a
+    // day's plan is checked against a real day.
     expect(PLAN_DECIDES).toEqual([]);
     expect(NEXT_SINCE).toBe('0.156.0');
   });

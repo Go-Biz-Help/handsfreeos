@@ -11,8 +11,8 @@
  * - **Only the computer that works** says anything: one on standby has a day it isn't working.
  *
  * From 0.156.0 a network's runner asks HandsFreeOS for its next move too (`planNext`, decision 195, step 2), a
- * network at a time: Threads' and X's first. It does the move it's sent, and plans for itself, as it always has,
- * whenever HandsFreeOS doesn't decide for it or can't be reached.
+ * network at a time: Threads' and X's first, Alignable's from 0.157.0. It does the move it's sent, and plans for
+ * itself, as it always has, whenever HandsFreeOS doesn't decide for it or can't be reached.
  */
 import { PLATFORM_KEYS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
@@ -164,6 +164,30 @@ export interface ToldNext {
   readonly change: PlanNextChange | null;
   /** Today's list, with a piece of its work to do. */
   readonly list: TodayList | null;
+}
+
+/**
+ * What a move HandsFreeOS sent changed in the day's state, as a runner keeps it (decision 195, step 2): who still
+ * waits for an answer, and a round of finding again begun, with its finding jobs to do once more. Each job's line
+ * stays the runner's own: only which are still done is taken.
+ */
+export function changeKept(
+  state: Pick<AutoState, 'daily'>,
+  change: NonNullable<ToldNext['change']>,
+): Partial<AutoState> {
+  const { replied, daily, round, roundAt } = change;
+  return {
+    ...(replied ? { replied: [...replied] } : {}),
+    ...(daily
+      ? {
+          daily: Object.fromEntries(
+            Object.entries(state.daily ?? {}).filter(([job]) => job in daily),
+          ),
+        }
+      : {}),
+    ...(round === undefined ? {} : { round }),
+    ...(roundAt === undefined ? {} : { roundAt }),
+  };
 }
 
 /**

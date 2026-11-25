@@ -62,7 +62,7 @@ import { follow, loadSettings } from '../hfos/follow';
 import { feed, jobKind, keptFor, onBeat, outcomeKind, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
-import { planNext, type ToldNext } from '../hfos/plan';
+import { changeKept, planNext, type ToldNext } from '../hfos/plan';
 import { chatCollect, NOTHING_TO_ANSWER } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
@@ -287,30 +287,6 @@ export interface FollowRunner {
 
 /** The person's choices, as HandsFreeOS last said them. */
 type Settings = NonNullable<Awaited<ReturnType<typeof loadSettings>>>['settings'];
-
-/**
- * What a move HandsFreeOS sent changed in the day's state, as the runner keeps it (decision 195, step 2): who still
- * waits for an answer, and a round of finding again begun, with its finding jobs to do once more. Each job's line
- * stays the runner's own: only which are still done is taken.
- */
-export function changeKept(
-  state: Pick<AutoState, 'daily'>,
-  change: NonNullable<ToldNext['change']>,
-): Partial<AutoState> {
-  const { replied, daily, round, roundAt } = change;
-  return {
-    ...(replied ? { replied: [...replied] } : {}),
-    ...(daily
-      ? {
-          daily: Object.fromEntries(
-            Object.entries(state.daily ?? {}).filter(([job]) => job in daily),
-          ),
-        }
-      : {}),
-    ...(round === undefined ? {} : { round }),
-    ...(roundAt === undefined ? {} : { roundAt }),
-  };
-}
 
 function followRunner(platform: FollowPlatform): FollowRunner {
   const kit = platform === 'x' ? x : threads;

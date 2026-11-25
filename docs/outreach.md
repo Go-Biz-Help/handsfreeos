@@ -5340,7 +5340,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       do when"; "yes" to building it). Built in five steps, a pull request each, so nothing changes all at once:
       1. **See the plan in the app** (extension 0.155.0, built below).
       2. **The app decides, the extension does:** the extension asks HandsFreeOS for its next move, one network at a
-         time, the smallest first and Facebook last. Threads and X are built (extension 0.156.0, below).
+         time, the smallest first and Facebook last. Threads and X are built (extension 0.156.0), then Alignable
+         (0.157.0), both below.
       3. **Buttons on the plan:** do now, skip today, move to a time.
       4. **The Assistant changes the plan,** as it already reads it.
       5. **Clean-up:** the extension's own planning goes.
@@ -5402,6 +5403,22 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         person asked, for the plan that's shown; a runner waits only for one in line on its own computer, as before,
         so it says so itself (`here.asking`).
       - No migration. Nothing on the Plan is pressed yet (step 3), and nothing a person sees changes.
+
+      **Step 2, Alignable** (extension 0.157.0). Alignable's runner asks and does the move it's sent, the same way
+      (`go` and `asTold` in `src/auto/alignable.ts`). Built, and **switched off** like Threads and X: its name goes
+      into `PLAN_DECIDES` by itself, after a day's plan has matched what it really did.
+      - **Its own checks stay first and unchanged,** in its hours and outside them. Then it asks, and does a step
+        before its day, a once-a-day read, a wait, or the piece of its list's work HandsFreeOS picked: the same pages,
+        pace and limits. By itself whenever it must, as above.
+      - **Two places where the shared rules were Threads' and X's, or Facebook's, alone, now each network's own**
+        (`nextMove`). A save of the person's lists is held till they're away only on Threads and X (`savesAway` in
+        `runners.ts`): Alignable tries it when it's due, and its tab puts it off when a page needs the screen. And with
+        nothing left, only Facebook looks again the moment its hours end: every other network looks within the hour,
+        and finds the hours over then. Neither changes what Threads, X or Facebook do.
+      - **Compared, not assumed** (`apps/extension/test/alignable-plan-next.test.ts`): 23 situations of a day, each
+        gone once as HandsFreeOS decides and once as the runner plans by itself, and the two must come to the same
+        read, page, words, state and next time.
+      - No migration, and nothing a person sees changes.
 
 196.  **Comments and messages, a part each on Needs you** (Chris, 25 Nov 2026: "separate comments and messages into
       different menued pages", with a picture of one "Messages 85" part holding both). Needs you's row has
