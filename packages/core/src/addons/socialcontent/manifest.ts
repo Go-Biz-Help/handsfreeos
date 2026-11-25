@@ -140,6 +140,7 @@ export const socialcontentAddon = defineAddon({
       'socialcontent.content.moved',
       'socialcontent.calendar.filled',
       'socialcontent.creators.picked',
+      'socialcontent.link.saved',
     ],
     // A niche someone added: the AI writes the words to search each network for it. Posts saved with new
     // standouts: the AI notes them, and the Playbook and ideas follow. One of the business's own posts that did

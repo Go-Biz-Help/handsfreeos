@@ -46,6 +46,7 @@ import {
   PostNextOutput,
   PostWentInput,
 } from '../content-shapes';
+import { postLinkOf, repliesWithLink } from '../links';
 import { socialcontentAddon } from '../manifest';
 import { nextCheckAt } from '../own';
 import { networkName } from '../networks';
@@ -186,15 +187,21 @@ export const postNext = defineAddonCommand(socialcontentAddon, {
         broadcast: false,
       });
       const s = await settingsOf(ctx);
+      // The business's link (docs/socialcontent.md, "Your link"): after the words, or the first comment once it's up,
+      // which on Threads and X is a reply under it, last in its chain.
+      const link = postLinkOf(c.linkPlace, s.link);
+      const comment = link?.place === 'comment' ? link.link : null;
+      const replies = repliesWithLink(network);
       return {
         post: {
           id: c.recordId,
           title: c.title,
           network,
           format: c.format,
-          text: postText(network, c.words, c.hashtags),
+          text: postText(network, c.words, c.hashtags, link),
           // Threads and X (decision 41): the posts under it, as a chain.
-          chain: chainFor(network, c.chain ?? []),
+          chain: [...chainFor(network, c.chain ?? []), ...(comment && replies ? [comment] : [])],
+          comment: replies ? null : comment,
           // A video post sends its video; the rest send their pictures, in order.
           files: (c.format === 'video'
             ? files.filter((f) => f.mimeType?.startsWith('video/')).slice(0, 1)
@@ -233,11 +240,24 @@ export const postWent = defineAddonCommand(socialcontentAddon, {
     const network = networkName(c.network);
     const at = changeMoment(ctx.meta);
     const kept = new Set(c.postedTo.map((p) => p.place));
+    // It carried its link as the first comment ("Your link"): a build from before it wrote one says nothing of it, so
+    // it didn't go, and the post's sheet says so, with Copy link.
+    const commented =
+      postLinkOf(c.linkPlace, (await settingsOf(ctx)).link)?.place === 'comment' &&
+      !repliesWithLink(c.network);
     const postedTo: PostedTo[] = [
       ...c.postedTo,
       ...input.went
         .filter((w) => w.posted && !kept.has(w.place))
-        .map((w) => ({ place: w.place, link: w.link, at: at.toISOString() })),
+        .map((w) => {
+          const comment = w.comment ?? (commented ? false : null);
+          return {
+            place: w.place,
+            link: w.link,
+            at: at.toISOString(),
+            ...(comment === null ? {} : { comment }),
+          };
+        }),
     ];
     const left = placesLeft(c.network, c.facebookWhere, postedTo);
     const stops = input.went
@@ -352,6 +372,8 @@ export const contentPostNow = defineAddonCommand(socialcontentAddon, {
       postAt: at,
       facebookWhere: c.facebookWhere,
       facebookPage: s.facebookPage,
+      linkPlace: c.linkPlace,
+      link: s.link,
     });
     if (needs) throw HfosError.rule('socialcontent_post_not_ready', 409, needs);
     await ctx.tx
@@ -451,6 +473,8 @@ export const contentRedo = defineAddonCommand(socialcontentAddon, {
         postAt: at,
         facebookWhere: c.facebookWhere,
         facebookPage: s.facebookPage,
+        linkPlace: c.linkPlace,
+        link: s.link,
       });
       if (needs) {
         notRedone.push({ postId: c.recordId, title: c.title, why: needs });

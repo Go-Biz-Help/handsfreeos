@@ -468,6 +468,77 @@ describe('the Playbook', () => {
     expect(screen.getByTestId('socialcontent-playbook-none')).toBeTruthy();
     expect(screen.queryByTestId('socialcontent-playbook-write')).toBeNull();
   });
+
+  it('shows Your link at the top, and lets an owner save it and pick where it goes (the owner, 24 Nov)', async () => {
+    const onRetry = jest.fn();
+    const saved = {
+      id: 'c',
+      queued: false,
+      output: { link: 'https://pipedreams.example/book', places: {}, carried: 2 },
+    } as never;
+    jest.mocked(change).mockResolvedValueOnce(saved).mockResolvedValueOnce(saved);
+    await render(
+      <PlaybookBody
+        workspaceId={WS}
+        data={{ playbook: playbook(), examples: [], link: null, mayManage: true }}
+        error={null}
+        online
+        writing={false}
+        onRetry={onRetry}
+        onWrite={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('socialcontent-link')).toHaveTextContent(/Your link/);
+    // Instagram's in the bio until picked; elsewhere in the post.
+    expect(screen.getByTestId('socialcontent-link-instagram-bio')).toBeTruthy();
+    await fireEvent.changeText(
+      screen.getByTestId('socialcontent-link-input'),
+      ' pipedreams.example/book ',
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-link-save'));
+    await waitFor(() =>
+      expect(change).toHaveBeenCalledWith('socialcontent.link.save', {
+        workspaceId: WS,
+        link: 'pipedreams.example/book',
+      }),
+    );
+    await waitFor(() => expect(onRetry).toHaveBeenCalled());
+    await fireEvent.press(screen.getByTestId('socialcontent-link-facebook-comment'));
+    await waitFor(() =>
+      expect(change).toHaveBeenCalledWith('socialcontent.link.save', {
+        workspaceId: WS,
+        places: { facebook: 'comment' },
+      }),
+    );
+  });
+
+  it('shows Your link to the team, for only owners and admins to change', async () => {
+    await render(
+      <PlaybookBody
+        workspaceId={WS}
+        data={{
+          playbook: playbook(),
+          examples: [],
+          link: 'https://pipedreams.example/book',
+          mayManage: false,
+        }}
+        error={null}
+        online
+        writing={false}
+        onRetry={jest.fn()}
+        onWrite={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('socialcontent-link-input')).toHaveProp(
+      'value',
+      'https://pipedreams.example/book',
+    );
+    expect(screen.getByTestId('socialcontent-link-input')).toHaveProp('editable', false);
+    expect(screen.queryByTestId('socialcontent-link-remove')).toBeTruthy();
+    expect(screen.getByTestId('socialcontent-link')).toHaveTextContent(
+      /Only an owner or admin can change it/,
+    );
+  });
 });
 
 describe('Ideas', () => {
@@ -749,7 +820,14 @@ describe('the Calendar', () => {
     state: 'posted',
     postAt: ago(3 * 24 * 60),
     postedAt: ago(3 * 24 * 60),
-    postedTo: [{ place: 'feed', link: 'https://www.instagram.com/p/DAbc/', at: ago(3 * 24 * 60) }],
+    postedTo: [
+      {
+        place: 'feed',
+        link: 'https://www.instagram.com/p/DAbc/',
+        at: ago(3 * 24 * 60),
+        comment: null,
+      },
+    ],
     numbers: {
       feed: { d2: { at: ago(24 * 60), days: 2, views: 820, likes: 41, comments: 3, shares: 2 } },
     },
@@ -1159,6 +1237,32 @@ describe('one of its posts', () => {
     />
   );
 
+  it('picks where its link goes, and says when there’s no link yet or the first comment didn’t go (the owner, 24 Nov)', async () => {
+    const actions = actionsMock();
+    await render(body({ actions, post: content(42, { network: 'facebook' }), link: null }));
+    await fireEvent.press(screen.getByTestId('socialcontent-post-link-comment'));
+    expect(screen.getByTestId('socialcontent-post-link')).toHaveTextContent(
+      /Add your link on the Playbook page first/,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-post-save'));
+    expect(actions.save).toHaveBeenCalledWith(expect.objectContaining({ linkPlace: 'comment' }));
+    await render(
+      body({
+        link: 'https://pipedreams.example/book',
+        post: content(43, {
+          network: 'facebook',
+          state: 'posted',
+          linkPlace: 'comment',
+          postedAt: ago(60),
+          postedTo: [{ place: 'profile', link: null, at: ago(60), comment: false }],
+        }),
+      }),
+    );
+    expect(screen.getByTestId('socialcontent-post-comment-failed')).toHaveTextContent(
+      /didn’t go up\. Add it yourself\. https:\/\/pipedreams\.example\/book/,
+    );
+  });
+
   it('OKs a draft, says what it still needs, and saves what’s changed instead', async () => {
     const actions = actionsMock();
     await render(
@@ -1290,7 +1394,14 @@ describe('one of its posts', () => {
         post: content(40, {
           state: 'posted',
           postedAt: ago(8 * 24 * 60),
-          postedTo: [{ place: 'feed', link: 'https://www.instagram.com/p/DAbc/', at: ago(60) }],
+          postedTo: [
+            {
+              place: 'feed',
+              link: 'https://www.instagram.com/p/DAbc/',
+              at: ago(60),
+              comment: null,
+            },
+          ],
           numbers: {
             feed: {
               d2: { at: ago(60), days: 2, views: 820, likes: 41, comments: 3, shares: 2 },

@@ -59,6 +59,9 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | The web's Select bar, Pick menu, Week and Month          | `calendar-picking.tsx` and `calendar-grids.tsx` in the web's folder              |
 | The extension checking if a post went up                 | `apps/extension/src/research/look.ts`                                            |
 | The extension putting a post up                          | `apps/extension/src/research/posting.ts` and `post-here.ts`                      |
+| Your link: kept, checked, where it goes, what AI is told | `links.ts` (pure); `ops/links.ts`; `20261027036000_socialcontent_links.sql`      |
+| Your link on the Playbook, and a post's Link row         | `link-card.tsx` and `post-sheet.tsx` in the web's folder; `link.tsx` in phone's  |
+| The extension writing the link as the first comment      | `apps/extension/src/research/post-comment.ts`; `firstComment` in `posting.ts`    |
 | Its own posts' numbers: when they're read, doing well    | `own.ts` (pure); `ops/own.ts`; `20261027025200_socialcontent_own_numbers.sql`    |
 | The schedule: open places, the hours it learned, moves   | `schedule.ts` (pure); `ops/schedule.ts`; the worker's `socialcontent.times` job  |
 | Who set a post's time (`placed_by`)                      | `supabase/migrations/20261027026200_socialcontent_schedule.sql`                  |
@@ -555,6 +558,39 @@ Instagram from 0.133.0, Threads and X from 0.138.0. The post's sheet offers **Co
 - **When a place doesn't work,** a problem report goes to Admin → Problem reports with job `post.profile`,
   `post.page` or `post.feed`: what the hands did, step by step, and the page's outline. Never a name.
 
+## Your link
+
+The owner, 24 Nov 2026: "the content creator posts are mentioning a link but there is not link in the post. i want the
+option to put a link in the playbook and choose to put the link in the post, say it is in the bio, or put in the first
+comment after the post is public". The AI wrote "link in bio" and "tap the link below" with no link anywhere.
+
+- **The link** is set once for the business, at the top of the Playbook page, on the web and the phone
+  (`socialcontent.link.save`, risk 1, `socialcontent.manage`: owners and admins; everyone sees it). It's checked as a
+  web address and kept with `https://` in front when typed without (`cleanLink`); a null or empty one takes it off.
+- **Where it goes, per network** (the owner's pick on a card, 24 Nov: a choice per network): **In the post** (on a line
+  of its own after the words, before the hashtags, never cut), **Link in bio** (the words say so; the business keeps
+  it in its bio itself) or **First comment** (written under the post once it's up; on Threads and X, the last reply in
+  its chain). Until picked: Instagram's in the bio, as a link in an Instagram post can't be tapped; elsewhere in the
+  post (`DEFAULT_LINK_PLACES`).
+- **A post carries it only when its words point to it** (`content.link_place`). The AI is told, for each post, whether
+  it may carry one and where it goes (`linkForAi`, the link quoted as data), and answers `link: true` when it points to
+  it. What it writes is checked (`checkedPost`): with no link to carry, every sentence that points to one is left out
+  of the words, hook, slides and chain (`withoutLinkTalk`), and a designed picture's words too. Only a call to go
+  somewhere counts (`mentionsLink`: "link in bio", "link below", "click the link", a web address), never a link the
+  post talks about ("send customers a booking link").
+- **A post can't be OK'd while its link doesn't add up** (`stillNeeds`): one that carries a link when the business has
+  none, or whose words point to one it doesn't carry. The post's sheet has a **Link** row (No link, In the post, Link in
+  bio, First comment) to fix it, on the web and the phone.
+- **Posts written before there was a link** carry it as soon as one is added, when their words point to one, in the
+  place their words say (bio, first comment) or else the network's (`carryLink`). Their OK stays: their words haven't
+  changed.
+- **The first comment** (the owner's pick, 24 Nov: from the person's own profile, a Page's post too): the extension
+  writes it under the post once it's up (`comment` on `socialcontent.post.next`; extension 0.153.0), on the post's own
+  page, or on Facebook from the profile or Page where the post was found by its words. Once, never again. It says
+  whether it went (`comment` on each place in `socialcontent.post.went`; an older build saying nothing counts as it
+  didn't), and the sheet says so, with **Copy link** when it didn't. One that didn't go sends a problem report with job
+  `comment.profile`, `comment.page` or `comment.feed`.
+
 ## Picking many posts
 
 The owner's design (15 Nov), on the web and the phone. The Calendar has three looks, **List** (today and the next two
@@ -712,6 +748,10 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
   its own; one that may have gone up is the person's to look at, and Post it now leaves out the places it went up in.
   The one exception is the person's own **Redo posts** on one that went up (the owner, 15 Nov): it goes up again
   everywhere, and the old one is theirs to delete on the network.
+- **A post never promises a link it won't have** (the owner, 24 Nov): the AI points to the business's link only when
+  the post carries it, says where it is, and never types the address itself; what it writes is checked in core, and a
+  post whose words and link don't agree can't be OK'd. The first comment is written once, from the person's own
+  account, and never again.
 - **HandsFreeOS never takes a post down from a network** (the owner, 15 Nov). Deleting posts takes them off the
   Calendar only, and says so; Hide keeps them. Only owners and admins delete; anyone who uses the add-on hides.
 - **A hidden post never goes up**: hiding one not up yet skips it, and showing it again leaves it for a person to OK.

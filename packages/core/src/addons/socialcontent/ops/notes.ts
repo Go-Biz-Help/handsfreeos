@@ -28,7 +28,8 @@ import {
 } from '../shapes';
 import { ideas, playbook } from '../tables';
 import { SOCIALCONTENT_WORDS as W } from '../words';
-import { inWorkspace, offerLiveOf, queueWork, settingsOf, type Ctx } from './common';
+import { inWorkspace, mayManage, offerLiveOf, queueWork, settingsOf, type Ctx } from './common';
+import { linkOf } from './links';
 import { CONTENT_NETWORK_INFO, handleShown, isContentNetwork } from '../networks';
 
 export const ideaOut = (i: typeof ideas.$inferSelect): Idea => ({
@@ -115,7 +116,7 @@ export async function notedCount(ctx: Ctx): Promise<number> {
 export const playbookGet = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.playbook.get',
   description:
-    'The Playbook: what works for the creators studied, written by the AI from its notes on their standout posts, in sections (hooks, formats, topics, captions, timing and the like), each with what to do, why it works and the standouts it came from (examples: each one’s link); when it was last written, and from how many of the noted standouts there are now.',
+    'The Playbook: what works for the creators studied, written by the AI from its notes on their standout posts, in sections (hooks, formats, topics, captions, timing and the like), each with what to do, why it works and the standouts it came from (examples: each one’s link); when it was last written, and from how many of the noted standouts there are now; and the business’s link for its posts (link, null for none) with where it goes on each network (linkPlaces: "post" after the words, "bio" said to be in the bio, "comment" the first comment once it’s up, a reply on Threads and X).',
   input: InWorkspace,
   output: PlaybookGetOutput,
   permission: 'socialcontent.use',
@@ -141,6 +142,8 @@ export const playbookGet = defineAddonQuery(socialcontentAddon, {
         ctx,
         sections.flatMap((s) => s.items.flatMap((i) => i.examples)),
       ),
+      ...(await linkOf(ctx)),
+      mayManage: mayManage(ctx),
     };
   },
 });

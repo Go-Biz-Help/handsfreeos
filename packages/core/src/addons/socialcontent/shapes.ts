@@ -7,6 +7,7 @@ import { CALENDAR, FACEBOOK_WHERE, PLAN_MODES, POSTING_NETWORKS } from './calend
 import { TIMES_FROM } from './schedule';
 import { PICKING, RecentPost, SetupFacts, SetupMarks } from './picking';
 import { CONTENT_NETWORKS } from './networks';
+import { LINK_PLACES } from './links';
 import { ANGLES } from './variety';
 import { OFFER_LIST_LIMITS, OFFER_LISTS } from '../../main-offer/lists';
 
@@ -465,7 +466,28 @@ export const StandoutRef = z.object({
   creatorShown: z.string(),
 });
 export type StandoutRef = z.infer<typeof StandoutRef>;
-export const PlaybookGetOutput = z.object({ playbook: Playbook, examples: z.array(StandoutRef) });
+/** Where a post's link goes (docs/socialcontent.md, "Your link"). */
+export const LinkPlaceShape = z.enum(LINK_PLACES);
+/** Where the business's link goes on each network. */
+export const LinkPlacesShape = z.object({
+  instagram: LinkPlaceShape,
+  facebook: LinkPlaceShape,
+  linkedin: LinkPlaceShape,
+  threads: LinkPlaceShape,
+  x: LinkPlaceShape,
+});
+export const PlaybookGetOutput = z.object({
+  playbook: Playbook,
+  examples: z.array(StandoutRef),
+  /**
+   * The business's link for its posts, and where it goes on each network (the owner, 24 Nov), shown at the top of the
+   * Playbook; and whether the person asking may change them. Defaults, for an older API.
+   */
+  link: z.string().nullable().default(null),
+  linkPlaces: LinkPlacesShape.optional(),
+  mayManage: z.boolean().default(false),
+});
+export type PlaybookGet = z.infer<typeof PlaybookGetOutput>;
 export const IdeaListInput = z.object({
   workspaceId: uuid,
   state: z.enum(IDEA_STATES).optional(),

@@ -373,6 +373,8 @@ export const contentPut = defineAddonCommand(socialcontentAddon, {
       angle: p.angle,
       topicList: p.topic?.list ?? null,
       topic: p.topic?.line ?? null,
+      // Where its link goes, when it points people to the business's link (docs/socialcontent.md, "Your link").
+      linkPlace: p.linkPlace,
       updatedAt: changeMoment(ctx.meta),
     };
     let postId = input.postId ?? null;

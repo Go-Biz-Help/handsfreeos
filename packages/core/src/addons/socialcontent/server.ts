@@ -8,6 +8,7 @@ import type { AddonServerModule } from '../server';
 import { SOCIALCONTENT_LOOK_ALIKES, SOCIALCONTENT_PLACES } from './ai-places';
 import { socialcontentAddon } from './manifest';
 import { contentCommands, contentQueries } from './ops/content';
+import { linkCommands } from './ops/links';
 import { notesCommands, notesQueries } from './ops/notes';
 import { OWN_EXTENSION, ownCommands } from './ops/own';
 import { LOOK_EXTENSION, pickedCommands, pickedQueries } from './ops/picked';
@@ -24,6 +25,7 @@ export const socialcontentAddonServer: AddonServerModule = {
   commands: [
     ...researchCommands,
     ...notesCommands,
+    ...linkCommands,
     ...contentCommands,
     ...postingCommands,
     ...pickedCommands,

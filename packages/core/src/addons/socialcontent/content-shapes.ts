@@ -18,15 +18,26 @@ import {
   SHORT_POSTS,
 } from './calendar';
 import { PICK_WHICH } from './calendar-looks';
+import { LINK } from './links';
 import { OWN_READS } from './own';
 import { POST_LIMITS } from './posts-ai';
-import { AngleShape, LearnedPlanShape, Network, PlanShape, TopicShape, uuid } from './shapes';
+import {
+  AngleShape,
+  LearnedPlanShape,
+  LinkPlaceShape,
+  LinkPlacesShape,
+  Network,
+  PlanShape,
+  TopicShape,
+  uuid,
+} from './shapes';
 
 export const PostingNetwork = z.enum(POSTING_NETWORKS);
 export const ContentFormat = z.enum(CONTENT_FORMATS);
 export const PictureWay = z.enum(PICTURE_WAYS);
 export const FacebookWhere = z.enum(FACEBOOK_WHERE);
 export const PostPlace = z.enum(POST_PLACES);
+export { LinkPlaceShape, LinkPlacesShape };
 
 const LocalDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -110,8 +121,18 @@ export const Content = z.object({
   approvedAt: z.string().nullable(),
   postedAt: z.string().nullable(),
   postLink: z.string().nullable(),
-  /** Each place it went up so far (part 9): its link when the network showed one, and when. */
-  postedTo: z.array(z.object({ place: PostPlace, link: z.string().nullable(), at: z.string() })),
+  /**
+   * Each place it went up so far (part 9): its link when the network showed one, and when; and whether its first
+   * comment with the business's link went up there (null when it had none to write).
+   */
+  postedTo: z.array(
+    z.object({
+      place: PostPlace,
+      link: z.string().nullable(),
+      at: z.string(),
+      comment: z.boolean().nullable().default(null),
+    }),
+  ),
   /** Its numbers 2 and 7 days after it went up, in each place (part 11), and whether it did well. */
   numbers: OwnNumbersShape,
   doneWell: DoneWellShape.nullable(),
@@ -125,6 +146,11 @@ export const Content = z.object({
   ideaId: uuid.nullable(),
   /** What it still needs before it can be OK'd, in words to show; null when nothing. */
   stillNeeds: z.string().nullable(),
+  /**
+   * Where its link goes, when its words point people to the business's link (the owner, 24 Nov); null when it
+   * carries none. Default for an older API.
+   */
+  linkPlace: LinkPlaceShape.nullable().default(null),
   /** Hidden from the Calendar, kept under its Hidden filter (the owner, 15 Nov). Default for an older API. */
   hidden: z.boolean().default(false),
   /**
@@ -211,6 +237,9 @@ export const CalendarGetOutput = z.object({
   /** The networks the extension puts posts up on; the rest wait for a later update. */
   postsOn: z.array(PostingNetwork),
   facebookPage: z.string().nullable(),
+  /** The business's link from the Playbook page, and where it goes on each network. Defaults, for an older API. */
+  link: z.string().nullable().default(null),
+  linkPlaces: LinkPlacesShape.optional(),
   mayManage: z.boolean(),
 });
 export type CalendarView = z.infer<typeof CalendarGetOutput>;
@@ -247,6 +276,8 @@ export const ContentSaveInput = z.object({
   facebookWhere: z.array(FacebookWhere).max(2).optional(),
   /** When it goes; null for no day yet. */
   postAt: z.iso.datetime().nullable().optional(),
+  /** Where its link goes (the business's, from the Playbook page); null for no link. */
+  linkPlace: LinkPlaceShape.nullable().optional(),
 });
 export const ContentApproveInput = z.object({
   workspaceId: uuid,
@@ -384,8 +415,16 @@ export const DuePost = z.object({
   format: ContentFormat,
   /** The words as they go up, hashtags at the end. */
   text: z.string(),
-  /** Threads and X (decision 41): the posts that go under it, in order, as a chain. */
+  /**
+   * Threads and X (decision 41): the posts that go under it, in order, as a chain; with the business's link last when
+   * it goes in the first comment (a reply there).
+   */
   chain: z.array(z.string()).default([]),
+  /**
+   * The first comment to write under it once it's up in each place, with the business's link (Facebook, LinkedIn and
+   * Instagram; the owner, 24 Nov). Null when there's none. Default for an older API.
+   */
+  comment: z.string().nullable().default(null),
   files: z.array(PostFile),
   /** Where it still goes up, in order: places it went up already are left out. */
   places: z.array(PostPlace),
@@ -407,6 +446,8 @@ export const PostWentInput = z.object({
         posted: z.boolean(),
         link: z.url().max(500).nullable().default(null),
         failure: z.string().max(300).nullable().default(null),
+        /** Whether its first comment with the business's link went up there; null when it had none to write. */
+        comment: z.boolean().nullable().default(null),
       }),
     )
     .max(POST_PLACES.length),
@@ -507,6 +548,8 @@ export const WrittenPostShape = z.object({
   pictureWay: PictureWay,
   angle: AngleShape.nullable().default(null),
   topic: TopicShape.nullable().default(null),
+  /** Where its link goes, when it points people to the business's link (the owner, 24 Nov). */
+  linkPlace: LinkPlaceShape.nullable().default(null),
 });
 
 export const ContentPutInput = z.object({
@@ -540,3 +583,21 @@ export const CalendarFilledInput = z.object({
   workspaceId: uuid,
   written: z.number().int().min(0),
 });
+
+// ------------------------------------------------------------------------------------------------ your link
+
+/** The business's link for its posts, and where it goes on each network (docs/socialcontent.md, "Your link"). */
+export const LinkSaveInput = z.object({
+  workspaceId: uuid,
+  /** The link; null or empty takes it off. Without http(s):// it's taken as https://. Left out, it stays. */
+  link: z.string().trim().max(LINK.most).nullable().optional(),
+  /** Where it goes, for each network given: in the post, link in bio, or the first comment. */
+  places: z.partialRecord(PostingNetwork, LinkPlaceShape).optional(),
+});
+export const LinkOut = z.object({
+  link: z.string().nullable(),
+  places: LinkPlacesShape,
+  /** Posts not up yet whose words pointed to a link and now carry it (only when a link was just added). */
+  carried: z.number().int().default(0),
+});
+export type LinkOut = z.infer<typeof LinkOut>;

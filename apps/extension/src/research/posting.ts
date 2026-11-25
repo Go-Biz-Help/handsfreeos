@@ -17,6 +17,9 @@
  *   then its link, from the note the network shows once it went, else from the top of their own profile by its first
  *   words.
  *
+ * When the post carries the business's link as its first comment ("Your link"), it's written under the post once the
+ * post is up, from the person's own account (./post-comment.ts); on Threads and X it went as a reply in the chain.
+ *
  * Then it says how each place went (`socialcontent.post.went`). Once Post is pressed it's never pressed again for that
  * place: a post that may have gone up is the person's to look at. A network's warning stops it there for the day (for
  * both social add-ons, as reading does) and puts the post back to waiting. When a place doesn't work, a problem report
@@ -33,6 +36,7 @@ import { config } from '../hfos/config';
 import { token } from '../hfos/session';
 import { keepWarning, warnedNow } from '../hfos/warned';
 import { foundPost, postShown } from '../jobs/helpful';
+import type { AutoResult } from '../networks/facebook/auto';
 import { postNext, postWent, reportProblem, ResearchRefused } from './hfos';
 import { postsByNamePath, postsFrom } from './instagram';
 import type { PostDone, PostFileIn, PostWhere } from './post-here';
@@ -86,6 +90,8 @@ interface Went {
   readonly posted: boolean;
   readonly link: string | null;
   readonly failure: string | null;
+  /** Whether its link went as the first comment under it; null when it carried none to write there. */
+  readonly comment?: boolean | null;
 }
 
 /** How putting it up in one place ended: `halt` when the network warned (nothing more there today). */
@@ -225,15 +231,6 @@ export async function lookOn(
   }
 }
 
-/** The post's link, from the top of a page that lists it (`lookOn`). Null when it isn't there, or couldn't be seen. */
-export async function linkFrom(
-  tab: ResearchTab,
-  url: string,
-  text: string,
-): Promise<string | null> {
-  return (await lookOn(tab, url, text)).link;
-}
-
 /** Reads the open page for the post, waiting by the clock while it still draws its newest posts. */
 async function lookDrawn(tab: ResearchTab, text: string, most: number): Promise<PostLook> {
   const started = Date.now();
@@ -296,14 +293,18 @@ export async function instagramLink(tab: ResearchTab, text: string): Promise<str
   }
 }
 
-/** Sends a problem report on a place that didn't work: what it did and the page's outline, never a name. */
+/**
+ * Sends a problem report on a place that didn't work, or a first comment that didn't go: what it did and the page's
+ * outline, never a name.
+ */
 async function report(
   businessId: string,
   tab: ResearchTab,
   post: DuePost,
   place: PostPlace,
   note: string,
-  done: PostDone | null,
+  done: (Pick<PostDone, 'pressed' | 'steps'> & { readonly result: string }) | null,
+  job = `post.${place}`,
 ): Promise<void> {
   try {
     const page = await tab.hands('outline');
@@ -312,7 +313,7 @@ async function report(
       addonId: 'socialcontent',
       source: 'extension',
       area: post.network,
-      job: `post.${place}`,
+      job,
       ref: post.id,
       version: chrome.runtime.getManifest().version.slice(0, 20),
       page: page ? String(page.result.kind).slice(0, 40) : 'unknown',
@@ -404,7 +405,15 @@ async function putUpAt(
     for (const wait of PAGE_LOOKS_MS) {
       await pause(wait);
       const look = await lookOn(tab, listed, post.text);
-      if (look.found) return { place, posted: true, pressed: true, link: look.link, failure: null };
+      if (look.found)
+        return {
+          place,
+          posted: true,
+          pressed: true,
+          link: look.link,
+          failure: null,
+          comment: await firstComment(businessId, tab, post, place, look.link, true),
+        };
       seen ||= look.seen;
     }
     unseen = !seen;
@@ -421,14 +430,26 @@ async function putUpAt(
     // Nothing pressed and no box at all: most often signed out, so it's said, not tried again on its own.
     return { place, posted: false, pressed: done?.pressed ?? false, link: null, failure };
   }
-  const link =
-    done.url ??
-    (listed
-      ? await linkFrom(tab, listed, post.text)
-      : network === 'threads' || network === 'x'
+  let link = done.url;
+  // Found by its words on the page that lists it: its first comment can be written there, link or not.
+  let onList = false;
+  if (!link && listed) {
+    const look = await lookOn(tab, listed, post.text);
+    link = look.link;
+    onList = look.found;
+  } else if (!link)
+    link =
+      network === 'threads' || network === 'x'
         ? await shortLink(tab, network, post.text)
-        : await instagramLink(tab, post.text));
-  return { place, posted: true, pressed: true, link, failure: null };
+        : await instagramLink(tab, post.text);
+  return {
+    place,
+    posted: true,
+    pressed: true,
+    link,
+    failure: null,
+    comment: await firstComment(businessId, tab, post, place, link, onList),
+  };
 
   async function warnedEnd(
     at: PostPlace,
@@ -445,6 +466,55 @@ async function putUpAt(
       failure: `${name} said “${words[0]!.slice(0, 120)}”, so posting there waits till tomorrow, for both social add-ons.`,
     };
   }
+}
+
+/**
+ * The business's link as the first comment under its post just put up (./post-comment.ts, "Your link"): on the post's
+ * own page when its link is known, else (Facebook) on the page that lists it, where it was just found by its words.
+ * Written once and never again. Whether it went; null when the post carries no first comment here (none, or Threads
+ * and X, where it went in the chain). A problem report when it didn't go; a network's warning keeps it for the day.
+ */
+async function firstComment(
+  businessId: string,
+  tab: ResearchTab,
+  post: DuePost,
+  place: PostPlace,
+  link: string | null,
+  onList: boolean,
+): Promise<boolean | null> {
+  const network = post.network;
+  if (
+    !post.comment ||
+    (network !== 'facebook' && network !== 'instagram' && network !== 'linkedin')
+  )
+    return null;
+  const ask = { where: network, text: post.comment, words: post.text };
+  const steps: string[] = [link ? 'opened' : onList ? 'listed' : 'no_link'];
+  let result: AutoResult | null = null;
+  try {
+    if (link) {
+      const warnings = await openAt(tab, link);
+      if (warnings.length) {
+        await keepWarning(warnings, network as Platform).catch(() => []);
+        return false;
+      }
+      result = await tab.hands('comment', ask);
+    } else if (onList && network === 'facebook') result = await tab.hands('comment', ask);
+  } catch (error) {
+    console.warn('HandsFreeOS Social couldn’t write the first comment', error);
+  }
+  if (result === 'done') return true;
+  steps.push(`comment:${result ?? 'no_tab'}`);
+  await report(
+    businessId,
+    tab,
+    post,
+    place,
+    `It put the post up, but its link didn’t go as the first comment (${link ? (result ?? 'no tab') : 'no link to the post'}).`,
+    { result: result ?? (link || onList ? 'no_tab' : 'no_post'), pressed: false, steps },
+    `comment.${place}`,
+  );
+  return false;
 }
 
 /** Puts one post up in each place it still goes, and says how it went. */
@@ -483,7 +553,13 @@ export async function putUp(businessId: string, tab: ResearchTab, post: DuePost)
     await postWent(businessId, post.id, {
       went: again
         ? []
-        : went.map(({ place, posted, link, failure }) => ({ place, posted, link, failure })),
+        : went.map(({ place, posted, link, failure, comment }) => ({
+            place,
+            posted,
+            link,
+            failure,
+            comment: comment ?? null,
+          })),
       again,
       failure: again ? (went.find((w) => w.halt)?.failure ?? null) : null,
     });

@@ -513,6 +513,8 @@ import {
   ContentRemoveOutput as SocialcontentContentRemoveOutput,
   ContentSaveInput as SocialcontentContentSaveInput,
   ContentSkipInput as SocialcontentContentSkipInput,
+  LinkOut as SocialcontentLinkOut,
+  LinkSaveInput as SocialcontentLinkSaveInput,
 } from '@hfos/core/addons/socialcontent/content-shapes';
 
 /**
@@ -1065,6 +1067,7 @@ export const PHONE_COMMANDS = {
   ),
   'socialcontent.find.now': command(ONLINE, SocialcontentFindNowInput, SocialcontentFindNowOutput),
   'socialcontent.idea.decide': command(ONLINE, SocialcontentIdeaDecideInput, SocialcontentIdea),
+  'socialcontent.link.save': command(ONLINE, SocialcontentLinkSaveInput, SocialcontentLinkOut),
   'socialcontent.niche.add': command(ONLINE, SocialcontentNicheAddInput, SocialcontentNiche),
   'socialcontent.niche.decide': command(ONLINE, SocialcontentNicheDecideInput, SocialcontentNiche),
   'socialcontent.read.now': command(ONLINE, SocialcontentReadNowInput, SocialcontentReadNowOutput),

@@ -34,6 +34,7 @@ import {
   type WorkAskedFor,
   type WorkKind,
 } from '../shapes';
+import { linkPlacesOf, type LinkPlace } from '../links';
 import { SetupMarks } from '../picking';
 import { settings, type creators, type niches, type posts } from '../tables';
 
@@ -79,6 +80,9 @@ export async function settingsOf(ctx: Ctx): Promise<{
   autoFill: boolean;
   autoPick: boolean;
   setup: SetupMarks;
+  /** The business's link for its posts, and where it goes on each network (docs/socialcontent.md, "Your link"). */
+  link: string | null;
+  linkPlaces: Record<PostingNetwork, LinkPlace>;
 }> {
   const [s] = await ctx.tx
     .select()
@@ -102,6 +106,8 @@ export async function settingsOf(ctx: Ctx): Promise<{
     autoFill: s?.autoFill ?? true,
     autoPick: s?.autoPick ?? true,
     setup: SetupMarks.parse(s?.setup ?? {}),
+    link: s?.link ?? null,
+    linkPlaces: linkPlacesOf(s?.linkPlaces),
   };
 }
 
