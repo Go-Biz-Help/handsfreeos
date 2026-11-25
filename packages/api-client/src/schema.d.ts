@@ -10077,6 +10077,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.plan.note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The browser extension says where its day is up to on one network: what it has done, what it tried, what waits to be looked at again and when it works next. HandsFreeOS works the plan out from it. Only the person’s working computer is kept.
+         * @description Risk level 0. Requires outreach.use. Emits . Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_plan_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.playbook.archive": {
         parameters: {
             query?: never;
@@ -23951,6 +23971,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the person’s computer will do today on one network (Facebook when left out), and about when: where the day stands in a line, what they asked for that goes first, what’s coming in order with rough times, how many more follow, and the day’s reading and steps done so far. Worked out from where the extension said its day is up to, by the rules it follows. Times are a rough guide.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_plan"];
         delete?: never;
         options?: never;
         head?: never;
@@ -52866,6 +52906,86 @@ export interface operations {
                         partnerId: string | null;
                         skipped: number;
                         stage: ("found" | "warming" | "asked" | "interested" | "call_booked" | "partner" | "not_now") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_plan_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    computer: string;
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                    state: {
+                        /** @default {} */
+                        againAt?: {
+                            [key: string]: number;
+                        };
+                        before?: {
+                            [key: string]: string;
+                        };
+                        daily?: {
+                            [key: string]: string;
+                        };
+                        day: string | null;
+                        /** @default {} */
+                        done?: {
+                            [key: string]: number;
+                        };
+                        /** @default null */
+                        helpfulAt?: number | null;
+                        /** @default false */
+                        helpfulUp?: boolean;
+                        line?: string | null;
+                        /** @default null */
+                        lineAt?: number | null;
+                        /** @default false */
+                        needs?: boolean;
+                        /** @default null */
+                        nextAt?: number | null;
+                        /** @default false */
+                        readLast?: boolean;
+                        /** @default null */
+                        referAt?: number | null;
+                        /** @default [] */
+                        replied?: string[];
+                        /** @default false */
+                        requestsOff?: boolean;
+                        /** @default 0 */
+                        round?: number;
+                        /** @default null */
+                        roundAt?: number | null;
+                        started: boolean;
+                        stopped: string | null;
+                        tried: string[];
+                        /** @default null */
+                        watchAt?: number | null;
+                        /** @default false */
+                        working?: boolean;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        kept: boolean;
                     };
                 };
             };
@@ -94540,6 +94660,77 @@ export interface operations {
                             platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
                             url: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asked: {
+                            /** Format: uuid */
+                            askId: string;
+                            title: string;
+                            working: boolean;
+                        }[];
+                        coming: {
+                            about: boolean;
+                            /** Format: date-time */
+                            at: string;
+                            detail: string | null;
+                            /** @enum {string} */
+                            kind: "lists" | "job" | "search" | "watch" | "step" | "draft" | "send";
+                            now: boolean;
+                            title: string;
+                            who: string | null;
+                        }[];
+                        counts: {
+                            count: number;
+                            label: string;
+                        }[];
+                        doing: string | null;
+                        done: {
+                            line: string;
+                            title: string;
+                        }[];
+                        line: string;
+                        more: number;
+                        notes: string[];
+                        /** Format: date-time */
+                        now: string;
+                        /** @enum {string} */
+                        platform: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                        reported: boolean;
+                        /** @enum {string} */
+                        stand: "none" | "signed_out" | "offline" | "off" | "stopped" | "warned" | "noting" | "asks" | "waiting" | "working" | "going" | "idle";
+                        timezone: string;
+                        until: string | null;
                     };
                 };
             };
