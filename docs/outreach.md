@@ -5377,7 +5377,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **The Assistant reads it** (`outreach_plan`), and knows the part (`ai-places.ts`).
 
       **Step 2, Threads and X first** (extension 0.156.0). On these two networks HandsFreeOS decides each move and
-      the extension does it. Every other network's runner still plans for itself.
+      the extension does it. Every other network's runner still plans for itself. Built, and **switched off for
+      now**: the build goes out first, and the two are switched on (`PLAN_DECIDES`, in HandsFreeOS alone) once a
+      day's plan has been checked against what the owner's computer really did.
       - **The runner asks** (`outreach.plan.next`, `planNext` in the extension's `src/hfos/plan.ts`): where its day
         is up to, its own clock, and what only its computer knows (`PlanHere`): whether the person is away from it
         (decision 120), the reads put off till they are, whether a comment research of theirs reads now (decision
@@ -5386,9 +5388,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         settings, hours, day, warning, lists and today's list: a wait and why, a step before the day, a once-a-day
         read, the hour's search, or a piece of the list's work by its key, with today's list. Times come back on the
         runner's clock. What the move changed in the day comes with it (a round of finding again begun).
-      - **Only where it decides** (`PLAN_DECIDES`: Threads and X), only the person's working computer, and only a
-        build from 0.156.0. Anyone else is told to plan for itself (`decides: false`). Taking a network out of
-        `PLAN_DECIDES` hands its order back to the extension at its next go.
+      - **Only where it decides** (`PLAN_DECIDES`: nowhere yet, then Threads and X), only the person's working
+        computer, and only a build from 0.156.0. Anyone else is told to plan for itself (`decides: false`). Taking a
+        network out of `PLAN_DECIDES` hands its order back to the extension at its next go.
       - **The extension does the move as it does its own** (`asTold` in `src/auto/follows.ts`): the same read, the
         same press, its own words, its own pace between steps and every daily limit. Its own checks stay first and
         unchanged (the working computer, Sending, a warning, noting, Stop for today, an ask in line), and while one

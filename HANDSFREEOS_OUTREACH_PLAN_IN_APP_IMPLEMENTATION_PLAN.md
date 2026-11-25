@@ -26,7 +26,8 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
    same rules (`plan.ts`: `nextMove`, `planAhead`, `planShown`; `outreach.plan`). Today gets a **Plan** part on the
    web and the phone, and the Assistant reads it (`outreach_plan`). The extension still decides for itself, so the
    plan only shows.
-2. **The app decides, the extension does** (Threads and X built, extension 0.156.0; the other networks to come).
+2. **The app decides, the extension does** (Threads and X built, extension 0.156.0, and switched off until a day's
+   plan is checked against a real day; the other networks to come).
    Each runner's `go()` asks HandsFreeOS for its next move (`nextMove` on the server, with the list and the day it
    already has) and does it, saying how it went. One network at a time, the smallest first: Threads and X, then
    Alignable, Instagram, LinkedIn, and Facebook last. Each keeps its own pace, warnings and limits. With no
@@ -77,9 +78,14 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
 - **Whose clock.** HandsFreeOS works the move out on its own clock and sends each time back on the runner's, by how
   far apart the two are (`now`). A piece of work comes by its key (`workKey`) with today's list, so the runner asks
   once. What the move changed in the day comes back too (`change`): a round begun, who still waits for an answer.
-- **Who's answered** (`decides`). Only the networks in `PLAN_DECIDES` (`['threads', 'x']`), only the person's working
-  computer, and only a build from 0.156.0 (`NEXT_SINCE`, read from the request). Anyone else is told to plan for
-  itself. Taking a network out of `PLAN_DECIDES` hands its order back to the extension at its next go.
+- **Who's answered** (`decides`). Only the networks in `PLAN_DECIDES`, only the person's working computer, and only a
+  build from 0.156.0 (`NEXT_SINCE`, read from the request). Anyone else is told to plan for itself. Taking a network
+  out of `PLAN_DECIDES` hands its order back to the extension at its next go.
+- **Switched off for now** (`PLAN_DECIDES` is empty). The build went out first, so Threads' and X's runners ask and
+  are told to plan for themselves, which they do exactly as before. They're switched on by putting `'threads'` and
+  `'x'` in `PLAN_DECIDES`, a change to HandsFreeOS alone (no new extension), once the Plan on Today has been checked
+  against what the owner's computer really did over a day (promised to Chris, 25 Nov 2026). The database tests switch
+  them on for themselves (`outreach-plan-ops.test.ts`).
 - **The runner** (`apps/extension/src/auto/follows.ts`). Its own checks stay first and unchanged: the working
   computer, Chrome allowing the network, Sending, a warning, noting, Stop for today, an ask in line. Then it asks
   (`planNext`, 15 seconds at most) and does the move as it does its own (`asTold`): the same reads, steps, words,
@@ -88,8 +94,8 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
 - **Tested** in core (`outreach-plan.test.ts`, `outreach-plan-ops.test.ts`) and in the extension
   (`follows-plan-next.test.ts`): each kind of move done as sent, and 19 situations of a day where the move the rules
   send is compared with the one the runner picks by itself.
-- **Not yet:** the runner's own planning is still there, used when HandsFreeOS can't be reached (step 5 takes it
-  out). Nothing on the Plan is pressed yet (step 3).
+- **Not yet:** switched on (above). The runner's own planning is still there, used when HandsFreeOS can't be
+  reached (step 5 takes it out). Nothing on the Plan is pressed yet (step 3).
 
 ## Rules for the steps after
 
@@ -97,8 +103,9 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
   step 5 makes `nextMove` the only order. Otherwise the plan shows a day the extension won't do, and a go planned
   without HandsFreeOS differs from one it decides. `follows-plan-next.test.ts` compares the two.
 - **A network joins step 2 by its own pull request:** its runner's `go` split the way `follows.ts` is (its own
-  checks, the ask, `asTold`, then its own planning), its situations compared in a test, then its name added to
-  `PLAN_DECIDES`. An older extension keeps planning for itself, as it never asks.
+  checks, the ask, `asTold`, then its own planning), its situations compared in a test. Its name goes into
+  `PLAN_DECIDES` after, by itself, once its build is out and a day's plan has matched what it did. An older extension
+  keeps planning for itself, as it never asks.
 - **What only the computer knows goes in `PlanHere`,** never guessed on the server: the plan that's shown says what it
   can't see.
 - **The safety rules stay where they're enforced today** (core's limits, the readers' warnings, the warm-up and

@@ -1312,6 +1312,9 @@ was reported. From 0.126.2:
 The second step of decision 195 (`docs/outreach.md`): the app decides and the extension does, a network at a time.
 Threads' and X's runner goes first, as the smallest. Every other network's runner plans for itself as before.
 
+HandsFreeOS switches this on by itself (`PLAN_DECIDES` in core's `plan-next.ts`), and hasn't yet: until it does, the
+runner asks, is told to plan for itself, and does exactly what it did before.
+
 - **Its own checks come first, unchanged** (`go` in `src/auto/follows.ts`): this is the computer that works, the
   network is on and Chrome allows it, its Sending isn't Off, no warning today, noting on, Stop for today not pressed,
   and nothing the person asked in line. While one of those holds it, it never asks.

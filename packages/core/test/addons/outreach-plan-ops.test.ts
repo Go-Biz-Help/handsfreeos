@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { askNameOn } from '../../src/addons/outreach/asks';
 import {
   AUTOMATION_DEFAULTS,
@@ -24,6 +24,15 @@ import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { RUNNERS } from '../../src/addons/outreach/runners';
 import { zonedParts } from '../../src/calendar/engine/zoned';
 import { outreachBusiness, runAs, runWith } from './outreach-fixture';
+
+/**
+ * Threads and X switched on, as they will be: the switch itself (`PLAN_DECIDES`) is off until a day's plan has been
+ * checked against a real day, so what a runner is answered once it's on is held here.
+ */
+vi.mock('../../src/addons/outreach/plan-next', async (original) => ({
+  ...(await original<object>()),
+  PLAN_DECIDES: ['threads', 'x'],
+}));
 
 const admin = () => testDbs().admin.db;
 const MIN = 60_000;

@@ -8,6 +8,9 @@
  * - **A network at a time** (`PLAN_DECIDES`): Threads and X first, then Alignable, Instagram, LinkedIn, and Facebook
  *   last. For any other, and for a computer that isn't the one that works, the answer is `decides: false`, and the
  *   runner goes on by itself, as it does when HandsFreeOS can't be reached: by the same rules, with what it knows.
+ * - **Switched on apart from the build.** A runner that asks (Threads' and X's, from `NEXT_SINCE`) is answered
+ *   `decides: false` until its network is in `PLAN_DECIDES`: the build goes out first, and a day's plan is checked
+ *   against what a working computer really did before HandsFreeOS decides there.
  * - **Its own clock.** A runner's times are on its computer's clock. HandsFreeOS works the move out on its own
  *   (`now` says how far apart the two are) and sends each time back on the runner's.
  * - **A piece of the list's work** comes with today's list, as `outreach.today` gives it, so the runner asks once.
@@ -21,8 +24,14 @@ import { PlanState, type PlanDay, type PlanMove } from './plan';
 import { workKey, type PlanItem } from './plan-rules';
 import { TodayOutput } from './today';
 
-/** The networks whose runner asks HandsFreeOS for its next move and does it. Taken off here, it plans for itself. */
-export const PLAN_DECIDES: readonly Platform[] = ['threads', 'x'];
+/**
+ * The networks HandsFreeOS decides for: their runner asks for its next move and does it. Taken off here, a runner
+ * plans for itself at its next go.
+ *
+ * None yet. Threads' and X's runners ask from `NEXT_SINCE` and wait to be put here: once the plan HandsFreeOS shows
+ * (step 1) has been checked against what a working computer really did over a day.
+ */
+export const PLAN_DECIDES: readonly Platform[] = [];
 
 /** The first build whose runners ask (Threads' and X's) and do what they're sent: an older one isn't answered. */
 export const NEXT_SINCE = '0.156.0';

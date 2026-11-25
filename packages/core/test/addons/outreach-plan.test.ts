@@ -461,8 +461,9 @@ describe('the move as it’s sent to a runner (decision 195, step 2)', () => {
   /** HandsFreeOS's clock is 10 minutes ahead of the runner's. */
   const SKEW = 10 * MIN;
 
-  it('is for Threads’ and X’s runners first, from the build that asks', () => {
-    expect(PLAN_DECIDES).toEqual(['threads', 'x']);
+  it('is switched on for no network yet, and answers only a build that asks', () => {
+    // Threads' and X's runners ask from 0.156.0. They go in here once a day's plan is checked against a real day.
+    expect(PLAN_DECIDES).toEqual([]);
     expect(NEXT_SINCE).toBe('0.156.0');
   });
 
