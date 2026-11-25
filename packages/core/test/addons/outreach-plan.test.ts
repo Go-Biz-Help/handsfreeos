@@ -418,6 +418,24 @@ describe('a runner’s own ask for its next move (decision 195, step 2)', () => 
     });
   });
 
+  it('takes the runner’s word for whether something asked is in line, over HandsFreeOS’s own count', () => {
+    const state = fresh({ watchAt: NOW + 40 * MIN });
+    // One no computer took yet is counted by HandsFreeOS, and holds no runner.
+    const counted = onThreads({ asks: 1 });
+    expect(nextMove(counted, state, 0.5, { ...HERE, asking: false }).move).toMatchObject({
+      do: 'daily',
+      job: 'requests',
+    });
+    expect(nextMove(onThreads(), state, 0.5, { ...HERE, asking: true }).move).toEqual({
+      do: 'wait',
+      why: 'asks',
+      until: NOW + 2 * MIN,
+    });
+    // Left unsaid, as for the plan that's shown, the count says.
+    expect(nextMove(counted, state, 0.5, HERE).move).toMatchObject({ do: 'wait', why: 'asks' });
+    expect(nextMove(counted, state).move).toMatchObject({ do: 'wait', why: 'asks' });
+  });
+
   it('waits outside the hours as the runner does: till they start, with what was asked first', () => {
     const seven = Date.parse('2026-10-13T12:00:00Z');
     const nine = Date.parse('2026-10-13T14:00:00Z');

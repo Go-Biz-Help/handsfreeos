@@ -94769,6 +94769,7 @@ export interface operations {
                     /** Format: uuid */
                     computer: string;
                     here: {
+                        asking?: boolean;
                         away: boolean;
                         /** @default [] */
                         passOver?: string[];

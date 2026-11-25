@@ -9,6 +9,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
+import { appVersionAtLeast } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { askNameOn, OPEN_ASK_STATES } from '../asks';
 import { businessDay } from '../automation';
@@ -30,6 +31,7 @@ import {
 import {
   changeSent,
   moveSent,
+  NEXT_SINCE,
   NOT_DECIDING,
   PLAN_DECIDES,
   PlanNextInput,
@@ -218,6 +220,8 @@ export const planNext = defineAddonQuery(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const { platform } = input;
     if (!PLAN_DECIDES.includes(platform)) return NOT_DECIDING;
+    // Only a build that does what it's sent is told what to do: any other plans for itself.
+    if (!appVersionAtLeast(ctx.meta.appVersion, NEXT_SINCE)) return NOT_DECIDING;
     const now = Date.now();
     const { facts, computers, list } = await knownOf(ctx, me, input, now);
     // A computer on standby works nothing: its runner stands down by itself.

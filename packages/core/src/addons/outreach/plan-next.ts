@@ -24,7 +24,7 @@ import { TodayOutput } from './today';
 /** The networks whose runner asks HandsFreeOS for its next move and does it. Taken off here, it plans for itself. */
 export const PLAN_DECIDES: readonly Platform[] = ['threads', 'x'];
 
-/** The first build whose runners ask (Threads' and X's). */
+/** The first build whose runners ask (Threads' and X's) and do what they're sent: an older one isn't answered. */
 export const NEXT_SINCE = '0.156.0';
 
 const ms = z.number().int().min(0).max(8_640_000_000_000_000);
@@ -47,6 +47,7 @@ export const PlanNextInput = z.object({
     away: z.boolean(),
     passOver: z.array(job).max(30).default([]),
     research: z.boolean().optional(),
+    asking: z.boolean().optional(),
   }),
 });
 export type PlanNextInput = z.input<typeof PlanNextInput>;

@@ -320,6 +320,12 @@ export interface PlanHere {
    * out, it's read from the state: a batch of it waiting, and due.
    */
   readonly research?: boolean | undefined;
+  /**
+   * Whether something they asked of the extension there is in line on this computer, which goes first (decision 43).
+   * Left out, HandsFreeOS's own count of what they asked says (`PlanFacts.asks`): that counts one no computer took
+   * yet too, which never holds a runner.
+   */
+  readonly asking?: boolean | undefined;
 }
 
 /**
@@ -411,6 +417,7 @@ export function nextMove<I extends PlanItem>(
   const pace = Math.round(kit.pace.least + random * (kit.pace.most - kit.pace.least));
   const away = here?.away ?? true;
   const passOver = (here?.passOver ?? []) as readonly RunnerJob[];
+  const asking = here?.asking ?? facts.asks > 0;
   const work = (
     all: readonly Work<I>[],
     reading: boolean,
@@ -458,7 +465,7 @@ export function nextMove<I extends PlanItem>(
     if (facts.warned) return wait('warned', own.next);
     if (!facts.noting) return wait('noting', own.next);
     // What the person asked goes first, and nothing of the runner's own meanwhile.
-    if (facts.asks > 0) return wait('hours', own.next);
+    if (asking) return wait('hours', own.next);
     // Outside the hours a reply to someone who wrote back still goes, where it writes in their messages, and nothing
     // new does (decision 133).
     if (kit.messages) {
@@ -477,7 +484,7 @@ export function nextMove<I extends PlanItem>(
   }
   if (facts.warned || state.stopped === 'warning') return wait('warned', tomorrow());
   if (!facts.noting) return wait('noting', now + LOOK_AGAIN_MS);
-  if (facts.asks > 0) return wait('asks', now + ASK_FIRST_MS);
+  if (asking) return wait('asks', now + ASK_FIRST_MS);
 
   const before = beforeDay(facts.lists, state.before, now, timeZone, platform);
   // A first day's lists are saved with the window on screen: it waits till the person's away (decision 120).

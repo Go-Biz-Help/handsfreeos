@@ -255101,6 +255101,9 @@
                       },
                       "research": {
                         "type": "boolean"
+                      },
+                      "asking": {
+                        "type": "boolean"
                       }
                     },
                     "required": [

@@ -9,9 +9,19 @@
  *   long read), and after a beat's answer, for one that couldn't go. What HandsFreeOS has is remembered while the
  *   browser is open, by a short mark, so the worker waking sends nothing twice.
  * - **Only the computer that works** says anything: one on standby has a day it isn't working.
+ *
+ * From 0.156.0 a network's runner asks HandsFreeOS for its next move too (`planNext`, decision 195, step 2), a
+ * network at a time: Threads' and X's first. It does the move it's sent, and plans for itself, as it always has,
+ * whenever HandsFreeOS doesn't decide for it or can't be reached.
  */
 import { PLATFORM_KEYS, type Platform } from '@hfos/core/addons/outreach/networks';
-import { planNoteKey, planStateOf, type PlanNoteInput } from '@hfos/core/addons/outreach/plan';
+import {
+  planNoteKey,
+  planStateOf,
+  type PlanHere,
+  type PlanNoteInput,
+} from '@hfos/core/addons/outreach/plan';
+import type { PlanNextChange, PlanNextMove } from '@hfos/core/addons/outreach/plan-next';
 import {
   ALIGNABLE_STATE_KEY,
   AUTO_STATE_KEY,
@@ -21,8 +31,10 @@ import {
   THREADS_STATE_KEY,
   X_STATE_KEY,
 } from '../auto/plan';
+import type { AutoState } from '../auto/plan';
 import { NO_RESEARCH } from '../jobs/comment-research';
 import { computer, keptFor, onBeat } from './live';
+import type { TodayList } from './messages';
 import { api, call, Refused, savingTo, type Place } from './session';
 
 /** Where each network's runner keeps its state. */
@@ -138,6 +150,72 @@ export function planSoon(platform: Platform): void {
       void tellPlan([platform]);
     }, SOON_MS),
   );
+}
+
+// ------------------------------------------------------------------------------------------------- the next move
+
+/** How long a runner waits for HandsFreeOS to say its next move before it plans for itself. */
+export const NEXT_WAIT_MS = 15_000;
+
+/** What HandsFreeOS told a runner to do next. */
+export interface ToldNext {
+  readonly move: PlanNextMove;
+  /** What the move changed in the day's state before it's done: a round of finding again begun, who still waits. */
+  readonly change: PlanNextChange | null;
+  /** Today's list, with a piece of its work to do. */
+  readonly list: TodayList | null;
+}
+
+/**
+ * A runner's next move, asked of HandsFreeOS (`outreach.plan.next`, decision 195, step 2): it says where its day is
+ * up to (`state`, as it stands now), its own clock and what only this computer knows (`here`), and is told the move
+ * by the day's rules. Null when HandsFreeOS leaves the order to the runner (a network it doesn't decide yet, a
+ * computer that isn't the one that works), doesn't answer in time, or can't be reached: the runner then plans for
+ * itself by the same rules, so nothing ever waits on this.
+ */
+export async function planNext(
+  platform: Platform,
+  place: Place,
+  at: {
+    readonly state: AutoState;
+    readonly now: number;
+    /** From 0 to 1, the go's own: every wait HandsFreeOS picks keeps the go's pace. */
+    readonly random: number;
+    readonly here: PlanHere;
+  },
+): Promise<ToldNext | null> {
+  try {
+    const me = await computer();
+    const answer = await call(
+      api().POST('/v1/queries/outreach.plan.next', {
+        body: {
+          workspaceId: place.businessId,
+          platform,
+          computer: me.id,
+          state: planStateOf(at.state),
+          now: at.now,
+          random: at.random,
+          here: {
+            away: at.here.away,
+            passOver: [...at.here.passOver],
+            ...(at.here.research === undefined ? {} : { research: at.here.research }),
+            ...(at.here.asking === undefined ? {} : { asking: at.here.asking }),
+          },
+        },
+        signal: AbortSignal.timeout(NEXT_WAIT_MS),
+      }),
+      place.businessId,
+    );
+    if (!answer?.decides || !answer.move) return null;
+    return {
+      move: answer.move as PlanNextMove,
+      change: (answer.change ?? null) as PlanNextChange | null,
+      list: (answer.list ?? null) as TodayList | null,
+    };
+  } catch (error) {
+    console.warn('HandsFreeOS Social plans its next move by itself this time', error);
+    return null;
+  }
 }
 
 // After every beat that's answered: a note that couldn't go, one cut short when the worker slept, and every
