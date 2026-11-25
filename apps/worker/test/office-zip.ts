@@ -46,7 +46,8 @@ export function zip(parts: Record<string, string>): Buffer {
 
 /** A one-sheet workbook of these rows, every cell an inline word, its tab named `sheet`. */
 export function workbook(rows: readonly (readonly string[])[], sheet = 'Sheet1'): Buffer {
-  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const esc = (t: string) =>
+    t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const col = (i: number) => String.fromCharCode(65 + i);
   const data = rows
     .map(
