@@ -13,6 +13,7 @@ import { businessDay } from '../automation';
 import { outreachAddon } from '../manifest';
 import type { Platform } from '../networks';
 import {
+  freshPlanDay,
   onPlanClock,
   planDayOf,
   PlanInput,
@@ -32,7 +33,10 @@ import { myComputers, workingOf } from './live';
 import { startOfToday, warningOf } from './tidy';
 import { todayFor } from './today';
 
-/** What the person's working computer last said of today on a network: null when it hasn't, or said it of another day. */
+/**
+ * Where the person's day is up to on a network, as their working computer last said: null when it never has. What it
+ * said of an earlier day is a day not begun, as its runner makes of it the next time it goes.
+ */
 export async function reportedDay(
   ctx: Ctx,
   me: string,
@@ -49,7 +53,8 @@ export async function reportedDay(
         eq(planDays.platform, platform),
       ),
     );
-  return row && row.day === today ? planDayOf(row.state) : null;
+  if (!row) return null;
+  return row.day >= today ? planDayOf(row.state) : freshPlanDay(today);
 }
 
 export const planNote = defineAddonCommand(outreachAddon, {

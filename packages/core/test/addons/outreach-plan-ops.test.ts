@@ -167,7 +167,7 @@ describe('the plan, kept and shown', () => {
     expect((await kept(member))[0]!.state.tried).toEqual([]);
   });
 
-  it('shows nobody else’s, and takes yesterday’s for no word yet', async () => {
+  it('shows nobody else’s, and takes yesterday’s for a day not begun', async () => {
     expect(await runAs(owner, ws, 'outreach.plan', {})).toMatchObject({
       stand: 'none',
       reported: false,
@@ -177,9 +177,10 @@ describe('the plan, kept and shown', () => {
       sql`update addon_outreach.plan_days set day = day - 1
           where workspace_id = ${ws} and user_id = ${member.id} and platform = 'facebook'`,
     );
-    expect((await runAs(member, ws, 'outreach.plan', {})).reported).toBe(false);
+    const fresh = await runAs(member, ws, 'outreach.plan', {});
+    expect(fresh).toMatchObject({ reported: true, done: [], counts: [] });
     await note(member, home);
-    expect((await runAs(member, ws, 'outreach.plan', {})).reported).toBe(true);
+    expect((await runAs(member, ws, 'outreach.plan', {})).counts).toHaveLength(2);
   });
 
   it('puts what the person asked for first, once their day is going', async () => {
