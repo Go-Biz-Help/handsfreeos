@@ -32,6 +32,7 @@ import { followersCommands, followersQueries } from './ops/followers';
 import { ownerCommands } from './ops/owners';
 import { occasionCommands } from './ops/occasions';
 import { listCommands, listQueries } from './ops/lists';
+import { planCommands, planQueries } from './ops/plan';
 import { liveCommands, liveQueries } from './ops/live';
 import { meetingTimeCommands } from './ops/meeting-times';
 import { tallyCommands, tallyQueries } from './ops/tallies';
@@ -91,6 +92,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...liveCommands,
     ...tallyCommands,
     ...listCommands,
+    ...planCommands,
     ...waitingCommands,
     ...askCommands,
     ...setupCommands,
@@ -135,6 +137,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...liveQueries,
     ...tallyQueries,
     ...listQueries,
+    ...planQueries,
     ...waitingQueries,
     ...askQueries,
     ...setupQueries,
@@ -184,6 +187,7 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.send.done': EXTENSION,
     'outreach.live.beat': EXTENSION,
     'outreach.lists.saved': EXTENSION,
+    'outreach.plan.note': EXTENSION,
     'outreach.need.note': EXTENSION,
     'outreach.ask.take': EXTENSION,
     'outreach.ask.progress': EXTENSION,

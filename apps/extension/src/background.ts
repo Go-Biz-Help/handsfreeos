@@ -11,7 +11,8 @@
  * (src/asks/run.ts). It follows the person's settings in HandsFreeOS from the
  * moment they sign in (src/hfos/follow.ts), and sends a first-timer to HandsFreeOS's setup (src/hfos/setup.ts). Every
  * minute while someone is signed in it tells HandsFreeOS how things stand on this computer, and hears from it about
- * the person's day (src/hfos/live.ts). It keeps the number of things waiting for the person on its icon, and Chrome's
+ * the person's day (src/hfos/live.ts), and tells it where each network's day is up to as that changes, for the plan
+ * the app shows (src/hfos/plan.ts). It keeps the number of things waiting for the person on its icon, and Chrome's
  * pop-ups about them, which open Needs you in HandsFreeOS (src/hfos/waiting.ts). It keeps each network's messages open
  * and reads them every minute (src/auto/watch.ts), and a reply HandsFreeOS keeps as new has that network's runner
  * draft the answer next (decision 125). On the computer picked to read for AI Social Media Content Creator, its own
@@ -60,6 +61,7 @@ import {
   type HfosAsk,
 } from './hfos/messages';
 import { isTabNote, sendWaitingSteps, takeNote } from './hfos/noting';
+import { planPlatforms, planSoon } from './hfos/plan';
 import { onReplied } from './hfos/replies';
 import { PLACE_KEY } from './hfos/messages';
 import { answer, savingTo } from './hfos/session';
@@ -238,6 +240,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (SETTINGS_KEY in changes || PLACE_KEY in changes) void syncNetworks();
   // What's on, who's signed in or noting changed: the messages kept open follow at once.
   if (SETTINGS_KEY in changes || PLACE_KEY in changes || NETWORKS_KEY in changes) void watchTick();
+  // A runner's day moved on: HandsFreeOS hears where it's up to, for the plan it shows (src/hfos/plan.ts).
+  for (const platform of planPlatforms(changes)) planSoon(platform);
   // A network just turned on and allowed: the asks waiting on its line start.
   if (NETWORKS_KEY in changes) {
     askSoon();

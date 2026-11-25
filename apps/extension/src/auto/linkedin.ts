@@ -139,10 +139,8 @@ import {
   workKey,
   workLeft,
   type AutoState,
-  type DailyJob,
   type DoneKind,
   type NetworkDay,
-  type OwnDailyJob,
   type Work,
   listSays,
   retryWake,
@@ -150,45 +148,24 @@ import {
 import { helpAfter, stepHelp } from './helper';
 import { askInLine, inTurn } from './turns';
 import { haltAsk } from '../asks/run';
+import {
+  LINKEDIN_AUTO,
+  LINKEDIN_DAILY,
+  LINKEDIN_DAILY_NAMES,
+  LINKEDIN_FINDING,
+  LINKEDIN_GAP_MS,
+  type LinkedInDaily,
+} from '@hfos/core/addons/outreach/runners';
 
 const PLATFORM: Platform = 'linkedin';
 const NAME = NETWORKS.linkedin.name;
 
 export const LINKEDIN_ALARM = 'hfos-auto-linkedin';
 
-/**
- * The kinds it does on its own on LinkedIn, in order. From 0.99.0 a comment on a good post is drafted and sent through
- * `sends` (decision 102), as Instagram's and Alignable's are, never as a step. From 0.118.0 the invitations they got
- * that HandsFreeOS says to accept, as they pressed or the AI said (decision 136), are accepted from each profile.
- */
-export const LINKEDIN_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'friend_request'];
-/**
- * The once-a-day jobs on LinkedIn, in order. From 0.97.0 it withdraws old invitations on its own after checking the
- * new ones (`tidy`, decision 98), as the person chose; from 0.100.0 it then reads Catch up for birthdays and new jobs
- * (`occasions`, decision 108), for a note on Today that waits for the person's OK. From 0.95.0 (decision 92) who reacted to and commented on the good posts
- * its search found is read after the helpful post (`post_people`), and the people found are checked last
- * (`found_checks`), inside its 40 profiles read, found people first. From 0.109.0 who engaged with their helpful posts
- * is read on its own after the day's post is asked for (`engaged`), as that read needs its window in front, so waits
- * till they're away from their computer (decision 120) while the post goes up as ever. From 0.144.0 HandsFreeOS's own
- * comment research before the profile (`comment_research`, decision 172), only for whoever of its staff started one:
- * from 0.154.0 first whenever its batch is due, outside the working hours too (decision 194, `researchNext`).
- */
-export const LINKEDIN_DAILY = [
-  'requests',
-  'tidy',
-  'occasions',
-  'checks',
-  'chats',
-  'posts',
-  'partners',
-  'helpful',
-  'engaged',
-  'post_people',
-  'found_checks',
-  'comment_research',
-  'profile',
-] as const satisfies readonly (DailyJob | OwnDailyJob)[];
-type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
+// What it does on its own on LinkedIn, its once-a-day jobs in order, their names and its pace are HandsFreeOS's from
+// 0.155.0 (packages/core/src/addons/outreach/runners.ts, decision 195), so the app plans the same day.
+export { LINKEDIN_AUTO, LINKEDIN_DAILY, LINKEDIN_FINDING, LINKEDIN_GAP_MS };
+const DAILY_NAMES = LINKEDIN_DAILY_NAMES;
 
 const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Checking your invitations on LinkedIn…',
@@ -205,24 +182,6 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   comment_research: 'Reading comments under posts on LinkedIn for HandsFreeOS’s comment research…',
   profile: 'Reading your LinkedIn profile, as it does on the 1st of each month…',
 };
-const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
-  requests: 'Invitations',
-  occasions: 'Birthdays and new jobs',
-  tidy: 'Tidy up',
-  checks: 'Check my connections',
-  chats: 'Read my chats',
-  posts: 'Find posts',
-  partners: 'Find partners',
-  helpful: 'Helpful posts',
-  engaged: 'Who engaged with your posts',
-  post_people: 'Who reacted and commented',
-  found_checks: 'Check the people found',
-  comment_research: 'Comment research',
-  profile: 'Read my profile',
-};
-
-/** LinkedIn's pace between steps: slower than Facebook's, a person's. */
-export const LINKEDIN_GAP_MS = { least: 2 * 60_000, most: 6 * 60_000 } as const;
 /** While LinkedIn draws what a press opened. */
 const SETTLE_MS = 2_000;
 /** After something went wrong, it tries again this much later. */
@@ -1182,12 +1141,6 @@ export const nextLinkedInDaily = (
     (job) =>
       state.daily?.[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now),
   ) ?? null;
-
-/**
- * LinkedIn's jobs that find people, done again in a round while it needs more good fits (decision 126, plan.ts
- * `nextRound`): LinkedIn’s post search with the next words, who reacted to and commented on good posts, and their checks.
- */
-export const LINKEDIN_FINDING: readonly LinkedInDaily[] = ['posts', 'post_people', 'found_checks'];
 
 /** A job that notes a page it couldn't read with its outline (decision 74): its own way to, or the runner's. */
 const reporting = (job: Job, kind: LinkedInDaily): Job => ({
