@@ -149,18 +149,21 @@ afterAll(closeTestDbs);
 describe('a new contact from a screenshot', () => {
   it('adds them with their company, where they came from, a note and a follow-up task, on one card', async () => {
     const last = `Torres ${randomUUID().slice(0, 6)}`;
+    // A company of its own, so the other tests' lists of Pine Clinic's tasks stay as they are.
+    const maple = `Maple Clinic ${randomUUID().slice(0, 6)}`;
+    const mapleId = (await run(companyCreate, { workspaceId, name: maple }, dale)).companyId;
     const args = {
       firstName: 'Mia',
       lastName: last,
       phone: '512-555-0190',
-      companyName: '  pine   CLINIC ',
+      companyName: `  ${maple.replace(' ', '   ').toUpperCase()} `,
       source: 'Facebook',
       timelineNote: 'Asked on Messenger for a quote to clean 3 offices.',
       followUp: { title: 'Call Mia about the quote', dueAt: '2030-03-04' },
     };
     const { card, result } = await prepare('create_customer', args);
     expect(card.title).toBe(`Add Mia ${last} as a new customer?`);
-    expect(field(card, 'Company')).toBe('Pine Clinic');
+    expect(field(card, 'Company')).toBe(maple);
     expect(field(card, 'Came from')).toBe('Facebook');
     expect(field(card, 'Follow-up task')).toMatch(/^Call Mia about the quote · You · /);
     expect(card.body).toBe(
@@ -179,7 +182,7 @@ describe('a new contact from a screenshot', () => {
     const { personId } = done.answer as { personId: string };
     expect(
       await one(sql`select company_id, source from app.people where id = ${personId}`),
-    ).toEqual({ company_id: pine, source: 'Facebook' });
+    ).toEqual({ company_id: mapleId, source: 'Facebook' });
     expect(
       await rows(
         admin(),
@@ -193,7 +196,7 @@ describe('a new contact from a screenshot', () => {
     ).toEqual({
       title: 'Call Mia about the quote',
       assignee_user_id: dale.id,
-      company_id: pine,
+      company_id: mapleId,
       all_day: true,
     });
   });
