@@ -9,8 +9,9 @@
  *   row, each with its count, and the one open; the page opens on the first with anything, so nothing waiting is ever
  *   out of sight for long. With nothing at all, there's no row.
  * - **Today** keeps every part on the row: **Overview** (what it did, Heads up, what needs the person and each network's
- *   card with Start my day), **Your list** (the day's list, partners and referrals), **Posts and events** (the helpful
- *   post and the events near them), **Done today** (every step today) and, for owners and admins, **Your team**.
+ *   card with Start my day), **Plan** (what their computer will do today and about when, decision 195), **Your list**
+ *   (the day's list, partners and referrals), **Posts and events** (the helpful post and the events near them), **Done
+ *   today** (every step today) and, for owners and admins, **Your team**.
  *
  * Browser-safe and pure.
  */
@@ -89,6 +90,7 @@ export function autopilotWaitingOf(
 /** Today's parts, in the row's order. Your team is owners' and admins' only. */
 export const TODAY_PARTS = {
   overview: 'Overview',
+  plan: 'Plan',
   list: 'Your list',
   posts: 'Posts and events',
   done: 'Done today',

@@ -5,8 +5,8 @@ import { showOutreach, type OutreachPageProps } from '../../show';
 export const metadata: Metadata = { title: 'Today' };
 
 /**
- * A part of Social Outreach's Today: Your list, Posts and events, Done today, or Your team for owners and admins
- * (docs/outreach.md, decision 193).
+ * A part of Social Outreach's Today: Plan (decision 195), Your list, Posts and events, Done today, or Your team for
+ * owners and admins (docs/outreach.md, decision 193).
  */
 export default async function Page(props: OutreachPageProps) {
   const { workspaceId } = await props.params;

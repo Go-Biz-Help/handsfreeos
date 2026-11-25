@@ -26,6 +26,7 @@ const views = Object.values(PEOPLE_VIEWS).join(', ');
 const needsParts = Object.values(NEEDS_PARTS).join(', ');
 const todayParts = [
   TODAY_PARTS.overview,
+  TODAY_PARTS.plan,
   TODAY_PARTS.list,
   TODAY_PARTS.posts,
   TODAY_PARTS.done,
@@ -80,10 +81,12 @@ export const OUTREACH_PLACES: readonly AppPlace[] = [
       `A row of parts, one shown at a time: ${todayParts}, and ${TODAY_PARTS.team} for owners and admins`,
       'The network picker at the top (the networks the person works)',
       `${TODAY_PARTS.overview}: what it did, Heads up (why no new friend requests, the day’s goal), how many things need the person, and each network’s card with what the computer is doing now, the daily limits, and Start my day or Stop for today`,
+      `${TODAY_PARTS.plan}: what their computer will do today on the network shown and about when (what they asked for first, then what’s coming in order), and what it has done so far; it only shows, nothing there is pressed`,
       `${TODAY_PARTS.list}: each row’s name (its person menu), open their page, the post or their chat, and Copy for a draft; partners and referrals`,
       `${TODAY_PARTS.posts}: the helpful post and events near you; ${TODAY_PARTS.done}: every step today`,
     ],
     howTo: [
+      `See what the extension will do today and when: ${NAME} → ${P.today} → ${TODAY_PARTS.plan}`,
       `Start or stop the extension’s day: ${NAME} → ${P.today} → ${TODAY_PARTS.overview}, Start my day or Stop for today`,
       `See today’s list: ${NAME} → ${P.today} → ${TODAY_PARTS.list}`,
       `Do more for someone on the list: ${PERSON_MENU}`,

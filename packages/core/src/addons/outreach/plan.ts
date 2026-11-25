@@ -771,8 +771,13 @@ export type PlanNoteOutput = z.output<typeof PlanNoteOutput>;
 /** The plan's words that stay the same. */
 export const PLAN_WORDS = {
   title: 'Plan',
+  /** The heading when the person works more than one network. */
+  titleOn: (network: string) => `Plan on ${network}`,
+  about: 'What your computer will do today, and about when.',
   coming: 'Coming up',
   asked: 'You asked for these first',
+  askWorking: 'Doing now',
+  askWaiting: 'Next',
   done: 'Done so far today',
   nothingComing: 'Nothing more is planned for today.',
   times:
@@ -780,7 +785,13 @@ export const PLAN_WORDS = {
   update: `Update the extension on your computer to ${PLAN_SINCE} or later, and its plan shows here.`,
   notYet:
     'Your computer hasn’t said where its day is up to yet. It does within a minute of being on.',
+  /** The Plan part, when the plan couldn't be had. */
+  notLoaded: 'The plan couldn’t be loaded just now. Try again in a minute.',
 } as const;
+
+/** The list's work done so far in a line: "3 friend requests sent · 5 likes". */
+export const planCountsLine = (counts: PlanOutput['counts']): string =>
+  counts.map((c) => `${c.count.toLocaleString('en-US')} ${c.label}`).join(' · ');
 
 /** "about 2:15 PM", "2:15 PM", or "Now", before a row. */
 export function planWhen(row: Pick<PlanRow, 'at' | 'about' | 'now'>, timeZone: string): string {
