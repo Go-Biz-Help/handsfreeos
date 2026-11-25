@@ -46,7 +46,6 @@ import { LIKE_POSTS_READ, likedText, neverLike } from '@hfos/core/addons/outreac
 import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { chatUrlOn } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
-import type { TodayKind } from '@hfos/core/addons/outreach/today';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import type { ProblemHelper } from '@hfos/core/problem-report';
 import { haltAsk } from '../asks/run';
@@ -133,50 +132,36 @@ import {
   workLeft,
   X_STATE_KEY,
   type AutoState,
-  type DailyJob,
   type DoneKind,
   type NetworkDay,
-  type OwnDailyJob,
   type Work,
 } from './plan';
 import { clearRetried, handsOver, retryAfterUpdate } from './retry';
 import { askInLine, inTurn } from './turns';
 
-/**
- * The kinds it does on its own there, in order (its kit's `runs.auto`): comments, and answers to replies, go through
- * `sends` (./comments.ts), and so do Threads' messages (decision 167).
- */
-export const FOLLOW_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
+import {
+  FOLLOW_AUTO,
+  FOLLOW_DAILY,
+  FOLLOW_DAILY_NAMES,
+  FOLLOW_FINDING,
+  FOLLOW_GAP_MS,
+  followDailyOn,
+  type FollowDaily,
+} from '@hfos/core/addons/outreach/runners';
 
-/**
- * The once-a-day jobs there, in order: the newest followers (`requests`: who followed back is who accepted), who
- * followed back seen on their own profiles, unfollowing who didn't as the person chose (`tidy`), the person's chats
- * read for the AI where it writes in them (Threads', decision 167), who replied to good posts, the people found
- * checked for good fits, from 0.144.0 HandsFreeOS's own comment research for whoever of its staff started one
- * (`comment_research`, decision 172), and their own profile on the 1st of the month. Its search isn't one: it goes
- * every hour (`searchDue`).
- */
-export const FOLLOW_DAILY = [
-  'requests',
-  'follow_backs',
-  'tidy',
-  'chats',
-  'post_people',
-  'found_checks',
-  'comment_research',
-  'profile',
-] as const satisfies readonly (DailyJob | OwnDailyJob)[];
-export type FollowDaily = (typeof FOLLOW_DAILY)[number];
+// What it does on its own there, its once-a-day jobs in order, their names and its pace are HandsFreeOS's from 0.155.0
+// (packages/core/src/addons/outreach/runners.ts, decision 195), so the app plans the same day. Its search isn't a
+// once-a-day job: it goes every hour (`searchDue`).
+export {
+  FOLLOW_AUTO,
+  FOLLOW_DAILY,
+  FOLLOW_FINDING,
+  FOLLOW_GAP_MS,
+  followDailyOn,
+  type FollowDaily,
+};
+const DAILY_NAMES = FOLLOW_DAILY_NAMES;
 
-/** Its once-a-day jobs on a network: its chats only where it writes in them (Threads', decision 167). */
-export const followDailyOn = (platform: FollowPlatform): readonly FollowDaily[] =>
-  FOLLOW_DAILY.filter((job) => job !== 'chats' || NETWORKS[platform].messages);
-
-/** Its jobs that find people, done again in a round while it needs more good fits (decision 126). */
-export const FOLLOW_FINDING: readonly FollowDaily[] = ['post_people', 'found_checks'];
-
-/** Its pace between steps: as Instagram's, as both networks limit accounts that go fast. */
-export const FOLLOW_GAP_MS = { least: 3 * 60_000, most: 8 * 60_000 } as const;
 /** While the network draws what a press opened. */
 const SETTLE_MS = 2_000;
 /** After something went wrong, or the network asked them to sign in, it tries again this much later. */
@@ -200,17 +185,6 @@ const DAILY_DOING = (name: string): Readonly<Record<FollowDaily, string>> => ({
   comment_research: `Reading replies under posts on ${name} for HandsFreeOS’s comment research…`,
   profile: `Reading your ${name} profile, as it does on the 1st of each month…`,
 });
-const DAILY_NAMES: Readonly<Record<FollowDaily, string>> = {
-  requests: 'Your newest followers',
-  follow_backs: 'Who followed you back',
-  tidy: 'Tidy up',
-  chats: 'Read my chats',
-  post_people: 'Who replied to good posts',
-  found_checks: 'Check the people found',
-  comment_research: 'Comment research',
-  profile: 'Read my profile',
-};
-
 /** The once-a-day job to do next on a network: the first not done today. */
 export const nextFollowDaily = (
   platform: FollowPlatform,

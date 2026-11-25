@@ -150,64 +150,32 @@ import {
   workKey,
   workLeft,
   type AutoState,
-  type DailyJob,
   type DoneKind,
   type NetworkDay,
-  type OwnDailyJob,
   type Work,
   listSays,
   retryWake,
 } from './plan';
 import { helpAfter, stepHelp } from './helper';
 import { askInLine, inTurn } from './turns';
+import {
+  ALIGNABLE_AUTO,
+  ALIGNABLE_DAILY,
+  ALIGNABLE_DAILY_NAMES,
+  ALIGNABLE_FINDING,
+  ALIGNABLE_GAP_MS,
+  type AlignableDaily,
+} from '@hfos/core/addons/outreach/runners';
 
 const PLATFORM: Platform = 'alignable';
 const NAME = NETWORKS.alignable.name;
 
 export const ALIGNABLE_ALARM = 'hfos-auto-alignable';
 
-/**
- * The kinds it does on its own on Alignable, in order (its kit's `runs.auto`): comments and forum answers go through
- * `sends`, as messages do (./comments.ts). From 0.118.0 the requests they got that HandsFreeOS says to accept, as they
- * pressed or the AI said (decision 136), are accepted on My Network's Requests (../jobs/alignable/answer.ts).
- */
-export const ALIGNABLE_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'friend_request'];
-/**
- * The once-a-day jobs on Alignable, in order, as Instagram's: the requests, the connections checked, their chats
- * (0.84.0), Find partners, their town's posts, and who engaged with them, from their notifications (`helpful`: who
- * engaged, here with no helpful post of their own). From 0.95.0 (decision 92) the person's own groups go first
- * (`my_groups`), before any search or join; after the town's posts, the search for businesses like their clients
- * (`search`), the groups found and checked, joined, their members read and their posts (`group_checks`, `join`,
- * `members`, `group_posts`); and the businesses found by topic are checked last (`found_checks`). From 0.97.0 old
- * connection requests are withdrawn after the new ones are checked, as the person chose (`tidy`, decision 98). From
- * 0.101.0 the week's helpful post is asked for after who engaged (`weekly_post`, decision 109), and from 0.104.0 the
- * events near them are read once a week before the businesses found are checked (`events`, decision 112). From
- * 0.108.0 who liked and answered the good posts found is read after the groups' posts (`post_people`, decision 116).
- * From 0.144.0 HandsFreeOS's own comment research before the profile (`comment_research`, decision 172), only for
- * whoever of its staff started one.
- */
-export const ALIGNABLE_DAILY = [
-  'my_groups',
-  'requests',
-  'tidy',
-  'checks',
-  'chats',
-  'partners',
-  'posts',
-  'search',
-  'group_checks',
-  'join',
-  'members',
-  'group_posts',
-  'post_people',
-  'helpful',
-  'weekly_post',
-  'events',
-  'found_checks',
-  'comment_research',
-  'profile',
-] as const satisfies readonly (DailyJob | OwnDailyJob)[];
-type AlignableDaily = (typeof ALIGNABLE_DAILY)[number];
+// What it does on its own on Alignable, its once-a-day jobs in order, their names and its pace are HandsFreeOS's from
+// 0.155.0 (packages/core/src/addons/outreach/runners.ts, decision 195), so the app plans the same day.
+export { ALIGNABLE_AUTO, ALIGNABLE_DAILY, ALIGNABLE_FINDING, ALIGNABLE_GAP_MS };
+const DAILY_NAMES = ALIGNABLE_DAILY_NAMES;
 
 const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
   my_groups: 'Reading your groups on Alignable…',
@@ -230,30 +198,6 @@ const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
   comment_research: 'Reading answers under posts on Alignable for HandsFreeOS’s comment research…',
   profile: 'Reading your Alignable profile, as it does on the 1st of each month…',
 };
-const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
-  my_groups: 'Your groups',
-  requests: 'Connection requests',
-  tidy: 'Tidy up',
-  checks: 'Check my connections',
-  chats: 'Read my chats',
-  partners: 'Find partners',
-  posts: 'Find posts in your town',
-  search: 'Search for businesses',
-  group_checks: 'Check groups',
-  join: 'Join groups',
-  members: 'Group members',
-  group_posts: 'Posts in your groups',
-  post_people: 'Who liked and answered',
-  helpful: 'Who engaged with you',
-  weekly_post: 'This week’s helpful post',
-  events: 'Events near you',
-  found_checks: 'Check the businesses found',
-  comment_research: 'Comment research',
-  profile: 'Read my profile',
-};
-
-/** Alignable's pace between steps: LinkedIn's, a person's (the plan's "The risk, said plainly"). */
-export const ALIGNABLE_GAP_MS = { least: 2 * 60_000, most: 6 * 60_000 } as const;
 /** While Alignable draws what a press opened. */
 const SETTLE_MS = 2_000;
 /** After something went wrong, or Alignable asked them to sign in, it tries again this much later. */
@@ -1245,19 +1189,6 @@ export const nextAlignableDaily = (
     (job) =>
       state.daily?.[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now),
   ) ?? null;
-
-/**
- * Alignable's jobs that find people, done again in a round while it needs more good fits (decision 126, plan.ts
- * `nextRound`): its search with the next kinds of business, groups and their members, who commented on good posts, and their checks.
- */
-export const ALIGNABLE_FINDING: readonly AlignableDaily[] = [
-  'search',
-  'group_checks',
-  'join',
-  'members',
-  'post_people',
-  'found_checks',
-];
 
 /**
  * A job that says what it couldn't find with the page's outline (decision 74): the jobs from 0.95.0, whose pages are

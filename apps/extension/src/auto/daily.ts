@@ -69,25 +69,11 @@ export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
   profile: 'Reading your profile, as it does on the 1st of each month…',
 };
 
-/** The job's name, for the panel's list of what it did today. */
-export const DAILY_NAMES: Readonly<Record<DailyJob, string>> = {
-  requests: 'Friend requests',
-  tidy: 'Tidy up',
-  occasions: 'Birthdays',
-  group_checks: 'Check my groups',
-  join: 'Join groups',
-  members: 'Group members',
-  posts: 'Find posts',
-  active: 'Active in your groups',
-  chats: 'Read my chats',
-  events: 'Events near you',
-  followers: 'Your followers',
-  checks: 'Check my friends',
-  partners: 'Find partners',
-  helpful: 'Helpful posts',
-  comment_research: 'Comment research',
-  profile: 'Read my profile',
-};
+/**
+ * The job's name, for the panel's list of what it did today: HandsFreeOS's from 0.155.0
+ * (packages/core/src/addons/outreach/runners.ts, decision 195), as the plan on Today names them too.
+ */
+export { DAILY_NAMES } from '@hfos/core/addons/outreach/runners';
 
 /**
  * Find posts' sends, each post once a run: also for Find posts asked from HandsFreeOS (../asks/run.ts), and the look
