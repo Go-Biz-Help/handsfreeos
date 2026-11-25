@@ -35,7 +35,8 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
    connection, a runner goes on as it does today until it's back.
 3. **Buttons on the plan** (built, no new extension build): do now, skip today, move to a time, and put back. One
    command (`outreach.plan.change`), so the Assistant can do it too.
-4. **The Assistant changes the plan,** on Confirm cards where a change asks first (decision of 26 Oct 2026).
+4. **The Assistant changes the plan** (built, with step 3), on a Confirm card that names the step and the network
+   (decision of 26 Oct 2026).
 5. **Clean-up.** The extension's own planning goes: its day's state is HandsFreeOS's, and `src/auto/plan.ts` keeps
    only what the pages need.
 
@@ -229,6 +230,26 @@ the Assistant change it, and the extension does what it's sent. Decision 195 in 
 - **Tested** in core without a database (`outreach-plan-changes.test.ts`, 30 tests; 16 of the rules broken on
   purpose, each failing a test) and with one (`outreach-plan-ops.test.ts`, `outreach-plan-change-list.test.ts`,
   `outreach-own-rows.test.ts`), and on the phone (`plan.test.tsx`).
+
+## Step 4, as built
+
+Step 3's command already gave the Assistant the change (`outreach_change_plan`) and step 1 the plan to read
+(`outreach_plan`, each row with its `key` and `can`). What step 4 adds is the card, so the two go out together.
+
+- **It asks first, always** (`autonomy: 'confirm'`, though the command's risk would let it run): a person pressing a
+  row sees the row, and one asking in words should see which row was understood before it changes.
+- **The card names the step and the network** (`planChangeCard` in `plan-changes.ts`, the command's `ai.card`): the
+  row's words from the change tried and rolled back (its rehearsal), the network's name, a move's time as the
+  business's clock reads it, then what happens and when it takes hold. Never the row's key. Words too long for the
+  title are cut there and given whole on a line. Put back asked of a row with no change on it says nothing changes.
+- **A refusal comes before any card:** the rehearsal runs the command's own rules, so a row that's gone, a time
+  that's past, or Do now where HandsFreeOS doesn't decide is said in the same words the buttons get.
+- **After Confirm** the card ends with what the button's toast says (`ai.outcome`, the command's `words`).
+- **It can do what the screen can, and no more:** the plan it reads is the screens' own (`outreach.plan`: 40 rows at
+  most, each with the `can` the menus are drawn from). A very long answer is cut to the first rows that fit, like any
+  add-on's (`fittedAnswer` in the worker's `assistant/tools-addons.ts`).
+- **Tested** in `outreach-plan-changes.test.ts` (6 more tests: each change's title, the time's words, a long row, Put
+  back with nothing to put back, and that the key never shows).
 
 ## Rules for the steps after
 

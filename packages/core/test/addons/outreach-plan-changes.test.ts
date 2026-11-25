@@ -24,6 +24,7 @@ import {
   jobChangeKey,
   listWithoutOut,
   PLAN_CHANGE_UI,
+  planChangeCard,
   PlanChangeInput,
   planMoveStart,
   planMoveTimes,
@@ -541,5 +542,77 @@ describe('a change, as it’s asked', () => {
   it('knows the first build that asks on every network', () => {
     for (const platform of PLATFORM_KEYS) expect(ASKS_SINCE[platform]).toMatch(/^0\.1\d\d\.0$/);
     expect(ASKS_SINCE.threads).toBe(NEXT_SINCE);
+  });
+});
+
+describe('the Assistant’s card for a change (step 4)', () => {
+  const ws = '00000000-0000-4000-8000-000000000001';
+  const key = 'work:request:11111111-1111-4111-8111-111111111111';
+  const row = 'Send a friend request (Dana Reyes)';
+  const answer = (change: 'now' | 'skip' | 'at' | 'back', title = row) => ({
+    key,
+    change,
+    at: change === 'at' ? at(NOW + 5 * 60 * MIN) : null,
+    title,
+    words: 'Done.',
+  });
+  const asked = (more: Record<string, unknown> = {}) => ({ workspaceId: ws, key, ...more });
+  const happens = (card: ReturnType<typeof planChangeCard>) =>
+    card?.lines.find((l) => l.label === 'What happens')?.value;
+
+  it('names the row and the network, and says what happens, for each change', () => {
+    const skip = planChangeCard(answer('skip'), asked({ change: 'skip', platform: 'linkedin' }));
+    expect(skip?.title).toBe('Skip “Send a friend request (Dana Reyes)” on LinkedIn today?');
+    expect(happens(skip)).toContain('back on tomorrow’s plan');
+
+    const now = planChangeCard(answer('now'), asked({ change: 'now', platform: 'x' }));
+    expect(now?.title).toBe('Do “Send a friend request (Dana Reyes)” next on X?');
+    expect(happens(now)).toContain('Every limit and wait stays');
+
+    const back = planChangeCard(answer('back'), asked({ change: 'back', platform: 'instagram' }));
+    expect(back?.title).toBe(
+      'Put “Send a friend request (Dana Reyes)” back on today’s Instagram plan?',
+    );
+    for (const card of [skip, now, back])
+      expect(card?.lines.map((l) => l.label)).toEqual(['What happens', 'When']);
+  });
+
+  it('says a move’s time as the business’s clock reads it, on Facebook when no network is given', () => {
+    const move = planChangeCard(answer('at'), asked({ change: 'at', time: '15:30' }));
+    expect(move?.title).toBe('Move “Send a friend request (Dana Reyes)” on Facebook to 3:30 PM?');
+    expect(happens(move)).toContain('It waits until then');
+    const noon = planChangeCard(answer('at'), asked({ change: 'at', time: '12:05' }));
+    expect(noon?.title).toContain('to 12:05 PM?');
+    const early = planChangeCard(answer('at'), asked({ change: 'at', time: '00:30' }));
+    expect(early?.title).toContain('to 12:30 AM?');
+  });
+
+  it('never shows the row’s key', () => {
+    for (const change of ['now', 'skip', 'at', 'back'] as const) {
+      const card = planChangeCard(answer(change), asked({ change, time: '15:30' }));
+      expect(JSON.stringify(card), change).not.toContain('work:');
+    }
+  });
+
+  it('keeps the question whole when the row’s words run long, with all of them on a line', () => {
+    const long = `Write a first message for ${'Bartholomew '.repeat(8)}Reyes`;
+    const card = planChangeCard(answer('skip', long), asked({ change: 'skip' }));
+    expect(card?.title.length).toBeLessThanOrEqual(120);
+    expect(card?.title).toMatch(/…” on Facebook today\?$/);
+    expect(card?.lines[0]).toEqual({ label: 'On the plan', value: long });
+  });
+
+  it('says nothing changes for Put back with no change on the row', () => {
+    const card = planChangeCard(answer('back', ''), asked({ change: 'back', platform: 'threads' }));
+    expect(card?.title).toBe('Put it back on today’s Threads plan?');
+    expect(happens(card)).toContain('nothing changes');
+  });
+
+  it('leaves the card to the Assistant’s own lines when the answer isn’t a change’s', () => {
+    expect(planChangeCard(null, asked({ change: 'skip' }))).toBeNull();
+    expect(planChangeCard({ kept: true }, asked({ change: 'skip' }))).toBeNull();
+    expect(planChangeCard(answer('skip', '  '), asked({ change: 'skip' }))).toBeNull();
+    // A network it doesn't know reads as Facebook's, as the change itself would.
+    expect(planChangeCard(answer('skip'), { platform: 'myspace' })?.title).toContain('on Facebook');
   });
 });

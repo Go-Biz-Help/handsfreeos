@@ -27,7 +27,7 @@
  */
 import { z } from 'zod';
 import { clockWords } from './live';
-import { PLATFORM_KEYS } from './networks';
+import { NETWORKS, PLATFORM_KEYS } from './networks';
 import { itemKey, workKey, type PlanItem, type Work } from './plan-rules';
 
 /** What a row of the Plan can be told, with each button's words. */
@@ -126,6 +126,12 @@ function localAt(at: string | Date | number, timeZone: string): { day: string; m
 const asClock = (minutes: number): string =>
   `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 
+/** Minutes into the day in words: 930 is "3:30 PM". */
+const clockLabel = (minutes: number): string => {
+  const hour = Math.floor(minutes / 60);
+  return `${hour % 12 || 12}:${String(minutes % 60).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`;
+};
+
 /** The day's last minute: a move can't be to tomorrow. */
 const LAST_MINUTE = 23 * 60 + 59;
 
@@ -156,13 +162,81 @@ export function planMoveTimes(
   const last = end !== null && end.day === from.day ? end.minutes : LAST_MINUTE + 1;
   const times: { time: string; label: string }[] = [];
   for (let at = moveStart(from.minutes); at < last; at += 30) {
-    const hour = Math.floor(at / 60);
-    times.push({
-      time: asClock(at),
-      label: `${hour % 12 || 12}:${String(at % 60).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`,
-    });
+    times.push({ time: asClock(at), label: clockLabel(at) });
   }
   return times;
+}
+
+/** The longest a row's words run in a card's title, so the question it ends on is never cut off. */
+const CARD_ROW_MOST = 70;
+
+/** What each change does, as the Assistant's card says it before the person presses Confirm. */
+const CARD_WORDS = {
+  now: {
+    title: (row: string, on: string) => `Do “${row}” next on ${on}?`,
+    happens:
+      'It’s the next thing your computer does there, after what it’s doing now and anything you asked it for. Every limit and wait stays.',
+  },
+  skip: {
+    title: (row: string, on: string) => `Skip “${row}” on ${on} today?`,
+    happens: 'It’s left out for the rest of today. It’s back on tomorrow’s plan if it’s still due.',
+  },
+  at: {
+    title: (row: string, on: string, time: string) => `Move “${row}” on ${on} to ${time}?`,
+    happens: 'It waits until then. Every limit and wait stays.',
+  },
+  back: {
+    title: (row: string, on: string) => `Put “${row}” back on today’s ${on} plan?`,
+    happens: 'It goes back to its own place in today’s plan.',
+  },
+  /** Put back asked of a row with no change on it. */
+  nothing: {
+    title: (on: string) => `Put it back on today’s ${on} plan?`,
+    happens: 'It isn’t skipped or moved right now, so nothing changes.',
+  },
+  when: 'The next time your computer looks at its plan, usually within minutes.',
+} as const;
+
+/**
+ * The Assistant's card for a change to the plan (the operation's `ai.card`; decision 195, step 4): the row by what it
+ * says and the network by name in the title, then what will happen, in place of the row's key. `output` is what the
+ * change answered when it was tried and rolled back, `input` what it was given.
+ */
+export function planChangeCard(
+  output: unknown,
+  input: unknown,
+): { title: string; lines: { label: string; value: string }[] } | null {
+  const answered = PlanChangeOutput.safeParse(output);
+  if (!answered.success) return null;
+  const given = PlanChangeInput.pick({ platform: true, time: true }).safeParse(input);
+  const on = NETWORKS[given.success ? given.data.platform : 'facebook'].name;
+  const { change, title: said } = answered.data;
+  const whole = said.trim();
+  const row =
+    whole.length > CARD_ROW_MOST ? `${whole.slice(0, CARD_ROW_MOST - 1).trimEnd()}…` : whole;
+  if (!row) {
+    // Only Put back answers without the row's words: there was no change on it to take off.
+    if (change !== 'back') return null;
+    return {
+      title: CARD_WORDS.nothing.title(on),
+      lines: [{ label: 'What happens', value: CARD_WORDS.nothing.happens }],
+    };
+  }
+  const time = given.success && given.data.time ? given.data.time : null;
+  const [hour, minute] = (time ?? '').split(':').map(Number);
+  const title =
+    change === 'at'
+      ? CARD_WORDS.at.title(row, on, time ? clockLabel(hour! * 60 + minute!) : 'a time today')
+      : CARD_WORDS[change].title(row, on);
+  return {
+    title,
+    lines: [
+      // The row's words whole, when the title had to cut them.
+      ...(row === whole ? [] : [{ label: 'On the plan', value: whole }]),
+      { label: 'What happens', value: CARD_WORDS[change].happens },
+      { label: 'When', value: CARD_WORDS.when },
+    ],
+  };
 }
 
 /** A change kept for today. Times are on HandsFreeOS's clock, in milliseconds. */

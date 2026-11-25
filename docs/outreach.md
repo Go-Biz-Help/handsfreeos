@@ -5345,7 +5345,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
          time, the smallest first and Facebook last. Threads and X are built (extension 0.156.0), then Alignable
          (0.157.0), Instagram (0.158.0), LinkedIn (0.159.0) and Facebook (0.160.0), all below.
       3. **Buttons on the plan:** do now, skip today, move to a time (built below).
-      4. **The Assistant changes the plan,** as it already reads it.
+      4. **The Assistant changes the plan,** as it already reads it (built below, with step 3).
       5. **Clean-up:** the extension's own planning goes.
 
       Every safety limit stays the same through all of it: one page at a time, the warm-up, never a message to someone
@@ -5517,6 +5517,20 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **The Assistant can press them** (`outreach_change_plan`, asking first on a card): the plan it reads gives
         each row's key and what it can be told.
       - A migration (`20261027036900_outreach_plan_changes.sql`), which only adds a table.
+
+      **Step 4, the Assistant changes the plan.** Asked to skip a step, do one next, move one or put one back, the
+      Assistant reads the plan (`outreach_plan`) for the row's key and what it can be told, and asks for the change
+      (`outreach_change_plan`). It can tell a row what its menu can, and nothing more.
+      - **It always asks first, on a card** (decision of 26 Oct 2026), though the buttons act at once: a person
+        pressing a row sees the row, and one asking in words should see which row was understood.
+      - **The card names the step and the network, never the row's key** (`planChangeCard` in `plan-changes.ts`, the
+        command's `ai.card`): "Skip “Send a friend request (Dana Reyes)” on LinkedIn today?", "Move “…” on Facebook
+        to 3:30 PM?", then what happens and when it takes hold. The row's words come from the change tried and rolled
+        back, so they're the plan's own.
+      - **A change that would be refused is said before any card,** with the same words the buttons get: the change is
+        tried first and rolled back.
+      - **After Confirm it says what the button's toast says** ("Skipped for today.", "Moved to about 3:30 PM.").
+      - No new command, no migration and no new extension build.
 
 196.  **Comments and messages, a part each on Needs you** (Chris, 25 Nov 2026: "separate comments and messages into
       different menued pages", with a picture of one "Messages 85" part holding both). Needs you's row has

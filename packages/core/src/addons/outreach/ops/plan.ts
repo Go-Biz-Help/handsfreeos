@@ -45,6 +45,7 @@ import {
   PLAN_CHANGE_TITLE_MOST,
   PLAN_CHANGE_UI,
   PLAN_CHANGES_MOST,
+  planChangeCard,
   PlanChangeInput,
   PlanChangeOutput,
   workChangeKey,
@@ -287,6 +288,7 @@ export const planChange = defineAddonCommand(outreachAddon, {
             : 'Put it back on today’s plan';
     },
     outcome: (output) => ({ words: (output as { words: string }).words }),
+    card: planChangeCard,
   },
   scope: inWorkspace,
   emits: ['outreach.plan.changed'],
