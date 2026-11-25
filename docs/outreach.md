@@ -5341,7 +5341,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       1. **See the plan in the app** (extension 0.155.0, built below).
       2. **The app decides, the extension does:** the extension asks HandsFreeOS for its next move, one network at a
          time, the smallest first and Facebook last. Threads and X are built (extension 0.156.0), then Alignable
-         (0.157.0), both below.
+         (0.157.0) and Instagram (0.158.0), all below.
       3. **Buttons on the plan:** do now, skip today, move to a time.
       4. **The Assistant changes the plan,** as it already reads it.
       5. **Clean-up:** the extension's own planning goes.
@@ -5416,6 +5416,22 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         nothing left, only Facebook looks again the moment its hours end: every other network looks within the hour,
         and finds the hours over then. Neither changes what Threads, X or Facebook do.
       - **Compared, not assumed** (`apps/extension/test/alignable-plan-next.test.ts`): 23 situations of a day, each
+        gone once as HandsFreeOS decides and once as the runner plans by itself, and the two must come to the same
+        read, page, words, state and next time.
+      - No migration, and nothing a person sees changes.
+
+      **Step 2, Instagram** (extension 0.158.0). Instagram's runner asks and does the move it's sent, the same way
+      (`go` and `asTold` in `src/auto/instagram.ts`). Built, and **switched off** like the others.
+      - **Its own checks stay first and unchanged,** in its hours and outside them. Then it asks, and does a step
+        before its day, a once-a-day read, a wait, or the piece of its list's work HandsFreeOS picked: the same pages,
+        pace and limits. By itself whenever it must, as above.
+      - **Nobody new is messaged** (decision 159 stays as it is). The piece of work HandsFreeOS picks is found on the
+        same list for today, which holds a first message only for someone who follows the person, and it's sent by
+        the same code with the same checks. Picking the order adds nobody to the list.
+      - **Their followers are saved only while they're away,** as on Threads and X (`savesAway` is true for
+        Instagram too): a first day waits for it, a later save is left till then, and the runner turns down a save
+        sent while they're at their computer.
+      - **Compared, not assumed** (`apps/extension/test/instagram-plan-next.test.ts`): 26 situations of a day, each
         gone once as HandsFreeOS decides and once as the runner plans by itself, and the two must come to the same
         read, page, words, state and next time.
       - No migration, and nothing a person sees changes.

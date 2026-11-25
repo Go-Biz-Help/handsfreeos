@@ -323,8 +323,8 @@ export interface RunnerKit {
   /**
    * A save of the person's lists is never begun while they're at their computer, as it reads with its window on
    * screen (decision 120): a first day's waits till they're away, and a later one is left till then while the rest
-   * of the day goes on. Threads and X. Anywhere else the save is tried whenever it's due, and puts itself off when
-   * its page needs the screen.
+   * of the day goes on. Instagram, Threads and X, whose followers' box reads on screen. Anywhere else the save is
+   * tried whenever it's due, and puts itself off when its page needs the screen.
    */
   readonly savesAway: boolean;
 }
@@ -381,7 +381,7 @@ export const RUNNERS: Readonly<Record<Platform, RunnerKit>> = {
     watches: false,
     searches: false,
     posts: false,
-    savesAway: false,
+    savesAway: true,
   },
   alignable: {
     auto: ALIGNABLE_AUTO,

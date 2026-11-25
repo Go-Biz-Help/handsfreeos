@@ -9,8 +9,9 @@
  *   last. For any other, and for a computer that isn't the one that works, the answer is `decides: false`, and the
  *   runner goes on by itself, as it does when HandsFreeOS can't be reached: by the same rules, with what it knows.
  * - **Switched on apart from the build.** A runner that asks (Threads' and X's from `NEXT_SINCE`, Alignable's from
- *   0.157.0) is answered `decides: false` until its network is in `PLAN_DECIDES`: the build goes out first, and a
- *   day's plan is checked against what a working computer really did before HandsFreeOS decides there.
+ *   0.157.0, Instagram's from 0.158.0) is answered `decides: false` until its network is in `PLAN_DECIDES`: the
+ *   build goes out first, and a day's plan is checked against what a working computer really did before HandsFreeOS
+ *   decides there.
  * - **Its own clock.** A runner's times are on its computer's clock. HandsFreeOS works the move out on its own
  *   (`now` says how far apart the two are) and sends each time back on the runner's.
  * - **A piece of the list's work** comes with today's list, as `outreach.today` gives it, so the runner asks once.
@@ -28,15 +29,16 @@ import { TodayOutput } from './today';
  * The networks HandsFreeOS decides for: their runner asks for its next move and does it. Taken off here, a runner
  * plans for itself at its next go.
  *
- * None yet. Threads' and X's runners ask from `NEXT_SINCE`, and Alignable's from 0.157.0. Each waits to be put here:
- * once the plan HandsFreeOS shows (step 1) has been checked against what a working computer really did over a day.
+ * None yet. Threads' and X's runners ask from `NEXT_SINCE`, Alignable's from 0.157.0, and Instagram's from 0.158.0.
+ * Each waits to be put here: once the plan HandsFreeOS shows (step 1) has been checked against what a working
+ * computer really did over a day.
  */
 export const PLAN_DECIDES: readonly Platform[] = [];
 
 /**
  * The first build with a runner that asks and does what it's sent (Threads' and X's): an older one isn't answered.
- * A network whose runner began asking later (Alignable's, 0.157.0) needs no gate of its own: an older build's runner
- * there never asks.
+ * A network whose runner began asking later (Alignable's, 0.157.0; Instagram's, 0.158.0) needs no gate of its own:
+ * an older build's runner there never asks.
  */
 export const NEXT_SINCE = '0.156.0';
 

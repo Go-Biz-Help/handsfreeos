@@ -339,9 +339,25 @@ describe('a runner’s own ask for its next move (decision 195, step 2)', () => 
     expect(listOnly).toMatchObject({ do: 'work', reading: false, answering: false });
   });
 
-  it('holds a save for the screen only on Threads and X: elsewhere it’s tried when due, and puts itself off', () => {
+  it('holds a save for the screen where followers are saved: elsewhere it’s tried when due, and puts itself off', () => {
     const held = Object.entries(RUNNERS).filter(([, kit]) => kit.savesAway);
-    expect(held.map(([platform]) => platform)).toEqual(['threads', 'x']);
+    expect(held.map(([platform]) => platform)).toEqual(['instagram', 'threads', 'x']);
+    // Instagram's first day waits for the person to be away, as its runner does, and a later save is left till then.
+    const onInstagram = (lists: ListsSaved) => facts({ platform: 'instagram', lists });
+    expect(nextMove(onInstagram(NO_LISTS), fresh(), 0.5, HERE).move).toEqual({
+      do: 'wait',
+      why: 'screen',
+      until: NOW + 10 * MIN,
+    });
+    const followersDue = onInstagram({ ...SAVED, friendsAt: at(NOW - 8 * DAY) });
+    expect(nextMove(followersDue, fresh(), 0.5, HERE).move).toMatchObject({
+      do: 'daily',
+      job: 'requests',
+    });
+    expect(nextMove(followersDue, fresh(), 0.5, { away: true, passOver: [] }).move).toMatchObject({
+      do: 'before',
+      step: { do: 'save', list: 'friends', first: false },
+    });
     // Alignable's first day, with the person at their computer: the save is sent, as its own runner tries it.
     const onAlignable = (lists: ListsSaved) => facts({ platform: 'alignable', lists });
     expect(nextMove(onAlignable(NO_LISTS), fresh(), 0.5, HERE).move).toMatchObject({
@@ -498,8 +514,8 @@ describe('the move as it’s sent to a runner (decision 195, step 2)', () => {
   const SKEW = 10 * MIN;
 
   it('is switched on for no network yet, and answers only a build that asks', () => {
-    // Threads' and X's runners ask from 0.156.0, and Alignable's from 0.157.0. Each goes in here by itself, once a
-    // day's plan is checked against a real day.
+    // Threads' and X's runners ask from 0.156.0, Alignable's from 0.157.0, and Instagram's from 0.158.0. Each goes in
+    // here by itself, once a day's plan is checked against a real day.
     expect(PLAN_DECIDES).toEqual([]);
     expect(NEXT_SINCE).toBe('0.156.0');
   });

@@ -1307,6 +1307,37 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Instagram asks HandsFreeOS what to do next (0.158.0)
+
+Step 2 of decision 195 (`docs/outreach.md`) for the next network: Instagram's runner asks as Alignable's (0.157.0) and
+Threads' and X's (0.156.0) do, below, and does the move it's sent. It's switched on in HandsFreeOS alone
+(`PLAN_DECIDES`), and isn't yet: until it is, the runner asks, is told to plan for itself, and does exactly what it did
+before.
+
+- **Its own checks come first, unchanged** (`go` in `src/auto/instagram.ts`): the computer that works, Instagram on
+  and allowed by Chrome, Sending not Off, no warning today, noting on, Stop for today not pressed, and nothing the
+  person asked in line. While one holds it, it never asks.
+- **Then it asks** (`planNext`), in its hours and outside them, with what only this computer knows: whether the
+  person is away, the reads put off till they are, and whether a comment research of theirs reads now.
+- **It does the move as it does its own** (`asTold`): a step before its day (`beforeGo`), a once-a-day read
+  (`dailyGo`), a wait with its own words (`waitAsTold`, `idleGo`), or the piece of its list's work HandsFreeOS picked,
+  from the list sent with the answer (`workNext`). The same pages, the same pace, and every limit, which HandsFreeOS
+  keeps. A wait that comes with a read is never shorter than Instagram's least.
+- **Who it may message is unchanged.** A piece of work is found on the same list for today (`outreach.today`), which
+  holds a first message only for someone who follows the person (decision 159), and it's sent by the same code, with
+  the same checks in their chat. HandsFreeOS picking the order adds nobody to that list.
+- **Saving their followers waits for them to be away,** as on Threads and X (`savesAway` in core's `runners.ts`,
+  true for Instagram): a first day waits with its own words (`wait: screen`), a later save is left till then while the
+  rest of the day goes on, and a save sent while they're at their computer is one this runner turns down (decision
+  120).
+- **It plans the go itself, as it always has,** whenever HandsFreeOS doesn't decide for it, doesn't answer in 15
+  seconds, can't be reached, or sends a move it can't do: a read or a list that isn't Instagram's, a piece of work
+  that isn't on its list, the hour's search or the newest posts.
+- **Tested both ways** (`test/instagram-plan-next.test.ts`): what a go does with each kind of move, the moves it
+  turns down, and 26 situations of a day where the go HandsFreeOS's rules decide is compared with the go the runner
+  plans by itself: what it read, the page it opened, what it said, what it kept, and when it goes next. Each compared
+  go is checked to have done the move it was sent, not turned it down.
+
 ### Alignable asks HandsFreeOS what to do next (0.157.0)
 
 Step 2 of decision 195 (`docs/outreach.md`) for the next network: Alignable's runner asks as Threads' and X's does
