@@ -35,6 +35,14 @@ export interface AskBody {
   readonly app?: 'phone';
   /** Changes on this phone, which never reached HandsFreeOS, so the Assistant can say what's stuck and why. */
   readonly deviceChanges?: AssistantDeviceChanges;
+  /** Pictures sent with it, shrunk to JPEGs (`takeAssistantPicture`). */
+  readonly pictures?: readonly AskPicture[];
+}
+
+/** A picture as a question carries it: base64 JPEG bytes, no `data:` prefix. */
+export interface AskPicture {
+  readonly data: string;
+  readonly mediaType: 'image/jpeg';
 }
 
 /** Where a card stands after Confirm, Cancel or Undo. */

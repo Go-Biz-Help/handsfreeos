@@ -15,6 +15,14 @@ export interface AskBody {
   readonly path?: string | null;
   /** Asked out loud: the answer is written to be heard. */
   readonly spoken?: boolean;
+  /** Pictures sent with it, shrunk to JPEGs (`shrinkPicture`). */
+  readonly pictures?: readonly AskPicture[];
+}
+
+/** A picture as a question carries it: base64 JPEG bytes, no `data:` prefix. */
+export interface AskPicture {
+  readonly data: string;
+  readonly mediaType: 'image/jpeg';
 }
 
 /** Where a card stands after Confirm, Cancel or Undo. */

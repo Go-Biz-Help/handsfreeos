@@ -83,6 +83,8 @@ export const assistantThreadGet = defineQuery({
         role: assistantMessages.role,
         text: assistantMessages.text,
         cards: assistantMessages.cards,
+        // How many pictures came with a question (the worker's startRun keeps the count, never the pictures).
+        pictures: dsql<number>`coalesce((${assistantMessages.context}->>'pictures')::int, 0)`,
         createdAt: assistantMessages.createdAt,
       })
       .from(assistantMessages)
@@ -124,6 +126,7 @@ export const assistantThreadGet = defineQuery({
         id: m.id,
         role: m.role,
         text: m.text,
+        pictures: Math.max(0, Number(m.pictures) || 0),
         // A card that no longer fits the schema is dropped rather than failing the whole chat.
         cards: m.cards.flatMap((c) => {
           const parsed = AssistantCard.safeParse(c);

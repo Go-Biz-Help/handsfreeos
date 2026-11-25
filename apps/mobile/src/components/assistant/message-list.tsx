@@ -1,8 +1,8 @@
 import { ASSISTANT_WORDS } from '@hfos/core';
 import * as React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Image, View } from 'react-native';
 
-import { Check, CircleAlert } from '@/components/icons';
+import { Check, CircleAlert, Image as ImageIcon } from '@/components/icons';
 import { BrandMark } from '@/components/shell/brand';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -128,9 +128,36 @@ export function MessageRow({
     return (
       <View className="items-end py-1.5" testID="assistant-question">
         <View className="max-w-[86%] rounded-[16px] rounded-br-[5px] bg-accent px-3.5 py-2.5">
-          <Text selectable className="text-[15px] leading-[21px] text-white">
-            {message.text}
-          </Text>
+          {message.previews?.length ? (
+            <View
+              className={cn('flex-row flex-wrap justify-end gap-1.5', !!message.text && 'mb-1.5')}
+            >
+              {message.previews.map((uri, i) => (
+                <Image
+                  key={i}
+                  source={{ uri }}
+                  accessibilityLabel={`Picture ${i + 1}`}
+                  className="size-28 rounded-[10px]"
+                  resizeMode="cover"
+                />
+              ))}
+            </View>
+          ) : message.pictures > 0 ? (
+            <View
+              className={cn('flex-row items-center gap-1.5', !!message.text && 'mb-1')}
+              testID="assistant-question-pictures"
+            >
+              <Icon as={ImageIcon} className="size-3.5 text-white/80" />
+              <Text className="text-xs text-white/80">
+                {ASSISTANT_WORDS.pictures.sent(message.pictures)}
+              </Text>
+            </View>
+          ) : null}
+          {message.text ? (
+            <Text selectable className="text-[15px] leading-[21px] text-white">
+              {message.text}
+            </Text>
+          ) : null}
         </View>
       </View>
     );

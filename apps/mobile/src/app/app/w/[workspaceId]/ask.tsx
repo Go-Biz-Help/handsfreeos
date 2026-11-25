@@ -1,4 +1,4 @@
-import { ASSISTANT_WORDS } from '@hfos/core';
+import { ASSISTANT_PICTURES_MAX, ASSISTANT_WORDS } from '@hfos/core';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { FlatList, Platform, Pressable, View } from 'react-native';
@@ -14,10 +14,12 @@ import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Icon } from '@/components/ui/icon';
+import { toast } from '@/components/ui/toast';
 import { setupIsOff, useAssistantChat, type ChatMessage } from '@/assistant/chat';
 import { deviceChangesOf } from '@/assistant/device-changes';
 import { answerWaiting } from '@/assistant/decide';
 import { pageRecordOf, screenPathOf } from '@/assistant/page-record';
+import { takeAssistantPictures, type DraftPicture } from '@/assistant/pictures';
 import { useAssistantVoice } from '@/assistant/voice';
 import { useChangeList } from '@/changes/hooks';
 import { useNetwork } from '@/lib/network';
@@ -47,6 +49,7 @@ export default function Ask() {
   );
   const voice = useAssistantVoice(chat, business.id);
   const [draft, setDraft] = React.useState('');
+  const [pictures, setPictures] = React.useState<readonly DraftPicture[]>([]);
   const [view, setView] = React.useState<'chat' | 'history'>('chat');
   const listRef = React.useRef<FlatList<ChatMessage>>(null);
 
@@ -56,10 +59,32 @@ export default function Ask() {
     else router.replace(businessHref(business.id));
   };
 
+  /** The picture button's sheet chose: taken or chosen, shrunk, and put in the box to go with the question. */
+  const pickPictures = async (source: 'camera' | 'library') => {
+    // An iPhone won't show the camera or the pictures over a sheet that is closing.
+    await new Promise((done) => setTimeout(done, 450));
+    const room = ASSISTANT_PICTURES_MAX - pictures.length;
+    if (room <= 0) return void toast.show(ASSISTANT_WORDS.pictures.tooMany(ASSISTANT_PICTURES_MAX));
+    const taken = await takeAssistantPictures(source, room);
+    if (taken.kind === 'no-camera-permission')
+      return void toast.error(
+        'Let HandsFreeOS use the camera in your phone’s Settings, then try again.',
+      );
+    if (taken.kind !== 'taken') return;
+    if (taken.unreadable) toast.error(ASSISTANT_WORDS.pictures.unreadable);
+    setPictures((all) => [...all, ...taken.pictures].slice(0, ASSISTANT_PICTURES_MAX));
+  };
+
   const send = () => {
-    if (!draft.trim()) return;
+    if (!draft.trim() && !pictures.length) return;
     const text = draft;
     setDraft('');
+    // With pictures it's a question about them (a form to build from a screenshot), never a yes or no to a card.
+    if (pictures.length) {
+      chat.ask(text, { pictures });
+      setPictures([]);
+      return;
+    }
     // A plain yes or no answers the cards waiting for an OK, as their buttons do; anything else is a question.
     void answerWaiting(chat, business.id, text).then((answered) => {
       if (answered === null) chat.ask(text);
@@ -110,6 +135,7 @@ export default function Ask() {
                 onPress={() => {
                   chat.newChat();
                   setDraft('');
+                  setPictures([]);
                 }}
               >
                 <Icon as={SquarePen} className="size-[21px] text-text-2" />
@@ -177,6 +203,9 @@ export default function Ask() {
               running={chat.running}
               off={off}
               voice={voice}
+              pictures={pictures}
+              onPickPictures={(source) => void pickPictures(source)}
+              onRemovePicture={(id) => setPictures((all) => all.filter((p) => p.id !== id))}
             />
           </View>
         )}
