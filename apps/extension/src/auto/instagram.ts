@@ -74,7 +74,7 @@ import { searchInstagram } from '../jobs/instagram/partner-search';
 import { lookForFollowBacks } from '../jobs/instagram/follow-backs';
 import { saveFollowers } from '../jobs/instagram/people';
 import { readLikeYours } from '../jobs/instagram/like-yours';
-import { NO_RESEARCH, researchRuns } from '../jobs/comment-research';
+import { lookForResearch, researchNext } from '../jobs/comment-research';
 import { readCommentsForResearch } from '../jobs/instagram/comment-research';
 import { readPostPeople } from '../jobs/instagram/post-people';
 import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
@@ -168,7 +168,8 @@ export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'
  * helpful post asked for after the warm leads (`weekly_post`, decision 109). From 0.102.0 accounts like the business's
  * after the hashtags (`like_yours`, decision 110): searched for, and one read, its posts and its followers. From
  * 0.140.0 HandsFreeOS's own comment research after the day's finding (`comment_research`, decision 166), in batches
- * through the day: only for whoever of HandsFreeOS's staff started one, and nothing for anyone else.
+ * through the day: only for whoever of HandsFreeOS's staff started one, and nothing for anyone else; from 0.154.0
+ * first whenever its batch is due, outside the working hours too (decision 194, `researchNext`).
  */
 export const INSTAGRAM_DAILY = [
   'requests',
@@ -1371,17 +1372,22 @@ async function go(): Promise<void> {
     random,
   });
   const tomorrow = () => nextStart(settings.hours, timezone, Date.now(), random);
+  const researchAsk = {
+    hfos: answer as Hfos,
+    businessId: to.businessId,
+    platform: PLATFORM,
+    setState,
+  } as const;
   if (!own.go) {
     await setState({ started: false, stopped: own.stopped });
     // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 133): never after
     // Stop for today or a warning, nor while noting's off or an ask of theirs is in line.
-    const answering =
+    const free =
       own.stopped === null &&
       !(await warnedNow(PLATFORM)) &&
       (await isNoting()) &&
-      !askInLine(PLATFORM)
-        ? await listNow(to.businessId, state.tried, state.replied)
-        : null;
+      !askInLine(PLATFORM);
+    const answering = free ? await listNow(to.businessId, state.tried, state.replied) : null;
     const answers = answering?.left.filter(answersAnyTime) ?? [];
     if (answers[0])
       return workNext(answers, answering!.list, {
@@ -1392,17 +1398,41 @@ async function go(): Promise<void> {
         reading: false,
         random,
       });
+    // A comment research this person started reads outside the hours too, as it only reads (decision 194): never
+    // after Stop for today or a warning, as nothing does.
+    const passOut = free && choices.collect ? putOff.passOver(await awayNow()) : [];
+    if (free && choices.collect) {
+      const research = await researchNext({ ...researchAsk, state, now: at, passOver: passOut });
+      state = research.state;
+      if (research.reads) {
+        const end = await inTurn(
+          'runner',
+          () => collect('comment_research', to.businessId),
+          PLATFORM,
+        );
+        const line = `${DAILY_NAMES.comment_research}: ${end.line}`;
+        if (end.warned) {
+          await closeWindow();
+          await say(end.line, { stopped: 'warning' });
+          return goAt(tomorrow());
+        }
+        await say(line);
+        if (end.away) putOff.off('comment_research');
+        else void feed(jobKind(end), `${NAME}: ${line}`);
+        return goAt(Date.now() + pickGap(random));
+      }
+    }
     await closeWindow();
     await say(networkWaitWords(NAME, own, settings.hours, timezone, at));
-    // The beat says when it's pressed (`days.instagram`), and wakes this before then; a reply waiting for an OK, or a message tried again, sooner.
-    return goAt(
-      lookOutsideAt(
-        !!answering && replyWaiting(answering.list),
-        at,
-        own.next,
-        answering ? retryWake(await stateNow(), at) : [],
-      ),
+    // The beat says when it's pressed (`days.instagram`), and wakes this before then; a reply waiting for an OK, or a message tried again, sooner; and the comment research’s next batch.
+    const latest = await stateNow();
+    const look = lookOutsideAt(
+      !!answering && replyWaiting(answering.list),
+      at,
+      own.next,
+      answering ? retryWake(latest, at) : [],
     );
+    return goAt(free && choices.collect ? lookForResearch(look, latest, at, passOut) : look);
   }
   if (own.started && !state.started) state = await setState({ started: true, stopped: null });
   if (state.stopped === 'warning' || (await warnedNow(PLATFORM))) {
@@ -1448,13 +1478,12 @@ async function go(): Promise<void> {
   const passOver = putOff.passOver(away);
   let daily = choices.collect ? nextInstagramDaily(state, passOver, at) : null;
   // HandsFreeOS's own comment research (decision 166) is only for whoever of its staff started one: asked without a
-  // word once its turn comes, and for anyone else it's done for the day before a line of it is ever shown.
-  if (
-    daily === 'comment_research' &&
-    !(await researchRuns(answer as Hfos, to.businessId, PLATFORM))
-  ) {
-    state = await setState({ daily: { ...state.daily, comment_research: NO_RESEARCH } });
-    daily = nextInstagramDaily(state, passOver, at);
+  // word, and for anyone else it's done for the day before a line of it is ever shown. While one runs, its batch goes
+  // first whenever it's due (decision 194).
+  if (choices.collect) {
+    const research = await researchNext({ ...researchAsk, state, now: at, passOver });
+    state = research.state;
+    daily = research.reads ? 'comment_research' : nextInstagramDaily(state, passOver, at);
   }
   // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
   // search words, and checks them.

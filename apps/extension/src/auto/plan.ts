@@ -61,7 +61,8 @@ export type DoneKind = AutoKind | 'drafted' | 'sent' | 'story_like';
  * decisions 166 and 172, ../jobs/comment-research.ts), on Instagram since 0.140.0: each network's runner asks first
  * and, for anyone else, it's done for the day before a line of it is shown. From 0.150.0 the events near the person on
  * Facebook, once a week before their followers and the day's checks (`events`, decision 188, ../jobs/events.ts), as
- * Alignable's runner reads its own.
+ * Alignable's runner reads its own. From 0.154.0 a comment research that runs goes first whenever its batch is due,
+ * outside the working hours too (decision 194, `researchNext`), whatever its place here.
  */
 export const DAILY_JOBS = [
   'requests',

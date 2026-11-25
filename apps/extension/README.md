@@ -1307,6 +1307,26 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### The comment research reads first, and outside your hours (0.154.0)
+
+The owner ran the research again on Facebook and LinkedIn at 4:36 PM on 24 Nov 2026, and by morning it had read
+nothing. It was the 15th of Facebook's 16 once-a-day jobs, and the runner had reached the 9th when the working hours
+ended at 6 PM; outside them nothing but replies goes. A research lasts 3 days, so a busy day could leave it unread.
+The owner, 24 Nov: "i just want the research to run now so it can finish". Decision 194 in `docs/outreach.md`.
+
+- **First while one runs** (`researchNext` in `src/jobs/comment-research.ts`, asked by every runner before the day's
+  other once-a-day jobs): whenever its batch is due, today's comment research goes before the rest. Each batch is a
+  couple of searches and a few posts on each, then it waits 35 to 60 minutes (`again`), and the other jobs and the
+  list take turns meanwhile, as before. A read put off till the person is away (Instagram's, decision 120) is passed
+  over as ever.
+- **Outside the working hours too**, as it only reads: on every network, at the same pace, once any reply that goes
+  any time has gone (decision 133). Never after Stop for today or a warning, while noting is off, or while an ask of
+  theirs is in line. The runner wakes for its next batch, or, once today's share is read, every hour
+  (`RESEARCH_LOOK_MS`, `lookForResearch`), so the next day's share starts soon after the day turns.
+- **Nobody else's day changes.** For anyone who didn't start one, the first look of the day asks HandsFreeOS once,
+  keeps that none runs, and says nothing, as before (`researchRuns`); it's only asked earlier in the day.
+- Nothing else goes outside the hours: no step, no first message, no other once-a-day job.
+
 ### The business's link as the first comment under its own post (0.153.0)
 
 AI Social Media Content Creator's "Your link" (`docs/socialcontent.md`; the owner, 24 Nov 2026): the business sets its
