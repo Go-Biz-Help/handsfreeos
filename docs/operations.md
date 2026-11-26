@@ -10178,7 +10178,7 @@ reminder set, there's no call either.
     landline, nobody answered, busy, a voicemail box, the balance, and the rest (core's `errand-calls.ts`). Once only:
     `ai_calls.reported_at`.
   - Kept on the call: `asked_by`, `thread_id` (the asker's own chat, checked by a trigger), `errand` (what to find
-    out, what it may say, the asker's first name) and `reported_at`. Needs `20261027036900_errand_calls.sql`.
+    out, what it may say, the asker's first name) and `reported_at`. Needs `20261027037000_errand_calls.sql`.
 
 Kept in `app.ai_calls` (one row per call: why, status, how it went, the summary) and `people.call_consent`; a call
 waiting for approval is an AI teammate draft of kind `call`. The worker's jobs are `ai_calls.consider`,

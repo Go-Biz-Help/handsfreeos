@@ -760,7 +760,7 @@ export const OUTBOUND_CALL_ONLY: ReadonlySet<TeammateToolName> = new Set([
 ]);
 
 /**
- * All a call for someone has (purpose `errand`, 20261027036900): it asks, listens and says goodbye. It never books,
+ * All a call for someone has (purpose `errand`, 20261027037000): it asks, listens and says goodbye. It never books,
  * quotes, looks a customer up or hands the call to the team: the person it's calling for isn't on the line.
  */
 export const ERRAND_CALL_TOOLS: ReadonlySet<TeammateToolName> = new Set([

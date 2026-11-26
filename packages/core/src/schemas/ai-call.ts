@@ -8,7 +8,7 @@ import { isoDateTime, uuid } from './common';
 
 /**
  * Why it calls. `workflow`: a workflow's "AI teammate calls them" step, with its own call playbook. `errand`: someone
- * asked the Assistant to have it call a supplier (or anyone in Contacts) with their questions (20261027036900).
+ * asked the Assistant to have it call a supplier (or anyone in Contacts) with their questions (20261027037000).
  */
 export const AI_CALL_PURPOSES = [
   'confirm_visit',

@@ -8656,7 +8656,7 @@ export const aiCalls = app.table('ai_calls', {
   tries: smallint('tries').notNull().default(0),
   /** A call to a lead: why it could go, `written` (a yes) or `business_landline` (AI calls, part 5). */
   consentBasis: text('consent_basis'),
-  /** A call for someone (purpose `errand`, 20261027036900): who asked, the chat it was asked in, and what to ask. */
+  /** A call for someone (purpose `errand`, 20261027037000): who asked, the chat it was asked in, and what to ask. */
   askedBy: userRef('asked_by'),
   threadId: uuid('thread_id').references(() => assistantThreads.id, { onDelete: 'set null' }),
   errand: jsonb('errand'),

@@ -88,7 +88,7 @@ export const AiCallAskErrandInput = z.object({
 export const AiCallAskErrandOutput = z.object({ aiCallId: uuid, to: z.string() });
 
 /**
- * The AI teammate calls someone in Contacts for a person, with their questions (20261027036900). The worker runs it
+ * The AI teammate calls someone in Contacts for a person, with their questions (20261027037000). The worker runs it
  * once the person OKs the Assistant's card, as the system on their behalf (only the worker writes calls). The call
  * waits for the business's open hours, and goes only to someone who agreed in writing to calls or a number the phone
  * company says is a business landline: that's checked just before it rings (ai-calls/index.ts).
