@@ -1706,7 +1706,7 @@
   "apps/web/src/lib/texting.ts": "fcba854a7d0a",
   "packages/core/src/account/about-you.ts": "7893be08878a",
   "packages/core/src/account/notification-rows.ts": "933ff8a50b1b",
-  "packages/core/src/addons/outreach/manifest.ts": "4663e832e071",
+  "packages/core/src/addons/outreach/manifest.ts": "92611bb0591d",
   "packages/core/src/addons/realestate/manifest.ts": "b147a52c6511",
   "packages/core/src/assistant/coverage.ts": "080a0217d3ff",
   "packages/core/src/assistant/screen-reads.ts": "de07bcc507af",
