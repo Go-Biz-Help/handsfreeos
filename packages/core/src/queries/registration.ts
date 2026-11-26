@@ -1,6 +1,7 @@
 import { and, desc, eq, gt, ne } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import {
+  registrationChecks,
   registrationDrafts,
   registrationPolicies,
   registrationReviews,
@@ -13,6 +14,8 @@ import {
   RegistrationGetDraftOutput,
   RegistrationGetPoliciesInput,
   RegistrationGetPoliciesOutput,
+  RegistrationLastCheckInput,
+  RegistrationLastCheckOutput,
   RegistrationReviewForStaffInput,
   RegistrationReviewForStaffOutput,
   RegistrationReviewGetInput,
@@ -36,6 +39,47 @@ export const registrationGetDraft = defineQuery({
     return {
       answers: row ? (row.answers as Record<string, unknown>) : null,
       savedAt: row ? row.updatedAt.toISOString() : null,
+    };
+  },
+});
+
+/**
+ * What texting approval's last step (Before it goes) last found when it checked the registration's details: each row
+ * it showed, what wasn't green, and when (`registration.record_check`, written by the worker's check). The step checks
+ * again each time it opens; this is the last one, for the Assistant to say what stands in the way.
+ */
+export const registrationLastCheck = defineQuery({
+  name: 'registration.last_check',
+  description:
+    'What the texting registration’s last step found the last time it checked: each row (the website, privacy policy, terms, where customers agree…), what wasn’t green, when, and whether the registration was sent since.',
+  input: RegistrationLastCheckInput,
+  output: RegistrationLastCheckOutput,
+  permission: 'channels.manage',
+  scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+  async handler(ctx, input) {
+    const [row] = await ctx.tx
+      .select()
+      .from(registrationChecks)
+      .where(eq(registrationChecks.workspaceId, input.workspaceId));
+    if (!row) return { check: null };
+    const [later] = await ctx.tx
+      .select({ id: telephonyRegistrations.id })
+      .from(telephonyRegistrations)
+      .where(
+        and(
+          eq(telephonyRegistrations.workspaceId, input.workspaceId),
+          gt(telephonyRegistrations.submittedAt, row.checkedAt),
+        ),
+      )
+      .limit(1);
+    return {
+      check: {
+        checkedAt: row.checkedAt.toISOString(),
+        allGreen: row.allGreen,
+        notGreen: row.notGreen,
+        checks: row.checks as Record<string, unknown>[],
+        sentSince: !!later,
+      },
     };
   },
 });

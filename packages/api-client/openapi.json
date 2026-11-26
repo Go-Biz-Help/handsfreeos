@@ -163991,6 +163991,99 @@
         }
       }
     },
+    "/v1/queries/registration.last_check": {
+      "post": {
+        "operationId": "query_registration_last_check",
+        "summary": "What the texting registration’s last step found the last time it checked: each row (the website, privacy policy, terms, where customers agree…), what wasn’t green, when, and whether the registration was sent since.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires channels.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "check": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "checkedAt": {
+                              "type": "string"
+                            },
+                            "allGreen": {
+                              "type": "boolean"
+                            },
+                            "notGreen": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "checks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {}
+                              }
+                            },
+                            "sentSince": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "checkedAt",
+                            "allGreen",
+                            "notGreen",
+                            "checks",
+                            "sentSince"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "check"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/registration.review.get": {
       "post": {
         "operationId": "query_registration_review_get",

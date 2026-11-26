@@ -474,6 +474,22 @@ export const RegistrationRecordCheckInput = z.object({
 });
 export const RegistrationRecordCheckOutput = z.object({ allGreen: z.boolean() });
 
+export const RegistrationLastCheckInput = z.object({ workspaceId: uuid });
+export const RegistrationLastCheckOutput = z.object({
+  check: z
+    .object({
+      checkedAt: z.string(),
+      allGreen: z.boolean(),
+      /** What stood between those details and all green, as Before it goes listed it. */
+      notGreen: z.array(z.string()),
+      /** Its rows as shown (core's PreflightCheck). */
+      checks: z.array(z.record(z.string(), z.unknown())),
+      /** The registration was sent to the carriers after this check: it's history. */
+      sentSince: z.boolean(),
+    })
+    .nullable(),
+});
+
 export const registrationReviewStatus = z.enum(['waiting', 'approved', 'sent_back', 'withdrawn']);
 
 export const RegistrationRequestReviewInput = z.object({
