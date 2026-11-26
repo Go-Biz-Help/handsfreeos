@@ -931,8 +931,8 @@
       "path": "Texting → Registration → Opt-in → What’s on your site now: each form that asks for a phone number, with its page",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1132",
-      "covered": "no",
-      "by": "the worker’s look through the site (site-forms) has no tool"
+      "covered": "partly",
+      "by": "get_settings texting registrationCheck: the forms its last check found across the site, each row with its page; this step’s own look (site-forms) has no tool (onb-22)"
     },
     {
       "path": "Texting → Registration → Opt-in → Use the chat / Use the contact form we made for you",
@@ -1099,36 +1099,36 @@
       "path": "Texting → Registration → Review → blockers / all green / not green",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:3048",
-      "covered": "no",
-      "by": "worker registrationPreflight has no tool"
+      "covered": "yes",
+      "by": "get_settings texting registrationCheck standing and notGreen (onb-22)"
     },
     {
       "path": "Texting → Registration → Review → checks list",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2977",
-      "covered": "no",
-      "by": "worker registrationPreflight has no tool"
+      "covered": "yes",
+      "by": "get_settings texting registrationCheck whatAReviewerWillFind: each row, green or not, what it found and the page it opened (onb-22)"
     },
     {
       "path": "Texting → Registration → Review → Check again",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:3077",
-      "covered": "no",
-      "by": "worker registrationPreflight has no tool"
+      "covered": "partly",
+      "by": "get_settings texting registrationCheck says when it last looked; checking again opens the pages live, on the step (onb-22)"
     },
     {
       "path": "Texting → Registration → Review → checks list: Read in your own browser / Read from your screenshot",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:3110",
-      "covered": "no",
-      "by": "worker registrationPreflight has no tool"
+      "covered": "yes",
+      "by": "get_settings texting registrationCheck whatAReviewerWillFind: each row’s readFrom (onb-22)"
     },
     {
       "path": "Texting → Registration → Review → Your website’s security stopped our check (pages named)",
       "kind": "see",
       "file": "apps/web/src/components/settings/site-check-help.tsx:62",
-      "covered": "no",
-      "by": "worker registrationPreflight has no tool"
+      "covered": "partly",
+      "by": "get_settings texting registrationCheck rows name the pages a robot check stopped (securityStoppedUs); the ways past are on the step (onb-22)"
     },
     {
       "path": "Texting → Registration → Review → Finish the check on my site (opens the site, reads pages in the person’s browser)",
@@ -1211,8 +1211,8 @@
       "path": "Texting → Registration → Fix the above to carry on",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2177",
-      "covered": "no",
-      "by": "from the worker preflight"
+      "covered": "yes",
+      "by": "get_settings texting registrationCheck notGreen, and what to do about it (onb-22)"
     },
     {
       "path": "Texting → Register for texting now → explanation",

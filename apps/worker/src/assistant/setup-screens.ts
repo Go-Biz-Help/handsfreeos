@@ -12,12 +12,14 @@
 import {
   addressLines,
   AGENCY_SETUP_WORDS,
+  AI_SETUP_FIELD_WORDS,
   AI_SETUP_JOB_LABELS,
   aiSetupFinish,
   aiSetupFlowFactsOf,
   aiSetupGet,
   aiSetupSave,
   aiSetupStepTitle,
+  aiSetupTestQuestions,
   executeQuery,
   onboardingSetupChecking,
   onboardingSetupFinish,
@@ -47,6 +49,7 @@ import {
   type QueryDef,
   type RequestMeta,
   type ScreenActionTool,
+  withAiName,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { publicOriginFor } from './full-links';
@@ -424,6 +427,8 @@ function stateOf(state: Args): Args {
 export function setupRead(got: unknown): unknown {
   if (!isObject(got) || !isObject(got['state']) || !isObject(got['answers'])) return got;
   const { state, answers, starting, ...rest } = got;
+  // The AI teammate's last screen is the guided setup's too, with its answers under `ai`.
+  const tryIt = tryItOf(state, answers['ai']);
   const words = (() => {
     try {
       const s = onboardingSetupStateOf(state as never);
@@ -478,7 +483,31 @@ export function setupRead(got: unknown): unknown {
     templateId: rest['templateId'] ?? null,
     templatePicked: rest['templatePicked'] ?? false,
     saveTo: rest['saveTo'] ?? null,
+    ...(tryIt ? { tryIt } : {}),
     ...(isObject(starting) ? { starting } : {}),
+  };
+}
+
+/**
+ * The last screen's test chat, as Try it starts it once there's a teammate: the questions made from the answers, how
+ * the Assistant asks them (test_ai_teammate, nothing sent) and says how it did, in the screen's words, and its tip.
+ */
+function tryItOf(state: unknown, answers: unknown): Args | null {
+  const teammate = isObject(state) ? state['teammate'] : null;
+  if (!isObject(teammate) || !isObject(answers)) return null;
+  const W = AI_SETUP_FIELD_WORDS;
+  const name = (typeof teammate['name'] === 'string' && teammate['name'].trim()) || 'Ava';
+  let questions: string[];
+  try {
+    questions = aiSetupTestQuestions(state as never, answers as never);
+  } catch {
+    return null;
+  }
+  return {
+    title: withAiName(W.askThese, name),
+    questions,
+    how: `Ask each with test_ai_teammate as its own new test, by text unless the person says otherwise; nothing is sent. One it answered or drafted is “${W.knew}”; one it handed to a person (“${W.handedOff}”) or didn’t answer (“${W.noReply}”) is something ${name} doesn’t know yet: offer to save the person’s answer with add_knowledge_item, then ask it again. When they’re all asked, say “${withAiName(W.reportAllKnown, name)}” or, say, “${W.reportGaps(2)}”. The person can ask their own question the same way.`,
+    tip: withAiName(W.textTip, name),
   };
 }
 
@@ -486,7 +515,13 @@ export function setupRead(got: unknown): unknown {
 export function aiSetupRead(got: unknown): unknown {
   if (!isObject(got) || !isObject(got['state'])) return got;
   const { state, starting, ...rest } = got;
-  return { ...rest, state: stateOf(state), ...(isObject(starting) ? { starting } : {}) };
+  const tryIt = tryItOf(state, rest['answers']);
+  return {
+    ...rest,
+    state: stateOf(state),
+    ...(tryIt ? { tryIt } : {}),
+    ...(isObject(starting) ? { starting } : {}),
+  };
 }
 
 /** Where a step's button goes, as the Assistant names places: a page of the business, the setup's own step, or the phone. */

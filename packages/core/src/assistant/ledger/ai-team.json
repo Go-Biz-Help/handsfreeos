@@ -2378,7 +2378,7 @@
       "kind": "do",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:209",
       "covered": "yes",
-      "by": "test_ai_teammate, one question at a time"
+      "by": "read_ai_setup_get tryIt: the questions made from the answers, each asked with test_ai_teammate (onb-21)"
     },
     {
       "path": "Quick setup → try → each question: reply, outcome badge, error",
@@ -2391,8 +2391,8 @@
       "path": "Quick setup → try → report: gaps / knows it all",
       "kind": "see",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:239",
-      "covered": "partly",
-      "by": "test_ai_teammate per question; the report’s summary of gaps isn’t composed"
+      "covered": "yes",
+      "by": "tryIt.how: how it did in the screen’s words, answered every question or N questions went to a person (onb-21)"
     },
     {
       "path": "Quick setup → try → Add the answer → save to Knowledge and ask again",
@@ -2412,8 +2412,8 @@
       "path": "Quick setup → try → texting tip",
       "kind": "see",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:266",
-      "covered": "no",
-      "by": "test words only"
+      "covered": "yes",
+      "by": "read_ai_setup_get tryIt.tip (onb-21)"
     },
     {
       "path": "Quick setup → try → Save these answers for your other businesses → name → Save / Cancel (web)",

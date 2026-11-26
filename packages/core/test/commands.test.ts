@@ -1084,6 +1084,7 @@ describe('registry', () => {
       'my_calendar_setup.get',
       'registration.get_draft',
       'registration.get_policies',
+      'registration.last_check',
       'registration.review.get',
       'registration.review.for_staff',
       'number_import.list',
