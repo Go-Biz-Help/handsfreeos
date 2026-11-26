@@ -218,7 +218,7 @@ export async function onFileText(ctx: HandlerContext): Promise<void> {
     sql`select record_type::text as record_type from app.files
         where id = ${fileId}::uuid and workspace_id = ${ctx.event.workspaceId}`,
   );
-  if (!file || file.record_type === 'knowledge' || file.record_type === 'port') return;
+  if (!file || ['knowledge', 'port', 'expense'].includes(file.record_type)) return;
   await scheduleJob(ctx.tx, {
     kind: FILE_TEXT_JOBS.read,
     dedupeKey: jobKey(fileId),
@@ -248,7 +248,7 @@ export const fileTextJob: JobHandler = async (ctx) => {
       ),
   );
   // Deleted, in the bin or never finished: nothing to read, and the sweep never asks for it again.
-  if (!file || file.recordType === 'knowledge' || file.recordType === 'port') return;
+  if (!file || ['knowledge', 'port', 'expense'].includes(file.recordType)) return;
   if (skippedType(file.mimeType)) return saveText(ctx, scope, fileId, nothing('unsupported'));
   let read: ReadText;
   try {

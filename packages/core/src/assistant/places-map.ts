@@ -539,6 +539,34 @@ export const APP_PLACES: readonly AppPlace[] = [
     path: '/money/plans',
   },
   {
+    label: 'Expenses',
+    what: 'what the business spent, with its receipts, and each month’s money in, money out and what’s left (only whoever manages money)',
+    where: ['Money', 'Expenses'],
+    onScreen: [
+      'Money in, Money out and What’s left for the month shown',
+      'Month by month: the last six months, press one to see it',
+      'Where it went: each category’s total, press one to see only those',
+      'Search, the category picker, and Add expense',
+      'The month’s expenses: day, who it was paid to, category, how it was paid, the amount and its receipt; press one to change it or Remove it',
+    ],
+    howTo: [
+      'File a receipt: send the Assistant a photo of it, or Money → Expenses, Add expense, fill it in and add the photo',
+      'See last month: Money → Expenses, press the month under Month by month',
+      'Fix an expense: Money → Expenses, press it, change it, then Save',
+      'On the phone: Money, then Expenses under the figures; Add expense takes the receipt’s photo there and then',
+    ],
+    notHere: [
+      'connecting a bank or card to bring in expenses on their own',
+      'mileage, or splitting one receipt across categories',
+    ],
+    canChange: [
+      'file an expense, from a photo of a receipt, a PDF, or what they said',
+      'change an expense: the day, amount, tax, who it was paid to, category, how it was paid, the note',
+      'read a month’s expenses and its money in and out',
+    ],
+    path: '/money/expenses',
+  },
+  {
     label: 'Workflows',
     what: 'automatic follow-ups, built as steps, on a canvas, or described in a sentence',
     where: ['Workflows'],

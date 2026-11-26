@@ -42,7 +42,7 @@ export default async function EstimatesPage({
       {shell.summary ? (
         <HeadlineStrip summary={shell.summary} days={COLLECTED_DAYS} timeZone={shell.timeZone} />
       ) : null}
-      <MoneySubnav workspaceId={workspaceId} tab="estimates">
+      <MoneySubnav workspaceId={workspaceId} tab="estimates" showExpenses={shell.canManage}>
         <MoneyFilterBar
           filters={filters}
           statuses={ESTIMATE_STATUS_CHOICES}

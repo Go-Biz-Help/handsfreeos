@@ -35,7 +35,7 @@ export const fileSaveText = defineCommand({
           eq(files.workspaceId, ws),
           eq(files.status, 'ready'),
           isNull(files.deletedAt),
-          notInArray(files.recordType, ['knowledge', 'port']),
+          notInArray(files.recordType, ['knowledge', 'port', 'expense']),
         ),
       )
       .for('share');

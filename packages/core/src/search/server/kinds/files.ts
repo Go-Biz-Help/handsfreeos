@@ -50,11 +50,11 @@ interface FactRow extends Record<string, unknown> {
 }
 
 /**
- * Files search may show, for a file aliased `f`: ready, not deleted, no port papers or knowledge files, and on a record
+ * Files search may show, for a file aliased `f`: ready, not deleted, no port papers, knowledge files or receipts, and on a record
  * of the business's own kinds only when that record reads.
  */
 export const SEARCHABLE_FILE = sql`(f.status = 'ready' and f.deleted_at is null
-  and f.record_type not in ('port', 'knowledge')
+  and f.record_type not in ('port', 'knowledge', 'expense')
   and (f.record_type <> 'custom_record' or exists (select 1 from app.custom_records rr where rr.id = f.record_id)))`;
 
 /**

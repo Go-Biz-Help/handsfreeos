@@ -76,6 +76,7 @@ import { safetyAutoTools, safetyConfirmTools } from './tools-safety';
 import { setupAutoTools, setupConfirmTools } from './tools-setup';
 import { testAiTeammate } from './teammate-test';
 import { filesOutConfirmTools, makeFile } from './tools-files-out';
+import { expenseConfirmTools } from './tools-expenses';
 
 /** Tools that run on the worker's own services: trying the AI teammate as a customer, as its Test console does. */
 const serviceTools = {
@@ -1846,6 +1847,7 @@ const confirmTools: Record<string, ConfirmTool> = {
   ...routineConfirmTools,
   // A file they made, emailed on to someone else.
   ...filesOutConfirmTools,
+  ...expenseConfirmTools,
   ...documentConfirmTools,
   ...safetyConfirmTools,
 };

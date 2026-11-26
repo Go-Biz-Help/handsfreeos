@@ -1,12 +1,14 @@
 {
   "area": "money",
   "title": "Money: estimates, invoices, payments and plans",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-25",
   "files": {
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx": "f903866463b2",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx": "3080d215ec93",
     "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx": "f4b2d1f6ca49",
+    "apps/mobile/src/app/app/w/[workspaceId]/money/expenses.tsx": "00475bc5fb4d",
     "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx": "2d80da5d29a5",
     "apps/mobile/src/components/money/document.tsx": "7c5c0a412ed0",
+    "apps/mobile/src/components/money/expense-sheet.tsx": "d5f08f295a77",
     "apps/mobile/src/components/money/money-rows.tsx": "e84e9da12251",
     "apps/mobile/src/components/money/record-cash.tsx": "8f51b24d8b1f",
     "apps/mobile/src/components/money/send-sheet.tsx": "bcf45fc4f992",
@@ -16,18 +18,19 @@
     "apps/mobile/src/money/use-money.ts": "7d76c20eb80a",
     "apps/web/src/app/app/w/[workspaceId]/money/estimates/[estimateId]/page.tsx": "d5a27326764c",
     "apps/web/src/app/app/w/[workspaceId]/money/estimates/new/page.tsx": "c32170efaf1a",
-    "apps/web/src/app/app/w/[workspaceId]/money/estimates/page.tsx": "3b13f014ac9e",
+    "apps/web/src/app/app/w/[workspaceId]/money/estimates/page.tsx": "d57076a69839",
+    "apps/web/src/app/app/w/[workspaceId]/money/expenses/page.tsx": "e54cb62cb4a4",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/[invoiceId]/page.tsx": "076b3a40a175",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/new/page.tsx": "e59893d795bb",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/page.tsx": "90f9f3d0801d",
     "apps/web/src/app/app/w/[workspaceId]/money/load.ts": "f958bc0287e9",
     "apps/web/src/app/app/w/[workspaceId]/money/orders/[orderId]/page.tsx": "f8ac35ef1a8c",
     "apps/web/src/app/app/w/[workspaceId]/money/orders/new/page.tsx": "ccb2cf425e0c",
-    "apps/web/src/app/app/w/[workspaceId]/money/orders/page.tsx": "39da714bddb8",
-    "apps/web/src/app/app/w/[workspaceId]/money/page.tsx": "3aeca4c2854c",
-    "apps/web/src/app/app/w/[workspaceId]/money/payments/page.tsx": "5e67d1accc7e",
+    "apps/web/src/app/app/w/[workspaceId]/money/orders/page.tsx": "e322de88e11a",
+    "apps/web/src/app/app/w/[workspaceId]/money/page.tsx": "4e32f3f89e0e",
+    "apps/web/src/app/app/w/[workspaceId]/money/payments/page.tsx": "80fa29954eb7",
     "apps/web/src/app/app/w/[workspaceId]/money/plans/[subscriptionId]/page.tsx": "7154f14b99f3",
-    "apps/web/src/app/app/w/[workspaceId]/money/plans/page.tsx": "9b1158f8192b",
+    "apps/web/src/app/app/w/[workspaceId]/money/plans/page.tsx": "a1f5cf3d7713",
     "apps/web/src/app/app/w/[workspaceId]/money/seed.ts": "fd64a6e29f19",
     "apps/web/src/components/money/copy-link.tsx": "c2ae31b0b2a4",
     "apps/web/src/components/money/document-actions.tsx": "cebb1f7b1b8d",
@@ -37,6 +40,7 @@
     "apps/web/src/components/money/draft.ts": "18f5d3f541fb",
     "apps/web/src/components/money/estimate-options.tsx": "74a3448e188d",
     "apps/web/src/components/money/estimates-list.tsx": "4afdda3a637b",
+    "apps/web/src/components/money/expenses-view.tsx": "7e5bcd056194",
     "apps/web/src/components/money/filters.tsx": "6225123dd9b3",
     "apps/web/src/components/money/headline-strip.tsx": "226908723348",
     "apps/web/src/components/money/invoices-list.tsx": "f242c6fe2169",
@@ -63,7 +67,7 @@
     "apps/web/src/components/money/public-plan.tsx": "c149e1585a54",
     "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
     "apps/web/src/components/money/status-badge.tsx": "062e16f61359",
-    "apps/web/src/components/money/subnav.tsx": "14522302974e",
+    "apps/web/src/components/money/subnav.tsx": "89cdcfc3713f",
     "apps/web/src/components/money/totals.tsx": "65a9d913bff7"
   },
   "items": [
@@ -2411,6 +2415,125 @@
       "file": "apps/web/src/components/money/order-page.tsx:385",
       "covered": "yes",
       "by": "read_order_get → stockTaken; get_settings products → stock"
+    },
+    {
+      "path": "Money → Expenses tab (only whoever manages money)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/subnav.tsx:59",
+      "covered": "yes",
+      "by": "read_money_in_and_out / read_expense_list (money.manage)"
+    },
+    {
+      "path": "Money → Expenses → someone who doesn’t manage money: “Expenses are for money managers”",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/money/expenses/page.tsx:35",
+      "covered": "yes",
+      "by": "add_expense and the reads refuse them (forbidden), same words"
+    },
+    {
+      "path": "Money → Expenses → Money in, Money out, What’s left for the month shown",
+      "kind": "see",
+      "file": "apps/web/src/components/money/expenses-view.tsx:112",
+      "covered": "yes",
+      "by": "read_money_in_and_out → months[].inCents/outCents, breakdown"
+    },
+    {
+      "path": "Money → Expenses → Month by month: last six months, press one to see it",
+      "kind": "see",
+      "file": "apps/web/src/components/money/expenses-view.tsx:153",
+      "covered": "yes",
+      "by": "read_money_in_and_out months=6, month"
+    },
+    {
+      "path": "Money → Expenses → Where it went: each category’s total, press one to filter",
+      "kind": "see",
+      "file": "apps/web/src/components/money/expenses-view.tsx:193",
+      "covered": "yes",
+      "by": "read_money_in_and_out → breakdown.categories; read_expense_list category"
+    },
+    {
+      "path": "Money → Expenses → Search and the category picker",
+      "kind": "do",
+      "file": "apps/web/src/components/money/expenses-view.tsx:579",
+      "covered": "yes",
+      "by": "read_expense_list query, category"
+    },
+    {
+      "path": "Money → Expenses → the month’s expenses: day, paid to, category, paid with, amount, receipt",
+      "kind": "see",
+      "file": "apps/web/src/components/money/expenses-view.tsx:604",
+      "covered": "yes",
+      "by": "read_expense_list → expenses[], count, totalCents"
+    },
+    {
+      "path": "Money → Expenses → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/money/expenses-view.tsx:674",
+      "covered": "yes",
+      "by": "read_expense_list cursor"
+    },
+    {
+      "path": "Money → Expenses → open a receipt",
+      "kind": "do",
+      "file": "apps/web/src/components/money/expenses-view.tsx:656",
+      "covered": "partly",
+      "by": "read_expense_list gives the receipt’s name; the Assistant can’t hand over the file itself, it says to press it"
+    },
+    {
+      "path": "Money → Expenses → Add expense: paid to, amount, tax, day, category, paid with, note, receipt",
+      "kind": "do",
+      "file": "apps/web/src/components/money/expenses-view.tsx:597",
+      "covered": "yes",
+      "by": "add_expense (Confirm card; receiptPicture/receiptFile files the photo or PDF they sent)"
+    },
+    {
+      "path": "Money → Expenses → press an expense → change it, Save",
+      "kind": "do",
+      "file": "apps/web/src/components/money/expenses-view.tsx:517",
+      "covered": "yes",
+      "by": "do_expense_update (expenseId from read_expense_list)"
+    },
+    {
+      "path": "Money → Expenses → press an expense → a new receipt in place of the old one",
+      "kind": "do",
+      "file": "apps/web/src/components/money/expenses-view.tsx:440",
+      "covered": "partly",
+      "by": "add_expense files a new one with its photo; swapping the photo on an existing one is the screen’s"
+    },
+    {
+      "path": "Money → Expenses → press an expense → Remove, then Remove (for good)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/expenses-view.tsx:480",
+      "covered": "never",
+      "by": "The Assistant never deletes for good (owner, 26 Oct): it says to press Remove on the expense"
+    },
+    {
+      "path": "Phone Money → Expenses row under the figures (managers)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx:86",
+      "covered": "yes",
+      "by": "read_money_in_and_out / read_expense_list"
+    },
+    {
+      "path": "Phone Money → Expenses → figures, months, where it went, the month’s expenses, Show more",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/expenses.tsx:1",
+      "covered": "yes",
+      "by": "read_money_in_and_out, read_expense_list (month, cursor)"
+    },
+    {
+      "path": "Phone Money → Expenses → Add expense: Take a photo / Choose one, paid to, amount, tax, day, what it was for, paid with, note",
+      "kind": "do",
+      "file": "apps/mobile/src/components/money/expense-sheet.tsx:1",
+      "covered": "yes",
+      "by": "add_expense with the picture they send"
+    },
+    {
+      "path": "Phone Money → Expenses → press an expense → See the receipt, change it, Save, Remove it for good",
+      "kind": "do",
+      "file": "apps/mobile/src/components/money/expense-sheet.tsx:1",
+      "covered": "partly",
+      "by": "do_expense_update changes it; See the receipt and Remove are the screen’s (never deletes for good)"
     }
   ],
   "gaps": [

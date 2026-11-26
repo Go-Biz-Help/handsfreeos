@@ -51,7 +51,7 @@ export default async function PaymentsPage({
       {shell.summary ? (
         <HeadlineStrip summary={shell.summary} days={COLLECTED_DAYS} timeZone={shell.timeZone} />
       ) : null}
-      <MoneySubnav workspaceId={workspaceId} tab="payments">
+      <MoneySubnav workspaceId={workspaceId} tab="payments" showExpenses={shell.canManage}>
         <MoneyFilterBar
           filters={filters}
           statuses={PAYMENT_STATUS_CHOICES}
