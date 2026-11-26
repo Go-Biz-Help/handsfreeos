@@ -115,6 +115,9 @@ describe('Social Outreach', () => {
         'outreach.need.retry',
         'outreach.partner.mark',
         'outreach.partner.potential',
+        // A change to a row of today's plan (decision 195, steps 3 and 4): the buttons act at once, and the Assistant
+        // asks first, so the person sees which row it understood.
+        'outreach.plan.change',
         'outreach.playbook.archive',
         'outreach.playbook.save',
         'outreach.profile.contact',
