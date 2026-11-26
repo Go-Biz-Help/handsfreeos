@@ -1,6 +1,7 @@
 import type { AutopilotAnswer } from '@hfos/core/addons/outreach/autopilot';
 import type { FriendAnswer } from '@hfos/core/addons/outreach/limits';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import type { PlanChangeAsk } from '@hfos/core/addons/outreach/plan-changes';
 import type { NeedClear } from '@hfos/core/addons/outreach/waiting-words';
 import { SENDS_SOURCE } from '@hfos/core/addons/outreach/views/waiting';
 
@@ -103,6 +104,25 @@ export const startDay = (workspaceId: string, platform: Platform = 'facebook') =
   change('outreach.day.start', { workspaceId, platform });
 export const stopDay = (workspaceId: string, platform: Platform = 'facebook') =>
   change('outreach.day.stop', { workspaceId, platform });
+
+/**
+ * A row of Today's Plan changed (decision 195, step 3): Do now, Skip today, Move to a time (`time`, as 15:30 on the
+ * business's clock) or Put back. With signal: the answer says what happened in a line.
+ */
+export const changePlan = (
+  workspaceId: string,
+  platform: Platform,
+  key: string,
+  what: PlanChangeAsk,
+  time?: string,
+) =>
+  change('outreach.plan.change', {
+    workspaceId,
+    platform,
+    key,
+    change: what,
+    ...(time ? { time } : {}),
+  });
 
 /** Not for me, on a post on Today's list. */
 export const skipPost = (workspaceId: string, postId: string) =>

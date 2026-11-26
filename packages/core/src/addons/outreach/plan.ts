@@ -46,6 +46,19 @@ import {
 import { todayKindsOn } from './network-words';
 import { NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
 import {
+  changesAt,
+  jobChangeKey,
+  listWithoutOut,
+  PLAN_CHANGE_KEY_MOST,
+  PLAN_CHANGE_KINDS,
+  PLAN_CHANGE_TITLE_MOST,
+  PLAN_CHANGES_MOST,
+  workChangeKey,
+  workInLine,
+  type PlanChange,
+  type PlanChangeKind,
+} from './plan-changes';
+import {
   answersAnyTime,
   AWAY_AGAIN_MS,
   beforeDay,
@@ -312,6 +325,16 @@ export interface PlanFacts<I extends PlanItem = PlanItem> {
     readonly goal?: { readonly more?: boolean | undefined } | null | undefined;
     readonly retryAt?: string | null | undefined;
   };
+  /**
+   * What the person changed on today's plan there (step 3, ./plan-changes.ts): rows skipped, moved to a time, or put
+   * first. Left out, the day goes by its own order.
+   */
+  readonly changes?: readonly PlanChange[] | undefined;
+  /**
+   * false where the runner plans its own go, and HandsFreeOS only shows its plan: a change there leaves a step out,
+   * for the day or till its time, and puts nothing first. Left out, what was put first goes first.
+   */
+  readonly changesLead?: boolean | undefined;
 }
 
 /**
@@ -413,6 +436,11 @@ export function standsFor(platform: Platform, step: BeforeDay): RunnerJob | null
  * its computer knows (`here`), and does the move it's given. Threads' and X's first, then Alignable's (0.157.0),
  * Instagram's (0.158.0), LinkedIn's (0.159.0), which is sent today's helpful post to put up too, and Facebook's
  * (0.160.0), which is sent that and a look for a referral to do (`RunnerMove`).
+ *
+ * What the person changed on the Plan (`facts.changes`, step 3) only picks among what these rules would do anyway:
+ * a row skipped or moved to a later time is left out till then; one put first is the next move, once a first day's
+ * lists are saved, a batch's wait is over and nothing they asked is in line; outside the hours it's still only
+ * replies.
  */
 export function nextMove<I extends PlanItem>(
   facts: PlanFacts<I>,
@@ -450,6 +478,14 @@ export function nextMove<I extends PlanItem>(
   const away = here?.away ?? true;
   const passOver = (here?.passOver ?? []) as readonly RunnerJob[];
   const asking = here?.asking ?? facts.asks > 0;
+  const stands = changesAt(facts.changes, now);
+  const changed =
+    facts.changesLead === false && stands.first.length ? { ...stands, first: [] } : stands;
+  // The list without anyone skipped today or moved to a later time: as the extension is given it, so a runner that
+  // plans its own go works from the same one.
+  const listNow = listWithoutOut(list, facts.changes, now);
+  /** What's left on the list as the person changed it, with what they put first at the front. */
+  const leftNow = () => workInLine(leftOn(kit, listNow, state), changed);
   const work = (
     all: readonly Work<I>[],
     reading: boolean,
@@ -489,7 +525,9 @@ export function nextMove<I extends PlanItem>(
       : null;
   // Whether it reads now: as HandsFreeOS told the runner, when it says; else a batch of it waiting, and due.
   const researchDue =
-    choices.collect && (here?.research ?? (researchAt !== null && researchAt <= now));
+    choices.collect &&
+    !changed.out.has(jobChangeKey('comment_research')) &&
+    (here?.research ?? (researchAt !== null && researchAt <= now));
 
   if (!own.go) {
     if (own.stopped !== null)
@@ -501,7 +539,7 @@ export function nextMove<I extends PlanItem>(
     // Outside the hours a reply to someone who wrote back still goes, where it writes in their messages, and nothing
     // new does (decision 133).
     if (kit.messages) {
-      const answers = leftOn(kit, list, state).filter(answersAnyTime);
+      const answers = leftNow().filter(answersAnyTime);
       if (answers[0]) return work(answers, false, { go: true, started: true, until: null }, true);
     }
     // A comment research reads outside the hours too, as it only reads (decision 194).
@@ -532,11 +570,12 @@ export function nextMove<I extends PlanItem>(
           (here?.research === undefined && state.againAt.comment_research !== undefined),
       )
     : [];
+  /** A read that can go now: not done, not put off till they're away, its batch's wait over. */
+  const goes = (job: RunnerJob) =>
+    state.daily[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now);
+  // One skipped today is left out, and one moved to a later time waits for it.
   const nextJob = () =>
-    jobs.find(
-      (job) =>
-        state.daily[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now),
-    ) ?? null;
+    jobs.find((job) => goes(job) && !changed.out.has(jobChangeKey(job))) ?? null;
   let daily: RunnerJob | null = researchDue ? 'comment_research' : nextJob();
   // Short of good fits once the day's reading is done (decision 126): it finds people again, and checks them. Never
   // while a job put off till the person's away is still to do.
@@ -554,11 +593,25 @@ export function nextMove<I extends PlanItem>(
   // A save held till they're away isn't part of what's left to read meanwhile: the rest of the day goes on.
   const beforeGoes = before !== null && (!held || before.do !== 'save');
   const reading = beforeGoes || daily !== null || searching;
+  // What the person put first on the Plan is the next move, in the order they said (step 3): a read whose turn can
+  // come now, or a piece of the list's work. Never before a first day's lists are saved.
+  if (changed.first.length && !holdsTheDay(before)) {
+    const all = leftNow();
+    for (const key of changed.first) {
+      const job = jobs.find((j) => jobChangeKey(j) === key);
+      if (job !== undefined) {
+        if (goes(job)) return { move: { do: 'daily', job, gap: pace }, state };
+      } else if (all[0] && workChangeKey(all[0]) === key) return work(all, reading, own);
+    }
+  }
   // The day's reading and the list take turns (decision 123): a step on the list now, when there's one, after a part
-  // of the reading went last.
-  if (listTurn(state, reading, holdsTheDay(before))) {
-    const all = leftOn(kit, list, state);
-    const replied = stillReplied(state.replied, all);
+  // of the reading went last. Someone who wrote back counts for the turn only while their reply can go: one skipped
+  // or moved doesn't hold the reading back.
+  const waiting = changed.out.size ? stillReplied(state.replied, leftNow()) : state.replied;
+  if (listTurn({ readLast: state.readLast, replied: waiting }, reading, holdsTheDay(before))) {
+    const all = leftNow();
+    // Who still waits for an answer is told from the whole list: a reply skipped today is still theirs to get.
+    const replied = stillReplied(state.replied, changed.out.size ? leftOn(kit, list, state) : all);
     if (replied.length !== state.replied.length) state = { ...state, replied };
     if (all[0]) return work(all, reading, own);
   }
@@ -589,7 +642,7 @@ export function nextMove<I extends PlanItem>(
   if (watches && inHours && watchDue(state, now))
     return { move: { do: 'watch', gap: pace }, state };
 
-  const all = leftOn(kit, list, state);
+  const all = leftNow();
   if (all[0]) return work(all, reading, own);
   // Nothing left: it looks again within the hour, or when the next batch of checks, the newest posts, its search or a
   // message tried again is due, whichever is first. Facebook's looks when its hours end too, and sleeps till its next
@@ -607,6 +660,8 @@ export function nextMove<I extends PlanItem>(
       ...(watches && state.watchAt !== null ? [Math.max(state.watchAt, now)] : []),
       ...(kit.searches && choices.collect && state.watchAt !== null ? [state.watchAt] : []),
       ...retryWake({ retryAt: says.retryAt }, now),
+      // Something moved to a time comes back then.
+      ...changed.wakes,
     ),
   );
 }
@@ -717,6 +772,23 @@ function afterMove<I extends PlanItem>(
   }
 }
 
+/**
+ * When the day's plan ends on a network: the working hours' end today, or the day's after Start my day. `over` once
+ * the hours have ended (or there are none today) and the day wasn't started: only replies go till the next ones.
+ */
+export function planUntil(facts: Pick<PlanFacts, 'now' | 'timeZone' | 'hours' | 'day'>): {
+  readonly until: number;
+  readonly over: boolean;
+} {
+  const { now, timeZone, hours } = facts;
+  const today = businessDay(now, timeZone);
+  const window = workWindow(workHours(hours), timeZone, now);
+  const dayEnd = localInstant(addDays(today, 1), '00:00', timeZone);
+  const pressed = facts.day?.date === today && facts.day.state === 'started';
+  const ahead = window !== null && now < window.to;
+  return { until: !pressed && ahead ? window.to : dayEnd, over: !pressed && !ahead };
+}
+
 /** A move the day has coming, and about when. */
 export interface PlannedMove<I extends PlanItem = PlanItem> {
   readonly at: number;
@@ -747,14 +819,11 @@ export function planAhead<I extends PlanItem>(
   /** The day's state, as it stands now. */
   readonly state: PlanDay;
 } {
-  const { now, timeZone, hours } = facts;
+  const { now, timeZone } = facts;
   const today = businessDay(now, timeZone);
   const at0 = nextMove(facts, reported ?? freshPlanDay(today));
   let state = at0.state;
-  const window = workWindow(workHours(hours), timeZone, now);
-  const dayEnd = localInstant(addDays(today, 1), '00:00', timeZone);
-  const pressed = facts.day?.date === today && facts.day.state === 'started';
-  const until = !pressed && window !== null && now < window.to ? window.to : dayEnd;
+  const { until } = planUntil(facts);
   const working = state.working && at0.move.do !== 'wait';
   // The extension's own next time, when it's ahead: what follows is spaced from there.
   const said = !working && state.nextAt !== null && state.nextAt > now && state.nextAt < until;
@@ -835,8 +904,24 @@ export const PlanRow = z.object({
   who: z.string().nullable(),
   /** For a message, what kind: "First message", "Reply". */
   detail: z.string().nullable(),
+  /** The row's name for a change to it (`outreach.plan.change`): null for a row that can't be changed. */
+  key: z.string().max(PLAN_CHANGE_KEY_MOST).nullable(),
+  /** What it can be told here: none while it's under way, and none for a row that isn't one thing to do. */
+  can: z.array(z.enum(PLAN_CHANGE_KINDS)),
+  /** A change of the person's in force on it: put first, or moved to a time that has come. */
+  changed: z.enum(['now', 'at']).nullable(),
 });
 export type PlanRow = z.output<typeof PlanRow>;
+
+/** Something the person skipped today, or moved to a time still ahead, with what its row said. */
+export const PlanChanged = z.object({
+  key: z.string(),
+  change: z.enum(['skip', 'at']),
+  /** For a move: when it goes from. */
+  at: z.iso.datetime().nullable(),
+  title: z.string().max(PLAN_CHANGE_TITLE_MOST),
+});
+export type PlanChanged = z.output<typeof PlanChanged>;
 
 export const PlanInput = z.object({
   workspaceId: z.uuid(),
@@ -875,6 +960,8 @@ export const PlanOutput = z.object({
   counts: z.array(z.object({ label: z.string(), count: n })),
   /** What repeats through the day, and what the plan can't see. */
   notes: z.array(z.string()),
+  /** What they skipped today or moved to a later time, each to put back. */
+  changes: z.array(PlanChanged).max(PLAN_CHANGES_MOST),
 });
 export type PlanOutput = z.output<typeof PlanOutput>;
 
@@ -958,15 +1045,47 @@ export function planCounts(
   ].filter((c) => c.count > 0);
 }
 
-/** A move as a row: what, for whom, and about when. */
-export function planRow<I extends PlanItem>(platform: Platform, planned: PlannedMove<I>): PlanRow {
+/** The name of a move's row for a change to it: a once-a-day read's, or a piece of the list's work's. */
+export const moveChangeKey = (move: PlanMove): string | null =>
+  move.do === 'daily'
+    ? jobChangeKey(move.job)
+    : move.do === 'work'
+      ? workChangeKey(move.work)
+      : null;
+
+/**
+ * What a row can be told (step 3, ./plan-changes.ts). A step for someone on the list can be skipped or moved on any
+ * network, as it's left off the list the extension is given. Do now, and any change to a once-a-day read, only where
+ * HandsFreeOS decides the order (`decides`): a runner that plans for itself wouldn't know. A save of the person's
+ * lists, the hourly search and the newest posts aren't one thing to do, and stay as they are.
+ */
+export function rowCan(move: PlanMove, decides: boolean): PlanChangeKind[] {
+  if (move.do === 'work') return decides ? ['now', 'skip', 'at'] : ['skip', 'at'];
+  return move.do === 'daily' && decides ? ['now', 'skip', 'at'] : [];
+}
+
+/**
+ * A move as a row: what, for whom, and about when. With `how`, what it can be told and any change in force on it;
+ * without, as a row that only shows.
+ */
+export function planRow<I extends PlanItem>(
+  platform: Platform,
+  planned: PlannedMove<I>,
+  how?: { readonly decides: boolean; readonly changes?: readonly PlanChange[] | undefined },
+): PlanRow {
   const { move } = planned;
+  const key = moveChangeKey(move);
+  const can = how && !planned.now ? rowCan(move, how.decides) : [];
+  const change = key === null ? undefined : how?.changes?.find((c) => c.key === key);
   const base = {
     at: new Date(planned.at).toISOString(),
     about: planned.about,
     now: planned.now,
     who: null,
     detail: null,
+    key: can.length || change ? key : null,
+    can,
+    changed: change && change.change !== 'skip' ? change.change : null,
   };
   switch (move.do) {
     case 'before':
@@ -1015,7 +1134,9 @@ export function planShown<I extends PlanItem>(input: {
     /** Its build, as its heartbeat said: null when it didn't. */
     readonly version: string | null;
   } | null;
-}): Omit<PlanOutput, 'asked'> {
+  /** HandsFreeOS decides the order there for that computer: Do now and the reads can be changed. */
+  readonly decides?: boolean | undefined;
+}): Omit<PlanOutput, 'asked' | 'changes'> {
   const { facts, reported, computer } = input;
   const { platform, now, timeZone, hours } = facts;
   const name = NETWORKS[platform].name;
@@ -1046,7 +1167,8 @@ export function planShown<I extends PlanItem>(input: {
       line: 'You’re signed out of the extension on your computer, so nothing runs. Open its panel there and sign in.',
     };
 
-  const ahead = planAhead(facts, reported);
+  // A runner that plans its own go puts nothing first: a change there only leaves a step out.
+  const ahead = planAhead(input.decides ? facts : { ...facts, changesLead: false }, reported);
   const { first, state } = ahead;
   // What's done so far today, as the extension said: the lists before the day, then the once-a-day jobs in order.
   const done = [
@@ -1083,7 +1205,9 @@ export function planShown<I extends PlanItem>(input: {
       line: appVersionAtLeast(computer.version, PLAN_SINCE) ? PLAN_WORDS.notYet : PLAN_WORDS.update,
     };
 
-  const coming = ahead.moves.map((m) => planRow(platform, m));
+  const coming = ahead.moves.map((m) =>
+    planRow(platform, m, { decides: input.decides ?? false, changes: facts.changes }),
+  );
   const shown = {
     ...kept,
     until: coming.length ? new Date(ahead.until).toISOString() : null,

@@ -251,6 +251,8 @@ const ONLINE_COMMANDS = [
   'outreach.hands.take',
   'outreach.hands.give_back',
   'outreach.hands.keep',
+  // Buttons on Today's Plan (decision 195, step 3), with signal: Do now, Skip today, Move to a time, and Put back.
+  'outreach.plan.change',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social

@@ -107675,6 +107675,120 @@
         }
       }
     },
+    "/v1/commands/outreach.plan.change": {
+      "post": {
+        "operationId": "command_outreach_plan_change",
+        "summary": "Change one row of today’s plan on a network (Facebook when left out), by the row’s key from the plan: now puts it first, so it’s the next thing the person’s computer does there; skip leaves it out for today (it’s back tomorrow if it’s still due); at moves it to a time today (time, as 15:30 on the business’s clock): it waits till then; back puts it back as it was. It takes hold the next time their computer looks, usually within minutes. A step for someone on the list can be skipped or moved on any network. Do now, and any change to a once-a-day read, only where the row’s can says so. Every limit and wait stays: a change only picks among what the day would do anyway.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.plan.changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable",
+                      "threads",
+                      "x"
+                    ]
+                  },
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 320
+                  },
+                  "change": {
+                    "type": "string",
+                    "enum": [
+                      "now",
+                      "skip",
+                      "at",
+                      "back"
+                    ]
+                  },
+                  "time": {
+                    "type": "string",
+                    "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "key",
+                  "change"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "change": {
+                      "type": "string",
+                      "enum": [
+                        "now",
+                        "skip",
+                        "at",
+                        "back"
+                      ]
+                    },
+                    "at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "words": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "change",
+                    "at",
+                    "title",
+                    "words"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/outreach.need.note": {
       "post": {
         "operationId": "command_outreach_need_note",
@@ -256433,7 +256547,7 @@
     "/v1/queries/outreach.plan": {
       "post": {
         "operationId": "query_outreach_plan",
-        "summary": "What the person’s computer will do today on one network (Facebook when left out), and about when: where the day stands in a line, what they asked for that goes first, what’s coming in order with rough times, how many more follow, and the day’s reading and steps done so far. Worked out from where the extension said its day is up to, by the rules it follows. Times are a rough guide.",
+        "summary": "What the person’s computer will do today on one network (Facebook when left out), and about when: where the day stands in a line, what they asked for that goes first, what’s coming in order with rough times, how many more follow, and the day’s reading and steps done so far. Worked out from where the extension said its day is up to, by the rules it follows. Times are a rough guide. A row that can be changed has its key, and can says how (now, skip, at): pass both to outreach.plan.change. changes is what the person skipped today or moved to a time still ahead, each with its key to put it back.",
         "tags": [
           "queries"
         ],
@@ -256606,6 +256720,42 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "key": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 320
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "can": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "now",
+                                "skip",
+                                "at"
+                              ]
+                            }
+                          },
+                          "changed": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "now",
+                                  "at"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -256615,7 +256765,10 @@
                           "kind",
                           "title",
                           "who",
-                          "detail"
+                          "detail",
+                          "key",
+                          "can",
+                          "changed"
                         ],
                         "additionalProperties": false
                       }
@@ -256670,6 +256823,48 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "changes": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "change": {
+                            "type": "string",
+                            "enum": [
+                              "skip",
+                              "at"
+                            ]
+                          },
+                          "at": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "title": {
+                            "type": "string",
+                            "maxLength": 200
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "change",
+                          "at",
+                          "title"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -256686,7 +256881,8 @@
                     "more",
                     "done",
                     "counts",
-                    "notes"
+                    "notes",
+                    "changes"
                   ],
                   "additionalProperties": false
                 }
