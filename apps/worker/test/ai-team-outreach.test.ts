@@ -1,6 +1,6 @@
 /**
  * First messages and follow-up nudges (M7 step 7), on the real database with the fake carrier and the scripted
- * model. A new lead gets one first message after the Respond skill's delay: a text when they agreed to texts (with
+ * model. A new lead gets one first message after the Respond skill's wait (8 seconds unless changed): a text when they agreed to texts (with
  * the STOP wording), an email when they haven't but have an address, and nothing otherwise (the run says why).
  * Booking-page leads and imports get none, and it goes at once even outside the teammate's own hours (Automations:
  * a new lead is always answered right away). Then follow-ups on the ladder when the customer goes quiet, stopping
@@ -83,15 +83,17 @@ function teammateRunsFor(personId: string) {
 }
 
 describe('first messages to new leads', () => {
-  it('texts a lead who agreed to texts, after the delay, with the STOP wording, and only once', async () => {
+  it('texts a lead who agreed to texts 8 seconds on, with the STOP wording, and only once', async () => {
     const c = await newCustomer(w, 'Ada');
     await agreesToTexts(c.id);
     const leadId = await newLead(c.id);
     const key = outreachJobKey(leadId);
     const job = await jobRow(key);
     expect(job?.status).toBe('pending');
-    // The Respond skill's delay: a minute unless the business says otherwise.
-    expect(new Date(job!.run_at).getTime()).toBeGreaterThan(Date.now() + 30_000);
+    // The Respond skill's wait: 8 seconds unless the business picks another.
+    const due = new Date(job!.run_at).getTime() - Date.now();
+    expect(due).toBeGreaterThan(0);
+    expect(due).toBeLessThanOrEqual(8_000);
     await runNow(w, [key]);
 
     const [r] = await teammateRunsFor(c.id);
@@ -111,6 +113,24 @@ describe('first messages to new leads', () => {
     const again = await newLead(c.id, { title: 'Duct cleaning' });
     expect(await jobRow(outreachJobKey(again))).toBeUndefined();
     expect(await teammateRunsFor(c.id)).toHaveLength(1);
+  });
+
+  it('waits as long as the business says before the first message', async () => {
+    await saveTeammate(w, { respond: { newLeads: { wait: { after: 5, unit: 'minutes' } } } });
+    try {
+      const c = await newCustomer(w, 'Abe');
+      await agreesToTexts(c.id);
+      const leadId = await newLead(c.id);
+      const key = outreachJobKey(leadId);
+      const job = await jobRow(key);
+      expect(job?.status).toBe('pending');
+      expect(new Date(job!.run_at).getTime()).toBeGreaterThan(Date.now() + 4 * 60_000);
+      expect(textsTo(w, c.phone)).toHaveLength(0);
+      await runNow(w, [key]);
+      expect(textsTo(w, c.phone)).toHaveLength(1);
+    } finally {
+      await saveTeammate(w, { respond: { newLeads: { wait: { after: 8, unit: 'seconds' } } } });
+    }
   });
 
   it('emails a lead who hasn’t agreed to texts but has an address', async () => {

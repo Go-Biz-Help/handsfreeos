@@ -2,7 +2,12 @@
  * What quick setup says back (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md §4): the summary beside the
  * questions, what a screen still needs before Next, and the questions the test chat starts with. Browser-safe.
  */
-import { followUpStepWords, type TeammateConfig } from '../ai-team/config';
+import {
+  followUpStepWords,
+  newLeadWaitWords,
+  type NewLeadWait,
+  type TeammateConfig,
+} from '../ai-team/config';
 import { DISCLOSURE_NAMES, HOURS_MODE_NAMES, notifyText } from '../ai-team/diff';
 import { aiSetupSteps, type AiSetupAnswers, type AiSetupStep } from './answers';
 import { quickFactsFor, setupFor } from './kinds';
@@ -13,10 +18,8 @@ const joinAnd = (items: readonly string[]) =>
   items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-function firstMessageWords(minutes: number): string {
-  if (minutes === 0) return 'right away';
-  if (minutes === 1) return 'within a minute';
-  return `within ${minutes} minutes`;
+function firstMessageWords(wait: NewLeadWait): string {
+  return wait.after === 0 ? 'right away' : `within ${newLeadWaitWords(wait)}`;
 }
 
 function alertWords(alerts: TeammateConfig['handOff']['alerts']): string {
@@ -29,7 +32,7 @@ function alertWords(alerts: TeammateConfig['handOff']['alerts']): string {
 }
 
 /**
- * The summary beside the questions, in plain sentences: "Ava replies to new leads within a minute.", "It works all
+ * The summary beside the questions, in plain sentences: "Ava replies to new leads within 8 seconds.", "It works all
  * the time and says it’s AI in its first message.". It follows the answers as they change.
  */
 export function aiSetupSummary(state: AiSetupState, answers: AiSetupAnswers): string[] {
@@ -40,9 +43,7 @@ export function aiSetupSummary(state: AiSetupState, answers: AiSetupAnswers): st
   const subject = () => (lines.length ? 'It' : name);
 
   if (c.respond.enabled && c.respond.newLeads.enabled)
-    lines.push(
-      `${subject()} replies to new leads ${firstMessageWords(c.respond.newLeads.delayMinutes)}.`,
-    );
+    lines.push(`${subject()} replies to new leads ${firstMessageWords(c.respond.newLeads.wait)}.`);
   if (c.answer.enabled)
     lines.push(
       `${subject()} answers questions from what it knows about ${state.businessName}, and ${

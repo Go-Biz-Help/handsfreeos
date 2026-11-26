@@ -320,6 +320,18 @@ export interface RunnerKit {
   readonly searches: boolean;
   /** It puts the helpful post up on its own where the person lets it (decision 50): Facebook and LinkedIn. */
   readonly posts: boolean;
+  /**
+   * In the hours, every half hour, it looks for a referral, or an ask after two, to do for the person (decision
+   * 185): Facebook.
+   */
+  readonly refers: boolean;
+  /**
+   * A save of the person's lists is never begun while they're at their computer, as it reads with its window on
+   * screen (decision 120): a first day's waits till they're away, and a later one is left till then while the rest
+   * of the day goes on. Instagram, Threads and X, whose followers' box reads on screen. Anywhere else the save is
+   * tried whenever it's due, and puts itself off when its page needs the screen.
+   */
+  readonly savesAway: boolean;
 }
 
 const follow = (platform: FollowPlatform): RunnerKit => ({
@@ -333,6 +345,8 @@ const follow = (platform: FollowPlatform): RunnerKit => ({
   watches: false,
   searches: true,
   posts: false,
+  refers: false,
+  savesAway: true,
 });
 
 export const RUNNERS: Readonly<Record<Platform, RunnerKit>> = {
@@ -347,6 +361,8 @@ export const RUNNERS: Readonly<Record<Platform, RunnerKit>> = {
     watches: true,
     searches: false,
     posts: true,
+    refers: true,
+    savesAway: false,
   },
   linkedin: {
     auto: LINKEDIN_AUTO,
@@ -359,6 +375,8 @@ export const RUNNERS: Readonly<Record<Platform, RunnerKit>> = {
     watches: false,
     searches: false,
     posts: true,
+    refers: false,
+    savesAway: false,
   },
   instagram: {
     auto: INSTAGRAM_AUTO,
@@ -371,6 +389,8 @@ export const RUNNERS: Readonly<Record<Platform, RunnerKit>> = {
     watches: false,
     searches: false,
     posts: false,
+    refers: false,
+    savesAway: true,
   },
   alignable: {
     auto: ALIGNABLE_AUTO,
@@ -383,6 +403,8 @@ export const RUNNERS: Readonly<Record<Platform, RunnerKit>> = {
     watches: false,
     searches: false,
     posts: false,
+    refers: false,
+    savesAway: false,
   },
   threads: follow('threads'),
   x: follow('x'),

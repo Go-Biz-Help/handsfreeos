@@ -117,7 +117,7 @@ export function onboardingSetupBusinessLine(
 
 /**
  * The summary beside the questions, in plain sentences: "Lone Star HVAC: HVAC in Austin, Texas, on Central time.",
- * "Open Mon–Fri 7:00 AM–6:00 PM.", "Ava replies to new leads within a minute, with training wheels.". It follows the
+ * "Open Mon–Fri 7:00 AM–6:00 PM.", "Ava replies to new leads within 8 seconds, with training wheels.". It follows the
  * answers as they change; on the phone it's a "See the summary" sheet.
  */
 export function onboardingSetupSummary(

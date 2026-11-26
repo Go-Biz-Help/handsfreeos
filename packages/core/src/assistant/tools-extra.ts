@@ -17,6 +17,8 @@ import {
   APPROVALS_NEEDED_MIN,
   FOLLOW_UP_MAX_STEPS,
   FOLLOW_UP_UNITS,
+  NEW_LEAD_AFTER_HOURS,
+  NEW_LEAD_WAIT_UNITS,
   PHONE_ANSWER_MODES,
   QUESTION_KINDS,
   QUOTE_MODES,
@@ -110,7 +112,7 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'update_ai_teammate_rules',
     description:
-      'Change the AI teammate’s finer rules, as its screen sections have them. Channels: the address it emails from and the website chat it answers. Respond: how its first message to a new lead goes (text or email) and how long after the lead comes in. Book: whether it reschedules, cancels, uses a waitlist, books repeat visits and checks the service area. Photos: whether it looks at photos and gives rough price ranges from them. Hours: the hours it works when they’re its own. Add-ons: which ones it uses in a conversation. Qualify: switch it on, add, change, remove or reorder the questions it asks new leads (kind, choices, required, which answers mean not a fit, and for a file question who hears when it arrives), where a qualified lead moves, who is told, whether it then offers times, whether the team hears when a lead isn’t a fit, and whether it opens and closes deals. Limits: replies to one customer a day, look-ups per reply, its share of the daily AI limit, discounts, bills, new bills, quotes and maintenance plans. Hand-off: when frustrated, sensitive topics, who is told and how, and what the customer is told. Phone calls: on or off, when it picks up, its voice and greeting. Identity: email signature and tone. Autonomy: approvals before it works on its own, and when drafts expire. Its name, status, which channels it answers, when it works and its other skills on or off (all but Qualify) are manage_ai_teammate; when each follow-up goes is update_automations’ followUpTimes. Read it first with get_settings area ai_teammate (question ids are there); stage ids come from get_settings area pipelines and people from list_team. Pass only what changes.',
+      'Change the AI teammate’s finer rules, as its screen sections have them. Channels: the address it emails from and the website chat it answers. Respond: how its first message to a new lead goes (text or email), how long after the lead comes in (seconds to days), and whether it keeps that wait outside working hours or waits for them. Book: whether it reschedules, cancels, uses a waitlist, books repeat visits and checks the service area. Photos: whether it looks at photos and gives rough price ranges from them. Hours: the hours it works when they’re its own. Add-ons: which ones it uses in a conversation. Qualify: switch it on, add, change, remove or reorder the questions it asks new leads (kind, choices, required, which answers mean not a fit, and for a file question who hears when it arrives), where a qualified lead moves, who is told, whether it then offers times, whether the team hears when a lead isn’t a fit, and whether it opens and closes deals. Limits: replies to one customer a day, look-ups per reply, its share of the daily AI limit, discounts, bills, new bills, quotes and maintenance plans. Hand-off: when frustrated, sensitive topics, who is told and how, and what the customer is told. Phone calls: on or off, when it picks up, its voice and greeting. Identity: email signature and tone. Autonomy: approvals before it works on its own, and when drafts expire. Its name, status, which channels it answers, when it works and its other skills on or off (all but Qualify) are manage_ai_teammate; when each follow-up goes is update_automations’ followUpTimes. Read it first with get_settings area ai_teammate (question ids are there); stage ids come from get_settings area pipelines and people from list_team. Pass only what changes.',
     input: z.object({
       // Channels
       emailsFromAddressId: uuid
@@ -126,12 +128,23 @@ export const extraTools: readonly AssistantTool[] = [
         .describe(
           'Its first message to a new lead. sms: a text when they agreed to texts, otherwise an email; email: always email',
         ),
-      firstMessageAfterMinutes: z
+      firstMessageAfter: z
         .int()
         .min(0)
-        .max(120)
         .optional()
-        .describe('How long after a new lead comes in it sends that first message; 0 for at once'),
+        .describe(
+          'How long after a new lead comes in it sends that first message, in firstMessageAfterUnit (8 seconds unless changed; 0 for at once; at most 30 days)',
+        ),
+      firstMessageAfterUnit: z
+        .enum(NEW_LEAD_WAIT_UNITS)
+        .optional()
+        .describe('The unit of firstMessageAfter: seconds, minutes, hours or days'),
+      firstMessageOutsideHours: z
+        .enum(NEW_LEAD_AFTER_HOURS)
+        .optional()
+        .describe(
+          'Outside its working hours: same, sends on the same wait at any hour to a lead who came in on their own; wait, holds it until working hours start and quiet hours end',
+        ),
       // Book
       reschedules: z.boolean().optional().describe('Moves a booking when the customer asks'),
       cancels: z.boolean().optional().describe('Cancels a booking when the customer asks'),

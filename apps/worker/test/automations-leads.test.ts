@@ -32,6 +32,7 @@ import {
   run,
   runDue,
   runNow,
+  saveTeammate,
   scopeOf,
   setQuietHours,
   teammateRequests,
@@ -116,6 +117,50 @@ describe('new lead greeting at night', () => {
       await runNow(w, [outreachJobKey(leadId)]);
       expect(textsTo(w, typed.phone)).toHaveLength(0);
     } finally {
+      await setQuietHours(w, null);
+    }
+  });
+});
+
+describe('new lead greeting outside working hours', () => {
+  it('keeps a longer wait at night on Same wait, past the old 15 minutes', async () => {
+    const H = hourNow();
+    await setQuietHours(w, { start: hh(H - 1), end: hh(H + 2) });
+    await saveTeammate(w, { respond: { newLeads: { wait: { after: 1, unit: 'hours' } } } });
+    try {
+      const c = await newCustomer(w, 'Rosa');
+      await agreesToTexts(c.id);
+      const leadId = await arrivedLead(c.id);
+      const job = await jobRow(outreachJobKey(leadId));
+      expect(new Date(job!.run_at).getTime()).toBeGreaterThan(Date.now() + 59 * 60_000);
+      // Its hour is up: it came in 61 minutes ago, inside the wait plus 15 minutes, so it goes tonight.
+      await rows(
+        admin(),
+        sql`update app.leads set created_at = now() - interval '61 minutes' where id = ${leadId}`,
+      );
+      await runNow(w, [outreachJobKey(leadId)]);
+      expect(textsTo(w, c.phone)).toHaveLength(1);
+    } finally {
+      await saveTeammate(w, { respond: { newLeads: { wait: { after: 8, unit: 'seconds' } } } });
+      await setQuietHours(w, null);
+    }
+  });
+
+  it('holds even a fresh lead for working hours on When hours start', async () => {
+    const H = hourNow();
+    await setQuietHours(w, { start: hh(H - 1), end: hh(H + 2) });
+    await saveTeammate(w, { respond: { newLeads: { afterHours: 'wait' } } });
+    try {
+      const c = await newCustomer(w, 'Sami');
+      await agreesToTexts(c.id);
+      const leadId = await arrivedLead(c.id);
+      await runNow(w, [outreachJobKey(leadId)]);
+      expect(textsTo(w, c.phone)).toHaveLength(0);
+      const waiting = await jobRow(outreachJobKey(leadId));
+      expect(waiting?.status).toBe('pending');
+      expect(new Date(waiting!.run_at).getTime()).toBeGreaterThan(Date.now() + 30 * 60_000);
+    } finally {
+      await saveTeammate(w, { respond: { newLeads: { afterHours: 'same' } } });
       await setQuietHours(w, null);
     }
   });

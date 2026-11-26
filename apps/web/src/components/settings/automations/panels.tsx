@@ -219,18 +219,19 @@ function NewLeadPanel({ env }: { env: PanelEnv }) {
   return (
     <Block>
       <Note>
-        {ai} sends the first message a minute after a new lead or form comes in, whatever hours it
-        works: a text when they agreed to texts, otherwise an email. How soon, and by text or email,
-        is set on{' '}
+        {ai} sends the first message 8 seconds after a new lead or form comes in, unless you pick
+        another wait: a text when they agreed to texts, otherwise an email. The wait, text or email,
+        and what happens outside working hours are set on{' '}
         <Link href={`/app/w/${env.workspaceId}/ai-team`} className={linkCls}>
           AI teammate
         </Link>
-        .
+        , under Respond.
       </Note>
       <Note>
-        At night it still texts someone who came in on their own within 15 minutes of them getting
-        in touch. Anyone later waits until quiet hours end. While {ai} is training, each greeting
-        waits for you to approve it.
+        Outside working hours it sends on the same wait, even at night for someone who came in on
+        their own, or holds it until working hours start, as you choose there. A lead someone typed
+        in waits for quiet hours to end. While {ai} is training, each greeting waits for you to
+        approve it.
       </Note>
     </Block>
   );

@@ -257,6 +257,20 @@ describe('the next move, by the runner’s rules', () => {
     });
   });
 
+  it('looks again when the hours end on Facebook, and within the hour anywhere else, as each runner does', () => {
+    // 4:40 p.m.: 20 minutes of the working hours are left.
+    const late = FIVE_PM - 20 * MIN;
+    const nothing = { ...facts().list, items: [] };
+    const idle = (platform: 'facebook' | 'alignable') => {
+      const daily = Object.fromEntries(RUNNERS[platform].daily.map((job) => [job, 'Done.']));
+      const state = fresh({ daily, watchAt: late + 3 * 60 * MIN });
+      return nextMove(facts({ platform, now: late, list: nothing }), state).move;
+    };
+    expect(idle('facebook')).toEqual({ do: 'wait', why: 'idle', until: FIVE_PM });
+    // Alignable's own next look finds the hours over, and waits for the next ones then.
+    expect(idle('alignable')).toEqual({ do: 'wait', why: 'idle', until: late + 60 * MIN });
+  });
+
   it('searches every hour on Threads and X, and writes no messages on X', () => {
     const threads = facts({
       platform: 'threads',
@@ -323,6 +337,171 @@ describe('a runner’s own ask for its next move (decision 195, step 2)', () => 
     // With nothing else to read, the save isn't reading that's left: the list goes at its own pace.
     const listOnly = nextMove(weekly, allRead('threads'), 0.5, HERE).move;
     expect(listOnly).toMatchObject({ do: 'work', reading: false, answering: false });
+  });
+
+  it('holds a save for the screen where followers are saved: elsewhere it’s tried when due, and puts itself off', () => {
+    const held = Object.entries(RUNNERS).filter(([, kit]) => kit.savesAway);
+    expect(held.map(([platform]) => platform)).toEqual(['instagram', 'threads', 'x']);
+    // Instagram's first day waits for the person to be away, as its runner does, and a later save is left till then.
+    const onInstagram = (lists: ListsSaved) => facts({ platform: 'instagram', lists });
+    expect(nextMove(onInstagram(NO_LISTS), fresh(), 0.5, HERE).move).toEqual({
+      do: 'wait',
+      why: 'screen',
+      until: NOW + 10 * MIN,
+    });
+    const followersDue = onInstagram({ ...SAVED, friendsAt: at(NOW - 8 * DAY) });
+    expect(nextMove(followersDue, fresh(), 0.5, HERE).move).toMatchObject({
+      do: 'daily',
+      job: 'requests',
+    });
+    expect(nextMove(followersDue, fresh(), 0.5, { away: true, passOver: [] }).move).toMatchObject({
+      do: 'before',
+      step: { do: 'save', list: 'friends', first: false },
+    });
+    // Alignable's first day, with the person at their computer: the save is sent, as its own runner tries it.
+    const onAlignable = (lists: ListsSaved) => facts({ platform: 'alignable', lists });
+    expect(nextMove(onAlignable(NO_LISTS), fresh(), 0.5, HERE).move).toMatchObject({
+      do: 'before',
+      step: { do: 'save', list: 'friends', first: true },
+    });
+    // And a later one, due again, goes before the rest of the day's reading, not after it.
+    const weekly = onAlignable({ ...SAVED, friendsAt: at(NOW - 8 * DAY) });
+    expect(nextMove(weekly, fresh(), 0.5, HERE).move).toMatchObject({
+      do: 'before',
+      step: { do: 'save', list: 'friends', first: false },
+    });
+    // It still takes turns with the list (decision 123): after a part of the reading, a step on the list goes.
+    expect(nextMove(weekly, fresh({ readLast: true }), 0.5, HERE).move).toMatchObject({
+      do: 'work',
+      reading: true,
+    });
+  });
+
+  it('sends a runner today’s helpful post once the day’s reading is done, where it posts on its own', () => {
+    const CHOICES = { on: true, sending: 'steps', collect: true, watchPosts: true } as const;
+    const posting = (more: Partial<PlanFacts> = {}) =>
+      facts({ platform: 'linkedin', choices: { ...CHOICES, posting: 'own' }, ...more });
+    const done = (platform: 'linkedin' | 'facebook' | 'instagram', more: Partial<PlanDay> = {}) =>
+      fresh({
+        daily: Object.fromEntries(RUNNERS[platform].daily.map((job) => [job, 'Done.'])),
+        watchAt: NOW + 90 * MIN,
+        ...more,
+      });
+    // After the reading, before the list, at LinkedIn's pace.
+    expect(nextMove(posting(), done('linkedin'), 0.5, HERE).move).toEqual({
+      do: 'post',
+      gap: 4 * MIN,
+    });
+    // Never while a part of the reading is left: the AI writes the post from what was read.
+    expect(nextMove(posting(), fresh(), 0.5, HERE).move).toMatchObject({ do: 'daily' });
+    // With Collect off there's no reading to wait for.
+    const noReading = posting({ choices: { ...CHOICES, collect: false, posting: 'own' } });
+    expect(nextMove(noReading, fresh(), 0.5, HERE).move).toMatchObject({ do: 'post' });
+    // Once it's up, or while none's written yet and it looks again later, the list goes on.
+    const up = done('linkedin', { helpfulUp: true });
+    expect(nextMove(posting(), up, 0.5, HERE).move).toMatchObject({ do: 'work', reading: false });
+    const later = done('linkedin', { helpfulAt: NOW + 20 * MIN });
+    expect(nextMove(posting(), later, 0.5, HERE).move).toMatchObject({ do: 'work' });
+    expect(
+      nextMove(posting(), done('linkedin', { helpfulAt: NOW - MIN }), 0.5, HERE).move,
+    ).toMatchObject({
+      do: 'post',
+    });
+    // Not where a post waits for their OK, which is how it starts, nor where the runner puts none up.
+    const afterOk = posting({ choices: { ...CHOICES, posting: 'after_ok' } });
+    expect(nextMove(afterOk, done('linkedin'), 0.5, HERE).move).toMatchObject({ do: 'work' });
+    expect(
+      nextMove(facts({ platform: 'linkedin' }), done('linkedin'), 0.5, HERE).move,
+    ).toMatchObject({
+      do: 'work',
+    });
+    const onInstagram = posting({ platform: 'instagram' });
+    expect(nextMove(onInstagram, done('instagram'), 0.5, HERE).move).toMatchObject({ do: 'work' });
+    // Facebook's goes only in its hours: with its day started by hand after them, the list goes on. A referral
+    // looked for a moment ago leaves the post its turn.
+    const onFacebook = posting({ platform: 'facebook' });
+    const referred = { referAt: NOW + 20 * MIN };
+    expect(nextMove(onFacebook, done('facebook', referred), 0.5, HERE).move).toMatchObject({
+      do: 'post',
+    });
+    const pressed = posting({
+      platform: 'facebook',
+      now: FIVE_PM + 30 * MIN,
+      day: { date: TODAY, state: 'started', why: null },
+    });
+    expect(nextMove(pressed, done('facebook'), 0.5, HERE).move).not.toMatchObject({ do: 'post' });
+    // The plan that's shown leaves the post out, and says so.
+    expect(nextMove(posting(), done('linkedin')).move).toMatchObject({ do: 'work' });
+  });
+
+  it('sends Facebook’s runner to look for a referral to do, every half hour in its hours', () => {
+    const CHOICES = { on: true, sending: 'steps', collect: true, watchPosts: true } as const;
+    const onFacebook = (more: Partial<PlanFacts> = {}) =>
+      facts({ platform: 'facebook', choices: { ...CHOICES, posting: 'own' }, ...more });
+    const done = (more: Partial<PlanDay> = {}) =>
+      fresh({
+        daily: Object.fromEntries(RUNNERS.facebook.daily.map((job) => [job, 'Done.'])),
+        watchAt: NOW + 90 * MIN,
+        ...more,
+      });
+    // After the day's reading, before the helpful post, the newest posts and the list, at a person's pace.
+    expect(nextMove(onFacebook(), done(), 0.5, HERE).move).toEqual({ do: 'refer', gap: 2 * MIN });
+    expect(nextMove(onFacebook(), done({ watchAt: NOW - MIN }), 0.5, HERE).move).toMatchObject({
+      do: 'refer',
+    });
+    // Never while a part of the reading is left.
+    expect(nextMove(onFacebook(), fresh(), 0.5, HERE).move).not.toMatchObject({ do: 'refer' });
+    // One looked for in the last half hour isn't again: the post, the newest posts and the list have their turn.
+    const looked = done({ referAt: NOW + 20 * MIN });
+    expect(nextMove(onFacebook(), looked, 0.5, HERE).move).toMatchObject({ do: 'post' });
+    expect(nextMove(onFacebook(), done({ referAt: NOW - MIN }), 0.5, HERE).move).toMatchObject({
+      do: 'refer',
+    });
+    // Only in its hours: with its day started by hand after them, none is looked for.
+    const pressed = onFacebook({
+      now: FIVE_PM + 30 * MIN,
+      day: { date: TODAY, state: 'started', why: null },
+    });
+    expect(nextMove(pressed, done(), 0.5, HERE).move).not.toMatchObject({ do: 'refer' });
+    // Only Facebook's runner does them.
+    for (const platform of ['linkedin', 'instagram', 'alignable', 'threads', 'x'] as const) {
+      expect(RUNNERS[platform].refers).toBe(false);
+      const all = fresh({
+        daily: Object.fromEntries(RUNNERS[platform].daily.map((job) => [job, 'Done.'])),
+        watchAt: NOW + 90 * MIN,
+      });
+      expect(nextMove(facts({ platform }), all, 0.5, HERE).move).not.toMatchObject({ do: 'refer' });
+    }
+    // The plan that's shown leaves the look out, and says so.
+    expect(nextMove(onFacebook(), done()).move).not.toMatchObject({ do: 'refer' });
+    // And it's sent as it is.
+    expect(moveSent({ do: 'refer', gap: 120_000.4 }, 10 * MIN)).toEqual({
+      do: 'refer',
+      gap: 120_000,
+    });
+    expect(
+      PlanNextOutput.parse({
+        decides: true,
+        move: { do: 'refer', gap: 1 },
+        change: null,
+        list: null,
+      }).move,
+    ).toEqual({ do: 'refer', gap: 1 });
+  });
+
+  it('sends the helpful post as it is, its gap a whole number', () => {
+    expect(moveSent({ do: 'post', gap: 240_000.4 }, 10 * MIN)).toEqual({
+      do: 'post',
+      gap: 240_000,
+    });
+    expect(
+      PlanNextOutput.parse({
+        decides: true,
+        move: { do: 'post', gap: 1 },
+        change: null,
+        list: null,
+      }).move,
+    ).toEqual({ do: 'post', gap: 1 });
   });
 
   it('passes over a job put off till they’re away, and looks again in a few minutes for it', () => {
@@ -462,7 +641,8 @@ describe('the move as it’s sent to a runner (decision 195, step 2)', () => {
   const SKEW = 10 * MIN;
 
   it('is switched on for no network yet, and answers only a build that asks', () => {
-    // Threads' and X's runners ask from 0.156.0. They go in here once a day's plan is checked against a real day.
+    // Threads' and X's runners ask from 0.156.0, Alignable's from 0.157.0, and Instagram's from 0.158.0. Each goes in
+    // here by itself, once a day's plan is checked against a real day.
     expect(PLAN_DECIDES).toEqual([]);
     expect(NEXT_SINCE).toBe('0.156.0');
   });

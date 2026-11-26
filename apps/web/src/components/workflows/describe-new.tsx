@@ -250,9 +250,7 @@ export function DescribeNew({
           disabled={!!asking}
           aria-label={usable ? 'Refine the workflow' : 'Describe the workflow'}
           placeholder={
-            usable
-              ? 'Refine it, like “and stop if they book”'
-              : 'Like “text new leads within a minute”'
+            usable ? 'Refine it, like “and stop if they book”' : 'Like “text new leads right away”'
           }
           className="min-h-[76px] text-[14px]"
           data-testid="describe-new-input"

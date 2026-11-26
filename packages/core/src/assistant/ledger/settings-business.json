@@ -1,7 +1,7 @@
 {
   "area": "settings-business",
   "title": "Settings: the business, branded domain, pipelines, tags, fields, relationships, Deleted bin, usage, action center and automations",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-25",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "4f114178dc72",
@@ -38,7 +38,7 @@
     "apps/web/src/components/settings/ai-tagging.tsx": "423e67b021f7",
     "apps/web/src/components/settings/appearance-section.tsx": "383c3fcbfc5b",
     "apps/web/src/components/settings/automations/automations-page.tsx": "57d10fa29ef1",
-    "apps/web/src/components/settings/automations/panels.tsx": "5bcff013300f",
+    "apps/web/src/components/settings/automations/panels.tsx": "e4dddf96e1b6",
     "apps/web/src/components/settings/billing-page.tsx": "480282be3d3a",
     "apps/web/src/components/settings/branded-domain-card.tsx": "d6e2b0af323b",
     "apps/web/src/components/settings/delete-workspace.tsx": "fe6ed95a9d1f",

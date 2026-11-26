@@ -352,7 +352,7 @@ describe('the first screen', () => {
     );
     expect(picks).not.toBeChecked();
     expect(screen.getByTestId('ai-setup-summary')).toHaveTextContent(
-      'Max replies to new leads within a minute.',
+      'Max replies to new leads within 8 seconds.',
       { exact: false },
     );
     // It follows the kind of business: the agency saved nothing for dentists.
@@ -377,7 +377,7 @@ describe('the first screen', () => {
     ]);
     expect(screen.getByTestId('ai-setup-job-qualify')).not.toBeChecked();
     expect(screen.getByTestId('ai-setup-summary')).toHaveTextContent(
-      'Ava replies to new leads within a minute.',
+      'Ava replies to new leads within 8 seconds.',
       { exact: false },
     );
 

@@ -56,6 +56,12 @@ export const REPLY_DELAY_AUTOMATIC_MS: Readonly<Record<TeammateChannel, number>>
 export const REPLY_CEILING_MS = 90_000;
 /** What waits for quiet hours goes this long after they end. */
 export const QUIET_GRACE_MS = 2 * 60_000;
+/**
+ * A new lead's greeting waits while a workflow that started with them is still on its first steps, looking again
+ * this often, for at most WORKFLOW_FIRST_MS after the lead came in (the minute the greeting always used to wait).
+ */
+export const WORKFLOW_LOOK_AGAIN_MS = 2_000;
+export const WORKFLOW_FIRST_MS = 60_000;
 
 /** The customer messages one run answers at most (the newest ones). */
 export const BATCH_MAX = 20;

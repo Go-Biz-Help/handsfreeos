@@ -5340,7 +5340,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       do when"; "yes" to building it). Built in five steps, a pull request each, so nothing changes all at once:
       1. **See the plan in the app** (extension 0.155.0, built below).
       2. **The app decides, the extension does:** the extension asks HandsFreeOS for its next move, one network at a
-         time, the smallest first and Facebook last. Threads and X are built (extension 0.156.0, below).
+         time, the smallest first and Facebook last. Threads and X are built (extension 0.156.0), then Alignable
+         (0.157.0), Instagram (0.158.0), LinkedIn (0.159.0) and Facebook (0.160.0), all below.
       3. **Buttons on the plan:** do now, skip today, move to a time.
       4. **The Assistant changes the plan,** as it already reads it.
       5. **Clean-up:** the extension's own planning goes.
@@ -5402,6 +5403,80 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         person asked, for the plan that's shown; a runner waits only for one in line on its own computer, as before,
         so it says so itself (`here.asking`).
       - No migration. Nothing on the Plan is pressed yet (step 3), and nothing a person sees changes.
+
+      **Step 2, Alignable** (extension 0.157.0). Alignable's runner asks and does the move it's sent, the same way
+      (`go` and `asTold` in `src/auto/alignable.ts`). Built, and **switched off** like Threads and X: its name goes
+      into `PLAN_DECIDES` by itself, after a day's plan has matched what it really did.
+      - **Its own checks stay first and unchanged,** in its hours and outside them. Then it asks, and does a step
+        before its day, a once-a-day read, a wait, or the piece of its list's work HandsFreeOS picked: the same pages,
+        pace and limits. By itself whenever it must, as above.
+      - **Two places where the shared rules were Threads' and X's, or Facebook's, alone, now each network's own**
+        (`nextMove`). A save of the person's lists is held till they're away only on Threads and X (`savesAway` in
+        `runners.ts`): Alignable tries it when it's due, and its tab puts it off when a page needs the screen. And with
+        nothing left, only Facebook looks again the moment its hours end: every other network looks within the hour,
+        and finds the hours over then. Neither changes what Threads, X or Facebook do.
+      - **Compared, not assumed** (`apps/extension/test/alignable-plan-next.test.ts`): 23 situations of a day, each
+        gone once as HandsFreeOS decides and once as the runner plans by itself, and the two must come to the same
+        read, page, words, state and next time.
+      - No migration, and nothing a person sees changes.
+
+      **Step 2, Instagram** (extension 0.158.0). Instagram's runner asks and does the move it's sent, the same way
+      (`go` and `asTold` in `src/auto/instagram.ts`). Built, and **switched off** like the others.
+      - **Its own checks stay first and unchanged,** in its hours and outside them. Then it asks, and does a step
+        before its day, a once-a-day read, a wait, or the piece of its list's work HandsFreeOS picked: the same pages,
+        pace and limits. By itself whenever it must, as above.
+      - **Nobody new is messaged** (decision 159 stays as it is). The piece of work HandsFreeOS picks is found on the
+        same list for today, which holds a first message only for someone who follows the person, and it's sent by
+        the same code with the same checks. Picking the order adds nobody to the list.
+      - **Their followers are saved only while they're away,** as on Threads and X (`savesAway` is true for
+        Instagram too): a first day waits for it, a later save is left till then, and the runner turns down a save
+        sent while they're at their computer.
+      - **Compared, not assumed** (`apps/extension/test/instagram-plan-next.test.ts`): 26 situations of a day, each
+        gone once as HandsFreeOS decides and once as the runner plans by itself, and the two must come to the same
+        read, page, words, state and next time.
+      - No migration, and nothing a person sees changes.
+
+      **Step 2, LinkedIn** (extension 0.159.0). LinkedIn's runner asks and does the move it's sent, the same way
+      (`go` and `asTold` in `src/auto/linkedin.ts`). Built, and **switched off** like the others.
+      - **Its own checks stay first and unchanged,** in its hours and outside them. Then it asks, and does a step
+        before its day, a once-a-day read, a wait, or the piece of its list's work HandsFreeOS picked: the same pages,
+        pace and limits, the week's invitations and the day's 40 profiles among them. By itself whenever it must, as
+        above.
+      - **Today's helpful post is HandsFreeOS's to send too** (decision 50 stays as it is). Where the person lets
+        LinkedIn post on its own, the runner put the post up between the day's reading and the list, and the day's
+        rules had no move for that. They have one now (`post`), sent only to a runner that asks, under the same
+        conditions: Posting on its own, the day's post asked for, and not looked for in the last 30 minutes. With
+        none written yet, the runner asks once more in the same go and does what goes meanwhile. The plan that's
+        shown still leaves the post out, as it can't tell when the AI will have one written.
+      - **A save of their lists is tried whenever it's due,** as on Alignable: its tab puts a save off by itself
+        when a page needs the screen (`savesAway` stays `false` for LinkedIn).
+      - **Compared, not assumed** (`apps/extension/test/linkedin-plan-next.test.ts`): 38 situations of a day, 14 of
+        them about the helpful post, each gone once as HandsFreeOS decides and once as the runner plans by itself,
+        and the two must come to the same read, page, words, state and next time.
+      - No migration, and nothing a person sees changes.
+
+      **Step 2, Facebook** (extension 0.160.0). Facebook's runner, the last, asks and does the move it's sent, the
+      same way (`go` and `asTold` in `src/auto/run.ts`). Built, and **switched off** like the others: every
+      network's runner asks now, and none is decided for yet.
+      - **Its own checks stay first and unchanged,** in its hours and outside them: Sending not Off, the computer
+        that works, Stop for today, a warning, noting on, and nothing they asked in line. Then it asks, and does a
+        step before its day, a once-a-day read, the newest posts in their groups (decision 49), a wait, or the piece
+        of its list's work HandsFreeOS picked: the same pages, pace and limits. By itself whenever it must, as above.
+      - **A referral to do is HandsFreeOS's to send too** (decision 185 stays as it is). The runner looked for a
+        referral, or an ask after two, every half hour in its hours, once the day's reading was done, and the day's
+        rules had no move for that. They have one now (`refer`), sent only to Facebook's runner when it asks, under
+        the same conditions. One done, the go ends there. With none due, the runner asks once more in the same go and
+        does what goes meanwhile. The plan that's shown leaves the look out, as it can't tell whether one will be
+        due.
+      - **Today's helpful post goes the same way** (decision 50, as on LinkedIn), and only in its hours, as it
+        always has on Facebook. A go asks three times at most: a referral, the post, then what goes meanwhile.
+      - **Nothing new goes outside its hours, whatever it's sent:** a referral, the helpful post or the newest posts
+        sent then is turned down, after Start my day too.
+      - **Compared, not assumed** (`apps/extension/test/facebook-plan-next.test.ts`): 72 situations of a day, 10
+        about a referral, 18 about the helpful post and 9 about the newest posts, each gone once as HandsFreeOS
+        decides and once as the runner plans by itself, and the two must come to the same read, page, words, state
+        and next time.
+      - No migration, and nothing a person sees changes.
 
 196.  **Comments and messages, a part each on Needs you** (Chris, 25 Nov 2026: "separate comments and messages into
       different menued pages", with a picture of one "Messages 85" part holding both). Needs you's row has
