@@ -70,7 +70,7 @@ export const EDIT_EXAMPLES = [
 ] as const;
 
 export const NEW_EXAMPLES = [
-  'Text new leads within a minute, then follow up the next day',
+  'Text new leads right away, then follow up the next day',
   'After a job is done, thank them and ask for a review',
   'When a call is missed, text them back and make a task',
 ] as const;

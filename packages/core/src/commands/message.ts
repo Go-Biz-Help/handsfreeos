@@ -19,6 +19,12 @@ import {
   type MediaRef,
   type RichText,
 } from '@hfos/db/schema';
+import {
+  emptyTeammateConfig,
+  newLeadQuietWindowMs,
+  parseTeammateConfig,
+  type TeammateConfig,
+} from '../ai-team/config';
 import { optOutPhrase } from '../ai-team/guardrails';
 import { chatIdentityUnverified, notHandledByAi, outsideItsConversation } from '../ai-team/reach';
 import { attentionSettingsOf } from '../attention/settings';
@@ -56,7 +62,6 @@ import { personWroteIn } from '../messaging/hands';
 import {
   CANCELLED_TEXT,
   formatClock,
-  QUIET_FIRST_MESSAGE_WINDOW_MS,
   QUIET_FOLLOW_UP_WINDOW_MS,
   QUIET_REPLY_LIMIT,
   QUIET_REPLY_WINDOW_MS,
@@ -401,20 +406,29 @@ async function assertQuietReply(
 }
 
 /**
- * Whether this AI run is greeting a lead that came in on its own (nobody typed it in) within
- * QUIET_FIRST_MESSAGE_WINDOW_MS: the one first text quiet hours let through.
+ * Whether this AI run is greeting a lead that came in on its own (nobody typed it in) on time: the one first text
+ * quiet hours let through. On time is the business's wait plus QUIET_FIRST_MESSAGE_WINDOW_MS, and never when it
+ * holds the greeting for working hours (AI teammate → Respond, "Outside working hours").
  */
 async function freshLeadGreeting(ctx: CommandContext, runId: string | null): Promise<boolean> {
   if (!runId) return false;
-  const since = new Date(Date.now() - QUIET_FIRST_MESSAGE_WINDOW_MS).toISOString();
-  const [r] = await rows<{ fresh: boolean }>(
+  const [r] = await rows<{ created_at: Date | string; config: unknown }>(
     ctx.tx,
-    sql`select exists (
-          select 1 from app.ai_teammate_runs r join app.leads l on l.id = r.lead_id
-          where r.id = ${runId} and r.triggered_by = 'lead.created'
-            and l.created_by is null and l.created_at >= ${since}::timestamptz) as fresh`,
+    sql`select l.created_at, t.config
+        from app.ai_teammate_runs r
+        join app.leads l on l.id = r.lead_id
+        join app.ai_teammates t on t.id = r.teammate_id
+        where r.id = ${runId} and r.triggered_by = 'lead.created' and l.created_by is null`,
   );
-  return !!r?.fresh;
+  if (!r) return false;
+  let config: TeammateConfig;
+  try {
+    config = parseTeammateConfig(r.config);
+  } catch {
+    config = emptyTeammateConfig();
+  }
+  const window = newLeadQuietWindowMs(config.respond.newLeads);
+  return window !== null && Date.now() - new Date(r.created_at).getTime() <= window;
 }
 
 /**

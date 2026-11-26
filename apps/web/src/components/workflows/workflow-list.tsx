@@ -275,7 +275,7 @@ function NoWorkflows({ base, canManage }: { base: string; canManage: boolean }) 
         <h3 className="text-[15px] font-semibold">No workflows yet</h3>
         <p className="max-w-[340px] text-[13px] text-text-2">
           Workflows follow up for you. Most businesses start with Speed to lead, which texts new
-          leads within a minute.
+          leads right away.
         </p>
         {canManage ? (
           <div className="mt-2.5 flex flex-wrap justify-center gap-2">

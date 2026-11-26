@@ -89,7 +89,9 @@ describe('diff', () => {
     const b = applyTeammatePatch(a, {
       identity: { name: 'Max', disclosure: 'when_asked', signature: '– Max' },
       channels: { chat: false, emailAddressId: OFFICE },
-      respond: { newLeads: { channel: 'email', delayMinutes: 0 } },
+      respond: {
+        newLeads: { channel: 'email', wait: { after: 0, unit: 'seconds' }, afterHours: 'wait' },
+      },
       answer: { whenUnsure: 'take_message' },
       book: { enabled: true, calendarIds: [SERVICE_CAL] },
     });
@@ -100,7 +102,8 @@ describe('diff', () => {
       'Website chat: on → off',
       'Emails from: hello@lonestarhvac.com → office@lonestarhvac.com',
       'First message by: text → email',
-      'Waits before the first message: 1 minute → no wait',
+      'Waits before the first message: 8 seconds → no wait',
+      'Outside working hours, the first message: sends on the same wait → waits for working hours',
       'When unsure: hands to a person → takes a message',
       'Books appointments: off → on',
       'Added the calendar Service calls',

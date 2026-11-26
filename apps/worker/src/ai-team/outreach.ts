@@ -10,15 +10,19 @@
  *   in the last day (never after STOP), an email when they have an address, else nothing (the run says why).
  * - It runs as a reply run with no conversation (run.ts runFirstMessage): the send starts the conversation,
  *   which the teammate then handles.
- * - A new lead's greeting goes at once, whatever working hours the teammate has (Automations, "New lead
- *   greeting": Chris's call that a form fill is always answered right away). A text in quiet hours goes only
- *   within QUIET_FIRST_MESSAGE_WINDOW_MS of a lead that came in on its own; otherwise it waits for them to end.
- *   A workflow's hand-over still keeps to the teammate's hours.
+ * - A new lead's greeting goes after the Respond skill's wait, 8 seconds unless the business picks another (the
+ *   owner, 25 Nov 2026), and a workflow that started on the same lead gets its first steps in first.
+ * - Outside working hours (Respond, "Outside working hours"): `same`, the default, greets on the same wait whatever
+ *   the teammate's hours (Chris's call that a form fill is always answered right away), and a text in quiet hours
+ *   goes to a lead that came in on its own up to the wait plus QUIET_FIRST_MESSAGE_WINDOW_MS after it did; `wait`
+ *   holds it for the teammate's hours and the end of quiet hours. A lead someone typed in waits for quiet hours to
+ *   end either way, and a workflow's hand-over always keeps to the teammate's hours.
  */
 import {
   AI_TEAMMATE_SOURCE,
   loadTeammate,
-  QUIET_FIRST_MESSAGE_WINDOW_MS,
+  newLeadQuietWindowMs,
+  newLeadWaitMs,
   openHoursOf,
   scheduleJob,
   uuidArray,
@@ -32,7 +36,14 @@ import type { JobHandler } from '../jobs';
 import { tenantOf, type TenantScope } from '../services';
 import { runtimeConfigOf } from './config';
 import { inFunnel } from './funnel-context';
-import { outreachJobKey, QUIET_GRACE_MS, RECENT_CONTACT_MS, TEAMMATE_JOBS } from './constants';
+import {
+  outreachJobKey,
+  QUIET_GRACE_MS,
+  RECENT_CONTACT_MS,
+  TEAMMATE_JOBS,
+  WORKFLOW_FIRST_MS,
+  WORKFLOW_LOOK_AGAIN_MS,
+} from './constants';
 import { nextWorkingAt } from './hours';
 import { handoverOf, originOf, runFirstMessage, type FirstTarget } from './run';
 
@@ -70,6 +81,20 @@ async function workflowHasThem(tx: Tx, workspaceId: string, personId: string): P
   return !!r?.yes;
 }
 
+/**
+ * A workflow started with them just now and is still on its first steps (not yet at a wait, a stop or its end).
+ * One of those steps may hand them to the teammate, whose first message then goes instead (workflowHasThem).
+ */
+async function workflowStarting(tx: Tx, workspaceId: string, personId: string): Promise<boolean> {
+  const [r] = await rows<{ yes: boolean }>(
+    tx,
+    sql`select exists (select 1 from app.workflow_runs r
+          where r.workspace_id = ${workspaceId} and r.person_id = ${personId} and not r.is_test
+            and r.status = 'running' and r.started_at > now() - make_interval(secs => ${WORKFLOW_FIRST_MS / 1000})) as yes`,
+  );
+  return !!r?.yes;
+}
+
 /** They texted or called this business themselves in the last day (the M6 consent rule). */
 export async function recentContact(tx: Tx, workspaceId: string, phone: string): Promise<boolean> {
   const since = new Date(Date.now() - RECENT_CONTACT_MS).toISOString();
@@ -97,7 +122,7 @@ const EMAIL_WHY: Readonly<Record<string, string>> = {
   no_email: 'there’s no email address',
 };
 
-/** `lead.created`: a first message to the new lead, after the Respond skill's delay. */
+/** `lead.created`: a first message to the new lead, after the Respond skill's wait (8 seconds unless changed). */
 export const onLeadCreated: EventHandler = async (ctx) => {
   const e = ctx.event;
   if (!e.workspaceId || !e.organizationId || !e.entityId) return;
@@ -133,7 +158,7 @@ export const onLeadCreated: EventHandler = async (ctx) => {
   await scheduleJob(ctx.tx, {
     kind: TEAMMATE_JOBS.outreach,
     dedupeKey: outreachJobKey(e.entityId),
-    runAt: new Date(Date.now() + config.respond.newLeads.delayMinutes * 60_000),
+    runAt: new Date(Date.now() + newLeadWaitMs(config.respond.newLeads.wait)),
     payload: { personId: lead.person_id, leadId: e.entityId, trigger: 'lead.created' },
     workspaceId: ws,
     organizationId: e.organizationId,
@@ -191,8 +216,17 @@ async function planFirstMessage(
     if (!lead || lead.status !== 'open' || lead.archived_at || (lead.written && !resuming))
       return skip;
     if (await workflowHasThem(tx, ws, personId)) return skip;
-    if (!lead.typed_in)
-      freshUntil = new Date(lead.created_at).getTime() + QUIET_FIRST_MESSAGE_WINDOW_MS;
+    // The greeting goes in seconds, so a workflow that started on the same lead gets its first steps in first, as
+    // it did when the greeting always waited a minute.
+    const madeAt = new Date(lead.created_at).getTime();
+    if (
+      !resuming &&
+      Date.now() < madeAt + WORKFLOW_FIRST_MS &&
+      (await workflowStarting(tx, ws, personId))
+    )
+      return { wait: new Date(Date.now() + WORKFLOW_LOOK_AGAIN_MS) };
+    const window = lead.typed_in ? null : newLeadQuietWindowMs(config.respond.newLeads);
+    if (window !== null) freshUntil = madeAt + window;
   }
   if (!resuming && (await someoneHas(tx, ws, personId))) return skip;
   if (!fromWorkflow && (await inFunnel(tx, personId))) return skip;
@@ -229,8 +263,9 @@ async function planFirstMessage(
   const m = await workspaceMessaging(tx, ws);
   const tz = m.timezone || 'UTC';
   const now = Date.now();
-  // A new lead is greeted whatever the teammate's hours; a workflow's hand-over keeps to them.
-  if (fromWorkflow) {
+  // A new lead is greeted whatever the teammate's hours, unless the business holds it for them (Outside working
+  // hours); a workflow's hand-over always keeps to them.
+  if (fromWorkflow || config.respond.newLeads.afterHours === 'wait') {
     const working = nextWorkingAt(config, openHoursOf(m.rawSettings), tz, now);
     if (working > now) return { wait: new Date(working) };
   }

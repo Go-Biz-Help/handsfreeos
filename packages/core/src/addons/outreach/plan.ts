@@ -13,8 +13,8 @@
  *
  * The second step: HandsFreeOS decides. From 0.156.0 a network's runner asks for its next move (`outreach.plan.next`,
  * ./plan-next.ts) with what only its computer knows (`PlanHere`), and does the move `nextMove` gives. A network at a
- * time: Threads' and X's first, Alignable's from 0.157.0; every other still decides each move itself, by the same
- * rules.
+ * time: Threads' and X's first, Alignable's from 0.157.0, Instagram's from 0.158.0, LinkedIn's from 0.159.0, and
+ * Facebook's, the last, from 0.160.0.
  *
  * What the plan that's shown can't see, and says so in its own words rather than guess: whether the person is away
  * from their computer (some reads wait for that, decision 120), a referral to do (decision 185), the helpful post
@@ -57,11 +57,13 @@ import {
   lookForResearch,
   lookOutsideAt,
   markOf,
+  helpfulDue,
   networkDay,
   networkWaitWords,
   nextRound,
   nextStart,
   nextWatch,
+  referDue,
   replyWaiting,
   retryWake,
   roundDue,
@@ -292,8 +294,9 @@ export interface PlanFacts<I extends PlanItem = PlanItem> {
   readonly now: number;
   readonly timeZone: string;
   readonly hours: WorkingHours;
-  /** The person's choices on the network. */
-  readonly choices: Pick<NetworkChoices, 'on' | 'sending' | 'collect' | 'watchPosts'>;
+  /** The person's choices on the network. Whether its helpful post goes up on its own is read only for a runner. */
+  readonly choices: Pick<NetworkChoices, 'on' | 'sending' | 'collect' | 'watchPosts'> &
+    Partial<Pick<NetworkChoices, 'posting'>>;
   /** It notes the person's steps: it works on its own only while it does. */
   readonly noting: boolean;
   /** Their day there, as pressed: null when HandsFreeOS keeps none. */
@@ -362,6 +365,16 @@ export type PlanMove<I extends PlanItem = PlanItem> =
       readonly answering: boolean;
     };
 
+/**
+ * What a runner that asks may be sent beside the plan's moves (decision 195, step 2): a look for a referral, or an
+ * ask after two, to do for the person (`refer`, decision 185), and today's helpful post put up on its own (`post`,
+ * decision 50). Each is the runner's to try: with nothing to do it looks again later, and its go goes on. The plan
+ * that's shown leaves both out, and says so: HandsFreeOS can't tell there whether a referral will be due, nor when
+ * the AI will have a post written.
+ */
+export type RunnerMove<I extends PlanItem = PlanItem> =
+  PlanMove<I> | { readonly do: 'refer' | 'post'; readonly gap: number };
+
 /** What's left on the network's list for its runner: only the kinds it does there, and messages where it writes them. */
 export function leftOn<I extends PlanItem>(
   kit: RunnerKit,
@@ -397,14 +410,28 @@ export function standsFor(platform: Platform, step: BeforeDay): RunnerJob | null
  * finding again begun).
  *
  * From 0.156.0 this is a runner's own order too, a network at a time (decision 195, step 2): it asks with what only
- * its computer knows (`here`), and does the move it's given. Threads' and X's first, then Alignable's (0.157.0).
+ * its computer knows (`here`), and does the move it's given. Threads' and X's first, then Alignable's (0.157.0),
+ * Instagram's (0.158.0), LinkedIn's (0.159.0), which is sent today's helpful post to put up too, and Facebook's
+ * (0.160.0), which is sent that and a look for a referral to do (`RunnerMove`).
  */
+export function nextMove<I extends PlanItem>(
+  facts: PlanFacts<I>,
+  kept: PlanDay,
+  random?: number,
+  here?: undefined,
+): { readonly move: PlanMove<I>; readonly state: PlanDay };
+export function nextMove<I extends PlanItem>(
+  facts: PlanFacts<I>,
+  kept: PlanDay,
+  random: number,
+  here: PlanHere | undefined,
+): { readonly move: RunnerMove<I>; readonly state: PlanDay };
 export function nextMove<I extends PlanItem>(
   facts: PlanFacts<I>,
   kept: PlanDay,
   random: number = LIKELY,
   here?: PlanHere,
-): { readonly move: PlanMove<I>; readonly state: PlanDay } {
+): { readonly move: RunnerMove<I>; readonly state: PlanDay } {
   const { platform, now, timeZone, hours, choices, list } = facts;
   const kit = RUNNERS[platform];
   const today = businessDay(now, timeZone);
@@ -492,8 +519,8 @@ export function nextMove<I extends PlanItem>(
   if (asking) return wait('asks', now + ASK_FIRST_MS);
 
   const before = beforeDay(facts.lists, state.before, now, timeZone, platform);
-  // Where a save of their lists is never begun while they're at their computer (Threads and X), a first day's waits
-  // till they're away (decision 120). Anywhere else the save is tried, and puts itself off.
+  // Where a save of their lists is never begun while they're at their computer (Instagram, Threads and X), a first
+  // day's waits till they're away (decision 120). Anywhere else the save is tried, and puts itself off.
   const held = kit.savesAway && !away;
   if (before?.do === 'save' && before.first && held) return wait('screen', now + AWAY_AGAIN_MS);
   // The comment research is HandsFreeOS's own staff's (decision 172): planned only while one of its batches waits,
@@ -541,6 +568,23 @@ export function nextMove<I extends PlanItem>(
 
   const window = workWindow(workHours(hours), timeZone, now);
   const inHours = window !== null && now >= window.from && now < window.to;
+  // A referral, or an ask after two, to do for the person (decision 185): looked for every half hour in the working
+  // hours, where its runner does them (Facebook's). Only a runner's own ask plans the look: the runner asks which is
+  // due and does it, or looks again later and goes on with the rest.
+  if (here !== undefined && kit.refers && inHours && referDue(state, now))
+    return { move: { do: 'refer', gap: pace }, state };
+  // Today's helpful post, where the person lets it go up on its own (decision 50): once the day's reading is done, as
+  // the AI writes it from what was read. Facebook's goes only in its hours. Only a runner's own ask plans it: with
+  // none written yet the runner looks again in a while, and goes on with its list meanwhile.
+  if (
+    here !== undefined &&
+    kit.posts &&
+    choices.posting === 'own' &&
+    (kit.paced || inHours) &&
+    (!choices.collect || state.daily.helpful !== undefined) &&
+    helpfulDue(state, now)
+  )
+    return { move: { do: 'post', gap: pace }, state };
   const watches = kit.watches && choices.watchPosts;
   if (watches && inHours && watchDue(state, now))
     return { move: { do: 'watch', gap: pace }, state };

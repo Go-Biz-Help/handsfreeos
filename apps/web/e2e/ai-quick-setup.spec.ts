@@ -69,7 +69,7 @@ test('AI teammate quick setup: the questions, what Ava read, Save, the test chat
   // 2. What Ava helps with: picked from the kind of business.
   await expect(page.getByTestId('ai-setup-job-reply')).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByTestId('ai-setup-job-book')).toHaveAttribute('aria-checked', 'false');
-  await expect(summary).toContainText('Ava replies to new leads within a minute.');
+  await expect(summary).toContainText('Ava replies to new leads within 8 seconds.');
   await next.click();
 
   // 3. About the business, filled in from the website as it's read.
@@ -108,7 +108,7 @@ test('AI teammate quick setup: the questions, what Ava read, Save, the test chat
   // 6. Its name: the summary follows.
   await at('meet');
   await page.getByTestId('ai-setup-name').fill('Max');
-  await expect(summary).toContainText('Max replies to new leads within a minute.');
+  await expect(summary).toContainText('Max replies to new leads within 8 seconds.');
   await next.click();
 
   // 7. How it sounds, and prices: No is picked.

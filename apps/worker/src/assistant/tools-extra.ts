@@ -93,6 +93,7 @@ import {
   type QuestionKind,
   type StageRole,
   type TeammateCatalogs,
+  type NewLeadWaitUnit,
   type TeammateConfig,
   type TeammatePatch,
   type WorkflowCatalogs,
@@ -364,9 +365,17 @@ function rulesPatch(config: TeammateConfig, args: Args): TeammatePatch {
   put('channels', 'emailAddressId', str(args['emailsFromAddressId']));
   put('channels', 'widgetId', str(args['chatWidgetId']));
   // Respond: its first message to a new lead
+  const after = num(args['firstMessageAfter']);
+  const unit = str(args['firstMessageAfterUnit']) as NewLeadWaitUnit | undefined;
+  const wait = config.respond.newLeads.wait;
   nest('respond', 'newLeads', {
     channel: str(args['firstMessageBy']),
-    delayMinutes: num(args['firstMessageAfterMinutes']),
+    // A number alone keeps the unit it had, and a unit alone the number.
+    wait:
+      after !== undefined || unit
+        ? { after: after ?? wait.after, unit: unit ?? wait.unit }
+        : undefined,
+    afterHours: str(args['firstMessageOutsideHours']),
   });
   // Book, photos and its own hours
   put('book', 'reschedule', bool(args['reschedules']));

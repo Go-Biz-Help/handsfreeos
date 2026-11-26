@@ -330,14 +330,19 @@ describe('the AI teammate’s finer rules', () => {
     const before = await teammate();
     const { card, parsed } = await prepare('update_ai_teammate_rules', {
       firstMessageBy: 'email',
-      firstMessageAfterMinutes: 5,
+      firstMessageAfter: 5,
+      firstMessageAfterUnit: 'minutes',
+      firstMessageOutsideHours: 'wait',
       usesWaitlist: false,
       booksRepeatVisits: true,
       priceRangesFromPhotos: true,
       ownHours: [1, 2, 3, 4, 5].map((day) => ({ day, start: '08:00', end: '18:00' })),
     });
     expect(field(card, 'First message by')!.value).toBe('text → email');
-    expect(field(card, 'Waits before the first message')!.value).toContain('→ 5 min');
+    expect(field(card, 'Waits before the first message')!.value).toBe('8 seconds → 5 minutes');
+    expect(field(card, 'Outside working hours, the first message')!.value).toBe(
+      'sends on the same wait → waits for working hours',
+    );
     expect(field(card, 'Waitlist')!.value).toBe('on → off');
     expect(field(card, 'Repeat visits')!.value).toBe('off → on');
     expect(field(card, 'Rough price ranges from photos')!.value).toBe('off → on');
@@ -346,7 +351,11 @@ describe('the AI teammate’s finer rules', () => {
 
     await confirm('update_ai_teammate_rules', parsed);
     const c = (await teammate()).config;
-    expect(c['respond'].newLeads).toMatchObject({ channel: 'email', delayMinutes: 5 });
+    expect(c['respond'].newLeads).toMatchObject({
+      channel: 'email',
+      wait: { after: 5, unit: 'minutes' },
+      afterHours: 'wait',
+    });
     expect(c['book']).toMatchObject({ waitlist: false, repeats: true });
     expect(c['photos']).toMatchObject({ enabled: true, priceRanges: true });
     expect(c['hours'].mode).toBe('custom');

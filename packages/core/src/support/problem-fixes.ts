@@ -389,7 +389,7 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'instagram',
     job: 'post_people.likers',
     note: 'Nobody read in the post’s Likes box',
-    fixedIn: '0.157.1',
+    fixedIn: '0.160.1',
     pr: 791,
     said: 'The Likes box opened and listed only the person’s own row, which is never read, so nobody else was there to read and nothing was wrong. It’s noted now only when the box shows nobody at all.',
   },
