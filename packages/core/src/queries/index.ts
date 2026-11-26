@@ -114,6 +114,7 @@ import { myCalendarSetupGet } from './my-calendar-setup';
 import {
   registrationGetDraft,
   registrationGetPolicies,
+  registrationLastCheck,
   registrationReviewForStaff,
   registrationReviewGet,
 } from './registration';
@@ -206,6 +207,7 @@ export {
   myCalendarSetupGet,
   registrationGetDraft,
   registrationGetPolicies,
+  registrationLastCheck,
   registrationReviewGet,
   registrationReviewForStaff,
   brandedDomainGet,
@@ -359,6 +361,7 @@ export const queries: readonly QueryDef[] = [
   myCalendarSetupGet,
   registrationGetDraft,
   registrationGetPolicies,
+  registrationLastCheck,
   registrationReviewGet,
   registrationReviewForStaff,
   numberImportList,

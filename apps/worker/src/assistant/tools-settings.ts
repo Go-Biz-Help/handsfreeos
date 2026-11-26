@@ -82,7 +82,7 @@ import { publicOriginFor } from './full-links';
 import { aboutYouRead, meRead, myCellRead, phonesRead } from './my-account';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { scheduleWords, type TeamSchedule } from './schedule-words';
-import { query, type ReadTool } from './tools-read';
+import { query, when, type ReadTool } from './tools-read';
 import { priceWords } from './tools-settings-money';
 
 type Args = Record<string, unknown>;
@@ -199,6 +199,74 @@ const actionCenterOf = async (v: unknown, db: Db, ctx: ToolContext) => {
         }),
   };
 };
+
+/** One row of what texting approval's last step found (core's PreflightCheck), as much as the Assistant says of it. */
+interface RegistrationCheckRow {
+  label?: string;
+  severity?: 'blocker' | 'warning';
+  ok?: boolean;
+  detail?: string;
+  url?: string | null;
+  via?: 'browser' | 'screenshot';
+  blocked?: { url: string; by: string | null }[];
+}
+
+/**
+ * What texting approval's last step, Before it goes, last found (registration.last_check), as its review shows it:
+ * what isn't green yet, then "What a reviewer will find", row by row. The step checks again each time it opens, and
+ * only it sends, so this says when it looked and what to do about it.
+ */
+export function registrationCheckRead(v: unknown, timeZone: string) {
+  const check = (
+    v as {
+      check?: {
+        checkedAt: string;
+        allGreen: boolean;
+        notGreen: string[];
+        checks: RegistrationCheckRow[];
+        sentSince: boolean;
+      } | null;
+    } | null
+  )?.check;
+  if (!check)
+    return {
+      checked: false,
+      note: 'Before it goes, the registration’s last step, hasn’t checked it yet. It opens the website and every page on it, the privacy policy, the terms and where customers agree, the way a carrier’s reviewer does.',
+    };
+  const n = check.notGreen.length;
+  return {
+    checked: when(check.checkedAt, timeZone),
+    standing: check.allGreen
+      ? 'Everything is green. The carriers usually answer within three to seven working days.'
+      : n === 1
+        ? 'One thing isn’t green yet'
+        : `${n} things aren’t green yet`,
+    ...(n ? { notGreen: check.notGreen } : {}),
+    whatAReviewerWillFind: check.checks.map((c) => ({
+      row: c.label ?? '',
+      ...(c.ok ? { green: true } : { green: false, stopsIt: c.severity === 'blocker' }),
+      found: c.detail ?? '',
+      ...(c.url ? { opened: c.url } : {}),
+      // Pages that showed a robot check instead of themselves: the step offers the ways past for each.
+      ...(c.blocked?.length
+        ? {
+            securityStoppedUs: c.blocked.map((b) => (b.by ? `${b.url} (${b.by})` : b.url)),
+          }
+        : {}),
+      ...(c.via
+        ? {
+            readFrom:
+              c.via === 'browser'
+                ? 'Read in your own browser, on your site.'
+                : 'Read from your screenshot.',
+          }
+        : {}),
+    })),
+    note: check.sentSince
+      ? 'The registration went to the carriers after this check, so it’s what was found before then; registrations says how the carriers answered.'
+      : `This is what it found then, for the details as they were. It goes to the carriers only when everything is green: fix what you can (fill_in_carrier_registration for the answers; the website’s own pages are the business’s web person’s, and a page whose security stopped the check is let in from the step’s Finish the check on my site), and the step checks again when it opens (Settings → Texting & calls → Get approved to text), where only the person sends it. When something won’t go green, do_registration_request_review asks HandsFreeOS to check it by hand.`,
+  };
+}
 
 /** How many the Deleted bin lists at once: the most bin.list gives in one page. */
 const BIN_LISTED = 100;
@@ -571,6 +639,12 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   tags: [{ name: 'tag.list', as: 'tags' }],
   texting: [
     { name: 'phone.setup_status', as: 'texting' },
+    // What the registration's last step last found: what isn't green, and each row a reviewer would find.
+    {
+      name: 'registration.last_check',
+      as: 'registrationCheck',
+      shape: (v, _db, ctx) => registrationCheckRead(v, ctx.timezone),
+    },
     // The policy and terms the registration offers to host, as its Privacy and terms step links to them.
     { name: 'booking_site.get', as: 'privacyAndTerms', shape: (v) => legalPages(siteOf(v)) },
     // Who sees which conversations lives on the workspace, not the number.

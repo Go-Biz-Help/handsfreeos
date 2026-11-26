@@ -26417,6 +26417,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/registration.last_check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the texting registration’s last step found the last time it checked: each row (the website, privacy policy, terms, where customers agree…), what wasn’t green, when, and whether the registration was sent since.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_registration_last_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/registration.review.for_staff": {
         parameters: {
             query?: never;
@@ -105614,6 +105634,43 @@ export interface operations {
                             madeAt: string;
                             pasted: boolean;
                             sourceUrl: string | null;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_registration_last_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        check: {
+                            allGreen: boolean;
+                            checkedAt: string;
+                            checks: {
+                                [key: string]: unknown;
+                            }[];
+                            notGreen: string[];
+                            sentSince: boolean;
                         } | null;
                     };
                 };

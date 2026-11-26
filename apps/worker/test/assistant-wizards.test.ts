@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   aiSetupGet,
+  aiSetupTestQuestions,
   AssistantCard,
   executeCommand,
   executeQuery,
@@ -13,7 +14,7 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ToolContext } from '../src/assistant/runtime';
-import { setupInput } from '../src/assistant/setup-screens';
+import { aiSetupRead, setupInput, setupRead } from '../src/assistant/setup-screens';
 import { allScreenActionTools } from '../src/assistant/tools-screen-actions';
 import { allScreenReadTools } from '../src/assistant/tools-screen-reads';
 import { createToolExecutor } from '../src/assistant/tools-write';
@@ -183,6 +184,52 @@ describe('the setup wizards', () => {
     const state = data['state'] as { teammate: unknown; facts: unknown[] };
     // The teammate's own settings are left out of it.
     expect(state.teammate === null || !('config' in (state.teammate as object))).toBe(true);
+  });
+
+  it('starts Try it as its screen does once there’s a teammate: the questions, how to ask them, the tip', async () => {
+    const exec = createToolExecutor(api());
+    // No teammate yet: there's nothing to try.
+    const { result } = await exec.run(reader('read_ai_setup_get'), {}, ctxFor(owner));
+    expect((result as { data: Record<string, unknown> }).data).not.toHaveProperty('tryIt');
+
+    const got = await executeQuery(api(), aiSetupGet, { workspaceId }, actor(owner), meta());
+    const answers = {
+      ...got.answers,
+      area: 'Naperville and Aurora',
+      services: [{ name: 'Duct cleaning' }],
+      jobs: ['book'],
+    };
+    const teammate = { id: randomUUID(), name: 'Max', status: 'off', revision: 1, config: {} };
+    const state = { ...got.state, teammate };
+    const read = aiSetupRead({ ...got, answers, state }) as {
+      tryIt: { title: string; questions: string[]; how: string; tip: string };
+      state: { teammate: object };
+    };
+    expect(read.tryIt.title).toBe('Ask Max these questions');
+    expect(read.tryIt.questions).toEqual(aiSetupTestQuestions(state as never, answers as never));
+    expect(read.tryIt.questions).toContain('How much does duct cleaning cost?');
+    expect(read.tryIt.questions.at(-1)).toBe('Are you a real person?');
+    expect(read.tryIt.how).toContain('test_ai_teammate');
+    expect(read.tryIt.how).toContain('“Answered”');
+    expect(read.tryIt.how).toContain('“Handed to a person”');
+    expect(read.tryIt.how).toContain('add_knowledge_item');
+    expect(read.tryIt.how).toContain('Max answered every question.');
+    expect(read.tryIt.tip).toBe(
+      'Once texting works, text your business number from your own phone to see Max answer.',
+    );
+    // The teammate's own settings stay out of it.
+    expect(read.state.teammate).not.toHaveProperty('config');
+
+    // The onboarding setup's AI teammate stop: the same, from the answers under `ai`, before Start over's picks.
+    const setup = await setupNow();
+    const guided = setupRead({ ...setup, state: { ...setup.state, teammate } }) as Record<
+      string,
+      unknown
+    > & { tryIt: { questions: string[] } };
+    expect(guided.tryIt.questions).toEqual(
+      aiSetupTestQuestions({ ...setup.state, teammate } as never, setup.answers.ai as never),
+    );
+    expect(Object.keys(guided).at(-1)).toBe('starting');
   });
 
   it('reads Getting started as Home’s card shows it, with where each button goes', async () => {
