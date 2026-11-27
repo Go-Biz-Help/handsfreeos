@@ -7,11 +7,14 @@
  * - with no broadcast stream in Postmark, the campaign pauses instead of sending bulk mail on the one-to-one one;
  * - Postmark gets the broadcast stream and the headers.
  */
+import { randomUUID } from 'node:crypto';
 import {
   campaignApprove,
   campaignCreate,
   campaignGet,
   campaignPreviewAudience,
+  campaignUpdateEmail,
+  lookSet,
   tagCreate,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -230,6 +233,75 @@ describe('email campaigns', () => {
     });
     expect(got.recipients.some((r) => r.status === 'drafting')).toBe(false);
   });
+
+  it('sends an email written in blocks with its picture and button, in the business’s layout (design tools, part 5)', async () => {
+    const { tagId: own } = await run(w, tagCreate, { workspaceId: w.workspaceId, name: 'Blocks' });
+    const eve = await newCustomer(w, 'Eve', {});
+    await rows(
+      admin(),
+      sql`insert into app.record_tags (workspace_id, tag_id, record_type, record_id)
+          values (${w.workspaceId}, ${own}, 'person', ${eve.id})`,
+    );
+    await run(w, lookSet, {
+      workspaceId: w.workspaceId,
+      email: { band: true, logo: 'left', footer: true },
+      socials: ['facebook.com/emailcamp'],
+    });
+    const made = await run(w, campaignCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Fall in blocks',
+      goal: 'Fall tune-ups',
+      audience: { tagIds: [own], stageIds: [] },
+      channel: 'email',
+      words: { subject: 'Fall tune-ups', body: 'Soon.' },
+    });
+    await drain(w);
+    const path = `${w.workspaceId}/${randomUUID()}.webp`;
+    await run(w, campaignUpdateEmail, {
+      workspaceId: w.workspaceId,
+      campaignId: made.campaignId,
+      subject: 'Fall tune-ups',
+      blocks: [
+        { id: 'b1', kind: 'words', text: 'Hi {first_name},\n\nTune-ups are $89.', align: 'center' },
+        {
+          id: 'b2',
+          kind: 'picture',
+          picture: { path, width: 1200, height: 600 },
+          size: 'full',
+          align: 'center',
+          words: 'Our van',
+          link: '',
+        },
+        {
+          id: 'b3',
+          kind: 'button',
+          label: 'Book now',
+          url: 'https://example.com/book',
+          align: 'center',
+        },
+      ],
+    });
+    await run(w, campaignApprove, { workspaceId: w.workspaceId, campaignId: made.campaignId });
+    await drain(w);
+    for (let i = 0; i < 3 && (await statusOf(made.campaignId)).campaign.status === 'sending'; i++)
+      await runNow(w, [campaignSendKey(made.campaignId)]);
+    const mail = (await mailTo(eve.email!)) as (Mail & { HTML: string }) | null;
+    expect(mail?.Text).toContain(
+      'Hi Eve,\n\nTune-ups are $89.\n\nOur van\n\nBook now: https://example.com/book',
+    );
+    expect(mail?.Text).toContain('Unsubscribe: ');
+    const html = mail!.HTML;
+    expect(html).toContain(`/storage/v1/object/public/pictures/${path}`);
+    expect(html).toContain('alt="Our van" width="544" height="272"');
+    expect(html).toMatch(/>Book now<\/a>/);
+    expect(html).toContain('Hi Eve,');
+    expect(html).toContain('max-width:600px');
+    expect(html).toContain('>Facebook</a>');
+    expect(html).toMatch(/Unsubscribe: <a href="http:\/\/localhost:3000\/u\//);
+    // The footer gives the address once.
+    expect(html.match(/12 Main St/g)?.length).toBe(1);
+    await run(w, lookSet, { workspaceId: w.workspaceId, email: null, socials: [] });
+  }, 60_000);
 
   it('pauses rather than send bulk mail when Postmark has no broadcast stream', async () => {
     await listed('Dan');

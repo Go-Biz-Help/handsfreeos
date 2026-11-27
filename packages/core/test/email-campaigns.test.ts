@@ -136,6 +136,7 @@ describe('email campaigns', () => {
     expect(got.campaign.email).toEqual({
       subject: null,
       body: null,
+      blocks: null,
       edited: false,
       postalAddress: '12 Main St\nHouston, TX 77002',
     });
@@ -228,6 +229,74 @@ describe('email campaigns', () => {
     });
     await expectHfos(
       () => run(campaignCreate, { ...input(), name: 'No body', words: { subject: 'Hi' } }, t.owner),
+      'validation',
+    );
+  });
+
+  it('keeps an email written in blocks, its words worked out from them (design tools, part 5)', async () => {
+    const made = await run(campaignCreate, { ...input(), name: 'Fall in blocks' }, t.owner);
+    const picture = { path: `${t.wsId}/${randomUUID()}.webp`, width: 1200, height: 800 };
+    const blocks = [
+      {
+        id: 'b1',
+        kind: 'words',
+        text: 'Hi {first_name},\n\nFall tune-ups are $89.',
+        align: 'center',
+      },
+      { id: 'b2', kind: 'picture', picture, size: 'large', align: 'center', words: '', link: '' },
+      {
+        id: 'b3',
+        kind: 'button',
+        label: 'Book now',
+        url: 'https://example.com/book',
+        align: 'center',
+      },
+    ];
+    const ref = { workspaceId: t.wsId, campaignId: made.campaignId };
+    await run(campaignUpdateEmail, { ...ref, subject: 'Fall tune-up', blocks }, t.owner);
+    let got = await ask(campaignGet, ref, t.owner);
+    expect(got.campaign.email).toMatchObject({
+      subject: 'Fall tune-up',
+      body: 'Hi {first_name},\n\nFall tune-ups are $89.\n\nBook now: https://example.com/book',
+      blocks,
+      edited: true,
+    });
+    // A picture from another business's library is refused, named on its block.
+    const err = await expectHfos(
+      () =>
+        run(
+          campaignUpdateEmail,
+          {
+            ...ref,
+            subject: 'Fall tune-up',
+            blocks: [
+              blocks[0],
+              {
+                ...blocks[1],
+                picture: { ...picture, path: `${randomUUID()}/${randomUUID()}.webp` },
+              },
+            ],
+          },
+          t.owner,
+        ),
+      'validation',
+    );
+    expect(JSON.stringify(err.details)).toContain('blocks.1.picture');
+    // Only pictures: refused, for spam filters' sake.
+    await expectHfos(
+      () => run(campaignUpdateEmail, { ...ref, subject: 'S', blocks: [blocks[1]] }, t.owner),
+      'validation',
+    );
+    // Plain words again: the blocks go.
+    await run(
+      campaignUpdateEmail,
+      { ...ref, subject: 'Fall tune-up', body: 'Just words.', blocks: null },
+      t.owner,
+    );
+    got = await ask(campaignGet, ref, t.owner);
+    expect(got.campaign.email).toMatchObject({ body: 'Just words.', blocks: null });
+    await expectHfos(
+      () => run(campaignUpdateEmail, { ...ref, subject: 'S' }, t.owner),
       'validation',
     );
   });

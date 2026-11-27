@@ -2,15 +2,20 @@
 /**
  * The rest of the brand kit (HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md, part 1), under the logo and colour in
  * Settings → Workspace: its font and corners, and Match my website, which fills the colour, font and corners from the
- * business's site at once. Forms, booking pages and the rest that haven't picked their own follow these. Each change
- * is kept at once by `look.set`.
+ * business's site at once, and its social links (part 5), which email footers show. Forms, booking pages and the rest
+ * that haven't picked their own follow these. Each change is kept at once by `look.set`.
  */
 import {
   FORM_DEFAULT_FONT,
   FORM_FONTS,
   LOOK_CORNERS,
+  LOOK_SOCIAL_NAMES,
+  LOOK_SOCIALS_MAX,
   siteNameOf,
+  socialKindOf,
+  socialUrlOf,
   type BusinessLook,
+  type LookSocialLink,
 } from '@hfos/core';
 import { Wand2 } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
@@ -57,15 +62,17 @@ export function BrandKitExtras({
       ? FORM_FONTS
       : [...FORM_FONTS, { name: font, weights: '', kind: 'sans' as const }];
 
-  async function keep(kit: Parameters<typeof actions.setKit>[0], done: string) {
+  async function keep(kit: Parameters<typeof actions.setKit>[0], done: string): Promise<boolean> {
     setBusy('kit');
     setError(null);
     try {
       setGiven({ from: look, look: await actions.setKit(kit) });
       toast.success(done, { id: 'brand-kit' });
       onChanged();
+      return true;
     } catch (e) {
       setError(errorMessage(e));
+      return false;
     } finally {
       setBusy(null);
     }
@@ -184,6 +191,125 @@ export function BrandKitExtras({
         corners.
       </Hint>
       <FieldError>{error}</FieldError>
+      <SocialLinks
+        links={shown.socials?.links ?? []}
+        canChange={canChange}
+        busy={busy !== null}
+        onSave={(list, done) => keep({ socials: list }, done)}
+      />
+    </div>
+  );
+}
+
+/**
+ * The business's social links (design tools, part 5): Facebook, Instagram and the rest, each named for its site. Email
+ * footers show them, and later its customers' pages. Each change saves the whole list.
+ */
+function SocialLinks({
+  links,
+  canChange,
+  busy,
+  onSave,
+}: {
+  links: readonly LookSocialLink[];
+  canChange: boolean;
+  busy: boolean;
+  onSave: (list: string[], done: string) => Promise<boolean>;
+}) {
+  const inputId = useId();
+  const [typed, setTyped] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+  const urls = links.map((l) => l.url);
+
+  async function add() {
+    const url = socialUrlOf(typed);
+    if (!url) {
+      setProblem('Type a web address, like facebook.com/yourbusiness.');
+      return;
+    }
+    if (urls.includes(url)) {
+      setProblem('That link is already here.');
+      return;
+    }
+    setProblem(null);
+    if (await onSave([...urls, url], `${LOOK_SOCIAL_NAMES[socialKindOf(url)]} link saved`))
+      setTyped('');
+  }
+
+  return (
+    <div className="border-t border-border pt-4" data-testid="brand-kit-socials">
+      <label htmlFor={inputId} className="block text-[13px] font-medium">
+        Social links
+      </label>
+      <p className="mb-2 mt-0.5 text-[12.5px] text-text-3">
+        Your Facebook page, Instagram and the rest. Your email footers show them.
+      </p>
+      {links.length ? (
+        <ul className="mb-2 divide-y divide-border rounded-control border border-border">
+          {links.map((l) => (
+            <li
+              key={l.url}
+              className="flex items-center gap-3 px-3 py-2"
+              data-testid="brand-kit-social"
+            >
+              <span className="w-[86px] flex-none text-[13px] font-medium">
+                {LOOK_SOCIAL_NAMES[l.kind]}
+              </span>
+              <a
+                href={l.url}
+                target="_blank"
+                rel="noreferrer"
+                className="min-w-0 flex-1 truncate text-[13px] text-text-2 hover:underline"
+              >
+                {l.url.replace(/^https:\/\/(www\.)?/, '').replace(/\/$/, '')}
+              </a>
+              {canChange ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    void onSave(
+                      urls.filter((u) => u !== l.url),
+                      `${LOOK_SOCIAL_NAMES[l.kind]} link removed`,
+                    )
+                  }
+                  data-testid="brand-kit-social-remove"
+                >
+                  Remove
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {canChange && links.length < LOOK_SOCIALS_MAX ? (
+        <div className="flex gap-2">
+          <Input
+            id={inputId}
+            value={typed}
+            placeholder="facebook.com/yourbusiness"
+            onChange={(e) => {
+              setTyped(e.target.value);
+              setProblem(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && typed.trim()) void add();
+            }}
+            invalid={!!problem}
+            data-testid="brand-kit-social-input"
+          />
+          <Button
+            variant="secondary"
+            onClick={() => void add()}
+            disabled={!typed.trim() || busy}
+            data-testid="brand-kit-social-add"
+          >
+            Add a link
+          </Button>
+        </div>
+      ) : null}
+      <FieldError>{problem}</FieldError>
     </div>
   );
 }

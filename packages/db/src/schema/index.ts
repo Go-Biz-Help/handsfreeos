@@ -8623,6 +8623,8 @@ export const campaigns = app.table('campaigns', {
   channel: text('channel').notNull().default('sms'),
   emailSubject: text('email_subject'),
   emailBody: text('email_body'),
+  /** Design tools, part 5: the email written in blocks (words, picture, button, line, space); null is plain words. */
+  emailBlocks: jsonb('email_blocks').$type<unknown[]>(),
   emailEdited: boolean('email_edited').notNull().default(false),
   /** AI outbound calls: a call campaign's one opening line ("about our fall tune-up …"), and whether a person changed it. */
   callOpening: text('call_opening'),

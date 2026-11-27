@@ -9,6 +9,7 @@ import {
   lookBeginUpload,
   lookFind,
   lookOf,
+  lookSet,
   lookUseUpload,
   organizationCreate,
   type BusinessLook,
@@ -218,6 +219,35 @@ describe('an uploaded logo', () => {
       `/storage/v1/object/public/brand/${look.logo!.path}`,
     );
     expect(await brandOf(owner.id)).toBeNull();
+
+    // How its emails look (design tools, part 5): the layout, and the footer's details only when it shows one.
+    await executeCommand(
+      api(),
+      lookSet,
+      {
+        workspaceId: ws,
+        email: { band: true, logo: 'center', footer: false },
+        socials: ['facebook.com/uploadlook'],
+      },
+      actor(owner),
+      meta(),
+    );
+    expect(await brandOf(null)).toMatchObject({
+      layout: { band: true, logo: 'center', footer: false },
+      contact: null,
+    });
+    await executeCommand(
+      api(),
+      lookSet,
+      { workspaceId: ws, email: { band: true, logo: 'center', footer: true } },
+      actor(owner),
+      meta(),
+    );
+    expect((await brandOf(null))?.contact).toMatchObject({
+      address: [],
+      phone: null,
+      socials: [{ kind: 'facebook', url: 'https://facebook.com/uploadlook' }],
+    });
   });
 
   it('says why a picture couldn’t be used, and the upload goes', async () => {

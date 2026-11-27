@@ -92,6 +92,105 @@ export type LookCornersKept = z.infer<typeof LookCornersKept>;
 export const LookMatched = z.object({ site: z.string().trim().max(300), at });
 export type LookMatched = z.infer<typeof LookMatched>;
 
+/** Where the logo sits at the top of an email. */
+export const LOOK_EMAIL_LOGO = ['left', 'center'] as const;
+export type LookEmailLogo = (typeof LOOK_EMAIL_LOGO)[number];
+
+/**
+ * How the business's emails look (design tools, part 5; Settings → Email → How your emails look): a band of its colour
+ * across the top, its logo on the left or in the middle, and a footer with its address, phone, website and social
+ * links. Unset is the look emails had before: the logo on the left, no band and no footer.
+ */
+export const LookEmailLayout = z.object({
+  band: z.boolean(),
+  logo: z.enum(LOOK_EMAIL_LOGO),
+  footer: z.boolean(),
+});
+export type LookEmailLayout = z.infer<typeof LookEmailLayout>;
+export const LookEmail = LookEmailLayout.extend({ at });
+export type LookEmail = z.infer<typeof LookEmail>;
+
+/** The social sites a link is recognised as, for its name and order; anything else is its own site. */
+export const LOOK_SOCIAL_KINDS = [
+  'facebook',
+  'instagram',
+  'linkedin',
+  'youtube',
+  'tiktok',
+  'x',
+  'google',
+  'yelp',
+  'nextdoor',
+  'pinterest',
+  'other',
+] as const;
+export type LookSocialKind = (typeof LOOK_SOCIAL_KINDS)[number];
+export const LOOK_SOCIAL_NAMES: Record<LookSocialKind, string> = {
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  linkedin: 'LinkedIn',
+  youtube: 'YouTube',
+  tiktok: 'TikTok',
+  x: 'X',
+  google: 'Google',
+  yelp: 'Yelp',
+  nextdoor: 'Nextdoor',
+  pinterest: 'Pinterest',
+  other: 'Website',
+};
+/** The most social links a business keeps. */
+export const LOOK_SOCIALS_MAX = 8;
+const SOCIAL_HOSTS: readonly (readonly [RegExp, LookSocialKind])[] = [
+  [/(^|\.)(facebook\.com|fb\.com|fb\.me)$/, 'facebook'],
+  [/(^|\.)instagram\.com$/, 'instagram'],
+  [/(^|\.)linkedin\.com$/, 'linkedin'],
+  [/(^|\.)(youtube\.com|youtu\.be)$/, 'youtube'],
+  [/(^|\.)tiktok\.com$/, 'tiktok'],
+  [/(^|\.)(x\.com|twitter\.com)$/, 'x'],
+  [/(^|\.)(g\.page|business\.google\.com|maps\.app\.goo\.gl)$/, 'google'],
+  [/(^|\.)yelp\.[a-z.]+$/, 'yelp'],
+  [/(^|\.)nextdoor\.com$/, 'nextdoor'],
+  [/(^|\.)pinterest\.[a-z.]+$/, 'pinterest'],
+];
+/** Which social site a link is on, from its address. */
+export function socialKindOf(url: string): LookSocialKind {
+  let host = '';
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return 'other';
+  }
+  return SOCIAL_HOSTS.find(([re]) => re.test(host))?.[1] ?? 'other';
+}
+/**
+ * A social link as typed ("facebook.com/acme", "https://www.instagram.com/acme/"), as kept: https, no spaces; null
+ * when it isn't a web address.
+ */
+export function socialUrlOf(typed: string): string | null {
+  const t = typed.trim();
+  if (!t || t.length > 300 || /\s/.test(t)) return null;
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`;
+  try {
+    const u = new URL(withScheme);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    if (!u.hostname.includes('.') || u.username || u.password) return null;
+    u.protocol = 'https:';
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+export const LookSocialLink = z.object({
+  kind: z.enum(LOOK_SOCIAL_KINDS),
+  url: z.url({ protocol: /^https$/ }).max(300),
+});
+export type LookSocialLink = z.infer<typeof LookSocialLink>;
+export const LookSocials = z.object({
+  links: z.array(LookSocialLink).max(LOOK_SOCIALS_MAX),
+  at,
+});
+export type LookSocials = z.infer<typeof LookSocials>;
+
 /** A place reserved for an upload, and whether the picture's there for the worker yet. */
 export const LookUpload = z.object({
   path: z.string().regex(LOOK_UPLOAD_PATH),
@@ -118,6 +217,10 @@ export const BusinessLookSchema = z.object({
   corners: LookCornersKept.nullable().default(null),
   /** Which website Match my website last filled the brand kit from. */
   matched: LookMatched.nullable().default(null),
+  /** How its emails look; null is the look they had before. */
+  email: LookEmail.nullable().default(null),
+  /** Its social links (Facebook, Instagram and the rest), for email footers and its customers' pages. */
+  socials: LookSocials.nullable().default(null),
 });
 export type BusinessLook = z.infer<typeof BusinessLookSchema>;
 
@@ -131,6 +234,8 @@ export const NO_LOOK: BusinessLook = {
   font: null,
   corners: null,
   matched: null,
+  email: null,
+  socials: null,
 };
 
 const asRecord = (v: unknown): Record<string, unknown> =>
@@ -154,6 +259,8 @@ export function lookOf(settings: unknown): BusinessLook {
     font: part(LookFont, look['font']),
     corners: part(LookCornersKept, look['corners']),
     matched: part(LookMatched, look['matched']),
+    email: part(LookEmail, look['email']),
+    socials: part(LookSocials, look['socials']),
   };
 }
 

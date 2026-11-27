@@ -264,7 +264,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'look.find': {},
   'look.set': {
     about:
-      'The brand kit. Give only what changes: color (#rrggbb), font (a Google font’s name, or null for HandsFreeOS’s own), corners (square, slight or round, or null for slight). To match their website, read it with read_website_brand_kit first and pass what it found, with matchedSite.',
+      'The brand kit. Give only what changes: color (#rrggbb), font (a Google font’s name, or null for HandsFreeOS’s own), corners (square, slight or round, or null for slight), socials (every social link, as typed, like facebook.com/acme: the whole list, [] for none), email (how emails look, Settings → Email: band true for a strip of the colour across the top, logo left or center, footer true for the address, phone, website and social links at the bottom; null for the look they had before). To match their website, read it with read_website_brand_kit first and pass what it found, with matchedSite.',
   },
   // Your pictures (Settings → Workspace): renaming one, saying what it shows, taking it out of the library.
   'picture.update': {
@@ -816,6 +816,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'do_look_set', field: 'font' },
     { tool: 'do_look_set', field: 'corners' },
     { tool: 'do_look_set', field: 'matchedSite' },
+    { tool: 'do_look_set', field: 'socials' },
   ],
   // Uploading one is the person's own (picture.begin_upload is on the Never list).
   'workspace.pictures': [
@@ -976,6 +977,8 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'sort_unmatched_email', field: 'action', value: 'dismiss' },
   ],
   'email.sender_rules': [{ tool: 'do_email_sender_rule_remove', field: 'address' }],
+  // How your emails look (design tools, part 5): kept in the brand kit, so look.set changes it.
+  'email.look': [{ tool: 'do_look_set', field: 'email' }],
   // Settings → Website chat, and each chat in Forms → Website chats, changed as its screen does.
   'website_chat.who_answers': [{ tool: 'manage_website_chat', field: 'answeredByAi' }],
   'website_chat.daily_limit': [{ tool: 'manage_website_chat', field: 'dailyCap' }],

@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { aiCallOutcome, aiCallStatus } from './ai-call';
 import { isoDateTime, uuid } from './common';
 import { requiredEmail } from './message';
+import { EmailBlock, EmailBlocks, emailBlocksText } from '../campaigns/email-blocks';
 
 export const CAMPAIGN_STATUSES = [
   'drafting',
@@ -143,12 +144,27 @@ export const CampaignUpdateDraftInput = z.object({
   recipientId: uuid,
   draft: z.string().trim().min(1, 'Write something.').max(CAMPAIGN_DRAFT_MAX),
 });
-export const CampaignUpdateEmailInput = z.object({
-  workspaceId: uuid,
-  campaignId: uuid,
-  subject: z.string().trim().min(1, 'Write a subject.').max(CAMPAIGN_EMAIL_SUBJECT_MAX),
-  body: z.string().trim().min(1, 'Write something.').max(CAMPAIGN_EMAIL_BODY_MAX),
-});
+export const CampaignUpdateEmailInput = z
+  .object({
+    workspaceId: uuid,
+    campaignId: uuid,
+    subject: z.string().trim().min(1, 'Write a subject.').max(CAMPAIGN_EMAIL_SUBJECT_MAX),
+    /** The email's words. Left out when it's written in blocks: they're worked out from the blocks. */
+    body: z.string().trim().min(1, 'Write something.').max(CAMPAIGN_EMAIL_BODY_MAX).optional(),
+    /**
+     * The email written in blocks (words, picture, button, line, space), in order (design tools, part 5). Null goes
+     * back to plain words (give the body then).
+     */
+    blocks: EmailBlocks.nullable().optional(),
+  })
+  .refine((v) => (v.blocks ? true : !!v.body), {
+    error: 'Write something.',
+    path: ['body'],
+  })
+  .refine((v) => !v.blocks || emailBlocksText(v.blocks).length <= CAMPAIGN_EMAIL_BODY_MAX, {
+    error: `That’s too long for one email. Keep its words under ${CAMPAIGN_EMAIL_BODY_MAX} characters.`,
+    path: ['blocks'],
+  });
 export const CampaignUpdateCallInput = z.object({
   workspaceId: uuid,
   campaignId: uuid,
@@ -279,6 +295,8 @@ export const CampaignGetOutput = z.object({
       .object({
         subject: z.string().nullable(),
         body: z.string().nullable(),
+        /** The email written in blocks (design tools, part 5); null when it's plain words. */
+        blocks: z.array(EmailBlock).nullable().optional(),
         edited: z.boolean(),
         /** The business's address, shown under every email. */
         postalAddress: z.string().nullable(),

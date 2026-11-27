@@ -5594,6 +5594,37 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 300
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "band": {
+                    "type": "boolean"
+                  },
+                  "logo": {
+                    "type": "string",
+                    "enum": ["left", "center"]
+                  },
+                  "footer": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["band", "logo", "footer"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "socials": {
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 300
+            }
           }
         },
         "required": ["workspaceId"]

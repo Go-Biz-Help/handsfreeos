@@ -14,7 +14,7 @@
     "apps/mobile/src/forms/use-answers.ts": "38c18d46d689",
     "apps/mobile/src/forms/use-forms.ts": "14ac0231b801",
     "apps/mobile/src/forms/words.ts": "f0cab84bfc9c",
-    "apps/web/src/app/app/w/[workspaceId]/campaigns/[campaignId]/page.tsx": "c1acd9fd6e5f",
+    "apps/web/src/app/app/w/[workspaceId]/campaigns/[campaignId]/page.tsx": "ab7a0ce083c3",
     "apps/web/src/app/app/w/[workspaceId]/campaigns/new/page.tsx": "9ba736aae3db",
     "apps/web/src/app/app/w/[workspaceId]/campaigns/page.tsx": "afbe1dd89cb2",
     "apps/web/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId]/page.tsx": "059088e64125",
@@ -24,7 +24,8 @@
     "apps/web/src/app/app/w/[workspaceId]/forms/page.tsx": "53e21d6e66d4",
     "apps/web/src/app/app/w/[workspaceId]/reviews/page.tsx": "c08c62d9d605",
     "apps/web/src/components/campaigns/campaign-list.tsx": "7765dfed84ec",
-    "apps/web/src/components/campaigns/campaign-view.tsx": "1b1388ac72ed",
+    "apps/web/src/components/campaigns/campaign-view.tsx": "b453a2ffc4aa",
+    "apps/web/src/components/campaigns/email-blocks-editor.tsx": "8f25fe56a1ae",
     "apps/web/src/components/campaigns/new-campaign.tsx": "cf5b5f5af705",
     "apps/web/src/components/campaigns/unsubscribe-page.tsx": "b2e66720312a",
     "apps/web/src/components/campaigns/words.ts": "01bb44a8879d",
@@ -365,6 +366,111 @@
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:600",
       "covered": "yes",
       "by": "edit_campaign change_email subject, body"
+    },
+    {
+      "path": "Campaigns → a campaign → Read the email → Design it: add pictures and buttons (its words become blocks)",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/campaign-view.tsx:794",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks: each block (words, picture, button, line, space) in order",
+      "kind": "see",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:232",
+      "covered": "yes",
+      "by": "get_campaign email blocks"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → Add: Words, Picture, Button, Line, Space",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:166",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks (the whole list)"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → drag a block, or its up and down arrows",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:257",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks in the new order"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → take a block out",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:276",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks without it"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → Line up: Left, Centre, Right",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:196",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks align"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a block of words",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:293",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks words text"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a picture: pick from Your pictures",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:306",
+      "covered": "yes",
+      "by": "read_picture_list, then edit_campaign change_email blocks picture"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a picture: upload one from the picker",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:306",
+      "covered": "person",
+      "by": "a picture from their own computer or phone is theirs to pick"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a picture: size, words under it, the address it opens",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:316",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks picture size, words, link"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a button: its words and the address it opens",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:359",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks button label, url"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a space: Small, Medium, Large",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:384",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks space size"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → Save the email, and what’s still to do before it can",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/campaign-view.tsx:758",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks (refused in words when they aren’t right)"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → Back to plain words",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/campaign-view.tsx:766",
+      "covered": "yes",
+      "by": "edit_campaign change_email body"
+    },
+    {
+      "path": "Campaigns → a campaign → the email → Write / Preview: the email as Sam gets it",
+      "kind": "see",
+      "file": "apps/web/src/components/campaigns/campaign-view.tsx:712",
+      "covered": "partly",
+      "by": "get_campaign email subject, words and blocks; the picture of it is the screen’s"
     },
     {
       "path": "Campaigns → a campaign → The email: Edited",

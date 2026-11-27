@@ -1,15 +1,17 @@
 import { and, asc, desc, eq, ne, sql as dsql } from 'drizzle-orm';
-import { rows, sql } from '@hfos/db/client';
+import { rows, sql, type Tx } from '@hfos/db/client';
 import {
   emailAddresses,
   emailDomains,
   emailSenderRules,
   mailboxConnections,
   users,
+  workspaces,
 } from '@hfos/db/schema';
 import { loadTeammate } from '../ai-team/load';
 import { userIdOf } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
+import { emailContactOf } from '../look/email-contact';
 import { decodeCursor, page } from '../kernel/pagination';
 import { SHARED_MAIL_DOMAIN } from '../messaging/email';
 import { ownershipHost } from '../schemas/branded-domain';
@@ -166,9 +168,23 @@ export const emailSetupStatus = defineQuery({
         connectedAt: iso(m.connectedAt),
       })),
       counts: { suppressions: counts?.suppressions ?? 0, unmatched: counts?.unmatched ?? 0 },
+      emailLook: await emailLookOf(ctx.tx, workspaceId),
     };
   },
 });
+
+/** The business's name and the footer's details, for How your emails look's preview. */
+async function emailLookOf(tx: Tx, workspaceId: string) {
+  const [w] = await tx
+    .select({ name: workspaces.name, settings: workspaces.settings })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId));
+  const c = await emailContactOf(tx, workspaceId, w?.settings);
+  return {
+    name: w?.name ?? '',
+    contact: { ...c, address: [...c.address], socials: [...c.socials] },
+  };
+}
 
 type SuppressionRow = {
   id: string;

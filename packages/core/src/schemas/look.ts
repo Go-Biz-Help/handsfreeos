@@ -6,8 +6,11 @@ import {
   BusinessLookSchema,
   LOOK_CORNERS,
   LOOK_LOGO_PATH,
+  LOOK_SOCIALS_MAX,
   LOOK_UPLOAD_BUCKET,
   LOOK_UPLOAD_PATH,
+  LookEmailLayout,
+  socialUrlOf,
 } from '../look/look';
 import { uuid } from './common';
 
@@ -54,9 +57,30 @@ export const LookSetInput = z
     corners: z.enum(LOOK_CORNERS).nullable().optional(),
     /** The website Match my website read these from, kept to say so. */
     matchedSite: z.string().trim().min(1).max(300).optional(),
+    /** How its emails look (Settings → Email); null goes back to the look they had before. */
+    email: LookEmailLayout.nullable().optional(),
+    /** Its social links, all of them, as typed ("facebook.com/acme"); none takes them all off. */
+    socials: z
+      .array(
+        z
+          .string()
+          .trim()
+          .max(300)
+          .refine((s) => socialUrlOf(s) !== null, {
+            error: 'Type a web address, like facebook.com/yourbusiness.',
+          }),
+      )
+      .max(LOOK_SOCIALS_MAX, { error: `Keep it to ${LOOK_SOCIALS_MAX} links.` })
+      .optional(),
   })
   .refine(
-    (v) => v.color !== undefined || v.removeLogo || v.font !== undefined || v.corners !== undefined,
+    (v) =>
+      v.color !== undefined ||
+      v.removeLogo ||
+      v.font !== undefined ||
+      v.corners !== undefined ||
+      v.email !== undefined ||
+      v.socials !== undefined,
     { error: 'Nothing to change.' },
   );
 export const LookSetOutput = z.object({ look: BusinessLookSchema, changed: z.boolean() });

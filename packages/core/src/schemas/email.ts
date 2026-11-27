@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { displayName, email, isoDateTime, uuid } from './common';
 import { ListInput, UserRef } from './crm';
+import { LookSocialLink } from '../look/look';
 
 /** Mirrors private.email_local_part_reserved: names that would read as HandsFreeOS itself on the shared subdomain. */
 export const RESERVED_LOCAL_PARTS: readonly string[] = [
@@ -415,6 +416,18 @@ export const EmailSetupStatusOutput = z.object({
     /** Mail from unknown senders waiting to be claimed or dismissed. */
     unmatched: z.number().int(),
   }),
+  /** The business's name and what an email's footer shows (How your emails look, design tools part 5). */
+  emailLook: z
+    .object({
+      name: z.string(),
+      contact: z.object({
+        address: z.array(z.string()),
+        phone: z.string().nullable(),
+        website: z.string().nullable(),
+        socials: z.array(LookSocialLink),
+      }),
+    })
+    .optional(),
 });
 
 /** Where new mail from each sender goes, as people chose (M19). */

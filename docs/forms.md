@@ -478,6 +478,47 @@ showing after it's taken out of the library.
   card is confirmed.
 - The phone only has the guided chat set-up, which doesn't ask about these.
 
+## How your emails look (design tools, part 5)
+
+`HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`, part 5 (ideas 17 to 19). The HTML of every email lives once, in
+core's `look/email.ts` (`emailHtml`): the worker sends it (`email/render.ts`), and Settings → Email's preview and a
+campaign's preview draw the same thing in a frame that runs nothing.
+
+- **Plain stays plain.** An email a person or the AI teammate wrote in a conversation has no brand
+  (`emailBrandFor` gives null), and its HTML is byte for byte what it was: paragraphs, line breaks and links.
+- **Automatic emails get real buttons** (a confirmation, a reminder, an invoice, a campaign): a line that is only "Some
+  words: https://…" (`EMAIL_BUTTON_LINE`, 40 characters of words at most) is drawn as a button in the business's colour
+  made readable under white words (`buttonColorFor`), the first filled and the rest outlined, with the brand kit's
+  corners. The plain text keeps the line, so every mail app still has the link. Everything after the last line that is
+  only "--" is the small print: smaller and grey, its links still links. Nothing else changes for a business that
+  hasn't picked a layout: the logo on the left at the top, as before.
+- **The layout** is `look.email` in the brand kit (`{band, logo: left | center, footer}`, written by `look.set`; null is
+  the usual look), from **Settings → Email → How your emails look** (`components/settings/email-look.tsx`, which saves
+  only when someone presses Save, and needs `workspace.update` like the rest of the kit). It draws a white card 600
+  pixels across on grey, built from tables and inline styles: a 6-pixel band of the colour, the logo on the left or in
+  the centre (the business name where there's none), and a footer with the name, the postal address (the one
+  campaigns carry, `businessPostalAddress`), the default texting number, the website and the social links
+  (`emailContactOf`, looked up only when the footer is on). The footer's name and address lines aren't said again in
+  a campaign's small print.
+- **Social links** are `look.socials` in the brand kit (up to 8), added and removed under **Brand kit → Social links**
+  in Settings → Workspace. A typed link becomes an https address (`socialUrlOf`; never `javascript:`, a login or a host
+  without a dot) named for its site (`socialKindOf`: Facebook, Instagram, LinkedIn, YouTube, TikTok, X, Google, Yelp,
+  Nextdoor, Pinterest, else Website). The customer's pages (part 7) use the same list.
+- **A campaign email in blocks** (`campaigns.email_blocks`, `20261027037300_campaign_email_blocks.sql`): words, a
+  picture from Your pictures (size small, medium, large or full, words under it that are also its alt text, and a link),
+  a button (its words and address), a line and a space, each lined up left, centre or right (`campaigns/email-blocks.ts`,
+  up to 40). `campaign.update_email` takes `blocks` in place of `body` and keeps `email_body` as their plain words
+  (`emailBlocksText`: a button is "Its words: address", a line is "———", never "--"), so text-only mail apps, the
+  Assistant and everything that reads the body work as before; `body` with `blocks: null` goes back to plain words. A
+  picture must be under the business's own folder. On the campaign page, **Design it: add pictures and buttons** turns
+  the words into blocks (`emailBlocksFromText`), each block moves by dragging or its arrows, and **Save the email**
+  keeps them. When an email is sent, the worker draws the blocks only while their filled words still begin its body
+  (`email/campaign-blocks.ts`), so an email changed since goes out as its words say.
+- **Pictures are WebP** (Your pictures' web copies). Gmail, Apple Mail and the new Outlook show them; classic Outlook
+  on Windows shows the words under the picture instead.
+- The Assistant does the same: `do_look_set` with `email` and `socials`, and `edit_campaign` `change_email` with
+  `blocks` (a new subject alone keeps them). The phone shows neither screen.
+
 ## Videos and steps (funnels)
 
 A form can walk somebody through a funnel: a video, their details, a longer video, a few questions

@@ -13,7 +13,7 @@
     "apps/mobile/src/components/phone-setup/guided-flow.tsx": "36216bb152e1",
     "apps/mobile/src/components/phone-setup/number-picker.tsx": "bf53e3c04b02",
     "apps/web/src/app/app/oauth/finish/page.tsx": "32b5c89b1bb7",
-    "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "ad68b7bf922c",
+    "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "5d5c6e369088",
     "apps/web/src/app/app/w/[workspaceId]/settings/facebook-instagram/page.tsx": "dd7668234a51",
     "apps/web/src/app/app/w/[workspaceId]/settings/lead-intake/page.tsx": "3a358f27f274",
     "apps/web/src/app/app/w/[workspaceId]/settings/templates/page.tsx": "8bac184b35c2",
@@ -35,7 +35,8 @@
     "apps/web/src/components/settings/chat-install.tsx": "000b8ddf3f39",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
     "apps/web/src/components/settings/email-addresses.tsx": "0a161e86d75f",
-    "apps/web/src/components/settings/email-page.tsx": "f050b6292547",
+    "apps/web/src/components/settings/email-look.tsx": "f1d622ca10af",
+    "apps/web/src/components/settings/email-page.tsx": "6221abb63a87",
     "apps/web/src/components/settings/facebook-instagram-overview.tsx": "762c9b38ab69",
     "apps/web/src/components/settings/facebook-instagram-page.tsx": "15ae43871871",
     "apps/web/src/components/settings/inbox-visibility-card.tsx": "e7ce1e333cd7",
@@ -2117,6 +2118,48 @@
       "file": "apps/web/src/components/settings/email-page.tsx:908",
       "covered": "yes",
       "by": "sort_unmatched_email dismiss"
+    },
+    {
+      "path": "Email → How your emails look → Colour band across the top",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-look.tsx:144",
+      "covered": "yes",
+      "by": "do_look_set email band"
+    },
+    {
+      "path": "Email → How your emails look → Logo: Left or Centre (no logo: the business name stands in)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-look.tsx:156",
+      "covered": "yes",
+      "by": "do_look_set email logo"
+    },
+    {
+      "path": "Email → How your emails look → Footer with your address, phone, website and social links, and what it leaves out",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-look.tsx:171",
+      "covered": "yes",
+      "by": "do_look_set email footer; get_settings email emailLook says what it shows"
+    },
+    {
+      "path": "Email → How your emails look → Use this look / Save",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-look.tsx:188",
+      "covered": "yes",
+      "by": "do_look_set email"
+    },
+    {
+      "path": "Email → How your emails look → Back to the usual look",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-look.tsx:198",
+      "covered": "yes",
+      "by": "do_look_set email null"
+    },
+    {
+      "path": "Email → How your emails look → the preview: a booking confirmation as customers get it",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-look.tsx:222",
+      "covered": "partly",
+      "by": "get_settings business look.email and email emailLook say what it shows; the picture itself is the screen’s"
     },
     {
       "path": "Website chat → how many chats callout",

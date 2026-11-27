@@ -36,6 +36,7 @@ import {
   type messages,
 } from '@hfos/db/schema';
 import { SealedMismatch, withSealedParts } from '../addons/sealed';
+import { campaignBlocksFor } from '../email/campaign-blocks';
 import { renderEmailHtml } from '../email/render';
 import { emailBrandFor } from '../look/public';
 import { oneClickUrl, unsubscribeToken } from '../email/unsubscribe';
@@ -177,7 +178,11 @@ export async function sendQueuedEmail(ctx: HandlerContext, queued: Message): Pro
       replyTo,
       subject: m.subject ?? '',
       text: m.bodyText ?? '',
-      html: renderEmailHtml(m.bodyText ?? '', await emailBrandFor(ctx.tx, ctx.storageUrl, m)),
+      html: renderEmailHtml(
+        m.bodyText ?? '',
+        await emailBrandFor(ctx.tx, ctx.storageUrl, m),
+        await campaignBlocksFor(ctx.tx, ctx.storageUrl, m),
+      ),
       messageIdHeader: m.messageIdHeader ?? `<${m.id}@${ctx.email.mailDomain}>`,
       inReplyTo: m.inReplyToHeader,
       references: m.referencesHeaders,
