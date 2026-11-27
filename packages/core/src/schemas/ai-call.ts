@@ -6,13 +6,17 @@
 import { z } from 'zod';
 import { isoDateTime, uuid } from './common';
 
-/** Why it calls. `workflow`: a workflow's "AI teammate calls them" step, with its own call playbook. */
+/**
+ * Why it calls. `workflow`: a workflow's "AI teammate calls them" step, with its own call playbook. `errand`: someone
+ * asked the Assistant to have it call a supplier (or anyone in Contacts) with their questions (20261027037000).
+ */
 export const AI_CALL_PURPOSES = [
   'confirm_visit',
   'missed_call',
   'quote',
   'campaign',
   'workflow',
+  'errand',
 ] as const;
 export const aiCallPurpose = z.enum(AI_CALL_PURPOSES);
 export type AiCallPurpose = z.infer<typeof aiCallPurpose>;

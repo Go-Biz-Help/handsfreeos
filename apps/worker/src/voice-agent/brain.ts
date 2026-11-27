@@ -45,6 +45,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import { conversations } from '@hfos/db/schema';
 import { eq } from 'drizzle-orm';
 import { callBrief } from '../ai-calls';
+import { reportErrandSoon } from '../ai-calls/errand';
 import { addonCallScript } from '../ai-calls/scripts';
 import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import { runToolLoop, type ToolLoopResult } from '../ai/tool-loop';
@@ -923,13 +924,15 @@ export async function finishCall(
   // A call it placed: how it went, on its own row too (the person's timeline and the approval card read it).
   if (call.outbound)
     await asWorker(deps.db, call.scope, (tx) =>
-      tx.execute(
-        // The carrier's "it ended" may have got here first (onAiCallEnded): the summary is still the call's.
-        sql`update app.ai_calls set status = 'done', outcome = 'talked',
+      tx
+        .execute(
+          // The carrier's "it ended" may have got here first (onAiCallEnded): the summary is still the call's.
+          sql`update app.ai_calls set status = 'done', outcome = 'talked',
               summary = ${ending.summary.slice(0, 1000)}, finished_at = coalesce(finished_at, now())
             where id = ${call.outbound!.aiCallId}
               and (status = 'calling' or (status = 'done' and outcome = 'talked'))`,
-      ),
+        )
+        .then(() => reportErrandSoon(tx, call.outbound!.aiCallId)),
     ).catch((e: unknown) =>
       deps.log.warn({ err: e, callId: call.callId }, 'couldn’t record how a placed call went'),
     );

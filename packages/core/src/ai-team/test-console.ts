@@ -104,6 +104,13 @@ export function testCallGoalAsk(
         placeholder: 'It finishes “I’m calling …”, like about the request you just sent us',
         missing: 'Say what the call is about.',
       };
+    case 'errand':
+      return {
+        label: 'What it calls to ask',
+        placeholder:
+          'It finishes “I’m calling …”, like to ask if you have 30-year shingles in stock',
+        missing: 'Say what it calls to ask.',
+      };
     default:
       return null;
   }
@@ -441,6 +448,7 @@ export const TEST_CALL_REASONS: Readonly<Record<AiCallPurpose, string>> = {
   quote: 'Follow up a quote',
   campaign: 'Campaign call',
   workflow: 'A workflow’s call',
+  errand: 'Call a supplier for you',
 };
 
 /** What each channel is called in the console. */

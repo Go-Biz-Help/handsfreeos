@@ -591,6 +591,7 @@ describe('registry', () => {
       'campaign.set_keep_adding',
       'email_unsubscribe.record',
       'person.set_call_consent',
+      'ai_call.ask_errand',
       'contact_ai.start_sweep',
       'contact_ai.cancel_sweep',
       'maintenance.set_schedule',

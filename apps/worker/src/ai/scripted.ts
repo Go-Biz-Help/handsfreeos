@@ -1308,7 +1308,19 @@ export function scriptedCallCampaign(message: string): Record<string, unknown> {
   return { opening: `about ${line.charAt(0).toLowerCase()}${line.slice(1)}.` };
 }
 
+/** A call for someone (ai-calls/errand.ts): what the business it called said, its lines put together. */
+function scriptedErrandReport(message: string): unknown {
+  const words = unquote(quotedBlock(message, 'call_words') ?? '');
+  const said = words
+    .split('\n')
+    .filter((l) => l.startsWith('Caller: '))
+    .map((l) => l.slice('Caller: '.length).trim())
+    .filter(Boolean);
+  return { answer: said.length ? said.join(' ') : 'They didn’t say.' };
+}
+
 export const AUTOMATION_RULES: readonly ScriptRule[] = [
+  { when: /Write down what they said\.$/, json: (message) => scriptedErrandReport(message) },
   {
     when: /Write the line that opens every call of the campaign above, or null if it can’t be written\.$/,
     json: (message) => scriptedCallCampaign(message),

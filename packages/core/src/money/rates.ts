@@ -618,7 +618,7 @@ export const SEED_RATES: readonly {
     minChargeCents: 1,
     roundUpTo: 'none',
     notes:
-      'One web search the AI makes to look up news and facts for a business’s own posts, $0.01. Charged 2¢.',
+      'One web search the AI makes: the Assistant looking something up, or news and facts for a business’s own posts. $0.01. Charged 2¢.',
   },
 ];
 

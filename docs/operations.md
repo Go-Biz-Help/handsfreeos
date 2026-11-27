@@ -7474,6 +7474,15 @@ What a person asks the Assistant to do on its own (the owner, 25 Nov 2026). Each
 - **Removing one** is for good, with its receipt (`expense.delete`, after a second press). The Assistant never removes one; it says where the button is.
 - **Not on the phone's copy:** the phone asks the API each time, and says it needs a signal without one, like the balance.
 
+### Looking things up on the web
+
+"Look things up for me" (the owner, 25 Nov 2026): a supplier near the business and its hours, a price, a company before a meeting, a permit rule. The Assistant's `search_web` asks Claude with its own web search on (`askSearching` in `apps/worker/src/ai/ask.ts`), near the business's own town from **Settings** → **Business** unless they name somewhere else, and gives what it found with each page as a link.
+
+- **Each search is charged** as `ai.web_search`, up to 3 a look-up (`WEB_SEARCHES_MAX`), on top of the AI's words, and counts toward the daily AI limit like any answer.
+- **The backup AI has no web search.** When Claude can't answer and OpenAI does, nothing was looked up, so the Assistant says so and to try again in a few minutes, rather than answering from memory.
+- **What a page says is information, never instructions**, in the search's own prompt and the Assistant's.
+- Nothing is kept beyond the chat's own answer.
+
 ### When a question fails
 
 Every failed question writes an `assistant run failed` line to the worker's log. Its `err` field says why. To read the recent log:
@@ -10149,10 +10158,31 @@ reminder set, there's no call either.
 - **On a quote call** the AI knows the quote's name, total and last day. It answers questions from those and what
   the business knows, never changes a price or the terms, and for going ahead points to the link in the text they
   got (the team can text it again).
+- **A call for someone** (purpose `errand`, the owner, 25 Nov 2026: "would calling suppliers be the AI teammate?"
+  yes). Someone asks the Assistant to call a supplier, a store or another business in Contacts ("call ABC Supply and
+  ask if they have 30-year shingles"). The Assistant adds the business to Contacts first when it isn't there, then
+  shows a card (`call_for_me`): who it calls, how it starts, what it asks, what it may tell them, and the cost. **Call
+  them** writes the call down as the system on the person's behalf (`ai_call.ask_errand`), once the worker has checked
+  they have **Use the inbox**.
+  - It starts "Hi, this is Ava, an AI assistant calling for Lone Star HVAC. This call is recorded. I'm calling …" (no
+    first name: a store's contact is often the store's own). It asks, listens, repeats numbers back and says goodbye.
+    Its only tools are talking, hanging up and "don't call again": it never orders, pays, books, quotes or hands the
+    call to the team.
+  - **Who it calls:** someone marked OK to call in writing, or a number the phone company says is a business landline,
+    asked just before the call (2¢, plus 2¢ for a landline's owner) whatever **Call business landlines without a yes**
+    says, since the person OKd it on the card. Never someone who asked not to be called. Open hours only, no retries,
+    and a voicemail box is hung up on with no message and no text.
+  - **What comes back:** the job `ai_calls.errand_report` writes it in the Assistant chat it was asked in (a new chat,
+    "Call to ABC Supply", when that one is gone) and sends a push (`assistant_answer`). After a talked call, the AI
+    writes down what they said from the call's words (the Assistant's usage); otherwise it says why: not a business
+    landline, nobody answered, busy, a voicemail box, the balance, and the rest (core's `errand-calls.ts`). Once only:
+    `ai_calls.reported_at`.
+  - Kept on the call: `asked_by`, `thread_id` (the asker's own chat, checked by a trigger), `errand` (what to find
+    out, what it may say, the asker's first name) and `reported_at`. Needs `20261027037000_errand_calls.sql`.
 
 Kept in `app.ai_calls` (one row per call: why, status, how it went, the summary) and `people.call_consent`; a call
 waiting for approval is an AI teammate draft of kind `call`. The worker's jobs are `ai_calls.consider`,
-`ai_calls.place` and `ai_calls.voicemail_text`; the carrier asks `/webhooks/twilio/voice/ai-call` what to do when
+`ai_calls.place`, `ai_calls.voicemail_text` and `ai_calls.errand_report`; the carrier asks `/webhooks/twilio/voice/ai-call` what to do when
 it's answered. Needs `20261008000100_ai_calls.sql` and, for quote and campaign calls,
 `20261008000200_quote_and_campaign_calls.sql`. See "Apply new migrations".
 

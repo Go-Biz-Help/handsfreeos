@@ -13,6 +13,7 @@
 import { automationSettingsOf, loadTeammate } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { reportErrandSoon } from '../ai-calls/errand';
 import { textAfterLastTry, tryAgainTomorrow } from '../ai-calls/index';
 import { runtimeConfigOf } from '../ai-team/config';
 import {
@@ -66,6 +67,7 @@ export function registerAiCallRoutes(app: FastifyInstance, deps: HttpDeps): void
       const [c] = await rows<{
         id: string;
         status: string;
+        purpose: string;
         to_e164: string;
         goal: string;
         placed_at: Date | null;
@@ -74,7 +76,7 @@ export function registerAiCallRoutes(app: FastifyInstance, deps: HttpDeps): void
         settings: Record<string, unknown> | null;
       }>(
         tx,
-        sql`select c.id, c.status, c.to_e164, c.goal, c.placed_at, p.first_name, w.name as business, w.settings
+        sql`select c.id, c.status, c.purpose::text as purpose, c.to_e164, c.goal, c.placed_at, p.first_name, w.name as business, w.settings
             from app.ai_calls c join app.people p on p.id = c.person_id join app.workspaces w on w.id = c.workspace_id
             where c.id = ${aiCallId} and c.workspace_id = ${workspaceId}`,
       );
@@ -105,7 +107,8 @@ export function registerAiCallRoutes(app: FastifyInstance, deps: HttpDeps): void
         tryAgainTomorrow(tx, scope, c.id, 'voicemail'),
       );
       if (later) return xml(reply, HANGUP_TWIML);
-      const choice = found.voicemail;
+      // A call for someone leaves no message and sends no text: it's not the business's customer.
+      const choice = c.purpose === 'errand' ? 'hang_up' : found.voicemail;
       await asWorker(deps.httpDb, scope, async (tx) => {
         await tx.execute(
           sql`update app.ai_calls set status = 'done', outcome = 'voicemail', finished_at = now(),
@@ -119,6 +122,7 @@ export function registerAiCallRoutes(app: FastifyInstance, deps: HttpDeps): void
               where id = ${c.id} and status = 'calling'`,
         );
         if (choice === 'text') await textAfterLastTry(tx, scope, c.id);
+        await reportErrandSoon(tx, c.id);
       });
       if (choice !== 'message') return xml(reply, HANGUP_TWIML);
       return xml(

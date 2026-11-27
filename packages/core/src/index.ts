@@ -97,6 +97,7 @@ export * from './assistant/words';
 export * from './assistant/attachments';
 export * from './assistant/routines';
 export * from './assistant/files-out';
+export * from './assistant/tools-web';
 export * from './assistant/answer-text';
 // Asking and leaving: picking an answer back up that came in while nobody was watching.
 export * from './assistant/catch-up';
