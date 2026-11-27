@@ -869,6 +869,27 @@ describe('a post’s people on Instagram (decision 92)', () => {
     expect(likersBox(followers, followers.location.href)).toBeNull();
   });
 
+  it('says when the Likes box shows you, whom it never reads, as a box with you alone in it does', () => {
+    expect(read(withLikes()).likedByYou).toBe(true);
+    expect(read(POST).likedByYou).toBeUndefined();
+    // The owner's problem reports of 19, 20 and 25 Nov 2026: a reel's Likes box over the reels player with one row,
+    // the person's own (no button beside it), and nobody else.
+    const alone = page(
+      '/reels/C3xyzabcd/',
+      `${POST.body.innerHTML}<div role="dialog"><div><div><div role="button" aria-label="Close">
+        <svg role="img" aria-label="Close"></svg></div><h2 dir="auto">Likes</h2></div>
+        ${likerRow('me.owner', 'Me Owner', '')}</div></div>`,
+    );
+    expect(read(alone)).toMatchObject({ likers: [], likedByYou: true });
+    // Someone else alone in it is someone to read, and not you.
+    const other = page(
+      '/reels/C3xyzabcd/',
+      `${POST.body.innerHTML}<div role="dialog"><h2 dir="auto">Likes</h2>${likerRow('rio.tanaka', 'Rio Tanaka', 'Follow')}</div>`,
+    );
+    expect(read(other).likers).toEqual([LIKERS[0]]);
+    expect(read(other).likedByYou).toBeUndefined();
+  });
+
   it('counts who liked it in a report, and outlines the box with their names hidden', () => {
     const doc = withLikes();
     const found = readLooking(doc, doc.location.href, INSTAGRAM);
