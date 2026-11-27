@@ -209,6 +209,19 @@ describe('the AI builder', () => {
     ).toEqual({ [ads.choices[0]!.id]: 10 });
   });
 
+  it('takes a live poll’s slides off, as Take them off does', () => {
+    const start = def({
+      mode: 'poll',
+      slides: { fileId: '6f1c2a4e-8b3d-4c5e-9f70-1a2b3c4d5e6f', name: 'Demo deck.pdf', pages: 6 },
+      pages: [page('about', [pickOne('source', [choice('Ads'), choice('Referrals')])])],
+    });
+    const out = build(start, [call('set_form', { removeSlides: true })]);
+    expect(out.results.every((r) => r.ok)).toBe(true);
+    expect(out.ops).toEqual([{ op: 'set_form', patch: { slides: null } }]);
+    expect(out.definition.slides ?? null).toBeNull();
+    expect(describeFormOps(out.ops, start)).toEqual(['Took the slides off']);
+  });
+
   it('renames a page, saves their details on it, and takes a page break out as the editor does', () => {
     const start = def({
       pages: [

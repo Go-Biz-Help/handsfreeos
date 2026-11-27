@@ -210,7 +210,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'set_form',
     description:
-      'The form itself: which kind it is, its heading, the words at the top, and a live poll’s follow-up.',
+      'The form itself: which kind it is, its heading, the words at the top, and a live poll’s follow-up and slides.',
     inputSchema: obj(
       {},
       {
@@ -222,6 +222,9 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
         intro: str('The words above the first question.'),
         leadsJson: str(
           'A live poll only: who to follow up with after the call, as JSON {"stayed": 10, "hot": 30, "warm": 10, "hotAction": "text"}. Points for staying to the end; Hot from and Warm from so many points (Warm below Hot); and what happens to hot ones: list (just the ranked list), home (a card on Home too) or text (the AI teammate texts them, the default).',
+        ),
+        removeSlides: bool(
+          'A live poll only: true takes its slides off, as Take them off does. Then set each question tied to a slide to none (update_question {"live": {"slide": null}}), or it can’t be published.',
         ),
       },
     ),
@@ -346,6 +349,7 @@ const INPUTS = {
     title: z.string().max(160).nullish(),
     intro: z.string().max(4000).nullish(),
     leadsJson: z.string().nullish(),
+    removeSlides: z.boolean().nullish(),
   }),
   set_scoring: z.object({ json: z.string() }),
   set_on_submit: z.object({ json: z.string() }),
@@ -563,6 +567,7 @@ export function formToolCallsToOps(
         if (input.title) patch.title = input.title;
         if (input.intro !== null && input.intro !== undefined) patch.intro = input.intro;
         if (input.leadsJson) patch.leads = parseJsonObject(input.leadsJson, 'leadsJson');
+        if (input.removeSlides) patch.slides = null;
         if (!Object.keys(patch).length) throw new CallError('Nothing to change.');
         return [{ op: 'set_form', patch }];
       }

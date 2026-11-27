@@ -1,7 +1,8 @@
 /**
  * Files out (the owner, 25 Nov 2026: "a spreadsheet or PDF report to download or email"). make_file runs on its own:
  * it only looks things up, as the person, and the file is theirs alone. Emailing it to someone else (an accountant, a
- * partner) waits for their OK on a card, as every email that leaves the business does.
+ * partner) waits for their OK on a card, as every email that leaves the business does. make_qr_code is the same kind
+ * of file: a page to print with a QR code for one of the business's own public pages.
  */
 import { z } from 'zod';
 import {
@@ -20,7 +21,7 @@ const Cell = z.union([z.string().max(2_000), z.number(), z.boolean(), z.null()])
 const FileKey = z
   .string()
   .regex(/^\d{8}_[0-9a-f-]{36}\.(?:xlsx|csv|pdf)$/)
-  .describe('The file’s key, from make_file');
+  .describe('The file’s key, from make_file or make_qr_code');
 
 export const filesOutTools: readonly AssistantTool[] = [
   define({
@@ -87,7 +88,7 @@ export const filesOutTools: readonly AssistantTool[] = [
   define({
     name: 'email_file',
     description:
-      'Email a file made with make_file to someone else, like their accountant or a partner, with a short note. It goes from HandsFreeOS in their name, with replies to them and a copy to them. Waits for their OK on a card. For a customer, the same: the address on file. To email it to themselves, make_file’s emailMe.',
+      'Email a file made with make_file or make_qr_code to someone else, like their accountant or a partner, with a short note. It goes from HandsFreeOS in their name, with replies to them and a copy to them. Waits for their OK on a card. For a customer, the same: the address on file. To email it to themselves, make_file’s emailMe.',
     input: z.object({
       fileKey: FileKey,
       to: z.email().max(254).describe('The address to send it to'),
@@ -99,6 +100,25 @@ export const filesOutTools: readonly AssistantTool[] = [
         .describe('A short note above the file, in their words'),
     }),
     autonomy: 'confirm',
+    permission: 'assistant.use',
+  }),
+  // A QR code, as a form's Share tab, the phone's link sheet and a listing's Marketing page show one (27 Nov 2026).
+  define({
+    name: 'make_qr_code',
+    description: `Make a QR code for one of the business’s own public pages, as a form’s Share tab and the phone show one: a page to print for a truck door, a yard sign or the counter, with the code big, the title over it and the link under it, as a PDF with a card to Download. The link is the whole one a look-up gave (list_forms or get_form for a form, get_settings for the booking page, a listing’s public page or open house sign-in); a page of this business only, never another website. The file is theirs alone, kept ${FILE_KEEP_DAYS} days. emailMe sends it to their own email too; email_file after sends it to someone else.`,
+    input: z.object({
+      link: z
+        .string()
+        .trim()
+        .min(1)
+        .max(500)
+        .describe('The page’s whole link, as the look-up gave it'),
+      title: text(120).describe(
+        'The words over the code: what scanning it does, like "Get a free quote" or "Book online"',
+      ),
+      emailMe: z.boolean().optional().describe('Email it to them too (no unless they said)'),
+    }),
+    autonomy: 'auto',
     permission: 'assistant.use',
   }),
 ];

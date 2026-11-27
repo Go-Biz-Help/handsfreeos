@@ -1,7 +1,8 @@
 /**
  * Files out (the owner, 25 Nov 2026: "a spreadsheet or PDF report to download or email"): make_file reads a screen's
  * look-up as the person and writes every row, or writes the rows the Assistant gave; the file is theirs alone, kept
- * for 30 days, emailed to them when they say, and to someone else on a Confirm card. Every customer here is made up.
+ * for 30 days, emailed to them when they say, and to someone else on a Confirm card. make_qr_code makes the same kind
+ * of file: a QR code to print for one of the business's own pages. Every customer here is made up.
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -11,6 +12,7 @@ import {
   personCreate,
 } from '@hfos/core/server';
 import {
+  asService,
   closeTestDbs,
   createTestUser,
   signInTestUser,
@@ -308,8 +310,100 @@ describe('make_file', () => {
   });
 });
 
-/** A make_file call as the runtime keeps it: its record, under the person's own thread. */
-async function keepCall(record: Record<string, unknown>): Promise<void> {
+describe('make_qr_code', () => {
+  const APP = 'https://app.filesout.example.test';
+  // As the runtime runs it: with the web app's address, which a business's pages are on until its own domain serves.
+  const qrTools = () =>
+    createToolExecutor(testDbs().worker.db, null, null, APP, undefined, { services: w.s });
+  const qr = async (args: Record<string, unknown>) => {
+    const out = await qrTools().run(
+      assistantToolByName.get('make_qr_code')!,
+      argsOf('make_qr_code', args),
+      ctx(),
+    );
+    await keepCall(out.record ?? {}, 'make_qr_code');
+    return { ...out, file: out.card as FileCard, result: out.result as Record<string, unknown> };
+  };
+
+  it('draws a page to print with the code for one of the business’s pages, theirs alone to download', async () => {
+    const page = `${APP}/f/${w.site}/free-quote`;
+    const { file, result } = await qr({ link: page, title: 'Get a free quote' });
+    expect(AssistantCard.safeParse(file).success).toBe(true);
+    expect(file).toMatchObject({
+      type: 'file',
+      format: 'pdf',
+      detail: 'PDF · QR code to print · Kept 30 days',
+      emailedTo: null,
+    });
+    expect(file.name).toMatch(/^Get a free quote QR code \d{4}-\d{2}-\d{2}\.pdf$/);
+    expect(result['opens']).toBe(page);
+    const pdf = await PDFDocument.load(await stored(file));
+    expect(pdf.getPageCount()).toBe(1);
+    expect(pdf.getTitle()).toBe('Get a free quote');
+    expect(pdf.getSubject()).toBe(page);
+
+    // Download gives it under its name, found from the make_qr_code call; nobody else's key opens it.
+    const mine = await link(ownerToken, file.fileKey);
+    expect(mine.statusCode, mine.body).toBe(200);
+    expect(mine.json()).toMatchObject({ name: file.name });
+    expect((await link(memberToken, file.fileKey)).statusCode).toBe(404);
+  });
+
+  it('writes a path out whole, emails it to them when they say, and email_file finds it by name', async () => {
+    const { file, result } = await qr({
+      link: `/book/${w.site}`,
+      title: 'Book online',
+      emailMe: true,
+    });
+    expect(result['opens']).toBe(`${APP}/book/${w.site}`);
+    expect(file.emailedTo).toBe(w.owner.email);
+    const mail = await mailWithFile(w.owner.email, 'Book online QR code');
+    expect(mail.Attachments).toEqual([
+      expect.objectContaining({ FileName: file.name, ContentType: 'application/pdf' }),
+    ]);
+    const prepared = await qrTools().prepare(
+      assistantToolByName.get('email_file')!,
+      argsOf('email_file', { fileKey: file.fileKey, to: 'printer@shop.example.test' }),
+      ctx(),
+      randomUUID(),
+    );
+    expect((prepared.card as Confirm).fields).toContainEqual({ label: 'File', value: file.name });
+  });
+
+  it('refuses another website, and a page of the team’s own, saying which', async () => {
+    await expect(qr({ link: 'https://www.example.com/deals', title: 'Deals' })).rejects.toThrow(
+      /own pages only, like a form or the booking page, and www\.example\.com isn’t one of them/,
+    );
+    await expect(
+      qr({ link: `${APP}/app/w/${w.workspaceId}/forms`, title: 'Forms' }),
+    ).rejects.toThrow('one of the team’s own, which customers can’t open');
+  });
+
+  it('puts the code on the business’s own domain once that serves', async () => {
+    const domain = `go-${randomUUID().slice(0, 8)}.filesout.example.test`;
+    // As branded_domain.add writes it, then as the worker's domain check does when the host answers.
+    const [added] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.branded_domains (workspace_id, site_id, domain, created_by)
+          select ${w.workspaceId}, id, ${domain}, ${w.owner.id}
+          from app.booking_sites where workspace_id = ${w.workspaceId} returning id`,
+    );
+    await asService({ workspaceId: w.workspaceId, organizationId: w.organizationId })((tx) =>
+      rows(
+        tx,
+        sql`update app.branded_domains
+            set status = 'verified', certificate_ready = true, verified_at = now(),
+              ownership_proved_at = now()
+            where id = ${added!.id}`,
+      ),
+    );
+    const { result } = await qr({ link: `${APP}/f/${w.site}/free-quote`, title: 'Free quote' });
+    expect(result['opens']).toBe(`https://${domain}/f/${w.site}/free-quote`);
+  });
+});
+
+/** A make_file (or make_qr_code) call as the runtime keeps it: its record, under the person's own thread. */
+async function keepCall(record: Record<string, unknown>, tool = 'make_file'): Promise<void> {
   const [thread] = await rows<{ id: string }>(
     admin(),
     sql`insert into app.assistant_threads (workspace_id, user_id, title)
@@ -323,7 +417,7 @@ async function keepCall(record: Record<string, unknown>): Promise<void> {
   await rows(
     admin(),
     sql`insert into app.assistant_tool_calls (workspace_id, user_id, thread_id, run_id, tool, autonomy, status, result)
-        values (${w.workspaceId}, ${w.owner.id}, ${thread!.id}, ${runRow!.id}, 'make_file', 'auto', 'done',
+        values (${w.workspaceId}, ${w.owner.id}, ${thread!.id}, ${runRow!.id}, ${tool}, 'auto', 'done',
           ${JSON.stringify(record)}::jsonb)`,
   );
 }

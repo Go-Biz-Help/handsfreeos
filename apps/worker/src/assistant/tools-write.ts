@@ -75,7 +75,7 @@ import { moreSettingsConfirmTools } from './tools-settings-more';
 import { safetyAutoTools, safetyConfirmTools } from './tools-safety';
 import { setupAutoTools, setupConfirmTools } from './tools-setup';
 import { testAiTeammate } from './teammate-test';
-import { filesOutConfirmTools, makeFile } from './tools-files-out';
+import { filesOutConfirmTools, makeFile, makeQrCode } from './tools-files-out';
 import { expenseConfirmTools } from './tools-expenses';
 import { errandConfirmTools } from './tools-errand';
 import { searchWeb } from './tools-web';
@@ -1878,6 +1878,7 @@ export const executorFor = (name: string) =>
   knowledgeServiceTools[name] ??
   serviceTools[name as keyof typeof serviceTools] ??
   (name === 'make_file' ? makeFile : undefined) ??
+  (name === 'make_qr_code' ? makeQrCode : undefined) ??
   (name === 'search_web' ? searchWeb : undefined) ??
   confirmTools[name];
 
@@ -1931,6 +1932,15 @@ export function createToolExecutor(
     // A spreadsheet or report of what they can see: kept in the file store for them alone, emailed by its mailer.
     if (tool.name === 'make_file')
       return makeFile(db, ctx, args, addonActions?.services ?? null, coreLookUp(ctx));
+    // A QR code to print for one of the business's own pages, on the address those pages are on.
+    if (tool.name === 'make_qr_code')
+      return makeQrCode(
+        db,
+        ctx,
+        await addressed(args, ctx),
+        addonActions?.services ?? null,
+        webUrl,
+      );
     // A look-up on the web, on the worker's AI and wallet.
     if (tool.name === 'search_web') return searchWeb(db, ctx, args, addonActions?.services ?? null);
     // Or one of its worker actions, through the door its screens use.

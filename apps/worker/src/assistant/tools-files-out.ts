@@ -6,6 +6,8 @@
  * - **make_file** runs on its own: it only reads, as the person, so a look-up their role can't run refuses, and a row
  *   they can't see never comes back to be written. A screen's look-up is read page by page, up to FILE_ROWS_MAX rows.
  * - **The card** has the name and Download; the model is told not to write a link, since the file isn't a page.
+ * - **make_qr_code** is the same kind of file: a page to print with a QR code for one of the business's own public
+ *   pages (a form, the booking page, a listing's page), as the Share tab and the phone show one.
  * - **email_file** sends it on to someone else, from HandsFreeOS in the business's name, replies to the person and a
  *   copy to them, once they press Confirm.
  */
@@ -21,6 +23,7 @@ import {
   FILE_ROWS_MAX,
   GIVEN_ROWS_MAX,
   HfosError,
+  isPublicPagePath,
   listOf,
   PDF_COLUMNS_MAX,
   SCREEN_READS,
@@ -37,8 +40,10 @@ import { asUser, rows, sql, type Db } from '@hfos/db/client';
 import { madeFileEmail } from '../emails/templates';
 import type { WorkerServices } from '../services';
 import { fileTablePdf } from './files-out/pdf';
+import { qrCodePdf } from './files-out/qr';
 import { FILES_BUCKET, fileKeyOf, madeFileGone, madeFilePath } from './files-out/store';
 import { fileTableXlsx } from './files-out/xlsx';
+import { publicOriginFor } from './full-links';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { query } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
@@ -212,6 +217,44 @@ async function bytesOf(
   });
 }
 
+/** emailMe: the file to their own address, or why it didn't go. */
+async function emailToThem(
+  services: WorkerServices,
+  ctx: ToolContext,
+  file: { business: string; title: string; name: string; bytes: Buffer; mime: string },
+): Promise<{ emailedTo: string | null; emailNote: string | null }> {
+  if (!ctx.actor.email)
+    return {
+      emailedTo: null,
+      emailNote: 'Not emailed: there’s no email address on their account.',
+    };
+  if (file.bytes.length > EMAIL_BYTES_MAX)
+    return {
+      emailedTo: null,
+      emailNote: 'Not emailed: it’s too big for most mailboxes. Download it from the card.',
+    };
+  try {
+    await services.mailer.send({
+      to: ctx.actor.email,
+      ...madeFileEmail({
+        business: file.business,
+        title: file.title,
+        fileName: file.name,
+        from: null,
+        note: null,
+      }),
+      attachments: [{ filename: file.name, content: file.bytes, contentType: file.mime }],
+    });
+    return { emailedTo: ctx.actor.email, emailNote: null };
+  } catch (e) {
+    services.log.warn({ err: e }, 'a made file’s email did not send');
+    return {
+      emailedTo: null,
+      emailNote: 'Not emailed: the email didn’t go. Download it from the card, or ask again.',
+    };
+  }
+}
+
 /** make_file: the file made, kept for them, emailed to them if they said, and a card with Download. */
 export async function makeFile(
   db: Db,
@@ -241,32 +284,16 @@ export async function makeFile(
     bytes,
     mime,
   );
-  let emailedTo: string | null = null;
-  let emailNote: string | null = null;
-  if (args['emailMe'] === true) {
-    if (!ctx.actor.email) emailNote = 'Not emailed: there’s no email address on their account.';
-    else if (bytes.length > EMAIL_BYTES_MAX)
-      emailNote = 'Not emailed: it’s too big for most mailboxes. Download it from the card.';
-    else {
-      try {
-        await services.mailer.send({
-          to: ctx.actor.email,
-          ...madeFileEmail({
-            business: who.business,
-            title: table.title,
-            fileName: name,
-            from: null,
-            note: null,
-          }),
-          attachments: [{ filename: name, content: bytes, contentType: mime }],
-        });
-        emailedTo = ctx.actor.email;
-      } catch (e) {
-        services.log.warn({ err: e }, 'a made file’s email did not send');
-        emailNote = 'Not emailed: the email didn’t go. Download it from the card, or ask again.';
-      }
-    }
-  }
+  const { emailedTo, emailNote } =
+    args['emailMe'] === true
+      ? await emailToThem(services, ctx, {
+          business: who.business,
+          title: table.title,
+          name,
+          bytes,
+          mime,
+        })
+      : { emailedTo: null, emailNote: null };
   const rows = table.rows.length;
   const card: AssistantCard = {
     type: 'file',
@@ -296,10 +323,100 @@ export async function makeFile(
   };
 }
 
+/**
+ * The page a QR code opens, made whole: one of this business's own public pages, on the address those pages are on
+ * (its own domain once that serves, else ours). The executor has already moved a link on one of our hosts onto that
+ * address (full-links.ts, `onPublicOrigin`); a path alone is written out on it here. Anything else refuses, naming
+ * the host, since a QR code to another website isn't one a screen makes.
+ */
+async function qrLinkOf(db: Db, ctx: ToolContext, given: string, webUrl: string): Promise<string> {
+  const origin = (await publicOriginFor(db, ctx, webUrl)).replace(/\/+$/, '');
+  const hosts = new Set<string>();
+  for (const base of [origin, webUrl]) {
+    try {
+      if (base) hosts.add(new URL(base).host);
+    } catch {
+      // No address known (some tests).
+    }
+  }
+  let url: URL | null = null;
+  try {
+    url = given.startsWith('/') && origin ? new URL(given, `${origin}/`) : new URL(given);
+  } catch {
+    url = null;
+  }
+  const ownPage = url && /^https?:$/.test(url.protocol) && isPublicPagePath(url.pathname);
+  if (!url || !ownPage || !hosts.has(url.host))
+    throw HfosError.validation(
+      [{ path: 'link', message: 'Not one of the business’s pages.' }],
+      url && ownPage === false && hosts.has(url.host)
+        ? 'That page is one of the team’s own, which customers can’t open. Use the link of a form, the booking page or another page customers see.'
+        : `I make QR codes for this business’s own pages only, like a form or the booking page${url ? `, and ${url.host} isn’t one of them` : ''}. Look up the page’s link first (list_forms, get_settings), then ask again.`,
+    );
+  return url.toString();
+}
+
+/** make_qr_code: a page to print with the code, kept for them, emailed to them if they said, and a card. */
+export async function makeQrCode(
+  db: Db,
+  ctx: ToolContext,
+  args: Args,
+  services: WorkerServices | null,
+  webUrl: string,
+): Promise<ToolOutcome> {
+  if (!services) throw unavailable();
+  const link = await qrLinkOf(db, ctx, str(args['link']) ?? '', webUrl);
+  const title = str(args['title']) ?? 'Scan me';
+  const who = await whoAndWhere(db, ctx);
+  const bytes = await qrCodePdf({ title, link, business: who.business });
+  const now = Date.now();
+  const { ext, mime } = FILE_FORMATS.pdf;
+  const fileKey = fileKeyOf(now, randomUUID(), ext);
+  const name = fileNameOf(`${title} QR code`, 'pdf', now, ctx.timezone);
+  await services.store.upload(
+    FILES_BUCKET,
+    madeFilePath(ctx.workspaceId, ctx.actor.userId, fileKey)!,
+    bytes,
+    mime,
+  );
+  const { emailedTo, emailNote } =
+    args['emailMe'] === true
+      ? await emailToThem(services, ctx, {
+          business: who.business,
+          title: `${title} QR code`,
+          name,
+          bytes,
+          mime,
+        })
+      : { emailedTo: null, emailNote: null };
+  const card: AssistantCard = {
+    type: 'file',
+    name,
+    format: 'pdf',
+    detail: `PDF · QR code to print · Kept ${FILE_KEEP_DAYS} days`,
+    fileKey,
+    emailedTo,
+  };
+  return {
+    result: {
+      made: name,
+      opens: link,
+      fileKey,
+      ...(emailedTo ? { emailedTo } : {}),
+      ...(emailNote ? { emailNote } : {}),
+      shown: `A card with its name and Download is under your answer, kept ${FILE_KEEP_DAYS} days. Don't write a link to it.`,
+    },
+    card,
+    // Kept with the tool call: its name, for Download and email_file to give it again.
+    record: { made: name, fileKey, opens: link },
+  };
+}
+
 const extOf = (fileKey: string) => fileKey.slice(fileKey.lastIndexOf('.') + 1);
 
 /**
- * The name a key's file was made with ("Who owes money 2026-11-25.xlsx"), read from the person's own make_file call
+ * The name a key's file was made with ("Who owes money 2026-11-25.xlsx"), read from the person's own make_file (or
+ * make_qr_code) call
  * under their row security. "Report.xlsx" when it can't be found.
  */
 export async function madeFileName(
@@ -313,7 +430,8 @@ export async function madeFileName(
     rows<{ made: string | null }>(
       tx,
       sql`select result ->> 'made' as made from app.assistant_tool_calls
-          where workspace_id = ${workspaceId} and tool = 'make_file' and result ->> 'fileKey' = ${fileKey}
+          where workspace_id = ${workspaceId} and tool in ('make_file', 'make_qr_code')
+            and result ->> 'fileKey' = ${fileKey}
           order by created_at desc limit 1`,
     ),
   ).catch(() => []);
@@ -419,5 +537,6 @@ export const filesOutConfirmTools: Record<string, SettingsConfirmTool> = {
 
 export const filesOutStepLabels: Record<string, string> = {
   make_file: 'Making the file',
+  make_qr_code: 'Making the QR code',
   email_file: 'Getting the email ready',
 };
