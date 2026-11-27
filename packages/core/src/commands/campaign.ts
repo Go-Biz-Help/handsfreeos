@@ -18,6 +18,7 @@ import { and, eq, inArray, ne, sql as dsql } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { campaignRecipients, campaigns, pipelineStages } from '@hfos/db/schema';
 import { campaignAudience, closedStageWords } from '../campaigns/audience';
+import { emailBlocksText } from '../campaigns/email-blocks';
 import { businessPostalAddress } from '../campaigns/postal-address';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
@@ -297,7 +298,7 @@ export const campaignUpdateDraft = defineCommand({
 export const campaignUpdateEmail = defineCommand({
   name: 'campaign.update_email',
   description:
-    'Change the one email an email campaign sends (its subject and words), before it’s approved. {first_name} becomes each person’s first name.',
+    'Change the one email an email campaign sends (its subject and words, or its blocks: words, pictures, buttons, lines and spaces, each lined up left, centre or right), before it’s approved. {first_name} becomes each person’s first name.',
   risk: 1,
   input: CampaignUpdateEmailInput,
   output: CampaignStateOutput,
@@ -316,16 +317,32 @@ export const campaignUpdateEmail = defineCommand({
         'campaign_channel',
       );
     if (c.status !== 'review' && c.status !== 'drafting') throw wrongState(c.status, 'changed');
+    // In blocks, its words are worked out from them; its pictures must be the business's own.
+    const blocks = input.blocks ?? null;
+    blocks?.forEach((b, i) => {
+      if (b.kind === 'picture' && !b.picture.path.startsWith(`${ws}/`))
+        throw HfosError.validation([
+          {
+            path: `blocks.${i}.picture`,
+            message: 'Pick a picture from Your pictures (Settings → Workspace).',
+          },
+        ]);
+    });
+    const body = blocks ? emailBlocksText(blocks) : input.body!;
     await ctx.tx
       .update(campaigns)
-      .set({ emailSubject: input.subject, emailBody: input.body, emailEdited: true })
+      .set({ emailSubject: input.subject, emailBody: body, emailBlocks: blocks, emailEdited: true })
       .where(eq(campaigns.id, c.id));
     await ctx.emit({
       type: 'campaign.email_edited',
       entityType: 'campaign',
       entityId: c.id,
       payload: { campaignId: c.id, _broadcast: false },
-      after: { name: c.name, subject: input.subject },
+      after: {
+        name: c.name,
+        subject: input.subject,
+        ...(blocks ? { blocks: blocks.length } : {}),
+      },
     });
     return { campaignId: c.id, status: c.status as CampaignStatus };
   },

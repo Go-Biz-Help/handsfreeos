@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import {
   AssistantCard,
   aiTeammateCreate,
+  campaignCreate,
   assistantToolByName,
   executeCommand,
   formCreate,
@@ -359,6 +360,77 @@ describe('outreach campaigns', () => {
     await expect(
       prepare('edit_campaign', { campaignId, action: 'change_email', subject: 'Hi' }),
     ).resolves.toMatchObject({ card: { confirmLabel: '' } });
+  });
+
+  it('writes a campaign email in blocks, keeps them on a new subject, and turns them back into words (design tools, part 5)', async () => {
+    await rows(
+      admin(),
+      sql`update app.workspaces set settings = coalesce(settings, '{}'::jsonb)
+            || '{"money": {"businessAddress": "12 Main St\\nAustin, TX 78701"}}'::jsonb
+          where id = ${workspaceId}`,
+    );
+    await rows(
+      admin(),
+      sql`update app.people set email = ${`ben-${randomUUID().slice(0, 8)}@example.com`}
+          where id = ${people['Ben']}`,
+    );
+    const made = await run(campaignCreate, {
+      workspaceId,
+      name: 'Fall email',
+      goal: 'Fall tune-ups',
+      audience: { tagIds: [tagId], stageIds: [] },
+      channel: 'email',
+      words: { subject: 'Fall tune-ups', body: 'Soon.' },
+    });
+    await rows(
+      admin(),
+      sql`update app.campaigns set status = 'review' where id = ${made.campaignId}`,
+    );
+    const blocks = [
+      { id: 'b1', kind: 'words', text: 'Hi {first_name},\n\nTune-ups are $89.', align: 'center' },
+      {
+        id: 'b2',
+        kind: 'button',
+        label: 'Book now',
+        url: 'https://example.com/book',
+        align: 'center',
+      },
+    ];
+    const args = { campaignId: made.campaignId, action: 'change_email', blocks };
+    const { card } = await prepare('edit_campaign', args);
+    expect(field(card, 'Written in')).toBe('2 blocks, a button');
+    expect(card.body).toBe(
+      'Hi {first_name},\n\nTune-ups are $89.\n\nBook now: https://example.com/book',
+    );
+    await commit('edit_campaign', args);
+    const kept = () =>
+      one<{ subject: string; body: string; blocks: unknown }>(
+        sql`select email_subject as subject, email_body as body, email_blocks as blocks
+            from app.campaigns where id = ${made.campaignId}`,
+      );
+    expect(await kept()).toMatchObject({ blocks });
+    await expect(prepare('edit_campaign', args)).rejects.toMatchObject({
+      message: expect.stringContaining('Nothing would change'),
+    });
+    // A new subject alone keeps the blocks.
+    await commit('edit_campaign', { ...args, blocks: undefined, subject: 'Fall tune-ups, $89' });
+    expect(await kept()).toMatchObject({ subject: 'Fall tune-ups, $89', blocks });
+    // Words turn it back into plain words.
+    const plain = await prepare('edit_campaign', {
+      ...args,
+      blocks: undefined,
+      body: 'Just words.',
+    });
+    expect(field(plain.card, 'Written in')).toBe('Plain words (no more blocks)');
+    await commit('edit_campaign', { ...args, blocks: undefined, body: 'Just words.' });
+    expect(await kept()).toMatchObject({ body: 'Just words.', blocks: null });
+    // Blocks that aren't right never reach the card.
+    await expect(
+      prepare('edit_campaign', { ...args, blocks: [{ id: 'b1', kind: 'button', label: 'Go' }] }),
+    ).rejects.toThrow(/url/);
+    // Out of the way of the lists below.
+    await rows(admin(), sql`delete from app.campaigns where id = ${made.campaignId}`);
+    await rows(admin(), sql`update app.people set email = null where id = ${people['Ben']}`);
   });
 
   it('lists campaigns and reads one, with each person’s text and who was left out', async () => {

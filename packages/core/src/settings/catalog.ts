@@ -275,7 +275,7 @@ const ROWS = {
   'workspace.look': {
     page: 'workspace',
     section: null,
-    label: 'Brand kit: logo, colour, font and corners',
+    label: 'Brand kit: logo, colour, font, corners and social links',
     words: [
       'logo',
       'brand',
@@ -285,6 +285,10 @@ const ROWS = {
       'font',
       'corners',
       'match my website',
+      'social links',
+      'facebook page',
+      'instagram',
+      'social media',
     ],
     anchor: 'logo-and-colour',
   },
@@ -625,6 +629,21 @@ const ROWS = {
     section: null,
     label: 'Where senders’ mail goes',
     words: ['sender rules', 'filters', 'folders'],
+  },
+  'email.look': {
+    page: 'email',
+    section: null,
+    label: 'How your emails look',
+    words: [
+      'email design',
+      'email layout',
+      'email footer',
+      'email logo',
+      'email colour',
+      'email template',
+      'email buttons',
+    ],
+    anchor: 'email-look',
   },
 
   // ---- Website chat ----

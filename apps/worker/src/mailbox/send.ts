@@ -1,5 +1,6 @@
 import { and, desc, eq, isNotNull, ne } from 'drizzle-orm';
 import { mailboxConnections, messages } from '@hfos/db/schema';
+import { campaignBlocksFor } from '../email/campaign-blocks';
 import { renderEmailHtml } from '../email/render';
 import { emailBrandFor } from '../look/public';
 import type { EmailAttachment } from '../email/transport';
@@ -66,7 +67,11 @@ export async function sendThroughMailbox(
       cc: m.ccAddresses,
       subject: m.subject ?? '',
       text: m.bodyText ?? '',
-      html: renderEmailHtml(m.bodyText ?? '', await emailBrandFor(ctx.tx, ctx.storageUrl, m)),
+      html: renderEmailHtml(
+        m.bodyText ?? '',
+        await emailBrandFor(ctx.tx, ctx.storageUrl, m),
+        await campaignBlocksFor(ctx.tx, ctx.storageUrl, m),
+      ),
       messageIdHeader: m.messageIdHeader ?? `<${m.id}@${ctx.email.mailDomain}>`,
       inReplyTo: m.inReplyToHeader,
       references: m.referencesHeaders,

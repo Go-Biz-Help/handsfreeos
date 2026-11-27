@@ -2387,7 +2387,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change the one email an email campaign sends (its subject and words), before it’s approved. {first_name} becomes each person’s first name.
+         * Change the one email an email campaign sends (its subject and words, or its blocks: words, pictures, buttons, lines and spaces, each lined up left, centre or right), before it’s approved. {first_name} becomes each person’s first name.
          * @description Risk level 1. Requires workflows.manage. Emits campaign.email_edited.
          */
         post: operations["command_campaign_update_email"];
@@ -7267,7 +7267,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), or take its logo off so its initials stand in. Forms, booking pages and the website chat that haven’t picked their own follow it.
+         * Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), its social links, and how its emails look (a colour band, the logo on the left or in the centre, a footer); or take its logo off so its initials stand in. Forms, booking pages, emails and the website chat that haven’t picked their own follow it.
          * @description Risk level 1. Requires workspace.update. Emits look.changed.
          */
         post: operations["command_look_set"];
@@ -34143,7 +34143,65 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    body: string;
+                    blocks?: ({
+                        /**
+                         * @default left
+                         * @enum {string}
+                         */
+                        align?: "left" | "center" | "right";
+                        id: string;
+                        /** @enum {string} */
+                        kind: "words";
+                        text: string;
+                    } | {
+                        /**
+                         * @default center
+                         * @enum {string}
+                         */
+                        align?: "left" | "center" | "right";
+                        id: string;
+                        /** @enum {string} */
+                        kind: "picture";
+                        /** @default  */
+                        link?: string | "";
+                        picture: {
+                            height: number;
+                            path: string;
+                            width: number;
+                        };
+                        /**
+                         * @default full
+                         * @enum {string}
+                         */
+                        size?: "small" | "medium" | "large" | "full";
+                        /** @default  */
+                        words?: string;
+                    } | {
+                        /**
+                         * @default left
+                         * @enum {string}
+                         */
+                        align?: "left" | "center" | "right";
+                        id: string;
+                        /** @enum {string} */
+                        kind: "button";
+                        label: string;
+                        url: string;
+                    } | {
+                        id: string;
+                        /** @enum {string} */
+                        kind: "line";
+                    } | {
+                        id: string;
+                        /** @enum {string} */
+                        kind: "space";
+                        /**
+                         * @default medium
+                         * @enum {string}
+                         */
+                        size?: "small" | "medium" | "large";
+                    })[] | null;
+                    body?: string;
                     /** Format: uuid */
                     campaignId: string;
                     subject: string;
@@ -44488,6 +44546,15 @@ export interface operations {
                                 value: "square" | "slight" | "round";
                             } | null;
                             /** @default null */
+                            email: {
+                                /** Format: date-time */
+                                at: string;
+                                band: boolean;
+                                footer: boolean;
+                                /** @enum {string} */
+                                logo: "left" | "center";
+                            } | null;
+                            /** @default null */
                             font: {
                                 /** Format: date-time */
                                 at: string;
@@ -44519,6 +44586,17 @@ export interface operations {
                                 found: boolean;
                                 url: string;
                             } | null;
+                            /** @default null */
+                            socials: {
+                                /** Format: date-time */
+                                at: string;
+                                links: {
+                                    /** @enum {string} */
+                                    kind: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok" | "x" | "google" | "yelp" | "nextdoor" | "pinterest" | "other";
+                                    /** Format: uri */
+                                    url: string;
+                                }[];
+                            } | null;
                             upload: {
                                 /** Format: date-time */
                                 at: string;
@@ -44548,10 +44626,17 @@ export interface operations {
                 "application/json": {
                     color?: string;
                     corners?: ("square" | "slight" | "round") | null;
+                    email?: {
+                        band: boolean;
+                        footer: boolean;
+                        /** @enum {string} */
+                        logo: "left" | "center";
+                    } | null;
                     font?: string | null;
                     matchedSite?: string;
                     /** @enum {boolean} */
                     removeLogo?: true;
+                    socials?: string[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -44587,6 +44672,15 @@ export interface operations {
                                 value: "square" | "slight" | "round";
                             } | null;
                             /** @default null */
+                            email: {
+                                /** Format: date-time */
+                                at: string;
+                                band: boolean;
+                                footer: boolean;
+                                /** @enum {string} */
+                                logo: "left" | "center";
+                            } | null;
+                            /** @default null */
                             font: {
                                 /** Format: date-time */
                                 at: string;
@@ -44617,6 +44711,17 @@ export interface operations {
                                 at: string;
                                 found: boolean;
                                 url: string;
+                            } | null;
+                            /** @default null */
+                            socials: {
+                                /** Format: date-time */
+                                at: string;
+                                links: {
+                                    /** @enum {string} */
+                                    kind: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok" | "x" | "google" | "yelp" | "nextdoor" | "pinterest" | "other";
+                                    /** Format: uri */
+                                    url: string;
+                                }[];
                             } | null;
                             upload: {
                                 /** Format: date-time */
@@ -44679,6 +44784,15 @@ export interface operations {
                                 value: "square" | "slight" | "round";
                             } | null;
                             /** @default null */
+                            email: {
+                                /** Format: date-time */
+                                at: string;
+                                band: boolean;
+                                footer: boolean;
+                                /** @enum {string} */
+                                logo: "left" | "center";
+                            } | null;
+                            /** @default null */
                             font: {
                                 /** Format: date-time */
                                 at: string;
@@ -44709,6 +44823,17 @@ export interface operations {
                                 at: string;
                                 found: boolean;
                                 url: string;
+                            } | null;
+                            /** @default null */
+                            socials: {
+                                /** Format: date-time */
+                                at: string;
+                                links: {
+                                    /** @enum {string} */
+                                    kind: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok" | "x" | "google" | "yelp" | "nextdoor" | "pinterest" | "other";
+                                    /** Format: uri */
+                                    url: string;
+                                }[];
                             } | null;
                             upload: {
                                 /** Format: date-time */
@@ -81428,6 +81553,64 @@ export interface operations {
                             /** Format: date-time */
                             createdAt: string;
                             email: {
+                                blocks?: ({
+                                    /**
+                                     * @default left
+                                     * @enum {string}
+                                     */
+                                    align: "left" | "center" | "right";
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "words";
+                                    text: string;
+                                } | {
+                                    /**
+                                     * @default center
+                                     * @enum {string}
+                                     */
+                                    align: "left" | "center" | "right";
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "picture";
+                                    /** @default  */
+                                    link: string | "";
+                                    picture: {
+                                        height: number;
+                                        path: string;
+                                        width: number;
+                                    };
+                                    /**
+                                     * @default full
+                                     * @enum {string}
+                                     */
+                                    size: "small" | "medium" | "large" | "full";
+                                    /** @default  */
+                                    words: string;
+                                } | {
+                                    /**
+                                     * @default left
+                                     * @enum {string}
+                                     */
+                                    align: "left" | "center" | "right";
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "button";
+                                    label: string;
+                                    url: string;
+                                } | {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "line";
+                                } | {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "space";
+                                    /**
+                                     * @default medium
+                                     * @enum {string}
+                                     */
+                                    size: "small" | "medium" | "large";
+                                })[] | null;
                                 body: string | null;
                                 edited: boolean;
                                 postalAddress: string | null;
@@ -85331,6 +85514,20 @@ export interface operations {
                             /** @enum {string} */
                             status: "pending" | "verified" | "failed";
                         }[];
+                        emailLook?: {
+                            contact: {
+                                address: string[];
+                                phone: string | null;
+                                socials: {
+                                    /** @enum {string} */
+                                    kind: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok" | "x" | "google" | "yelp" | "nextdoor" | "pinterest" | "other";
+                                    /** Format: uri */
+                                    url: string;
+                                }[];
+                                website: string | null;
+                            };
+                            name: string;
+                        };
                         inboundMxHost: string;
                         mailboxes: {
                             accountEmail: string | null;
@@ -91976,6 +92173,15 @@ export interface operations {
                                     value: "square" | "slight" | "round";
                                 } | null;
                                 /** @default null */
+                                email: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    band: boolean;
+                                    footer: boolean;
+                                    /** @enum {string} */
+                                    logo: "left" | "center";
+                                } | null;
+                                /** @default null */
                                 font: {
                                     /** Format: date-time */
                                     at: string;
@@ -92006,6 +92212,17 @@ export interface operations {
                                     at: string;
                                     found: boolean;
                                     url: string;
+                                } | null;
+                                /** @default null */
+                                socials: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    links: {
+                                        /** @enum {string} */
+                                        kind: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok" | "x" | "google" | "yelp" | "nextdoor" | "pinterest" | "other";
+                                        /** Format: uri */
+                                        url: string;
+                                    }[];
                                 } | null;
                                 upload: {
                                     /** Format: date-time */

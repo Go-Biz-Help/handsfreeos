@@ -42243,7 +42243,7 @@
     "/v1/commands/campaign.update_email": {
       "post": {
         "operationId": "command_campaign_update_email",
-        "summary": "Change the one email an email campaign sends (its subject and words), before it’s approved. {first_name} becomes each person’s first name.",
+        "summary": "Change the one email an email campaign sends (its subject and words, or its blocks: words, pictures, buttons, lines and spaces, each lined up left, centre or right), before it’s approved. {first_name} becomes each person’s first name.",
         "tags": [
           "commands"
         ],
@@ -42274,13 +42274,238 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 8000
+                  },
+                  "blocks": {
+                    "anyOf": [
+                      {
+                        "minItems": 1,
+                        "maxItems": 40,
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "words"
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 4000
+                                },
+                                "align": {
+                                  "default": "left",
+                                  "type": "string",
+                                  "enum": [
+                                    "left",
+                                    "center",
+                                    "right"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "text"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "picture"
+                                  ]
+                                },
+                                "picture": {
+                                  "type": "object",
+                                  "properties": {
+                                    "path": {
+                                      "type": "string",
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.webp$"
+                                    },
+                                    "width": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 10000
+                                    },
+                                    "height": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 10000
+                                    }
+                                  },
+                                  "required": [
+                                    "path",
+                                    "width",
+                                    "height"
+                                  ]
+                                },
+                                "size": {
+                                  "default": "full",
+                                  "type": "string",
+                                  "enum": [
+                                    "small",
+                                    "medium",
+                                    "large",
+                                    "full"
+                                  ]
+                                },
+                                "align": {
+                                  "default": "center",
+                                  "type": "string",
+                                  "enum": [
+                                    "left",
+                                    "center",
+                                    "right"
+                                  ]
+                                },
+                                "words": {
+                                  "default": "",
+                                  "type": "string",
+                                  "maxLength": 200
+                                },
+                                "link": {
+                                  "default": "",
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 500,
+                                      "pattern": "^(https?:\\/\\/[^\\s<>\"]+|mailto:[^\\s<>\"]+|tel:\\+?[0-9-]+)$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        ""
+                                      ]
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "picture"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "button"
+                                  ]
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "url": {
+                                  "type": "string",
+                                  "maxLength": 500,
+                                  "pattern": "^(https?:\\/\\/[^\\s<>\"]+|mailto:[^\\s<>\"]+|tel:\\+?[0-9-]+)$"
+                                },
+                                "align": {
+                                  "default": "left",
+                                  "type": "string",
+                                  "enum": [
+                                    "left",
+                                    "center",
+                                    "right"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "label",
+                                "url"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "line"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "space"
+                                  ]
+                                },
+                                "size": {
+                                  "default": "medium",
+                                  "type": "string",
+                                  "enum": [
+                                    "small",
+                                    "medium",
+                                    "large"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
                   "workspaceId",
                   "campaignId",
-                  "subject",
-                  "body"
+                  "subject"
                 ]
               }
             }
@@ -75686,6 +75911,102 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "email": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "band": {
+                                  "type": "boolean"
+                                },
+                                "logo": {
+                                  "type": "string",
+                                  "enum": [
+                                    "left",
+                                    "center"
+                                  ]
+                                },
+                                "footer": {
+                                  "type": "boolean"
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "band",
+                                "logo",
+                                "footer",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "socials": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "links": {
+                                  "maxItems": 8,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "facebook",
+                                          "instagram",
+                                          "linkedin",
+                                          "youtube",
+                                          "tiktok",
+                                          "x",
+                                          "google",
+                                          "yelp",
+                                          "nextdoor",
+                                          "pinterest",
+                                          "other"
+                                        ]
+                                      },
+                                      "url": {
+                                        "type": "string",
+                                        "maxLength": 300,
+                                        "format": "uri"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "url"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "links",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -75697,7 +76018,9 @@
                         "asked",
                         "font",
                         "corners",
-                        "matched"
+                        "matched",
+                        "email",
+                        "socials"
                       ],
                       "additionalProperties": false
                     }
@@ -75716,7 +76039,7 @@
     "/v1/commands/look.set": {
       "post": {
         "operationId": "command_look_set",
-        "summary": "Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), or take its logo off so its initials stand in. Forms, booking pages and the website chat that haven’t picked their own follow it.",
+        "summary": "Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), its social links, and how its emails look (a colour band, the logo on the left or in the centre, a footer); or take its logo off so its initials stand in. Forms, booking pages, emails and the website chat that haven’t picked their own follow it.",
         "tags": [
           "commands"
         ],
@@ -75773,6 +76096,44 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 300
+                  },
+                  "email": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "band": {
+                            "type": "boolean"
+                          },
+                          "logo": {
+                            "type": "string",
+                            "enum": [
+                              "left",
+                              "center"
+                            ]
+                          },
+                          "footer": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "band",
+                          "logo",
+                          "footer"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "socials": {
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 300
+                    }
                   }
                 },
                 "required": [
@@ -76082,6 +76443,102 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "email": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "band": {
+                                  "type": "boolean"
+                                },
+                                "logo": {
+                                  "type": "string",
+                                  "enum": [
+                                    "left",
+                                    "center"
+                                  ]
+                                },
+                                "footer": {
+                                  "type": "boolean"
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "band",
+                                "logo",
+                                "footer",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "socials": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "links": {
+                                  "maxItems": 8,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "facebook",
+                                          "instagram",
+                                          "linkedin",
+                                          "youtube",
+                                          "tiktok",
+                                          "x",
+                                          "google",
+                                          "yelp",
+                                          "nextdoor",
+                                          "pinterest",
+                                          "other"
+                                        ]
+                                      },
+                                      "url": {
+                                        "type": "string",
+                                        "maxLength": 300,
+                                        "format": "uri"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "url"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "links",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -76093,7 +76550,9 @@
                         "asked",
                         "font",
                         "corners",
-                        "matched"
+                        "matched",
+                        "email",
+                        "socials"
                       ],
                       "additionalProperties": false
                     },
@@ -76441,6 +76900,102 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "email": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "band": {
+                                  "type": "boolean"
+                                },
+                                "logo": {
+                                  "type": "string",
+                                  "enum": [
+                                    "left",
+                                    "center"
+                                  ]
+                                },
+                                "footer": {
+                                  "type": "boolean"
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "band",
+                                "logo",
+                                "footer",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "socials": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "links": {
+                                  "maxItems": 8,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "facebook",
+                                          "instagram",
+                                          "linkedin",
+                                          "youtube",
+                                          "tiktok",
+                                          "x",
+                                          "google",
+                                          "yelp",
+                                          "nextdoor",
+                                          "pinterest",
+                                          "other"
+                                        ]
+                                      },
+                                      "url": {
+                                        "type": "string",
+                                        "maxLength": 300,
+                                        "format": "uri"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "url"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "links",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -76452,7 +77007,9 @@
                         "asked",
                         "font",
                         "corners",
-                        "matched"
+                        "matched",
+                        "email",
+                        "socials"
                       ],
                       "additionalProperties": false
                     },
@@ -171844,6 +172401,83 @@
                         "unmatched"
                       ],
                       "additionalProperties": false
+                    },
+                    "emailLook": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "contact": {
+                          "type": "object",
+                          "properties": {
+                            "address": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "phone": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "website": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "socials": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "facebook",
+                                      "instagram",
+                                      "linkedin",
+                                      "youtube",
+                                      "tiktok",
+                                      "x",
+                                      "google",
+                                      "yelp",
+                                      "nextdoor",
+                                      "pinterest",
+                                      "other"
+                                    ]
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 300,
+                                    "format": "uri"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "url"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "address",
+                            "phone",
+                            "website",
+                            "socials"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "contact"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -214518,6 +215152,243 @@
                                     "null"
                                   ]
                                 },
+                                "blocks": {
+                                  "anyOf": [
+                                    {
+                                      "type": "array",
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 40
+                                              },
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "words"
+                                                ]
+                                              },
+                                              "text": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 4000
+                                              },
+                                              "align": {
+                                                "default": "left",
+                                                "type": "string",
+                                                "enum": [
+                                                  "left",
+                                                  "center",
+                                                  "right"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "kind",
+                                              "text",
+                                              "align"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 40
+                                              },
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "picture"
+                                                ]
+                                              },
+                                              "picture": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "path": {
+                                                    "type": "string",
+                                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.webp$"
+                                                  },
+                                                  "width": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 10000
+                                                  },
+                                                  "height": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 10000
+                                                  }
+                                                },
+                                                "required": [
+                                                  "path",
+                                                  "width",
+                                                  "height"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              "size": {
+                                                "default": "full",
+                                                "type": "string",
+                                                "enum": [
+                                                  "small",
+                                                  "medium",
+                                                  "large",
+                                                  "full"
+                                                ]
+                                              },
+                                              "align": {
+                                                "default": "center",
+                                                "type": "string",
+                                                "enum": [
+                                                  "left",
+                                                  "center",
+                                                  "right"
+                                                ]
+                                              },
+                                              "words": {
+                                                "default": "",
+                                                "type": "string",
+                                                "maxLength": 200
+                                              },
+                                              "link": {
+                                                "default": "",
+                                                "anyOf": [
+                                                  {
+                                                    "type": "string",
+                                                    "maxLength": 500,
+                                                    "pattern": "^(https?:\\/\\/[^\\s<>\"]+|mailto:[^\\s<>\"]+|tel:\\+?[0-9-]+)$"
+                                                  },
+                                                  {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      ""
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "kind",
+                                              "picture",
+                                              "size",
+                                              "align",
+                                              "words",
+                                              "link"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 40
+                                              },
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "button"
+                                                ]
+                                              },
+                                              "label": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 40
+                                              },
+                                              "url": {
+                                                "type": "string",
+                                                "maxLength": 500,
+                                                "pattern": "^(https?:\\/\\/[^\\s<>\"]+|mailto:[^\\s<>\"]+|tel:\\+?[0-9-]+)$"
+                                              },
+                                              "align": {
+                                                "default": "left",
+                                                "type": "string",
+                                                "enum": [
+                                                  "left",
+                                                  "center",
+                                                  "right"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "kind",
+                                              "label",
+                                              "url",
+                                              "align"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 40
+                                              },
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "line"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "kind"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "id": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 40
+                                              },
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "space"
+                                                ]
+                                              },
+                                              "size": {
+                                                "default": "medium",
+                                                "type": "string",
+                                                "enum": [
+                                                  "small",
+                                                  "medium",
+                                                  "large"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "kind",
+                                              "size"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "edited": {
                                   "type": "boolean"
                                 },
@@ -225203,6 +226074,102 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "email": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "band": {
+                                      "type": "boolean"
+                                    },
+                                    "logo": {
+                                      "type": "string",
+                                      "enum": [
+                                        "left",
+                                        "center"
+                                      ]
+                                    },
+                                    "footer": {
+                                      "type": "boolean"
+                                    },
+                                    "at": {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    }
+                                  },
+                                  "required": [
+                                    "band",
+                                    "logo",
+                                    "footer",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "socials": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "links": {
+                                      "maxItems": 8,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "facebook",
+                                              "instagram",
+                                              "linkedin",
+                                              "youtube",
+                                              "tiktok",
+                                              "x",
+                                              "google",
+                                              "yelp",
+                                              "nextdoor",
+                                              "pinterest",
+                                              "other"
+                                            ]
+                                          },
+                                          "url": {
+                                            "type": "string",
+                                            "maxLength": 300,
+                                            "format": "uri"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "url"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "at": {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    }
+                                  },
+                                  "required": [
+                                    "links",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -225214,7 +226181,9 @@
                             "asked",
                             "font",
                             "corners",
-                            "matched"
+                            "matched",
+                            "email",
+                            "socials"
                           ],
                           "additionalProperties": false
                         },

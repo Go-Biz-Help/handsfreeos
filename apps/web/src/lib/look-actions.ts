@@ -1,6 +1,11 @@
 'use client';
 /** The calls that change a business's logo and colour (core's look commands), from the browser. */
-import { LOOK_UPLOAD_TYPES, type BusinessLook, type LookUploadType } from '@hfos/core';
+import {
+  LOOK_UPLOAD_TYPES,
+  type BusinessLook,
+  type LookEmailLayout,
+  type LookUploadType,
+} from '@hfos/core';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { supabaseBrowser } from '@/lib/supabase/client';
@@ -59,6 +64,10 @@ export function lookActions(workspaceId: string) {
       corners?: 'square' | 'slight' | 'round' | null;
       color?: string;
       matchedSite?: string;
+      /** How emails look (Settings → Email); null goes back to the usual look. */
+      email?: LookEmailLayout | null;
+      /** Every social link, as typed; none takes them all off. */
+      socials?: string[];
     }): Promise<BusinessLook> =>
       unwrap(await api().POST('/v1/commands/look.set', { body: { workspaceId, ...kit } }))
         .look as BusinessLook,

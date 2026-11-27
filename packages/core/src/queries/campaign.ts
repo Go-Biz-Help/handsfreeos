@@ -4,6 +4,7 @@
  */
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { campaignAudience, type AudienceMember } from '../campaigns/audience';
+import { emailBlocksOf } from '../campaigns/email-blocks';
 import { businessPostalAddress } from '../campaigns/postal-address';
 import { formatPhone } from '../crm/phone';
 import { HfosError } from '../errors';
@@ -37,6 +38,7 @@ interface SummaryRow extends Record<string, unknown> {
   per_hour: number;
   email_subject: string | null;
   email_body: string | null;
+  email_blocks: unknown;
   email_edited: boolean;
   call_opening: string | null;
   call_edited: boolean;
@@ -62,7 +64,7 @@ interface SummaryRow extends Record<string, unknown> {
 async function summaries(tx: Tx, workspaceId: string, campaignId: string | null) {
   const list = await rows<SummaryRow>(
     tx,
-    sql`select c.id, c.name, c.goal, c.channel, c.status, c.per_hour, c.email_subject, c.email_body, c.email_edited, c.call_opening, c.call_edited, c.keep_adding, c.paused_reason, c.audience, c.created_at, c.approved_at, c.finished_at, c.next_send_at,
+    sql`select c.id, c.name, c.goal, c.channel, c.status, c.per_hour, c.email_subject, c.email_body, c.email_blocks, c.email_edited, c.call_opening, c.call_edited, c.keep_adding, c.paused_reason, c.audience, c.created_at, c.approved_at, c.finished_at, c.next_send_at,
           c.offer_id, (select o.name from app.offers o where o.id = c.offer_id) as offer_name,
           count(r.id)::int as total,
           count(r.id) filter (where r.status = 'drafting')::int as drafting,
@@ -90,7 +92,12 @@ async function summaries(tx: Tx, workspaceId: string, campaignId: string | null)
     keepAdding: c.keep_adding,
     email:
       c.channel === 'email'
-        ? { subject: c.email_subject, body: c.email_body, edited: c.email_edited }
+        ? {
+            subject: c.email_subject,
+            body: c.email_body,
+            blocks: emailBlocksOf(c.email_blocks),
+            edited: c.email_edited,
+          }
         : null,
     call: c.channel === 'call' ? { opening: c.call_opening, edited: c.call_edited } : null,
     audience: { tagIds: c.audience?.tagIds ?? [], stageIds: c.audience?.stageIds ?? [] },

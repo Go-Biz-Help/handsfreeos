@@ -13,6 +13,7 @@
 import { z } from 'zod';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { WorkflowOpSchema } from '../workflows/ops';
+import { EmailBlocks } from '../campaigns/email-blocks';
 import {
   CAMPAIGN_CALL_OPENING_MAX,
   CAMPAIGN_DRAFT_MAX,
@@ -100,14 +101,19 @@ export const contentTools: readonly AssistantTool[] = [
   define({
     name: 'edit_campaign',
     description:
-      'Change a campaign before it is approved: change_text rewrites one person’s text (personId from get_campaign), change_email the one email’s subject or words ({first_name} becomes each person’s first name), change_call_opening what every call says it is about (it finishes “I’m calling …”), remove_person takes someone out.',
+      'Change a campaign before it is approved: change_text rewrites one person’s text (personId from get_campaign), change_email the one email’s subject, words or blocks ({first_name} becomes each person’s first name), change_call_opening what every call says it is about (it finishes “I’m calling …”), remove_person takes someone out. An email in blocks is a list, top to bottom, of words, picture (one of the business’s own pictures, its path, width and height copied exactly from read_picture_list), button (its words and the address it opens), line and space; each lines up left, center or right. Give every block a short id like b1. body turns it back into plain words.',
     input: z.object({
       campaignId: uuid,
       action: z.enum(['change_text', 'change_email', 'change_call_opening', 'remove_person']),
       personId: uuid.optional().describe('change_text and remove_person: who'),
       text: text(CAMPAIGN_DRAFT_MAX).optional().describe('change_text: their new text'),
       subject: text(CAMPAIGN_EMAIL_SUBJECT_MAX).optional().describe('change_email'),
-      body: text(CAMPAIGN_EMAIL_BODY_MAX).optional().describe('change_email: the words'),
+      body: text(CAMPAIGN_EMAIL_BODY_MAX)
+        .optional()
+        .describe('change_email: the words, as plain words'),
+      blocks: EmailBlocks.optional().describe(
+        'change_email: the whole email in blocks, top to bottom, in place of body',
+      ),
       opening: text(CAMPAIGN_CALL_OPENING_MAX)
         .optional()
         .describe('change_call_opening: finishes “I’m calling …”'),

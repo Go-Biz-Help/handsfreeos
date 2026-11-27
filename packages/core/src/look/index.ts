@@ -7,3 +7,4 @@ export * from './look';
 export * from './pictures';
 export * from './popup';
 export * from './words';
+export * from './email';

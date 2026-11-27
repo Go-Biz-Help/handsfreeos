@@ -2,51 +2,25 @@
  * Email content: the HTML for what people typed, and received HTML made safe to show (sanitized here; the
  * browser also renders it in a sandboxed frame with remote images off until someone asks for them).
  */
+import { emailHtml, type EmailBlocksDraw, type EmailBrand } from '@hfos/core';
 import { convert } from 'html-to-text';
 import sanitizeHtml from 'sanitize-html';
-import { emailLinkColor, emailLogoSize, type PublicLook } from '../look/public';
 
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-const linkify = (escaped: string, color: string) =>
-  escaped.replace(
-    /\bhttps?:\/\/[^\s<]+[^\s<.,;:!?)]/g,
-    (url) => `<a href="${url}" style="color:${color}">${url}</a>`,
-  );
-
-/** A business's logo and colour on the emails HandsFreeOS sends for it automatically (look/public.ts). */
-export interface EmailBrand {
-  readonly name: string;
-  readonly look: PublicLook;
-}
+/** A business's look on the emails HandsFreeOS sends for it automatically (look/public.ts). */
+export type { EmailBrand };
 
 /**
  * What people type is plain text: paragraphs and line breaks, links made clickable, nothing else. An email the
- * business sends automatically (a confirmation, a reminder, an invoice) has its logo at the top and its links in
- * its colour.
+ * business sends automatically (a confirmation, a reminder, an invoice, a campaign) has its look: the logo at the top,
+ * links and buttons in its colour, and the layout picked in Settings → Email (core's look/email.ts, which Settings'
+ * preview draws too). A campaign written in blocks passes them.
  */
-export function renderEmailHtml(text: string, brand?: EmailBrand | null): string {
-  const color = (brand && emailLinkColor(brand.look)) ?? '#2f5bd3';
-  const paragraphs = text
-    .trim()
-    .split(/\n{2,}/)
-    .map(
-      (p) =>
-        `<p style="margin:0 0 12px">${linkify(escapeHtml(p), color).replace(/\n/g, '<br>')}</p>`,
-    )
-    .join('');
-  const logo = brand?.look.logo;
-  const size = logo && emailLogoSize(logo);
-  const header =
-    logo && size
-      ? `<div style="margin:0 0 20px"><img src="${escapeHtml(logo.url)}" alt="${escapeHtml(brand.name)}" ` +
-        `width="${size.width}" height="${size.height}" style="display:block;border:0;width:${size.width}px;height:${size.height}px"></div>`
-      : '';
-  return (
-    '<!doctype html><html><body style="margin:0;padding:16px;font-family:-apple-system,BlinkMacSystemFont,' +
-    `'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#191d25">${header}${paragraphs}</body></html>`
-  );
+export function renderEmailHtml(
+  text: string,
+  brand?: EmailBrand | null,
+  blocks?: EmailBlocksDraw | null,
+): string {
+  return emailHtml(text, brand, blocks);
 }
 
 const omit = (attribs: Record<string, string>, ...names: string[]) =>
