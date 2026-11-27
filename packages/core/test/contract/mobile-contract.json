@@ -5625,6 +5625,17 @@
               "type": "string",
               "maxLength": 300
             }
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["workspaceId"]

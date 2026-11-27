@@ -17,6 +17,7 @@ import { HfosError } from '../src/errors';
 import { executeCommand } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, RequestMeta, SystemActor } from '../src/kernel/types';
 import { LOOK_DEFAULT_COLOR, lookOf, type BusinessLook } from '../src/look/index';
+import { customerFooterOf } from '../src/look/email-contact';
 import {
   chatWidgetCreate,
   chatWidgetUpdate,
@@ -400,6 +401,63 @@ describe('how emails look, and the social links (design tools, part 5)', () => {
     );
     await run(lookSet, { workspaceId: ws, socials: [] }, dale);
     expect((await lookIn(ws)).socials).toBeNull();
+  });
+});
+
+describe('the license number, at the bottom of the customer’s pages (design tools, part 7)', () => {
+  const footerOf = () => admin().transaction((tx) => customerFooterOf(tx, ws));
+
+  it('keeps it as typed, empty or null takes it off, and the footer shows it', async () => {
+    expect((await lookIn(ws)).license).toBeNull();
+    const r = await run(lookSet, { workspaceId: ws, license: '  TX HVAC Lic. TACLA12345C ' }, dale);
+    expect(r).toMatchObject({
+      changed: true,
+      look: { license: { text: 'TX HVAC Lic. TACLA12345C' } },
+    });
+    expect((await footerOf())?.license).toBe('TX HVAC Lic. TACLA12345C');
+    // The same number again changes nothing, and keeps when it was set.
+    const again = await run(
+      lookSet,
+      { workspaceId: ws, license: 'TX HVAC Lic. TACLA12345C' },
+      dale,
+    );
+    expect(again.changed).toBe(false);
+    expect(again.look.license?.at).toBe(r.look.license?.at);
+    // Changing something else keeps it.
+    await run(lookSet, { workspaceId: ws, corners: 'round' }, dale);
+    expect((await lookIn(ws)).license?.text).toBe('TX HVAC Lic. TACLA12345C');
+    await run(lookSet, { workspaceId: ws, license: '' }, dale);
+    expect((await lookIn(ws)).license).toBeNull();
+    await run(lookSet, { workspaceId: ws, license: 'Lic. 1' }, dale);
+    await run(lookSet, { workspaceId: ws, license: null, corners: null }, dale);
+    expect((await lookIn(ws)).license).toBeNull();
+    expect((await footerOf())?.license ?? null).toBeNull();
+  });
+
+  it('takes only a short one, from those who may change the business', async () => {
+    const err = await expectHfos(
+      () => run(lookSet, { workspaceId: ws, license: 'x'.repeat(81) }, dale),
+      'validation',
+    );
+    expect(JSON.stringify(err.details)).toContain('under 80 characters');
+    await expectHfos(
+      () => run(lookSet, { workspaceId: ws, license: 'Lic. 9' }, marco),
+      'forbidden',
+    );
+  });
+
+  it('shows the social links with it, and nothing when there’s nothing to say', async () => {
+    await run(lookSet, { workspaceId: ws, socials: ['facebook.com/lookplumbing'] }, dale);
+    expect((await footerOf())?.socials).toEqual([
+      { kind: 'facebook', url: 'https://facebook.com/lookplumbing' },
+    ]);
+    await run(lookSet, { workspaceId: ws, socials: [] }, dale);
+    const footer = await footerOf();
+    // A business with no address, number or website yet has no footer at all.
+    if (footer)
+      expect(
+        footer.address.length + (footer.phone ? 1 : 0) + (footer.website ? 1 : 0),
+      ).toBeGreaterThan(0);
   });
 });
 

@@ -5,6 +5,7 @@ import { FONT_NAME } from '../look/fonts';
 import {
   BusinessLookSchema,
   LOOK_CORNERS,
+  LOOK_LICENSE_MOST,
   LOOK_LOGO_PATH,
   LOOK_SOCIALS_MAX,
   LOOK_UPLOAD_BUCKET,
@@ -72,6 +73,15 @@ export const LookSetInput = z
       )
       .max(LOOK_SOCIALS_MAX, { error: `Keep it to ${LOOK_SOCIALS_MAX} links.` })
       .optional(),
+    /** Its license number, as it writes it; blank or null takes it off. */
+    license: z
+      .string()
+      .trim()
+      .max(LOOK_LICENSE_MOST, {
+        error: `Keep the license number under ${LOOK_LICENSE_MOST} characters.`,
+      })
+      .nullable()
+      .optional(),
   })
   .refine(
     (v) =>
@@ -80,7 +90,8 @@ export const LookSetInput = z
       v.font !== undefined ||
       v.corners !== undefined ||
       v.email !== undefined ||
-      v.socials !== undefined,
+      v.socials !== undefined ||
+      v.license !== undefined,
     { error: 'Nothing to change.' },
   );
 export const LookSetOutput = z.object({ look: BusinessLookSchema, changed: z.boolean() });

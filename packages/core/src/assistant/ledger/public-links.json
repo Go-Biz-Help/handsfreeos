@@ -50,7 +50,7 @@
     "apps/web/src/components/booking/hold-page.tsx": "9360c3c1c2dd",
     "apps/web/src/components/booking/join-session.tsx": "5106dc9cc988",
     "apps/web/src/components/booking/manage-booking.tsx": "8c2bab34c5e9",
-    "apps/web/src/components/booking/public-shell.tsx": "d13010341740",
+    "apps/web/src/components/booking/public-shell.tsx": "1f2ddb4eab16",
     "apps/web/src/components/booking/time-picker.tsx": "5f1a28eaa2f5",
     "apps/web/src/components/booking/viewer-zone.tsx": "f36a65de3bfa",
     "apps/web/src/components/booking/waitlist-offer.tsx": "6d0890441564",
@@ -59,18 +59,19 @@
     "apps/web/src/components/chat-widget/chat-parts.tsx": "43647a6e301d",
     "apps/web/src/components/chat-widget/chat-showcase.tsx": "7159f273a8a6",
     "apps/web/src/components/chat-widget/chat-window.tsx": "0f78dd249221",
-    "apps/web/src/components/documents/signing-page.tsx": "93d3da610fb4",
+    "apps/web/src/components/documents/signing-page.tsx": "ac0d77fc15c7",
     "apps/web/src/components/forms/address-field.tsx": "20ece36ae74b",
     "apps/web/src/components/forms/booking-picker.tsx": "ab0798d78741",
     "apps/web/src/components/forms/public-form.tsx": "bd1ee4d629ae",
     "apps/web/src/components/forms/question-field.tsx": "261e28d7e0e0",
+    "apps/web/src/components/look/business-footer.tsx": "69d2ca971f81",
     "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
     "apps/web/src/components/money/paypal-buttons.tsx": "d1d0351e7497",
     "apps/web/src/components/money/provider-fields.tsx": "96d28fde2225",
     "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
     "apps/web/src/components/money/public-invoice.tsx": "dcd7994a5807",
     "apps/web/src/components/money/public-plan.tsx": "c149e1585a54",
-    "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
+    "apps/web/src/components/money/public-shell.tsx": "7cb88b12f0ba",
     "apps/web/src/components/portal/partner-page.tsx": "1e5fbe8cd600",
     "apps/web/src/components/portal/portal-pages.tsx": "6a270ce8937e",
     "apps/web/src/components/portal/portal-shell.tsx": "d896bce81892",
@@ -300,6 +301,27 @@
       "file": "apps/web/src/components/booking/public-shell.tsx:165",
       "covered": "yes",
       "by": "get_settings booking_site enabled; calendars"
+    },
+    {
+      "path": "Invoice, estimate, payment plan, document to sign and appointment pages → the brand kit’s font and corners",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-shell.tsx:98",
+      "covered": "yes",
+      "by": "get_settings business settings.look (font, corners); do_look_set font, corners"
+    },
+    {
+      "path": "Invoice, estimate, payment plan, document to sign and appointment pages → footer: business name and license number, address, phone, website, social links",
+      "kind": "see",
+      "file": "apps/web/src/components/look/business-footer.tsx:50",
+      "covered": "yes",
+      "by": "get_settings business settings.look.license and look.socials; get_settings payments for the address and phone"
+    },
+    {
+      "path": "Invoice, estimate, payment plan, document to sign and appointment pages → footer: tap the phone, the website or a social link",
+      "kind": "do",
+      "file": "apps/web/src/components/look/business-footer.tsx:21",
+      "covered": "person",
+      "by": "the customer calls the business or opens its pages"
     },
     {
       "path": "Booking flow → What do you need? → service choice",

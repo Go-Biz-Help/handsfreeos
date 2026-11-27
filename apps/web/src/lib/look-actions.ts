@@ -68,6 +68,8 @@ export function lookActions(workspaceId: string) {
       email?: LookEmailLayout | null;
       /** Every social link, as typed; none takes them all off. */
       socials?: string[];
+      /** The license number at the bottom of customers' pages; null takes it off. */
+      license?: string | null;
     }): Promise<BusinessLook> =>
       unwrap(await api().POST('/v1/commands/look.set', { body: { workspaceId, ...kit } }))
         .look as BusinessLook,
