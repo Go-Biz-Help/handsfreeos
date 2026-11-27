@@ -48,7 +48,13 @@ export function binContentsTotal(list: readonly BinContents[]): BinContents {
   if (list.length === 1) return list[0]!;
   const total: Partial<
     Record<
-      (typeof COUNTED)[number][0] | 'upcoming' | 'bills' | 'people' | 'partners' | 'voidFirst',
+      | (typeof COUNTED)[number][0]
+      | 'upcoming'
+      | 'bills'
+      | 'people'
+      | 'partners'
+      | 'voidFirst'
+      | 'paidCents',
       number
     >
   > = {};
@@ -60,6 +66,7 @@ export function binContentsTotal(list: readonly BinContents[]): BinContents {
       'people',
       'partners',
       'voidFirst',
+      'paidCents',
     ] as const) {
       const n = c[key];
       if (n) total[key] = (total[key] ?? 0) + n;
@@ -206,6 +213,13 @@ export function binDeleteBox(
           : open === 1
             ? 'One of them is still out for payment, so it’s voided first and its link stops taking payments. It stays voided if you bring it back.'
             : `${open} of them are still out for payment, so they’re voided first and their links stop taking payments. They stay voided if you bring them back.`,
+      );
+    const paid = contents.paidCents ?? 0;
+    if (paid > 0)
+      lines.push(
+        several
+          ? `They have ${money(paid)} paid on them. While they’re deleted, that money is left out of your Money totals and reports, and it comes back if you bring them back.`
+          : `It has ${money(paid)} paid on it. While it’s deleted, that money is left out of your Money totals and reports, and it comes back if you bring the invoice back.`,
       );
     const who = (contents.who ?? []).find((w): w is string => !!w);
     lines.push(

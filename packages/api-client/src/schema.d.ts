@@ -6527,7 +6527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Delete invoices: they wait 30 days in the Deleted bin first. A draft or a voided invoice can go, and so can one still out for payment with nothing paid on it, which is voided first so its link stops taking payments (it comes back voided). One with money paid on it stays for the books: refund and void it instead.
+         * Delete invoices, paid ones too: they wait 30 days in the Deleted bin first, with their payments and refunds out of the Money totals meanwhile. One still out for payment with nothing paid on it is voided first so its link stops taking payments (it comes back voided). One waits while money is still on its way or a payment is disputed, and one a partner earned a share of stays.
          * @description Risk level 4. Requires records.delete. Emits invoice.deleted, invoice.voided.
          */
         post: operations["command_invoice_delete"];
@@ -80090,6 +80090,7 @@ export interface operations {
                                 leads?: number;
                                 messages?: number;
                                 notes?: number;
+                                paidCents?: number;
                                 partners?: number;
                                 people?: number;
                                 relationships?: number;
@@ -80164,6 +80165,7 @@ export interface operations {
                                 leads?: number;
                                 messages?: number;
                                 notes?: number;
+                                paidCents?: number;
                                 partners?: number;
                                 people?: number;
                                 relationships?: number;

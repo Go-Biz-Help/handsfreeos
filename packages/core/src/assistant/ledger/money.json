@@ -6,7 +6,7 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx": "3080d215ec93",
     "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx": "f4b2d1f6ca49",
     "apps/mobile/src/app/app/w/[workspaceId]/money/expenses.tsx": "00475bc5fb4d",
-    "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx": "d4833110483b",
+    "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx": "acda974936ee",
     "apps/mobile/src/components/money/document.tsx": "7c5c0a412ed0",
     "apps/mobile/src/components/money/expense-sheet.tsx": "d5f08f295a77",
     "apps/mobile/src/components/money/money-rows.tsx": "e84e9da12251",
@@ -20,7 +20,7 @@
     "apps/web/src/app/app/w/[workspaceId]/money/estimates/new/page.tsx": "c32170efaf1a",
     "apps/web/src/app/app/w/[workspaceId]/money/estimates/page.tsx": "d57076a69839",
     "apps/web/src/app/app/w/[workspaceId]/money/expenses/page.tsx": "e54cb62cb4a4",
-    "apps/web/src/app/app/w/[workspaceId]/money/invoices/[invoiceId]/page.tsx": "bafe43864170",
+    "apps/web/src/app/app/w/[workspaceId]/money/invoices/[invoiceId]/page.tsx": "0f3bea04af68",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/new/page.tsx": "e59893d795bb",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/page.tsx": "90f9f3d0801d",
     "apps/web/src/app/app/w/[workspaceId]/money/load.ts": "f958bc0287e9",
@@ -35,7 +35,7 @@
     "apps/web/src/components/money/copy-link.tsx": "c2ae31b0b2a4",
     "apps/web/src/components/money/document-actions.tsx": "cebb1f7b1b8d",
     "apps/web/src/components/money/document-editor.tsx": "371d43c1896b",
-    "apps/web/src/components/money/document-page.tsx": "89e3fb10a2ff",
+    "apps/web/src/components/money/document-page.tsx": "e65b943b1a76",
     "apps/web/src/components/money/document-view.tsx": "eee6ce7ac1b0",
     "apps/web/src/components/money/draft.ts": "18f5d3f541fb",
     "apps/web/src/components/money/estimate-options.tsx": "74a3448e188d",
@@ -192,11 +192,11 @@
       "by": "read_invoice_list rows connectionId; get_money_document → paidInto"
     },
     {
-      "path": "Money → Invoices → each row nothing was paid on: … menu → Delete…",
+      "path": "Money → Invoices → each row: … menu → Delete…",
       "kind": "do",
-      "file": "apps/web/src/components/money/invoices-list.tsx:180",
+      "file": "apps/web/src/components/money/invoices-list.tsx:179",
       "covered": "yes",
-      "by": "move_to_bin kind invoice (one still out for payment is voided first; one with money on it stays and the card says why)"
+      "by": "move_to_bin kind invoice (one still out for payment with nothing paid is voided first; a paid one goes as it is, its payments out of the totals; the card says what waits and why)"
     },
     {
       "path": "Money → Invoices → open a row",
@@ -1186,18 +1186,18 @@
       "by": "manage_invoice void (refund_payment first)"
     },
     {
-      "path": "Money → an invoice → Delete… (only when nothing was ever paid on it)",
+      "path": "Money → an invoice → Delete…",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-page.tsx:596",
+      "file": "apps/web/src/components/money/document-page.tsx:590",
       "covered": "yes",
-      "by": "move_to_bin kind invoice (one still out for payment is voided first; one with money on it stays and the card says why)"
+      "by": "move_to_bin kind invoice (one still out for payment with nothing paid is voided first; a paid one goes as it is, its payments out of the totals; the card says what waits and why)"
     },
     {
-      "path": "Money → delete box for an invoice: still out for payment, so it’s voided first; doesn’t delete the customer; 30 days in the Deleted bin; Keep it / Delete",
+      "path": "Money → delete box for an invoice: still out for payment, so it’s voided first; what was paid on it leaves the Money totals while it’s deleted; doesn’t delete the customer; 30 days in the Deleted bin; Keep it / Delete",
       "kind": "see",
       "file": "apps/web/src/components/money/invoice-delete.tsx:39",
       "covered": "yes",
-      "by": "move_to_bin’s card says the same (bin.preview: who, totalCents, voidFirst, and why one can’t go)"
+      "by": "move_to_bin’s card says the same (bin.preview: who, totalCents, paidCents, voidFirst, and why one waits)"
     },
     {
       "path": "Money → an invoice → totals: subtotal, discount, tax, total, paid, refunded, amount due",
@@ -1344,7 +1344,7 @@
       "kind": "do",
       "file": "apps/web/src/components/money/document-editor.tsx:388",
       "covered": "yes",
-      "by": "move_to_bin kind invoice (one still out for payment is voided first; one with money on it stays and the card says why)"
+      "by": "move_to_bin kind invoice (one still out for payment with nothing paid is voided first; a paid one goes as it is, its payments out of the totals; the card says what waits and why)"
     },
     {
       "path": "Money → draft editor → ‘Someone saved this while you were editing’ → Load their version",
@@ -2201,11 +2201,11 @@
       "by": "money cards link to the page (href)"
     },
     {
-      "path": "Phone → an invoice → Delete… (only when nothing was ever paid on it; needs signal)",
+      "path": "Phone → an invoice → Delete… (needs signal)",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:238",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:235",
       "covered": "yes",
-      "by": "move_to_bin kind invoice (one still out for payment is voided first; one with money on it stays and the card says why)"
+      "by": "move_to_bin kind invoice (one still out for payment with nothing paid is voided first; a paid one goes as it is, its payments out of the totals; the card says what waits and why)"
     },
     {
       "path": "Phone → an estimate → Quoted amount, status, where it stands",

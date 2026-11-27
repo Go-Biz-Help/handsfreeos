@@ -3,7 +3,7 @@
 Archive puts something away and keeps it for good. Delete for good takes it out of HandsFreeOS: it waits 30 days in
 **Settings → Deleted bin**, where an owner can bring it back, and then the worker empties it. The first round covered
 customers, conversations and bookings; the second (`20261027000800`) added leads, companies and records of a
-business's own kinds; the third (`20261027037200`) added invoices nothing was paid on. An add-on's records stay
+business's own kinds; the third (`20261027037200`) added invoices, paid ones too. An add-on's records stay
 archive-only.
 
 ## Where things are
@@ -54,16 +54,19 @@ And the defaults kept:
 
 ### Invoices (2026-11-27)
 
-Chris asked for "the option to delete invoices". It follows the decisions above: owners delete, and an invoice waits
-30 days in the bin, where it can be brought back. What it chose, since the books matter more than a tidy list:
+Chris asked for "the option to delete invoices", then chose "Let paid invoices be deleted too". It follows the
+decisions above: owners delete, and an invoice waits 30 days in the bin, where it can be brought back.
 
-- **A draft goes**, and so does **a voided invoice nothing was ever paid on**.
-- **An invoice still out for payment with nothing paid on it goes too, voided first** as Void does, so its link stops
-  taking payments. The box says so, and it comes back voided.
-- **An invoice with money on it stays** for the business's books: paid, partly paid, a payment on its way, or paid and
-  refunded. To cancel one, refund it and void it, as before.
-- **A booking's deposit still holding its time** waits for the hold to end (`bin_invoice_deposit`, an hour from when
-  it was made, well past the 15-minute hold).
+- **Any invoice can go, paid ones too.** A paid one's payments and refunds go with it: while it's in the bin they're
+  left out of Money's totals, Home and reports, and its link stops working. The box says how much was paid on it.
+  Bring back puts it all back.
+- **One still out for payment with nothing paid on it is voided first**, as Void does, so its link stops taking
+  payments. The box says so, and it comes back voided.
+- **What waits:** money still on its way, a bank transfer or a refund going back (`bin_invoice_moving`); a payment the
+  customer disputed with their bank, until it's settled (`bin_invoice_disputed`); a booking's deposit still holding
+  its time (`bin_invoice_deposit`, an hour from when it was made, well past the 15-minute hold).
+- **What stays:** one a partner earned a share of (`bin_invoice_partner`), so their earnings and payouts keep the
+  payment they came from. Void it instead.
 
 ## Rules worth knowing before changing anything
 
@@ -121,10 +124,12 @@ they earned the partner stays the partner's.
   emptied, and isn't brought back while they're in the bin (`bin_restore_parent`).
 - Deleting a stage moves the leads in the bin that sit in it to another stage of its kind.
 
-**An invoice takes only itself** (20261027037200). Its lines, and any payment on it that never went through, go
-with it when the bin is emptied; an order, an estimate or a form's answers that named it let go of it then. Its lines,
-payments and refunds have no `bin_item_id` of their own: they're read through their invoice, and phones drop them
-through the `sync_window` they copy from it. `bin_invoice_visible` keeps someone who may delete but can't see the
+**An invoice takes only itself** (20261027037200). Its lines, payments, refunds and settled disputes go with it when
+the bin is emptied; an order or a form's answers that named it let go of it then. Its payments and refunds carry its
+`bin_item_id`, because the Money summary, Home and the expenses page add them up without their invoice. Its lines
+don't: they're only read through it. Phones drop all three through the `sync_window` they copy from it. A refund or a
+dispute that arrives from Stripe, Square or PayPal for a payment in the bin isn't recorded here: the worker can't see
+it, as after the bin is emptied. `bin_invoice_visible` keeps someone who may delete but can't see the
 invoice (a member given `records.delete`) from deleting it. `invoice.delete` refuses what `bin.preview` refuses, except
 `bin_invoice_open`, which it voids first through the same code as `invoice.void`.
 
@@ -136,7 +141,7 @@ copy everything again.
 
 An owner deletes one customer or company (Details → Delete for good…), one conversation (… → Delete for good…), one
 booking (Delete for good… under its buttons), one lead (Delete for good… at the foot of its page) or one invoice
-nothing was paid on (Delete… at the foot of its page). The sheet says
+(Delete… at the foot of its page). The sheet says
 what the web's box says, from `bin-words.ts`. With no signal it says so and does nothing. Selecting several, records
 of a business's own kinds, and the bin itself, are on the web. A customer's Leads tab leaves out archived leads, as
 the web's does, so a lead in the bin leaves it too.

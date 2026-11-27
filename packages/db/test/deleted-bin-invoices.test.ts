@@ -1,9 +1,9 @@
 /**
- * The Deleted bin, invoices (20261027037200): an invoice nothing was paid on goes in the bin and is emptied after.
- *   - Hidden from people and the worker, and off phones with its lines and payments. Every read of those goes
- *     through their invoice, so they need no mark of their own.
- *   - Emptied with its lines and any payment that never went through.
- *   - One with money on it, or a payment on its way, can't go.
+ * The Deleted bin, invoices (20261027037200): any invoice goes in the bin, paid ones too, and is emptied after.
+ *   - Hidden from people and the worker, with its payments and refunds, which Money's totals read on their own; off
+ *     phones with its lines. Its lines are only read through it, so they need no mark of their own.
+ *   - Emptied with its lines, payments and refunds.
+ *   - One waits while money is still moving or a payment is disputed, and one a partner earned from stays.
  */
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -146,10 +146,70 @@ describe('an invoice in the bin', () => {
     expect(await left('people', [maria])).toBe(1);
   });
 
-  it('can’t be one with money on it, or a payment on its way', async () => {
-    for (const payment of ['succeeded', 'processing'] as const) {
-      const inv = await invoice(payment);
-      expect((await preview(inv.id)).rule).toBe('bin_invoice_paid');
+  it('can be paid, its payments and refunds hidden and emptied with it', async () => {
+    const inv = await invoice('succeeded');
+    const refund = await worker()((tx) =>
+      insert(
+        tx,
+        sql`insert into app.refunds (workspace_id, payment_id, invoice_id, amount_cents, status, refunded_at)
+            values (${ws}, ${inv.paymentId}, ${inv.id}, 5000, 'succeeded', now()) returning id`,
+      ),
+    );
+    expect(await preview(inv.id)).toEqual({
+      rule: null,
+      contents: { who: ['Maria Lopez'], totalCents: 15000, paidCents: 15000 },
+    });
+    const item = await bin(inv.id);
+    for (const who of [as(owner), worker()]) {
+      expect(await seen(who, 'payments', inv.paymentId!)).toBe(0);
+      expect(await seen(who, 'refunds', refund)).toBe(0);
     }
+    await empty(item);
+    expect(await left('payments', [inv.paymentId!])).toBe(0);
+    expect(await left('refunds', [refund])).toBe(0);
+  });
+
+  it('waits while money is still moving or disputed, and stays when a partner earned from it', async () => {
+    const coming = await invoice('processing');
+    expect((await preview(coming.id)).rule).toBe('bin_invoice_moving');
+
+    const refunding = await invoice('succeeded');
+    await worker()((tx) =>
+      insert(
+        tx,
+        sql`insert into app.refunds (workspace_id, payment_id, invoice_id, amount_cents, status)
+            values (${ws}, ${refunding.paymentId}, ${refunding.id}, 5000, 'pending') returning id`,
+      ),
+    );
+    expect((await preview(refunding.id)).rule).toBe('bin_invoice_moving');
+
+    const disputed = await invoice('succeeded');
+    await rows(
+      admin$,
+      sql`insert into app.payment_disputes (workspace_id, payment_id, invoice_id, provider, provider_dispute_id,
+            amount_cents, opened_at)
+          values (${ws}, ${disputed.paymentId}, ${disputed.id}, 'stripe', ${`dp_${randomUUID()}`}, 15000, now())`,
+    );
+    expect((await preview(disputed.id)).rule).toBe('bin_invoice_disputed');
+
+    const shared = await invoice('succeeded');
+    const [partner] = await rows<{ id: string }>(
+      admin$,
+      sql`insert into app.partners (workspace_id, person_id, code)
+          values (${ws}, ${maria}, ${randomUUID().replace(/-/g, '').slice(0, 10)}) returning id`,
+    );
+    const [referral] = await rows<{ id: string }>(
+      admin$,
+      sql`insert into app.partner_referrals (workspace_id, partner_id, how, referred_at)
+          values (${ws}, ${partner!.id}, 'by_hand', now()) returning id`,
+    );
+    await rows(
+      admin$,
+      sql`insert into app.partner_commissions (workspace_id, partner_id, referral_id, payment_id, kind, base_cents,
+            rate_bp, amount_cents, earned_at, payable_at)
+          values (${ws}, ${partner!.id}, ${referral!.id}, ${shared.paymentId}, 'earned', 15000, 1000, 1500, now(),
+            now() + interval '30 days')`,
+    );
+    expect((await preview(shared.id)).rule).toBe('bin_invoice_partner');
   });
 });

@@ -5,7 +5,7 @@ import { ListInput } from './crm';
 /**
  * The Deleted bin (20261027000400): customers, conversations and bookings deleted for good wait here 30 days, and
  * can be brought back until then; leads, companies and records of the business's own kinds too (20261027000800), and
- * invoices nothing was paid on (20261027037200). Owners only, unless an owner gives "Delete for good" to a role or a
+ * invoices, paid ones too (20261027037200). Owners only, unless an owner gives "Delete for good" to a role or a
  * person.
  */
 export const BinKind = z.enum([
@@ -59,6 +59,8 @@ export const BinContents = z.object({
   type: z.string().optional(),
   /** An invoice's total. */
   totalCents: z.number().int().optional(),
+  /** What was paid on an invoice: its payments and refunds go with it, out of Money's totals while it's deleted. */
+  paidCents: z.number().int().optional(),
   /** Invoices still out for payment: deleting voids them first, so their links stop taking payments. */
   voidFirst: z.number().int().optional(),
 });

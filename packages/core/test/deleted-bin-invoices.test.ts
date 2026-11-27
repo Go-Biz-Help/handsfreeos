@@ -3,7 +3,8 @@
  * from it.
  *   - Owners only, never the AI, a workflow or the system, as every other kind.
  *   - One still out for payment is voided first, so its link stops taking payments, and comes back voided.
- *   - One with money on it stays for the business's books, and so does a booking's deposit still holding its time.
+ *   - One with money on it goes too, as it is: its payments leave the Money totals until it's brought back.
+ *   - One waits while money is still on its way, and so does a booking's deposit still holding its time.
  */
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
@@ -20,6 +21,8 @@ import {
   invoiceRecordCashPayment,
   invoiceSend,
   invoiceVoid,
+  moneySummary,
+  paymentList,
   personGet,
 } from '../src/server';
 import { admin, ask, expectHfos, run, runSystem, setupTeam, type Team } from './calendar-helpers';
@@ -166,24 +169,59 @@ describe('deleting an invoice still out for payment', () => {
   });
 });
 
-describe('what stays', () => {
-  it('is an invoice with money on it', async () => {
-    const out = await sent();
-    await run(
+describe('a paid invoice', () => {
+  it('goes as it is, its payments out of the totals, and comes back with them', async () => {
+    const out = await sent('Furnace repair');
+    const paid = await run(
       invoiceRecordCashPayment,
       { workspaceId: t.wsId, invoiceId: out.invoiceId, amountCents: 40_000 },
       t.owner,
     );
-    expect((await preview(out.invoiceId)).rule).toBe('bin_invoice_paid');
-    const err = await expectHfos(
-      () => run(invoiceDelete, { workspaceId: t.wsId, invoiceIds: [out.invoiceId] }, t.owner),
-      'bin_invoice_paid',
-      409,
+    const collected = async () =>
+      (await ask(moneySummary, { workspaceId: t.wsId }, t.owner)).collectedCents;
+    const before = await collected();
+    expect(await preview(out.invoiceId)).toMatchObject({
+      rule: null,
+      contents: { who: ['Maria Lopez'], totalCents: 100_000, paidCents: 40_000 },
+    });
+
+    const gone = await run(
+      invoiceDelete,
+      { workspaceId: t.wsId, invoiceIds: [out.invoiceId] },
+      t.owner,
     );
-    expect(err.message).toContain('refund the payment, then void it');
-    // Nothing happened to it: not voided, not binned.
+    // Not voided: money on it, so it goes as it is.
+    expect(await events('invoice.voided', out.invoiceId)).toHaveLength(0);
+    expect(await collected()).toBe(before - 40_000);
+    const payments = await ask(paymentList, { workspaceId: t.wsId }, t.owner);
+    expect(payments.payments.some((p) => p.id === paid.paymentId)).toBe(false);
+
+    await run(binRestore, { workspaceId: t.wsId, binItemId: gone.deleted[0]!.binItemId }, t.owner);
+    expect(await collected()).toBe(before);
     const got = await ask(invoiceGet, { workspaceId: t.wsId, invoiceId: out.invoiceId }, t.owner);
     expect(got.invoice.status).toBe('partly_paid');
+    expect(got.payments.map((p) => p.id)).toEqual([paid.paymentId]);
+  });
+});
+
+describe('what waits', () => {
+  it('is a payment still on its way', async () => {
+    const out = await sent();
+    await rows(
+      admin(),
+      sql`insert into app.payments (workspace_id, invoice_id, amount_cents, method, provider, status,
+            idempotency_key)
+          values (${t.wsId}, ${out.invoiceId}, 100000, 'ach', 'stripe', 'processing', ${`key-${randomUUID()}`})`,
+    );
+    const err = await expectHfos(
+      () => run(invoiceDelete, { workspaceId: t.wsId, invoiceIds: [out.invoiceId] }, t.owner),
+      'bin_invoice_moving',
+      409,
+    );
+    expect(err.message).toContain('still on its way');
+    // Nothing happened to it: not voided, not binned.
+    const got = await ask(invoiceGet, { workspaceId: t.wsId, invoiceId: out.invoiceId }, t.owner);
+    expect(got.invoice.voidedAt).toBeNull();
   });
 
   it('is a booking’s deposit still holding its time', async () => {

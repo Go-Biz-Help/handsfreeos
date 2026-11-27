@@ -73,11 +73,8 @@ export default function Invoice() {
     );
 
   const owes = invoice.balanceCents > 0 && invoice.status !== 'void' && invoice.status !== 'draft';
-  // Only one nothing was ever paid on goes in the bin: one with money on it stays for the business's books.
-  const deletable =
-    canDelete &&
-    !invoice.pending &&
-    !payments.some((p) => p.status === 'succeeded' || p.status === 'processing');
+  // Paid ones too (20261027037200): the sheet says what waits. Not while a change made here is still on its way.
+  const deletable = canDelete && !invoice.pending;
   const draftPayable = invoice.status === 'draft' && invoice.totalCents > 0 && !invoice.pending;
   const standing = invoiceStanding(
     {

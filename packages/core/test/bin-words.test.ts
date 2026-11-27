@@ -125,6 +125,28 @@ describe('the delete box', () => {
     });
   });
 
+  it('says an invoice still out for payment is voided first, and what a paid one leaves out of the totals', () => {
+    const open = binDeleteBox('invoice', ['INV-1042'], {
+      who: ['Maria Lopez'],
+      totalCents: 100_000,
+      voidFirst: 1,
+    });
+    expect(open.title).toBe('Delete this invoice?');
+    expect(open.lines[0]).toBe(
+      'It’s still out for payment, so it’s voided first and its link stops taking payments. It stays voided if you bring it back.',
+    );
+    expect(open.lines).toContain('It doesn’t delete Maria Lopez from Contacts.');
+
+    const paid = binDeleteBox('invoice', ['INV-1043'], { who: ['Maria Lopez'], paidCents: 40_000 });
+    expect(paid.lines[0]).toBe(
+      'It has $400 paid on it. While it’s deleted, that money is left out of your Money totals and reports, and it comes back if you bring the invoice back.',
+    );
+    expect(binContentsTotal([{ paidCents: 40_000 }, { paidCents: 10_000, voidFirst: 1 }])).toEqual({
+      paidCents: 50_000,
+      voidFirst: 1,
+    });
+  });
+
   it('counts only what there is', () => {
     expect(binContentsWords({})).toBeNull();
     expect(binContentsWords({ files: 2, forms: 1, calls: 1 })).toBe(

@@ -58,8 +58,8 @@ export function InvoicesList({
   /** Whether they may write one, for the empty list's button. */
   canBill: boolean;
   /**
-   * Delete one nothing was paid on, through the 30-day Deleted bin: owners, unless one gives it out (records.delete,
-   * 20261027037200). Each such row gets a menu with Delete….
+   * Delete one, paid ones too, through the 30-day Deleted bin: owners, unless one gives it out (records.delete,
+   * 20261027037200). Each row gets a menu with Delete…, and the box says what waits.
    */
   canDelete?: boolean;
   timeZone: string;
@@ -175,37 +175,35 @@ export function InvoicesList({
                 </Td>
                 {canDelete ? (
                   <Td className="w-12 py-0 pl-0 pr-2">
-                    {inv.amountPaidCents === 0 ? (
-                      <span onClick={stay} onKeyDown={stay}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label={`Actions for ${inv.number ?? inv.title ?? 'this draft'}`}
-                              data-testid="invoice-row-menu"
-                            >
-                              <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem
-                              danger
-                              onSelect={() =>
-                                setDeleting({
-                                  id: inv.id,
-                                  name: inv.number ?? inv.title ?? 'This draft',
-                                })
-                              }
-                              data-testid="invoice-row-delete"
-                            >
-                              <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-                              {BIN_WORDS.invoiceMenu}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </span>
-                    ) : null}
+                    <span onClick={stay} onKeyDown={stay}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Actions for ${inv.number ?? inv.title ?? 'this draft'}`}
+                            data-testid="invoice-row-menu"
+                          >
+                            <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem
+                            danger
+                            onSelect={() =>
+                              setDeleting({
+                                id: inv.id,
+                                name: inv.number ?? inv.title ?? 'This draft',
+                              })
+                            }
+                            data-testid="invoice-row-delete"
+                          >
+                            <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                            {BIN_WORDS.invoiceMenu}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </span>
                   </Td>
                 ) : null}
               </tr>

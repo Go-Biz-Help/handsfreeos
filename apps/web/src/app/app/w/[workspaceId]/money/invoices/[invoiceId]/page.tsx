@@ -58,10 +58,7 @@ export default async function InvoicePage({
         startedBy={inv.assignee?.fullName ?? null}
         startedAt={inv.createdAt}
         paidThroughNames={data.paidThroughNames}
-        canDelete={
-          canDelete &&
-          !data.payments.some((p) => p.status === 'succeeded' || p.status === 'processing')
-        }
+        canDelete={canDelete}
       />
     </>
   );

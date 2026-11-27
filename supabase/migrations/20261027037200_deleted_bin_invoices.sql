@@ -6,27 +6,32 @@
 --        (records.delete), and an invoice waits 30 days in the bin, where it
 --        can be brought back, before it's gone.
 --
---        What can go:
---          - A draft.
---          - An invoice still out for payment with nothing paid on it.
---            invoice.delete voids it first, as Void does, so its link stops
---            taking payments. It comes back voided.
---          - A voided invoice nothing was ever paid on.
+--        Any invoice can go, paid ones too (Chris chose "Let paid invoices
+--        be deleted too", 2026-11-27):
+--          - One still out for payment with nothing paid on it is voided
+--            first by invoice.delete, as Void does, so its link stops taking
+--            payments. It comes back voided.
+--          - One with money on it goes as it is. Its payments and refunds go
+--            with it, out of Money's totals and reports while it's in the
+--            bin, and its link stops working until it's brought back.
 --
---        What stays, for the business's books: an invoice with money on it
---        (paid, partly paid, a payment on its way, or paid and refunded).
---        To cancel one, refund it and void it. A booking's deposit still
---        holding its time waits for the hold to end (15 minutes).
+--        What waits:
+--          - Money still on its way: a bank transfer, or a refund going back.
+--          - A payment the customer disputed with their bank, until it's
+--            settled.
+--          - A booking's deposit still holding its time (15 minutes).
+--        What stays: one a partner earned a share of, so their earnings and
+--        payouts keep the payment they came from.
 --
---        An invoice takes only itself. Its lines, and any payment that never
---        went through, go with it when the bin is emptied. Nothing on a
---        timeline is about an invoice, and an order, an estimate or a form's
---        answers that named it let go of it then (on delete set null).
+--        An invoice takes only itself. Its lines, payments, refunds and
+--        settled disputes go with it when the bin is emptied. Nothing on a
+--        timeline is about an invoice, and an order or a form's answers that
+--        named it let go of it then (on delete set null).
 --
 --        **Hidden** as round one's rows are, by row-level security on
---        `bin_item_id`, from people, customers and the worker. Its lines,
---        payments and refunds need no mark of their own: they're read
---        through their invoice, and one in the bin has no money on it.
+--        `bin_item_id`, from people, customers and the worker: the invoice,
+--        and its payments and refunds, which Money's totals read on their
+--        own. Its lines need no mark: they're only read through it.
 --        **Off phones** through `sync_window`, which its lines, payments and
 --        refunds copy, so the sync config doesn't change.
 --
@@ -47,8 +52,22 @@ create index invoices_bin_idx on app.invoices (bin_item_id) where bin_item_id is
 comment on column app.invoices.bin_item_id is
   'In the Deleted bin (2026-11-27): hidden, off phones, and emptied after 30 days. Only a draft or an invoice nothing was paid on goes there.';
 
+-- Its payments and refunds, which the Money summary, Home and the expenses page add up without their invoice.
+alter table app.payments add column bin_item_id uuid references app.bin_items (id);
+create index payments_bin_idx on app.payments (bin_item_id) where bin_item_id is not null;
+comment on column app.payments.bin_item_id is
+  'Its invoice is in the Deleted bin (2026-11-27): hidden with it, and emptied with it.';
+alter table app.refunds add column bin_item_id uuid references app.bin_items (id);
+create index refunds_bin_idx on app.refunds (bin_item_id) where bin_item_id is not null;
+comment on column app.refunds.bin_item_id is
+  'Its invoice is in the Deleted bin (2026-11-27): hidden with it, and emptied with it.';
+
 -- ---------- hidden ----------
 create policy invoices_not_binned on app.invoices as restrictive for all
+  to authenticated, portal_actor, service_actor using (bin_item_id is null) with check (bin_item_id is null);
+create policy payments_not_binned on app.payments as restrictive for all
+  to authenticated, portal_actor, service_actor using (bin_item_id is null) with check (bin_item_id is null);
+create policy refunds_not_binned on app.refunds as restrictive for all
   to authenticated, portal_actor, service_actor using (bin_item_id is null) with check (bin_item_id is null);
 
 -- ---------- what goes ----------
@@ -255,33 +274,41 @@ declare
   v_private boolean;
   v_document text;
   v_invoice app.invoices%rowtype;
-  v_paid boolean;
+  v_partner boolean;
   v_coming boolean;
 begin
-  -- An invoice (20261027037200): one with money on it stays for the business's books, and a booking's deposit
-  -- that's still holding its time waits for the hold to end. One still out for payment is voided first: the command
-  -- does it, so its link stops taking payments.
+  -- An invoice (20261027037200): any can go, paid ones too, once no money is still moving on it. One a partner
+  -- earned a share of stays, for their earnings. One still out for payment with nothing paid on it is voided first:
+  -- the command does it, so its link stops taking payments.
   if p_kind = 'invoice' then
     select i.* into v_invoice from app.invoices i where i.id = r.invoices[1];
-    select coalesce(bool_or(p.status = 'succeeded'), false), coalesce(bool_or(p.status = 'processing'), false)
-    into v_paid, v_coming
+    select coalesce(bool_or(p.status = 'processing'), false) into v_coming
     from app.payments p where p.invoice_id = v_invoice.id;
     if v_coming then
-      rule := 'bin_invoice_paid';
-      message := format('A payment on %s is on its way, and an invoice with money on it stays in your records for '
-        'your books.', p_name);
+      rule := 'bin_invoice_moving';
+      message := format('A payment on %s is still on its way. Try again once it lands, usually within a few days.',
+        p_name);
       return;
     end if;
-    if v_paid then
-      rule := 'bin_invoice_paid';
-      message := case
-        when v_invoice.status = 'void' then format(
-          'Money went through %s before it was voided, so it stays in your records for your books.', p_name)
-        when v_invoice.amount_paid_cents > v_invoice.amount_refunded_cents then format(
-          '%s has money paid on it, so it stays in your records for your books. To cancel it, refund the payment, '
-          'then void it.', p_name)
-        else format('Money went through %s, so it stays in your records for your books. Void it instead.', p_name)
-      end;
+    if exists (select 1 from app.refunds f where f.invoice_id = v_invoice.id and f.status = 'pending') then
+      rule := 'bin_invoice_moving';
+      message := format('A refund on %s is still going back to the customer. Try again once it’s through, usually '
+        'within a few days.', p_name);
+      return;
+    end if;
+    if exists (select 1 from app.payment_disputes d where d.invoice_id = v_invoice.id and d.status = 'open') then
+      rule := 'bin_invoice_disputed';
+      message := format('The customer disputed a payment on %s with their bank. Try again once the dispute is '
+        'settled.', p_name);
+      return;
+    end if;
+    select exists (select 1 from app.partner_commissions c join app.payments p on p.id = c.payment_id
+                   where p.invoice_id = v_invoice.id)
+    into v_partner;
+    if v_partner then
+      rule := 'bin_invoice_partner';
+      message := format('A partner earned a share of what was paid on %s, so it stays in your records for their '
+        'earnings. Void it instead, after refunding the payment if you need to.', p_name);
       return;
     end if;
     if v_invoice.status = 'draft' and v_invoice.origin = 'booking' and v_invoice.created_at > now() - interval '1 hour'
@@ -291,7 +318,7 @@ begin
         '15 minutes.';
       return;
     end if;
-    if v_invoice.status in ('sent', 'overdue') then
+    if v_invoice.status in ('sent', 'overdue') and v_invoice.amount_paid_cents <= v_invoice.amount_refunded_cents then
       rule := 'bin_invoice_open';
       message := format('%s is still out for payment. Void it first, then delete it.', p_name);
     end if;
@@ -538,10 +565,14 @@ returns jsonb language sql stable security definer set search_path = '' as $$
         select jsonb_build_array(nullif(btrim(concat_ws(' ', p.first_name, p.last_name)), ''))
         from app.invoices i join app.people p on p.id = i.person_id
         where i.id = p_record) end,
-    -- An invoice: its total, and whether it's still out for payment, so voided first.
+    -- An invoice: its total, what was paid on it, and whether it's still out for payment with nothing paid, so
+    -- voided first.
     'totalCents', (select i.total_cents from app.invoices i where p_kind = 'invoice' and i.id = p_record),
+    'paidCents', (select nullif(i.amount_paid_cents, 0) from app.invoices i
+                  where p_kind = 'invoice' and i.id = p_record),
     'voidFirst', (select 1 from app.invoices i
-                  where p_kind = 'invoice' and i.id = p_record and i.status in ('sent', 'overdue')),
+                  where p_kind = 'invoice' and i.id = p_record and i.status in ('sent', 'overdue')
+                    and i.amount_paid_cents <= i.amount_refunded_cents),
     'type', (select t.singular from app.custom_records k join app.custom_record_types t on t.id = k.type_id
              where p_kind = 'custom_record' and k.id = p_record)
   ))
@@ -569,8 +600,10 @@ begin
   where c.id = any (r.companies);
   update app.custom_records k set bin_item_id = p_item where k.id = any (r.records);
   -- Off phones: the invoice's own trigger keeps one in the bin out of the window, and its lines, payments and
-  -- refunds follow it.
+  -- refunds follow it. Its payments and refunds are hidden with it.
   update app.invoices i set bin_item_id = p_item, sync_window = false where i.id = any (r.invoices);
+  update app.payments p set bin_item_id = p_item where p.invoice_id = any (r.invoices);
+  update app.refunds f set bin_item_id = p_item where f.invoice_id = any (r.invoices);
   update app.leads l set bin_item_id = p_item, archived_at = coalesce(l.archived_at, now())
   where l.id = any (r.leads);
   update app.conversations c set bin_item_id = p_item, archived_at = coalesce(c.archived_at, now())
@@ -812,6 +845,8 @@ begin
   update app.invoices i set bin_item_id = null,
     sync_window = coalesce(i.voided_at, i.paid_at, i.updated_at) >= now() - interval '12 months'
   where i.bin_item_id = p_item;
+  update app.payments p set bin_item_id = null where p.bin_item_id = p_item;
+  update app.refunds f set bin_item_id = null where f.bin_item_id = p_item;
   update app.leads l set bin_item_id = null,
     archived_at = case when v_item.undo -> 'leads' ? l.id::text then null else l.archived_at end
   where l.bin_item_id = p_item;
@@ -869,14 +904,14 @@ declare
 begin
   foreach v_table in array array['people', 'companies', 'custom_records', 'leads', 'conversations', 'messages',
     'calls', 'activities', 'tasks', 'appointments', 'appointment_attendees', 'files', 'relationships',
-    'form_responses', 'invoices'] loop
+    'form_responses', 'invoices', 'payments', 'refunds'] loop
     execute format('update app.%I x set bin_item_id = $2 where x.bin_item_id = $1', v_table) using p_from, p_into;
   end loop;
   delete from app.bin_items b where b.id = p_from;
 end $$;
 
--- Empties one bin item a batch at a time, as the worker: as 20261027000800 wrote it, plus invoices, whose lines
--- and payments that never went through go with them.
+-- Empties one bin item a batch at a time, as the worker: as 20261027000800 wrote it, plus invoices, whose lines,
+-- payments, refunds and settled disputes go with them.
 create or replace function private.purge_bin_batch(p_ws uuid, p_item uuid, p_limit integer default 500)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -956,9 +991,13 @@ begin
           and a.person_id is null and a.lead_id is null and a.custom_record_id is null;
         delete from app.record_tags t where t.record_type = 'company' and t.record_id = any (v_ids);
       elsif v_step[1] = 'invoices' then
-        -- Its lines, and the payments that never went through, go with it (on delete cascade): their history too.
+        -- Its lines, payments, refunds and settled disputes go with it (on delete cascade): their history too.
         perform private.bin_redact(p_ws, 'payment',
           array(select p.id from app.payments p where p.invoice_id = any (v_ids)));
+        perform private.bin_redact(p_ws, 'refund',
+          array(select f.id from app.refunds f where f.invoice_id = any (v_ids)));
+        perform private.bin_redact(p_ws, 'dispute',
+          array(select d.id from app.payment_disputes d where d.invoice_id = any (v_ids)));
       end if;
       execute format('delete from app.%I x where x.id = any ($1)', v_step[1]) using v_ids;
       delete from private.bin_work w where w.workspace_id = p_ws;

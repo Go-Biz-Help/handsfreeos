@@ -477,13 +477,6 @@ export function InvoiceDocument({
       hasProcessingPayment: data.payments.some((p) => p.status === 'processing'),
       hasPendingRefund: data.refunds.some((r) => r.status === 'pending'),
     }) === null;
-  /**
-   * Only one nothing was ever paid on goes in the bin: one with money on it stays for the business's books. One
-   * still out for payment is voided first (20261027037200); bin.preview asks the rest.
-   */
-  const deletable =
-    canDelete && !data.payments.some((p) => p.status === 'succeeded' || p.status === 'processing');
-
   const events: Event[] = [
     {
       icon: <FileText className="h-3.5 w-3.5" strokeWidth={1.5} />,
@@ -592,7 +585,8 @@ export function InvoiceDocument({
                 Void
               </Button>
             ) : null}
-            {deletable ? (
+            {/* Paid ones too (20261027037200): the box says what waits, and what a paid one leaves out. */}
+            {canDelete ? (
               <InvoiceDeleteButton
                 workspaceId={workspaceId}
                 invoiceId={inv.id}

@@ -4783,6 +4783,8 @@ export const payments = app.table('payments', {
   // Milestone 10: the invoice's, copied by trigger.
   syncWindow: syncWindow(),
   memberViewerIds: memberViewerIds(),
+  /** Its invoice is in the Deleted bin (20261027037200): hidden with it, and emptied with it. */
+  binItemId: binItemRef(),
 });
 
 export const refunds = app.table('refunds', {
@@ -4812,6 +4814,8 @@ export const refunds = app.table('refunds', {
   // Milestone 10: the invoice's, copied by trigger.
   syncWindow: syncWindow(),
   memberViewerIds: memberViewerIds(),
+  /** Its invoice is in the Deleted bin (20261027037200): hidden with it, and emptied with it. */
+  binItemId: binItemRef(),
 });
 /**
  * What the business spent, a purchase a row (20261027036800): Money → Expenses, and the Assistant from a photo of a
