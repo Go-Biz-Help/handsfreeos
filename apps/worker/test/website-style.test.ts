@@ -138,9 +138,7 @@ describe('the design it makes', () => {
     expect(patch.scheme).toBe('dark');
     expect(patch.font).toBe('Inter');
     expect(patch).not.toHaveProperty('corners');
-    expect(fontNote).toBe(
-      'Proxima Nova isn’t a free font, so the form uses Inter, the closest one.',
-    );
+    expect(fontNote).toBe('Proxima Nova isn’t a free font, so we picked Inter, the closest one.');
     expect(formFontFor({ name: 'Adobe Garamond', google: false })).toEqual({
       name: 'Lora',
       stoodIn: true,

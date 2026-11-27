@@ -1,9 +1,9 @@
 {
   "area": "settings-calendars",
   "title": "Settings: calendars, services, resources, territories and the booking site",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-27",
   "files": {
-    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/all/page.tsx": "1c471eedce59",
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/all/page.tsx": "fb713c558150",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/page.tsx": "0e22c274ca53",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/booking-site/page.tsx": "e411dfb0bf46",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/new/page.tsx": "1b37fdd5533a",
@@ -21,7 +21,7 @@
     "apps/web/src/components/calendars/calendar-card.tsx": "658da205d6fd",
     "apps/web/src/components/calendars/calendars-list.tsx": "a1b8e09035e6",
     "apps/web/src/components/calendars/chips.tsx": "e12df0c43d2b",
-    "apps/web/src/components/calendars/design-module.tsx": "ca405a334a21",
+    "apps/web/src/components/calendars/design-module.tsx": "17af184f15c5",
     "apps/web/src/components/calendars/embed-dialog.tsx": "be51af03b53d",
     "apps/web/src/components/calendars/history-sheet.tsx": "84f5900a0942",
     "apps/web/src/components/calendars/impact-dialog.tsx": "a4f8fffc6f1b",
@@ -1992,7 +1992,7 @@
       "by": "update_calendar_settings design.showName, showLogo; adding a logo is Settings → Workspace (settings_help)"
     },
     {
-      "path": "Calendar → Design → Start over from your colour",
+      "path": "Calendar → Design → Start over from your brand kit",
       "kind": "do",
       "file": "apps/web/src/components/calendars/design-module.tsx:244",
       "covered": "yes",

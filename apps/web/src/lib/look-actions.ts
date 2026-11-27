@@ -2,6 +2,7 @@
 /** The calls that change a business's logo and colour (core's look commands), from the browser. */
 import { LOOK_UPLOAD_TYPES, type BusinessLook, type LookUploadType } from '@hfos/core';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import { workerPost } from '@/lib/api/worker';
 import { supabaseBrowser } from '@/lib/supabase/client';
 
 /** The pictures a logo can be, for the file picker. */
@@ -52,6 +53,24 @@ export function lookActions(workspaceId: string) {
     removeLogo: async (): Promise<BusinessLook> =>
       unwrap(await api().POST('/v1/commands/look.set', { body: { workspaceId, removeLogo: true } }))
         .look as BusinessLook,
+    /** The brand kit's font, corners or both (null goes back to HandsFreeOS's own, or slight corners). */
+    setKit: async (kit: {
+      font?: string | null;
+      corners?: 'square' | 'slight' | 'round' | null;
+      color?: string;
+      matchedSite?: string;
+    }): Promise<BusinessLook> =>
+      unwrap(await api().POST('/v1/commands/look.set', { body: { workspaceId, ...kit } }))
+        .look as BusinessLook,
+    /** Match my website: the worker reads the site's button colour, font and corners (nothing is kept there). */
+    readWebsite: (site: string | null) =>
+      workerPost<{
+        site: string;
+        color: string | null;
+        font: string | null;
+        corners: 'square' | 'slight' | 'round' | null;
+        fontNote: string | null;
+      }>('/v1/look/website-style', { workspaceId, ...(site ? { site } : {}) }),
     /** "Look on lonestarhvac.com again". */
     find: async (): Promise<BusinessLook> =>
       unwrap(await api().POST('/v1/commands/look.find', { body: { workspaceId } }))

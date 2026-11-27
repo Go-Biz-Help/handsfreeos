@@ -90,6 +90,8 @@ export const SCREEN_READS = [
   'partner.payout_get',
   'partner.payouts',
   'payment.list',
+  // Your pictures (Settings → Workspace, and the pickers on forms and booking pages).
+  'picture.list',
   'person.in_hands',
   'portal_access.get',
   'record_hold.list',

@@ -288,6 +288,54 @@ describe('the colour', () => {
   });
 });
 
+describe('the brand kit’s font and corners', () => {
+  it('are unset until picked, and null puts HandsFreeOS’s own back', async () => {
+    expect(await lookIn(ws)).toMatchObject({ font: null, corners: null, matched: null });
+    const r = await run(lookSet, { workspaceId: ws, font: 'Poppins', corners: 'round' }, dale);
+    expect(r).toMatchObject({
+      changed: true,
+      look: { font: { name: 'Poppins' }, corners: { value: 'round' } },
+    });
+    expect(
+      (await run(lookSet, { workspaceId: ws, font: 'Poppins', corners: 'round' }, dale)).changed,
+    ).toBe(false);
+    const back = await run(lookSet, { workspaceId: ws, font: null, corners: null }, dale);
+    expect(back.changed).toBe(true);
+    expect(await lookIn(ws)).toMatchObject({ font: null, corners: null });
+  });
+
+  it('keep the site they were matched to, with the colour', async () => {
+    const before = await eventCount(ws, 'look.changed');
+    const r = await run(
+      lookSet,
+      {
+        workspaceId: ws,
+        color: '#c2410c',
+        font: 'Montserrat',
+        corners: 'square',
+        matchedSite: 'https://lonestarhvac.com/',
+      },
+      dale,
+    );
+    expect(r.look).toMatchObject({
+      color: { hex: '#c2410c', from: 'person' },
+      font: { name: 'Montserrat' },
+      corners: { value: 'square' },
+      matched: { site: 'https://lonestarhvac.com/' },
+    });
+    expect(await eventCount(ws, 'look.changed')).toBe(before + 1);
+  });
+
+  it('take only a font’s name, and are for those who may change the business', async () => {
+    await expectHfos(
+      () => run(lookSet, { workspaceId: ws, font: 'Poppins; } body { display:none' }, dale),
+      'validation',
+    );
+    await expectHfos(() => run(lookSet, { workspaceId: ws, corners: 'wavy' }, dale), 'validation');
+    await expectHfos(() => run(lookSet, { workspaceId: ws, font: 'Lato' }, marco), 'forbidden');
+  });
+});
+
 describe('the website chat', () => {
   it('starts in the business’s colour, and follows it unless it was given its own', async () => {
     const r = await run(

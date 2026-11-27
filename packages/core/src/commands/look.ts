@@ -158,6 +158,8 @@ async function emitChanged(
   const shown = (l: BusinessLook) => ({
     logo: l.logo ? l.logo.from : null,
     color: l.color?.hex ?? null,
+    font: l.font?.name ?? null,
+    corners: l.corners?.value ?? null,
   });
   await ctx.emit({
     type: 'look.changed',
@@ -267,7 +269,7 @@ export const lookUseUpload = defineCommand({
 export const lookSet = defineCommand({
   name: 'look.set',
   description:
-    'Change the business’s colour, or take its logo off so its initials stand in. The website chat follows the colour unless it has one of its own.',
+    'Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), or take its logo off so its initials stand in. Forms, booking pages and the website chat that haven’t picked their own follow it.',
   risk: 1,
   input: LookSetInput,
   output: LookSetOutput,
@@ -285,10 +287,19 @@ export const lookSet = defineCommand({
           ? { color: { ...look.color, from: 'person' as const } }
           : {}),
       ...(input.removeLogo ? { logo: null } : {}),
+      ...(input.font !== undefined && input.font !== (look.font?.name ?? null)
+        ? { font: input.font ? { name: input.font, at } : null }
+        : {}),
+      ...(input.corners !== undefined && input.corners !== (look.corners?.value ?? null)
+        ? { corners: input.corners ? { value: input.corners, at } : null }
+        : {}),
+      ...(input.matchedSite ? { matched: { site: input.matchedSite, at } } : {}),
     };
     const changed =
       next.color?.hex !== look.color?.hex ||
-      (next.logo?.path ?? null) !== (look.logo?.path ?? null);
+      (next.logo?.path ?? null) !== (look.logo?.path ?? null) ||
+      (next.font?.name ?? null) !== (look.font?.name ?? null) ||
+      (next.corners?.value ?? null) !== (look.corners?.value ?? null);
     if (JSON.stringify(next) === JSON.stringify(look)) return { look, changed: false };
     await keepLook(ctx, next);
     if (changed) await emitChanged(ctx, look, next, 'person');
