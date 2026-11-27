@@ -61,8 +61,12 @@ export const PICTURE_STATUSES = ['uploading', 'making', 'ready', 'failed'] as co
 export type PictureStatus = (typeof PICTURE_STATUSES)[number];
 
 /** Where a made picture can be seen by anyone: Supabase Storage's public address for it. */
-export const pictureUrlFor = (storageUrl: string, path: string): string =>
-  `${storageUrl.replace(/\/+$/, '')}/storage/v1/object/public/${PICTURE_BUCKET}/${path}`;
+export const pictureUrlFor = (storageUrl: string, path: string): string => {
+  // Trailing slashes dropped by hand: a pattern for them is slow on a long run of them.
+  let end = storageUrl.length;
+  while (end > 0 && storageUrl[end - 1] === '/') end -= 1;
+  return `${storageUrl.slice(0, end)}/storage/v1/object/public/${PICTURE_BUCKET}/${path}`;
+};
 
 /** What's said about the library, the same on the web and the phone. */
 export const PICTURE_WORDS = {

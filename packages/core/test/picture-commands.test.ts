@@ -15,7 +15,7 @@ import type { z } from 'zod';
 import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, RequestMeta, SystemActor } from '../src/kernel/types';
-import { PICTURE_PROBLEMS } from '../src/look/pictures';
+import { PICTURE_PROBLEMS, pictureUrlFor } from '../src/look/pictures';
 import {
   organizationCreate,
   permissionSetMember,
@@ -355,5 +355,14 @@ describe('a picture in the library', () => {
       () => run(pictureRemove, { workspaceId: other, pictureId }, marco),
       'not_found',
     );
+  });
+});
+
+describe('where a picture is seen', () => {
+  it('is Storage’s public address for it, however many slashes end the address it was given', () => {
+    const path = `${randomUUID()}/${randomUUID()}.webp`;
+    const want = `https://x.supabase.co/storage/v1/object/public/pictures/${path}`;
+    expect(pictureUrlFor('https://x.supabase.co', path)).toBe(want);
+    expect(pictureUrlFor('https://x.supabase.co///', path)).toBe(want);
   });
 });

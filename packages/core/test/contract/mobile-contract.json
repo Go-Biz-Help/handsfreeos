@@ -5566,6 +5566,34 @@
           "removeLogo": {
             "type": "boolean",
             "const": true
+          },
+          "font": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60,
+                "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]| (?! ))*[A-Za-z0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "corners": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["square", "slight", "round"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "matchedSite": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
           }
         },
         "required": ["workspaceId"]
