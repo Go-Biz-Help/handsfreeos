@@ -89,7 +89,9 @@ describe('defaults', () => {
 describe('parse and upgrade', () => {
   it('reads a stored document, filling what is missing and dropping unknown keys', () => {
     const c = parseConfig({ version: 1, team: { members: [{ userId: DALE }] }, legacy: true });
-    expect(c.team.members).toEqual([{ userId: DALE, weight: 1, priority: 0, required: false }]);
+    expect(c.team.members).toEqual([
+      { userId: DALE, weight: 1, priority: 0, required: false, picture: null },
+    ]);
     expect('legacy' in c).toBe(false);
   });
 
@@ -141,7 +143,9 @@ describe('applyPatch', () => {
       team: { members: [{ userId: MARCO, weight: 2 }] },
       capacity: { seats: 6 },
     });
-    expect(next.team.members).toEqual([{ userId: MARCO, weight: 2, priority: 0, required: false }]);
+    expect(next.team.members).toEqual([
+      { userId: MARCO, weight: 2, priority: 0, required: false, picture: null },
+    ]);
     expect(next.team.assignment).toBe('fixed');
     expect(next.capacity).toEqual({ seats: 6, maxPartySize: 1, showSeatsLeft: true });
     expect(base.team.members).toHaveLength(2);

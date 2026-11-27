@@ -60,6 +60,7 @@ import {
   calendarSetEmbedSites,
   calendarSetSlug,
   calendarSetStatus,
+  calendarUseDesignEverywhere,
 } from './calendar';
 import { calendarSetupSave } from './calendar-setup';
 import {
@@ -775,6 +776,7 @@ export {
   calendarSetStatus,
   calendarSetSlug,
   calendarSetEmbedSites,
+  calendarUseDesignEverywhere,
   calendarSetupSave,
   chatSetupSave,
   facebookSetupSave,
@@ -1015,6 +1017,7 @@ export const commands: readonly CommandDef[] = [
   calendarSetStatus,
   calendarSetSlug,
   calendarSetEmbedSites,
+  calendarUseDesignEverywhere,
   calendarSetupSave,
   serviceCreate,
   serviceUpdate,

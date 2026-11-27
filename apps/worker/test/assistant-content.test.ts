@@ -716,6 +716,11 @@ describe('forms', () => {
       `<iframe src="${String(listed!['link'])}?embed=1"`,
     );
     expect(got.result['embedSnippet']).toContain(`<script src="${WEB}/embed/v1/form.js" async>`);
+    // The same form in a pop-up, three ways, from the same address.
+    const popups = got.result['popupCodes'] as Record<string, string>;
+    expect(popups['button']).toContain(`data-hfos-popup="${String(listed!['link'])}?embed=1"`);
+    expect(popups['afterTenSeconds']).toContain('data-hfos-open="after"');
+    expect(popups['whenLeaving']).toContain(`<script src="${WEB}/embed/v1/popup.js"`);
     const questions = got.result['questions'] as Record<string, unknown>[];
     expect(questions.find((q) => q['id'] === Q.phone)).toMatchObject({
       title: 'Best number to reach you',

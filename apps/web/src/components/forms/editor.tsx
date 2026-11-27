@@ -1,7 +1,9 @@
 'use client';
 import {
   allQuestions,
+  formLook,
   POLL_WORDS,
+  popupLookOf,
   textingBoxesTwice,
   type FormDefinition,
   type FormOp,
@@ -303,6 +305,9 @@ export function FormEditor({
           siteSlug={siteSlug}
           canManage={canManage}
           brandedOrigin={brandedOrigin}
+          popupLook={popupLookOf(
+            formLook(editor.definition.design, { businessColor: brand.color, kit: brand.kit }).vars,
+          )}
         />
       )}
     </div>

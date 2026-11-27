@@ -72,6 +72,8 @@ import {
   CalendarSetSlugOutput,
   CalendarSetStatusInput,
   CalendarSetStatusOutput,
+  CalendarUseDesignEverywhereInput,
+  CalendarUseDesignEverywhereOutput,
 } from '../schemas/calendar';
 
 const MIN = 60_000;
@@ -833,5 +835,79 @@ export const calendarSetEmbedSites = defineCommand({
       after: { name: current.name, sites: origins },
     });
     return { calendarId: current.id, embedOrigins: origins };
+  },
+});
+
+/**
+ * Use on all my calendars (design tools, part 3; idea 7): one calendar's saved design (its colours, font, shape,
+ * layout and pictures) on every other calendar the business hasn't archived, as forms have Use on all my forms. Each
+ * takes it as a new revision with a line in its History, so Restore puts one back. Only the look changes: nothing a
+ * customer books against, so no appointment is touched and no conflict can stop it. Each person's photo is the
+ * calendar's own team, so it stays.
+ */
+export const calendarUseDesignEverywhere = defineCommand({
+  name: 'calendar.use_design_everywhere',
+  description:
+    'Put one calendar’s saved booking page design (its colours, font, shape, layout and pictures) on every other calendar that isn’t archived. Each saves as a new revision; nothing else about them changes.',
+  risk: 2,
+  input: CalendarUseDesignEverywhereInput,
+  output: CalendarUseDesignEverywhereOutput,
+  permission: 'calendars.manage',
+  scope: inWorkspace,
+  emits: ['calendar.updated'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const me = requireHuman(ctx).userId;
+    const source = await loadCalendar(ctx.tx, ws, input.calendarId);
+    const design = source.config.design;
+    const others = await ctx.tx
+      .select({ id: calendars.id })
+      .from(calendars)
+      .where(
+        and(
+          eq(calendars.workspaceId, ws),
+          ne(calendars.id, source.id),
+          ne(calendars.status, 'archived'),
+        ),
+      )
+      .orderBy(calendars.id);
+    const line = `Took the design from “${source.name}”`;
+    const changed: string[] = [];
+    for (const { id } of others) {
+      const current = await loadCalendar(ctx.tx, ws, id, { forUpdate: true });
+      if (JSON.stringify(current.config.design) === JSON.stringify(design)) continue;
+      const config: CalendarConfig = { ...current.config, design };
+      const revision = current.revision + 1;
+      await ctx.tx
+        .update(calendars)
+        .set({ config: config as unknown as Record<string, unknown>, revision })
+        .where(eq(calendars.id, id));
+      await ctx.tx.insert(calendarRevisions).values({
+        workspaceId: ws,
+        calendarId: id,
+        revision,
+        config: config as unknown as Record<string, unknown>,
+        configVersion: config.version,
+        labels: [...current.labels],
+        diffSummary: [line] as unknown as Record<string, unknown>[],
+        changedBy: me,
+      });
+      await ctx.emit({
+        type: 'calendar.updated',
+        entityType: 'calendar',
+        entityId: id,
+        payload: {
+          labelsBefore: current.labels,
+          labelsAfter: current.labels,
+          revision,
+          diff: [line],
+          designFrom: source.id,
+        },
+        before: { name: current.name, revision: current.revision },
+        after: { name: current.name, revision, changes: [line] },
+      });
+      changed.push(id);
+    }
+    return { calendarIds: changed };
   },
 });

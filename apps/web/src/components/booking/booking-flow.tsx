@@ -14,6 +14,7 @@ import {
   localDateOf,
   startOfLocalDay,
   VIDEO_CALL_WORDS,
+  type PictureRef,
 } from '@hfos/core';
 import {
   CalendarSearch,
@@ -26,7 +27,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { FormLogoMark, useFormLook } from '@/components/forms/form-look';
+import { FormCover, FormLogoMark, useFormLook } from '@/components/forms/form-look';
 import { Button } from '@/components/ui/button';
 import { FieldError, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
@@ -48,6 +49,7 @@ import {
   type PublicSlot,
   type RecordedPay,
 } from '@/lib/api/public-booking';
+import { pictureSrc } from '@/lib/look';
 import { cn } from '@/lib/utils';
 import { BookedPanel } from './booked-panel';
 import { Honeypot, OffersConsent, SmsConsent } from './consent-boxes';
@@ -173,6 +175,7 @@ function Choice({
   title,
   description,
   aside,
+  picture,
   testId,
 }: {
   selected: boolean;
@@ -180,6 +183,8 @@ function Choice({
   title: string;
   description?: string | null;
   aside?: string | null;
+  /** A face beside the name (a person's photo from the calendar's Design). */
+  picture?: PictureRef | null;
   testId?: string;
 }) {
   return (
@@ -205,6 +210,17 @@ function Choice({
       >
         {selected ? <span className="h-2 w-2 rounded-full bg-accent" /> : null}
       </span>
+      {picture ? (
+        // Storage's public address: plain <img>, nothing for an image optimizer to keep.
+        <img
+          src={pictureSrc(picture.path)}
+          alt=""
+          width={44}
+          height={44}
+          className="h-11 w-11 flex-none rounded-full object-cover"
+          data-testid="person-photo"
+        />
+      ) : null}
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         <span className="text-[15px] font-medium">{title}</span>
         {description ? <span className="text-xs text-text-2">{description}</span> : null}
@@ -1186,6 +1202,7 @@ export function BookingFlow({
                 selected={personId === p.id}
                 onSelect={() => setPersonId(p.id)}
                 title={p.name}
+                picture={p.picture}
               />
             ))}
           </ChoiceGroup>
@@ -1448,7 +1465,7 @@ export function BookingFlow({
     content = (
       <form
         noValidate
-        className="flex flex-1 flex-col gap-3.5"
+        className="flex flex-1 flex-col gap-[var(--booking-box-gap,0.875rem)]"
         onSubmit={(e) => {
           e.preventDefault();
           void submitWaitlist();
@@ -1484,7 +1501,7 @@ export function BookingFlow({
     content = (
       <form
         noValidate
-        className="flex flex-1 flex-col gap-3.5"
+        className="flex flex-1 flex-col gap-[var(--booking-box-gap,0.875rem)]"
         onSubmit={(e) => {
           e.preventDefault();
           void submitBooking();
@@ -1616,11 +1633,16 @@ export function BookingFlow({
   return (
     <div
       className={cn(
-        'relative mx-auto flex w-full flex-1 flex-col gap-4 px-4 pt-4 md:pb-8 md:pt-8',
-        step === 'time' ? 'max-w-[860px]' : 'max-w-[560px]',
+        // Its width and the space between its parts are the design's (Layout); without one, as they always were.
+        'relative mx-auto flex w-full flex-1 flex-col gap-[var(--booking-gap,1rem)] px-4 pt-4 md:pb-8 md:pt-8',
+        step === 'time'
+          ? 'max-w-[var(--booking-max-width,860px)]'
+          : 'max-w-[var(--booking-details-width,560px)]',
       )}
       data-testid={`step-${step}`}
     >
+      {/* The design's picture across the top, on the first step only, so the times stay near the top after it. */}
+      {step === flow[0] ? <FormCover /> : null}
       {/* The business's logo, when the design shows it on a website (its own page has it in the header). */}
       <FormLogoMark className="mb-0 self-start" />
       {content}

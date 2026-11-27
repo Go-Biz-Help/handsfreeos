@@ -3,6 +3,7 @@ import { loaderScript } from '@/lib/chat/loader';
 import { lookupChat } from '@/lib/chat/lookup';
 import { publicEnv } from '@/lib/env';
 import { formEmbedScript } from '@/lib/forms/embed-script';
+import { popupScript } from '@/lib/forms/popup-script';
 import { siteCheckScript } from '@/lib/site-check/script';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -34,6 +35,9 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ file: s
   // calendar's embed (core's bookingEmbedSnippet) loads the same script by a name of its own.
   if (file === 'form.js' || file === 'book.js')
     return script(formEmbedScript(), 200, 'public, max-age=86400, s-maxage=86400');
+  // A form or booking page in a pop-up (lib/forms/popup-script.ts): the same for everyone, so kept for a day too.
+  if (file === 'popup.js')
+    return script(popupScript(), 200, 'public, max-age=86400, s-maxage=86400');
   // The texting registration's browser check (lib/site-check/script.ts), loaded by the two scripts above only when the
   // address carries a check's code: the same for everyone, so kept for 5 minutes.
   if (file === 'site-check.js')

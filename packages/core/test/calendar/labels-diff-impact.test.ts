@@ -222,9 +222,14 @@ describe('diff', () => {
     ]);
     const rounder = applyPatch(designed, { design: { corners: 'round', font: 'Lora' } });
     expect(diffConfigs(designed, rounder, catalogs)).toEqual(['Design: changed the font, corners']);
+    // Part 3's layout and picture are named too.
+    const wide = applyPatch(rounder, { design: { spacing: 'roomy', width: 'wide' } });
+    expect(diffConfigs(rounder, wide, catalogs)).toEqual([
+      'Design: changed the space between parts, width',
+    ]);
     // A part the Design section doesn't offer still counts.
-    const roomy = applyPatch(rounder, { design: { spacing: 'roomy' } });
-    expect(diffConfigs(rounder, roomy, catalogs)).toEqual(['Design changed']);
+    const roomy = applyPatch(wide, { design: { labels: 'inside' } });
+    expect(diffConfigs(wide, roomy, catalogs)).toEqual(['Design changed']);
     // Back to the business's colour.
     expect(diffConfigs(roomy, applyPatch(roomy, { design: null }), catalogs)).toEqual([
       'Design: its own look → your brand kit',

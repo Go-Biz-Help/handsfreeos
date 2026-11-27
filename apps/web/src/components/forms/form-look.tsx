@@ -134,6 +134,27 @@ export function FormSurface({
   );
 }
 
+/**
+ * The design's picture across the top as a banner of its own, for a page that isn't one panel (a booking page): its
+ * shape kept up to a banner's height, with the design's corners.
+ */
+export function FormCover({ className }: { className?: string }) {
+  const { cover } = useFormLook();
+  if (!cover) return null;
+  // Storage's public address: plain <img>, nothing for an image optimizer to keep.
+  return (
+    <img
+      src={pictureSrc(cover.path)}
+      alt=""
+      width={cover.width}
+      height={cover.height}
+      className={cn('block max-h-[260px] w-full rounded-card object-cover', className)}
+      style={{ aspectRatio: `${cover.width} / ${cover.height}` }}
+      data-testid="form-cover"
+    />
+  );
+}
+
 /** The business's logo above the form's heading, when the design shows it. */
 export function FormLogoMark({ className = 'mb-4' }: { className?: string } = {}) {
   const { logo } = useFormLook();
