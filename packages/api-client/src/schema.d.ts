@@ -17387,7 +17387,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook, LinkedIn, Threads and X: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), and whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month). What isn’t given stays as it is.
+         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook, LinkedIn, Threads and X: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month), and how its pictures look (the brand kit’s logo on them, and the fonts and layouts it may use). What isn’t given stays as it is.
          * @description Risk level 1. Requires socialcontent.manage. Emits socialcontent.settings.saved.
          */
         post: operations["command_socialcontent_settings_save"];
@@ -69190,6 +69190,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -69206,6 +69208,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -69509,6 +69522,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -69525,6 +69540,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -69774,6 +69800,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -69790,6 +69818,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -69911,6 +69950,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -69927,6 +69968,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -70555,6 +70607,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -70571,6 +70625,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -70739,6 +70804,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -70755,6 +70822,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -70942,6 +71020,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -70958,6 +71038,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -71103,6 +71194,12 @@ export interface operations {
                     facebookPage?: string | null;
                     facebookWhere?: ("profile" | "page")[];
                     networks?: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
+                    pictureLook?: {
+                        fonts?: ("modern" | "classic" | "loud" | "friendly")[] | null;
+                        layouts?: ("bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed")[] | null;
+                        /** @enum {string} */
+                        logo?: "corner" | "last" | "never";
+                    };
                     plan?: {
                         [key: string]: {
                             from?: string;
@@ -71135,7 +71232,32 @@ export interface operations {
                         autoPick: boolean;
                         facebookPage: string | null;
                         facebookWhere: ("profile" | "page")[];
+                        /**
+                         * @default {
+                         *       "font": null,
+                         *       "fontAs": null,
+                         *       "logo": false
+                         *     }
+                         */
+                        kit: {
+                            font: string | null;
+                            fontAs: ("modern" | "classic" | "loud" | "friendly") | null;
+                            logo: boolean;
+                        };
                         networks: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
+                        /**
+                         * @default {
+                         *       "logo": "corner",
+                         *       "fonts": null,
+                         *       "layouts": null
+                         *     }
+                         */
+                        pictureLook: {
+                            fonts: ("modern" | "classic" | "loud" | "friendly")[] | null;
+                            layouts: ("bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed")[] | null;
+                            /** @enum {string} */
+                            logo: "corner" | "last" | "never";
+                        };
                         plan: {
                             facebook: {
                                 from: string;
@@ -108528,6 +108650,8 @@ export interface operations {
                                     };
                                 };
                             };
+                            /** @default null */
+                            ownPhotoId: string | null;
                             picture: string | null;
                             pictureFailure: string | null;
                             /** @default [] */
@@ -108544,6 +108668,17 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /** @default null */
+                            pictureWords: {
+                                body: string | null;
+                                footer: string | null;
+                                heading: string;
+                                items: string[];
+                                kicker: string | null;
+                                /** @enum {string} */
+                                layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                                mark: string | null;
+                            }[] | null;
                             /**
                              * @default ai
                              * @enum {string}
@@ -108637,6 +108772,8 @@ export interface operations {
                                     };
                                 };
                             };
+                            /** @default null */
+                            ownPhotoId: string | null;
                             picture: string | null;
                             pictureFailure: string | null;
                             /** @default [] */
@@ -108653,6 +108790,17 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /** @default null */
+                            pictureWords: {
+                                body: string | null;
+                                footer: string | null;
+                                heading: string;
+                                items: string[];
+                                kicker: string | null;
+                                /** @enum {string} */
+                                layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                                mark: string | null;
+                            }[] | null;
                             /**
                              * @default ai
                              * @enum {string}
@@ -108746,6 +108894,8 @@ export interface operations {
                                     };
                                 };
                             };
+                            /** @default null */
+                            ownPhotoId: string | null;
                             picture: string | null;
                             pictureFailure: string | null;
                             /** @default [] */
@@ -108762,6 +108912,17 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /** @default null */
+                            pictureWords: {
+                                body: string | null;
+                                footer: string | null;
+                                heading: string;
+                                items: string[];
+                                kicker: string | null;
+                                /** @enum {string} */
+                                layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                                mark: string | null;
+                            }[] | null;
                             /**
                              * @default ai
                              * @enum {string}
@@ -108882,6 +109043,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -108898,6 +109061,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -109022,6 +109196,8 @@ export interface operations {
                                     };
                                 };
                             };
+                            /** @default null */
+                            ownPhotoId: string | null;
                             picture: string | null;
                             pictureFailure: string | null;
                             /** @default [] */
@@ -109038,6 +109214,17 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /** @default null */
+                            pictureWords: {
+                                body: string | null;
+                                footer: string | null;
+                                heading: string;
+                                items: string[];
+                                kicker: string | null;
+                                /** @enum {string} */
+                                layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                                mark: string | null;
+                            }[] | null;
                             /**
                              * @default ai
                              * @enum {string}
@@ -109379,7 +109566,32 @@ export interface operations {
                             autoPick: boolean;
                             facebookPage: string | null;
                             facebookWhere: ("profile" | "page")[];
+                            /**
+                             * @default {
+                             *       "font": null,
+                             *       "fontAs": null,
+                             *       "logo": false
+                             *     }
+                             */
+                            kit: {
+                                font: string | null;
+                                fontAs: ("modern" | "classic" | "loud" | "friendly") | null;
+                                logo: boolean;
+                            };
                             networks: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
+                            /**
+                             * @default {
+                             *       "logo": "corner",
+                             *       "fonts": null,
+                             *       "layouts": null
+                             *     }
+                             */
+                            pictureLook: {
+                                fonts: ("modern" | "classic" | "loud" | "friendly")[] | null;
+                                layouts: ("bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed")[] | null;
+                                /** @enum {string} */
+                                logo: "corner" | "last" | "never";
+                            };
                             plan: {
                                 facebook: {
                                     from: string;

@@ -161,14 +161,57 @@ export interface PageToCheck {
   readonly drawn?: string | null;
 }
 
-/** A drawn page as the check is told it. */
-export function pageToCheck(p: DesignPage): PageToCheck {
-  return { words: wordsOfPage(p), drawn: DRAWN_ON_PURPOSE[p.layout] ?? null };
+/** What the check is told when the business's logo is on a page (design tools, part 6). */
+export const LOGO_ON_PURPOSE =
+  'The business’s own logo sits in a small white box in the bottom right corner on purpose; its words are the logo’s, not the page’s.';
+/** What the check is told about a page over the business's own photo: real writing in it is the photo's. */
+export const OWN_PHOTO_ON_PURPOSE =
+  'The photo is the business’s own, taken with a camera: writing that is really in it, like a sign, a van’s name or a shirt, is fine.';
+
+/**
+ * A drawn page as the check is told it: with the logo on it, or over the business's own photo, it's told those are on
+ * purpose too.
+ */
+export function pageToCheck(
+  p: DesignPage,
+  on: { readonly logo?: boolean; readonly ownPhoto?: boolean } = {},
+): PageToCheck {
+  const notes = [
+    DRAWN_ON_PURPOSE[p.layout] ?? null,
+    on.ownPhoto && PHOTO_LAYOUTS.includes(p.layout) ? OWN_PHOTO_ON_PURPOSE : null,
+    on.logo ? LOGO_ON_PURPOSE : null,
+  ].filter((n): n is string => !!n);
+  return { words: wordsOfPage(p), drawn: notes.length ? notes.join(' ') : null };
 }
 
-/** OpenAI's whole graphic as the check is told it: only the words it was asked to put on it. */
-export function graphicToCheck(p: DesignPage): PageToCheck {
-  return { words: [p.kicker, p.heading].filter((w): w is string => !!w) };
+const PHOTO_LAYOUTS: readonly DesignStyle[] = ['photo', 'framed'];
+
+/**
+ * The check without what it found in the photo itself, for the business's own photo (design tools, part 6): a camera
+ * took it, so the image AI's mistakes aren't there to find, and no new photo could be made anyway. A page that failed
+ * only for its photo passes.
+ */
+export function withoutPhotoProblems(check: PictureCheck | null): PictureCheck | null {
+  if (!check?.photo?.length) return check;
+  const problems = designProblems(check);
+  return { passes: problems.length === 0 ? true : check.passes, problems };
+}
+
+/**
+ * OpenAI's whole graphic as the check is told it: only the words it was asked to put on it, and the logo when it was put
+ * on afterwards (design tools, part 6).
+ */
+export function graphicToCheck(p: DesignPage, on: { readonly logo?: boolean } = {}): PageToCheck {
+  return {
+    words: [p.kicker, p.heading].filter((w): w is string => !!w),
+    ...(on.logo ? { drawn: LOGO_ON_PURPOSE } : {}),
+  };
+}
+
+/** Which of a kept design's pages carry the logo (`logoOn`, kept since design tools, part 6). */
+export function logoPagesOf(design: unknown): boolean[] {
+  const on = (design as { logoOn?: unknown } | null)?.logoOn;
+  return Array.isArray(on) ? on.map((x) => x === true) : [];
 }
 
 /** What the check is asked, after the pictures themselves (one image per page, in order). */

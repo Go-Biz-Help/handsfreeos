@@ -35,6 +35,9 @@ import {
   type WorkKind,
 } from '../shapes';
 import { linkPlacesOf, type LinkPlace } from '../links';
+import { lookOf } from '../../../look/look';
+import type { DesignFont } from '../design-names';
+import { designFontForKit, pictureLookOf, type PictureLook } from '../picture-look';
 import { SetupMarks } from '../picking';
 import { settings, type creators, type niches, type posts } from '../tables';
 
@@ -83,6 +86,8 @@ export async function settingsOf(ctx: Ctx): Promise<{
   /** The business's link for its posts, and where it goes on each network (docs/socialcontent.md, "Your link"). */
   link: string | null;
   linkPlaces: Record<PostingNetwork, LinkPlace>;
+  /** How its pictures look (design tools, part 6). */
+  pictureLook: PictureLook;
 }> {
   const [s] = await ctx.tx
     .select()
@@ -108,7 +113,21 @@ export async function settingsOf(ctx: Ctx): Promise<{
     setup: SetupMarks.parse(s?.setup ?? {}),
     link: s?.link ?? null,
     linkPlaces: linkPlacesOf(s?.linkPlaces),
+    pictureLook: pictureLookOf(s?.pictureLook),
   };
+}
+
+/** The brand kit as How your pictures look shows it (design tools, part 6). */
+export async function kitOf(
+  ctx: Ctx,
+): Promise<{ font: string | null; fontAs: DesignFont | null; logo: boolean }> {
+  const [w] = await rows<{ settings: unknown }>(
+    ctx.tx,
+    sql`select settings from app.workspaces where id = ${ctx.scope.workspaceId!}`,
+  );
+  const look = lookOf(w?.settings);
+  const font = look.font?.name ?? null;
+  return { font, fontAs: designFontForKit(font), logo: look.logo !== null };
 }
 
 /** The business's time zone: the calendar's days and times are its. */

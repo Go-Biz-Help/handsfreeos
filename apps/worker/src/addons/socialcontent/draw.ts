@@ -270,6 +270,10 @@ interface Page {
   readonly seed: number;
   /** The picture's height: 1350 for the 4:5 portrait, 1440 for Instagram's 3:4, 1080 for a square. */
   readonly h: number;
+  /** The business's logo, drawn in the bottom right corner (design tools, part 6), or null. */
+  readonly logo: Img | null;
+  /** Whether the bottom is kept for a footer or the logo, so the words stop above it. */
+  readonly foot: boolean;
 }
 
 /** A kicker as a rounded label: the bottom of it. */
@@ -415,9 +419,12 @@ function textBlock(ctx: Ctx2d, t: Type, b: Block): number {
   return y;
 }
 
-function footerLine(p: Page, color: string, align: 'left' | 'center' = 'left'): void {
+function footerLine(p: Page, color: string, centred = false): void {
   if (!p.footer) return;
   const { ctx, type } = p;
+  // Beside the logo, the footer keeps to the left of it.
+  const room = p.logo ? INNER - logoBox(p.logo).w - 32 : INNER;
+  const align = centred && !p.logo ? 'center' : 'left';
   const line = drawnFit(
     fit(ctx, p.footer, {
       weight: type.strong,
@@ -425,7 +432,7 @@ function footerLine(p: Page, color: string, align: 'left' | 'center' = 'left'): 
       most: 30,
       least: 24,
       floor: 20,
-      width: INNER,
+      width: room,
       height: 30,
       lead: 1,
     }),
@@ -437,6 +444,39 @@ function footerLine(p: Page, color: string, align: 'left' | 'center' = 'left'): 
   ctx.fillText(line.lines[0] ?? '', align === 'center' ? W / 2 : PAD, p.h - PAD + 10);
   ctx.textAlign = 'left';
   ctx.globalAlpha = 1;
+}
+
+/** The most room the logo takes, inside its box: wide logos are kept to this width, tall ones to this height. */
+const LOGO_MOST = { w: 210, h: 50 } as const;
+const LOGO_PAD = 14;
+
+/** The logo's box on the page: its size inside, and the box's own, in pixels. */
+function logoBox(img: Img): { lw: number; lh: number; w: number; h: number } {
+  const scale = Math.min(LOGO_MOST.w / img.width, LOGO_MOST.h / img.height, 1.5);
+  const lw = Math.max(1, Math.round(img.width * scale));
+  const lh = Math.max(1, Math.round(img.height * scale));
+  return { lw, lh, w: lw + LOGO_PAD * 2, h: lh + LOGO_PAD * 2 };
+}
+
+/**
+ * The business's logo in the bottom right corner (design tools, part 6), on a white box with soft corners and a faint
+ * shadow, so it reads on any background or photo, level with the footer line.
+ */
+function drawLogo(ctx: Ctx2d, img: Img, h: number): void {
+  const b = logoBox(img);
+  const x = W - PAD - b.w + LOGO_PAD;
+  const y = Math.round(h - PAD - b.h / 2 - 2);
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.18)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 4;
+  ctx.fillStyle = '#ffffff';
+  ctx.globalAlpha = 0.94;
+  ctx.beginPath();
+  ctx.roundRect(x, y, b.w, b.h, 16);
+  ctx.fill();
+  ctx.restore();
+  ctx.drawImage(img, x + LOGO_PAD, y + LOGO_PAD, b.lw, b.lh);
 }
 
 function pageNumber(p: Page, n: number, of: number, color: string): void {
@@ -575,7 +615,7 @@ function drawSplit(p: Page): void {
       x: PAD,
       width: INNER,
       top: cut + 64,
-      bottom: p.h - PAD - (p.footer ? 80 : 0),
+      bottom: p.h - PAD - (p.foot ? 80 : 0),
       heading: p.body,
       headColor: readable(d.text, d.background),
       bodyColor: readable(d.text, d.background),
@@ -658,7 +698,7 @@ function drawList(p: Page): void {
       dry,
     });
   const headHeight = heading(0, true);
-  const bottom = p.h - PAD - (p.footer ? 90 : 20);
+  const bottom = p.h - PAD - (p.foot ? 90 : 20);
   const textX = PAD + 84;
   const width = INNER - 84;
   const room = (bottom - (PAD + 40 + headHeight + 64)) / p.items.length;
@@ -763,7 +803,7 @@ function drawMyth(p: Page): void {
       upper: false,
       dry,
     });
-  const most = p.h - PAD - (p.footer ? 80 : 0);
+  const most = p.h - PAD - (p.foot ? 80 : 0);
   const mythHeight = 58 + 36 + linesHeight(myth, type.lead) + 70;
   const cardWords = truth(0, most - PAD - mythHeight - 96, true);
   const cardHeight = Math.max(320, cardWords + 96);
@@ -809,7 +849,7 @@ function drawBeforeAfter(p: Page): void {
     bodyMost: 36,
   });
   const top = end + 56;
-  const bottom = p.h - PAD - (p.footer ? 80 : 0);
+  const bottom = p.h - PAD - (p.foot ? 80 : 0);
   const gap = 90;
   const cardH = (bottom - top - gap) / 2;
   const sides = [
@@ -869,7 +909,7 @@ function drawNote(p: Page): void {
   const yellow = luminance(d.background) > 0.7 && contrast(d.background, '#fff1a6') < 1.15;
   const paper = yellow ? '#ffd6e0' : '#fff1a6';
   // The note shrinks to fit a shorter picture, with room for the footer under it.
-  const size = Math.min(860, p.h - 290);
+  const size = Math.min(860, p.h - 290 - (p.logo ? 50 : 0));
   const top = Math.round(Math.min(190, (p.h - size) / 2 - 10));
   ctx.save();
   ctx.translate(W / 2, top + size / 2);
@@ -996,7 +1036,7 @@ function drawPhoto(p: Page, img: Img): void {
     x: PAD,
     width: INNER,
     top: p.h * 0.42,
-    bottom: p.h - PAD - (p.footer ? 80 : 20),
+    bottom: p.h - PAD - (p.foot ? 80 : 20),
     heading: p.heading,
     kicker: p.kicker,
     kickerPill: d.accent,
@@ -1027,7 +1067,7 @@ function drawFramed(p: Page, img: Img): void {
     x: PAD,
     width: INNER,
     top,
-    bottom: p.h - PAD - (p.footer ? 70 : 0),
+    bottom: p.h - PAD - (p.foot ? 70 : 0),
     heading: p.heading,
     body: p.body,
     headColor: d.text,
@@ -1055,6 +1095,7 @@ function drawPage(
   of: number,
   photo: Img | null,
   h: number,
+  logo: Img | null = null,
 ): void {
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
@@ -1071,6 +1112,8 @@ function drawPage(
     mark: drawable(page.mark),
     seed: seedOf(page.heading),
     h,
+    logo,
+    foot: !!drawable(page.footer) || !!logo,
   };
   // A layout without what it needs (a photo that didn't come, items that were all symbols) is drawn bold.
   const needs: Partial<Record<DesignStyle, boolean>> = {
@@ -1125,8 +1168,9 @@ function drawPage(
   footerLine(
     p,
     layout === 'note' ? wordsOn(d.background) : edge.footer,
-    layout === 'number' || layout === 'note' ? 'center' : 'left',
+    layout === 'number' || layout === 'note',
   );
+  if (logo) drawLogo(ctx, logo, h);
 }
 
 /** A picture as drawn: a page with the photo is a JPEG, so it stays small; the others are PNGs. */
@@ -1137,23 +1181,51 @@ export interface Drawn {
   readonly cut?: boolean;
 }
 
+/** The business's logo on its pictures (design tools, part 6): the logo's PNG, and which pages carry it. */
+export interface LogoOn {
+  readonly bytes: Buffer;
+  /** For each page, in order, whether it carries the logo. */
+  readonly pages: readonly boolean[];
+}
+
+/** The logo's picture, or null when it can't be read: a picture is never held up by its logo. */
+async function logoImg(lib: Canvas, logo: LogoOn | null | undefined): Promise<Img | null> {
+  if (!logo?.pages.some(Boolean)) return null;
+  try {
+    return await lib.loadImage(logo.bytes);
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Each page of the design, in order, in the shape asked for (Instagram's own); `photo` is what OpenAI made, drawn
- * under the first page's words.
+ * Each page of the design, in order, in the shape asked for (Instagram's own); `photo` is what OpenAI made, or the
+ * business's own photo, drawn under the first page's words; `logo` the business's logo on the pages that carry it.
  */
 export async function drawDesign(
   d: Design,
   photo: Buffer | null = null,
   shape: PictureShape = '4:5',
+  logo: LogoOn | null = null,
 ): Promise<Drawn[]> {
   const lib = await canvasLib();
   const img = photo ? await lib.loadImage(photo) : null;
+  const mark = await logoImg(lib, logo);
   const { width, height } = PICTURE_SIZES[shape];
   const out: Drawn[] = [];
   for (const [i, page] of d.pages.entries()) {
     const canvas = lib.createCanvas(width, height);
     const withPhoto = i === 0 && img && (page.layout === 'photo' || page.layout === 'framed');
-    drawPage(canvas.getContext('2d'), d, page, i + 1, d.pages.length, i === 0 ? img : null, height);
+    drawPage(
+      canvas.getContext('2d'),
+      d,
+      page,
+      i + 1,
+      d.pages.length,
+      i === 0 ? img : null,
+      height,
+      logo?.pages[i] ? mark : null,
+    );
     const cut = drawing.cut;
     out.push(
       withPhoto
@@ -1162,4 +1234,24 @@ export async function drawDesign(
     );
   }
   return out;
+}
+
+/**
+ * OpenAI's whole graphic with the business's logo put on it (design tools, part 6), in the same corner and box as a
+ * drawn page's; the graphic as it was when the logo can't be read.
+ */
+export async function stampLogo(
+  graphic: Buffer,
+  logo: Buffer,
+  shape: PictureShape = '4:5',
+): Promise<Buffer> {
+  const lib = await canvasLib();
+  const mark = await logoImg(lib, { bytes: logo, pages: [true] });
+  if (!mark) return graphic;
+  const { width, height } = PICTURE_SIZES[shape];
+  const canvas = lib.createCanvas(width, height);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(await lib.loadImage(graphic), 0, 0, width, height);
+  drawLogo(ctx, mark, height);
+  return canvas.encode('jpeg', 90);
 }
