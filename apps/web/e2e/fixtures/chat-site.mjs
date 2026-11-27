@@ -1,5 +1,6 @@
 /**
- * A stand-in business website for the website chat specs, and for a calendar's embed (booking-embed.spec.ts):
+ * A stand-in business website for the website chat specs, for a calendar's embed (booking-embed.spec.ts), and for a
+ * form's or calendar's pop-up (booking-pictures-popup.spec.ts):
  * `node e2e/fixtures/chat-site.mjs <port>`. Playwright serves one on 127.0.0.1:4191 (a site the widget or calendar
  * allows) and one on 127.0.0.1:4192 (a site it doesn't). They're on 127.0.0.1, a different site from the app's
  * localhost, so the chat window and the calendar run as a third party, as on a real site.
@@ -22,6 +23,15 @@ const CHAT_SNIPPET =
 const BOOKING_SNIPPET =
   /^<iframe src="http:\/\/localhost:3000\/book\/([a-z0-9-]+)\/([a-z0-9-]+)\?embed=1" title="([^"<>]*)" width="100%" height="(\d+)" style="border:0" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"><\/iframe>\n<script src="http:\/\/localhost:3000\/embed\/v1\/book\.js" async><\/script>$/;
 
+/** A form's or calendar's pop-up (design tools, part 3; core's look/popup.ts): the button and the script line. */
+const POPUP_PAGE = String.raw`http:\/\/localhost:3000\/(book|f)\/([a-z0-9-]+)\/([a-z0-9-]+)\?embed=1`;
+const POPUP_BUTTON = new RegExp(
+  String.raw`^<button type="button" data-hfos-popup="${POPUP_PAGE}" data-hfos-title="([^"<>&]*)" style="([a-z0-9#:;. -]*)">([^<>&]*)<\/button>\n<script src="http:\/\/localhost:3000\/embed\/v1\/popup\.js" async><\/script>$`,
+);
+const POPUP_SCRIPT = new RegExp(
+  String.raw`^<script src="http:\/\/localhost:3000\/embed\/v1\/popup\.js" data-hfos-popup="${POPUP_PAGE}" data-hfos-title="([^"<>&]*)" data-hfos-open="(after|leave)"(?: data-hfos-seconds="(\d{1,3})")? async><\/script>$`,
+);
+
 /** A value inside an attribute: the browser reads the entities back, so links and names come out as they went in. */
 const attr = (v) =>
   v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -34,6 +44,17 @@ function pasted(snippet) {
   const booking = BOOKING_SNIPPET.exec(snippet);
   if (booking)
     return `<iframe src="${APP}/book/${attr(booking[1])}/${attr(booking[2])}?embed=1" title="${attr(booking[3])}" width="100%" height="${Number(booking[4])}" style="border:0" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>\n<script src="${APP}/embed/v1/book.js" async></script>`;
+  const button = POPUP_BUTTON.exec(snippet);
+  if (button) {
+    const [, kind, site, slug, title, style, words] = button;
+    return `<button type="button" data-hfos-popup="${APP}/${kind}/${attr(site)}/${attr(slug)}?embed=1" data-hfos-title="${attr(title)}" style="${attr(style)}">${attr(words)}</button>\n<script src="${APP}/embed/v1/popup.js" async></script>`;
+  }
+  const script = POPUP_SCRIPT.exec(snippet);
+  if (script) {
+    const [, kind, site, slug, title, opens, seconds] = script;
+    const wait = seconds ? ` data-hfos-seconds="${Number(seconds)}"` : '';
+    return `<script src="${APP}/embed/v1/popup.js" data-hfos-popup="${APP}/${kind}/${attr(site)}/${attr(slug)}?embed=1" data-hfos-title="${attr(title)}" data-hfos-open="${opens}"${wait} async></script>`;
+  }
   return '';
 }
 

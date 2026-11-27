@@ -7,7 +7,15 @@
  */
 import { z } from 'zod';
 import { AssignmentMode, IntakeKind, LocationKind, VideoProvider } from '../calendar/config';
-import { FORM_CORNERS, FORM_FIELD_STYLES, FORM_FONTS, FORM_TEXT_SIZES } from '../forms/design';
+import {
+  FORM_CORNERS,
+  FORM_FIELD_STYLES,
+  FORM_FONTS,
+  FORM_SPACINGS,
+  FORM_TEXT_SIZES,
+  FORM_WIDTHS,
+} from '../forms/design';
+import { PictureRef } from '../look/pictures';
 import { POLL_AI_MODES } from '../meetings/polls';
 import { timezone, uuid } from '../schemas/common';
 import { JOB_SET_STATUSES } from '../schemas/job';
@@ -291,6 +299,11 @@ export const schedulingTools: readonly AssistantTool[] = [
                   .boolean()
                   .optional()
                   .describe('collective: they must go; when nobody is marked, everyone must'),
+                photo: PictureRef.nullable()
+                  .optional()
+                  .describe(
+                    'Their photo beside their name where customers pick who comes (Design → Pictures): {"path","width","height"} copied exactly from Your pictures (read_picture_list), or null to take it off',
+                  ),
               }),
             )
             .max(50)
@@ -588,6 +601,16 @@ export const schedulingTools: readonly AssistantTool[] = [
           showLogo: onOff.describe(
             'The business’s logo at the top, on its website (its own page has it in the header)',
           ),
+          spacing: z.enum(FORM_SPACINGS).optional().describe('Space between parts (Layout)'),
+          width: z
+            .enum(FORM_WIDTHS)
+            .optional()
+            .describe('Widest it gets (Layout); the open times get wider than the details'),
+          coverPicture: PictureRef.nullable()
+            .optional()
+            .describe(
+              'The picture across the top, on the first step (Pictures): {"path","width","height"} copied exactly from Your pictures (read_picture_list), or null for none',
+            ),
         })
         .optional()
         .describe(

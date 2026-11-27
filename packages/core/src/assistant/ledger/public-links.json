@@ -42,7 +42,7 @@
     "apps/web/src/components/admin/accept-support-invite.tsx": "715e026544a0",
     "apps/web/src/components/booking/add-to-calendar.tsx": "b1fe85e88a23",
     "apps/web/src/components/booking/booked-panel.tsx": "ff76fb3f55d0",
-    "apps/web/src/components/booking/booking-flow.tsx": "b2f7a2b6f9a6",
+    "apps/web/src/components/booking/booking-flow.tsx": "7df1327492f6",
     "apps/web/src/components/booking/business-page.tsx": "2638ffe26ea9",
     "apps/web/src/components/booking/chat-button.tsx": "2eb031ad5c0b",
     "apps/web/src/components/booking/deposit-pay.tsx": "6e313e43ece1",
@@ -265,6 +265,20 @@
       "file": "apps/web/src/app/book/[site]/[calendar]/page.tsx:72",
       "covered": "yes",
       "by": "get_calendar_settings embedCode and sitesAllowedToShowIt"
+    },
+    {
+      "path": "Calendar page → the design’s picture across the top (first step), each person’s photo where customers pick who comes, and its width and spacing",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1645",
+      "covered": "yes",
+      "by": "get_calendar_settings design (coverPicture, spacing, width) and team.members photo"
+    },
+    {
+      "path": "A business’s website → a form or calendar in a pop-up: opened by a button, after some seconds, or when a computer visitor goes to leave; closed, it stays away 7 days",
+      "kind": "see",
+      "file": "apps/web/src/app/embed/v1/[file]/route.ts:33",
+      "covered": "yes",
+      "by": "get_form and get_calendar_settings popupCodes and popupNote"
     },
     {
       "path": "Calendar page, embedded → paying a deposit opens the payment page in a new tab",

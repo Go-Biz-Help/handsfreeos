@@ -162,6 +162,22 @@ const MAX_WIDTH: Record<FormDesign['width'], string> = {
   wide: '880px',
   full: 'none',
 };
+/**
+ * A booking page's widths (a calendar's Design → Layout): the open times, then the details. Medium is what every
+ * booking page had before it could pick.
+ */
+const BOOKING_WIDTH: Record<FormDesign['width'], readonly [times: string, details: string]> = {
+  narrow: ['640px', '480px'],
+  medium: ['860px', '560px'],
+  wide: ['1040px', '640px'],
+  full: ['none', '720px'],
+};
+/** A booking page's space between its parts, and between the boxes of its details; normal is as before. */
+const BOOKING_GAP: Record<FormDesign['spacing'], readonly [parts: string, boxes: string]> = {
+  compact: ['0.75rem', '0.625rem'],
+  normal: ['1rem', '0.875rem'],
+  roomy: ['1.5rem', '1.25rem'],
+};
 
 const LIGHT = { background: '#ffffff', text: '#191d25', error: '#c43335', success: '#008743' };
 const DARK = { background: '#191d25', text: '#f2f4f8', error: '#ff7b73', success: '#3ccf7a' };
@@ -265,6 +281,10 @@ export function formLook(
     '--form-zoom': ZOOM[d.textSize],
     '--form-gap': GAP[d.spacing],
     '--form-max-width': MAX_WIDTH[d.width],
+    '--booking-max-width': BOOKING_WIDTH[d.width][0],
+    '--booking-details-width': BOOKING_WIDTH[d.width][1],
+    '--booking-gap': BOOKING_GAP[d.spacing][0],
+    '--booking-box-gap': BOOKING_GAP[d.spacing][1],
   };
   if (font)
     vars['--form-font'] =

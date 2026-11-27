@@ -418,6 +418,36 @@ showing after it's taken out of the library.
   `read_picture_list` (the builder is given Your pictures in its prompt, at most 40 ready ones). They never make up a path:
   `PictureRef` refuses one that isn't a made picture's.
 
+## Pop-ups and booking pages (design tools, part 3)
+
+`HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`, part 3 (ideas 6 to 9).
+
+- **A pop-up is the second way to embed** a form (Share → Pop-up on your website) or a calendar (its Booking link →
+  Embed → Pop-up). It opens from a button, by itself after a number of seconds (1 to 300), or when a visitor on a
+  computer moves to leave (never on a phone). One that opened by itself and was closed stays away 7 days in that
+  browser (`localStorage`); a button always opens it. The code is core's `popupSnippet` (`look/popup.ts`): one element
+  with `data-hfos-popup` (the page's `?embed=1` address) and the line that loads `/embed/v1/popup.js`
+  (`apps/web/src/lib/forms/popup-script.ts`). Nothing is saved, so the words and seconds live in the code, and any
+  button or link of the business's own opens it once it carries the same `data-hfos-popup` part.
+- **It shows only where the box in the page would**: the window frames the same `?embed=1` page, so the same Sites
+  allowed to show it list decides. Its box fits the page's height up to the screen's and scrolls inside past that; the
+  script believes a height only from the frame's own address. The button wears the page's own button colour, words
+  colour and corners (`popupLookOf`), checked before they go in its style.
+- **The Assistant hands out all three codes** (`popupCodes` on `get_form` and `get_calendar_settings`, with
+  `popupNote`).
+- **Use on all my calendars** (a calendar's Design) is `calendar.use_design_everywhere`: the calendar's saved design
+  on every other calendar that isn't archived, each as a new revision with "Took the design from “…”" in its History,
+  so Restore undoes it. It's disabled while the design has unsaved changes, since it's the saved one that's copied.
+- **A booking page's width and spacing** are a form's Layout choices (Widest it gets, Space between parts). Medium and
+  Normal are what every booking page had before (860 pixels for the times, 560 for the details, a 1rem gap), so
+  nothing changes until one is picked. `formLook` gives them as `--booking-*` variables, read with today's values as
+  fallbacks.
+- **The picture across the top** (`design.cover`) shows on a booking page's first step only, as a banner of its own
+  (`FormCover`), so the times stay near the top after it. The picture behind isn't offered for calendars.
+- **Each person's photo** is kept on the calendar's team (`team.members[].picture`, from Your pictures), so it stays
+  with its calendar when Use on all my calendars copies the design. It shows beside their name where customers pick
+  who comes (Team → Customer picks); the public booking info sends it with each person.
+
 ## Videos and steps (funnels)
 
 A form can walk somebody through a funnel: a video, their details, a longer video, a few questions

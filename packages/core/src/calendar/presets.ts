@@ -148,6 +148,7 @@ const member = (userId: string, required = false): TeamMember => ({
   weight: 1,
   priority: 0,
   required,
+  picture: null,
 });
 const unique = (ids: readonly string[]) => [...new Set(ids)];
 

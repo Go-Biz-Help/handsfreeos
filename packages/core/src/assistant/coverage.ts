@@ -447,6 +447,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
     about:
       'embedOrigins is the whole list: read get_calendar_settings sitesAllowedToShowIt first and pass every site to keep plus the new ones (an empty list stops it showing on any site).',
   },
+  // A calendar's Design → Use on all my calendars: its saved design on every other calendar.
+  'calendar.use_design_everywhere': {
+    about:
+      'It copies the saved design only: save the calendar first (do_calendar_save) if the design was just changed.',
+  },
   // ---- Settings → Payments and Partners ----
   'payment_connection.set_access': {},
   'partner.payout_forget_card': {

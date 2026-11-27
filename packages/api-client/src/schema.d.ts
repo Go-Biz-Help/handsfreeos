@@ -2077,6 +2077,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/calendar.use_design_everywhere": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put one calendar’s saved booking page design (its colours, font, shape, layout and pictures) on every other calendar that isn’t archived. Each saves as a new revision; nothing else about them changes.
+         * @description Risk level 2. Requires calendars.manage. Emits calendar.updated.
+         */
+        post: operations["command_calendar_use_design_everywhere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/call_suggestion.decide": {
         parameters: {
             query?: never;
@@ -33331,6 +33351,12 @@ export interface operations {
                             crewSize?: number;
                             /** @default [] */
                             members?: {
+                                /** @default null */
+                                picture?: {
+                                    height: number;
+                                    path: string;
+                                    width: number;
+                                } | null;
                                 /** @default 0 */
                                 priority?: number;
                                 /** @default false */
@@ -33539,6 +33565,37 @@ export interface operations {
                         }[];
                         /** @enum {string} */
                         status: "draft" | "active" | "paused" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_calendar_use_design_everywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calendarIds: string[];
                     };
                 };
             };
@@ -81025,6 +81082,12 @@ export interface operations {
                                     crewSize: number;
                                     /** @default [] */
                                     members: {
+                                        /** @default null */
+                                        picture: {
+                                            height: number;
+                                            path: string;
+                                            width: number;
+                                        } | null;
                                         /** @default 0 */
                                         priority: number;
                                         /** @default false */
