@@ -1,6 +1,15 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import { aiTeammates, chatWidgets } from '@hfos/db/schema';
-import { chatColorsOf, chatPlacementOf, chatWhenAwayOf } from '../chat/look';
+import {
+  chatBubbleAfterOf,
+  chatBubbleOf,
+  chatColorsOf,
+  chatCornersOf,
+  chatFaceOf,
+  chatFontOf,
+  chatPlacementOf,
+  chatWhenAwayOf,
+} from '../chat/look';
 import { chatShownName } from '../chat/origins';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
@@ -60,6 +69,11 @@ async function widgets(ctx: QueryContext, workspaceId: string, widgetId?: string
       ownTextColor: w.textColor,
       headerColor: w.headerColor,
       showLogo: w.showLogo,
+      font: chatFontOf(w.font),
+      corners: chatCornersOf(w.corners),
+      bubble: chatBubbleOf(w)?.text ?? null,
+      bubbleAfter: chatBubbleAfterOf(w.bubbleAfter),
+      face: chatFaceOf(w.face),
       position: placement.desktop.position,
       placement,
       awayMessage: w.awayMessage,

@@ -991,6 +991,13 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_website_chat', field: 'color', value: '#2d69d8' },
     { tool: 'manage_website_chat', field: 'textColor', value: 'automatic' },
     { tool: 'manage_website_chat', field: 'topBarColor', value: '#191d25' },
+    // Design tools, part 4: Match my website, the font and corners, a face in the top bar, the greeting bubble.
+    { tool: 'manage_website_chat', field: 'matchWebsite', value: 'lonestarhvac.com' },
+    { tool: 'manage_website_chat', field: 'font', value: 'Poppins' },
+    { tool: 'manage_website_chat', field: 'corners', value: 'brand_kit' },
+    { tool: 'manage_website_chat', field: 'facePicture' },
+    { tool: 'manage_website_chat', field: 'greetingBubble' },
+    { tool: 'manage_website_chat', field: 'bubbleAfterSeconds' },
   ],
   'website_chat.logo': [{ tool: 'manage_website_chat', field: 'showLogo' }],
   'website_chat.placement': [

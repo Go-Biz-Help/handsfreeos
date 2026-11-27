@@ -79,3 +79,14 @@ export function formFontHref(name: string | null | undefined): string | null {
   const family = font.name.replace(/ /g, '+');
   return `https://fonts.googleapis.com/css2?family=${family}${font.weights ? `:wght@${font.weights}` : ''}&display=swap`;
 }
+
+/** What stands in while a font loads, or where it never does. */
+export const SANS_FALLBACK = "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
+export const SERIF_FALLBACK = "Georgia, 'Times New Roman', serif";
+
+/** A font as CSS writes it, with what stands in for it; null for HandsFreeOS's own (the page's already). */
+export function fontStackOf(name: string | null | undefined): string | null {
+  const font = formFontOf(name);
+  if (!font) return null;
+  return `'${font.name}', ${font.kind === 'serif' ? SERIF_FALLBACK : SANS_FALLBACK}`;
+}

@@ -180,7 +180,8 @@ export function BrandKitExtras({
         />
       </div>
       <Hint className="mt-0">
-        Forms and booking pages that haven’t picked their own font and corners use these.
+        Forms, booking pages and your website chat use these until they pick their own font and
+        corners.
       </Hint>
       <FieldError>{error}</FieldError>
     </div>

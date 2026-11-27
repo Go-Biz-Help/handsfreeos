@@ -448,6 +448,36 @@ showing after it's taken out of the library.
   with its calendar when Use on all my calendars copies the design. It shows beside their name where customers pick
   who comes (Team → Customer picks); the public booking info sends it with each person.
 
+## Website chat look (design tools, part 4)
+
+`HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`, part 4 (ideas 10 to 12). Five columns on `chat_widgets`
+(`20261027037200_chat_design.sql`), changed by `chat_widget.update` from a chat's **Look** card
+(`components/settings/chat-design.tsx`) and by the Assistant's `manage_website_chat`.
+
+- **Font and corners** (`font`, `corners`) are a form's: a Google font's name and square, slight or round. Null follows
+  the brand kit's (Settings → Workspace), and with nothing in the kit the chat keeps the look every chat had (its own
+  font, soft corners and a round button). The worker's public config sends them already resolved (`look.font`,
+  `look.corners`), so the window and the loader never read the kit themselves. Core's `chatRadiiOf` gives every part's
+  radius (`CHAT_RADII`, and `CHAT_USUAL_RADII` for none); the window writes them as `--radius-control` and `--wr-*`
+  variables only when corners are set, and the parts read them with today's values as fallbacks.
+- **The loader writes the button's font and corners in only when they differ**, so the usual loader is byte for byte
+  what it was and stays under 3 KB. It never loads a font onto someone else's site: the button uses the font when the
+  site already has it (Match my website makes that likely) and the computer's own otherwise. The window, on our own
+  page, loads it from Google like a form does.
+- **The greeting bubble** (`bubble`, up to 120 characters; `bubble_after`, 1 to 120 seconds, 8 by default) is a second
+  script the loader route adds after the loader only for a chat that has one (`lib/chat/bubble.ts`). It waits for the
+  button, sits above it as the button is placed on computers and phones (hidden on phones when the button is), and is
+  drawn in a closed shadow root with its words as text. Pressing its words opens the chat the way a `#hfos-chat` link
+  does (the address shows it for a moment, then goes back, with nothing added to history); closing it, or opening the
+  chat any way, keeps it away for the rest of the visit (`sessionStorage`).
+- **A face in the top bar** (`face`, a `PictureRef` from Your pictures) shows round instead of the logo or initials,
+  and in the bubble. The command takes only a picture under the business's own folder in `pictures`.
+- **Match my website** for a chat is the worker's `POST /v1/chat/website-style` (`channels.manage`): the site's button
+  colour, the words on it when they read there (3 to 1, where the Look card starts warning), the font and corners. It
+  lands in the Look card's unsaved changes, to check and save; the Assistant's `matchWebsite` reads it again when its
+  card is confirmed.
+- The phone only has the guided chat set-up, which doesn't ask about these.
+
 ## Videos and steps (funnels)
 
 A form can walk somebody through a funnel: a video, their details, a longer video, a few questions
@@ -571,7 +601,7 @@ them (`channels.manage`), because a chat is how most visitors leave their detail
 `chat_widgets` row, edited by `chat_widget.update` on its own page (`forms/chats/<id>`, the same editor as
 **Settings** → **Website chat**), and the texting registration's chat is one of them, not a kind of its own. A chat
 keeps its name, its look, where its button sits on computers and phones, and what happens while nobody is answering
-(`20261027021600_website_chat_look_and_place.sql`). The operator's side is "Set up the website chat for a client" in
+(`20261027021600_website_chat_look_and_place.sql`), and its font, corners, greeting bubble and face (above). The operator's side is "Set up the website chat for a client" in
 `docs/operations.md`.
 
 ## On the phone (M17)

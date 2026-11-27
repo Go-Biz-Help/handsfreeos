@@ -242,6 +242,61 @@ describe('Settings → Website chat', () => {
     expect(back.placement.mobile).toMatchObject({ position: 'right', ownPosition: false });
   });
 
+  it('changes its font, corners, greeting bubble and face, only on Confirm, and back to the brand kit’s', async () => {
+    const face = {
+      path: `${workspaceId}/${randomUUID()}.webp`,
+      width: 500,
+      height: 500,
+    };
+    const args = {
+      action: 'change',
+      font: 'Poppins',
+      corners: 'round',
+      greetingBubble: 'Need a quote? I can help.',
+      bubbleAfterSeconds: 5,
+      facePicture: face,
+    };
+    const { card } = await prepare(args);
+    expect(field(card, 'Font')).toBe('Poppins');
+    expect(field(card, 'Corners')).toBe('Round');
+    expect(field(card, 'Greeting bubble')).toBe('Need a quote? I can help.');
+    expect(field(card, 'Bubble shows after')).toBe('5 seconds');
+    expect(field(card, 'Face in the top bar')).toBe('A picture from Your pictures');
+    expect((await chat()) as unknown).toMatchObject({ font: null, bubble: null });
+
+    await commit(args);
+    expect((await chat()) as unknown).toMatchObject({
+      font: 'Poppins',
+      corners: 'round',
+      bubble: 'Need a quote? I can help.',
+      bubbleAfter: 5,
+      face,
+    });
+
+    await commit({
+      action: 'change',
+      font: 'brand_kit',
+      corners: 'brand_kit',
+      greetingBubble: null,
+      facePicture: null,
+    });
+    expect((await chat()) as unknown).toMatchObject({
+      font: null,
+      corners: null,
+      bubble: null,
+      face: null,
+    });
+  });
+
+  it('says where to match a website by hand when it can’t read one from here', async () => {
+    await expect(
+      prepare({ action: 'change', matchWebsite: 'lonestarhvac.com' }),
+    ).rejects.toMatchObject({
+      rule: 'website_unreadable',
+      message: expect.stringContaining('Match my website in the chat’s Look section'),
+    });
+  });
+
   it('adds another chat box beside the first, saying only one shows on a page', async () => {
     const { card } = await prepare({
       action: 'create',

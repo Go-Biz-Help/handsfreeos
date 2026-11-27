@@ -28,9 +28,9 @@
     "apps/web/src/components/campaigns/new-campaign.tsx": "cf5b5f5af705",
     "apps/web/src/components/campaigns/unsubscribe-page.tsx": "b2e66720312a",
     "apps/web/src/components/campaigns/words.ts": "01bb44a8879d",
-    "apps/web/src/components/chat-widget/chat-parts.tsx": "9e49cd44afb5",
-    "apps/web/src/components/chat-widget/chat-showcase.tsx": "ca141aed1861",
-    "apps/web/src/components/chat-widget/chat-window.tsx": "96ea0e00ee8e",
+    "apps/web/src/components/chat-widget/chat-parts.tsx": "43647a6e301d",
+    "apps/web/src/components/chat-widget/chat-showcase.tsx": "7159f273a8a6",
+    "apps/web/src/components/chat-widget/chat-window.tsx": "0f78dd249221",
     "apps/web/src/components/crm/tag-picker.tsx": "74b0055a510a",
     "apps/web/src/components/forms/booking-picker.tsx": "ab0798d78741",
     "apps/web/src/components/forms/chips.tsx": "9f46c43f3308",
@@ -66,9 +66,10 @@
     "apps/web/src/components/look/picture-picker.tsx": "da5decb00ff4",
     "apps/web/src/components/look/popup-embed.tsx": "fd00c665e31f",
     "apps/web/src/components/reviews/reviews-board.tsx": "685e5ab4c16c",
+    "apps/web/src/components/settings/chat-design.tsx": "160cb091cb88",
     "apps/web/src/components/settings/chat-install.tsx": "000b8ddf3f39",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
-    "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d"
+    "apps/web/src/components/settings/website-chat-page.tsx": "bbf3a4ed8fa2"
   },
   "items": [
     {
@@ -980,6 +981,55 @@
       "file": "apps/web/src/components/settings/website-chat-page.tsx:1079",
       "covered": "yes",
       "by": "manage_website_chat showLogo"
+    },
+    {
+      "path": "Forms → a website chat → Look → Match my website (a site, then Match)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:134",
+      "covered": "yes",
+      "by": "manage_website_chat matchWebsite"
+    },
+    {
+      "path": "Forms → a website chat → Look → Font (Use your brand kit’s, or a Google font)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:151",
+      "covered": "yes",
+      "by": "manage_website_chat font"
+    },
+    {
+      "path": "Forms → a website chat → Look → Corners: Brand kit’s / Square / Slightly round / Round",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:168",
+      "covered": "yes",
+      "by": "manage_website_chat corners"
+    },
+    {
+      "path": "Forms → a website chat → Look → A face in the top bar (Your pictures)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:195",
+      "covered": "yes",
+      "by": "manage_website_chat facePicture"
+    },
+    {
+      "path": "Forms → a website chat → Look → Greeting bubble",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:210",
+      "covered": "yes",
+      "by": "manage_website_chat greetingBubble"
+    },
+    {
+      "path": "Forms → a website chat → Look → Greeting bubble → Show it after (seconds)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:239",
+      "covered": "yes",
+      "by": "manage_website_chat bubbleAfterSeconds"
+    },
+    {
+      "path": "Forms → a website chat → Look → preview: the face, the bubble, the font and corners",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1315",
+      "covered": "partly",
+      "by": "get_settings website_chat gives the values, not the picture"
     },
     {
       "path": "Forms → a website chat → Look → the preview of the button and open chat",

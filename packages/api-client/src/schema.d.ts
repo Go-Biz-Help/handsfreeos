@@ -34262,10 +34262,19 @@ export interface operations {
                         phone?: "never" | "when_needed" | "after_first_message" | "before_chat";
                     };
                     awayMessage?: string | null;
+                    bubble?: string | null;
+                    bubbleAfter?: number;
+                    corners?: ("square" | "slight" | "round") | null;
                     dailyCap?: number;
                     /** @enum {string} */
                     desktopButton?: "label" | "icon";
                     desktopLift?: number;
+                    face?: {
+                        height: number;
+                        path: string;
+                        width: number;
+                    } | null;
+                    font?: string | null;
                     greeting?: string | null;
                     headerColor?: string | null;
                     launcherLabel?: string;
@@ -34455,10 +34464,19 @@ export interface operations {
                         phone?: "never" | "when_needed" | "after_first_message" | "before_chat";
                     };
                     awayMessage?: string | null;
+                    bubble?: string | null;
+                    bubbleAfter?: number;
+                    corners?: ("square" | "slight" | "round") | null;
                     dailyCap?: number;
                     /** @enum {string} */
                     desktopButton?: "label" | "icon";
                     desktopLift?: number;
+                    face?: {
+                        height: number;
+                        path: string;
+                        width: number;
+                    } | null;
+                    font?: string | null;
                     greeting?: string | null;
                     headerColor?: string | null;
                     launcherLabel?: string;
@@ -81618,9 +81636,18 @@ export interface operations {
                                 phone: "never" | "when_needed" | "after_first_message" | "before_chat";
                             };
                             awayMessage: string | null;
+                            bubble: string | null;
+                            bubbleAfter: number;
+                            corners: ("square" | "slight" | "round") | null;
                             /** Format: date-time */
                             createdAt: string;
                             dailyCap: number;
+                            face: {
+                                height: number;
+                                path: string;
+                                width: number;
+                            } | null;
+                            font: string | null;
                             greeting: string | null;
                             headerColor: string | null;
                             hiddenUntilTexting: boolean;
@@ -81722,9 +81749,18 @@ export interface operations {
                                 phone: "never" | "when_needed" | "after_first_message" | "before_chat";
                             };
                             awayMessage: string | null;
+                            bubble: string | null;
+                            bubbleAfter: number;
+                            corners: ("square" | "slight" | "round") | null;
                             /** Format: date-time */
                             createdAt: string;
                             dailyCap: number;
+                            face: {
+                                height: number;
+                                path: string;
+                                width: number;
+                            } | null;
+                            font: string | null;
                             greeting: string | null;
                             headerColor: string | null;
                             hiddenUntilTexting: boolean;
