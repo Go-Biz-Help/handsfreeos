@@ -1,8 +1,9 @@
 /**
  * Deleting for good, through the Deleted bin (20261027000400; the owner's decisions of 2026-10-08 are in
- * docs/deleting.md): a customer with everything only about them, a conversation, or a booking; and since
- * 20261027000800 a lead, a company, or a record of one of the business's own kinds. What's deleted waits 30 days in
- * the bin, where it can be brought back, and then the worker empties it.
+ * docs/deleting.md): a customer with everything only about them, a conversation, or a booking; since
+ * 20261027000800 a lead, a company, or a record of one of the business's own kinds; and since 20261027037200 an
+ * invoice nothing was paid on. What's deleted waits 30 days in the bin, where it can be brought back, and then the
+ * worker empties it.
  *
  * Owners only, unless an owner gives "Delete for good" to a role or a person, and never the AI or a workflow
  * (risk 4, people only). The database decides what can't go and says why in words (private.bin_put); these put
@@ -23,6 +24,8 @@ import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
+import { voidInvoice } from './invoice';
+import { requireInvoice } from './money-shared';
 import {
   AppointmentDeleteInput,
   BinDeleteOutput,
@@ -33,6 +36,7 @@ import {
   CompanyDeleteInput,
   ConversationDeleteInput,
   CustomRecordDeleteInput,
+  InvoiceDeleteInput,
   LeadDeleteInput,
   PersonDeleteInput,
   type BinKind,
@@ -279,6 +283,47 @@ export const customRecordDelete = defineCommand({
   },
 });
 
+/**
+ * Asks the bin first whether an invoice can go, and refuses in its words: one with money on it stays for the books.
+ * One still out for payment can (`bin_invoice_open`): it's voided first.
+ */
+async function assertInvoiceCanGo(ctx: CommandContext, id: string): Promise<void> {
+  const [found] = await rows<{ rule: string | null; message: string | null }>(
+    ctx.tx,
+    sql`select rule, message from private.bin_preview('invoice', ${`{${id}}`}::uuid[])`,
+  );
+  if (found?.rule && found.rule !== 'bin_invoice_open')
+    throw HfosError.rule(
+      found.rule,
+      found.rule === 'bin_record_gone' ? 404 : 409,
+      found.message ?? 'That invoice can’t be deleted.',
+    );
+}
+
+export const invoiceDelete = defineCommand({
+  name: 'invoice.delete',
+  description:
+    'Delete invoices: they wait 30 days in the Deleted bin first. A draft or a voided invoice can go, and so can one still out for payment with nothing paid on it, which is voided first so its link stops taking payments (it comes back voided). One with money paid on it stays for the books: refund and void it instead.',
+  risk: 4,
+  input: InvoiceDeleteInput,
+  output: BinDeleteOutput,
+  permission: 'records.delete',
+  scope: inWorkspace,
+  emits: ['invoice.deleted', 'invoice.voided'],
+  async handler(ctx, input) {
+    const deleted: { id: string; item: BinItem }[] = [];
+    for (const id of input.invoiceIds) {
+      // One they can't see (a member's limited to the jobs they're on) is refused as one that's gone.
+      const invoice = await requireInvoice(ctx, id);
+      await assertInvoiceCanGo(ctx, id);
+      if (invoice.status === 'sent' || invoice.status === 'overdue')
+        await voidInvoice(ctx, { invoiceId: id, reason: null });
+      deleted.push({ id, item: await putInBin(ctx, 'invoice', id) });
+    }
+    return answer(deleted);
+  },
+});
+
 export const binRestore = defineCommand({
   name: 'bin.restore',
   description:
@@ -351,6 +396,7 @@ export const binCommands = [
   leadDelete,
   companyDelete,
   customRecordDelete,
+  invoiceDelete,
   binRestore,
   binEmpty,
 ];

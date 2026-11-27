@@ -57,6 +57,7 @@ import { LineSheet } from './line-sheet';
 import { MoneyInput, PercentInput, QuantityInput } from './money-input';
 import { PersonPicker } from './person-picker';
 import { blankLine, ProductPicker, type PickedProduct } from './product-picker';
+import { InvoiceDeleteButton } from './invoice-delete';
 import { StatusBadge } from './status-badge';
 import { MoneyNote, percentLabel, TotalRow } from './totals';
 
@@ -83,6 +84,8 @@ export interface DocumentEditorProps {
   startedAt?: string | null;
   /** Where this business's payments by hand went through before, for Mark paid's Paid through box. */
   paidThroughNames?: readonly string[];
+  /** A saved invoice: Delete it, through the 30-day Deleted bin (records.delete, 20261027037200). */
+  canDelete?: boolean;
 }
 
 /**
@@ -380,6 +383,13 @@ export function DocumentEditor(props: DocumentEditorProps) {
             <Button variant="ghost" onClick={() => setVoiding(true)} data-testid="document-void">
               Void
             </Button>
+          ) : null}
+          {documentId && kind === 'invoice' && props.canDelete ? (
+            <InvoiceDeleteButton
+              workspaceId={workspaceId}
+              invoiceId={documentId}
+              name={draft.title.trim() || 'This draft'}
+            />
           ) : null}
         </div>
       </div>

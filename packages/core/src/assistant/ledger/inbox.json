@@ -1,7 +1,7 @@
 {
   "area": "inbox",
   "title": "Inbox, a conversation, phone calls and video calls",
-  "checkedOn": "2026-11-25",
+  "checkedOn": "2026-11-27",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx": "cac42d727c12",
     "apps/mobile/src/app/app/w/[workspaceId]/call/[callId].tsx": "1113c4963af3",
@@ -37,7 +37,7 @@
     "apps/web/src/app/app/w/[workspaceId]/inbox/page.tsx": "78fca14b2238",
     "apps/web/src/components/ai-team/reply-feedback.tsx": "661ebf8bbc3e",
     "apps/web/src/components/attention/bits.tsx": "eb7a0dd4e7ac",
-    "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
+    "apps/web/src/components/bin/delete-dialog.tsx": "53b9b47d12b7",
     "apps/web/src/components/calendar/appointment-dialog.tsx": "203927cbd1b4",
     "apps/web/src/components/calendar/call-review.tsx": "f69afb7ea4c8",
     "apps/web/src/components/calls/active-call-bar.tsx": "14856343b4f3",

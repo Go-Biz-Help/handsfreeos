@@ -1,5 +1,7 @@
 import {
+  BIN_WORDS,
   dayLabel,
+  holds,
   invoiceStanding,
   MARK_PAID_TITLE,
   money,
@@ -9,22 +11,24 @@ import {
   refundedWording,
   type PaymentMethod,
 } from '@hfos/core';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import * as React from 'react';
 import { Share, View } from 'react-native';
 
-import { HandCoins, Link2, Send } from '@/components/icons';
+import { DeleteSheet } from '@/components/bin/delete-sheet';
+import { HandCoins, Link2, Send, Trash } from '@/components/icons';
 import { DocumentLines, totalsOf } from '@/components/money/document';
 import { StateBadge } from '@/components/money/money-rows';
 import { RecordCashSheet } from '@/components/money/record-cash';
 import { SendSheet } from '@/components/money/send-sheet';
-import { useBusiness } from '@/components/shell/business-context';
+import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
 import { openWeb } from '@/lib/open-web';
 import { moneyLink, sendInvoice } from '@/money/actions';
@@ -45,6 +49,8 @@ export default function Invoice() {
   const { business } = useBusiness();
   // Recording a payment, sending it and copying its link are billing (money.bill, 0106).
   const { bill: manage } = useMoneyRole();
+  // Delete it, through the 30-day Deleted bin: owners, unless one gives it out (records.delete, 20261027037200).
+  const canDelete = holds(useGrants(), 'records.delete');
   const timeZone = useMoneyZone();
   const now = useMoneyNow();
   const { invoice, lines, payments, refunds, loading } = useInvoice(invoiceId);
@@ -53,6 +59,7 @@ export default function Invoice() {
   const [sending, setSending] = React.useState(false);
   const [link, setLink] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
 
   if (!invoice)
     return (
@@ -66,6 +73,11 @@ export default function Invoice() {
     );
 
   const owes = invoice.balanceCents > 0 && invoice.status !== 'void' && invoice.status !== 'draft';
+  // Only one nothing was ever paid on goes in the bin: one with money on it stays for the business's books.
+  const deletable =
+    canDelete &&
+    !invoice.pending &&
+    !payments.some((p) => p.status === 'succeeded' || p.status === 'processing');
   const draftPayable = invoice.status === 'draft' && invoice.totalCents > 0 && !invoice.pending;
   const standing = invoiceStanding(
     {
@@ -223,6 +235,18 @@ export default function Invoice() {
           Open this invoice on the web
         </Button>
       ) : null}
+      {deletable ? (
+        <Button
+          variant="ghostDanger"
+          size="sm"
+          icon={Trash}
+          onPress={() => (online ? setDeleting(true) : toast.error(BIN_WORDS.offline))}
+          className="self-start"
+          testID="invoice-delete"
+        >
+          {BIN_WORDS.invoiceMenu}
+        </Button>
+      ) : null}
 
       <RecordCashSheet
         open={recording}
@@ -244,6 +268,19 @@ export default function Invoice() {
           // refuse it (a partly paid invoice can't be sent again). Changes on this phone says how it ended.
           toast.show(`Sending to ${invoice.person_name}.`);
           setSending(false);
+        }}
+      />
+
+      <DeleteSheet
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        workspaceId={business.id}
+        kind="invoice"
+        ids={[invoiceId]}
+        names={[invoice.number ?? 'This draft']}
+        onDeleted={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace(businessHref(business.id, 'money') as Href);
         }}
       />
 

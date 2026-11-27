@@ -464,7 +464,10 @@ export const companies = app.table('companies', {
 /** Milestone 3: whether a person agreed to texts (declared here because `people` uses it). */
 export const smsConsent = app.enum('sms_consent', ['unknown', 'opted_in', 'opted_out']);
 
-/** What the Deleted bin holds (20261027000400; leads, companies and records from 20261027000800). */
+/**
+ * What the Deleted bin holds (20261027000400; leads, companies and records from 20261027000800; invoices from
+ * 20261027037200).
+ */
 export const BIN_KINDS = [
   'person',
   'conversation',
@@ -472,11 +475,12 @@ export const BIN_KINDS = [
   'lead',
   'company',
   'custom_record',
+  'invoice',
 ] as const;
 export type BinKind = (typeof BIN_KINDS)[number];
 
 /**
- * The Deleted bin (20261027000400): a customer, conversation, booking, lead, company or record deleted, and
+ * The Deleted bin (20261027000400): a customer, conversation, booking, lead, company, record or invoice deleted, and
  * everything that went with it, kept 30 days and then emptied by the worker. Only its functions write it.
  */
 export const binItems = app.table('bin_items', {
@@ -4622,6 +4626,8 @@ export const invoices = app.table('invoices', {
   // Milestone 10
   syncWindow: syncWindow(),
   memberViewerIds: memberViewerIds(),
+  /** In the Deleted bin (20261027037200): hidden, off phones, and emptied after 30 days. */
+  binItemId: binItemRef(),
 });
 
 export const invoiceLines = app.table('invoice_lines', {

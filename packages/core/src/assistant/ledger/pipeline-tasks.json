@@ -1,7 +1,7 @@
 {
   "area": "pipeline-tasks",
   "title": "Pipeline, Tasks and Approvals",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-27",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx": "2c9c246bd2a4",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/tasks.tsx": "f094f03c9b02",
@@ -25,7 +25,7 @@
     "apps/web/src/app/app/w/[workspaceId]/leads/[leadId]/page.tsx": "0e4be85418b3",
     "apps/web/src/app/app/w/[workspaceId]/pipeline/page.tsx": "6a0b82383534",
     "apps/web/src/app/app/w/[workspaceId]/tasks/page.tsx": "8fef39464b01",
-    "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
+    "apps/web/src/components/bin/delete-dialog.tsx": "53b9b47d12b7",
     "apps/web/src/components/calendar/appointment-dialog.tsx": "58903c5b87de",
     "apps/web/src/components/calendar/appointment-sheet.tsx": "1651500dbcbd",
     "apps/web/src/components/calendar/upcoming-card.tsx": "300a62a1d8c8",

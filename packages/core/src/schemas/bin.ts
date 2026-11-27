@@ -4,8 +4,9 @@ import { ListInput } from './crm';
 
 /**
  * The Deleted bin (20261027000400): customers, conversations and bookings deleted for good wait here 30 days, and
- * can be brought back until then; leads, companies and records of the business's own kinds too (20261027000800).
- * Owners only, unless an owner gives "Delete for good" to a role or a person.
+ * can be brought back until then; leads, companies and records of the business's own kinds too (20261027000800), and
+ * invoices nothing was paid on (20261027037200). Owners only, unless an owner gives "Delete for good" to a role or a
+ * person.
  */
 export const BinKind = z.enum([
   'person',
@@ -14,6 +15,7 @@ export const BinKind = z.enum([
   'lead',
   'company',
   'custom_record',
+  'invoice',
 ]);
 export type BinKind = z.infer<typeof BinKind>;
 
@@ -55,6 +57,10 @@ export const BinContents = z.object({
   who: z.array(z.string().nullable()).optional(),
   /** A record's kind ("Pet"). */
   type: z.string().optional(),
+  /** An invoice's total. */
+  totalCents: z.number().int().optional(),
+  /** Invoices still out for payment: deleting voids them first, so their links stop taking payments. */
+  voidFirst: z.number().int().optional(),
 });
 export type BinContents = z.infer<typeof BinContents>;
 
@@ -87,6 +93,7 @@ export const CustomRecordDeleteInput = z.object({
   workspaceId: uuid,
   customRecordIds: ids('record'),
 });
+export const InvoiceDeleteInput = z.object({ workspaceId: uuid, invoiceIds: ids('invoice') });
 export const AppointmentDeleteInput = z.object({
   workspaceId: uuid,
   appointmentId: uuid,

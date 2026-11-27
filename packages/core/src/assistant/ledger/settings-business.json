@@ -27,7 +27,7 @@
     "apps/web/src/components/billing/payment-guard.tsx": "a5d19946a571",
     "apps/web/src/components/billing/payment-wall.tsx": "1c6605cb569f",
     "apps/web/src/components/billing/trial-ending-note.tsx": "7882f94d4023",
-    "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
+    "apps/web/src/components/bin/delete-dialog.tsx": "53b9b47d12b7",
     "apps/web/src/components/bin/deleted-bin.tsx": "ac059400cae4",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/relationships/add-relationship-dialog.tsx": "66332ce8327a",

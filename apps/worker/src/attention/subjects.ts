@@ -119,6 +119,7 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'invoice.paid',
   'invoice.overdue',
   'invoice.voided',
+  'invoice.deleted',
   'payment.recorded',
   'payment.updated',
   'payment.failed',

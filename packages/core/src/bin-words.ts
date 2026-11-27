@@ -1,10 +1,11 @@
 /**
- * Deleting for good, through the Deleted bin (20261027000400 and 20261027000800; the owner's decisions of 2026-10-08
- * are in docs/deleting.md): what the delete box, its toasts and Settings → Deleted bin say, so the web and the phone
- * say the same thing. Browser-safe; `commands/bin.ts` does the work.
+ * Deleting for good, through the Deleted bin (20261027000400, 20261027000800 and 20261027037200; the owner's decisions
+ * of 2026-10-08 are in docs/deleting.md): what the delete box, its toasts and Settings → Deleted bin say, so the web
+ * and the phone say the same thing. Browser-safe; `commands/bin.ts` does the work.
  */
 import { fmtAt, fmtMonthDay, localDayOf } from './calendar/when';
 import { daysSince } from './crm/format';
+import { money } from './money/format';
 import type { BinContents, BinKind } from './schemas/bin';
 
 /** Days something waits in the bin. The database sets the date (`purge_after`); this only says it. */
@@ -46,7 +47,10 @@ export function binContentsWords(c: BinContents): string | null {
 export function binContentsTotal(list: readonly BinContents[]): BinContents {
   if (list.length === 1) return list[0]!;
   const total: Partial<
-    Record<(typeof COUNTED)[number][0] | 'upcoming' | 'bills' | 'people' | 'partners', number>
+    Record<
+      (typeof COUNTED)[number][0] | 'upcoming' | 'bills' | 'people' | 'partners' | 'voidFirst',
+      number
+    >
   > = {};
   for (const c of list)
     for (const key of [
@@ -55,6 +59,7 @@ export function binContentsTotal(list: readonly BinContents[]): BinContents {
       'bills',
       'people',
       'partners',
+      'voidFirst',
     ] as const) {
       const n = c[key];
       if (n) total[key] = (total[key] ?? 0) + n;
@@ -76,11 +81,13 @@ const CHANNELS: Readonly<Record<string, string>> = {
 export const BIN_WORDS = {
   /** The menu item beside Archive. */
   menu: 'Delete for good…',
+  /** An invoice's button and menu item: it has no Archive to tell apart from. */
+  invoiceMenu: 'Delete…',
   submit: 'Delete for good',
   keep: (several: boolean) => (several ? 'Keep them' : 'Keep it'),
   /** Settings → Deleted bin. */
   title: 'Deleted bin',
-  about: `Customers, conversations, bookings, leads, companies and records deleted for good wait here ${BIN_DAYS} days. Bring one back before then, or delete it now.`,
+  about: `Customers, conversations, bookings, leads, companies, records and invoices deleted for good wait here ${BIN_DAYS} days. Bring one back before then, or delete it now.`,
   emptyTitle: 'The bin is empty',
   emptyBody: `What’s deleted for good waits here ${BIN_DAYS} days, so it can be brought back.`,
   restore: 'Bring back',
@@ -101,6 +108,7 @@ export const BIN_WORDS = {
     lead: 'Lead',
     company: 'Company',
     custom_record: 'Record',
+    invoice: 'Invoice',
   },
   /** The box's line over what can't go yet, when it was asked to delete several. */
   blocked: (n: number) => (n === 1 ? 'This one can’t go yet:' : 'These can’t go yet:'),
@@ -188,6 +196,25 @@ export function binDeleteBox(
     title = 'Delete this booking for good?';
     if (words) lines.push(`This also deletes ${words}.`);
     if ((contents.upcoming ?? 0) > 0) lines.push('It’s still to come, so it’s cancelled first.');
+  } else if (kind === 'invoice') {
+    title = several ? `Delete ${n} invoices?` : 'Delete this invoice?';
+    const open = contents.voidFirst ?? 0;
+    if (open > 0)
+      lines.push(
+        !several
+          ? 'It’s still out for payment, so it’s voided first and its link stops taking payments. It stays voided if you bring it back.'
+          : open === 1
+            ? 'One of them is still out for payment, so it’s voided first and its link stops taking payments. It stays voided if you bring it back.'
+            : `${open} of them are still out for payment, so they’re voided first and their links stop taking payments. They stay voided if you bring them back.`,
+      );
+    const who = (contents.who ?? []).find((w): w is string => !!w);
+    lines.push(
+      several
+        ? 'They don’t delete anyone from Contacts.'
+        : who
+          ? `It doesn’t delete ${who} from Contacts.`
+          : 'It doesn’t delete anyone from Contacts.',
+    );
   } else if (kind === 'lead') {
     title = several ? `Delete ${n} leads for good?` : 'Delete this lead for good?';
     if (words) lines.push(`This also deletes ${words}.`);
@@ -241,6 +268,10 @@ export function binDeletedWords(kind: BinKind, names: readonly string[]): string
     return n === 1
       ? `Lead deleted. Bring it back ${back}`
       : `${n} leads deleted. Bring them back ${back}`;
+  if (kind === 'invoice')
+    return n === 1
+      ? `Invoice deleted. Bring it back ${back}`
+      : `${n} invoices deleted. Bring them back ${back}`;
   if (kind === 'company' || kind === 'custom_record')
     return n === 1
       ? `${names[0]} deleted. Bring it back ${back}`
@@ -261,6 +292,7 @@ export function binRestoredWords(r: {
     }`;
   if (r.kind === 'lead') return `${r.name} is back in the Pipeline.`;
   if (r.kind === 'company' || r.kind === 'custom_record') return `${r.name} is back in Contacts.`;
+  if (r.kind === 'invoice') return `${r.name} is back in Money → Invoices.`;
   return `${r.name} is back on the calendar.`;
 }
 
@@ -297,7 +329,9 @@ export function binItemDetail(item: BinItemLike, timeZone: string): string | nul
         ? [c.startsAt ? fmtAt(c.startsAt, timeZone) : null, who]
         : item.kind === 'lead'
           ? [who, binContentsWords(c)]
-          : [binContentsWords(c)];
+          : item.kind === 'invoice'
+            ? [who, c.totalCents !== undefined ? money(c.totalCents) : null]
+            : [binContentsWords(c)];
   const line = parts.filter((p): p is string => !!p).join(' · ');
   return line || null;
 }
