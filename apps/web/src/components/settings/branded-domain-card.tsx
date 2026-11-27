@@ -7,6 +7,7 @@ import { Callout } from '@/components/crm/chips';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { copyText } from '@/components/ui/copy-field';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -216,25 +217,19 @@ export function BrandedDomainCard({
                     className="rounded-[10px] bg-card-2 p-3"
                     data-testid={`branded-domain-record-${r.kind}`}
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="member">{r.kind}</Badge>
-                      <span className="font-mono text-xs">{r.host}</span>
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <code className="min-w-0 flex-1 truncate rounded bg-card px-2 py-1 font-mono text-xs">
-                        {r.value}
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          void navigator.clipboard.writeText(r.value);
-                          toast.success('Copied.');
-                        }}
-                      >
-                        <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />
-                        Copy
-                      </Button>
+                    <Badge variant="member">{r.kind}</Badge>
+                    {/* Each line is its own box in the DNS form, so each has its own Copy. */}
+                    <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5">
+                      <RecordLine
+                        label="Name"
+                        value={r.host}
+                        testId={`branded-domain-name-${r.kind}`}
+                      />
+                      <RecordLine
+                        label="Value"
+                        value={r.value}
+                        testId={`branded-domain-value-${r.kind}`}
+                      />
                     </div>
                     <p className="mt-1.5 text-xs text-text-3">{r.why}</p>
                   </div>
@@ -291,5 +286,34 @@ export function BrandedDomainCard({
         </div>
       )}
     </Card>
+  );
+}
+
+/**
+ * One line of a DNS record, the name or the value, with its own Copy. The DNS form has a box for each, so
+ * copying them one at a time is what pasting them in takes.
+ */
+function RecordLine({ label, value, testId }: { label: string; value: string; testId: string }) {
+  const what = label.toLowerCase();
+  return (
+    <>
+      <span className="text-xs text-text-3">{label}</span>
+      <code
+        className="min-w-0 truncate rounded bg-card px-2 py-1 font-mono text-xs"
+        title={value}
+        data-testid={testId}
+      >
+        {value}
+      </code>
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label={`Copy the ${what}`}
+        onClick={() => void copyText(value, `Copied the ${what}.`)}
+      >
+        <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />
+        Copy
+      </Button>
+    </>
   );
 }

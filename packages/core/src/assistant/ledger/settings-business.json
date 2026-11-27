@@ -1,7 +1,7 @@
 {
   "area": "settings-business",
   "title": "Settings: the business, branded domain, pipelines, tags, fields, relationships, Deleted bin, usage, action center and automations",
-  "checkedOn": "2026-11-25",
+  "checkedOn": "2026-11-27",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "4f114178dc72",
@@ -40,7 +40,7 @@
     "apps/web/src/components/settings/automations/automations-page.tsx": "57d10fa29ef1",
     "apps/web/src/components/settings/automations/panels.tsx": "e4dddf96e1b6",
     "apps/web/src/components/settings/billing-page.tsx": "480282be3d3a",
-    "apps/web/src/components/settings/branded-domain-card.tsx": "d6e2b0af323b",
+    "apps/web/src/components/settings/branded-domain-card.tsx": "210ef7bede14",
     "apps/web/src/components/settings/delete-workspace.tsx": "fe6ed95a9d1f",
     "apps/web/src/components/settings/fields-settings.tsx": "60503c06ceb7",
     "apps/web/src/components/settings/getting-started-switch.tsx": "77bfcc286007",
@@ -565,28 +565,28 @@
     {
       "path": "Business → Branded domain → DNS records (kind, host, value, why)",
       "kind": "see",
-      "file": "apps/web/src/components/settings/branded-domain-card.tsx:220",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:214",
       "covered": "yes",
       "by": "get_settings branded_domain records"
     },
     {
-      "path": "Business → Branded domain → Copy a value",
+      "path": "Business → Branded domain → Copy a record's name, Copy its value (each its own button)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/branded-domain-card.tsx:235",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:293",
       "covered": "yes",
-      "by": "values given as text"
+      "by": "names and values given as text"
     },
     {
       "path": "Business → Branded domain → Check now",
       "kind": "do",
-      "file": "apps/web/src/components/settings/branded-domain-card.tsx:264",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:248",
       "covered": "yes",
       "by": "check_web_address (runs on its own)"
     },
     {
       "path": "Business → Branded domain → Remove + confirm",
       "kind": "do",
-      "file": "apps/web/src/components/settings/branded-domain-card.tsx:287",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:266",
       "covered": "yes",
       "by": "manage_web_address remove"
     },

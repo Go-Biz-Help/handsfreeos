@@ -130,22 +130,31 @@ const write = (
     workerMeta(),
   );
 
-/** A business added a domain: claim it with the host and find out what its DNS needs. */
-export const onBrandedDomainAdded: EventHandler = async (ctx) => {
+/** Looks at the domain now: claims it with the host and finds out what its DNS needs. */
+const checkNow: EventHandler = async (ctx) => {
   const { workspaceId, organizationId } = ctx.scope;
   if (!workspaceId || !organizationId || !ctx.event.entityId) return;
-  await scheduleJob(ctx.tx, {
-    kind: DOMAIN_JOBS.check,
-    dedupeKey: `branded_domain:${ctx.event.entityId}`,
-    runAt: new Date(),
-    payload: { domainId: ctx.event.entityId, first: true },
-    workspaceId,
-    organizationId,
-  });
+  await scheduleJob(
+    ctx.tx,
+    {
+      kind: DOMAIN_JOBS.check,
+      dedupeKey: `branded_domain:${ctx.event.entityId}`,
+      runAt: new Date(),
+      payload: { domainId: ctx.event.entityId, first: true },
+      workspaceId,
+      organizationId,
+    },
+    // The close watch's next look is already waiting, up to fifteen minutes out, under the same key. Without
+    // this, Check now found it there and did nothing: the screen said "Checking now." and nothing changed.
+    { pullEarlier: true },
+  );
 };
 
-/** Somebody pressed Check now. */
-export const onBrandedDomainCheckRequested: EventHandler = onBrandedDomainAdded;
+/** A business added a domain. */
+export const onBrandedDomainAdded: EventHandler = checkNow;
+
+/** Somebody pressed Check now: the waiting look comes forward to now. */
+export const onBrandedDomainCheckRequested: EventHandler = checkNow;
 
 /** A business took its domain off: give the name back, so somebody else can use it. */
 export const onBrandedDomainRemoved: EventHandler = async (ctx) => {
