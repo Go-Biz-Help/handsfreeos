@@ -7,7 +7,7 @@
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx": "ee23933f5989",
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/fill.tsx": "4b12a155a165",
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/index.tsx": "3763eae06167",
-    "apps/mobile/src/components/forms/question-field.tsx": "59450d2e196b",
+    "apps/mobile/src/components/forms/question-field.tsx": "329bdffdc1c2",
     "apps/mobile/src/forms/export-answers.ts": "3f98c2892b3a",
     "apps/mobile/src/forms/qr-image.ts": "335d7b886235",
     "apps/mobile/src/forms/qr.ts": "7b9c6c1d6851",
@@ -34,13 +34,13 @@
     "apps/web/src/components/crm/tag-picker.tsx": "74b0055a510a",
     "apps/web/src/components/forms/booking-picker.tsx": "ab0798d78741",
     "apps/web/src/components/forms/chips.tsx": "9f46c43f3308",
-    "apps/web/src/components/forms/design-panel.tsx": "b0a855b6c576",
-    "apps/web/src/components/forms/editor-state.ts": "46b32473f0ab",
-    "apps/web/src/components/forms/editor.tsx": "b324f81933ab",
+    "apps/web/src/components/forms/design-panel.tsx": "5d7d16f79b07",
+    "apps/web/src/components/forms/editor-state.ts": "5eec0bcf847b",
+    "apps/web/src/components/forms/editor.tsx": "519b59dca758",
     "apps/web/src/components/forms/embed-height.tsx": "bafe88e2662d",
     "apps/web/src/components/forms/file-field.tsx": "28b1f2394118",
     "apps/web/src/components/forms/form-list.tsx": "56e0517bcfd4",
-    "apps/web/src/components/forms/form-look.tsx": "22b5a270eb10",
+    "apps/web/src/components/forms/form-look.tsx": "1bdb7eaab224",
     "apps/web/src/components/forms/name-header.tsx": "490c11e1f3ab",
     "apps/web/src/components/forms/new-form-button.tsx": "f2b28d487f05",
     "apps/web/src/components/forms/new-form.tsx": "ce355379405f",
@@ -48,13 +48,13 @@
     "apps/web/src/components/forms/poll-draft.tsx": "681b59e88397",
     "apps/web/src/components/forms/poll-leads.tsx": "2f01977a2b51",
     "apps/web/src/components/forms/poll-slides.tsx": "9a3e003f5c23",
-    "apps/web/src/components/forms/preview.tsx": "3d01db54ac9a",
-    "apps/web/src/components/forms/public-form.tsx": "e542de786abd",
+    "apps/web/src/components/forms/preview.tsx": "d66b1f64174c",
+    "apps/web/src/components/forms/public-form.tsx": "bd1ee4d629ae",
     "apps/web/src/components/forms/quantities-field.tsx": "526b0d724c85",
     "apps/web/src/components/forms/quantities-settings.tsx": "2f4b78f86887",
-    "apps/web/src/components/forms/question-field.tsx": "2e6905b08154",
-    "apps/web/src/components/forms/question-list.tsx": "0574a7ce3a88",
-    "apps/web/src/components/forms/question-settings.tsx": "fcce8ce168dc",
+    "apps/web/src/components/forms/question-field.tsx": "261e28d7e0e0",
+    "apps/web/src/components/forms/question-list.tsx": "0efc6a4b03c1",
+    "apps/web/src/components/forms/question-settings.tsx": "4f8bef6a2db9",
     "apps/web/src/components/forms/required-text.tsx": "0cb90deec1e4",
     "apps/web/src/components/forms/responses.tsx": "38736768af55",
     "apps/web/src/components/forms/results.tsx": "051baab9f435",
@@ -63,6 +63,7 @@
     "apps/web/src/components/forms/video-player.tsx": "15b62433f2c1",
     "apps/web/src/components/forms/website-chats.tsx": "7b25ec4e137e",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
+    "apps/web/src/components/look/picture-picker.tsx": "da5decb00ff4",
     "apps/web/src/components/reviews/reviews-board.tsx": "685e5ab4c16c",
     "apps/web/src/components/settings/chat-install.tsx": "000b8ddf3f39",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
@@ -1204,6 +1205,13 @@
       "by": "build_form move_question"
     },
     {
+      "path": "Forms → a form → Questions → each question: drag its handle to move it, onto another page too",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-list.tsx:425",
+      "covered": "yes",
+      "by": "build_form move_question"
+    },
+    {
       "path": "Forms → a form → Questions → each question: Duplicate",
       "kind": "do",
       "file": "apps/web/src/components/forms/question-list.tsx:195",
@@ -1272,6 +1280,13 @@
       "file": "apps/web/src/components/forms/question-settings.tsx:112",
       "covered": "yes",
       "by": "build_form update_question required"
+    },
+    {
+      "path": "Forms → a form → a question → Half width (sits beside the half-width one next to it on a computer)",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:151",
+      "covered": "yes",
+      "by": "build_form update_question width half or full"
     },
     {
       "path": "Forms → a form → a question → The choices: change a choice’s words",
@@ -1384,6 +1399,48 @@
       "file": "apps/web/src/components/forms/question-settings.tsx:153",
       "covered": "yes",
       "by": "build_form config body"
+    },
+    {
+      "path": "Forms → a form → Add a question → Picture → What it shows, Caption",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:91",
+      "covered": "yes",
+      "by": "build_form picture title (what it shows) and help (the caption)"
+    },
+    {
+      "path": "Forms → a form → a picture → The picture: pick from Your pictures, Change, None",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:417",
+      "covered": "yes",
+      "by": "build_form config.picture, copied from read_picture_list (the builder is given Your pictures)"
+    },
+    {
+      "path": "Forms → a form → a picture → Size: Small, Medium, Large, Full",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:437",
+      "covered": "yes",
+      "by": "build_form config.size"
+    },
+    {
+      "path": "Forms → a form → a picture, or words on the page → Line up: Left, Centre, Right",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:450",
+      "covered": "yes",
+      "by": "build_form config.align"
+    },
+    {
+      "path": "Forms → a form → a picture → Opens a web page when pressed",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:462",
+      "covered": "yes",
+      "by": "build_form config.link"
+    },
+    {
+      "path": "Forms → a form → a question → The choices: a choice’s picture",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:1068",
+      "covered": "yes",
+      "by": "build_form update_question config.choices picture"
     },
     {
       "path": "Forms → a form → a question → What they are signing",
@@ -1645,6 +1702,20 @@
       "by": "build_form set_design spacing, labels, width"
     },
     {
+      "path": "Forms → a form → Design → Layout: Line up (Left, Centre)",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/design-panel.tsx:301",
+      "covered": "yes",
+      "by": "build_form set_design align"
+    },
+    {
+      "path": "Forms → a form → Design → Pictures: Across the top, Behind the form (pick, Change, None)",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/design-panel.tsx:332",
+      "covered": "yes",
+      "by": "build_form set_design cover, backdrop, copied from read_picture_list (the builder is given Your pictures)"
+    },
+    {
       "path": "Forms → a form → Design → The form’s name at the top, Your logo at the top (add a logo first)",
       "kind": "do",
       "file": "apps/web/src/components/forms/design-panel.tsx:291",
@@ -1676,6 +1747,13 @@
       "path": "Forms → a form → Design → preview: On your website / On its own page, Computer / Phone",
       "kind": "do",
       "file": "apps/web/src/components/forms/design-panel.tsx:330",
+      "covered": "no",
+      "by": "a picture only; nothing shows it"
+    },
+    {
+      "path": "Forms → a form → Preview → Computer / Phone",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/editor.tsx:447",
       "covered": "no",
       "by": "a picture only; nothing shows it"
     },

@@ -5,6 +5,7 @@
  * public page and the server all check a question the same way.
  */
 import { z } from 'zod';
+import { PictureRef } from '../look/pictures';
 import { CalculationId, ChoiceId, QuestionId, ResultId } from './ids';
 
 export const QUESTION_TYPES = [
@@ -30,6 +31,7 @@ export const QUESTION_TYPES = [
   'booking',
   'button',
   'quantities',
+  'picture',
 ] as const;
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 
@@ -56,7 +58,58 @@ export const QUESTION_LABELS: Readonly<Record<QuestionType, string>> = {
   booking: 'Book a time',
   button: 'Button',
   quantities: 'How many of each',
+  picture: 'Picture',
 };
+
+// ---- Pictures and lining up ----
+
+/** How big a picture item is: a share of the form's width (or all of it). */
+export const PICTURE_SIZES = ['small', 'medium', 'large', 'full'] as const;
+export type PictureSize = (typeof PICTURE_SIZES)[number];
+export const PICTURE_SIZE_LABELS: Readonly<Record<PictureSize, string>> = {
+  small: 'Small',
+  medium: 'Medium',
+  large: 'Large',
+  full: 'Full width',
+};
+/** Each size's share of the form's width. */
+export const PICTURE_SIZE_SHARE: Readonly<Record<PictureSize, number>> = {
+  small: 0.33,
+  medium: 0.5,
+  large: 0.75,
+  full: 1,
+};
+/** Where a picture or words sit across the form. */
+export const ITEM_ALIGNS = ['left', 'center', 'right'] as const;
+export type ItemAlign = (typeof ITEM_ALIGNS)[number];
+export const ITEM_ALIGN_LABELS: Readonly<Record<ItemAlign, string>> = {
+  left: 'Left',
+  center: 'Centre',
+  right: 'Right',
+};
+/** How wide a question is: the whole row, or half of it, sharing the row with the half beside it. */
+export const QUESTION_WIDTHS = ['full', 'half'] as const;
+export type QuestionWidth = (typeof QUESTION_WIDTHS)[number];
+
+/**
+ * Questions in the rows a page shows them in: two half-width ones next to each other side by side, every other one on
+ * its own. A half-width one with no half-width neighbour takes the whole row. Give it the questions showing now, so
+ * one hidden by logic doesn't leave a gap.
+ */
+export function questionRows<Q extends { readonly width?: QuestionWidth }>(
+  questions: readonly Q[],
+): Q[][] {
+  const rows: Q[][] = [];
+  for (let i = 0; i < questions.length; i += 1) {
+    const q = questions[i]!;
+    const next = questions[i + 1];
+    if (q.width === 'half' && next?.width === 'half') {
+      rows.push([q, next]);
+      i += 1;
+    } else rows.push([q]);
+  }
+  return rows;
+}
 
 // ---- Choices ----
 
@@ -76,6 +129,8 @@ export const QuestionChoice = z.object({
   value: z.number().min(-1_000_000_000).max(1_000_000_000).nullable().default(null),
   /** Outcome quizzes: the result this choice argues for. */
   resultId: ResultId.nullable().default(null),
+  /** A picture shown with it (Your pictures), so they pick by looking: a style, a colour, a product. */
+  picture: PictureRef.nullable().default(null),
 });
 export type QuestionChoice = z.infer<typeof QuestionChoice>;
 export type QuestionChoiceInput = z.input<typeof QuestionChoice>;
@@ -209,6 +264,8 @@ export const QUESTION_CONFIGS = {
   }),
   content: z.object({
     body: z.string().trim().min(1, 'Write something.').max(5000),
+    /** Where the words sit across the form. */
+    align: z.enum(ITEM_ALIGNS).default('left'),
   }),
   payment: z.object({
     /** Fixed cents, a calculation's answer, or an amount they were asked for. */
@@ -277,6 +334,18 @@ export const QUESTION_CONFIGS = {
      */
     makesOrder: z.boolean().default(true),
   }),
+  picture: z.object({
+    /**
+     * The picture, from Your pictures. Null while it's being set up: a draft can be saved without one, and publishing
+     * asks for it (`formProblems`). The question's title is what it shows, read out to people who can't see it; its
+     * help is the line under it.
+     */
+    picture: PictureRef.nullable().default(null),
+    size: z.enum(PICTURE_SIZES).default('large'),
+    align: z.enum(ITEM_ALIGNS).default('center'),
+    /** A web address the picture opens when pressed; blank for none. Checked when it's published. */
+    link: z.string().trim().max(500).default(''),
+  }),
 } as const satisfies Record<QuestionType, z.ZodType>;
 
 export type QuestionConfig<T extends QuestionType = QuestionType> = z.infer<
@@ -287,7 +356,11 @@ export type QuestionConfig<T extends QuestionType = QuestionType> = z.infer<
 export const CHOICE_TYPES: ReadonlySet<QuestionType> = new Set(['choice', 'checkboxes']);
 
 /** Types that ask nothing, so they are never required and never hold an answer. */
-export const UNANSWERED_TYPES: ReadonlySet<QuestionType> = new Set(['content']);
+export const UNANSWERED_TYPES: ReadonlySet<QuestionType> = new Set(['content', 'picture']);
+
+/** Whether it asks anything: words or a picture on the page ask nothing. */
+export const asksSomething = (question: { type: string }): boolean =>
+  !UNANSWERED_TYPES.has(question.type as QuestionType);
 
 /** Types whose answer is a number the logic can do arithmetic with. */
 export const NUMERIC_TYPES: ReadonlySet<QuestionType> = new Set([

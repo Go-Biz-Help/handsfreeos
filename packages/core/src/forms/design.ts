@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { contrastRatio, readableTextOn } from '../chat/origins';
 import { buttonColorFor, isLookColor, LOOK_DEFAULT_COLOR, mixColors } from '../look/colour';
 import { FONT_NAME, formFontHref, formFontOf } from '../look/fonts';
+import { PictureRef } from '../look/pictures';
 
 export {
   FORM_DEFAULT_FONT,
@@ -58,6 +59,9 @@ export const FORM_FIELD_STYLES = ['boxed', 'filled', 'underline'] as const;
 export const FORM_SPACINGS = ['compact', 'normal', 'roomy'] as const;
 export const FORM_LABEL_PLACES = ['above', 'inside'] as const;
 export const FORM_WIDTHS = ['narrow', 'medium', 'wide', 'full'] as const;
+/** Where the top (logo, name and intro) and the send button sit: on the left, or in the middle. */
+export const FORM_ALIGNS = ['left', 'center'] as const;
+export type FormAlign = (typeof FORM_ALIGNS)[number];
 
 export const FormDesign = z.object({
   /** Light or dark: what the colours left unset are worked out from. */
@@ -92,6 +96,15 @@ export const FormDesign = z.object({
   showLogo: z.boolean().default(false),
   /** The form's name at the top. Hidden, screen readers still hear it; a website's own heading often says it. */
   showTitle: z.boolean().default(true),
+  /** Line up: the logo, name and intro, and the send button, on the left or in the middle. */
+  align: z.enum(FORM_ALIGNS).default('left'),
+  /** A wide picture across the top (Your pictures), above the logo and name. */
+  cover: PictureRef.nullable().default(null),
+  /**
+   * A picture behind the whole form (Your pictures), filling the page around it. The form keeps its own background
+   * on top, so the questions always read.
+   */
+  backdrop: PictureRef.nullable().default(null),
   /** Filled in from a website by Match my website: which site, and when. A person's change leaves it be. */
   matched: z
     .object({ site: z.string().trim().max(300), at: z.iso.datetime() })
@@ -173,6 +186,11 @@ export interface FormLook {
   readonly paintsBackground: boolean;
   /** The Google font to load, or null for ours. */
   readonly fontHref: string | null;
+  /** The wide picture across the top, and the one behind the form (Your pictures), when the design has them. */
+  readonly cover: PictureRef | null;
+  readonly backdrop: PictureRef | null;
+  /** Where the top and the send button sit. */
+  readonly align: FormAlign;
   readonly dark: boolean;
   readonly labelsInside: boolean;
   readonly showLogo: boolean;
@@ -257,10 +275,14 @@ export function formLook(
       'data-fields': d.fields,
       'data-button': d.button.style,
       'data-button-width': d.button.fullWidth ? 'full' : 'auto',
+      'data-align': d.align,
       'data-labels': d.labels,
     },
     paintsBackground,
     fontHref: formFontHref(fontName),
+    cover: d.cover,
+    backdrop: d.backdrop,
+    align: d.align,
     dark,
     labelsInside: d.labels === 'inside',
     showLogo: d.showLogo,

@@ -25,6 +25,7 @@ import { errorMessage } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
+import { PicturePicker } from '@/components/look/picture-picker';
 import { cn } from '@/lib/utils';
 import type { FormLogo } from './form-look';
 import { FormPreview } from './preview';
@@ -289,6 +290,17 @@ export function FormDesignPanel({
             ]}
             testId="design-width"
           />
+          <Choice
+            title="Line up"
+            value={design.align}
+            onChange={(align) => set({ align })}
+            options={[
+              ['left', 'Left'],
+              ['center', 'Centre'],
+            ]}
+            testId="design-align"
+            hint="The logo, the form’s name and its words at the top, and the button."
+          />
           <SwitchRow
             label="The form’s name at the top"
             checked={design.showTitle}
@@ -306,6 +318,43 @@ export function FormDesignPanel({
           {!brand.logo ? (
             <Hint className="mt-0">Add your logo in Settings → Workspace to show it here.</Hint>
           ) : null}
+        </Section>
+
+        <Section title="Pictures">
+          <Labelled title="Across the top">
+            {() => (
+              <PicturePicker
+                workspaceId={workspaceId}
+                label="Picture across the top"
+                value={design.cover}
+                disabled={readOnly}
+                canUpload={!readOnly}
+                testId="design-cover"
+                onChange={(cover) => set({ cover })}
+              />
+            )}
+          </Labelled>
+          <Labelled title="Behind the form">
+            {() => (
+              <PicturePicker
+                workspaceId={workspaceId}
+                label="Picture behind the form"
+                value={design.backdrop}
+                disabled={readOnly}
+                canUpload={!readOnly}
+                testId="design-backdrop"
+                onChange={(backdrop) => {
+                  set({ backdrop });
+                  // It shows on the form's own page, so that's where the preview goes.
+                  if (backdrop) setWhere('page');
+                }}
+              />
+            )}
+          </Labelled>
+          <Hint className="mt-0">
+            The picture behind shows on the form’s own page. On your website, your site is behind
+            it. Add pictures to the form itself with Add a question → Picture.
+          </Hint>
         </Section>
 
         {!readOnly && onUseEverywhere ? <UseEverywhere onConfirm={onUseEverywhere} /> : null}
@@ -481,7 +530,7 @@ function UseEverywhere({ onConfirm }: { onConfirm: () => Promise<void> }) {
         </Button>
         <DialogContent
           title="Use this design on all your forms?"
-          description="Your other forms take these colours, font, shape and layout, and live ones show them straight away. Nothing else about them changes. This form’s own changes still go live when you publish it."
+          description="Your other forms take these colours, font, shape, layout and pictures across the top and behind, and live ones show them straight away. Nothing else about them changes. This form’s own changes still go live when you publish it."
         >
           <div className="mt-5 flex justify-end gap-2">
             <DialogClose asChild>

@@ -25,7 +25,7 @@
     "apps/web/src/app/chat/[key]/page.tsx": "8c826d330d83",
     "apps/web/src/app/d/[token]/page.tsx": "8a96c39a8600",
     "apps/web/src/app/e/[token]/page.tsx": "145bcd951eee",
-    "apps/web/src/app/f/[site]/[slug]/page.tsx": "ccf87ae1e7c2",
+    "apps/web/src/app/f/[site]/[slug]/page.tsx": "a9c84c32c3f2",
     "apps/web/src/app/hold/[token]/page.tsx": "d5ddbb807f7a",
     "apps/web/src/app/i/[token]/page.tsx": "f794cf29bcc7",
     "apps/web/src/app/invite/[token]/page.tsx": "a1abb7862fdb",
@@ -62,8 +62,8 @@
     "apps/web/src/components/documents/signing-page.tsx": "93d3da610fb4",
     "apps/web/src/components/forms/address-field.tsx": "20ece36ae74b",
     "apps/web/src/components/forms/booking-picker.tsx": "ab0798d78741",
-    "apps/web/src/components/forms/public-form.tsx": "e542de786abd",
-    "apps/web/src/components/forms/question-field.tsx": "2e6905b08154",
+    "apps/web/src/components/forms/public-form.tsx": "bd1ee4d629ae",
+    "apps/web/src/components/forms/question-field.tsx": "261e28d7e0e0",
     "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
     "apps/web/src/components/money/paypal-buttons.tsx": "d1d0351e7497",
     "apps/web/src/components/money/provider-fields.tsx": "96d28fde2225",
@@ -1448,6 +1448,13 @@
       "file": "apps/web/src/components/forms/question-field.tsx:1",
       "covered": "yes",
       "by": "get_form asks, questionIds"
+    },
+    {
+      "path": "Form → pictures: a picture and its caption (opens its web page when it has one), pictures on choices, the picture across the top and behind, half-width questions side by side",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/question-field.tsx:1",
+      "covered": "yes",
+      "by": "get_form asks and design"
     },
     {
       "path": "Form → answer questions: text, choice, checkboxes, yes/no, rating, number, money, date, time, address, email, phone, video, button",

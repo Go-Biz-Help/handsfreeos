@@ -9,7 +9,9 @@
  *   `pictures` bucket, so it shows on a client's website and in an email, and `picture.note_made` keeps it (`ready`)
  *   or says why it couldn't be used (`failed`). The upload is removed either way; the original isn't kept.
  * - Removing a picture takes it out of the library; its file stays, so a page already showing it doesn't break.
+ * - A page keeps a picture as a `PictureRef`: where its copy is and its size, so it shows without asking the library.
  */
+import { z } from 'zod';
 
 /** Where the made copies are kept: public, so pages and emails can show them. */
 export const PICTURE_BUCKET = 'pictures' as const;
@@ -56,6 +58,21 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 export const PICTURE_UPLOAD_PATH = new RegExp(`^${UUID}/${UUID}\\.(?:png|jpg|webp|gif|avif)$`);
 /** A made copy in `pictures`: `<business>/<id>.webp`. */
 export const PICTURE_PATH = new RegExp(`^${UUID}/${UUID}\\.webp$`);
+
+/**
+ * A picture from the library as a form, page or email keeps it: where its copy is, and its size, so the space it takes
+ * is held while it loads. Kept whole, so a picture taken out of the library later still shows where it was put.
+ */
+export const PictureRef = z.object({
+  path: z.string().regex(PICTURE_PATH, { error: 'Pick a picture from Your pictures.' }),
+  width: z.int().min(1).max(10_000),
+  height: z.int().min(1).max(10_000),
+});
+export type PictureRef = z.infer<typeof PictureRef>;
+
+/** The library picture a kept one is: its id, from its path. */
+export const pictureIdOfPath = (path: string): string | null =>
+  PICTURE_PATH.test(path) ? (path.split('/')[1]?.replace(/\.webp$/, '') ?? null) : null;
 
 export const PICTURE_STATUSES = ['uploading', 'making', 'ready', 'failed'] as const;
 export type PictureStatus = (typeof PICTURE_STATUSES)[number];

@@ -3,13 +3,21 @@ import {
   isSingleCheckbox,
   NAME_QUESTIONS,
   nameQuestionOf,
+  PICTURE_SIZE_SHARE,
+  questionRows,
   type AnswerValue,
+  type ItemAlign,
+  type PictureRef,
+  type PictureSize,
   type Question,
 } from '@hfos/core';
+import { ImageIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { pictureSrc } from '@/lib/look';
 import { cn } from '@/lib/utils';
 import { AddressField } from './address-field';
 import { BookingPicker } from './booking-picker';
@@ -18,8 +26,48 @@ import { useFormLook } from './form-look';
 import { QuantitiesField } from './quantities-field';
 import { VideoPlayer } from './video-player';
 
+/** Words lined up across the form. */
+const TEXT_ALIGN: Readonly<Record<ItemAlign, string>> = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+};
+
+/** A choice as the person answering sees it, with its picture when it has one. */
+type ShownChoice = { id: string; label: string; picture?: PictureRef | null };
+
 /** The boxes people type in, which can carry their question's words inside them (the design's labels). */
 const TYPED = new Set(['short_text', 'long_text', 'email', 'phone', 'number', 'money']);
+
+/**
+ * A page's questions in rows: two half-width ones side by side once the form is wide enough (its section is the
+ * container, so the editor's narrow preview stacks them as a phone does), every other one across the whole form.
+ */
+export function QuestionRows({
+  questions,
+  render,
+}: {
+  questions: readonly Question[];
+  render: (question: Question) => ReactNode;
+}) {
+  return (
+    <>
+      {questionRows(questions).map((row) =>
+        row.length === 1 ? (
+          render(row[0]!)
+        ) : (
+          <div
+            key={row.map((q) => q.id).join('+')}
+            className="grid gap-[var(--form-gap,1.5rem)] @[480px]:grid-cols-2"
+            data-testid="form-row"
+          >
+            {row.map(render)}
+          </div>
+        ),
+      )}
+    </>
+  );
+}
 
 /**
  * One question as the person answering it sees it. The preview in the editor and the public page both use
@@ -40,12 +88,18 @@ export function QuestionField({
   const { labelsInside } = useFormLook();
   // Words inside the box: the label stays for screen readers, and the box shows the question until they type.
   const inside = labelsInside && TYPED.has(question.type);
-  if (question.type === 'content')
+  if (question.type === 'content') {
+    const { body, align } = question.config as { body: string; align?: ItemAlign };
     return (
-      <p id={id} className="whitespace-pre-wrap text-[14px] text-text-2">
-        {String((question.config as { body: string }).body)}
+      <p
+        id={id}
+        className={cn('whitespace-pre-wrap text-[14px] text-text-2', TEXT_ALIGN[align ?? 'left'])}
+      >
+        {String(body)}
       </p>
     );
+  }
+  if (question.type === 'picture') return <PictureItem id={id} question={question} />;
   if (isSingleCheckbox(question)) {
     // One box to check: the question is the words beside it. Checked is a yes; unchecked is no answer at all.
     const checked = value === 'yes' || value === true;
@@ -141,7 +195,17 @@ function Answer({
         />
       );
     case 'choice': {
-      const choices = (config.choices ?? []) as { id: string; label: string }[];
+      const choices = (config.choices ?? []) as ShownChoice[];
+      if (choices.some((c) => c.picture))
+        return (
+          <PictureChoices
+            name={id}
+            choices={choices}
+            picked={value === null || value === undefined ? [] : [String(value)]}
+            many={false}
+            onPick={(choiceId) => onChange(choiceId)}
+          />
+        );
       return (
         <div className="space-y-2">
           {choices.map((choice) => (
@@ -168,8 +232,24 @@ function Answer({
       );
     }
     case 'checkboxes': {
-      const choices = (config.choices ?? []) as { id: string; label: string }[];
+      const choices = (config.choices ?? []) as ShownChoice[];
       const picked = Array.isArray(value) ? value.map(String) : [];
+      if (choices.some((c) => c.picture))
+        return (
+          <PictureChoices
+            name={id}
+            choices={choices}
+            picked={picked}
+            many
+            onPick={(choiceId) =>
+              onChange(
+                picked.includes(choiceId)
+                  ? picked.filter((p) => p !== choiceId)
+                  : [...picked, choiceId],
+              )
+            }
+          />
+        );
       return (
         <div className="space-y-2">
           {choices.map((choice) => (
@@ -385,4 +465,129 @@ function Answer({
       );
     }
   }
+}
+
+/**
+ * A picture on the form: as much of the form's width as its size says, lined up left, centre or right, with its caption
+ * underneath. Its title is what it shows, for people who can't see it. One not picked yet shows only in the editor.
+ */
+function PictureItem({ id, question }: { id: string; question: Question }) {
+  const { picture, size, align, link } = question.config as {
+    picture: PictureRef | null;
+    size?: PictureSize;
+    align?: ItemAlign;
+    link?: string;
+  };
+  const share = PICTURE_SIZE_SHARE[size ?? 'large'];
+  const place = size === 'full' ? 'center' : (align ?? 'center');
+  const margin =
+    place === 'center' ? 'mx-auto' : place === 'right' ? 'ml-auto mr-0' : 'ml-0 mr-auto';
+  if (!picture)
+    return (
+      <div
+        id={id}
+        className={cn(
+          'flex aspect-[3/2] items-center justify-center gap-2 rounded-control border border-dashed border-border-strong text-[13px] text-text-3',
+          margin,
+        )}
+        style={{ width: `${share * 100}%` }}
+        data-testid="form-picture-empty"
+      >
+        <ImageIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        Pick a picture
+      </div>
+    );
+  const img = (
+    // Storage's public address: plain <img>, with its size so the space it takes is held while it loads.
+    <img
+      src={pictureSrc(picture.path)}
+      alt={question.title}
+      width={picture.width}
+      height={picture.height}
+      loading="lazy"
+      className="block h-auto w-full rounded-control"
+    />
+  );
+  const opens = link && /^https?:\/\//i.test(link) ? link : null;
+  return (
+    <figure
+      id={id}
+      className={cn('m-0', margin)}
+      style={{ width: `${share * 100}%` }}
+      data-testid="form-picture"
+      data-align={place}
+      data-size={size ?? 'large'}
+    >
+      {opens ? (
+        <a href={opens} target="_blank" rel="noopener noreferrer nofollow">
+          {img}
+        </a>
+      ) : (
+        img
+      )}
+      {question.help ? (
+        <figcaption className={cn('mt-1.5 text-[12.5px] text-text-3', TEXT_ALIGN[place])}>
+          {question.help}
+        </figcaption>
+      ) : null}
+    </figure>
+  );
+}
+
+/** Choices with pictures: a grid of pictures to pick from, each with its words underneath. */
+function PictureChoices({
+  name,
+  choices,
+  picked,
+  many,
+  onPick,
+}: {
+  name: string;
+  choices: ShownChoice[];
+  picked: string[];
+  many: boolean;
+  onPick: (choiceId: string) => void;
+}) {
+  return (
+    <div
+      className="grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-2.5"
+      data-testid="picture-choices"
+    >
+      {choices.map((choice) => {
+        const on = picked.includes(choice.id);
+        return (
+          <label
+            key={choice.id}
+            className={cn(
+              'flex cursor-pointer flex-col overflow-hidden rounded-control border text-[14px] transition-colors',
+              on
+                ? 'border-accent bg-accent/5 text-text ring-1 ring-accent'
+                : 'border-border text-text-2 hover:bg-card-2',
+            )}
+          >
+            {choice.picture ? (
+              <img
+                src={pictureSrc(choice.picture.path)}
+                alt=""
+                loading="lazy"
+                className="aspect-[4/3] w-full object-cover"
+              />
+            ) : (
+              <span className="aspect-[4/3] w-full bg-card-2" aria-hidden />
+            )}
+            <span className="flex items-center gap-2 px-3 py-2">
+              <input
+                type={many ? 'checkbox' : 'radio'}
+                name={name}
+                className="h-[16px] w-[16px] shrink-0 accent-accent"
+                checked={on}
+                onChange={() => onPick(choice.id)}
+              />
+              {choice.label}
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  );
 }

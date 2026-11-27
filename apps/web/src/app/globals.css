@@ -211,6 +211,19 @@
 .form-look[data-button-width='auto'] [data-form-action] {
   flex: none;
 }
+/* A form lined up in the middle (its design's Line up): its top and its buttons centred, the questions as they are. */
+.form-look[data-align='center'] [data-form-head] {
+  text-align: center;
+}
+.form-look[data-align='center'] [data-form-head] [data-testid='form-logo'] {
+  margin-inline: auto;
+}
+.form-look[data-align='center'] :has(> [data-form-action]) {
+  justify-content: center;
+}
+.form-look[data-align='center'][data-button-width='auto'] [data-form-action].w-full {
+  align-self: center;
+}
 /* A booking page's buttons are as wide as it (w-full) until its design says as wide as their words. */
 .form-look[data-button-width='auto'] [data-form-action].w-full {
   width: auto;

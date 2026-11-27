@@ -7,7 +7,7 @@ import {
   type FormOp,
   type TextingBoxTwice,
 } from '@hfos/core';
-import { AlertTriangle, Check, Loader2, Sparkles, Undo2 } from 'lucide-react';
+import { AlertTriangle, Check, Loader2, Monitor, Smartphone, Sparkles, Undo2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -284,17 +284,7 @@ export function FormEditor({
           brand={brand}
         />
       ) : tab === 'preview' ? (
-        <div className="mx-auto w-full max-w-2xl">
-          <FormPreview
-            definition={editor.definition}
-            businessColor={brand.color}
-            kit={brand.kit}
-            logo={brand.logo}
-          />
-          <p className="mt-3 text-center text-[12.5px] text-text-3">
-            Nothing here is recorded. This is the live version of what you are building.
-          </p>
-        </div>
+        <PreviewTab definition={editor.definition} brand={brand} />
       ) : tab === 'results' ? (
         results ? (
           <FormResults
@@ -430,5 +420,46 @@ function TextingBoxTwiceCard({
         </ul>
       </div>
     </Card>
+  );
+}
+
+/** The Preview tab: the form as a customer fills it in, as wide as a computer shows it or a phone. */
+function PreviewTab({ definition, brand }: { definition: FormDefinition; brand: FormBrand }) {
+  const [device, setDevice] = useState<'computer' | 'phone'>('computer');
+  return (
+    <div className="mx-auto w-full max-w-2xl">
+      <div className="mb-3 flex justify-center">
+        <Segmented
+          ariaLabel="Computer or phone"
+          value={device}
+          onChange={setDevice}
+          options={[
+            {
+              value: 'computer',
+              label: 'Computer',
+              icon: <Monitor className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />,
+              testId: 'preview-computer',
+            },
+            {
+              value: 'phone',
+              label: 'Phone',
+              icon: <Smartphone className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />,
+              testId: 'preview-phone',
+            },
+          ]}
+        />
+      </div>
+      <div className={device === 'phone' ? 'mx-auto max-w-[390px]' : 'w-full'}>
+        <FormPreview
+          definition={definition}
+          businessColor={brand.color}
+          kit={brand.kit}
+          logo={brand.logo}
+        />
+      </div>
+      <p className="mt-3 text-center text-[12.5px] text-text-3">
+        Nothing here is recorded. This is the live version of what you are building.
+      </p>
+    </div>
   );
 }

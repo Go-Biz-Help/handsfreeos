@@ -383,6 +383,41 @@ words.
   once, when the page loads) get that frame grown with the form by `/embed/v1/form.js` too. The script also asks each
   form for its height when it starts, so a form that loaded first isn't left at the snippet's height.
 
+## Pictures and layout (design tools, part 2)
+
+`HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`, part 2. Every picture comes from the business's **Your pictures**
+library (Settings → Workspace, `docs/operations.md` for its buckets) and is kept on the form as a `PictureRef`: the made
+copy's path in the public `pictures` bucket, with its width and height, so it shows without asking the library and keeps
+showing after it's taken out of the library.
+
+- **A picture question** (`type: 'picture'`, Add a question → On the page → Picture) asks nothing, like words on the
+  page (`UNANSWERED_TYPES`, `asksSomething`): never required, never answered, left out of contact forms, the chat and
+  the AI team's read of a form. Its `config` is `picture`, `size` (small, medium, large, full: a third, half, three
+  quarters or all of the form's width, `PICTURE_SIZE_SHARE`), `align` (left, center, right; full is always centred) and
+  `link` (an `https://` page it opens in a new tab, `rel="noopener noreferrer nofollow"`). Its **title is what it
+  shows** (the `alt`, read out to people who can't see it) and its **help is the caption** under it. A new one takes the
+  picture's own words, or its name, as its title. `formProblems` holds back Publish while one has no picture, or a link
+  that isn't a web address.
+- **Choices can have pictures** (`choices[].picture`). When any choice of a pick-one or tick-any has one, the public
+  page shows a grid of pictures with each choice's words underneath; the phone shows each picture small beside its words.
+- **Words on the page line up** left, centre or right (`config.align` on `content`).
+- **Half width** (`width: 'half'` on any question, beside its title, not under config). `questionRows` pairs two
+  half-width questions that are next to each other among the ones showing, so one hidden by logic leaves no gap. The
+  pair sits side by side once the form's section is 480 px wide (a container query, so the editor's narrow preview and
+  a phone stack them); a half-width question with no half-width neighbour takes the whole row.
+- **The design's Line up** (`design.align`: left or center) centres the logo, the name and intro, and the buttons
+  (`globals.css`, `.form-look[data-align='center']`). The questions stay as they are.
+- **A cover** (`design.cover`) runs edge to edge across the top of the form's panel, at most 260 px high. **A picture
+  behind** (`design.backdrop`) fills the form's own page behind its panel; on a website it isn't drawn, because the site
+  is behind it there. The Design tab's preview moves to "On its own page" when one is picked. Both travel with **Use on
+  all my forms**.
+- **Questions move by dragging** their handle in the Questions list (dnd-kit, onto another page too), or by their
+  arrows, which still work with a keyboard and on a phone. A drop is one `move_question` op, so Undo takes it back.
+- **The Preview tab** shows the form as wide as a computer or a phone, like the Design tab.
+- **The Assistant and the AI form builder** add pictures with `add_question` and `set_design`, copying a path from
+  `read_picture_list` (the builder is given Your pictures in its prompt, at most 40 ready ones). They never make up a path:
+  `PictureRef` refuses one that isn't a made picture's.
+
 ## Videos and steps (funnels)
 
 A form can walk somebody through a funnel: a video, their details, a longer video, a few questions
