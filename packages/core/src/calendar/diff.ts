@@ -49,7 +49,7 @@ const DESIGN_PARTS: readonly (readonly [keyof NonNullable<CalendarConfig['design
   ['matched', 'matched website'],
 ];
 const look = (d: CalendarConfig['design']) =>
-  !d ? 'the business’s colour' : d.matched ? `matches ${d.matched.site}` : 'its own look';
+  !d ? 'your brand kit' : d.matched ? `matches ${d.matched.site}` : 'its own look';
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const onOff = (v: boolean) => (v ? 'on' : 'off');

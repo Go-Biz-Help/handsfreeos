@@ -7,65 +7,24 @@
  * - Every colour left unset follows the business: its buttons take the business's own colour (Settings →
  *   Workspace, under the logo), darkened just enough for white words, as on its booking page; the rest are
  *   worked out from the background.
+ * - An unset font or corners follow the brand kit (Settings → Workspace → Brand kit, `FormKit`), then HandsFreeOS's
+ *   own: `designFontOf` and `designCornersOf` decide, and `formLook` takes the kit as `options.kit`.
  * - A form on a website with no background of its own is see-through, so it sits on the site's own background.
  * - Match my website fills this in from the business's website, and says which site and when (`matched`).
  */
 import { z } from 'zod';
 import { contrastRatio, readableTextOn } from '../chat/origins';
 import { buttonColorFor, isLookColor, LOOK_DEFAULT_COLOR, mixColors } from '../look/colour';
+import { FONT_NAME, formFontHref, formFontOf } from '../look/fonts';
 
-/** A font from Google Fonts: its name, the weights asked for, and what stands in while it loads. */
-export interface FormFont {
-  readonly name: string;
-  readonly weights: string;
-  readonly kind: 'sans' | 'serif';
-}
-
-/** The fonts the Design tab offers, HandsFreeOS's own first. Match my website may pick another Google font. */
-export const FORM_FONTS: readonly FormFont[] = [
-  { name: 'Hanken Grotesk', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Inter', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Roboto', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Open Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Lato', weights: '400;700', kind: 'sans' },
-  { name: 'Montserrat', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Poppins', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Nunito', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Nunito Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Raleway', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Source Sans 3', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Work Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'DM Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Manrope', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Rubik', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Mulish', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Karla', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Barlow', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Archivo', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Figtree', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Outfit', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Plus Jakarta Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Lexend', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Josefin Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Quicksand', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Oswald', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Ubuntu', weights: '400;500;700', kind: 'sans' },
-  { name: 'Noto Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Cabin', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Merriweather', weights: '400;700', kind: 'serif' },
-  { name: 'Playfair Display', weights: '400;500;600;700', kind: 'serif' },
-  { name: 'Lora', weights: '400;500;600;700', kind: 'serif' },
-  { name: 'PT Serif', weights: '400;700', kind: 'serif' },
-  { name: 'Libre Baskerville', weights: '400;700', kind: 'serif' },
-  { name: 'EB Garamond', weights: '400;500;600;700', kind: 'serif' },
-  { name: 'Roboto Slab', weights: '400;500;600;700', kind: 'serif' },
-];
-
-/** HandsFreeOS's own font, which every page already has: a form "in our font" loads nothing. */
-export const FORM_DEFAULT_FONT = 'Hanken Grotesk';
-
-/** A Google font's name as Google spells it: letters, numbers and single spaces. */
-const FONT_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9]| (?! ))*[A-Za-z0-9]$/;
+export {
+  FORM_DEFAULT_FONT,
+  FORM_FONTS,
+  formFontHref,
+  formFontOf,
+  isFontName,
+  type FormFont,
+} from '../look/fonts';
 
 const colour = z
   .string()
@@ -104,7 +63,7 @@ export const FormDesign = z.object({
   /** Light or dark: what the colours left unset are worked out from. */
   scheme: z.enum(['light', 'dark']).default('light'),
   colors: FormDesignColors.prefault({}),
-  /** A Google font's name; null is HandsFreeOS's own. */
+  /** A Google font's name; null follows the brand kit's, and HandsFreeOS's own when it has none. */
   font: z
     .string()
     .trim()
@@ -113,7 +72,8 @@ export const FormDesign = z.object({
     .nullable()
     .default(null),
   textSize: z.enum(FORM_TEXT_SIZES).default('medium'),
-  corners: z.enum(FORM_CORNERS).default('slight'),
+  /** Null follows the brand kit's (Settings → Workspace), and slight corners when it has none. */
+  corners: z.enum(FORM_CORNERS).nullable().default(null),
   /** Boxed all round, filled in, or a line underneath. */
   fields: z.enum(FORM_FIELD_STYLES).default('boxed'),
   button: z
@@ -144,30 +104,33 @@ export type FormDesignInput = z.input<typeof FormDesign>;
 /** A design with nothing set: what every form had before the Design tab. */
 export const DEFAULT_FORM_DESIGN: FormDesign = FormDesign.parse({});
 
-/** The font's Google entry: one of ours, or a Google font Match my website found (weights unknown, so none asked for). */
-export function formFontOf(name: string | null | undefined): FormFont | null {
-  if (!name || name === FORM_DEFAULT_FONT) return null;
-  return (
-    FORM_FONTS.find((f) => f.name.toLowerCase() === name.toLowerCase()) ?? {
-      name,
-      weights: '',
-      kind: 'sans',
-    }
-  );
-}
-
-/** Where the browser gets a font from Google; null for HandsFreeOS's own, which every page has. */
-export function formFontHref(name: string | null | undefined): string | null {
-  const font = formFontOf(name);
-  if (!font) return null;
-  const family = font.name.replace(/ /g, '+');
-  return `https://fonts.googleapis.com/css2?family=${family}${font.weights ? `:wght@${font.weights}` : ''}&display=swap`;
-}
-
 const SANS_FALLBACK = "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
 const SERIF_FALLBACK = "Georgia, 'Times New Roman', serif";
 
-const RADII: Record<FormDesign['corners'], { control: string; menu: string; card: string }> = {
+export type FormCorners = (typeof FORM_CORNERS)[number];
+
+/**
+ * What a design leaves unset follows: the business's brand kit (Settings → Workspace, look/look.ts). Its colour is
+ * `businessColor`; a font and corners it has none of are HandsFreeOS's own.
+ */
+export interface FormKit {
+  readonly font?: string | null;
+  readonly corners?: FormCorners | null;
+}
+
+/** The font a design is drawn in: its own, else the kit's; null is HandsFreeOS's own. */
+export const designFontOf = (
+  design: Pick<FormDesign, 'font'> | null | undefined,
+  kit?: FormKit | null,
+): string | null => design?.font ?? kit?.font ?? null;
+
+/** The corners a design is drawn with: its own, else the kit's, else slight. */
+export const designCornersOf = (
+  design: Pick<FormDesign, 'corners'> | null | undefined,
+  kit?: FormKit | null,
+): FormCorners => design?.corners ?? kit?.corners ?? 'slight';
+
+const RADII: Record<FormCorners, { control: string; menu: string; card: string }> = {
   square: { control: '0px', menu: '0px', card: '0px' },
   slight: { control: '8px', menu: '10px', card: '12px' },
   // Pills for buttons and one-line boxes (they're 36 to 44 high); a box for a long answer stops at 16 (globals.css).
@@ -228,6 +191,8 @@ export function formLook(
     readonly businessColor?: string | null;
     /** On someone else's website (`?embed=1`). */
     readonly embedded?: boolean;
+    /** The brand kit's font and corners, which a design that leaves them unset follows. */
+    readonly kit?: FormKit | null;
   } = {},
 ): FormLook {
   const d = design ?? DEFAULT_FORM_DESIGN;
@@ -246,8 +211,9 @@ export function formLook(
   const errorText = readableOn(error, base, text, 4.5);
   const field = c.field ?? (dark ? tint(base, text, 0.05) : '#ffffff');
   const border = c.fieldBorder ?? tint(base, text, 0.2);
-  const radii = RADII[d.corners];
-  const font = formFontOf(d.font);
+  const radii = RADII[designCornersOf(d, options.kit)];
+  const fontName = designFontOf(d, options.kit);
+  const font = formFontOf(fontName);
   const paintsBackground = !options.embedded || c.background !== null;
   const vars: Record<string, string> = {
     '--bg': base,
@@ -294,7 +260,7 @@ export function formLook(
       'data-labels': d.labels,
     },
     paintsBackground,
-    fontHref: formFontHref(d.font),
+    fontHref: formFontHref(fontName),
     dark,
     labelsInside: d.labels === 'inside',
     showLogo: d.showLogo,

@@ -1,4 +1,4 @@
-import { can, lookOf } from '@hfos/core';
+import { can, lookKitOf, lookOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { FormEditor } from '@/components/forms/editor';
@@ -55,6 +55,7 @@ export default async function FormPage({
         brand={{
           website: typeof settings['website'] === 'string' ? settings['website'] || null : null,
           color: look.color?.hex ?? null,
+          kit: lookKitOf(look),
           logo: look.logo
             ? { url: logoSrc(look.logo.path), width: look.logo.width, height: look.logo.height }
             : null,

@@ -7,6 +7,8 @@
  * - call_for_me: the AI teammate phones someone in Contacts with the person's questions, on a card they OK, and tells
  *   them in the chat (and on their phone) what was said. Only to a business landline or someone who agreed in writing
  *   to calls (automations/errand-calls.ts).
+ * - read_website_brand_kit: Match my website for the brand kit (Settings → Workspace): reads the site's button colour,
+ *   font and corners and keeps nothing, so it runs on its own; look.set then keeps what the person wants, on a card.
  */
 import { z } from 'zod';
 import { ERRAND_ASK_MAX, ERRAND_GOAL_MAX, ERRAND_SAY_MAX } from '../automations/errand-calls';
@@ -55,5 +57,19 @@ export const webTools: readonly AssistantTool[] = [
     }),
     autonomy: 'confirm',
     permission: 'inbox.use',
+  }),
+  define({
+    name: 'read_website_brand_kit',
+    description:
+      "Read a website's look for the business's brand kit, as Match my website in Settings → Workspace does: its button colour, its font (the closest free one when it uses a paid font) and how round its corners are. Changes nothing. To keep what it found, call do_look_set with color, font, corners and matchedSite (the site it gives back). Left out, the business's own website is read.",
+    input: z.object({
+      site: text(300)
+        .optional()
+        .describe(
+          'The site to read, as typed: "lonestarhvac.com". Left out, the business’s own website from Settings → Workspace',
+        ),
+    }),
+    autonomy: 'auto',
+    permission: 'workspace.update',
   }),
 ];

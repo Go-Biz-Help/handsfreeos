@@ -7,7 +7,7 @@
  */
 import {
   DEFAULT_FORM_DESIGN,
-  FORM_DEFAULT_FONT,
+  designCornersOf,
   FORM_FONTS,
   formLook,
   type CalendarConfig,
@@ -21,6 +21,8 @@ import { useState } from 'react';
 import {
   Choice,
   DESIGN_TOKEN,
+  FontSelect,
+  KitNote,
   Labelled,
   MatchWebsite,
   Section,
@@ -34,7 +36,6 @@ import { ColorChoice } from '@/components/settings/chat-look-parts';
 import { Button } from '@/components/ui/button';
 import { Hint } from '@/components/ui/field';
 import { Segmented } from '@/components/ui/segmented';
-import { Select } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 /** What each colour is called here, and what "Automatic" means for it. */
@@ -91,7 +92,7 @@ export function CalendarDesignModule({
   const [device, setDevice] = useState<'computer' | 'phone'>('computer');
   const set = (p: Partial<FormDesignInput>) => patch({ design: p });
   // What "Automatic" gives right now, worked out exactly as the page does.
-  const shown = formLook(design, { businessColor: brand.color }).vars;
+  const shown = formLook(design, { businessColor: brand.color, kit: brand.kit }).vars;
   const fonts =
     FORM_FONTS.some((f) => f.name === design.font) || !design.font
       ? FORM_FONTS
@@ -142,20 +143,13 @@ export function CalendarDesignModule({
           <Section title="Font">
             <Labelled title="Font">
               {(id) => (
-                <Select
+                <FontSelect
                   id={id}
-                  value={design.font ?? FORM_DEFAULT_FONT}
-                  onChange={(e) =>
-                    set({ font: e.target.value === FORM_DEFAULT_FONT ? null : e.target.value })
-                  }
-                  data-testid="design-font"
-                >
-                  {fonts.map((f) => (
-                    <option key={f.name} value={f.name}>
-                      {f.name === FORM_DEFAULT_FONT ? `${f.name} (HandsFreeOS’s)` : f.name}
-                    </option>
-                  ))}
-                </Select>
+                  value={design.font}
+                  kit={brand.kit}
+                  fonts={fonts}
+                  onChange={(font) => set({ font })}
+                />
               )}
             </Labelled>
             <Choice
@@ -174,7 +168,7 @@ export function CalendarDesignModule({
           <Section title="Shape">
             <Choice
               title="Corners"
-              value={design.corners}
+              value={designCornersOf(design, brand.kit)}
               onChange={(corners) => set({ corners })}
               options={[
                 ['square', 'Square'],
@@ -182,6 +176,11 @@ export function CalendarDesignModule({
                 ['round', 'Round'],
               ]}
               testId="design-corners"
+            />
+            <KitNote
+              following={design.corners === null}
+              onFollow={() => set({ corners: null })}
+              testId="design-corners-kit"
             />
             <Choice
               title="Boxes people type in"
@@ -243,7 +242,7 @@ export function CalendarDesignModule({
               onClick={() => patch({ design: null })}
               data-testid="design-reset"
             >
-              Start over from your colour
+              Start over from your brand kit
             </Button>
           ) : null}
         </div>
@@ -294,6 +293,7 @@ export function CalendarDesignModule({
               <FormLookFrame
                 design={draft.design}
                 businessColor={brand.color}
+                kit={brand.kit}
                 logo={where === 'website' ? brand.logo : null}
                 embedded={where === 'website' && draft.design !== null}
               >

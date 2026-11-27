@@ -262,7 +262,21 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   // ---- Settings → Workspace, Add-ons and Safety ----
   'look.find': {},
-  'look.set': {},
+  'look.set': {
+    about:
+      'The brand kit. Give only what changes: color (#rrggbb), font (a Google font’s name, or null for HandsFreeOS’s own), corners (square, slight or round, or null for slight). To match their website, read it with read_website_brand_kit first and pass what it found, with matchedSite.',
+  },
+  // Your pictures (Settings → Workspace): renaming one, saying what it shows, taking it out of the library.
+  'picture.update': {
+    offeredTo: 'forms.manage',
+    about:
+      'pictureId from read_picture_list. name renames it; words says what it shows, read out to people who can’t see it.',
+  },
+  'picture.remove': {
+    offeredTo: 'forms.manage',
+    about:
+      'pictureId from read_picture_list. Takes it out of the library; pages and emails already showing it keep it.',
+  },
   'onboarding.set_enabled': {},
   'addon.save_my_settings': {},
   'addon.vote': {},
@@ -670,6 +684,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   // import.create and import.start run in import_contacts, for a list sent with the question (25 Nov 2026).
   'look.begin_upload': 'a picture from the person’s own computer or phone',
   'look.use_upload': 'a picture from the person’s own computer or phone',
+  'picture.begin_upload': 'a picture from the person’s own computer or phone',
+  'picture.use_upload': 'a picture from the person’s own computer or phone',
   'number_port.begin_upload': 'a file from the person’s own computer or phone',
   'number_port.attach_document': 'a file from the person’s own computer or phone',
   'organization.create': 'a new business is set up on its own pages, where it pays',
@@ -792,6 +808,14 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   'workspace.look': [
     { tool: 'do_look_set', field: 'color' },
     { tool: 'do_look_set', field: 'removeLogo' },
+    { tool: 'do_look_set', field: 'font' },
+    { tool: 'do_look_set', field: 'corners' },
+    { tool: 'do_look_set', field: 'matchedSite' },
+  ],
+  // Uploading one is the person's own (picture.begin_upload is on the Never list).
+  'workspace.pictures': [
+    { tool: 'do_picture_update', field: 'words' },
+    { tool: 'do_picture_remove', field: 'pictureId' },
   ],
   'workspace.your_page': [{ tool: 'do_booking_site_set_page', field: 'on' }],
   'workspace.getting_started': [{ tool: 'do_onboarding_set_enabled', field: 'enabled' }],

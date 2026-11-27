@@ -969,12 +969,12 @@ describe('a calendar’s other sections', () => {
     expect(after.config.payments.mode).toBe('none');
   });
 
-  it('changes how the booking page looks, as the Design section does, and goes back to the business’s colour', async () => {
+  it('changes how the booking page looks, as the Design section does, and goes back to the brand kit', async () => {
     const { card, parsed } = await prepare('update_calendar_settings', {
       calendarId: ducts,
       design: { buttonColor: '#0F766E', corners: 'round', font: 'Lora', showName: false },
     });
-    expect(field(card, 'Design')).toBe('the business’s colour → its own look');
+    expect(field(card, 'Design')).toBe('your brand kit → its own look');
     await confirm('update_calendar_settings', parsed);
     expect((await calendarNow(ducts)).config.design).toMatchObject({
       colors: { button: '#0f766e', background: null },
@@ -1007,7 +1007,7 @@ describe('a calendar’s other sections', () => {
       calendarId: ducts,
       design: { reset: true },
     });
-    expect(field(back.card, 'Design')).toBe('its own look → the business’s colour');
+    expect(field(back.card, 'Design')).toBe('its own look → your brand kit');
     await confirm('update_calendar_settings', back.parsed);
     expect((await calendarNow(ducts)).config.design).toBeNull();
   });

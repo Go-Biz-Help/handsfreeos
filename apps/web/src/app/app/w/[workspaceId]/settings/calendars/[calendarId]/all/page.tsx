@@ -1,4 +1,4 @@
-import { CALENDAR_SECTIONS, can, lookOf, type CalendarSectionKey } from '@hfos/core';
+import { CALENDAR_SECTIONS, can, lookKitOf, lookOf, type CalendarSectionKey } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CalendarBuilder } from '@/components/calendars/builder';
@@ -107,6 +107,7 @@ export default async function CalendarBuilderPage({
       brand={{
         website: typeof settings['website'] === 'string' ? settings['website'] || null : null,
         color: look.color?.hex ?? null,
+        kit: lookKitOf(look),
         logo: look.logo
           ? { url: logoSrc(look.logo.path), width: look.logo.width, height: look.logo.height }
           : null,

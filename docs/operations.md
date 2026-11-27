@@ -1122,22 +1122,31 @@ If the job fails 5 times it stops with the business hidden but not yet purged, a
 
 The migrations create four private buckets and one public one. There is nothing to create by hand.
 
-| Bucket          | Holds                                                                        | Largest file | Who adds files                                                                               |
-| --------------- | ---------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------- |
-| `attachments`   | Files and photos people add in the app (images, PDF, Word, Excel, text, CSV) | 25 MiB       | Signed-in people, only at paths the app reserved first                                       |
-| `imports`       | CSV files for customer imports                                               | 10 MiB       | Signed-in people, only at reserved paths                                                     |
-| `telephony`     | Text-message media, voicemail recordings and inbound email attachments       | 250 MiB      | The worker, and customers through a video or file link                                       |
-| `brand-uploads` | A logo someone uploads, until the worker makes it ready                      | 5 MiB        | Signed-in people who may change the business's settings, only at the place reserved for them |
-| `brand`         | Businesses' logos, as the PNGs the worker made. **Public**                   | 2 MiB        | The worker                                                                                   |
+| Bucket            | Holds                                                                            | Largest file | Who adds files                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `attachments`     | Files and photos people add in the app (images, PDF, Word, Excel, text, CSV)     | 25 MiB       | Signed-in people, only at paths the app reserved first                                                              |
+| `imports`         | CSV files for customer imports                                                   | 10 MiB       | Signed-in people, only at reserved paths                                                                            |
+| `telephony`       | Text-message media, voicemail recordings and inbound email attachments           | 250 MiB      | The worker, and customers through a video or file link                                                              |
+| `brand-uploads`   | A logo someone uploads, until the worker makes it ready                          | 5 MiB        | Signed-in people who may change the business's settings, only at the place reserved for them                        |
+| `brand`           | Businesses' logos, as the PNGs the worker made. **Public**                       | 2 MiB        | The worker                                                                                                          |
+| `picture-uploads` | A picture someone adds to **Your pictures**, until the worker makes its web copy | 20 MiB       | Signed-in people who may change the business, its forms, calendars or channels, only at the place reserved for them |
+| `pictures`        | **Your pictures**, as the WebP copies the worker made. **Public**                | 8 MiB        | The worker                                                                                                          |
 
 - Signed-in people can only read files that belong to their own workspaces. Only the worker deletes files, and it uses the secret key to do so.
 - `brand` is public on purpose: a business's logo shows in its emails, booking page and website chat, and an email
   sent last month still shows it. It only ever holds logos, each at an address nobody can guess
   (`<business>/logo/<random id>.png`). See "Your logo and colour" in
   `HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md`.
+- `pictures` is public for the same reason: a picture on a form, a booking page or an email has to show to anyone
+  who opens it. Each is at `<business>/<random id>.webp`, at most 2000 pixels on its longer side, with the
+  original's hidden details (where it was taken, the phone) left out. Taking one out of **Your pictures** keeps the
+  file, so pages and emails already showing it don't break. See "Your pictures" in
+  `HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`.
+- Apple's HEIC photos are refused when they're added, with how to save one as a JPG: the image library the worker
+  uses can't open them.
 - To check the buckets, click **Storage** in the left sidebar.
 
-  You should see the five buckets, with only `brand` public.
+  You should see these buckets among the rest, with only `brand` and `pictures` public.
 
 - Never make a bucket public or change its limits in the dashboard. Put any change in a new migration.
 - Database backups do not include these files (see "Backups").
@@ -9388,7 +9397,7 @@ Do this with the client's web person, or send them the page: it has the steps fo
 
    **Where the button sits** is set on its own for computers and for phones (screens up to 480 pixels wide): the **Button** (its label beside the icon, **Icon only**, or on phones **Hidden**), its **Corner**, and **Higher up by**, the pixels above its usual spot. Raise it on phones when the site has a bar along the bottom, like a Call or Book button: about 90 clears most. With the button hidden on phones, a link to `#hfos-chat` on the site (a Chat item in its menu) opens the chat.
 
-   The logo is the business's own, from **Settings** → **Workspace** → **Logo and colour**. **Your logo** on the chat's page changes the same one.
+   The logo is the business's own, from **Settings** → **Workspace** → **Brand kit**. **Your logo** on the chat's page changes the same one.
 
 6. Click **Copy** next to the snippet. It looks like this, with the widget's own key:
 

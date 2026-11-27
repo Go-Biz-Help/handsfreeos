@@ -1,11 +1,11 @@
-import { buttonColorFor, logoUrlFor, lookOf } from '@hfos/core/server';
+import { buttonColorFor, logoUrlFor, lookKitOf, lookOf } from '@hfos/core/server';
 import type { Tx } from '@hfos/db/client';
 import { workspaces } from '@hfos/db/schema';
 import { eq } from 'drizzle-orm';
 import type { EmailBrand } from '../email/render';
 
 /**
- * A business's logo and colour as its customers see them (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md
+ * A business's logo, colour and brand kit as its customers see them (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md
  * §4): on its booking page, website chat and invoices (the worker's public routes), and at the top of the emails
  * HandsFreeOS sends for it.
  */
@@ -14,9 +14,13 @@ export interface PublicLook {
   readonly logo: { readonly url: string; readonly width: number; readonly height: number } | null;
   /** Its colour as #rrggbb; null for HandsFreeOS's own. */
   readonly color: string | null;
+  /** Its brand kit's font, a Google font's name; null for HandsFreeOS's own. */
+  readonly font: string | null;
+  /** Its brand kit's corners; null for slight. */
+  readonly corners: 'square' | 'slight' | 'round' | null;
 }
 
-export const NO_PUBLIC_LOOK: PublicLook = { logo: null, color: null };
+export const NO_PUBLIC_LOOK: PublicLook = { logo: null, color: null, font: null, corners: null };
 
 /** The look from a business's settings, its logo at Storage's public address (none without that address). */
 export function publicLookOf(settings: unknown, storageUrl: string | null | undefined): PublicLook {
@@ -31,6 +35,7 @@ export function publicLookOf(settings: unknown, storageUrl: string | null | unde
           }
         : null,
     color: look.color?.hex ?? null,
+    ...lookKitOf(look),
   };
 }
 

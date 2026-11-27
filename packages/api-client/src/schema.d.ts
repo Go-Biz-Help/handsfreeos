@@ -7267,7 +7267,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change the business’s colour, or take its logo off so its initials stand in. The website chat follows the colour unless it has one of its own.
+         * Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), or take its logo off so its initials stand in. Forms, booking pages and the website chat that haven’t picked their own follow it.
          * @description Risk level 1. Requires workspace.update. Emits look.changed.
          */
         post: operations["command_look_set"];
@@ -11711,6 +11711,86 @@ export interface paths {
          * @description Risk level 2. Requires channels.manage. Emits phone.settings_updated.
          */
         post: operations["command_phone_update_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/picture.begin_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve a place to upload a picture to the business’s pictures (PNG, JPG, WebP or GIF, up to 20 MB). Upload it there, then hand it over with picture.use_upload.
+         * @description Risk level 1. Emits .
+         */
+        post: operations["command_picture_begin_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/picture.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a picture out of the business’s pictures. Forms, pages and emails already showing it keep showing it.
+         * @description Risk level 1. Emits picture.removed.
+         */
+        post: operations["command_picture_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/picture.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename one of the business’s pictures, or change what it shows in words (read out to people who can’t see it).
+         * @description Risk level 1. Emits picture.updated.
+         */
+        post: operations["command_picture_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/picture.use_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hand an uploaded picture to HandsFreeOS, which makes a web copy of it for the business’s pages and emails.
+         * @description Risk level 1. Emits picture.upload_ready.
+         */
+        post: operations["command_picture_use_upload"];
         delete?: never;
         options?: never;
         head?: never;
@@ -24837,6 +24917,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/picture.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s pictures, newest first: each one’s name, what it shows in words, whether it’s ready, and its size. Put one on a form, booking page or email by its id.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_picture_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/pipeline.list": {
         parameters: {
             query?: never;
@@ -32965,11 +33065,8 @@ export interface operations {
                                 /** @default null */
                                 text?: string | null;
                             };
-                            /**
-                             * @default slight
-                             * @enum {string}
-                             */
-                            corners?: "square" | "slight" | "round";
+                            /** @default null */
+                            corners?: ("square" | "slight" | "round") | null;
                             /**
                              * @default boxed
                              * @enum {string}
@@ -44349,6 +44446,19 @@ export interface operations {
                                 from: "logo" | "website" | "person";
                                 hex: string;
                             } | null;
+                            /** @default null */
+                            corners: {
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string} */
+                                value: "square" | "slight" | "round";
+                            } | null;
+                            /** @default null */
+                            font: {
+                                /** Format: date-time */
+                                at: string;
+                                name: string;
+                            } | null;
                             logo: {
                                 /** Format: date-time */
                                 at: string;
@@ -44357,6 +44467,12 @@ export interface operations {
                                 height: number;
                                 path: string;
                                 width: number;
+                            } | null;
+                            /** @default null */
+                            matched: {
+                                /** Format: date-time */
+                                at: string;
+                                site: string;
                             } | null;
                             problem: {
                                 /** Format: date-time */
@@ -44397,6 +44513,9 @@ export interface operations {
             content: {
                 "application/json": {
                     color?: string;
+                    corners?: ("square" | "slight" | "round") | null;
+                    font?: string | null;
+                    matchedSite?: string;
                     /** @enum {boolean} */
                     removeLogo?: true;
                     /** Format: uuid */
@@ -44426,6 +44545,19 @@ export interface operations {
                                 from: "logo" | "website" | "person";
                                 hex: string;
                             } | null;
+                            /** @default null */
+                            corners: {
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string} */
+                                value: "square" | "slight" | "round";
+                            } | null;
+                            /** @default null */
+                            font: {
+                                /** Format: date-time */
+                                at: string;
+                                name: string;
+                            } | null;
                             logo: {
                                 /** Format: date-time */
                                 at: string;
@@ -44434,6 +44566,12 @@ export interface operations {
                                 height: number;
                                 path: string;
                                 width: number;
+                            } | null;
+                            /** @default null */
+                            matched: {
+                                /** Format: date-time */
+                                at: string;
+                                site: string;
                             } | null;
                             problem: {
                                 /** Format: date-time */
@@ -44499,6 +44637,19 @@ export interface operations {
                                 from: "logo" | "website" | "person";
                                 hex: string;
                             } | null;
+                            /** @default null */
+                            corners: {
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string} */
+                                value: "square" | "slight" | "round";
+                            } | null;
+                            /** @default null */
+                            font: {
+                                /** Format: date-time */
+                                at: string;
+                                name: string;
+                            } | null;
                             logo: {
                                 /** Format: date-time */
                                 at: string;
@@ -44507,6 +44658,12 @@ export interface operations {
                                 height: number;
                                 path: string;
                                 width: number;
+                            } | null;
+                            /** @default null */
+                            matched: {
+                                /** Format: date-time */
+                                at: string;
+                                site: string;
                             } | null;
                             problem: {
                                 /** Format: date-time */
@@ -57882,6 +58039,163 @@ export interface operations {
                             /** @enum {string} */
                             texting: "on" | "not_now";
                             unansweredReminderMinutes: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_picture_begin_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    mimeType: string;
+                    name: string;
+                    sizeBytes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        bucket: "picture-uploads";
+                        objectPath: string;
+                        /** Format: uuid */
+                        pictureId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_picture_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    pictureId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        removed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_picture_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /** Format: uuid */
+                    pictureId: string;
+                    words?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        picture: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            height: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            path: string | null;
+                            problem: string | null;
+                            /** @enum {string} */
+                            status: "uploading" | "making" | "ready" | "failed";
+                            width: number | null;
+                            words: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_picture_use_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    pictureId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        picture: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            height: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            path: string | null;
+                            problem: string | null;
+                            /** @enum {string} */
+                            status: "uploading" | "making" | "ready" | "failed";
+                            width: number | null;
+                            words: string;
                         };
                     };
                 };
@@ -80490,11 +80804,8 @@ export interface operations {
                                         /** @default null */
                                         text: string | null;
                                     };
-                                    /**
-                                     * @default slight
-                                     * @enum {string}
-                                     */
-                                    corners: "square" | "slight" | "round";
+                                    /** @default null */
+                                    corners: ("square" | "slight" | "round") | null;
                                     /**
                                      * @default boxed
                                      * @enum {string}
@@ -91588,6 +91899,19 @@ export interface operations {
                                     from: "logo" | "website" | "person";
                                     hex: string;
                                 } | null;
+                                /** @default null */
+                                corners: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    /** @enum {string} */
+                                    value: "square" | "slight" | "round";
+                                } | null;
+                                /** @default null */
+                                font: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    name: string;
+                                } | null;
                                 logo: {
                                     /** Format: date-time */
                                     at: string;
@@ -91596,6 +91920,12 @@ export interface operations {
                                     height: number;
                                     path: string;
                                     width: number;
+                                } | null;
+                                /** @default null */
+                                matched: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    site: string;
                                 } | null;
                                 problem: {
                                     /** Format: date-time */
@@ -99765,6 +100095,48 @@ export interface operations {
                         } | null;
                         timezone: string;
                         voiceReady: boolean;
+                    };
+                };
+            };
+        };
+    };
+    query_picture_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        pictures: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            height: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            path: string | null;
+                            problem: string | null;
+                            /** @enum {string} */
+                            status: "uploading" | "making" | "ready" | "failed";
+                            width: number | null;
+                            words: string;
+                        }[];
                     };
                 };
             };

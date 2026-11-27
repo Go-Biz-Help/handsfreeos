@@ -1,6 +1,7 @@
 /**
- * The business's logo and colour (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §4, "Your logo and
- * colour"): what's kept, and where the logo is. Browser-safe.
+ * The business's brand kit: its logo and colour (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §4, "Your
+ * logo and colour"), and its font and corners (HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md, part 1): what's kept,
+ * and where the logo is. Browser-safe.
  *
  * - They're kept in `workspaces.settings.look`, written only by the look commands (`workspace.update` refuses the
  *   key), and read forgivingly: a part that doesn't parse counts as never set.
@@ -8,9 +9,12 @@
  *   good): from the business's website when it has one, else uploaded. Uploads land in the private
  *   `brand-uploads` bucket first, at a place `look.begin_upload` reserved, and the worker makes the PNG from them.
  * - The colour comes from the logo, or the website's own colour when the logo has none, until a person picks one.
+ * - The font and corners are unset until a person picks them or matches a website (`matched`): unset is HandsFreeOS's
+ *   own look. Forms and booking pages that haven't picked their own follow them (`lookKitOf`).
  */
 import { z } from 'zod';
 import { isLookColor } from './colour';
+import { FONT_NAME } from './fonts';
 
 export const LOOK_SETTINGS_KEY = 'look';
 
@@ -66,6 +70,28 @@ export const LookColor = z.object({
 });
 export type LookColor = z.infer<typeof LookColor>;
 
+/** The corners the brand kit offers, the same as a form's. */
+export const LOOK_CORNERS = ['square', 'slight', 'round'] as const;
+export type LookCorners = (typeof LOOK_CORNERS)[number];
+
+/**
+ * The brand kit's font (DESIGN_TOOLS plan, part 1): a Google font's name. Forms, booking pages and the rest that leave
+ * theirs unset are drawn in it; none kept is HandsFreeOS's own.
+ */
+export const LookFont = z.object({
+  name: z.string().trim().max(60).regex(FONT_NAME),
+  at,
+});
+export type LookFont = z.infer<typeof LookFont>;
+
+/** The brand kit's corners: square, slight or round, on the buttons and boxes of everything that follows it. */
+export const LookCornersKept = z.object({ value: z.enum(LOOK_CORNERS), at });
+export type LookCornersKept = z.infer<typeof LookCornersKept>;
+
+/** Which website Match my website last filled the brand kit from, and when. */
+export const LookMatched = z.object({ site: z.string().trim().max(300), at });
+export type LookMatched = z.infer<typeof LookMatched>;
+
 /** A place reserved for an upload, and whether the picture's there for the worker yet. */
 export const LookUpload = z.object({
   path: z.string().regex(LOOK_UPLOAD_PATH),
@@ -86,6 +112,12 @@ export const BusinessLookSchema = z.object({
   searched: z.object({ url: z.string().max(500), at, found: z.boolean() }).nullable(),
   /** When someone (or saving the website) asked for that. */
   asked: z.object({ url: z.string().max(500), at }).nullable(),
+  /** The brand kit's font; null is HandsFreeOS's own. */
+  font: LookFont.nullable().default(null),
+  /** The brand kit's corners; null is slight. */
+  corners: LookCornersKept.nullable().default(null),
+  /** Which website Match my website last filled the brand kit from. */
+  matched: LookMatched.nullable().default(null),
 });
 export type BusinessLook = z.infer<typeof BusinessLookSchema>;
 
@@ -96,6 +128,9 @@ export const NO_LOOK: BusinessLook = {
   problem: null,
   searched: null,
   asked: null,
+  font: null,
+  corners: null,
+  matched: null,
 };
 
 const asRecord = (v: unknown): Record<string, unknown> =>
@@ -116,8 +151,19 @@ export function lookOf(settings: unknown): BusinessLook {
     problem: part(BusinessLookSchema.shape.problem, look['problem']),
     searched: part(BusinessLookSchema.shape.searched, look['searched']),
     asked: part(BusinessLookSchema.shape.asked, look['asked']),
+    font: part(LookFont, look['font']),
+    corners: part(LookCornersKept, look['corners']),
+    matched: part(LookMatched, look['matched']),
   };
 }
+
+/** The brand kit as the pages that follow it need it: its font and corners, null where it has none. */
+export const lookKitOf = (
+  look: Pick<BusinessLook, 'font' | 'corners'> | null | undefined,
+): { font: string | null; corners: LookCorners | null } => ({
+  font: look?.font?.name ?? null,
+  corners: look?.corners?.value ?? null,
+});
 
 /** A logo wider than this usually spells the name out, so it stands for the name on its own. */
 export const LOOK_WIDE_LOGO = 1.6;

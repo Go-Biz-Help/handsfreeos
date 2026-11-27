@@ -992,6 +992,11 @@ describe('registry', () => {
       'look.find',
       'look.note_website',
       'look.note_upload',
+      'picture.begin_upload',
+      'picture.use_upload',
+      'picture.update',
+      'picture.remove',
+      'picture.note_made',
     ]);
     expect(registry.queries.filter((q) => !q.addon).map((q) => q.name)).toEqual([
       'migration.list',
@@ -1116,6 +1121,7 @@ describe('registry', () => {
       'assistant_routine.list',
       'expense.list',
       'money.in_and_out',
+      'picture.list',
       'calendar.list',
       'calendar.get',
       'calendar.availability',

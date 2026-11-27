@@ -366,7 +366,7 @@ export function moduleSummary(
       return 'Workflows for its appointments';
     case 'design': {
       const d = config.design;
-      if (!d) return 'Your business’s colour';
+      if (!d) return 'Your brand kit';
       if (d.matched) return `Matches ${d.matched.site}`;
       return 'Your own look';
     }

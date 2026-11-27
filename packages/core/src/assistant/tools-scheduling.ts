@@ -540,7 +540,7 @@ export const schedulingTools: readonly AssistantTool[] = [
             .boolean()
             .optional()
             .describe(
-              'true: back to the business’s own colour and HandsFreeOS’s look (Start over from your colour)',
+              'true: back to the business’s brand kit (its colour, font and corners) and HandsFreeOS’s look (Start over from your brand kit)',
             ),
           matchWebsite: z
             .string()
@@ -570,10 +570,14 @@ export const schedulingTools: readonly AssistantTool[] = [
             .nullable()
             .optional()
             .describe(
-              `A Google font; null for HandsFreeOS’s own. Offered: ${FORM_FONTS.map((f) => f.name).join(', ')}`,
+              `A Google font; null for the brand kit’s (Settings → Workspace), else HandsFreeOS’s own. Offered: ${FORM_FONTS.map((f) => f.name).join(', ')}`,
             ),
           textSize: z.enum(FORM_TEXT_SIZES).optional(),
-          corners: z.enum(FORM_CORNERS).optional(),
+          corners: z
+            .enum(FORM_CORNERS)
+            .nullable()
+            .optional()
+            .describe('null for the brand kit’s (Settings → Workspace), else slightly round'),
           boxes: z
             .enum(FORM_FIELD_STYLES)
             .optional()

@@ -1,7 +1,7 @@
 {
   "area": "public-links",
   "title": "Every link a business gives out, and the public pages behind them",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-27",
   "files": {
     "apps/web/src/addons/realestate/portal/bits.tsx": "d7b704452b09",
     "apps/web/src/addons/realestate/portal/home-panel.tsx": "94db9d871e1e",
@@ -9,7 +9,7 @@
     "apps/web/src/addons/realestate/portal/pages.tsx": "ee125e35ca09",
     "apps/web/src/addons/realestate/public/pages.tsx": "a1f276e85386",
     "apps/web/src/app/a/[site]/[addonId]/[...path]/page.tsx": "580e89c8734c",
-    "apps/web/src/app/book/[site]/[calendar]/page.tsx": "7edde9053196",
+    "apps/web/src/app/book/[site]/[calendar]/page.tsx": "85ea43232642",
     "apps/web/src/app/book/[site]/page.tsx": "2aa66e8e2004",
     "apps/web/src/app/book/c/[id]/page.tsx": "ab0ff6351f2b",
     "apps/web/src/app/book/not-found.tsx": "e0c56c21c68b",
@@ -25,7 +25,7 @@
     "apps/web/src/app/chat/[key]/page.tsx": "8c826d330d83",
     "apps/web/src/app/d/[token]/page.tsx": "8a96c39a8600",
     "apps/web/src/app/e/[token]/page.tsx": "145bcd951eee",
-    "apps/web/src/app/f/[site]/[slug]/page.tsx": "0c0cc45489b0",
+    "apps/web/src/app/f/[site]/[slug]/page.tsx": "ccf87ae1e7c2",
     "apps/web/src/app/hold/[token]/page.tsx": "d5ddbb807f7a",
     "apps/web/src/app/i/[token]/page.tsx": "f794cf29bcc7",
     "apps/web/src/app/invite/[token]/page.tsx": "a1abb7862fdb",

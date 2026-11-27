@@ -20,7 +20,7 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/relationships/page.tsx": "8320e01bed88",
     "apps/web/src/app/app/w/[workspaceId]/settings/tags/page.tsx": "167ad8268f64",
     "apps/web/src/app/app/w/[workspaceId]/settings/usage/page.tsx": "f51fff2606f4",
-    "apps/web/src/app/app/w/[workspaceId]/settings/workspace/page.tsx": "8c41a4cbd551",
+    "apps/web/src/app/app/w/[workspaceId]/settings/workspace/page.tsx": "e1a7021a198a",
     "apps/web/src/app/payment/[workspaceId]/page.tsx": "69c8d793ff8b",
     "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
     "apps/web/src/components/billing/billing-bits.tsx": "5d79de48bea1",
@@ -29,7 +29,9 @@
     "apps/web/src/components/billing/trial-ending-note.tsx": "7882f94d4023",
     "apps/web/src/components/bin/delete-dialog.tsx": "53b9b47d12b7",
     "apps/web/src/components/bin/deleted-bin.tsx": "ac059400cae4",
+    "apps/web/src/components/look/brand-kit.tsx": "a222466cbaee",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
+    "apps/web/src/components/look/picture-library.tsx": "32d8c91027be",
     "apps/web/src/components/relationships/add-relationship-dialog.tsx": "66332ce8327a",
     "apps/web/src/components/relationships/custom-record-dialog.tsx": "472c7c8142a5",
     "apps/web/src/components/relationships/custom-record-page.tsx": "46e053be4882",
@@ -46,13 +48,14 @@
     "apps/web/src/components/settings/getting-started-switch.tsx": "77bfcc286007",
     "apps/web/src/components/settings/google-section.tsx": "8e40854795d2",
     "apps/web/src/components/settings/industry-picker.tsx": "3f2b1832961c",
-    "apps/web/src/components/settings/look-card.tsx": "71738833c9e4",
+    "apps/web/src/components/settings/look-card.tsx": "ee253ebe50fe",
     "apps/web/src/components/settings/menu-section.tsx": "2e927c40840b",
     "apps/web/src/components/settings/my-cell-section.tsx": "bcce54a8161d",
     "apps/web/src/components/settings/notifications-section.tsx": "b997d390c048",
     "apps/web/src/components/settings/page-card.tsx": "795a41ed93d0",
     "apps/web/src/components/settings/passkeys-section.tsx": "8e0e9b4c0f72",
     "apps/web/src/components/settings/password-section.tsx": "d07810a8afd8",
+    "apps/web/src/components/settings/pictures-card.tsx": "27e6ab5ea489",
     "apps/web/src/components/settings/pipelines-editor.tsx": "332254d6099e",
     "apps/web/src/components/settings/profile-form.tsx": "f5a3211463b6",
     "apps/web/src/components/settings/relationships-settings.tsx": "b69c03f6ad96",
@@ -462,7 +465,7 @@
       "kind": "do",
       "file": "apps/web/src/components/look/look-editor.tsx:253",
       "covered": "person",
-      "by": "file from device (look.begin_upload NEVER); settings_help business hands over Upload a logo under Logo and colour"
+      "by": "file from device (look.begin_upload NEVER); settings_help business hands over Upload a logo under Brand kit"
     },
     {
       "path": "Business → Look → Remove logo",
@@ -498,6 +501,69 @@
       "file": "apps/web/src/components/look/look-editor.tsx:347",
       "covered": "yes",
       "by": "get_settings business look"
+    },
+    {
+      "path": "Business → Brand kit → Match my website (site box, Match)",
+      "kind": "do",
+      "file": "apps/web/src/components/look/brand-kit.tsx:111",
+      "covered": "yes",
+      "by": "read_website_brand_kit, then do_look_set color, font, corners, matchedSite"
+    },
+    {
+      "path": "Business → Brand kit → Matched to the site, on the day",
+      "kind": "see",
+      "file": "apps/web/src/components/look/brand-kit.tsx:122",
+      "covered": "yes",
+      "by": "get_settings business look.matched"
+    },
+    {
+      "path": "Business → Brand kit → Font",
+      "kind": "do",
+      "file": "apps/web/src/components/look/brand-kit.tsx:138",
+      "covered": "yes",
+      "by": "do_look_set font (null for HandsFreeOS’s own)"
+    },
+    {
+      "path": "Business → Brand kit → Corners: Square, Slightly round, Round",
+      "kind": "do",
+      "file": "apps/web/src/components/look/brand-kit.tsx:161",
+      "covered": "yes",
+      "by": "do_look_set corners (null for slightly round)"
+    },
+    {
+      "path": "Business → Your pictures → the pictures: each one, its name, being made or couldn’t be used",
+      "kind": "see",
+      "file": "apps/web/src/components/look/picture-library.tsx:156",
+      "covered": "yes",
+      "by": "read_picture_list"
+    },
+    {
+      "path": "Business → Your pictures → Upload pictures, or drop them on the card",
+      "kind": "do",
+      "file": "apps/web/src/components/look/picture-library.tsx:134",
+      "covered": "person",
+      "by": "files from device (picture.begin_upload, picture.use_upload NEVER); settings_help business hands over Add pictures to Your pictures"
+    },
+    {
+      "path": "Business → Your pictures → a picture → Name, What it shows, Save",
+      "kind": "do",
+      "file": "apps/web/src/components/look/picture-library.tsx:295",
+      "covered": "yes",
+      "by": "do_picture_update name, words"
+    },
+    {
+      "path": "Business → Your pictures → a picture → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/look/picture-library.tsx:326",
+      "covered": "yes",
+      "by": "do_picture_remove"
+    },
+    {
+      "path": "Business → Your pictures → a picture → its size in pixels, or why it couldn’t be used",
+      "kind": "see",
+      "file": "apps/web/src/components/look/picture-library.tsx:283",
+      "covered": "yes",
+      "by": "read_picture_list width, height, problem"
     },
     {
       "path": "Business → Your page → on/off switch",

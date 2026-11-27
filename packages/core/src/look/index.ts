@@ -4,4 +4,5 @@
  */
 export * from './colour';
 export * from './look';
+export * from './pictures';
 export * from './words';

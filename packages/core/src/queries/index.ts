@@ -53,6 +53,8 @@ import { assistantThreadGet, assistantThreadList } from './assistant';
 import { assistantRoutineList } from './assistant-routine';
 import { expenseList, moneyInAndOut } from './expense';
 export * from './expense';
+import { pictureList } from './picture';
+export * from './picture';
 import { chatWidgetGet, chatWidgetList } from './chat';
 import { auditList } from './audit.list';
 import { appointmentTranscriptList, meetingConnectionList } from '../commands/meeting-connection';
@@ -388,6 +390,7 @@ export const queries: readonly QueryDef[] = [
   assistantRoutineList,
   expenseList,
   moneyInAndOut,
+  pictureList,
   calendarList,
   calendarGet,
   calendarAvailability,

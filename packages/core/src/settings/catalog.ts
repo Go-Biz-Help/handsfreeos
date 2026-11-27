@@ -275,9 +275,25 @@ const ROWS = {
   'workspace.look': {
     page: 'workspace',
     section: null,
-    label: 'Logo and colour',
-    words: ['logo', 'brand', 'color', 'branding'],
+    label: 'Brand kit: logo, colour, font and corners',
+    words: [
+      'logo',
+      'brand',
+      'color',
+      'branding',
+      'brand kit',
+      'font',
+      'corners',
+      'match my website',
+    ],
     anchor: 'logo-and-colour',
+  },
+  'workspace.pictures': {
+    page: 'workspace',
+    section: null,
+    label: 'Your pictures',
+    words: ['photos', 'images', 'picture library', 'upload pictures', 'gallery'],
+    anchor: 'your-pictures',
   },
   'workspace.your_page': {
     page: 'workspace',

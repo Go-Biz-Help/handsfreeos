@@ -395,6 +395,13 @@ import {
   lookUseUpload,
 } from './look';
 import {
+  pictureBeginUpload,
+  pictureNoteMade,
+  pictureRemove,
+  pictureUpdate,
+  pictureUseUpload,
+} from './picture';
+import {
   aiSetupTemplateDelete,
   aiSetupTemplateRename,
   aiSetupTemplateSave,
@@ -1379,6 +1386,12 @@ export const commands: readonly CommandDef[] = [
   lookFind,
   lookNoteWebsite,
   lookNoteUpload,
+  // Your pictures: the business's library for its forms, booking pages, emails, chat and invoices.
+  pictureBeginUpload,
+  pictureUseUpload,
+  pictureUpdate,
+  pictureRemove,
+  pictureNoteMade,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -1435,6 +1448,7 @@ export * from './intake-source';
 export * from './onboarding';
 export * from './onboarding-setup';
 export * from './look';
+export * from './picture';
 export * from './intake';
 export * from './chat';
 export * from './attention';

@@ -27,6 +27,7 @@ import { onKnowledgeDocumentAdded } from '../knowledge/document';
 import { onKnowledgeScanRequested } from '../knowledge/scan';
 import { onAiSetupReadRequested } from '../ai-setup/read-site';
 import { onLookFindRequested, onLookUploadReady } from '../look/jobs';
+import { onPictureUploadReady } from '../look/pictures';
 import { onScheduleCancelled, onTextScheduled } from '../messaging/scheduled';
 import { withPush } from '../push/moments';
 import { withReminders } from '../reminders/index';
@@ -526,6 +527,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       // The business's logo: made from an upload, or looked for on its website (look/jobs.ts).
       'look.upload_ready': onLookUploadReady,
       'look.find_requested': onLookFindRequested,
+      // Your pictures: a web copy made of each upload (look/pictures.ts).
+      'picture.upload_ready': onPictureUploadReady,
       // The agency's pushes (organization-level events): one install job per business (workflows/templates.ts).
       'workflow_template.pushed': onTemplatePushed,
       'knowledge_pack.pushed': onPackPushed,

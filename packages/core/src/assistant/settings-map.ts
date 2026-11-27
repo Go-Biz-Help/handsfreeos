@@ -145,7 +145,8 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     where: ['Settings', 'Workspace'],
     onScreen: [
       'Workspace: Business name, Time zone, Industry, Website, Review link (Google Business Profile), and Business hours (the AI teammate’s after-hours follows them)',
-      'Logo and colour: the logo and the colour on the booking page, website chat, invoices and emails',
+      'Brand kit: the logo and the colour on the booking page, website chat, invoices and emails; then Match my website, Font and Corners, which forms and booking pages that haven’t picked their own follow',
+      'Your pictures: the business’s library of pictures (Upload pictures, or drop them on it); pressing one opens its name, What it shows, and Remove',
       'Your page: Show your page, and once it’s on, Your page is at, with Copy the link and Open it',
       'Getting started guide: Show Getting started, for everyone in the business',
       'Your own web address',
@@ -158,7 +159,9 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'the website and review link, or take either off',
       'open hours',
       'the business’s street address, which the setup’s Your business asks (it isn’t on this screen): estimates and invoices show it unless Settings → Payments gives another',
-      'the colour, taking the logo off, or looking for the logo on the website again; adding one from their own computer or phone is theirs, under Logo and colour',
+      'the colour, taking the logo off, or looking for the logo on the website again; adding one from their own computer or phone is theirs, under Brand kit',
+      'the brand kit’s font and corners, or match them and the colour to a website (read_website_brand_kit, then do_look_set)',
+      'a picture’s name and what it shows, or take one out of Your pictures; adding pictures from their own computer or phone is theirs',
       'turn your page on or off',
       'turn Getting started on or off for everyone in the business',
     ],
@@ -168,7 +171,15 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         why: 'it is a picture from your own computer or phone, which only you can pick',
         steps: [
           'Open Settings → Workspace.',
-          'In Logo and colour, press Upload a logo (Change, once there is one) and pick the picture.',
+          'In Brand kit, press Upload a logo (Change, once there is one) and pick the picture.',
+        ],
+      },
+      {
+        what: 'add pictures to Your pictures',
+        why: 'they are pictures from your own computer or phone, which only you can pick',
+        steps: [
+          'Open Settings → Workspace.',
+          'In Your pictures, press Upload pictures and pick one or more, or drop them on the card.',
         ],
       },
     ],

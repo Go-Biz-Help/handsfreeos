@@ -9,6 +9,7 @@ import {
   type AnswerSheet,
   type AnswerValue,
   type FormDefinition,
+  type FormKit,
 } from '@hfos/core';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ export function FormPreview({
   definition,
   className,
   businessColor = null,
+  kit = null,
   logo = null,
   embedded = false,
 }: {
@@ -34,6 +36,8 @@ export function FormPreview({
   className?: string;
   /** The business's own colour, which buttons follow until the design picks one. */
   businessColor?: string | null;
+  /** The brand kit's font and corners, which the design follows where it leaves them unset. */
+  kit?: FormKit | null;
   logo?: FormLogo | null;
   /** As it sits on a website: see-through unless the design gives it a background. */
   embedded?: boolean;
@@ -42,6 +46,7 @@ export function FormPreview({
     <FormLookFrame
       design={definition.design}
       businessColor={businessColor}
+      kit={kit}
       logo={logo}
       embedded={embedded}
       className={className}
