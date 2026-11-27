@@ -5567,7 +5567,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Put one form’s design (its colours, font, shape and layout) on every other form. Live forms show it straight away; nothing else about them changes.
+         * Put one form’s design (its colours, font, shape, layout, and pictures across the top and behind) on every other form. Live forms show it straight away; nothing else about them changes.
          * @description Risk level 2. Requires forms.manage. Emits form.draft_saved, form.published.
          */
         post: operations["command_form_use_design_everywhere"];
@@ -33018,6 +33018,17 @@ export interface operations {
                         };
                         /** @default null */
                         design?: {
+                            /**
+                             * @default left
+                             * @enum {string}
+                             */
+                            align?: "left" | "center";
+                            /** @default null */
+                            backdrop?: {
+                                height: number;
+                                path: string;
+                                width: number;
+                            } | null;
                             /** @default {} */
                             button?: {
                                 /** @default true */
@@ -33047,6 +33058,12 @@ export interface operations {
                             };
                             /** @default null */
                             corners?: ("square" | "slight" | "round") | null;
+                            /** @default null */
+                            cover?: {
+                                height: number;
+                                path: string;
+                                width: number;
+                            } | null;
                             /**
                              * @default boxed
                              * @enum {string}
@@ -80715,6 +80732,17 @@ export interface operations {
                                 };
                                 /** @default null */
                                 design: {
+                                    /**
+                                     * @default left
+                                     * @enum {string}
+                                     */
+                                    align: "left" | "center";
+                                    /** @default null */
+                                    backdrop: {
+                                        height: number;
+                                        path: string;
+                                        width: number;
+                                    } | null;
                                     button: {
                                         /** @default true */
                                         fullWidth: boolean;
@@ -80742,6 +80770,12 @@ export interface operations {
                                     };
                                     /** @default null */
                                     corners: ("square" | "slight" | "round") | null;
+                                    /** @default null */
+                                    cover: {
+                                        height: number;
+                                        path: string;
+                                        width: number;
+                                    } | null;
                                     /**
                                      * @default boxed
                                      * @enum {string}

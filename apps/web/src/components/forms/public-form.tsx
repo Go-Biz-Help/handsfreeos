@@ -35,7 +35,7 @@ import {
 } from '@/lib/api/public-forms';
 import { PublicFormContext } from './booking-picker';
 import { FormHead, FormSurface, useFormLook } from './form-look';
-import { QuestionField } from './question-field';
+import { QuestionField, QuestionRows } from './question-field';
 import { StepButtons, StepProgress, useFormSteps } from './steps';
 
 /** A personal link (`?k=`): who to greet, and the contact details we already have, as answer targets. */
@@ -501,21 +501,27 @@ export function PublicForm({
 
             <div className="mt-6 flex flex-col gap-[var(--form-gap,1.5rem)]">
               {steps.shown.map((page) => (
-                <section key={page.page.id} className="flex flex-col gap-[var(--form-gap,1.5rem)]">
+                <section
+                  key={page.page.id}
+                  className="@container flex flex-col gap-[var(--form-gap,1.5rem)]"
+                >
                   {page.page.title ? (
                     <h2 className="text-[15px] font-medium text-text-2">{page.page.title}</h2>
                   ) : null}
-                  {page.questions.map((question) => (
-                    <QuestionField
-                      key={question.id}
-                      question={question}
-                      value={state.answers[question.id] ?? null}
-                      problem={
-                        tried ? answerProblem(question, state.answers[question.id] ?? null) : null
-                      }
-                      onChange={(value) => answer(question.id, value)}
-                    />
-                  ))}
+                  <QuestionRows
+                    questions={page.questions}
+                    render={(question) => (
+                      <QuestionField
+                        key={question.id}
+                        question={question}
+                        value={state.answers[question.id] ?? null}
+                        problem={
+                          tried ? answerProblem(question, state.answers[question.id] ?? null) : null
+                        }
+                        onChange={(value) => answer(question.id, value)}
+                      />
+                    )}
+                  />
                 </section>
               ))}
             </div>

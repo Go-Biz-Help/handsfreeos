@@ -1,8 +1,16 @@
 'use client';
 import {
   ANSWER_TARGETS,
+  asksSomething,
   CHOICE_TYPES,
   findQuestion,
+  ITEM_ALIGN_LABELS,
+  ITEM_ALIGNS,
+  PICTURE_SIZE_LABELS,
+  PICTURE_SIZES,
+  type ItemAlign,
+  type PictureRef,
+  type PictureSize,
   LEAD_WORDS,
   liveOf,
   parseVideoUrl,
@@ -31,7 +39,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Field, Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { Segmented } from '@/components/ui/segmented';
 import { Textarea } from '@/components/ui/textarea';
+import { PicturePicker } from '@/components/look/picture-picker';
 import type { FormCatalogsOut } from '@/lib/api/types';
 import { cueErrorMessage, writeCues } from '@/lib/forms/poll-cues';
 import { mapsKey } from '@/lib/maps/google';
@@ -75,6 +85,8 @@ export function QuestionSettings({
   const patchConfig = (fields: Record<string, unknown>) => patch({ config: fields });
   // A live poll's questions pop up when they're asked, and are answered or let go: none must be answered.
   const poll = definition.mode === 'poll';
+  // A picture's title is what it shows, read out to people who can't see it; its smaller line is its caption.
+  const picture = question.type === 'picture';
 
   return (
     <div className="space-y-4" data-testid="question-settings">
@@ -83,17 +95,26 @@ export function QuestionSettings({
           {questionKindLabel(question)}
         </p>
         <RequiredField
-          label="What does it ask?"
+          label={picture ? 'What it shows' : 'What does it ask?'}
           id="q-title"
+          hint={
+            picture
+              ? 'Not shown on the page. Read out to people who can’t see it, and shown if it doesn’t load.'
+              : undefined
+          }
           holdKey={questionId}
           value={question.title}
           disabled={readOnly}
           onSave={(title) => patch({ title })}
         />
         <Field
-          label="The smaller line underneath"
+          label={picture ? 'Caption' : 'The smaller line underneath'}
           htmlFor="q-help"
-          hint="Anything that saves them a phone call."
+          hint={
+            picture
+              ? 'Shown under the picture. Leave it blank for none.'
+              : 'Anything that saves them a phone call.'
+          }
         >
           <Input
             id="q-help"
@@ -102,7 +123,7 @@ export function QuestionSettings({
             onChange={(e) => patch({ help: e.target.value })}
           />
         </Field>
-        {question.type !== 'content' && question.type !== 'video' && !poll ? (
+        {asksSomething(question) && question.type !== 'video' && !poll ? (
           <div className="flex items-center justify-between gap-4">
             <div>
               <Label htmlFor="q-required">Must be answered</Label>
@@ -117,15 +138,47 @@ export function QuestionSettings({
             />
           </div>
         ) : null}
+        {!poll ? (
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label htmlFor="q-half">Half width</Label>
+              <Hint>
+                Sits beside the half-width one next to it on a computer. On a phone it takes the
+                whole width.
+              </Hint>
+            </div>
+            <Switch
+              label="Half width"
+              checked={question.width === 'half'}
+              disabled={readOnly}
+              onChange={(on) => patch({ width: on ? 'half' : 'full' })}
+              testId="question-half-width"
+            />
+          </div>
+        ) : null}
       </Card>
+
+      {picture ? (
+        <PictureSettings
+          key={questionId}
+          workspaceId={workspaceId}
+          question={question}
+          config={config}
+          patch={patch}
+          patchConfig={patchConfig}
+          readOnly={readOnly}
+        />
+      ) : null}
 
       {CHOICE_TYPES.has(question.type) ? (
         <Choices
+          workspaceId={workspaceId}
           question={question}
           questionId={questionId}
           apply={apply}
           readOnly={readOnly}
           quiz={definition.mode === 'quiz'}
+          pictures={!poll}
         />
       ) : null}
 
@@ -149,7 +202,7 @@ export function QuestionSettings({
       ) : null}
 
       {question.type === 'content' ? (
-        <Card className="p-4">
+        <Card className="space-y-4 p-4">
           <RequiredField
             label="What it says"
             id="q-body"
@@ -158,6 +211,11 @@ export function QuestionSettings({
             value={String(config.body ?? '')}
             disabled={readOnly}
             onSave={(body) => patchConfig({ body })}
+          />
+          <AlignSetting
+            value={(config.align as ItemAlign | undefined) ?? 'left'}
+            onChange={(align) => patchConfig({ align })}
+            readOnly={readOnly}
           />
         </Card>
       ) : null}
@@ -292,7 +350,7 @@ export function QuestionSettings({
         </Card>
       ) : null}
 
-      {question.type !== 'content' &&
+      {asksSomething(question) &&
       question.type !== 'payment' &&
       question.type !== 'video' &&
       question.type !== 'booking' &&
@@ -300,6 +358,121 @@ export function QuestionSettings({
         <WhereItGoes question={question} patch={patch} catalogs={catalogs} readOnly={readOnly} />
       ) : null}
     </div>
+  );
+}
+
+/** Where an item sits across the form: left, centre or right. */
+function AlignSetting({
+  value,
+  onChange,
+  readOnly,
+}: {
+  value: ItemAlign;
+  onChange: (align: ItemAlign) => void;
+  readOnly: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>Line up</Label>
+      <div>
+        <Segmented
+          ariaLabel="Line up"
+          value={value}
+          onChange={(v) => (readOnly ? null : onChange(v))}
+          options={ITEM_ALIGNS.map((a) => ({
+            value: a,
+            label: ITEM_ALIGN_LABELS[a],
+            testId: `align-${a}`,
+          }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A picture on the form: picked from Your pictures, how big it is across the form, where it sits, and a web address
+ * it opens when pressed. Its title is what it shows, so a new one takes the picture's own words, or its name.
+ */
+function PictureSettings({
+  workspaceId,
+  question,
+  config,
+  patch,
+  patchConfig,
+  readOnly,
+}: {
+  workspaceId: string;
+  question: Question;
+  config: Record<string, unknown>;
+  patch: (fields: Record<string, unknown>) => void;
+  patchConfig: (fields: Record<string, unknown>) => void;
+  readOnly: boolean;
+}) {
+  const [link, setLink] = useState(String(config.link ?? ''));
+  return (
+    <Card className="space-y-4 p-4">
+      <div className="space-y-1.5">
+        <Label>The picture</Label>
+        <PicturePicker
+          workspaceId={workspaceId}
+          label="The picture"
+          value={(config.picture as PictureRef | null | undefined) ?? null}
+          disabled={readOnly}
+          canUpload={!readOnly}
+          testId="question-picture"
+          onChange={(ref, row) => {
+            // Its words come along while the title is still the one it was added with.
+            const words = row ? (row.words || row.name).slice(0, 200) : '';
+            if (row && (question.title === 'A picture' || !question.title.trim()) && words)
+              patch({ title: words, config: { picture: ref } });
+            else patchConfig({ picture: ref });
+          }}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Size</Label>
+        <div>
+          <Segmented
+            ariaLabel="Size"
+            value={(config.size as PictureSize | undefined) ?? 'large'}
+            onChange={(size) => (readOnly ? null : patchConfig({ size }))}
+            options={PICTURE_SIZES.map((v) => ({
+              value: v,
+              label: PICTURE_SIZE_LABELS[v],
+              testId: `picture-size-${v}`,
+            }))}
+          />
+        </div>
+        <Hint>How much of the form’s width it takes. Full goes edge to edge.</Hint>
+      </div>
+      {(config.size ?? 'large') !== 'full' ? (
+        <AlignSetting
+          value={(config.align as ItemAlign | undefined) ?? 'center'}
+          onChange={(align) => patchConfig({ align })}
+          readOnly={readOnly}
+        />
+      ) : null}
+      <Field
+        label="Opens a web page when pressed"
+        htmlFor="q-picture-link"
+        hint="Leave it blank for none. It opens in a new tab."
+      >
+        <Input
+          id="q-picture-link"
+          type="url"
+          inputMode="url"
+          placeholder="https://"
+          value={link}
+          disabled={readOnly}
+          onChange={(e) => setLink(e.target.value)}
+          onBlur={() => {
+            if (link.trim() !== String(config.link ?? '')) patchConfig({ link: link.trim() });
+          }}
+          data-testid="question-picture-link"
+        />
+      </Field>
+    </Card>
   );
 }
 
@@ -853,28 +1026,64 @@ function BookingSettings({
 }
 
 function Choices({
+  workspaceId,
   question,
   questionId,
   apply,
   readOnly,
   quiz,
+  pictures,
 }: {
+  workspaceId: string;
   question: Question;
   questionId: string;
   apply: (ops: FormOp[]) => void;
   readOnly: boolean;
   quiz: boolean;
+  /** Each choice may show a picture (not in a live poll, whose choices are buttons on a phone). */
+  pictures: boolean;
 }) {
   const choices = (
     question.config as {
-      choices: { id: string; label: string; correct: boolean; value: number | null }[];
+      choices: {
+        id: string;
+        label: string;
+        correct: boolean;
+        value: number | null;
+        picture?: PictureRef | null;
+      }[];
     }
   ).choices;
   return (
     <Card className="space-y-3 p-4">
       <Label>The choices</Label>
+      {pictures ? (
+        <Hint className="mt-0">
+          Give a choice a picture and they pick from pictures, with its words underneath.
+        </Hint>
+      ) : null}
       {choices.map((choice) => (
         <div key={choice.id} className="flex items-center gap-2">
+          {pictures ? (
+            <PicturePicker
+              compact
+              workspaceId={workspaceId}
+              label={`Picture for “${choice.label}”`}
+              value={choice.picture ?? null}
+              disabled={readOnly}
+              canUpload={!readOnly}
+              testId="choice-picture"
+              onChange={(picture) =>
+                apply([
+                  {
+                    op: 'update_question',
+                    questionId,
+                    patch: { config: { choices: [{ id: choice.id, picture }] } },
+                  },
+                ])
+              }
+            />
+          ) : null}
           <RequiredInput
             holdKey={choice.id}
             value={choice.label}

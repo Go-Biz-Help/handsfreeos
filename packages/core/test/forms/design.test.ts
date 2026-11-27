@@ -170,6 +170,7 @@ describe('how it looks', () => {
       'data-fields': 'underline',
       'data-button': 'outline',
       'data-button-width': 'auto',
+      'data-align': 'left',
       'data-labels': 'inside',
     });
     expect(look.labelsInside).toBe(true);

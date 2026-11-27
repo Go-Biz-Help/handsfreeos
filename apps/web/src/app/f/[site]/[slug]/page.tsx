@@ -5,6 +5,7 @@ import { EmbedHeight } from '@/components/forms/embed-height';
 import { FormLookFrame } from '@/components/forms/form-look';
 import { PublicForm } from '@/components/forms/public-form';
 import { formPageData, getPublicForm, personalSheet, resumeSheet } from '@/lib/api/public-forms';
+import { backdropStyle } from '@/lib/look';
 
 export async function generateMetadata({
   params,
@@ -109,7 +110,13 @@ export default async function PublicFormPage({
         look: look ?? undefined,
       }}
     >
-      <div className="w-full px-4 py-8 sm:py-12">{designed}</div>
+      <div
+        className="w-full flex-1 px-4 py-8 sm:py-12"
+        style={backdropStyle(page.definition.design?.backdrop)}
+        data-testid={page.definition.design?.backdrop ? 'form-backdrop' : undefined}
+      >
+        {designed}
+      </div>
     </PublicFrame>
   );
 }

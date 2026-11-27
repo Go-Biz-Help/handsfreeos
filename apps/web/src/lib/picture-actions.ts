@@ -5,18 +5,16 @@ import {
   PICTURE_PROBLEMS,
   PICTURE_TYPE_BY_ENDING,
   PICTURE_UPLOAD_TYPES,
-  pictureUrlFor,
   type PictureRow,
 } from '@hfos/core';
 import { apiBrowser, unwrap } from '@/lib/api/client';
-import { publicEnv } from '@/lib/env';
 import { supabaseBrowser } from '@/lib/supabase/client';
 
 /** The pictures someone can pick, for the file picker. */
 export const PICTURE_ACCEPT = Object.keys(PICTURE_UPLOAD_TYPES).join(',');
 
 /** A made picture, at Storage's public address. */
-export const pictureSrc = (path: string): string => pictureUrlFor(publicEnv.supabaseUrl, path);
+export { pictureSrc } from '@/lib/look';
 
 export function pictureActions(workspaceId: string) {
   // Made when first used: the screens create these while they render, on the server too.

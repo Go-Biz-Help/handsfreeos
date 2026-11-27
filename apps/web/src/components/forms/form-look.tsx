@@ -1,6 +1,7 @@
 'use client';
-import { formLook, type FormDesign, type FormKit } from '@hfos/core';
+import { formLook, type FormDesign, type FormKit, type PictureRef } from '@hfos/core';
 import { createContext, useContext, type CSSProperties, type ReactNode } from 'react';
+import { pictureSrc } from '@/lib/look';
 import { cn } from '@/lib/utils';
 
 /** A business's logo where anyone can see it (the worker's PublicLook). */
@@ -21,6 +22,8 @@ interface FormLookValue {
   readonly showTitle: boolean;
   /** A dark form, for parts drawn by others (Cloudflare's check) to match. */
   readonly dark: boolean;
+  /** The picture across the top of the form, from Your pictures. */
+  readonly cover: PictureRef | null;
 }
 
 const FormLookContext = createContext<FormLookValue>({
@@ -29,6 +32,7 @@ const FormLookContext = createContext<FormLookValue>({
   logo: null,
   showTitle: true,
   dark: false,
+  cover: null,
 });
 
 export const useFormLook = (): FormLookValue => useContext(FormLookContext);
@@ -67,6 +71,7 @@ export function FormLookFrame({
         logo: look.showLogo ? logo : null,
         showTitle: look.showTitle,
         dark: look.dark,
+        cover: look.cover,
       }}
     >
       {/* React puts a stylesheet link in the page's head, once however many forms ask for it. */}
@@ -83,13 +88,38 @@ export function FormLookFrame({
   );
 }
 
-/** The panel the form sits on: its own background and a border, or nothing at all on a website without one. */
+/**
+ * The panel the form sits on: its own background and a border, or nothing at all on a website without one. A cover
+ * picture runs across its top, edge to edge, above everything else.
+ */
 export function FormSurface({
   className,
   children,
   ...props
 }: { className?: string; children: ReactNode } & Record<`data-${string}`, string>) {
-  const { bare } = useFormLook();
+  const { bare, cover } = useFormLook();
+  if (cover)
+    return (
+      <div
+        className={cn(
+          'overflow-hidden rounded-card',
+          bare ? '' : 'border border-border bg-[var(--form-surface)] shadow-1',
+        )}
+        {...props}
+      >
+        {/* Storage's public address: plain <img>, its shape kept up to a banner's height. */}
+        <img
+          src={pictureSrc(cover.path)}
+          alt=""
+          width={cover.width}
+          height={cover.height}
+          className="block max-h-[260px] w-full object-cover"
+          style={{ aspectRatio: `${cover.width} / ${cover.height}` }}
+          data-testid="form-cover"
+        />
+        <div className={cn(bare && 'px-1 py-2', className)}>{children}</div>
+      </div>
+    );
   return (
     <div
       className={cn(

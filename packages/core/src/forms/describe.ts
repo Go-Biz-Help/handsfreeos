@@ -36,6 +36,8 @@ export function questionLine(question: Question): string {
     const rows = choicesOf(question);
     bits.push(rows.length === 1 ? '1 row' : `${rows.length} rows`);
   }
+  if (question.type === 'picture' && !question.config.picture) bits.push('no picture yet');
+  if (question.width === 'half') bits.push('half width');
   if (question.showIf.conditions.length) bits.push('only sometimes');
   if (question.mapTo) bits.push('fills in a field');
   return `${question.title} — ${bits.join(', ')}`;

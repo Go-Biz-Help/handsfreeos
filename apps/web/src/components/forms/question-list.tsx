@@ -1,5 +1,21 @@
 'use client';
 import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   allQuestions,
   newChoiceId,
   newQuestionId,
@@ -17,6 +33,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -38,9 +55,9 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * The questions in the order they are asked, with what they are underneath. Reordering is by the arrows
- * rather than a drag: it works with a keyboard, on a phone, and for somebody who has one hand on a tape
- * measure. Moving a question past the top or bottom of its page takes it onto the next one.
+ * The questions in the order they are asked, with what they are underneath. A question moves by dragging its handle,
+ * onto another page too, or by its arrows, which work with a keyboard, on a phone, and for somebody who has one hand
+ * on a tape measure. Moving a question past the top or bottom of its page with an arrow takes it onto the next one.
  *
  * A form with more than one page shows where each starts, and can be shown one page at a time: a funnel's
  * steps.
@@ -61,6 +78,20 @@ export function QuestionList({
   const questions = allQuestions(definition);
   const pageOf = (questionId: string) =>
     definition.pages.find((p) => p.questions.some((q) => q.id === questionId))!;
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  /** Dropped on another question: it takes that one's place, on that one's page. */
+  function onDragEnd(e: DragEndEvent) {
+    const questionId = String(e.active.id);
+    const overId = e.over ? String(e.over.id) : null;
+    if (!overId || overId === questionId) return;
+    const page = pageOf(overId);
+    const index = page.questions.findIndex((q) => q.id === overId);
+    apply([{ op: 'move_question', questionId, pageId: page.id, index }]);
+  }
 
   function add(item: QuestionMenuItem) {
     const page = definition.pages[definition.pages.length - 1]!;
@@ -142,15 +173,17 @@ export function QuestionList({
     const Icon = questionIcon(question);
     const selected = question.id === selectedId;
     return (
-      <div
+      <SortableRow
         key={question.id}
+        id={question.id}
+        disabled={readOnly}
+        onPress={() => onSelect(question.id)}
+        handleLabel={`Drag to move “${question.title}”`}
         className={cn(
           'group flex items-center gap-2 rounded-card border bg-card px-3 py-2.5 transition-colors',
           selected ? 'border-accent ring-1 ring-accent/30' : 'border-border hover:bg-card-2',
         )}
-        data-testid="question-row"
       >
-        <GripVertical className="h-4 w-4 shrink-0 text-text-3" strokeWidth={1.75} />
         <button
           type="button"
           onClick={() => onSelect(question.id)}
@@ -207,68 +240,78 @@ export function QuestionList({
             </Button>
           </div>
         ) : null}
-      </div>
+      </SortableRow>
     );
   };
 
   return (
     <div className="space-y-2" data-testid="question-list">
-      {definition.pages.map((page, p) => (
-        <div key={page.id} className="space-y-2" data-testid="form-page">
-          {paged ? (
-            <div className="flex items-center gap-2 pt-2">
-              <span className="shrink-0 text-[11.5px] font-medium uppercase tracking-wide text-text-3">
-                Page {p + 1}
-              </span>
-              <Input
-                aria-label={`Page ${p + 1} heading`}
-                placeholder="Heading (optional)"
-                className="h-8 text-[13px]"
-                value={page.title}
-                disabled={readOnly}
-                onChange={(e) =>
-                  apply([{ op: 'update_page', pageId: page.id, patch: { title: e.target.value } }])
-                }
-              />
-              {!readOnly && p > 0 ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Join page ${p + 1} to the page before`}
-                  title="Take out this page break"
-                  onClick={() => joinPage(page.id)}
-                >
-                  <X className="h-4 w-4" strokeWidth={1.75} />
-                </Button>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={questions.map((q) => q.id)} strategy={verticalListSortingStrategy}>
+          {definition.pages.map((page, p) => (
+            <div key={page.id} className="space-y-2" data-testid="form-page">
+              {paged ? (
+                <div className="flex items-center gap-2 pt-2">
+                  <span className="shrink-0 text-[11.5px] font-medium uppercase tracking-wide text-text-3">
+                    Page {p + 1}
+                  </span>
+                  <Input
+                    aria-label={`Page ${p + 1} heading`}
+                    placeholder="Heading (optional)"
+                    className="h-8 text-[13px]"
+                    value={page.title}
+                    disabled={readOnly}
+                    onChange={(e) =>
+                      apply([
+                        { op: 'update_page', pageId: page.id, patch: { title: e.target.value } },
+                      ])
+                    }
+                  />
+                  {!readOnly && p > 0 ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Join page ${p + 1} to the page before`}
+                      title="Take out this page break"
+                      onClick={() => joinPage(page.id)}
+                    >
+                      <X className="h-4 w-4" strokeWidth={1.75} />
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+              {paged &&
+              definition.settings.onePageAtATime &&
+              definition.settings.identity !== 'anonymous' ? (
+                <Checkbox
+                  className="text-[12.5px] text-text-2"
+                  label="Save their details when they leave this page"
+                  checked={page.savesContact}
+                  disabled={
+                    readOnly || (!page.savesContact && definition.pages.some((x) => x.savesContact))
+                  }
+                  onChange={(e) =>
+                    apply([
+                      {
+                        op: 'update_page',
+                        pageId: page.id,
+                        patch: { savesContact: e.target.checked },
+                      },
+                    ])
+                  }
+                  data-testid="page-saves-contact"
+                />
+              ) : null}
+              {page.questions.map((question) => row(question, questions.indexOf(question)))}
+              {paged && !page.questions.length ? (
+                <p className="rounded-card border border-dashed border-border px-4 py-4 text-center text-[12.5px] text-text-3">
+                  Nothing on this page yet.
+                </p>
               ) : null}
             </div>
-          ) : null}
-          {paged &&
-          definition.settings.onePageAtATime &&
-          definition.settings.identity !== 'anonymous' ? (
-            <Checkbox
-              className="text-[12.5px] text-text-2"
-              label="Save their details when they leave this page"
-              checked={page.savesContact}
-              disabled={
-                readOnly || (!page.savesContact && definition.pages.some((x) => x.savesContact))
-              }
-              onChange={(e) =>
-                apply([
-                  { op: 'update_page', pageId: page.id, patch: { savesContact: e.target.checked } },
-                ])
-              }
-              data-testid="page-saves-contact"
-            />
-          ) : null}
-          {page.questions.map((question) => row(question, questions.indexOf(question)))}
-          {paged && !page.questions.length ? (
-            <p className="rounded-card border border-dashed border-border px-4 py-4 text-center text-[12.5px] text-text-3">
-              Nothing on this page yet.
-            </p>
-          ) : null}
-        </div>
-      ))}
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {!questions.length ? (
         <p className="rounded-card border border-dashed border-border px-4 py-8 text-center text-[13px] text-text-3">
@@ -335,6 +378,61 @@ export function QuestionList({
           />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * A question's row, moved by dragging its handle (or with the keyboard: Space on the handle, then the arrows). Pressed
+ * without moving, the handle opens the question, like the rest of the row.
+ */
+function SortableRow({
+  id,
+  disabled,
+  handleLabel,
+  className,
+  onPress,
+  children,
+}: {
+  id: string;
+  disabled: boolean;
+  handleLabel: string;
+  className: string;
+  onPress: () => void;
+  children: ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id, disabled });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(className, isDragging && 'relative z-10 shadow-2')}
+      data-testid="question-row"
+    >
+      <button
+        type="button"
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        aria-label={handleLabel}
+        onClick={onPress}
+        className={cn(
+          'flex h-7 w-5 shrink-0 touch-none items-center justify-center rounded text-text-3 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring',
+          disabled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing',
+        )}
+        data-testid="question-drag"
+      >
+        <GripVertical className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      </button>
+      {children}
     </div>
   );
 }

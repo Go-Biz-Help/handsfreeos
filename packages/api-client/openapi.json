@@ -15867,6 +15867,78 @@
                                 "default": true,
                                 "type": "boolean"
                               },
+                              "align": {
+                                "default": "left",
+                                "type": "string",
+                                "enum": [
+                                  "left",
+                                  "center"
+                                ]
+                              },
+                              "cover": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": {
+                                        "type": "string",
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.webp$"
+                                      },
+                                      "width": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10000
+                                      },
+                                      "height": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10000
+                                      }
+                                    },
+                                    "required": [
+                                      "path",
+                                      "width",
+                                      "height"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "backdrop": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": {
+                                        "type": "string",
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.webp$"
+                                      },
+                                      "width": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10000
+                                      },
+                                      "height": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10000
+                                      }
+                                    },
+                                    "required": [
+                                      "path",
+                                      "width",
+                                      "height"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "matched": {
                                 "default": null,
                                 "anyOf": [
@@ -59677,7 +59749,7 @@
     "/v1/commands/form.use_design_everywhere": {
       "post": {
         "operationId": "command_form_use_design_everywhere",
-        "summary": "Put one form’s design (its colours, font, shape and layout) on every other form. Live forms show it straight away; nothing else about them changes.",
+        "summary": "Put one form’s design (its colours, font, shape, layout, and pictures across the top and behind) on every other form. Live forms show it straight away; nothing else about them changes.",
         "tags": [
           "commands"
         ],
@@ -177003,6 +177075,80 @@
                                       "default": true,
                                       "type": "boolean"
                                     },
+                                    "align": {
+                                      "default": "left",
+                                      "type": "string",
+                                      "enum": [
+                                        "left",
+                                        "center"
+                                      ]
+                                    },
+                                    "cover": {
+                                      "default": null,
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "path": {
+                                              "type": "string",
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.webp$"
+                                            },
+                                            "width": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 10000
+                                            },
+                                            "height": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 10000
+                                            }
+                                          },
+                                          "required": [
+                                            "path",
+                                            "width",
+                                            "height"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "backdrop": {
+                                      "default": null,
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "path": {
+                                              "type": "string",
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.webp$"
+                                            },
+                                            "width": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 10000
+                                            },
+                                            "height": {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 10000
+                                            }
+                                          },
+                                          "required": [
+                                            "path",
+                                            "width",
+                                            "height"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
                                     "matched": {
                                       "default": null,
                                       "anyOf": [
@@ -177044,6 +177190,9 @@
                                     "width",
                                     "showLogo",
                                     "showTitle",
+                                    "align",
+                                    "cover",
+                                    "backdrop",
                                     "matched"
                                   ],
                                   "additionalProperties": false
