@@ -1543,7 +1543,7 @@
   "apps/web/src/components/settings/automations/inputs.tsx": "b967127d7b1f",
   "apps/web/src/components/settings/automations/panels.tsx": "e4dddf96e1b6",
   "apps/web/src/components/settings/billing-page.tsx": "480282be3d3a",
-  "apps/web/src/components/settings/branded-domain-card.tsx": "d6e2b0af323b",
+  "apps/web/src/components/settings/branded-domain-card.tsx": "210ef7bede14",
   "apps/web/src/components/settings/calendar-connection-card.tsx": "fb70eee130ed",
   "apps/web/src/components/settings/chat-install.tsx": "000b8ddf3f39",
   "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
