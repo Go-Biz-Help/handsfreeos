@@ -2436,7 +2436,7 @@
       "gap": "The Share tab and the phone draw a QR code for a form’s link to print or hold up, but nothing in the Assistant made one: asked for “a QR code for my quote form”, it could only give the link.",
       "fix": "A make_qr_code tool beside make_file: the whole link of one of the business’s own public pages (moved onto its own domain when one serves), drawn as squares on a Letter page with the title over it and the link under it, kept 30 days for the person alone with a Download card, emailMe and email_file. Any other website refuses.",
       "status": "fixed",
-      "pr": null
+      "pr": 796
     },
     {
       "id": "forms-16",
@@ -2446,7 +2446,7 @@
       "gap": "The editor’s Take them off clears a live poll’s slides (set_form {slides: null}), but the form builder’s set_form had no way to: asked to take the slides off, the Assistant couldn’t.",
       "fix": "A removeSlides flag on the builder’s set_form (forms/ai-tools.ts) that patches slides to null, as the editor does, and a line in the builder’s prompt saying when to use it and that slide-tied questions then go to no slide.",
       "status": "fixed",
-      "pr": null
+      "pr": 796
     }
   ]
 }
