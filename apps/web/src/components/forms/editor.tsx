@@ -288,6 +288,7 @@ export function FormEditor({
           <FormPreview
             definition={editor.definition}
             businessColor={brand.color}
+            kit={brand.kit}
             logo={brand.logo}
           />
           <p className="mt-3 text-center text-[12.5px] text-text-3">

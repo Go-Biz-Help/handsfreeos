@@ -1,5 +1,5 @@
 'use client';
-import { formLook, type FormDesign } from '@hfos/core';
+import { formLook, type FormDesign, type FormKit } from '@hfos/core';
 import { createContext, useContext, type CSSProperties, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -41,6 +41,7 @@ export const useFormLook = (): FormLookValue => useContext(FormLookContext);
 export function FormLookFrame({
   design,
   businessColor = null,
+  kit = null,
   logo = null,
   embedded = false,
   className,
@@ -49,13 +50,15 @@ export function FormLookFrame({
   design: FormDesign | null | undefined;
   /** The business's own colour; null for HandsFreeOS's blue. */
   businessColor?: string | null;
+  /** The brand kit's font and corners, which the design follows where it leaves them unset. */
+  kit?: FormKit | null;
   logo?: FormLogo | null;
   /** On someone else's website (`?embed=1`). */
   embedded?: boolean;
   className?: string;
   children: ReactNode;
 }) {
-  const look = formLook(design, { businessColor, embedded });
+  const look = formLook(design, { businessColor, embedded, kit });
   return (
     <FormLookContext.Provider
       value={{

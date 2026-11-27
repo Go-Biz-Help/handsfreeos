@@ -1,8 +1,10 @@
 /** A business's logo and colour (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §4): the commands. */
 import { z } from 'zod';
 import { isLookColor } from '../look/colour';
+import { FONT_NAME } from '../look/fonts';
 import {
   BusinessLookSchema,
+  LOOK_CORNERS,
   LOOK_LOGO_PATH,
   LOOK_UPLOAD_BUCKET,
   LOOK_UPLOAD_PATH,
@@ -40,8 +42,23 @@ export const LookSetInput = z
     color: hex.optional(),
     /** Takes the logo off: the initials stand in again. */
     removeLogo: z.literal(true).optional(),
+    /** The brand kit's font, a Google font's name; null goes back to HandsFreeOS's own. */
+    font: z
+      .string()
+      .trim()
+      .max(60)
+      .regex(FONT_NAME, { error: 'Pick a font from the list.' })
+      .nullable()
+      .optional(),
+    /** The brand kit's corners; null goes back to slight. */
+    corners: z.enum(LOOK_CORNERS).nullable().optional(),
+    /** The website Match my website read these from, kept to say so. */
+    matchedSite: z.string().trim().min(1).max(300).optional(),
   })
-  .refine((v) => v.color !== undefined || v.removeLogo, { error: 'Nothing to change.' });
+  .refine(
+    (v) => v.color !== undefined || v.removeLogo || v.font !== undefined || v.corners !== undefined,
+    { error: 'Nothing to change.' },
+  );
 export const LookSetOutput = z.object({ look: BusinessLookSchema, changed: z.boolean() });
 
 export const LookFindInput = z.object({ workspaceId: uuid });

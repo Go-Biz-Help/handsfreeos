@@ -82,6 +82,7 @@ export default async function PublicFormPage({
     <FormLookFrame
       design={page.definition.design}
       businessColor={look?.color ?? null}
+      kit={look}
       logo={look?.logo ?? null}
       embedded={embedded}
       className="mx-auto w-full max-w-[var(--form-max-width,672px)]"

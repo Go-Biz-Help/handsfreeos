@@ -42,9 +42,9 @@ export const LOOK_WORDS = {
   preview: 'How it looks',
   previewButton: 'Book a time',
   /** Settings → Workspace. */
-  settingsTitle: 'Logo and colour',
+  settingsTitle: 'Brand kit',
   settingsHint:
-    'On your booking page, website chat, invoices and the emails HandsFreeOS sends for you.',
+    'Your logo, colour, font and corners: on your booking page, forms, website chat, invoices and the emails HandsFreeOS sends for you.',
   cantChange:
     'Your role can’t change the business’s logo and colour. Ask an owner of this business to change them.',
   /** The setup's summary line, once there's a logo or a colour. */

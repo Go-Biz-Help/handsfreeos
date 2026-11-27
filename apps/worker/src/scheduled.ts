@@ -125,6 +125,7 @@ import { FILE_TEXT_JOBS, FILE_TEXT_SWEEP_KEY, fileTextJobs } from './files/file-
 import { knowledgeScanJob } from './knowledge/scan';
 import { READ_SITE_JOB, readSiteJob } from './ai-setup/read-site';
 import { FIND_LOGO_JOB, findLogoJob, MAKE_LOGO_JOB, makeLogoJob } from './look/jobs';
+import { MAKE_PICTURE_JOB, makePictureJob } from './look/pictures';
 import {
   ROUTINE_QUESTION_JOB,
   routineQuestionJob,
@@ -670,6 +671,7 @@ export const jobs: JobMap = {
   [READ_SITE_JOB]: readSiteJob,
   // The business's logo: made from an upload, or found on its website.
   [MAKE_LOGO_JOB]: makeLogoJob,
+  [MAKE_PICTURE_JOB]: makePictureJob,
   [FIND_LOGO_JOB]: findLogoJob,
   // A task's ping at its time, and a question someone asked the Assistant to ask on a schedule (reminders/).
   [TASK_DUE_JOB]: taskDueJob,

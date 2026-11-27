@@ -286,9 +286,32 @@ describe('the logo customers see', () => {
         height: 200,
       },
       color: '#f5c518',
+      font: null,
+      corners: null,
     });
-    expect(publicLookOf(settings, null)).toEqual({ logo: null, color: '#f5c518' });
-    expect(publicLookOf({}, 'https://abc.supabase.co')).toEqual({ logo: null, color: null });
+    expect(publicLookOf(settings, null)).toEqual({
+      logo: null,
+      color: '#f5c518',
+      font: null,
+      corners: null,
+    });
+    expect(publicLookOf({}, 'https://abc.supabase.co')).toEqual({
+      logo: null,
+      color: null,
+      font: null,
+      corners: null,
+    });
+  });
+
+  it('carries the brand kit’s font and corners, for the pages that follow them', () => {
+    const kitted = {
+      look: {
+        ...settings.look,
+        font: { name: 'Poppins', at: '2026-11-27T12:00:00.000Z' },
+        corners: { value: 'round', at: '2026-11-27T12:00:00.000Z' },
+      },
+    };
+    expect(publicLookOf(kitted, null)).toMatchObject({ font: 'Poppins', corners: 'round' });
   });
 
   it('heads an automatic email, 48 pixels high, its links in the colour made readable on white', () => {

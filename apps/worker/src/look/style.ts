@@ -396,7 +396,7 @@ export function designFromStyle(
     patch,
     fontNote:
       font?.stoodIn && style.font
-        ? `${style.font.name} isn’t a free font, so the form uses ${font.name}, the closest one.`
+        ? `${style.font.name} isn’t a free font, so we picked ${font.name}, the closest one.`
         : null,
     found,
   };

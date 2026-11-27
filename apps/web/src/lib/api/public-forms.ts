@@ -20,6 +20,9 @@ export interface PublicFormPage {
         readonly height: number;
       } | null;
       readonly color: string | null;
+      /** The brand kit's font and corners, which a design leaving them unset follows. */
+      readonly font?: string | null;
+      readonly corners?: 'square' | 'slight' | 'round' | null;
     };
   };
   readonly form: {

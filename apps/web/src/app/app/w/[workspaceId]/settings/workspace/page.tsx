@@ -6,6 +6,7 @@ import { DeleteWorkspace } from '@/components/settings/delete-workspace';
 import { GettingStartedSwitch } from '@/components/settings/getting-started-switch';
 import { LookCard } from '@/components/settings/look-card';
 import { PageCard } from '@/components/settings/page-card';
+import { PicturesCard } from '@/components/settings/pictures-card';
 import { WorkspaceForm } from '@/components/settings/workspace-form';
 import { Card } from '@/components/ui/card';
 import { apiServer, getWorkspace, unwrapPage } from '@/lib/api/server';
@@ -53,6 +54,13 @@ export default async function WorkspaceSettingsPage({
               : null
           }
           canChange={can(got.workspace.permissions, 'workspace.update')}
+        />
+        {/* The pictures forms, booking pages and emails pick from: whoever may change any of them may add some. */}
+        <PicturesCard
+          workspaceId={workspaceId}
+          canChange={(
+            ['workspace.update', 'forms.manage', 'calendars.manage', 'channels.manage'] as const
+          ).some((p) => can(got.workspace.permissions, p))}
         />
         {/* The booking page grown into a one-page site: switched with the calendars (calendars.manage). */}
         <PageCard

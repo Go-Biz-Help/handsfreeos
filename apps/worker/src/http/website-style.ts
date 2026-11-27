@@ -73,7 +73,35 @@ export async function registerWebsiteStyleRoutes(
         return websiteDesign(deps, url, 'the calendar’s Design section');
       },
     );
+    // The brand kit (Settings → Workspace): its colour, font and corners from the site, which the screen then keeps
+    // with look.set, as the person's own pick.
+    scoped.post(
+      '/v1/look/website-style',
+      { config: { rateLimit: { max: 12, timeWindow: '1 minute' } } },
+      async (req) => {
+        const actor = await authenticate(deps, req);
+        const body = parseBody(Body, req.body);
+        await requirePermission(deps, actor.userId, body.workspaceId, 'workspace.update');
+        const url = await siteToRead(deps, body.workspaceId, body.site);
+        return websiteKit(deps, url);
+      },
+    );
   });
+}
+
+/**
+ * The brand kit that matches a site: its button colour, font and corners, for Settings → Workspace's Match my website
+ * and the Assistant. Nothing is kept here.
+ */
+export async function websiteKit(deps: SiteReader, url: string) {
+  const found = await websiteDesign(deps, url, 'Settings → Workspace, under Your brand kit');
+  return {
+    site: found.site,
+    color: found.style.button,
+    font: found.design.font ?? null,
+    corners: found.style.corners,
+    fontNote: found.fontNote,
+  };
 }
 
 /** What reading a site needs: the safe fetch and the log. */

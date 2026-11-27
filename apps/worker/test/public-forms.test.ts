@@ -173,7 +173,8 @@ describe('opening one', () => {
     const { business } = res.json() as {
       business: { look: { color: string | null; logo: string | null } };
     };
-    expect(business.look).toEqual({ color: '#e85d04', logo: null });
+    // With the brand kit's font and corners, unset until someone picks them.
+    expect(business.look).toEqual({ color: '#e85d04', logo: null, font: null, corners: null });
   });
 });
 

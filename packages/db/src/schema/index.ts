@@ -4836,6 +4836,31 @@ export const expenses = app.table('expenses', {
 });
 
 /**
+ * Your pictures (20261027037100, HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md part 1): a business's library of
+ * pictures for its forms, booking pages, emails, chat and invoices. Uploaded to `picture-uploads`, made into a public
+ * WebP in `pictures` by the worker; removing one keeps its file, so pages showing it don't break.
+ */
+export const designPictures = app.table('design_pictures', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  /** What it shows, for screen readers and when it doesn't load. */
+  words: text('words').notNull().default(''),
+  /** 'uploading', 'making', 'ready' or 'failed'. */
+  status: text('status').notNull().default('uploading'),
+  uploadPath: text('upload_path').unique(),
+  path: text('path'),
+  width: integer('width'),
+  height: integer('height'),
+  bytes: integer('bytes'),
+  problem: text('problem'),
+  createdBy: userRef('created_by'),
+  removedAt: ts('removed_at'),
+  removedBy: userRef('removed_by'),
+  ...timestamps(),
+});
+
+/**
  * A customer's bank taking a payment back (20261027008700), as Stripe and Square tell the worker: open while the
  * business answers it, then won, lost, or closed (an inquiry that ended with no money taken). It never un-pays the
  * invoice; a lost one takes back what a partner earned on the payment.

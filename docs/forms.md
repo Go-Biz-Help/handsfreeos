@@ -352,6 +352,13 @@ words.
 - **Unset colours follow the business.** The buttons take the business's colour (Settings → Workspace), darkened for
   white words as on its booking page; every other colour is worked out from the background. `formLook` sets every
   colour token the form's parts use, so a visitor's own dark mode never turns a form on a light site dark.
+- **An unset font or corners follow the brand kit** (Settings → Workspace → **Brand kit**, `look.font` and
+  `look.corners` in the business's settings, kept by `look.set`). `designFontOf` and `designCornersOf` pick the
+  form's own, then the kit's, then HandsFreeOS's (Hanken Grotesk, slightly round), and `formLook` takes the kit as
+  `options.kit`. Forms saved before the kit already hold `corners: 'slight'`, so they keep their look until someone
+  presses **Start over from your brand kit**. The Font list's first choice, "Your brand kit’s", is null. The brand
+  kit's own **Match my website** (`/v1/look/website-style`, `workspace.update`) fills its colour, font and corners at
+  once and keeps them; the Assistant does the same with `read_website_brand_kit`, then `look.set`.
 - **A form on a website is see-through** unless its design gives it a background, so it sits on whatever part of the
   site it's in. Its page is always in the light colour scheme there, because a browser paints a solid backdrop behind
   a frame whose scheme differs from the page around it.
