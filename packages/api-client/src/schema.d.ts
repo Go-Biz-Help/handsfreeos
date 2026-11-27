@@ -5057,6 +5057,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/expense.begin_receipt_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve a place for an expense’s receipt, a photo or a PDF (25 MB at most). Upload it to the returned path, then confirm it with file.confirm; it takes the place of the receipt before.
+         * @description Risk level 1. Requires money.manage. Emits .
+         */
+        post: operations["command_expense_begin_receipt_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/expense.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add something the business spent: the day, the whole amount (tax in it), who it was paid to, a category, how it was paid and a note. Add its receipt with expense.begin_receipt_upload.
+         * @description Risk level 1. Requires money.manage. Emits expense.changed.
+         */
+        post: operations["command_expense_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/expense.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove an expense, and delete its receipt. It isn’t counted in money out again, and can’t be brought back.
+         * @description Risk level 2. Requires money.manage. Emits expense.changed, file.deleted.
+         */
+        post: operations["command_expense_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/expense.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change an expense: its day, amount, tax, who it was paid to, category, how it was paid or note. Only what is given changes.
+         * @description Risk level 1. Requires money.manage. Emits expense.changed.
+         */
+        post: operations["command_expense_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/extension_sign_in.answer": {
         parameters: {
             query?: never;
@@ -5128,7 +5208,7 @@ export interface paths {
         put?: never;
         /**
          * Mark an uploaded file ready once the object exists in storage.
-         * @description Risk level 1. Requires records.write. Emits file.attached. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires records.write. Emits file.attached, file.deleted. Can wait on a phone with no signal.
          */
         post: operations["command_file_confirm"];
         delete?: never;
@@ -10131,6 +10211,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.partner.marked, outreach.send.skipped.
          */
         post: operations["command_outreach_partner_potential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.plan.change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change one row of today’s plan on a network (Facebook when left out), by the row’s key from the plan: now puts it first, so it’s the next thing the person’s computer does there; skip leaves it out for today (it’s back tomorrow if it’s still due); at moves it to a time today (time, as 15:30 on the business’s clock): it waits till then; back puts it back as it was. It takes hold the next time their computer looks, usually within minutes. A step for someone on the list can be skipped or moved on any network. Do now, and any change to a once-a-day read, only where the row’s can says so. Every limit and wait stays: a change only picks among what the day would do anyway.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.plan.changed.
+         */
+        post: operations["command_outreach_plan_change"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21697,6 +21797,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/expense.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the business spent, newest day first: each one’s day, amount, tax, who it was paid to, category, how it was paid, note and receipt. One month, a range of days, a category or words; with the count and total of every one that matches.
+         * @description Requires money.manage.
+         */
+        post: operations["query_expense_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/extension_sign_in.pending": {
         parameters: {
             query?: never;
@@ -22957,6 +23077,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/money.in_and_out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Each month’s money in (payments, less refunds) and money out (expenses), this month first, in the business’s time zone; and one month’s spending by category.
+         * @description Requires money.manage.
+         */
+        post: operations["query_money_in_and_out"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/money.settings": {
         parameters: {
             query?: never;
@@ -24067,7 +24207,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the person’s computer will do today on one network (Facebook when left out), and about when: where the day stands in a line, what they asked for that goes first, what’s coming in order with rough times, how many more follow, and the day’s reading and steps done so far. Worked out from where the extension said its day is up to, by the rules it follows. Times are a rough guide.
+         * What the person’s computer will do today on one network (Facebook when left out), and about when: where the day stands in a line, what they asked for that goes first, what’s coming in order with rough times, how many more follow, and the day’s reading and steps done so far. Worked out from where the extension said its day is up to, by the rules it follows. Times are a rough guide. A row that can be changed has its key, and can says how (now, skip, at): pass both to outreach.plan.change. changes is what the person skipped today or moved to a time still ahead, each with its key to put it back.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_plan"];
@@ -26291,6 +26431,26 @@ export interface paths {
          * @description Requires channels.manage.
          */
         post: operations["query_registration_get_policies"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/registration.last_check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the texting registration’s last step found the last time it checked: each row (the website, privacy policy, terms, where customers agree…), what wasn’t green, when, and whether the registration was sent since.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_registration_last_check"];
         delete?: never;
         options?: never;
         head?: never;
@@ -39470,6 +39630,156 @@ export interface operations {
                         /** @enum {string} */
                         status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
                         totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_expense_begin_receipt_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    expenseId: string;
+                    /** @enum {string} */
+                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "application/pdf";
+                    name: string;
+                    sizeBytes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bucket: string;
+                        /** Format: uuid */
+                        fileId: string;
+                        objectPath: string;
+                    };
+                };
+            };
+        };
+    };
+    command_expense_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents: number;
+                    /** @enum {string} */
+                    category: "materials" | "tools" | "fuel" | "vehicle" | "subcontractors" | "advertising" | "meals" | "travel" | "phone" | "software" | "office" | "rent" | "utilities" | "insurance" | "licenses" | "bank_fees" | "training" | "other";
+                    note?: string | null;
+                    paidWith?: ("card" | "cash" | "check" | "bank" | "other") | null;
+                    /** Format: date */
+                    spentOn: string;
+                    taxCents?: number | null;
+                    vendor: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        expenseId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_expense_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    expenseId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        expenseId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_expense_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents?: number;
+                    /** @enum {string} */
+                    category?: "materials" | "tools" | "fuel" | "vehicle" | "subcontractors" | "advertising" | "meals" | "travel" | "phone" | "software" | "office" | "rent" | "utilities" | "insurance" | "licenses" | "bank_fees" | "training" | "other";
+                    /** Format: uuid */
+                    expenseId: string;
+                    note?: string | null;
+                    paidWith?: ("card" | "cash" | "check" | "bank" | "other") | null;
+                    /** Format: date */
+                    spentOn?: string;
+                    taxCents?: number | null;
+                    vendor?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        expenseId: string;
                     };
                 };
             };
@@ -53171,6 +53481,49 @@ export interface operations {
                         partnerId: string | null;
                         skipped: number;
                         stage: ("found" | "warming" | "asked" | "interested" | "call_booked" | "partner" | "not_now") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_plan_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    change: "now" | "skip" | "at" | "back";
+                    key: string;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable" | "threads" | "x";
+                    time?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        at: string | null;
+                        /** @enum {string} */
+                        change: "now" | "skip" | "at" | "back";
+                        key: string;
+                        title: string;
+                        words: string;
                     };
                 };
             };
@@ -84850,6 +85203,77 @@ export interface operations {
             };
         };
     };
+    query_expense_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    category?: "materials" | "tools" | "fuel" | "vehicle" | "subcontractors" | "advertising" | "meals" | "travel" | "phone" | "software" | "office" | "rent" | "utilities" | "insurance" | "licenses" | "bank_fees" | "training" | "other";
+                    cursor?: string;
+                    /** Format: date */
+                    from?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    month?: string;
+                    query?: string;
+                    /** Format: date */
+                    to?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        count: number;
+                        expenses: {
+                            amountCents: number;
+                            category: ("materials" | "tools" | "fuel" | "vehicle" | "subcontractors" | "advertising" | "meals" | "travel" | "phone" | "software" | "office" | "rent" | "utilities" | "insurance" | "licenses" | "bank_fees" | "training" | "other") | string;
+                            categoryLabel: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            note: string | null;
+                            paidWith: (("card" | "cash" | "check" | "bank" | "other") | string) | null;
+                            receipt: {
+                                bucket: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                mimeType: string | null;
+                                name: string;
+                                objectPath: string;
+                            } | null;
+                            source: ("person" | "assistant") | string;
+                            /** Format: date */
+                            spentOn: string;
+                            taxCents: number | null;
+                            vendor: string;
+                        }[];
+                        nextCursor: string | null;
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
     query_extension_sign_in_pending: {
         parameters: {
             query?: never;
@@ -89724,6 +90148,56 @@ export interface operations {
                             taxRateBp: number;
                             totalCents: number;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_money_in_and_out: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    month?: string;
+                    /** @default 6 */
+                    months?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        breakdown: {
+                            categories: {
+                                category: string;
+                                cents: number;
+                                count: number;
+                                label: string;
+                            }[];
+                            inCents: number;
+                            month: string;
+                            outCents: number;
+                        };
+                        months: {
+                            expenseCount: number;
+                            inCents: number;
+                            month: string;
+                            outCents: number;
+                        }[];
+                        thisMonth: string;
+                        timeZone: string;
                     };
                 };
             };
@@ -95049,11 +95523,21 @@ export interface operations {
                             title: string;
                             working: boolean;
                         }[];
+                        changes: {
+                            at: string | null;
+                            /** @enum {string} */
+                            change: "skip" | "at";
+                            key: string;
+                            title: string;
+                        }[];
                         coming: {
                             about: boolean;
                             /** Format: date-time */
                             at: string;
+                            can: ("now" | "skip" | "at")[];
+                            changed: ("now" | "at") | null;
                             detail: string | null;
+                            key: string | null;
                             /** @enum {string} */
                             kind: "lists" | "job" | "search" | "watch" | "step" | "draft" | "send";
                             now: boolean;
@@ -105223,6 +105707,43 @@ export interface operations {
                             madeAt: string;
                             pasted: boolean;
                             sourceUrl: string | null;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_registration_last_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        check: {
+                            allGreen: boolean;
+                            checkedAt: string;
+                            checks: {
+                                [key: string]: unknown;
+                            }[];
+                            notGreen: string[];
+                            sentSince: boolean;
                         } | null;
                     };
                 };

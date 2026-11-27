@@ -62,7 +62,7 @@ export default async function PlansPage({
       {shell.summary ? (
         <HeadlineStrip summary={shell.summary} days={COLLECTED_DAYS} timeZone={shell.timeZone} />
       ) : null}
-      <MoneySubnav workspaceId={workspaceId} tab="plans">
+      <MoneySubnav workspaceId={workspaceId} tab="plans" showExpenses={shell.canManage}>
         {shell.canBill ? (
           <>
             <MoneyFilterBar

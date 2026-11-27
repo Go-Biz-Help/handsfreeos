@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { companies, customRecords, files, leads, people } from '@hfos/db/schema';
 import { logSystemActivity } from '../crm/activities';
@@ -85,6 +85,12 @@ const BUSINESS_OWN = {
     permission: 'forms.manage',
     refusal:
       'Only people who make forms can change a live poll’s slides. Ask an owner or admin of this business.',
+  },
+  /** A receipt (20261027036700): its record is the business's expense. */
+  expense: {
+    permission: 'money.manage',
+    refusal:
+      'Only people who manage this business’s money can add or change receipts. Ask an owner of this business.',
   },
 } as const;
 
@@ -247,7 +253,7 @@ export const fileConfirm = defineCommand({
   output: FileConfirmOutput,
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
-  emits: ['file.attached'],
+  emits: ['file.attached', 'file.deleted'],
   offline: 'anytime',
   async handler(ctx, input) {
     const [current] = await ctx.tx
@@ -290,6 +296,8 @@ export const fileConfirm = defineCommand({
       payload: { fileId: current.id, name: current.name, mimeType, sizeBytes },
       after: { name: current.name, mimeType, sizeBytes },
     });
+    // An expense keeps one receipt: a new one takes the place of the one before, which the worker deletes.
+    if (current.recordType === 'expense') await replaceReceipts(ctx, current.recordId, current.id);
     if (ownFile) return { fileId: current.id, sizeBytes, mimeType };
     // On the timeline when the file was added: the confirmation's moment (a phone sends when the photo was taken),
     // never before the file was reserved.
@@ -308,6 +316,41 @@ export const fileConfirm = defineCommand({
     return { fileId: current.id, sizeBytes, mimeType };
   },
 });
+
+/** The receipts an expense had before `keep`: marked deleted, each told to the worker to take out of Storage. */
+export async function replaceReceipts(
+  ctx: CommandContext,
+  expenseId: string,
+  keep: string | null,
+): Promise<void> {
+  const gone = await ctx.tx
+    .update(files)
+    .set({ deletedAt: new Date() })
+    .where(
+      and(
+        eq(files.workspaceId, ctx.scope.workspaceId!),
+        eq(files.recordType, 'expense'),
+        eq(files.recordId, expenseId),
+        isNull(files.deletedAt),
+        keep ? ne(files.id, keep) : undefined,
+      ),
+    )
+    .returning({
+      id: files.id,
+      name: files.name,
+      bucket: files.bucket,
+      objectPath: files.objectPath,
+    });
+  for (const f of gone)
+    await ctx.emit({
+      type: 'file.deleted',
+      entityType: 'file',
+      entityId: f.id,
+      payload: { fileId: f.id, name: f.name, bucket: f.bucket, objectPath: f.objectPath },
+      before: { name: f.name },
+      after: null,
+    });
+}
 
 export const fileDelete = defineCommand({
   name: 'file.delete',

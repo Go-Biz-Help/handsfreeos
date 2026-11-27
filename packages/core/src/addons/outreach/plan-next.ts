@@ -44,6 +44,16 @@ export const PLAN_DECIDES: readonly Platform[] = [];
  */
 export const NEXT_SINCE = '0.156.0';
 
+/** The first build whose runner asks on each network: an older one there plans its own day, and never asks. */
+export const ASKS_SINCE: Readonly<Record<Platform, string>> = {
+  threads: NEXT_SINCE,
+  x: NEXT_SINCE,
+  alignable: '0.157.0',
+  instagram: '0.158.0',
+  linkedin: '0.159.0',
+  facebook: '0.160.0',
+};
+
 const ms = z.number().int().min(0).max(8_640_000_000_000_000);
 const gap = z.number().int().min(0).max(86_400_000);
 const job = z.string().min(1).max(60);

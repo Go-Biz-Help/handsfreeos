@@ -1,4 +1,6 @@
 import {
+  EXPENSES_DESCRIPTION,
+  EXPENSES_TAB_LABEL,
   estimatesEmpty,
   invoicesEmpty,
   MONEY_DESCRIPTION,
@@ -10,6 +12,7 @@ import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 
+import { ChevronRight, Receipt } from '@/components/icons';
 import {
   EstimateRowView,
   HeadlineNote,
@@ -20,6 +23,7 @@ import {
 } from '@/components/money/money-rows';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { openWeb } from '@/lib/open-web';
 import { cn } from '@/lib/utils';
@@ -74,6 +78,23 @@ export default function Money() {
         <View className="gap-2 px-3 pb-3 pt-3">
           <HeadlineStrip summary={summary} timeZone={timeZone} />
           <HeadlineNote summary={summary} timeZone={timeZone} />
+          {whole ? (
+            <Pressable
+              role="button"
+              onPress={() => router.push(businessHref(business.id, 'money/expenses') as Href)}
+              className="flex-row items-center gap-3 rounded-card border border-border bg-card px-3.5 py-3 active:bg-card-2"
+              testID="money-expenses"
+            >
+              <Icon as={Receipt} className="size-5 text-text-2" />
+              <View className="flex-1 gap-0.5">
+                <Text className="text-[15px] font-medium">{EXPENSES_TAB_LABEL}</Text>
+                <Text className="text-[12.5px] text-text-2" numberOfLines={2}>
+                  {EXPENSES_DESCRIPTION}
+                </Text>
+              </View>
+              <Icon as={ChevronRight} className="size-4 text-text-3" />
+            </Pressable>
+          ) : null}
         </View>
       ) : (
         <View className="px-4 pb-1 pt-3">

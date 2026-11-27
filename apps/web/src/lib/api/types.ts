@@ -273,6 +273,9 @@ export type AttentionAssignOut = Ok<'/v1/commands/attention.assign'>;
 
 // Milestone 9: the Money section, the documents and the catalogue
 export type MoneySummaryOut = Ok<'/v1/queries/money.summary'>;
+export type ExpenseListOut = Ok<'/v1/queries/expense.list'>;
+export type ExpenseRow = ExpenseListOut['expenses'][number];
+export type MoneyInAndOutOut = Ok<'/v1/queries/money.in_and_out'>;
 export type MoneySettingsOut = Ok<'/v1/queries/money.settings'>;
 export type EstimateListOut = Ok<'/v1/queries/estimate.list'>;
 export type EstimateSummary = EstimateListOut['estimates'][number];

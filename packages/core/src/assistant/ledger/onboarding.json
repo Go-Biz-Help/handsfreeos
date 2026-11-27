@@ -1,7 +1,7 @@
 {
   "area": "onboarding",
   "title": "Onboarding and getting set up",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-26",
   "files": {
     "apps/mobile/src/app/app/index.tsx": "73fbf8b3712b",
     "apps/mobile/src/app/app/w/[workspaceId]/email-setup.tsx": "e0a5aca6094a",
@@ -21,14 +21,14 @@
     "apps/mobile/src/components/onboarding-setup/quick-setup.tsx": "03350302e17c",
     "apps/mobile/src/components/onboarding-setup/screens.tsx": "a3fb4e191251",
     "apps/mobile/src/components/onboarding/phone-tour.tsx": "0bfd1790f091",
-    "apps/mobile/src/onboarding-setup/calls.ts": "2c4ac736d210",
+    "apps/mobile/src/onboarding-setup/calls.ts": "66a478253231",
     "apps/mobile/src/onboarding-setup/use-onboarding-setup.ts": "9f7b55950621",
     "apps/mobile/src/onboarding-setup/words.ts": "b848b29f51e1",
     "apps/mobile/src/onboarding/use-getting-started.ts": "e53c6c94e50d",
     "apps/web/src/app/founding/checkout/[id]/page.tsx": "d69df8611fd2",
     "apps/web/src/app/onboarding/[workspaceId]/email/page.tsx": "13ad4ccb3365",
     "apps/web/src/app/onboarding/[workspaceId]/layout.tsx": "c2c282561bb5",
-    "apps/web/src/app/onboarding/[workspaceId]/page.tsx": "edcad14ee841",
+    "apps/web/src/app/onboarding/[workspaceId]/page.tsx": "9ab0cad7db45",
     "apps/web/src/app/onboarding/[workspaceId]/plan/page.tsx": "206fe4edc986",
     "apps/web/src/app/onboarding/[workspaceId]/questions/page.tsx": "af29345fa2c7",
     "apps/web/src/app/onboarding/[workspaceId]/setup/[step]/page.tsx": "bfb0d3be8c8f",
@@ -37,7 +37,7 @@
     "apps/web/src/components/ai-setup/quick-setup.tsx": "ac505a7a1feb",
     "apps/web/src/components/ai-setup/screens.tsx": "be84fd802fdb",
     "apps/web/src/components/ai-setup/try-ava.tsx": "3fe517fdd2f6",
-    "apps/web/src/components/ai-team/preset-picker.tsx": "10b8ce6d8c58",
+    "apps/web/src/components/ai-team/preset-picker.tsx": "009f65c50426",
     "apps/web/src/components/ai-team/teammate-tab.tsx": "b615137a6e7f",
     "apps/web/src/components/booking/business-page.tsx": "2638ffe26ea9",
     "apps/web/src/components/calendars/booking-site-form.tsx": "f9c406f07de7",
@@ -51,7 +51,7 @@
     "apps/web/src/components/guided-setup/frame.tsx": "1a40339296da",
     "apps/web/src/components/home/phone-app-dialog.tsx": "7082b1060829",
     "apps/web/src/components/import/import-progress.tsx": "7e4630e2d20c",
-    "apps/web/src/components/import/import-wizard.tsx": "e3a7f56dff11",
+    "apps/web/src/components/import/import-wizard.tsx": "8059c3d41607",
     "apps/web/src/components/knowledge/website-scan.tsx": "779002bbbe34",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
@@ -60,7 +60,7 @@
     "apps/web/src/components/onboarding-setup/frame.tsx": "5e67d37631eb",
     "apps/web/src/components/onboarding-setup/page-preview.tsx": "a756c826230f",
     "apps/web/src/components/onboarding-setup/quick-setup.tsx": "0a9346bd8104",
-    "apps/web/src/components/onboarding-setup/screens.tsx": "0e1251be3486",
+    "apps/web/src/components/onboarding-setup/screens.tsx": "8204a9a9e987",
     "apps/web/src/components/onboarding/calendar-setup.tsx": "c5dd55fe4559",
     "apps/web/src/components/onboarding/customers-setup.tsx": "996195460003",
     "apps/web/src/components/onboarding/number-setup.tsx": "c998228fa8f8",
@@ -73,11 +73,11 @@
     "apps/web/src/components/settings/industry-picker.tsx": "3f2b1832961c",
     "apps/web/src/components/settings/my-cell-section.tsx": "bcce54a8161d",
     "apps/web/src/components/settings/number-import.tsx": "c09a55fe0fe4",
-    "apps/web/src/components/settings/payment-connection-card.tsx": "4c96b59f0ce2",
+    "apps/web/src/components/settings/payment-connection-card.tsx": "43e7470e0b32",
     "apps/web/src/components/settings/port-letter.tsx": "e91925f63ea4",
     "apps/web/src/components/settings/port-step.tsx": "ef0d80282285",
     "apps/web/src/components/settings/release-number-dialog.tsx": "7bb8208fedb8",
-    "apps/web/src/components/settings/texting-page.tsx": "3393503d82a9",
+    "apps/web/src/components/settings/texting-page.tsx": "82451ea75083",
     "apps/web/src/components/settings/web-person.tsx": "3e1b03dad5dc",
     "apps/web/src/components/ui/copy-field.tsx": "e469628cd358"
   },
@@ -2088,8 +2088,8 @@
       "path": "Set up → Number → Registration → Opt-in: What’s on your site now: each form that asks for a phone number, with its page",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1132",
-      "covered": "no",
-      "by": "the worker’s look through the site (site-forms) has no tool"
+      "covered": "partly",
+      "by": "get_settings texting registrationCheck: the forms its last check found across the site, each row with its page; this step’s own look (site-forms) has no tool (onb-22)"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: Use the chat / Use the contact form we made for you",
@@ -2200,8 +2200,8 @@
       "path": "Set up → Number → Registration → Review: blockers, checks list, Check again",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:3077",
-      "covered": "no",
-      "by": "worker registrationPreflight has no tool"
+      "covered": "partly",
+      "by": "get_settings texting registrationCheck: what its last check found, what isn’t green and each row a reviewer would find; Check again opens the pages live, on the step (onb-22)"
     },
     {
       "path": "Set up → Number → Registration → Review: confirmation boxes, details are accurate",
@@ -2256,8 +2256,8 @@
       "path": "Set up → Number → Registration → Fix the above to carry on",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2177",
-      "covered": "no",
-      "by": "from the worker preflight"
+      "covered": "yes",
+      "by": "get_settings texting registrationCheck notGreen, and what to do about it (onb-22)"
     },
     {
       "path": "Set up → Number → Register for texting now → explanation",
@@ -2669,43 +2669,43 @@
       "path": "Set up → Try it → Ask these questions",
       "kind": "do",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:209",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "read_ai_setup_get and read_onboarding_setup_get tryIt: the questions made from the answers, each asked with test_ai_teammate (onb-21)"
     },
     {
       "path": "Set up → Try it → each question: reply, outcome badge, error",
       "kind": "see",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:425",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate: its reply and outcome, or its refusal; tryIt.how gives the badges’ words, Answered, Handed to a person, No reply (onb-21)"
     },
     {
       "path": "Set up → Try it → Add the answer: text, save, cancel",
       "kind": "do",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:444",
-      "covered": "partly",
-      "by": "add_knowledge_item saves it; asking again has no tool"
+      "covered": "yes",
+      "by": "add_knowledge_item saves it, then test_ai_teammate asks again, as tryIt.how says (onb-21)"
     },
     {
       "path": "Set up → Try it → report: gaps / knows it all",
       "kind": "see",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:238",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "tryIt.how: how it did in the screen’s words, answered every question or N questions went to a person (onb-21)"
     },
     {
       "path": "Set up → Try it → ask your own, Ask",
       "kind": "do",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:246",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate with their own question"
     },
     {
       "path": "Set up → Try it → texting tip",
       "kind": "see",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:266",
-      "covered": "no",
-      "by": "test words only"
+      "covered": "yes",
+      "by": "tryIt.tip (onb-21)"
     },
     {
       "path": "Set up → Try it → Save these answers for your other businesses: name, Save, Cancel",
@@ -3040,8 +3040,8 @@
       "path": "Setup wizard → Calendar → Booking site → changing the link name breaks links hint",
       "kind": "see",
       "file": "apps/web/src/components/calendars/booking-site-form.tsx:124",
-      "covered": "no",
-      "by": "the card doesn’t warn"
+      "covered": "yes",
+      "by": "update_booking_site’s card: Links you’ve already shared stop working."
     },
     {
       "path": "Setup wizard → Calendar → Booking site → field errors",
@@ -3166,50 +3166,50 @@
       "path": "Setup wizard → AI teammate → website: address error, own-site note",
       "kind": "see",
       "file": "apps/web/src/components/knowledge/website-scan.tsx:156",
-      "covered": "partly",
-      "by": "scan_website refusal; no page cap or robots.txt words"
+      "covered": "yes",
+      "by": "scan_website returns knowledge_source.set’s refusal; its card says it reads your own site only, as robots.txt allows, up to 40 pages"
     },
     {
       "path": "Setup wizard → AI teammate → website: progress, tally, N suggestions",
       "kind": "see",
       "file": "apps/web/src/components/knowledge/website-scan.tsx:225",
-      "covered": "partly",
-      "by": "lastScan status, found, stillWaiting; no pages read"
+      "covered": "yes",
+      "by": "list_knowledge_suggestions lastScan pagesRead, found, stillWaiting, finished, startedBy"
     },
     {
       "path": "Setup wizard → AI teammate → website: pages being read",
       "kind": "see",
       "file": "apps/web/src/components/knowledge/website-scan.tsx:262",
-      "covered": "no",
-      "by": "no tool returns the scan’s pages"
+      "covered": "yes",
+      "by": "list_knowledge_suggestions lastScan pages, each with its note"
     },
     {
       "path": "Setup wizard → AI teammate → website: stopped, site-wide problem, pages that couldn’t be read",
       "kind": "see",
       "file": "apps/web/src/components/knowledge/website-scan.tsx:368",
-      "covered": "partly",
-      "by": "lastScan status, pagesWithProblems count"
+      "covered": "yes",
+      "by": "list_knowledge_suggestions lastScan status, siteProblem and pagesCouldNotRead"
     },
     {
       "path": "Setup wizard → AI teammate → website: Suggestions / What changed",
       "kind": "do",
       "file": "apps/web/src/components/knowledge/website-scan.tsx:390",
-      "covered": "partly",
-      "by": "suggestions yes; What changed has no tool"
+      "covered": "yes",
+      "by": "list_knowledge_suggestions latestScanOnly; lastScan whatChanged and each page’s sinceLastScan"
     },
     {
       "path": "Setup wizard → AI teammate → website: pages list, picked page",
       "kind": "do",
       "file": "apps/web/src/components/knowledge/website-scan.tsx:428",
-      "covered": "partly",
-      "by": "each suggestion carries its page; no titles"
+      "covered": "yes",
+      "by": "list_knowledge_suggestions lastScan pages: title, page and suggestions each"
     },
     {
       "path": "Setup wizard → AI teammate → website: Accept all on this page / Accept all N",
       "kind": "do",
       "file": "apps/web/src/components/knowledge/website-scan.tsx:461",
-      "covered": "partly",
-      "by": "decide_knowledge_suggestion one at a time"
+      "covered": "yes",
+      "by": "accept_knowledge_suggestions fromWebsite latest_scan, with page for one page’s"
     },
     {
       "path": "Setup wizard → AI teammate → website: all decided / nothing to suggest",
@@ -3222,8 +3222,8 @@
       "path": "Setup wizard → AI teammate → website: What changed: changed, new, gone, same",
       "kind": "see",
       "file": "apps/web/src/components/knowledge/website-scan.tsx:576",
-      "covered": "no",
-      "by": "no tool returns page statuses"
+      "covered": "yes",
+      "by": "list_knowledge_suggestions lastScan whatChanged, and each page’s sinceLastScan"
     },
     {
       "path": "Setup wizard → AI teammate → Open Knowledge / Open AI teammate",
@@ -3236,8 +3236,8 @@
       "path": "Tour → opens by itself after setup",
       "kind": "see",
       "file": "apps/web/src/components/onboarding/tour.tsx:64",
-      "covered": "no",
-      "by": "no tool starts the tour"
+      "covered": "person",
+      "by": "it opens by itself on their own screen after setup; do_onboarding_set_view tourDone marks it seen"
     },
     {
       "path": "Tour → stop N of M",
@@ -3501,6 +3501,26 @@
       "where": "\"Your business\" → Your address (optional): Street address, Suite or unit, City, State, ZIP code (sets the time zone shown to confirm)",
       "gap": "The address on estimates and invoices is already covered: Settings → Payments → Your address, through update_money_settings.businessAddress, which settings-map lists. The real gap is the setup's structured address (workspace settings.address). The setup screen shows it and it sets the time zone; documents fall back to it, and the number search, the texting registration and postal campaigns use it. The Assistant can change it only through do_onboarding_setup_save with screen 'business' and business.address, which carries onb-2's answers risk, and no map or update_business line routes \"change our business address\" there. A person asking will likely get only the invoice header changed.",
       "fix": "Fixed: update_business takes the street address (BusinessAddress), shows it on its card, and says when the address is on another time zone than the business keeps, without changing the zone unless asked; a bad address is refused with what’s wrong.",
+      "status": "fixed",
+      "pr": null
+    },
+    {
+      "id": "onb-21",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Set up → Try it (the AI quick setup’s last screen, and the onboarding setup’s AI teammate stop): Ask these questions, each answer’s badge, How it did, Ask your own, the texting tip",
+      "gap": "The checklist said “no test tool”, but test_ai_teammate tries the teammate as a customer with the saved settings. What was missing was the screen’s own questions (core aiSetupTestQuestions, made from the answers), its badges’ and report’s words, and its tip, so the Assistant couldn’t run Try it as the screen does.",
+      "fix": "Fixed: read_ai_setup_get and read_onboarding_setup_get add tryIt once there’s a teammate: the questions from aiSetupTestQuestions, how to ask each with test_ai_teammate and what its outcomes are called (Answered, Handed to a person, No reply), saving a missing answer with add_knowledge_item and asking again, the report (answered every question / N questions went to a person) and the tip, all in core’s AI_SETUP_FIELD_WORDS (apps/worker/src/assistant/setup-screens.ts tryItOf).",
+      "status": "fixed",
+      "pr": null
+    },
+    {
+      "id": "onb-22",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Set up → Number → Registration → Before it goes: what isn’t green, What a reviewer will find (each row, read in their browser or from a screenshot), Fix the above to carry on",
+      "gap": "The worker’s check (POST /v1/telephony/registration-preflight) records what it found for the details it checked (registration.record_check into app.registration_checks), but no query read it back, so the Assistant couldn’t say why the registration won’t go: “worker registrationPreflight has no tool”.",
+      "fix": "Fixed: core query registration.last_check reads the last check (when, all green or not, what isn’t green, each row, and whether the registration was sent since), and get_settings texting gives it as registrationCheck in the step’s words, with what to do (apps/worker/src/assistant/tools-settings.ts registrationCheckRead). Running the check again opens the website, policy, terms and sign-up page live and stays on the step.",
       "status": "fixed",
       "pr": null
     }

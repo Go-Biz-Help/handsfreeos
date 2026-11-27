@@ -1318,6 +1318,18 @@ From 0.160.1 the read says when the Likes box shows the person (`likedByYou`, fr
 `src/networks/instagram/read.ts`), and Who liked and commented notes nobody read only when the box showed nobody at
 all (`src/jobs/instagram/post-people.ts`). The post's commenters still go to HandsFreeOS, and nobody as having liked it.
 
+### Buttons on Today's Plan need no new build
+
+Step 3 of decision 195 (`docs/outreach.md`): Do now, Skip today and Move to a time, pressed on a row of Today's Plan
+in the web or phone app. Nothing in the extension changed for it.
+
+- **Skip today, and Move to a time:** HandsFreeOS leaves that person off the list it gives the extension
+  (`outreach.today`) for the day, or till the time. A runner never sees them, whoever plans its go, on any build.
+- **Do now, and a change to a once-a-day read:** only where HandsFreeOS decides the order (`PLAN_DECIDES`), as the
+  move it sends when the runner asks (`planNext`). A runner that plans its own go isn't offered them.
+- **It takes hold at the runner's next go.** Nothing wakes a runner for a change. Its pace between steps, its own
+  checks and every limit are as they were.
+
 ### Facebook asks HandsFreeOS what to do next (0.160.0)
 
 Step 2 of decision 195 (`docs/outreach.md`) for the last network: Facebook's runner asks as LinkedIn's (0.159.0),

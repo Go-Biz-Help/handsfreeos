@@ -51,6 +51,8 @@ import {
 } from './attention';
 import { assistantThreadGet, assistantThreadList } from './assistant';
 import { assistantRoutineList } from './assistant-routine';
+import { expenseList, moneyInAndOut } from './expense';
+export * from './expense';
 import { chatWidgetGet, chatWidgetList } from './chat';
 import { auditList } from './audit.list';
 import { appointmentTranscriptList, meetingConnectionList } from '../commands/meeting-connection';
@@ -112,6 +114,7 @@ import { myCalendarSetupGet } from './my-calendar-setup';
 import {
   registrationGetDraft,
   registrationGetPolicies,
+  registrationLastCheck,
   registrationReviewForStaff,
   registrationReviewGet,
 } from './registration';
@@ -204,6 +207,7 @@ export {
   myCalendarSetupGet,
   registrationGetDraft,
   registrationGetPolicies,
+  registrationLastCheck,
   registrationReviewGet,
   registrationReviewForStaff,
   brandedDomainGet,
@@ -357,6 +361,7 @@ export const queries: readonly QueryDef[] = [
   myCalendarSetupGet,
   registrationGetDraft,
   registrationGetPolicies,
+  registrationLastCheck,
   registrationReviewGet,
   registrationReviewForStaff,
   numberImportList,
@@ -381,6 +386,8 @@ export const queries: readonly QueryDef[] = [
   assistantThreadList,
   assistantThreadGet,
   assistantRoutineList,
+  expenseList,
+  moneyInAndOut,
   calendarList,
   calendarGet,
   calendarAvailability,

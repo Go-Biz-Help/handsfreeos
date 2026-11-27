@@ -5,6 +5,7 @@ import {
   executeCommand,
   executeQuery,
   organizationCreate,
+  registrationRecordCheck,
   registry,
   type HumanActor,
 } from '@hfos/core/server';
@@ -14,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ToolContext } from '../src/assistant/runtime';
 import { allScreenActionTools } from '../src/assistant/tools-screen-actions';
 import { createToolExecutor } from '../src/assistant/tools-write';
+import { systemActor, workerMeta } from '../src/services';
 
 /**
  * Settings → Texting & calls, by asking: the calls rows change the business's number as the screen does, the
@@ -161,6 +163,90 @@ describe('Settings → Texting & calls', () => {
       await commit('do_phone_number_set_recording_notice', args);
       expect((await routingNow())!.routing.announceRecording).toBe(false);
     });
+  });
+
+  it('says what the registration’s last check found, row by row, and what to do about it', async () => {
+    const read = async () =>
+      (
+        (await exec().run(tool('get_settings'), { area: 'texting' }, ctx())) as {
+          result: { registrationCheck: Record<string, unknown> };
+        }
+      ).result.registrationCheck;
+    expect(await read()).toMatchObject({ checked: false });
+
+    // What Before it goes found for the details it checked, as the worker's check records it.
+    const record = (notGreen: string[], checks: Record<string, unknown>[]) =>
+      executeCommand(
+        testDbs().worker.db,
+        registrationRecordCheck,
+        { workspaceId, fingerprint: 'a'.repeat(64), notGreen, checks },
+        systemActor({ workspaceId, organizationId }),
+        workerMeta(),
+      );
+    const terms = 'Your terms don’t say how to stop texts. Add “Reply STOP to stop.” to them.';
+    await record(
+      [terms],
+      [
+        {
+          id: 'website',
+          label: 'Your website',
+          severity: 'blocker',
+          ok: true,
+          detail: 'It opens and names your business.',
+          url: 'https://hvac.example',
+          via: 'browser',
+        },
+        {
+          id: 'terms',
+          label: 'Your terms',
+          severity: 'blocker',
+          ok: false,
+          detail: terms,
+          url: 'https://hvac.example/terms',
+          blocked: [{ url: 'https://hvac.example/terms', by: 'Cloudflare' }],
+        },
+        {
+          id: 'policy',
+          label: 'Your privacy policy',
+          severity: 'warning',
+          ok: false,
+          detail: 'It doesn’t name a way to reach you.',
+        },
+      ],
+    );
+    const found = await read();
+    expect(found).toMatchObject({
+      checked: expect.any(String),
+      standing: 'One thing isn’t green yet',
+      notGreen: [terms],
+      whatAReviewerWillFind: [
+        {
+          row: 'Your website',
+          green: true,
+          found: 'It opens and names your business.',
+          opened: 'https://hvac.example',
+          readFrom: 'Read in your own browser, on your site.',
+        },
+        {
+          row: 'Your terms',
+          green: false,
+          stopsIt: true,
+          found: terms,
+          securityStoppedUs: ['https://hvac.example/terms (Cloudflare)'],
+        },
+        { row: 'Your privacy policy', green: false, stopsIt: false },
+      ],
+    });
+    expect(found['note']).toContain('do_registration_request_review');
+    expect(found['note']).toContain('only the person sends it');
+
+    await record([], []);
+    expect(await read()).toMatchObject({
+      standing:
+        'Everything is green. The carriers usually answer within three to seven working days.',
+      whatAReviewerWillFind: [],
+    });
+    expect(await read()).not.toHaveProperty('notGreen');
   });
 
   it('gives the steps for asking for RCS, with the button the page shows', async () => {

@@ -10234,6 +10234,37 @@
         "required": ["workspaceId", "profileId", "potential"]
       }
     },
+    "outreach.plan.change": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin", "instagram", "alignable", "threads", "x"]
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          },
+          "change": {
+            "type": "string",
+            "enum": ["now", "skip", "at", "back"]
+          },
+          "time": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+          }
+        },
+        "required": ["workspaceId", "key", "change"]
+      }
+    },
     "outreach.playbook.archive": {
       "offline": "online",
       "input": {

@@ -63,6 +63,7 @@ import type { ProfileCheck } from './profile-check';
 import type { ProfileTicks } from './readiness';
 import type { ListMark } from './lists';
 import type { PlanState } from './plan';
+import type { PlanChangeKind } from './plan-changes';
 import type { PartnerFit, PartnerKind, PartnerSearchKind, PartnerStage } from './partners';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { CommentFindings, ResearchPlatform, ResearchState } from './comment-research';
@@ -1142,6 +1143,35 @@ export const planDays = addonOutreach.table(
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
+);
+
+/**
+ * What a person changed on today's plan on a network (20261027036900, ./plan-changes.ts; decision 195, step 3): a
+ * row skipped today, moved to a time, or put first. One a row of the plan, the newest change to it; an earlier day's
+ * are let go with the next change. Their own; it holds the row's words as the plan showed them, and nobody's message.
+ */
+export const planChanges = addonOutreach.table(
+  'plan_changes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<Platform>(),
+    day: date('day', { mode: 'string' }).notNull(),
+    key: text('key').notNull(),
+    change: text('change').notNull().$type<PlanChangeKind>(),
+    at: ts('at'),
+    title: text('title').notNull(),
+    madeAt: ts('made_at').notNull().defaultNow(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.platform, t.key),
+  ],
 );
 
 /** The feed of the extension's steps, and the day's starts, stops and warnings (./live.ts). */
@@ -2229,6 +2259,7 @@ export const OUTREACH_TABLES = {
   partnerLeads,
   partnerSearches,
   partners,
+  planChanges,
   planDays,
   playbooks,
   posts,

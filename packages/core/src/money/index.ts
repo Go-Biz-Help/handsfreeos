@@ -27,3 +27,4 @@ export * from './texting-fees';
 export * from './options';
 export * from './orders';
 export * from './stock';
+export * from './expenses';

@@ -3,7 +3,7 @@
   "title": "The Social Outreach add-on: every page",
   "checkedOn": "2026-11-25",
   "files": {
-    "apps/mobile/src/addons/outreach/actions.ts": "9d1266692122",
+    "apps/mobile/src/addons/outreach/actions.ts": "c88706e03ee6",
     "apps/mobile/src/addons/outreach/ai-help.tsx": "715ac076ab3b",
     "apps/mobile/src/addons/outreach/asks.tsx": "29d90a6de36e",
     "apps/mobile/src/addons/outreach/autopilot-list.tsx": "84fc811ef31b",
@@ -36,7 +36,7 @@
     "apps/mobile/src/addons/outreach/partners.tsx": "5fe0683e908d",
     "apps/mobile/src/addons/outreach/person-menu.tsx": "761d18d74433",
     "apps/mobile/src/addons/outreach/pipeline.tsx": "0e8ba9125d19",
-    "apps/mobile/src/addons/outreach/plan.tsx": "b39d7cdfe8e4",
+    "apps/mobile/src/addons/outreach/plan.tsx": "7344a7c42a03",
     "apps/mobile/src/addons/outreach/playbook-script.tsx": "24be297de6fa",
     "apps/mobile/src/addons/outreach/playbook-test.tsx": "d508cf5f3f76",
     "apps/mobile/src/addons/outreach/playbook.tsx": "acf6ca058d28",
@@ -104,7 +104,8 @@
     "apps/web/src/addons/outreach/person-menu.tsx": "e8135d982fea",
     "apps/web/src/addons/outreach/person-panel.tsx": "12eb4039a5b3",
     "apps/web/src/addons/outreach/pipeline-view.tsx": "e1d6f4c59064",
-    "apps/web/src/addons/outreach/plan-view.tsx": "6e0fb292d897",
+    "apps/web/src/addons/outreach/plan-change.tsx": "6345d2847269",
+    "apps/web/src/addons/outreach/plan-view.tsx": "1eea235d5fac",
     "apps/web/src/addons/outreach/playbook-builder.tsx": "3697d7ab634c",
     "apps/web/src/addons/outreach/playbook-test.tsx": "24d6b30fe7c6",
     "apps/web/src/addons/outreach/playbooks-page.tsx": "f2b65fbff057",
@@ -1682,28 +1683,63 @@
     {
       "path": "Today → Plan → where the day stands (a chip and a line): no computer, signed out, offline, off, stopped, needs you, doing what you asked, starts later, working now with what it's doing, going with what's next, done for now; update the extension, or not heard yet",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/plan-view.tsx:72",
+      "file": "apps/web/src/addons/outreach/plan-view.tsx:94",
       "covered": "yes",
       "by": "outreach_plan stand, line, doing, reported"
     },
     {
       "path": "Today → Plan → You asked for these first: each ask on the network, doing now or next",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/plan-view.tsx:93",
+      "file": "apps/web/src/addons/outreach/plan-view.tsx:115",
       "covered": "yes",
       "by": "outreach_plan asked"
     },
     {
       "path": "Today → Plan → Coming up: each move in order with about when (now, a time, or about a time), what, who and what kind of message; and N more before the end; nothing more planned; what repeats and what it can't see",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/plan-view.tsx:109",
+      "file": "apps/web/src/addons/outreach/plan-view.tsx:131",
       "covered": "yes",
       "by": "outreach_plan coming, more, until, notes"
     },
     {
+      "path": "Today → Plan → Coming up → a row's menu (web) or the row itself (phone) → Do now: it goes next, where HandsFreeOS sets the order on that network; not offered on a row under way",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/plan-change.tsx:94",
+      "covered": "yes",
+      "by": "outreach_change_plan change now, with the row's key (outreach_plan coming: key, can)"
+    },
+    {
+      "path": "Today → Plan → Coming up → a row's menu → Skip today: it's left out for today, and back tomorrow if it's still due",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/plan-change.tsx:104",
+      "covered": "yes",
+      "by": "outreach_change_plan change skip"
+    },
+    {
+      "path": "Today → Plan → Coming up → a row's menu → Move to a time: a time today on the business's clock (web: a time box that starts at the next half hour; phone: every half hour left till the plan ends), Move, Cancel",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/plan-change.tsx:119",
+      "covered": "yes",
+      "by": "outreach_change_plan change at, time"
+    },
+    {
+      "path": "Today → Plan → Coming up → a row put first or moved: its tag (First, Moved), and Put back in its menu",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/plan-change.tsx:109",
+      "covered": "yes",
+      "by": "outreach_plan coming: changed; outreach_change_plan change back"
+    },
+    {
+      "path": "Today → Plan → Skipped or moved today: each row with what it said, Skipped today or Moved to a time, and Put back",
+      "kind": "do",
+      "file": "apps/web/src/addons/outreach/plan-view.tsx:210",
+      "covered": "yes",
+      "by": "outreach_plan changes; outreach_change_plan change back"
+    },
+    {
       "path": "Today → Plan → Done so far today: the list's counts, and each part of the day's reading with how it went",
       "kind": "see",
-      "file": "apps/web/src/addons/outreach/plan-view.tsx:161",
+      "file": "apps/web/src/addons/outreach/plan-view.tsx:245",
       "covered": "yes",
       "by": "outreach_plan counts, done"
     },

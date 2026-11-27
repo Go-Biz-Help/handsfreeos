@@ -293,7 +293,8 @@ export const recordType = app.enum('record_type', [
   /** The PDF a document template is made from: record_id is the template (20261027015100). Tags never use it. */
   'document',
   /** A live poll's slides, a PDF: record_id is the poll's form (20261027019700). Tags never use it. */
-  'form',
+  'form' /** A receipt: record_id is the business's expense (20261027036700). Tags never use it. */,
+  'expense',
 ]);
 export const activityKind = app.enum('activity_kind', [
   'note',
@@ -4805,6 +4806,33 @@ export const refunds = app.table('refunds', {
   // Milestone 10: the invoice's, copied by trigger.
   syncWindow: syncWindow(),
   memberViewerIds: memberViewerIds(),
+});
+/**
+ * What the business spent, a purchase a row (20261027036800): Money → Expenses, and the Assistant from a photo of a
+ * receipt. Its receipt is a file whose record is the expense. Only for whoever manages money.
+ */
+export const expenses = app.table('expenses', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  /** The day on the receipt, in the business's own calendar. */
+  spentOn: date('spent_on').notNull(),
+  /** The whole amount paid, tax and tip in it. */
+  amountCents: cents('amount_cents').notNull(),
+  /** The tax in that amount, when the receipt says. */
+  taxCents: cents('tax_cents'),
+  currency: currency(),
+  vendor: text('vendor').notNull(),
+  /** core's EXPENSE_CATEGORIES. */
+  category: text('category').notNull(),
+  /** core's EXPENSE_PAID_WITH. */
+  paidWith: text('paid_with'),
+  note: text('note'),
+  /** 'person' or 'assistant'. */
+  source: text('source').notNull().default('person'),
+  createdBy: userRef('created_by'),
+  deletedAt: ts('deleted_at'),
+  deletedBy: userRef('deleted_by'),
+  ...timestamps(),
 });
 
 /**

@@ -9,6 +9,8 @@ import { supportStaffCommands } from './support-staff';
 import { teammateViewCommands } from './teammate-view';
 import { supportTicketCommands } from './support';
 import { ideaCommands } from './ideas';
+import { expenseCommands } from './expense';
+export * from './expense';
 import { activityDelete, activityLog, activityUpdate } from './activity';
 import { assistantThreadArchive, assistantThreadRename } from './assistant';
 import {
@@ -1315,6 +1317,7 @@ export const commands: readonly CommandDef[] = [
   ...relationshipCommands,
   // Ideas, the roadmap and What's new (0102).
   ...ideaCommands,
+  ...expenseCommands,
   // A business's RCS sender: connected, paused, looked at again and let go (0103).
   ...rcsCommands,
   ...rcsRequestCommands,

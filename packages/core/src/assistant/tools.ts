@@ -35,6 +35,7 @@ import { contentTools } from './tools-content';
 import { documentTools } from './tools-documents';
 import { extraTools } from './tools-extra';
 import { filesOutTools } from './tools-files-out';
+import { expenseTools } from './tools-expenses';
 import { routineTools } from './tools-routines';
 import { inboxCrmTools } from './tools-inbox-crm';
 import { mainOfferTools } from './tools-main-offer';
@@ -472,7 +473,7 @@ export const assistantTools = [
   define({
     name: 'get_settings',
     description:
-      'How one part of the business is set up right now, and where it is on screen: the business itself (with its logo and colour, and Your page with its link), its own web address, its main offer, add-ons, calendars, services, resources, territories, booking page, pipelines, tags, fields, kinds of records and relationships, the Deleted bin, members, permissions, texting, email, website chat, Facebook & Instagram (connected Pages and Instagram accounts, and their lead ads), templates, lead intake, payments, products, partners, balance and usage, automations, AI teammate, knowledge base, check-ins, imports and migrations, or the person’s own account and hours. Call it before proposing any change to settings, so what you propose is a change to what is really there, and to answer "what are my…" questions about the setup.',
+      'How one part of the business is set up right now, and where it is on screen: the business itself (with its logo and colour, and Your page with its link), its own web address, its main offer, add-ons, calendars, services, resources, territories, booking page, pipelines, tags, fields, kinds of records and relationships, the Deleted bin, members, permissions, texting (with what the registration’s last check found: what isn’t green yet and each row a carrier’s reviewer would find), email, website chat, Facebook & Instagram (connected Pages and Instagram accounts, and their lead ads), templates, lead intake, payments, products, partners, balance and usage, automations, AI teammate, knowledge base, check-ins, imports and migrations, or the person’s own account and hours. Call it before proposing any change to settings, so what you propose is a change to what is really there, and to answer "what are my…" questions about the setup.',
     input: z.object({
       area: z.enum(SETTINGS_AREAS).describe('Which part of the setup to read'),
       toChange: z
@@ -2466,6 +2467,8 @@ export const assistantTools = [
   ...routineTools,
   // A spreadsheet or a PDF report of what they can see, and emailing it on (25 Nov 2026).
   ...filesOutTools,
+  // Receipts and expenses: a purchase filed on a card, with its receipt.
+  ...expenseTools,
   ...documentTools,
   ...safetyTools,
   // What HandsFreeOS can do here, core and add-ons alike (the add-ons' own tools are derived from their operations).

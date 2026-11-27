@@ -7130,7 +7130,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits file.attached. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires records.write. Emits file.attached, file.deleted. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -69380,6 +69380,428 @@
         }
       }
     },
+    "/v1/commands/expense.create": {
+      "post": {
+        "operationId": "command_expense_create",
+        "summary": "Add something the business spent: the day, the whole amount (tax in it), who it was paid to, a category, how it was paid and a note. Add its receipt with expense.begin_receipt_upload.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires money.manage. Emits expense.changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "spentOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "amountCents": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000000
+                  },
+                  "taxCents": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "vendor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "materials",
+                      "tools",
+                      "fuel",
+                      "vehicle",
+                      "subcontractors",
+                      "advertising",
+                      "meals",
+                      "travel",
+                      "phone",
+                      "software",
+                      "office",
+                      "rent",
+                      "utilities",
+                      "insurance",
+                      "licenses",
+                      "bank_fees",
+                      "training",
+                      "other"
+                    ]
+                  },
+                  "paidWith": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "card",
+                          "cash",
+                          "check",
+                          "bank",
+                          "other"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "spentOn",
+                  "amountCents",
+                  "vendor",
+                  "category"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "expenseId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "expenseId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/expense.update": {
+      "post": {
+        "operationId": "command_expense_update",
+        "summary": "Change an expense: its day, amount, tax, who it was paid to, category, how it was paid or note. Only what is given changes.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires money.manage. Emits expense.changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "expenseId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "spentOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "amountCents": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000000
+                  },
+                  "taxCents": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "vendor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "materials",
+                      "tools",
+                      "fuel",
+                      "vehicle",
+                      "subcontractors",
+                      "advertising",
+                      "meals",
+                      "travel",
+                      "phone",
+                      "software",
+                      "office",
+                      "rent",
+                      "utilities",
+                      "insurance",
+                      "licenses",
+                      "bank_fees",
+                      "training",
+                      "other"
+                    ]
+                  },
+                  "paidWith": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "card",
+                          "cash",
+                          "check",
+                          "bank",
+                          "other"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "expenseId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "expenseId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "expenseId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/expense.delete": {
+      "post": {
+        "operationId": "command_expense_delete",
+        "summary": "Remove an expense, and delete its receipt. It isn’t counted in money out again, and can’t be brought back.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires money.manage. Emits expense.changed, file.deleted.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "expenseId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "expenseId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "expenseId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "expenseId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/expense.begin_receipt_upload": {
+      "post": {
+        "operationId": "command_expense_begin_receipt_upload",
+        "summary": "Reserve a place for an expense’s receipt, a photo or a PDF (25 MB at most). Upload it to the returned path, then confirm it with file.confirm; it takes the place of the receipt before.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires money.manage. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "expenseId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "mimeType": {
+                    "type": "string",
+                    "enum": [
+                      "image/jpeg",
+                      "image/png",
+                      "image/webp",
+                      "image/heic",
+                      "image/heif",
+                      "application/pdf"
+                    ]
+                  },
+                  "sizeBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 26214400
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "expenseId",
+                  "name",
+                  "mimeType",
+                  "sizeBytes"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "bucket": {
+                      "type": "string"
+                    },
+                    "objectPath": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "fileId",
+                    "bucket",
+                    "objectPath"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/rcs_sender.connect": {
       "post": {
         "operationId": "command_rcs_sender_connect",
@@ -107244,6 +107666,120 @@
                   },
                   "required": [
                     "kept"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.plan.change": {
+      "post": {
+        "operationId": "command_outreach_plan_change",
+        "summary": "Change one row of today’s plan on a network (Facebook when left out), by the row’s key from the plan: now puts it first, so it’s the next thing the person’s computer does there; skip leaves it out for today (it’s back tomorrow if it’s still due); at moves it to a time today (time, as 15:30 on the business’s clock): it waits till then; back puts it back as it was. It takes hold the next time their computer looks, usually within minutes. A step for someone on the list can be skipped or moved on any network. Do now, and any change to a once-a-day read, only where the row’s can says so. Every limit and wait stays: a change only picks among what the day would do anyway.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.plan.changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable",
+                      "threads",
+                      "x"
+                    ]
+                  },
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 320
+                  },
+                  "change": {
+                    "type": "string",
+                    "enum": [
+                      "now",
+                      "skip",
+                      "at",
+                      "back"
+                    ]
+                  },
+                  "time": {
+                    "type": "string",
+                    "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "key",
+                  "change"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "change": {
+                      "type": "string",
+                      "enum": [
+                        "now",
+                        "skip",
+                        "at",
+                        "back"
+                      ]
+                    },
+                    "at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "words": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "change",
+                    "at",
+                    "title",
+                    "words"
                   ],
                   "additionalProperties": false
                 }
@@ -163991,6 +164527,99 @@
         }
       }
     },
+    "/v1/queries/registration.last_check": {
+      "post": {
+        "operationId": "query_registration_last_check",
+        "summary": "What the texting registration’s last step found the last time it checked: each row (the website, privacy policy, terms, where customers agree…), what wasn’t green, when, and whether the registration was sent since.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires channels.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "check": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "checkedAt": {
+                              "type": "string"
+                            },
+                            "allGreen": {
+                              "type": "boolean"
+                            },
+                            "notGreen": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "checks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {}
+                              }
+                            },
+                            "sentSince": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "checkedAt",
+                            "allGreen",
+                            "notGreen",
+                            "checks",
+                            "sentSince"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "check"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/registration.review.get": {
       "post": {
         "operationId": "query_registration_review_get",
@@ -173514,6 +174143,464 @@
                   },
                   "required": [
                     "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/expense.list": {
+      "post": {
+        "operationId": "query_expense_list",
+        "summary": "What the business spent, newest day first: each one’s day, amount, tax, who it was paid to, category, how it was paid, note and receipt. One month, a range of days, a category or words; with the count and total of every one that matches.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires money.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "month": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                  },
+                  "from": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "to": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "materials",
+                      "tools",
+                      "fuel",
+                      "vehicle",
+                      "subcontractors",
+                      "advertising",
+                      "meals",
+                      "travel",
+                      "phone",
+                      "software",
+                      "office",
+                      "rent",
+                      "utilities",
+                      "insurance",
+                      "licenses",
+                      "bank_fees",
+                      "training",
+                      "other"
+                    ]
+                  },
+                  "query": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "limit": {
+                    "default": 50,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
+                  },
+                  "cursor": {
+                    "type": "string",
+                    "maxLength": 400
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "expenses": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "spentOn": {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                          },
+                          "amountCents": {
+                            "type": "number"
+                          },
+                          "taxCents": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "vendor": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "materials",
+                                  "tools",
+                                  "fuel",
+                                  "vehicle",
+                                  "subcontractors",
+                                  "advertising",
+                                  "meals",
+                                  "travel",
+                                  "phone",
+                                  "software",
+                                  "office",
+                                  "rent",
+                                  "utilities",
+                                  "insurance",
+                                  "licenses",
+                                  "bank_fees",
+                                  "training",
+                                  "other"
+                                ]
+                              },
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "categoryLabel": {
+                            "type": "string"
+                          },
+                          "paidWith": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "card",
+                                      "cash",
+                                      "check",
+                                      "bank",
+                                      "other"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "person",
+                                  "assistant"
+                                ]
+                              },
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "receipt": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "fileId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "mimeType": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "bucket": {
+                                    "type": "string"
+                                  },
+                                  "objectPath": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "fileId",
+                                  "name",
+                                  "mimeType",
+                                  "bucket",
+                                  "objectPath"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "createdBy": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "spentOn",
+                          "amountCents",
+                          "taxCents",
+                          "vendor",
+                          "category",
+                          "categoryLabel",
+                          "paidWith",
+                          "note",
+                          "source",
+                          "receipt",
+                          "createdBy",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "totalCents": {
+                      "type": "number"
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "expenses",
+                    "count",
+                    "totalCents",
+                    "nextCursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/money.in_and_out": {
+      "post": {
+        "operationId": "query_money_in_and_out",
+        "summary": "Each month’s money in (payments, less refunds) and money out (expenses), this month first, in the business’s time zone; and one month’s spending by category.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires money.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "months": {
+                    "default": 6,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 24
+                  },
+                  "month": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "timeZone": {
+                      "type": "string"
+                    },
+                    "thisMonth": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                    },
+                    "months": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "month": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                          },
+                          "inCents": {
+                            "type": "number"
+                          },
+                          "outCents": {
+                            "type": "number"
+                          },
+                          "expenseCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "month",
+                          "inCents",
+                          "outCents",
+                          "expenseCount"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "breakdown": {
+                      "type": "object",
+                      "properties": {
+                        "month": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                        },
+                        "inCents": {
+                          "type": "number"
+                        },
+                        "outCents": {
+                          "type": "number"
+                        },
+                        "categories": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "category": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "cents": {
+                                "type": "number"
+                              },
+                              "count": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "category",
+                              "label",
+                              "cents",
+                              "count"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "month",
+                        "inCents",
+                        "outCents",
+                        "categories"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "timeZone",
+                    "thisMonth",
+                    "months",
+                    "breakdown"
                   ],
                   "additionalProperties": false
                 }
@@ -255460,7 +256547,7 @@
     "/v1/queries/outreach.plan": {
       "post": {
         "operationId": "query_outreach_plan",
-        "summary": "What the person’s computer will do today on one network (Facebook when left out), and about when: where the day stands in a line, what they asked for that goes first, what’s coming in order with rough times, how many more follow, and the day’s reading and steps done so far. Worked out from where the extension said its day is up to, by the rules it follows. Times are a rough guide.",
+        "summary": "What the person’s computer will do today on one network (Facebook when left out), and about when: where the day stands in a line, what they asked for that goes first, what’s coming in order with rough times, how many more follow, and the day’s reading and steps done so far. Worked out from where the extension said its day is up to, by the rules it follows. Times are a rough guide. A row that can be changed has its key, and can says how (now, skip, at): pass both to outreach.plan.change. changes is what the person skipped today or moved to a time still ahead, each with its key to put it back.",
         "tags": [
           "queries"
         ],
@@ -255633,6 +256720,42 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "key": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 320
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "can": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "now",
+                                "skip",
+                                "at"
+                              ]
+                            }
+                          },
+                          "changed": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "now",
+                                  "at"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -255642,7 +256765,10 @@
                           "kind",
                           "title",
                           "who",
-                          "detail"
+                          "detail",
+                          "key",
+                          "can",
+                          "changed"
                         ],
                         "additionalProperties": false
                       }
@@ -255697,6 +256823,48 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "changes": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "change": {
+                            "type": "string",
+                            "enum": [
+                              "skip",
+                              "at"
+                            ]
+                          },
+                          "at": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "title": {
+                            "type": "string",
+                            "maxLength": 200
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "change",
+                          "at",
+                          "title"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -255713,7 +256881,8 @@
                     "more",
                     "done",
                     "counts",
-                    "notes"
+                    "notes",
+                    "changes"
                   ],
                   "additionalProperties": false
                 }
