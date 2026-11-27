@@ -56,9 +56,9 @@
     "apps/web/src/components/booking/waitlist-offer.tsx": "6d0890441564",
     "apps/web/src/components/booking/webinar-door.tsx": "aa74fac075b5",
     "apps/web/src/components/campaigns/unsubscribe-page.tsx": "b2e66720312a",
-    "apps/web/src/components/chat-widget/chat-parts.tsx": "9e49cd44afb5",
-    "apps/web/src/components/chat-widget/chat-showcase.tsx": "ca141aed1861",
-    "apps/web/src/components/chat-widget/chat-window.tsx": "96ea0e00ee8e",
+    "apps/web/src/components/chat-widget/chat-parts.tsx": "43647a6e301d",
+    "apps/web/src/components/chat-widget/chat-showcase.tsx": "7159f273a8a6",
+    "apps/web/src/components/chat-widget/chat-window.tsx": "0f78dd249221",
     "apps/web/src/components/documents/signing-page.tsx": "93d3da610fb4",
     "apps/web/src/components/forms/address-field.tsx": "20ece36ae74b",
     "apps/web/src/components/forms/booking-picker.tsx": "ab0798d78741",
@@ -1420,6 +1420,20 @@
       "file": "apps/web/src/components/chat-widget/chat-showcase.tsx:150",
       "covered": "person",
       "by": "the visitor's own yes to texts"
+    },
+    {
+      "path": "Website chat on a site → the chat in its font and corners (its own, else the brand kit’s), and the face in its top bar",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-widget/chat-parts.tsx:156",
+      "covered": "yes",
+      "by": "manage_website_chat font, corners and facePicture set what it shows"
+    },
+    {
+      "path": "Website chat on a site → the greeting bubble beside the button: its words open the chat, Close keeps it away for the visit",
+      "kind": "do",
+      "file": "apps/web/src/lib/chat/bubble.ts:1",
+      "covered": "person",
+      "by": "the visitor’s own, on the business’s website"
     },
     {
       "path": "Form link (/f/<site>/<slug>, ?embed=1, personal ?k, ?ref)",

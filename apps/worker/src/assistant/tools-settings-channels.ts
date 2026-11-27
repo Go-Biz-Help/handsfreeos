@@ -20,8 +20,10 @@ import {
   normalizeChatOrigins,
   transferRequestText,
   whoAnswersChat,
+  type ChatCorners,
   type EmailDnsRecord,
   type EmailDomainRecordsLike,
+  type PictureRef,
 } from '@hfos/core';
 import {
   emailAddressReassign,
@@ -39,11 +41,16 @@ import {
   type NumberImportDeps,
 } from '../http/number-import';
 import { phoneAccountOf, rcsSendersOf } from '../http/telephony-reads';
+import { siteAddress, websiteChatLook } from '../http/website-style';
 import type { WorkerServices } from '../services';
 import type { TelephonyProvider } from '../telephony/provider';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { command, query, rehearse } from './tools-read';
-import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
+import {
+  settingsCard,
+  type SettingsConfirmTool,
+  type SettingsDeps,
+} from './tools-settings-calendar';
 import type { ScreenActionCard } from './tools-workflow';
 
 type Args = Record<string, unknown>;
@@ -1489,6 +1496,44 @@ async function answerer(
 }
 
 const CORNER_WORDS = { right: 'Bottom right', left: 'Bottom left' } as const;
+const CHAT_CORNER_WORDS = { square: 'Square', slight: 'Slightly round', round: 'Round' } as const;
+
+/**
+ * Match my website for a chat: the colours, font and corners read from the site asked for, as the Look section's
+ * Match button fills them, with what else was given put on top by the caller. Read again when the card is confirmed,
+ * as pressing Match then Save would.
+ */
+async function matchedChatLook(
+  args: Args,
+  deps: SettingsDeps | undefined,
+): Promise<{ fields: Record<string, unknown>; words: Field[] }> {
+  const site = str(args['matchWebsite']);
+  if (!site) return { fields: {}, words: [] };
+  const services = deps?.services;
+  if (!services)
+    throw HfosError.rule(
+      'website_unreadable',
+      503,
+      'Websites can’t be read from here just now. Use Match my website in the chat’s Look section instead.',
+    );
+  const found = await websiteChatLook(
+    { fetchUrl: services.fetchUrl, log: services.log },
+    siteAddress(site),
+  );
+  return {
+    fields: defined({
+      ...(found.accentColor ? { accentColor: found.accentColor, textColor: found.textColor } : {}),
+      font: found.font,
+      ...(found.corners ? { corners: found.corners } : {}),
+    }),
+    words: [
+      {
+        label: 'Matched to',
+        value: `${found.site}${found.fontNote ? ` (${found.fontNote})` : ''}`,
+      },
+    ],
+  };
+}
 const BUTTON_WORDS = { label: 'Label and icon', icon: 'Icon only', hidden: 'Hidden' } as const;
 
 /** A colour, or the word for the one picked for you (null); undefined leaves it as it is. */
@@ -1511,6 +1556,8 @@ function lookOf(args: Args) {
   const computerButton = str(args['computerButton']) as 'label' | 'icon' | undefined;
   const phoneButton = str(args['phoneButton']) as 'label' | 'icon' | 'hidden' | undefined;
   const whenAway = str(args['whenNobodyAnswers']) as 'chat' | 'away_form' | undefined;
+  const font = str(args['font']);
+  const corners = str(args['corners']) as ChatCorners | 'brand_kit' | undefined;
   const fields = defined({
     name,
     // Empty or null shows no greeting, as clearing the box does.
@@ -1520,6 +1567,16 @@ function lookOf(args: Args) {
     textColor,
     headerColor: topBar,
     showLogo: bool(args['showLogo']),
+    font: font === 'brand_kit' ? null : font,
+    corners: corners === 'brand_kit' ? null : corners,
+    // Empty or null shows no bubble, as clearing the box does.
+    bubble:
+      args['greetingBubble'] === null || args['greetingBubble'] === ''
+        ? null
+        : str(args['greetingBubble']),
+    bubbleAfter: num(args['bubbleAfterSeconds']),
+    face:
+      args['facePicture'] === undefined ? undefined : (args['facePicture'] as PictureRef | null),
     position,
     mobilePosition: phoneCorner === 'same_as_computer' ? null : phoneCorner,
     desktopLift: num(args['computerLift']),
@@ -1554,6 +1611,33 @@ function lookOf(args: Args) {
     ...(bool(args['showLogo']) === undefined
       ? []
       : [{ label: 'Logo', value: args['showLogo'] ? 'Shown' : 'Initials instead' }]),
+    ...(font ? [{ label: 'Font', value: font === 'brand_kit' ? 'Your brand kit’s' : font }] : []),
+    ...(corners
+      ? [
+          {
+            label: 'Corners',
+            value: corners === 'brand_kit' ? 'Your brand kit’s' : CHAT_CORNER_WORDS[corners],
+          },
+        ]
+      : []),
+    ...(str(args['greetingBubble'])
+      ? [{ label: 'Greeting bubble', value: str(args['greetingBubble'])! }]
+      : args['greetingBubble'] === null || args['greetingBubble'] === ''
+        ? [{ label: 'Greeting bubble', value: 'None' }]
+        : []),
+    ...(num(args['bubbleAfterSeconds']) === undefined
+      ? []
+      : [
+          { label: 'Bubble shows after', value: `${args['bubbleAfterSeconds'] as number} seconds` },
+        ]),
+    ...(args['facePicture'] === undefined
+      ? []
+      : [
+          {
+            label: 'Face in the top bar',
+            value: args['facePicture'] ? 'A picture from Your pictures' : 'None (logo or initials)',
+          },
+        ]),
     ...(position
       ? [
           {
@@ -1610,7 +1694,7 @@ function lookOf(args: Args) {
 }
 
 const manageWebsiteChat: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
+  async prepare(db, ctx, args, toolCallId, deps) {
     const act = action(args);
     const creating = act === 'create';
     const box = await chatBox(db, ctx, str(args['widgetId']));
@@ -1646,9 +1730,11 @@ const manageWebsiteChat: SettingsConfirmTool = {
       creating ? null : (box?.id ?? null),
     );
     const { words } = lookOf(args);
+    const matched = await matchedChatLook(args, deps);
     const fields: Field[] = [
       ...(sites ? [{ label: 'Shows on', value: siteWords(sites) }] : []),
       ...(who ? [{ label: 'Who answers', value: who.who }] : []),
+      ...matched.words,
       ...words,
     ];
     if (!fields.length)
@@ -1686,7 +1772,7 @@ const manageWebsiteChat: SettingsConfirmTool = {
     };
   },
 
-  async commit(db, ctx, args) {
+  async commit(db, ctx, args, deps) {
     const act = action(args);
     const creating = act === 'create';
     const box = await chatBox(db, ctx, str(args['widgetId']));
@@ -1710,7 +1796,7 @@ const manageWebsiteChat: SettingsConfirmTool = {
       creating,
       creating ? null : (box?.id ?? null),
     );
-    const { fields } = lookOf(args);
+    const fields = { ...(await matchedChatLook(args, deps)).fields, ...lookOf(args).fields };
     if (creating) {
       const made = await command<{ widgetId: string; publicKey: string }>(
         db,

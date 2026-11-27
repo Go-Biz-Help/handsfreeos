@@ -7,17 +7,23 @@
  */
 import {
   CHAT_DEFAULT_GREETING,
+  chatRadiiOf,
   chatWidgetName,
   contrastRatio,
+  fontStackOf,
+  formFontHref,
   logoBox,
+  lookKitOf,
   MAX_CHAT_ORIGINS,
   normalizeChatOrigin,
   readableTextOn,
   type BusinessLook,
   type ChatAskMode,
+  type ChatCorners,
   type ChatDesktopButton,
   type ChatMobileButton,
   type ChatWhenAway,
+  type PictureRef,
 } from '@hfos/core';
 import {
   Check,
@@ -53,6 +59,8 @@ import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
 import { LookEditor } from '@/components/look/look-editor';
 import { markOf } from '@/lib/chat/look';
+import { pictureSrc } from '@/lib/look';
+import { ChatDesignFields } from './chat-design';
 import { InstallCheck, PlatformSteps, SnippetCode, snippetOf, snippetSrc } from './chat-install';
 import {
   ColorChoice,
@@ -202,6 +210,8 @@ export function WebsiteChatPage({
           teammate={teammate}
           businessName={brand?.businessName ?? ''}
           logo={brand?.logo ?? null}
+          kit={lookKitOf(brand?.look)}
+          website={brand?.website ?? null}
         />
         {brand ? <LogoCard workspaceId={workspaceId} brand={brand} /> : null}
       </div>
@@ -868,6 +878,12 @@ interface LookDraft {
   textColor: string | null;
   headerColor: string | null;
   showLogo: boolean;
+  /** Design tools, part 4: the font and corners (null: the brand kit's), the bubble and the face. */
+  font: string | null;
+  corners: ChatCorners | null;
+  bubble: string;
+  bubbleAfter: number;
+  face: PictureRef | null;
   desktop: DevicePlace<ChatDesktopButton>;
   mobile: DevicePlace<ChatMobileButton>;
   /** The phone's corner was picked on its own (saved), rather than following the computer's. */
@@ -886,6 +902,11 @@ const draftOf = (w: ChatWidget): LookDraft => ({
   textColor: w.ownTextColor,
   headerColor: w.headerColor,
   showLogo: w.showLogo,
+  font: w.font,
+  corners: w.corners,
+  bubble: w.bubble ?? '',
+  bubbleAfter: w.bubbleAfter,
+  face: w.face,
   desktop: { ...w.placement.desktop },
   mobile: {
     position: w.placement.mobile.position,
@@ -906,12 +927,18 @@ function LookForm({
   teammate,
   businessName,
   logo,
+  kit,
+  website,
 }: {
   workspaceId: string;
   widget: ChatWidget;
   teammate: ChatTeammate | null;
   businessName: string;
   logo: ChatBrand['logo'];
+  /** The brand kit's font and corners, which the chat follows until it picks its own. */
+  kit: { readonly font: string | null; readonly corners: ChatCorners | null };
+  /** The business's website (Settings → Workspace), for Match my website. */
+  website: string | null;
 }) {
   const router = useRouter();
   const saved = draftOf(widget);
@@ -935,6 +962,11 @@ function LookForm({
         textColor: draft.textColor,
         headerColor: draft.headerColor,
         showLogo: draft.showLogo,
+        font: draft.font,
+        corners: draft.corners,
+        bubble: draft.bubble,
+        bubbleAfter: draft.bubbleAfter,
+        face: draft.face,
         position: draft.desktop.position,
         // A phone's corner follows the computer's until it's picked on its own.
         mobilePosition: draft.mobileOwnCorner ? draft.mobile.position : null,
@@ -1090,7 +1122,29 @@ function LookForm({
             testId="chat-show-logo"
           />
         </SetRow>
-        <LookPreview draft={draft} business={businessName} logo={draft.showLogo ? logo : null} />
+        <ChatDesignFields
+          workspaceId={workspaceId}
+          draft={draft}
+          kit={kit}
+          website={widget.allowedOrigins[0] ?? website}
+          errors={errors}
+          onChange={set}
+          onMatched={(found) =>
+            set({
+              ...(found.accentColor
+                ? { accentColor: found.accentColor, textColor: found.textColor }
+                : {}),
+              font: found.font,
+              ...(found.corners ? { corners: found.corners } : {}),
+            })
+          }
+        />
+        <LookPreview
+          draft={draft}
+          business={businessName}
+          logo={draft.showLogo ? logo : null}
+          kit={kit}
+        />
       </Card>
 
       <Card className="p-6" {...settingAttrs('website_chat.placement')}>
@@ -1254,48 +1308,71 @@ function LookForm({
   );
 }
 
-/** What visitors see, as the draft has it: the top of the open chat with the greeting, and the button. */
+/**
+ * What visitors see, as the draft has it: the top of the open chat with the greeting, the greeting bubble, and the
+ * button, in the chat's font and corners (its own, else the brand kit's).
+ */
 function LookPreview({
   draft,
   business,
   logo,
+  kit,
 }: {
   draft: LookDraft;
   business: string;
   logo: ChatBrand['logo'];
+  kit: { readonly font: string | null; readonly corners: ChatCorners | null };
 }) {
   const header = draft.headerColor ?? draft.accentColor;
   const headerText = draft.textColor ?? readableTextOn(header);
   const buttonText = draft.textColor ?? readableTextOn(draft.accentColor);
   const box = logo ? logoBox(logo, 26) : null;
+  const font = draft.font ?? kit.font;
+  const radii = chatRadiiOf(draft.corners ?? kit.corners);
+  const fontHref = formFontHref(font);
+  const bubble = draft.bubble.trim();
   return (
     <div
       className={cn(
         'mt-3.5 flex flex-wrap items-end gap-3.5 rounded-xl bg-card-2 p-4',
         draft.desktop.position === 'left' ? 'flex-row-reverse justify-end' : 'justify-end',
       )}
+      style={{ fontFamily: fontStackOf(font) ?? undefined }}
       aria-hidden
       data-testid="chat-look-preview"
     >
-      <div className="w-[230px] overflow-hidden rounded-[14px] border border-border bg-card shadow-2">
+      {fontHref ? <link rel="stylesheet" href={fontHref} precedence="chat-font" /> : null}
+      <div
+        className="w-[230px] overflow-hidden border border-border bg-card shadow-2"
+        style={{ borderRadius: radii.window }}
+      >
         <div
           className="flex items-center gap-2 px-2.5 py-2"
           style={{ background: header, color: headerText }}
           data-testid="chat-look-preview-header"
         >
-          <span className="inline-flex h-[26px] min-w-[26px] flex-none items-center justify-center rounded-[8px] bg-white px-[3px] text-[10px] font-bold text-[#191d25]">
-            {logo && box ? (
-              <img
-                src={logo.url}
-                alt=""
-                width={box.width}
-                height={box.height}
-                style={{ width: box.width, height: box.height }}
-              />
-            ) : (
-              markOf(business || 'Chat')
-            )}
-          </span>
+          {draft.face ? (
+            <img
+              src={pictureSrc(draft.face.path)}
+              alt=""
+              className="h-[26px] w-[26px] flex-none rounded-full border-2 border-white/80 bg-white object-cover"
+              data-testid="chat-look-preview-face"
+            />
+          ) : (
+            <span className="inline-flex h-[26px] min-w-[26px] flex-none items-center justify-center rounded-[8px] bg-white px-[3px] text-[10px] font-bold text-[#191d25]">
+              {logo && box ? (
+                <img
+                  src={logo.url}
+                  alt=""
+                  width={box.width}
+                  height={box.height}
+                  style={{ width: box.width, height: box.height }}
+                />
+              ) : (
+                markOf(business || 'Chat')
+              )}
+            </span>
+          )}
           <span className="min-w-0 truncate text-[12.5px] font-semibold">
             {business || 'Your business'}
           </span>
@@ -1304,13 +1381,41 @@ function LookPreview({
           <p className="px-3 py-2.5 text-[12.5px] leading-[1.45] text-text">{draft.greeting}</p>
         ) : null}
       </div>
-      <span
-        className="inline-flex h-[54px] flex-none items-center gap-2 whitespace-nowrap rounded-full pl-[17px] pr-5 text-[15px] font-semibold shadow-[0_8px_24px_rgba(25,29,37,0.28)]"
-        style={{ background: draft.accentColor, color: buttonText }}
+      <div
+        className={cn(
+          'flex flex-col gap-2.5',
+          draft.desktop.position === 'left' ? 'items-start' : 'items-end',
+        )}
       >
-        <MessageCircle className="h-[22px] w-[22px]" />
-        {draft.desktop.button === 'icon' ? null : draft.launcherLabel.trim() || 'Chat with us'}
-      </span>
+        {bubble ? (
+          <span
+            className="flex max-w-[220px] items-start gap-2 bg-white px-3 py-2.5 text-[13px] font-medium leading-[1.4] text-[#191d25] shadow-[0_10px_30px_rgba(0,0,0,0.2)]"
+            style={{ borderRadius: radii.bubble }}
+            data-testid="chat-look-preview-bubble"
+          >
+            {draft.face ? (
+              <img
+                src={pictureSrc(draft.face.path)}
+                alt=""
+                className="h-7 w-7 flex-none rounded-full object-cover"
+              />
+            ) : null}
+            <span className="min-w-0 [overflow-wrap:anywhere]">{bubble}</span>
+          </span>
+        ) : null}
+        <span
+          className="inline-flex h-[54px] flex-none items-center gap-2 whitespace-nowrap pl-[17px] pr-5 text-[15px] font-semibold shadow-[0_8px_24px_rgba(25,29,37,0.28)]"
+          style={{
+            background: draft.accentColor,
+            color: buttonText,
+            borderRadius: radii.launcher,
+          }}
+          data-testid="chat-look-preview-button"
+        >
+          <MessageCircle className="h-[22px] w-[22px]" />
+          {draft.desktop.button === 'icon' ? null : draft.launcherLabel.trim() || 'Chat with us'}
+        </span>
+      </div>
     </div>
   );
 }

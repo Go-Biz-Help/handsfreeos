@@ -15,10 +15,11 @@
 import { z } from 'zod';
 import { contrastRatio, readableTextOn } from '../chat/origins';
 import { buttonColorFor, isLookColor, LOOK_DEFAULT_COLOR, mixColors } from '../look/colour';
-import { FONT_NAME, formFontHref, formFontOf } from '../look/fonts';
+import { FONT_NAME, fontStackOf, formFontHref } from '../look/fonts';
 import { PictureRef } from '../look/pictures';
 
 export {
+  fontStackOf,
   FORM_DEFAULT_FONT,
   FORM_FONTS,
   formFontHref,
@@ -116,9 +117,6 @@ export type FormDesignInput = z.input<typeof FormDesign>;
 
 /** A design with nothing set: what every form had before the Design tab. */
 export const DEFAULT_FORM_DESIGN: FormDesign = FormDesign.parse({});
-
-const SANS_FALLBACK = "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
-const SERIF_FALLBACK = "Georgia, 'Times New Roman', serif";
 
 export type FormCorners = (typeof FORM_CORNERS)[number];
 
@@ -247,7 +245,6 @@ export function formLook(
   const border = c.fieldBorder ?? tint(base, text, 0.2);
   const radii = RADII[designCornersOf(d, options.kit)];
   const fontName = designFontOf(d, options.kit);
-  const font = formFontOf(fontName);
   const paintsBackground = !options.embedded || c.background !== null;
   const vars: Record<string, string> = {
     '--bg': base,
@@ -286,9 +283,8 @@ export function formLook(
     '--booking-gap': BOOKING_GAP[d.spacing][0],
     '--booking-box-gap': BOOKING_GAP[d.spacing][1],
   };
-  if (font)
-    vars['--form-font'] =
-      `'${font.name}', ${font.kind === 'serif' ? SERIF_FALLBACK : SANS_FALLBACK}`;
+  const stack = fontStackOf(fontName);
+  if (stack) vars['--form-font'] = stack;
   return {
     vars,
     data: {

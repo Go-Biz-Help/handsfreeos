@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { bubbleScript } from '@/lib/chat/bubble';
 import { loaderScript } from '@/lib/chat/loader';
 import { lookupChat } from '@/lib/chat/lookup';
 import { publicEnv } from '@/lib/env';
@@ -65,19 +66,35 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ file: s
       200,
       MINUTE,
     );
-  const { look, business } = found.config;
+  const { look, business, bubble, face } = found.config;
+  const loader = loaderScript({
+    app: request.nextUrl.origin,
+    key: key!,
+    business: business.name,
+    label: look.launcherLabel,
+    accent: look.accentColor,
+    text: look.textColor,
+    placement: look.placement,
+    position: look.position,
+    font: look.font,
+    corners: look.corners,
+    preview,
+  });
+  // A chat with a greeting bubble gets its script after the loader's (lib/chat/bubble.ts); others don't carry it.
   return script(
-    loaderScript({
-      app: request.nextUrl.origin,
-      key: key!,
-      business: business.name,
-      label: look.launcherLabel,
-      accent: look.accentColor,
-      text: look.textColor,
-      placement: look.placement,
-      position: look.position,
-      preview,
-    }),
+    bubble
+      ? loader +
+          bubbleScript({
+            key: key!,
+            text: bubble.text,
+            after: bubble.after,
+            face: face?.url ?? null,
+            placement: look.placement,
+            corners: look.corners,
+            font: look.font,
+            accent: look.accentColor,
+          })
+      : loader,
     200,
     preview ? 'private, no-store' : 'public, max-age=300, s-maxage=300',
   );

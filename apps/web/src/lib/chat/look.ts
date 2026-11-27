@@ -5,7 +5,14 @@
  * business picked a colour for it, which is then kept as picked on dark pages too.
  */
 import type { CSSProperties } from 'react';
-import { contrastRatio, readableTextOn } from '@hfos/core';
+import {
+  chatRadiiOf,
+  contrastRatio,
+  fontStackOf,
+  formFontHref,
+  readableTextOn,
+  type ChatCorners,
+} from '@hfos/core';
 
 const DARK_CARD = '#191d25';
 const WHITE = '#ffffff';
@@ -97,4 +104,27 @@ export function widgetVars(look: {
       '--whd-on-d': colors.header.dark.on,
     } as CSSProperties,
   };
+}
+
+/**
+ * The chat's font and corners as CSS for its window (design tools, part 4): its own, else the brand kit's, as the
+ * worker sent them. Nothing is written for the usual look, so a chat nobody designed draws as it always did. The
+ * parts read the corners from `--radius-control` and the `--wr-*` variables (chat-parts.tsx).
+ */
+export function chatDesignOf(look: {
+  readonly font?: string | null;
+  readonly corners?: ChatCorners | null;
+}): { readonly vars: CSSProperties; readonly fontHref: string | null } {
+  const vars: Record<string, string> = {};
+  if (look.corners) {
+    const r = chatRadiiOf(look.corners);
+    vars['--radius-control'] = r.control;
+    vars['--wr-card'] = r.card;
+    vars['--wr-bub'] = r.bubble;
+    vars['--wr-tail'] = r.tail;
+    vars['--wr-in'] = r.composer;
+  }
+  const stack = fontStackOf(look.font);
+  if (stack) vars.fontFamily = stack;
+  return { vars: vars as CSSProperties, fontHref: formFontHref(look.font) };
 }

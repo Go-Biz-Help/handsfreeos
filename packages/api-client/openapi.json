@@ -35380,6 +35380,80 @@
                   "showLogo": {
                     "type": "boolean"
                   },
+                  "font": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 60,
+                        "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]| (?! ))*[A-Za-z0-9]$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "corners": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "square",
+                          "slight",
+                          "round"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "bubble": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "bubbleAfter": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  },
+                  "face": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.webp$"
+                          },
+                          "width": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10000
+                          },
+                          "height": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10000
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "width",
+                          "height"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "awayMessage": {
                     "anyOf": [
                       {
@@ -35632,6 +35706,80 @@
                   },
                   "showLogo": {
                     "type": "boolean"
+                  },
+                  "font": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 60,
+                        "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]| (?! ))*[A-Za-z0-9]$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "corners": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "square",
+                          "slight",
+                          "round"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "bubble": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "bubbleAfter": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120
+                  },
+                  "face": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.webp$"
+                          },
+                          "width": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10000
+                          },
+                          "height": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10000
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "width",
+                          "height"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "awayMessage": {
                     "anyOf": [
@@ -199372,6 +199520,70 @@
                           "showLogo": {
                             "type": "boolean"
                           },
+                          "font": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "corners": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "square",
+                                  "slight",
+                                  "round"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "bubble": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "bubbleAfter": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "face": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "path": {
+                                    "type": "string",
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.webp$"
+                                  },
+                                  "width": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 10000
+                                  },
+                                  "height": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 10000
+                                  }
+                                },
+                                "required": [
+                                  "path",
+                                  "width",
+                                  "height"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "position": {
                             "type": "string",
                             "enum": [
@@ -199591,6 +199803,11 @@
                           "ownTextColor",
                           "headerColor",
                           "showLogo",
+                          "font",
+                          "corners",
+                          "bubble",
+                          "bubbleAfter",
+                          "face",
                           "position",
                           "placement",
                           "awayMessage",
@@ -199755,6 +199972,70 @@
                         },
                         "showLogo": {
                           "type": "boolean"
+                        },
+                        "font": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "corners": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "square",
+                                "slight",
+                                "round"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "bubble": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "bubbleAfter": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "face": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "path": {
+                                  "type": "string",
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.webp$"
+                                },
+                                "width": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 10000
+                                },
+                                "height": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 10000
+                                }
+                              },
+                              "required": [
+                                "path",
+                                "width",
+                                "height"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "position": {
                           "type": "string",
@@ -199975,6 +200256,11 @@
                         "ownTextColor",
                         "headerColor",
                         "showLogo",
+                        "font",
+                        "corners",
+                        "bubble",
+                        "bubbleAfter",
+                        "face",
                         "position",
                         "placement",
                         "awayMessage",

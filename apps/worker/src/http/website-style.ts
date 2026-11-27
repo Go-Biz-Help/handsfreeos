@@ -4,11 +4,11 @@
  * (look/style.ts). Nothing is kept here: the editor puts it in the form's draft (or the calendar's unsaved
  * settings) as an edit, to check and change before publishing or saving.
  *
- * Signed in, with forms.manage in the business (calendars.manage for a calendar's). The site is the one asked for, else the business's own website
+ * Signed in, with forms.manage in the business (calendars.manage for a calendar's, channels.manage for a website chat's). The site is the one asked for, else the business's own website
  * (Settings → Workspace). Every request goes through deps.fetchUrl: https only, never a private address.
  */
 import rateLimit from '@fastify/rate-limit';
-import { HfosError, normalizeChatOrigin } from '@hfos/core/server';
+import { contrastRatio, HfosError, normalizeChatOrigin } from '@hfos/core/server';
 import { asWorker } from '@hfos/db/client';
 import { workspaces } from '@hfos/db/schema';
 import { eq } from 'drizzle-orm';
@@ -86,7 +86,49 @@ export async function registerWebsiteStyleRoutes(
         return websiteKit(deps, url);
       },
     );
+    // A website chat (Forms → Website chats → Look): its colours, font and corners from the site, which the screen
+    // puts in its unsaved look for the person to check and save with chat_widget.update.
+    scoped.post(
+      '/v1/chat/website-style',
+      { config: { rateLimit: { max: 12, timeWindow: '1 minute' } } },
+      async (req) => {
+        const actor = await authenticate(deps, req);
+        const body = parseBody(Body, req.body);
+        await requirePermission(deps, actor.userId, body.workspaceId, 'channels.manage');
+        const url = await siteToRead(deps, body.workspaceId, body.site);
+        return websiteChatLook(deps, url);
+      },
+    );
   });
+}
+
+/** A colour as a chat keeps it: six hex digits, lower case (#abc is #aabbcc; a see-through part is dropped). */
+function chatHex(hex: string | null): string | null {
+  if (!hex) return null;
+  const h = hex.trim().toLowerCase();
+  if (/^#[0-9a-f]{3}$/.test(h)) return `#${h[1]}${h[1]}${h[2]}${h[2]}${h[3]}${h[3]}`;
+  if (/^#[0-9a-f]{6}([0-9a-f]{2})?$/.test(h)) return h.slice(0, 7);
+  return null;
+}
+
+/**
+ * The website chat look that matches a site: its button colour (and the words on it, when they read there), font
+ * and corners, for a chat's Match my website and the Assistant. Nothing is kept here.
+ */
+export async function websiteChatLook(deps: SiteReader, url: string) {
+  const found = await websiteDesign(deps, url, 'the chat’s Look section');
+  const accentColor = chatHex(found.style.button);
+  const words = chatHex(found.style.buttonText);
+  return {
+    site: found.site,
+    accentColor,
+    // The site's own words on its buttons, kept where they read (the Look section warns below 3 to 1); otherwise
+    // worked out from the colour.
+    textColor: accentColor && words && contrastRatio(accentColor, words) >= 3 ? words : null,
+    font: found.design.font ?? null,
+    corners: found.style.corners,
+    fontNote: found.fontNote,
+  };
 }
 
 /**
