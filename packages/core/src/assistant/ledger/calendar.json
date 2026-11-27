@@ -1,7 +1,7 @@
 {
   "area": "calendar",
   "title": "Calendar, appointments, My calendar and booking links",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-27",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/calendar.tsx": "bf2926675f7a",
     "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "99f851115c11",
@@ -35,7 +35,7 @@
     "apps/web/src/components/booking/hold-page.tsx": "9360c3c1c2dd",
     "apps/web/src/components/booking/join-session.tsx": "5106dc9cc988",
     "apps/web/src/components/booking/manage-booking.tsx": "8c2bab34c5e9",
-    "apps/web/src/components/booking/public-shell.tsx": "d13010341740",
+    "apps/web/src/components/booking/public-shell.tsx": "1f2ddb4eab16",
     "apps/web/src/components/booking/time-picker.tsx": "5f1a28eaa2f5",
     "apps/web/src/components/booking/turnstile.tsx": "71d6ad4df878",
     "apps/web/src/components/booking/viewer-zone.tsx": "f36a65de3bfa",

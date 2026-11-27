@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { PublicHeader, PublicState } from '@/components/booking/public-shell';
+import { BusinessFooter } from '@/components/look/business-footer';
 import { BottomSheet, Honeypot, OkBox } from '@/components/money/public-shell';
 import { BrandMark } from '@/components/ui/brand';
 import { Button, buttonClassName } from '@/components/ui/button';
@@ -57,7 +58,7 @@ import {
   type SigningView,
 } from '@/lib/api/public-documents';
 import { loadPdfJs } from '@/lib/documents/pdf';
-import { brandLook } from '@/lib/look';
+import { kitLook } from '@/lib/look';
 import { cn } from '@/lib/utils';
 import { boxStyle, EditView, PdfPages, ValueView } from './pdf-pages';
 import { SignatureInput, type SignatureValue } from './signature-input';
@@ -108,13 +109,15 @@ function SigningFrame({
   footer?: ReactNode;
   children: ReactNode;
 }) {
-  const look = brandLook(business?.look?.color);
+  // The brand kit's colour, font and corners (design tools, part 7).
+  const look = kitLook(business?.look);
   return (
     <div
       className={cn('flex min-h-dvh flex-col bg-bg text-text', look.className)}
       style={look.style}
       data-testid="signing-page"
     >
+      {look.fontHref ? <link rel="stylesheet" href={look.fontHref} precedence="kit-font" /> : null}
       {business ? <PublicHeader business={business} /> : null}
       <div className="flex flex-1 flex-col">{children}</div>
       {footer ? (
@@ -123,6 +126,9 @@ function SigningFrame({
         </div>
       ) : null}
       <footer className="flex-none px-4 pb-5 pt-3">
+        {business ? (
+          <BusinessFooter name={business.name} footer={business.footer} className="mb-3" />
+        ) : null}
         <p className="flex items-center justify-center gap-[5px] text-[11.5px] text-text-3">
           <BrandMark size={13} />
           {SIGNING_WORDS.poweredBy}

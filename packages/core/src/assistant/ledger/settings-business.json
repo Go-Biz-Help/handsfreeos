@@ -29,7 +29,7 @@
     "apps/web/src/components/billing/trial-ending-note.tsx": "7882f94d4023",
     "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
     "apps/web/src/components/bin/deleted-bin.tsx": "ac059400cae4",
-    "apps/web/src/components/look/brand-kit.tsx": "1ebcc7a756a6",
+    "apps/web/src/components/look/brand-kit.tsx": "67077751ec12",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/look/picture-library.tsx": "32d8c91027be",
     "apps/web/src/components/relationships/add-relationship-dialog.tsx": "66332ce8327a",
@@ -505,51 +505,65 @@
     {
       "path": "Business → Brand kit → Match my website (site box, Match)",
       "kind": "do",
-      "file": "apps/web/src/components/look/brand-kit.tsx:111",
+      "file": "apps/web/src/components/look/brand-kit.tsx:113",
       "covered": "yes",
       "by": "read_website_brand_kit, then do_look_set color, font, corners, matchedSite"
     },
     {
       "path": "Business → Brand kit → Matched to the site, on the day",
       "kind": "see",
-      "file": "apps/web/src/components/look/brand-kit.tsx:122",
+      "file": "apps/web/src/components/look/brand-kit.tsx:124",
       "covered": "yes",
       "by": "get_settings business look.matched"
     },
     {
       "path": "Business → Brand kit → Font",
       "kind": "do",
-      "file": "apps/web/src/components/look/brand-kit.tsx:138",
+      "file": "apps/web/src/components/look/brand-kit.tsx:140",
       "covered": "yes",
       "by": "do_look_set font (null for HandsFreeOS’s own)"
     },
     {
       "path": "Business → Brand kit → Corners: Square, Slightly round, Round",
       "kind": "do",
-      "file": "apps/web/src/components/look/brand-kit.tsx:161",
+      "file": "apps/web/src/components/look/brand-kit.tsx:163",
       "covered": "yes",
       "by": "do_look_set corners (null for slightly round)"
     },
     {
       "path": "Business → Brand kit → Social links: each one, named for its site (Facebook, Instagram…), with its address",
       "kind": "see",
-      "file": "apps/web/src/components/look/brand-kit.tsx:253",
+      "file": "apps/web/src/components/look/brand-kit.tsx:325",
       "covered": "yes",
       "by": "get_settings business look.socials"
     },
     {
       "path": "Business → Brand kit → Social links → Add a link",
       "kind": "do",
-      "file": "apps/web/src/components/look/brand-kit.tsx:306",
+      "file": "apps/web/src/components/look/brand-kit.tsx:378",
       "covered": "yes",
       "by": "do_look_set socials (the whole list)"
     },
     {
       "path": "Business → Brand kit → Social links → Remove",
       "kind": "do",
-      "file": "apps/web/src/components/look/brand-kit.tsx:277",
+      "file": "apps/web/src/components/look/brand-kit.tsx:349",
       "covered": "yes",
       "by": "do_look_set socials (the list without it)"
+    },
+    {
+      "path": "Business → Brand kit → License number, shown at the bottom of customers’ invoices, estimates, documents to sign and appointment pages",
+      "kind": "see",
+      "file": "apps/web/src/components/look/brand-kit.tsx:231",
+      "covered": "yes",
+      "by": "get_settings business settings.look.license"
+    },
+    {
+      "path": "Business → Brand kit → License number → Save (empty takes it off)",
+      "kind": "do",
+      "file": "apps/web/src/components/look/brand-kit.tsx:260",
+      "covered": "yes",
+      "by": "do_look_set license (null to take it off)"
     },
     {
       "path": "Business → Your pictures → the pictures: each one, its name, being made or couldn’t be used",

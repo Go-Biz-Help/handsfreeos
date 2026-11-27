@@ -17,12 +17,13 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Printer } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { BusinessNameAndPhone, CallButton } from '@/components/booking/public-shell';
+import { BusinessFooter } from '@/components/look/business-footer';
 import { BusinessMark } from '@/components/look/business-mark';
 import { BrandMark } from '@/components/ui/brand';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import type { MoneyTotals, PublicBusiness, PublicMoneyLine } from '@/lib/api/public-money';
-import { brandLook } from '@/lib/look';
+import { kitLook } from '@/lib/look';
 import { cn, initials } from '@/lib/utils';
 import { unitWord } from './document-view';
 
@@ -93,7 +94,8 @@ export function MoneyFrame({
   footer?: ReactNode;
   testId?: string;
 }) {
-  const look = brandLook(business?.look?.color);
+  // The brand kit's colour, font and corners (design tools, part 7).
+  const look = kitLook(business?.look);
   return (
     <div
       className={cn('flex min-h-dvh flex-col bg-bg text-text', look.className)}
@@ -101,6 +103,7 @@ export function MoneyFrame({
       data-money-page
       data-testid={testId ?? 'money-page'}
     >
+      {look.fontHref ? <link rel="stylesheet" href={look.fontHref} precedence="kit-font" /> : null}
       <PrintStyles />
       {business ? (
         <header className="flex-none border-b border-border bg-card" data-print="card">
@@ -123,6 +126,9 @@ export function MoneyFrame({
         </div>
       ) : null}
       <footer className="flex-none px-4 pb-5 pt-3">
+        {business ? (
+          <BusinessFooter name={business.name} footer={business.footer} className="mb-3" />
+        ) : null}
         <BillingByline />
       </footer>
     </div>

@@ -141,7 +141,8 @@ export const designCornersOf = (
   kit?: FormKit | null,
 ): FormCorners => design?.corners ?? kit?.corners ?? 'slight';
 
-const RADII: Record<FormCorners, { control: string; menu: string; card: string }> = {
+/** Each corners choice as the app's radius tokens: forms, booking pages and the customer's pages (look/page-kit.ts). */
+export const CORNER_RADII: Record<FormCorners, { control: string; menu: string; card: string }> = {
   square: { control: '0px', menu: '0px', card: '0px' },
   slight: { control: '8px', menu: '10px', card: '12px' },
   // Pills for buttons and one-line boxes (they're 36 to 44 high); a box for a long answer stops at 16 (globals.css).
@@ -243,7 +244,7 @@ export function formLook(
   const errorText = readableOn(error, base, text, 4.5);
   const field = c.field ?? (dark ? tint(base, text, 0.05) : '#ffffff');
   const border = c.fieldBorder ?? tint(base, text, 0.2);
-  const radii = RADII[designCornersOf(d, options.kit)];
+  const radii = CORNER_RADII[designCornersOf(d, options.kit)];
   const fontName = designFontOf(d, options.kit);
   const paintsBackground = !options.embedded || c.background !== null;
   const vars: Record<string, string> = {

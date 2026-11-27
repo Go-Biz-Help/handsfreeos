@@ -187,6 +187,15 @@
   --radius-card: 12px;
 }
 
+/* A customer's page in the brand kit (lib/look.ts `kitLook`; design tools, part 7): the invoice, estimate, document to
+   sign and appointment take the kit's font, and its corners through the radius tokens set on the element. */
+.kit-look {
+  font-family: var(--kit-font, inherit);
+}
+.kit-look textarea {
+  border-radius: min(var(--radius-control), 16px);
+}
+
 /* A form in its design (core's forms/design.ts, worked out by formLook in components/forms/form-look.tsx): the element
    sets the colour tokens, the corners and the --form-* values below, and these rules read its data attributes. They
    sit outside Tailwind's layers on purpose, so they win over the utilities on the inputs and buttons inside. */
