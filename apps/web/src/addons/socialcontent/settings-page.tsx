@@ -24,6 +24,15 @@ import {
   type NetworkPlan,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
+import {
+  DESIGN_FONT_FACES,
+  DESIGN_FONTS,
+  DESIGN_STYLES,
+  PHOTO_STYLES,
+  PLAIN_STYLES,
+  type DesignStyle,
+} from '@hfos/core/addons/socialcontent/design-names';
+import { PICTURE_LOGO, type PictureLookInput } from '@hfos/core/addons/socialcontent/picture-look';
 import type { LearnedShown } from '@hfos/core/addons/socialcontent/schedule';
 import {
   SOCIALCONTENT_WORDS as W,
@@ -81,6 +90,7 @@ export function SettingsPage({
       facebookWhere?: FacebookWhere[];
       autoFill?: boolean;
       autoPick?: boolean;
+      pictureLook?: PictureLookInput;
     },
     done: string = W.settings.saved,
   ) =>
@@ -275,6 +285,13 @@ export function SettingsPage({
                 : W.calendar.fillStopped,
           )
         }
+      />
+
+      <PictureLookCard
+        settings={settings}
+        mayManage={mayManage}
+        busy={busy}
+        onSave={(key, pictureLook) => void save(key, { pictureLook }, W.settings.look.saved)}
       />
 
       <Card className="p-4 md:p-5" data-testid="socialcontent-work">
@@ -675,6 +692,174 @@ function PostingCard({
             />
           ))}
         </div>
+      </div>
+      {!mayManage ? (
+        <p className="mt-3 text-[12.5px] text-text-3">{W.settings.managersOnly}</p>
+      ) : null}
+    </Card>
+  );
+}
+
+/**
+ * How its pictures look (design tools, part 6; docs/socialcontent.md, "How your pictures look"): the brand kit's logo on
+ * every page, the last only, or never; the fonts, like the brand kit or picked; and the layouts, all or picked. Each
+ * change saves at once, like the rest of Settings. A list it couldn't design with can't be picked: the last plain
+ * layout and the last photo layout can't be unticked.
+ */
+function PictureLookCard({
+  settings,
+  mayManage,
+  busy,
+  onSave,
+}: {
+  settings: Overview['settings'];
+  mayManage: boolean;
+  busy: string | null;
+  onSave: (key: string, change: PictureLookInput) => void;
+}) {
+  const L = W.settings.look;
+  const look = settings.pictureLook;
+  const kit = settings.kit;
+  const off = !mayManage || busy !== null;
+  // Every layout ticked is kept as all of them, so picking shows here until it's switched back.
+  const [pickingLayouts, setPickingLayouts] = useState(look.layouts !== null);
+  const fonts = look.fonts ?? [];
+  const layouts = look.layouts ?? [...DESIGN_STYLES];
+  const kitFace = DESIGN_FONT_FACES[kit.fontAs ?? 'modern'];
+  const tickFont = (f: (typeof DESIGN_FONTS)[number], on: boolean) => {
+    const next = on ? [...fonts, f] : fonts.filter((x) => x !== f);
+    if (next.length) onSave(`font:${f}`, { fonts: next });
+  };
+  const lastOfKind = (l: DesignStyle) => {
+    const kind = PHOTO_STYLES.includes(l) ? PHOTO_STYLES : PLAIN_STYLES;
+    return kind.includes(l) && layouts.filter((x) => kind.includes(x)).length === 1;
+  };
+  const tickLayout = (l: DesignStyle, on: boolean) =>
+    onSave(`layout:${l}`, {
+      layouts: on ? [...layouts, l] : layouts.filter((x) => x !== l),
+    });
+  return (
+    <Card className="p-4 md:p-5" data-testid="socialcontent-picture-look">
+      <h2 className="text-[15px] font-semibold">{L.title}</h2>
+      <p className="mt-1 text-[13px] text-text-2">{L.intro}</p>
+
+      <div className="mt-4">
+        <div className="text-[13.5px] font-medium">{L.logo}</div>
+        <Segmented
+          className="mt-1.5"
+          value={look.logo}
+          ariaLabel={L.logo}
+          onChange={(logo) => {
+            if (!off && logo !== look.logo) onSave('logo', { logo });
+          }}
+          options={PICTURE_LOGO.map((v) => ({
+            value: v,
+            label: L.logoOptions[v],
+            disabled: off,
+            testId: `socialcontent-picture-logo-${v}`,
+          }))}
+        />
+        <p
+          className="mt-1.5 text-[12.5px] text-text-3"
+          data-testid="socialcontent-picture-logo-hint"
+        >
+          {kit.logo ? L.logoHint : L.noLogo}
+        </p>
+      </div>
+
+      <div className="mt-4">
+        <div className="text-[13.5px] font-medium">{L.fonts}</div>
+        <Segmented
+          className="mt-1.5"
+          value={look.fonts ? 'picked' : 'kit'}
+          ariaLabel={L.fonts}
+          onChange={(v) => {
+            if (off) return;
+            if (v === 'kit' && look.fonts) onSave('fonts', { fonts: null });
+            if (v === 'picked' && !look.fonts)
+              onSave('fonts', { fonts: kit.fontAs ? [kit.fontAs] : [...DESIGN_FONTS] });
+          }}
+          options={[
+            {
+              value: 'kit',
+              label: L.fontsKit,
+              disabled: off,
+              testId: 'socialcontent-picture-fonts-kit',
+            },
+            {
+              value: 'picked',
+              label: L.fontsPicked,
+              disabled: off,
+              testId: 'socialcontent-picture-fonts-picked',
+            },
+          ]}
+        />
+        {look.fonts ? (
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+            {DESIGN_FONTS.map((f) => (
+              <Checkbox
+                key={f}
+                label={DESIGN_FONT_FACES[f]}
+                checked={fonts.includes(f)}
+                disabled={off || (fonts.includes(f) && fonts.length === 1)}
+                onChange={(e) => tickFont(f, e.target.checked)}
+                data-testid={`socialcontent-picture-font-${f}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <p
+            className="mt-1.5 text-[12.5px] text-text-3"
+            data-testid="socialcontent-picture-kit-font"
+          >
+            {L.kitFont(kit.font, kitFace)}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <div className="text-[13.5px] font-medium">{L.layouts}</div>
+        <Segmented
+          className="mt-1.5"
+          value={pickingLayouts ? 'picked' : 'all'}
+          ariaLabel={L.layouts}
+          onChange={(v) => {
+            if (off) return;
+            setPickingLayouts(v === 'picked');
+            if (v === 'all' && look.layouts) onSave('layouts', { layouts: null });
+          }}
+          options={[
+            {
+              value: 'all',
+              label: L.layoutsAll,
+              disabled: off,
+              testId: 'socialcontent-picture-layouts-all',
+            },
+            {
+              value: 'picked',
+              label: L.layoutsPicked,
+              disabled: off,
+              testId: 'socialcontent-picture-layouts-picked',
+            },
+          ]}
+        />
+        {pickingLayouts ? (
+          <>
+            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+              {DESIGN_STYLES.map((l) => (
+                <Checkbox
+                  key={l}
+                  label={L.layoutNames[l]}
+                  checked={layouts.includes(l)}
+                  disabled={off || (layouts.includes(l) && lastOfKind(l))}
+                  onChange={(e) => tickLayout(l, e.target.checked)}
+                  data-testid={`socialcontent-picture-layout-${l}`}
+                />
+              ))}
+            </div>
+            <p className="mt-1.5 text-[12.5px] text-text-3">{L.layoutsHint}</p>
+          </>
+        ) : null}
       </div>
       {!mayManage ? (
         <p className="mt-3 text-[12.5px] text-text-3">{W.settings.managersOnly}</p>

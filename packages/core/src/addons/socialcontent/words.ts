@@ -599,6 +599,44 @@ export const SOCIALCONTENT_WORDS = {
     facebookPage: 'Your Facebook Page',
     savePage: 'Save',
     facebookWhere: 'Where Facebook posts go',
+    /** How its pictures look (design tools, part 6): the logo, fonts and layouts; the colours are the brand kit's. */
+    look: {
+      title: 'How your pictures look',
+      intro:
+        'The logo, fonts and layouts on the pictures it designs. The colours come from your brand kit. New pictures follow this; press Make it again on a post for a new one.',
+      logo: 'Your logo',
+      logoOptions: { corner: 'Every page', last: 'Last page only', never: 'Never' } as const,
+      logoHint: 'In a small white box in the bottom right corner.',
+      noLogo: 'Add your logo in Settings → Workspace → Brand kit and it goes on your pictures.',
+      fonts: 'Fonts',
+      fontsKit: 'Like my brand kit',
+      fontsPicked: 'Pick fonts',
+      kitFont: (kitFont: string | null, face: string) =>
+        kitFont
+          ? `Your brand kit’s font is ${kitFont}, so pictures use ${face}, the nearest one.`
+          : 'Your brand kit has no font yet, so it picks from all four.',
+      layouts: 'Layouts',
+      layoutsAll: 'All of them',
+      layoutsPicked: 'Pick layouts',
+      layoutsHint:
+        'Keep at least one of Bold, Clean, Split or Sticky note, and Photo or Framed for pictures with a photo.',
+      layoutNames: {
+        bold: 'Bold',
+        clean: 'Clean',
+        split: 'Split',
+        number: 'Big number',
+        list: 'List',
+        quote: 'Quote',
+        myth: 'Myth and fact',
+        beforeAfter: 'Before and after',
+        note: 'Sticky note',
+        highlight: 'Highlight',
+        photo: 'Photo',
+        framed: 'Framed',
+      } as const,
+      save: 'Save',
+      saved: 'Saved. New pictures look like this.',
+    },
   },
   /** Setting up on its own (decisions 28 to 33), on top of Creators. */
   setup: {
@@ -1041,6 +1079,29 @@ export const SOCIALCONTENT_WORDS = {
       `The picture check still found: ${problems.map((x) => x.replace(/[.\s]+$/, '')).join('; ')}. Press Make it again for a new one, or look closely before you OK it.`,
     makeAsk: 'What to change (optional)',
     makeAsked: 'Making it. It shows here in a minute.',
+    /** Fixing a picture's words by hand, drawn again at no AI cost (design tools, part 6). */
+    changeWords: 'Change the words',
+    changeWordsHint: 'Fix a word or two and it draws the pictures again, with no AI.',
+    wordsPage: (n: number, total: number) => (total > 1 ? `Picture ${n}` : 'The picture'),
+    wordsFields: {
+      kicker: 'Small line above',
+      heading: 'Heading',
+      body: 'Words under it',
+      items: 'Items, one a line',
+      mark: 'Big number or highlighted words',
+      footer: 'Bottom line',
+    } as const,
+    beforeAfterItems: 'Before, then after, one a line',
+    redraw: 'Draw it again',
+    redrawn: 'Drawn again with your words.',
+    cancelWords: 'Cancel',
+    /** Words over the person's own photo, or the photo plain again (design tools, part 6). */
+    wordsOnPhoto: 'Put words on it',
+    wordsOnPhotoHint:
+      'The AI lays your words over your photo in your colours, fonts and logo. Your photo stays as it is and is never sent to OpenAI.',
+    wordsOnPhotoAsked: 'Putting words on your photo. It shows here in a minute.',
+    plainPhoto: 'Post it plain',
+    plainPhotoDone: 'Your photo goes up as it is.',
     switchTo: (way: string) => `Switch to ${way.toLowerCase()}`,
     upload: 'Add your photo',
     uploading: 'Adding…',

@@ -86,6 +86,11 @@ export const settings = addonSocialcontent.table('settings', {
     .notNull()
     .$type<Partial<Record<string, LinkPlace>>>()
     .default({}),
+  /**
+   * How its pictures look (design tools, part 6; `picture-look.ts`): the logo on them, and the fonts and layouts the
+   * design AI may use. Empty is the logo in a corner, the brand kit's font and every layout.
+   */
+  pictureLook: jsonb('picture_look').notNull().$type<Record<string, unknown>>().default({}),
   updatedBy: userRef('updated_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
