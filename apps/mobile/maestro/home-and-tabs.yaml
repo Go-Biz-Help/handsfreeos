@@ -62,8 +62,11 @@ env:
     id: 'more-settings'
 - assertVisible:
     id: 'setting-businesses'
-- assertVisible:
-    id: 'setting-sign-out'
+# Sign out is near the end, below the fold on a phone-sized screen.
+- scrollUntilVisible:
+    element:
+      id: 'setting-sign-out'
+    direction: DOWN
 # Ask HandsFreeOS is one tap away from every screen (its own flows ask it something; here it only opens).
 - tapOn:
     id: 'ask-handsfreeos'
