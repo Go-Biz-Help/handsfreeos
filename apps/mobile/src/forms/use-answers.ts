@@ -209,9 +209,10 @@ export async function fetchFormLink(workspaceId: string, formSlug: string): Prom
 
 /**
  * The business's own domain, or null. A failure here falls back to HandsFreeOS's own address, as the web's
- * `brandedOriginFor` does: a link that works is better than no link.
+ * `brandedOriginFor` does: a link that works is better than no link. The keyboard's links use it too
+ * (src/keyboard/keep-fresh.tsx).
  */
-async function brandedDomain(workspaceId: string) {
+export async function brandedDomain(workspaceId: string) {
   try {
     const out = unwrap(await api.POST('/v1/queries/branded_domain.get', { body: { workspaceId } }));
     return out.domain;

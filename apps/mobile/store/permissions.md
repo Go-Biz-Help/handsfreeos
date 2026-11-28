@@ -83,6 +83,11 @@ Proof after a prebuild: `NSMicrophoneUsageDescription` in `Info.plist` with the 
 | `UIBackgroundModes: ["fetch", "location"]`             | `fetch`: `expo-task-manager` / background sync, so the phone's copy catches up without the app being open. `location`: `expo-location`, so a check-in sharing where the person is keeps sharing with the app in the background, until they check out (below)                                                      |
 | `NSLocalNetworkUsageDescription`, `NSBonjourServices`  | `expo-dev-launcher` adds these for finding a development server. It also adds a build phase ("[Expo Dev Launcher] Strip Local Network Keys for Release") that deletes both from any non-Debug build, so a store build asks for no local network access. Verified: the phase is in the generated `project.pbxproj` |
 | `com.apple.developer.usernotifications.time-sensitive` | The entitlement for time-sensitive notifications (urgent Action Center items)                                                                                                                                                                                                                                     |
+| `com.apple.security.application-groups`                | `group.com.gobizhelp.handsfreeos`, shared with the HandsFreeOS keyboard (and the widgets) so they can read the templates and links the app keeps for them ([`docs/phone-keyboard.md`](../../../docs/phone-keyboard.md)). Not a permission: nothing is asked                                                       |
+
+**The keyboard's own Info.plist** (`targets/keyboard/Info.plist`) has `RequestsOpenAccess: true`. That's what makes
+iOS offer **Allow Full Access** for the HandsFreeOS keyboard in Settings, with its own warning; the app never asks for it
+in a prompt. The keyboard needs it to read the App Group, and works without it, letters only.
 
 ### What iOS is never asked for
 
@@ -140,6 +145,10 @@ recording is put into words on the server and kept on the deal like any file.
 | `android.permission.BLUETOOTH`, `…BLUETOOTH_ADMIN`                      | `@livekit/react-native`; `@config-plugins/react-native-webrtc` asks for `BLUETOOTH`           | A video call’s sound in a Bluetooth headset, on Android 11 and earlier. Normal permissions: nothing is asked. Android 12 and later needs `BLUETOOTH_CONNECT` for that, which the app doesn’t ask for yet (docs/video-calls.md, "Not yet") |
 | `com.google.android.c2dm.permission.RECEIVE`                            | `firebase-messaging`                                                                          | Receiving a push from Firebase                                                                                                                                                                                                            |
 | `com.gobizhelp.handsfreeos.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`    | `androidx`                                                                                    | The app's own signature-level permission, so its internal broadcasts can't be read by other apps                                                                                                                                          |
+
+**The HandsFreeOS keyboard** (`modules/hfos-keyboard`) is a service guarded by `android.permission.BIND_INPUT_METHOD`.
+That's a permission the system holds, not one the app asks for: it only lets Android itself start the keyboard. The
+person switches it on in the phone's keyboard settings, which shows Android's own warning about keyboards.
 
 **A check-in that shares where the person is** (round seven) runs as a location foreground service, started from the
 Check in tap with the app open, so it needs only the location permission the person already gave: no

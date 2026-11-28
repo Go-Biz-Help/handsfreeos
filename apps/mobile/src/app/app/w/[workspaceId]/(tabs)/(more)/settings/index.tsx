@@ -5,6 +5,7 @@ import {
   FACEBOOK_SETUP_WORDS,
   formatPhone,
   holds,
+  KEYBOARD_SETUP_WORDS,
   keptBusinessesLine,
   keptDocumentsLine,
   MAIN_OFFER_WORDS,
@@ -27,6 +28,7 @@ import {
   FileText,
   Fingerprint,
   Handshake,
+  Keyboard,
   Layers,
   LogOut,
   Moon,
@@ -76,8 +78,8 @@ import {
 import { useWorksOffline } from '@/sync/hooks';
 
 /**
- * Settings on the phone are about you and this phone: Face ID, the businesses kept here, the changes waiting, how it
- * looks, signing out and deleting the account. Setting the business up — texting, payments, members, calendars —
+ * Settings on the phone are about you and this phone: Face ID, the businesses kept here, the HandsFreeOS keyboard, the
+ * changes waiting, how it looks, signing out and deleting the account. Setting the business up — texting, payments, members, calendars —
  * stays on the web; its balance does not, because running out of it stops the texts and calls this app is for, and
  * nor do its add-ons, which owners and admins manage on the phone too (the owner's decision, 2026-09-28). The main
  * offer is the third exception (2026-10-16): reviewing it, steering the AI and putting it live work here too. Partners
@@ -221,6 +223,14 @@ export default function Settings() {
                 settingKey="phone.documents_mobile_data"
               />
             ) : null}
+            <ListRow
+              icon={Keyboard}
+              label={KEYBOARD_SETUP_WORDS.row}
+              detail={KEYBOARD_SETUP_WORDS.rowDetail}
+              onPress={() => router.push(businessHref(business.id, 'settings/keyboard'))}
+              testID="setting-keyboard"
+              settingKey="phone.keyboard"
+            />
             <ListRow
               icon={CloudCheck}
               label={PHONE_SETTINGS_WORDS.changes}

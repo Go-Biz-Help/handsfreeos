@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The HandsFreeOS keyboard (docs/phone-keyboard.md). Only the system may bind to it (BIND_INPUT_METHOD), and the phone
+  lists it under its keyboards once this app is installed; the person switches it on there. This adds no permission
+  the app asks for.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <service
+      android:name="expo.modules.hfoskeyboard.HfosKeyboardService"
+      android:label="@string/hfos_keyboard_label"
+      android:permission="android.permission.BIND_INPUT_METHOD"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.view.InputMethod" />
+      </intent-filter>
+      <meta-data
+        android:name="android.view.im"
+        android:resource="@xml/hfos_keyboard_method" />
+    </service>
+  </application>
+</manifest>
