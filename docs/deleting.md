@@ -3,20 +3,21 @@
 Archive puts something away and keeps it for good. Delete for good takes it out of HandsFreeOS: it waits 30 days in
 **Settings → Deleted bin**, where an owner can bring it back, and then the worker empties it. The first round covered
 customers, conversations and bookings; the second (`20261027000800`) added leads, companies and records of a
-business's own kinds. An add-on's records stay archive-only.
+business's own kinds; the third (`20261027037500`) added invoices, paid ones too. An add-on's records stay
+archive-only.
 
 ## Where things are
 
-| What                       | Where                                                                                                                                                                                                                                  |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000800` adds leads, companies and records; `20261027010300` hides a binned response's answers; `20261027010400` a file's words |
-| Commands                   | `packages/core/src/commands/bin.ts`: `person.delete`, `conversation.delete`, `appointment.delete`, `lead.delete`, `company.delete`, `custom_record.delete`, `bin.restore` and `bin.empty`                                              |
-| Reads                      | `packages/core/src/queries/bin.ts`: `bin.preview` (what goes with it) and `bin.list` (the bin)                                                                                                                                         |
-| What it says               | `packages/core/src/bin-words.ts`, for the web and the phone alike                                                                                                                                                                      |
-| Emptying, and calendars    | `apps/worker/src/bin/index.ts` (`bin.sweep` daily, `bin.purge`), and `apps/worker/src/calendar/sync.ts`                                                                                                                                |
-| The web                    | `apps/web/src/components/bin/`, Settings → Deleted bin, and Delete on Contacts, the Inbox, a booking's sheet, a lead, a company and a record                                                                                           |
-| The phone                  | `apps/mobile/src/bin/calls.ts` and `apps/mobile/src/components/bin/delete-sheet.tsx`                                                                                                                                                   |
-| Tests                      | `deleted-bin.test.ts` and `deleted-bin-more.test.ts` in `packages/db/test` and `packages/core/test`; `packages/core/test/bin-words.test.ts`; `apps/worker/test/deleted-bin.test.ts`; `apps/web/e2e/deleted-bin.spec.ts`                |
+| What                       | Where                                                                                                                                                                                                                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000800` adds leads, companies and records; `20261027010300` hides a binned response's answers; `20261027010400` a file's words; `20261027037500` adds invoices     |
+| Commands                   | `packages/core/src/commands/bin.ts`: `person.delete`, `conversation.delete`, `appointment.delete`, `lead.delete`, `company.delete`, `custom_record.delete`, `invoice.delete`, `bin.restore` and `bin.empty`                                                                |
+| Reads                      | `packages/core/src/queries/bin.ts`: `bin.preview` (what goes with it) and `bin.list` (the bin)                                                                                                                                                                             |
+| What it says               | `packages/core/src/bin-words.ts`, for the web and the phone alike                                                                                                                                                                                                          |
+| Emptying, and calendars    | `apps/worker/src/bin/index.ts` (`bin.sweep` daily, `bin.purge`), and `apps/worker/src/calendar/sync.ts`                                                                                                                                                                    |
+| The web                    | `apps/web/src/components/bin/`, Settings → Deleted bin, and Delete on Contacts, the Inbox, a booking's sheet, a lead, a company, a record, an invoice and Money's invoice list                                                                                             |
+| The phone                  | `apps/mobile/src/bin/calls.ts` and `apps/mobile/src/components/bin/delete-sheet.tsx`                                                                                                                                                                                       |
+| Tests                      | `deleted-bin.test.ts` and `deleted-bin-more.test.ts` in `packages/db/test` and `packages/core/test`; `packages/core/test/deleted-bin-invoices.test.ts`; `packages/core/test/bin-words.test.ts`; `apps/worker/test/deleted-bin.test.ts`; `apps/web/e2e/deleted-bin.spec.ts` |
 
 ## The owner's decisions (2026-10-08)
 
@@ -50,6 +51,22 @@ And the defaults kept:
 - **A deleted customer who writes again** comes in as a new customer.
 - **Outside services keep their own copies:** Facebook and Instagram their chats, Twilio its logs, Stripe and Square
   their payments.
+
+### Invoices (2026-11-27)
+
+Chris asked for "the option to delete invoices", then chose "Let paid invoices be deleted too". It follows the
+decisions above: owners delete, and an invoice waits 30 days in the bin, where it can be brought back.
+
+- **Any invoice can go, paid ones too.** A paid one's payments and refunds go with it: while it's in the bin they're
+  left out of Money's totals, Home and reports, and its link stops working. The box says how much was paid on it.
+  Bring back puts it all back.
+- **One still out for payment with nothing paid on it is voided first**, as Void does, so its link stops taking
+  payments. The box says so, and it comes back voided.
+- **What waits:** money still on its way, a bank transfer or a refund going back (`bin_invoice_moving`); a payment the
+  customer disputed with their bank, until it's settled (`bin_invoice_disputed`); a booking's deposit still holding
+  its time (`bin_invoice_deposit`, an hour from when it was made, well past the 15-minute hold).
+- **What stays:** one a partner earned a share of (`bin_invoice_partner`), so their earnings and payouts keep the
+  payment they came from. Void it instead.
 
 ## Rules worth knowing before changing anything
 
@@ -107,6 +124,15 @@ they earned the partner stays the partner's.
   emptied, and isn't brought back while they're in the bin (`bin_restore_parent`).
 - Deleting a stage moves the leads in the bin that sit in it to another stage of its kind.
 
+**An invoice takes only itself** (20261027037500). Its lines, payments, refunds and settled disputes go with it when
+the bin is emptied; an order or a form's answers that named it let go of it then. Its payments and refunds carry its
+`bin_item_id`, because the Money summary, Home and the expenses page add them up without their invoice. Its lines
+don't: they're only read through it. Phones drop all three through the `sync_window` they copy from it. A refund or a
+dispute that arrives from Stripe, Square or PayPal for a payment in the bin isn't recorded here: the worker can't see
+it, as after the bin is emptied. `bin_invoice_visible` keeps someone who may delete but can't see the
+invoice (a member given `records.delete`) from deleting it. `invoice.delete` refuses what `bin.preview` refuses, except
+`bin_invoice_open`, which it voids first through the same code as `invoice.void`.
+
 **The sync config doesn't change.** Phones drop what's in the bin through the columns their streams already read
 (`sync_window`, `archived_at`, `deleted_at`), because any change to `apps/sync/sync-config.yaml` makes PowerSync
 copy everything again.
@@ -114,7 +140,8 @@ copy everything again.
 ## On the phone
 
 An owner deletes one customer or company (Details → Delete for good…), one conversation (… → Delete for good…), one
-booking (Delete for good… under its buttons) or one lead (Delete for good… at the foot of its page). The sheet says
+booking (Delete for good… under its buttons), one lead (Delete for good… at the foot of its page) or one invoice
+(Delete… at the foot of its page). The sheet says
 what the web's box says, from `bin-words.ts`. With no signal it says so and does nothing. Selecting several, records
 of a business's own kinds, and the bin itself, are on the web. A customer's Leads tab leaves out archived leads, as
 the web's does, so a lead in the bin leaves it too.
@@ -126,4 +153,5 @@ the web's does, so a lead in the bin leaves it too.
   sync config change, best batched with the next one.
 - **An old link to a lead, a company or a record in the bin** says it isn't there any more, rather than where it went
   as a customer's page does.
-- **Several leads, companies or records at once:** the commands take up to 100, but the screens delete one at a time.
+- **Several leads, companies, records or invoices at once:** the commands take up to 100, but the screens delete one
+  at a time.

@@ -656,6 +656,7 @@ const BIN_COMMANDS: Record<BinKind, { name: string; key: string }> = {
   lead: { name: 'lead.delete', key: 'leadIds' },
   company: { name: 'company.delete', key: 'companyIds' },
   custom_record: { name: 'custom_record.delete', key: 'customRecordIds' },
+  invoice: { name: 'invoice.delete', key: 'invoiceIds' },
 };
 
 interface BinPreview {

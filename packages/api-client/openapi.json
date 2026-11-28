@@ -66506,6 +66506,98 @@
         }
       }
     },
+    "/v1/commands/invoice.delete": {
+      "post": {
+        "operationId": "command_invoice_delete",
+        "summary": "Delete invoices, paid ones too: they wait 30 days in the Deleted bin first, with their payments and refunds out of the Money totals meanwhile. One still out for payment with nothing paid on it is voided first so its link stops taking payments (it comes back voided). One waits while money is still on its way or a payment is disputed, and one a partner earned a share of stays.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 4. Requires records.delete. Emits invoice.deleted, invoice.voided.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "invoiceIds": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "invoiceIds"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "binItemId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "binItemId",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "purgeAfter": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "deleted",
+                    "purgeAfter"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/bin.restore": {
       "post": {
         "operationId": "command_bin_restore",
@@ -66556,7 +66648,8 @@
                         "appointment",
                         "lead",
                         "company",
-                        "custom_record"
+                        "custom_record",
+                        "invoice"
                       ]
                     },
                     "recordId": {
@@ -219520,7 +219613,7 @@
     "/v1/queries/bin.preview": {
       "post": {
         "operationId": "query_bin_preview",
-        "summary": "What deleting these customers, conversations, bookings, leads, companies or records would take with them, or why one can’t go yet.",
+        "summary": "What deleting these customers, conversations, bookings, leads, companies, records or invoices would take with them, or why one can’t go yet.",
         "tags": [
           "queries"
         ],
@@ -219545,7 +219638,8 @@
                       "appointment",
                       "lead",
                       "company",
-                      "custom_record"
+                      "custom_record",
+                      "invoice"
                     ]
                   },
                   "ids": {
@@ -219684,6 +219778,21 @@
                               },
                               "type": {
                                 "type": "string"
+                              },
+                              "totalCents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "paidCents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "voidFirst": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
                               }
                             },
                             "additionalProperties": false
@@ -219787,7 +219896,8 @@
                               "appointment",
                               "lead",
                               "company",
-                              "custom_record"
+                              "custom_record",
+                              "invoice"
                             ]
                           },
                           "recordId": {
@@ -219890,6 +220000,21 @@
                               },
                               "type": {
                                 "type": "string"
+                              },
+                              "totalCents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "paidCents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "voidFirst": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
                               }
                             },
                             "additionalProperties": false

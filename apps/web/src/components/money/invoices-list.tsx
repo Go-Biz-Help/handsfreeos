@@ -1,10 +1,25 @@
 'use client';
-import { invoiceDueLabel, invoicesEmpty, money, PAY_OUTSIDE_LABEL, purposeLabel } from '@hfos/core';
-import { Plus } from 'lucide-react';
+import {
+  BIN_WORDS,
+  invoiceDueLabel,
+  invoicesEmpty,
+  money,
+  PAY_OUTSIDE_LABEL,
+  purposeLabel,
+} from '@hfos/core';
+import { MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useState, type SyntheticEvent } from 'react';
+import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { Badge } from '@/components/ui/badge';
-import { ButtonLink } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { InvoiceListOut, InvoiceSummary } from '@/lib/api/types';
@@ -19,6 +34,9 @@ import { StatusBadge } from './status-badge';
 const dueLabel = (inv: InvoiceSummary, now: number, timeZone: string): string =>
   invoiceDueLabel(inv, now, timeZone);
 
+/** The row opens the invoice: a click or key inside its menu, portal and all, stays in the menu. */
+const stay = (e: SyntheticEvent) => e.stopPropagation();
+
 function PurposePill({ purpose }: { purpose: string }) {
   const label = purposeLabel(purpose);
   return label ? <Badge variant="gray">{label}</Badge> : null;
@@ -29,6 +47,7 @@ export function InvoicesList({
   initial,
   filters,
   canBill,
+  canDelete = false,
   timeZone,
   now,
   accountNames,
@@ -38,12 +57,18 @@ export function InvoicesList({
   filters: MoneyFilters;
   /** Whether they may write one, for the empty list's button. */
   canBill: boolean;
+  /**
+   * Delete one, paid ones too, through the 30-day Deleted bin: owners, unless one gives it out (records.delete,
+   * 20261027037500). Each row gets a menu with Delete…, and the box says what waits.
+   */
+  canDelete?: boolean;
   timeZone: string;
   now: number;
   /** Each account's name, for a business with more than one to tell apart (0105). */
   accountNames?: Readonly<Record<string, string>> | null;
 }) {
   const router = useRouter();
+  const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
   useLiveRefresh(['invoice', 'payment', 'refund']);
   const key = JSON.stringify({
     filters,
@@ -96,6 +121,11 @@ export function InvoicesList({
               {accountNames ? <Th>Paid into</Th> : null}
               <Th align="right">Total</Th>
               <Th align="right">Balance</Th>
+              {canDelete ? (
+                <Th className="w-12">
+                  <span className="sr-only">Actions</span>
+                </Th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
@@ -143,6 +173,39 @@ export function InvoicesList({
                 >
                   {money(inv.balanceCents)}
                 </Td>
+                {canDelete ? (
+                  <Td className="w-12 py-0 pl-0 pr-2">
+                    <span onClick={stay} onKeyDown={stay}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Actions for ${inv.number ?? inv.title ?? 'this draft'}`}
+                            data-testid="invoice-row-menu"
+                          >
+                            <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem
+                            danger
+                            onSelect={() =>
+                              setDeleting({
+                                id: inv.id,
+                                name: inv.number ?? inv.title ?? 'This draft',
+                              })
+                            }
+                            data-testid="invoice-row-delete"
+                          >
+                            <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                            {BIN_WORDS.invoiceMenu}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </span>
+                  </Td>
+                ) : null}
               </tr>
             ))}
           </tbody>
@@ -201,6 +264,17 @@ export function InvoicesList({
       <ListNote>
         Members see only the invoices for jobs they are on. Owners and admins see them all.
       </ListNote>
+      {canDelete ? (
+        <DeleteDialog
+          workspaceId={workspaceId}
+          kind="invoice"
+          ids={deleting ? [deleting.id] : []}
+          names={deleting ? [deleting.name] : []}
+          open={deleting !== null}
+          onOpenChange={(next) => !next && setDeleting(null)}
+          onDeleted={() => router.refresh()}
+        />
+      ) : null}
     </>
   );
 }

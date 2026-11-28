@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { HeadlineStrip } from '@/components/money/headline-strip';
 import { MoneyFilterBar } from '@/components/money/filters';
@@ -60,6 +61,7 @@ export default async function MoneyPage({
         initial={invoices}
         filters={filters}
         canBill={shell.canBill}
+        canDelete={can(shell.permissions, 'records.delete')}
         timeZone={shell.timeZone}
         now={shell.now}
         accountNames={accountNames(accounts)}

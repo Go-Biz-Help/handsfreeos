@@ -174,6 +174,7 @@ export {
   companyDelete,
   conversationDelete,
   customRecordDelete,
+  invoiceDelete,
   leadDelete,
   personDelete,
 } from './bin';

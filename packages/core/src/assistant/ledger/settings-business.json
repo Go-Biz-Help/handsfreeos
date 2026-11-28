@@ -1,7 +1,7 @@
 {
   "area": "settings-business",
   "title": "Settings: the business, branded domain, pipelines, tags, fields, relationships, Deleted bin, usage, action center and automations",
-  "checkedOn": "2026-11-27",
+  "checkedOn": "2026-11-28",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "4f114178dc72",
@@ -27,7 +27,7 @@
     "apps/web/src/components/billing/payment-guard.tsx": "a5d19946a571",
     "apps/web/src/components/billing/payment-wall.tsx": "1c6605cb569f",
     "apps/web/src/components/billing/trial-ending-note.tsx": "7882f94d4023",
-    "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
+    "apps/web/src/components/bin/delete-dialog.tsx": "38bdda39895b",
     "apps/web/src/components/bin/deleted-bin.tsx": "ac059400cae4",
     "apps/web/src/components/look/brand-kit.tsx": "67077751ec12",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",

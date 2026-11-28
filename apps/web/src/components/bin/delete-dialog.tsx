@@ -67,6 +67,10 @@ async function putPage(
           body: { workspaceId, customRecordIds: ids },
         }),
       );
+    case 'invoice':
+      return unwrap(
+        await api.POST('/v1/commands/invoice.delete', { body: { workspaceId, invoiceIds: ids } }),
+      );
   }
 }
 
@@ -89,8 +93,8 @@ async function putInBin(
 }
 
 /**
- * "Delete … for good?" for customers, conversations, a booking, a lead, a company or a record (the Deleted bin,
- * 20261027000400 and 20261027000800). It asks first what goes with them (bin.preview) and says so, names any that
+ * "Delete … for good?" for customers, conversations, a booking, a lead, a company, a record or an invoice (the Deleted
+ * bin, 20261027000400, 20261027000800 and 20261027037500). It asks first what goes with them (bin.preview) and says so, names any that
  * can't go yet and why, and deletes the rest. A booking still to come is cancelled first, telling the customer
  * unless that's unticked, as Cancel does.
  */

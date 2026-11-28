@@ -1,7 +1,7 @@
 {
   "area": "customers",
   "title": "Contacts: people, companies, a business's own kinds of records, leads, imports and files",
-  "checkedOn": "2026-11-25",
+  "checkedOn": "2026-11-28",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx": "b86a46e367a4",
     "apps/mobile/src/app/app/w/[workspaceId]/customers/companies/[companyId].tsx": "cb2d19dfb095",
@@ -44,7 +44,7 @@
     "apps/web/src/app/app/w/[workspaceId]/imports/[importId]/page.tsx": "78eab67d49c4",
     "apps/web/src/app/app/w/[workspaceId]/imports/new/page.tsx": "e53004593461",
     "apps/web/src/app/app/w/[workspaceId]/leads/[leadId]/page.tsx": "0e4be85418b3",
-    "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
+    "apps/web/src/components/bin/delete-dialog.tsx": "38bdda39895b",
     "apps/web/src/components/bin/record-gone.tsx": "f8224f223de8",
     "apps/web/src/components/calendar/upcoming-card.tsx": "300a62a1d8c8",
     "apps/web/src/components/crm/archive-dialog.tsx": "e648191d777a",

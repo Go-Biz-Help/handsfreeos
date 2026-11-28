@@ -864,6 +864,7 @@ describe('registry', () => {
       'lead.delete',
       'company.delete',
       'custom_record.delete',
+      'invoice.delete',
       'bin.restore',
       'bin.empty',
       'safety.check_in',

@@ -6537,6 +6537,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/invoice.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete invoices, paid ones too: they wait 30 days in the Deleted bin first, with their payments and refunds out of the Money totals meanwhile. One still out for payment with nothing paid on it is voided first so its link stops taking payments (it comes back voided). One waits while money is still on its way or a payment is disputed, and one a partner earned a share of stays.
+         * @description Risk level 4. Requires records.delete. Emits invoice.deleted, invoice.voided.
+         */
+        post: operations["command_invoice_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/invoice.record_cash_payment": {
         parameters: {
             query?: never;
@@ -20707,7 +20727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What deleting these customers, conversations, bookings, leads, companies or records would take with them, or why one can’t go yet.
+         * What deleting these customers, conversations, bookings, leads, companies, records or invoices would take with them, or why one can’t go yet.
          * @description Requires records.delete.
          */
         post: operations["query_bin_preview"];
@@ -32457,7 +32477,7 @@ export interface operations {
                     "application/json": {
                         joined: number;
                         /** @enum {string} */
-                        kind: "person" | "conversation" | "appointment" | "lead" | "company" | "custom_record";
+                        kind: "person" | "conversation" | "appointment" | "lead" | "company" | "custom_record" | "invoice";
                         name: string;
                         /** Format: uuid */
                         recordId: string;
@@ -42973,6 +42993,44 @@ export interface operations {
                         /** @enum {string} */
                         status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
                         totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_invoice_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    invoiceIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted: {
+                            /** Format: uuid */
+                            binItemId: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        /** Format: date-time */
+                        purgeAfter: string;
                     };
                 };
             };
@@ -80704,14 +80762,17 @@ export interface operations {
                                 leads?: number;
                                 messages?: number;
                                 notes?: number;
+                                paidCents?: number;
                                 partners?: number;
                                 people?: number;
                                 relationships?: number;
                                 /** Format: date-time */
                                 startsAt?: string;
                                 tasks?: number;
+                                totalCents?: number;
                                 type?: string;
                                 upcoming?: number;
+                                voidFirst?: number;
                                 who?: (string | null)[];
                             };
                             /** Format: date-time */
@@ -80725,7 +80786,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "person" | "conversation" | "appointment" | "lead" | "company" | "custom_record";
+                            kind: "person" | "conversation" | "appointment" | "lead" | "company" | "custom_record" | "invoice";
                             name: string;
                             /** Format: date-time */
                             purgeAfter: string;
@@ -80750,7 +80811,7 @@ export interface operations {
                 "application/json": {
                     ids: string[];
                     /** @enum {string} */
-                    kind: "person" | "conversation" | "appointment" | "lead" | "company" | "custom_record";
+                    kind: "person" | "conversation" | "appointment" | "lead" | "company" | "custom_record" | "invoice";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -80776,14 +80837,17 @@ export interface operations {
                                 leads?: number;
                                 messages?: number;
                                 notes?: number;
+                                paidCents?: number;
                                 partners?: number;
                                 people?: number;
                                 relationships?: number;
                                 /** Format: date-time */
                                 startsAt?: string;
                                 tasks?: number;
+                                totalCents?: number;
                                 type?: string;
                                 upcoming?: number;
+                                voidFirst?: number;
                                 who?: (string | null)[];
                             };
                             /** Format: uuid */

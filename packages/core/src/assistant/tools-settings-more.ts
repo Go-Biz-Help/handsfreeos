@@ -55,10 +55,10 @@ export const moreSettingsTools: readonly AssistantTool[] = [
   define({
     name: 'move_to_bin',
     description:
-      'Delete through the Deleted bin, as Delete for good… does on the screens: customers with everything only about them, conversations, one booking, leads, companies or records of the business’s own kinds. They wait 30 days in Settings → Deleted bin, where restore_from_bin brings them back, and are gone after that. The card says what goes with them and what stays. Up to 100 at once, a booking one at a time. Ids from search_customers, get_customer, list_leads, list_inbox, find_conversations or find_records. Archiving (archive_or_restore) keeps everything instead: use this only when they ask to delete.',
+      'Delete through the Deleted bin, as Delete for good… does on the screens: customers with everything only about them, conversations, one booking, leads, companies, records of the business’s own kinds, or invoices, paid ones too (one still out for payment with nothing paid is voided first; a paid one’s payments leave the Money totals while it’s deleted; one waits while money is on its way or disputed, and one a partner earned from stays). They wait 30 days in Settings → Deleted bin, where restore_from_bin brings them back, and are gone after that. The card says what goes with them and what stays. Up to 100 at once, a booking one at a time. Ids from search_customers, get_customer, list_leads, list_inbox, find_conversations, find_records, customer_money or read_invoice_list. Archiving (archive_or_restore) or voiding an invoice (manage_invoice) keeps everything instead: use this only when they ask to delete.',
     input: z.object({
       kind: BinKind.describe(
-        'person: customers; appointment: a booking; custom_record: a record of the business’s own kinds',
+        'person: customers; appointment: a booking; custom_record: a record of the business’s own kinds; invoice: invoices',
       ),
       ids: z.array(uuid).min(1).max(100),
       tellCustomers: z
@@ -72,7 +72,7 @@ export const moreSettingsTools: readonly AssistantTool[] = [
   define({
     name: 'restore_from_bin',
     description:
-      'Bring something back from the Deleted bin, as it was: a customer with what was theirs, a conversation, a lead, a booking, a company or a record. Its binItemId is in get_settings (area deleted_bin), which lists the newest 100; one older than those is found by its name (and kind, when two share a name). The bin keeps things 30 days; the AI never empties it or deletes anything in it for good.',
+      'Bring something back from the Deleted bin, as it was: a customer with what was theirs, a conversation, a lead, a booking, a company, a record or an invoice (one voided on its way in comes back voided). Its binItemId is in get_settings (area deleted_bin), which lists the newest 100; one older than those is found by its name (and kind, when two share a name). The bin keeps things 30 days; the AI never empties it or deletes anything in it for good.',
     input: z.object({
       binItemId: uuid.optional(),
       name: text(200)
