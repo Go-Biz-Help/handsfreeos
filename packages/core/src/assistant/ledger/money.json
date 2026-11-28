@@ -65,7 +65,7 @@
     "apps/web/src/components/money/public-format.ts": "6f17d4ae1a87",
     "apps/web/src/components/money/public-invoice.tsx": "dcd7994a5807",
     "apps/web/src/components/money/public-plan.tsx": "c149e1585a54",
-    "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
+    "apps/web/src/components/money/public-shell.tsx": "7cb88b12f0ba",
     "apps/web/src/components/money/status-badge.tsx": "062e16f61359",
     "apps/web/src/components/money/subnav.tsx": "89cdcfc3713f",
     "apps/web/src/components/money/totals.tsx": "65a9d913bff7"

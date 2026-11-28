@@ -5,7 +5,13 @@
  * production so a busy page doesn't spend the worker's per-address limits. Open times, bookings and the
  * change-or-cancel page are asked from the customer's own browser, so those limits count per customer.
  */
-import type { BusinessPageParts, FormDesign, PictureRef, PollOnScreen } from '@hfos/core';
+import type {
+  BusinessPageParts,
+  CustomerFooter,
+  FormDesign,
+  PictureRef,
+  PollOnScreen,
+} from '@hfos/core';
 import { notFound } from 'next/navigation';
 import { publicEnv } from '../env';
 import type { PayPalButtonsConfig } from '../payments/provider-scripts';
@@ -31,6 +37,11 @@ export interface PublicBusiness {
     readonly font?: string | null;
     readonly corners?: 'square' | 'slight' | 'round' | null;
   };
+  /**
+   * The bottom of a customer's page (design tools, part 7): the license number, address, phone, website and social
+   * links. On their invoice, estimate, payment plan, document to sign and appointment; null when there's nothing.
+   */
+  readonly footer?: CustomerFooter | null;
 }
 
 export interface PublicSite {

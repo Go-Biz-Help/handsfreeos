@@ -11,6 +11,7 @@ import { formatPhone } from '../crm/phone';
 import { defaultNumber } from '../messaging/store';
 import type { EmailContact } from './email';
 import { lookOf } from './look';
+import { footerHasAny, type CustomerFooter } from './page-kit';
 
 export async function emailContactOf(
   tx: Tx,
@@ -38,4 +39,29 @@ export async function emailContactOf(
     website: /^https?:\/\/\S+$/i.test(website) ? website : null,
     socials: lookOf(s).socials?.links ?? [],
   };
+}
+
+/**
+ * What the bottom of a customer's page says about the business (design tools, part 7: their invoice, estimate,
+ * payment plan, document to sign and appointment): the email footer's address, phone, website and social links, and
+ * its license number. Null when there's nothing to say.
+ */
+export async function customerFooterOf(
+  tx: Tx,
+  workspaceId: string,
+  settings?: unknown,
+): Promise<CustomerFooter | null> {
+  const s =
+    settings ??
+    (
+      await tx
+        .select({ settings: workspaces.settings })
+        .from(workspaces)
+        .where(eq(workspaces.id, workspaceId))
+    )[0]?.settings;
+  const footer: CustomerFooter = {
+    license: lookOf(s).license?.text ?? null,
+    ...(await emailContactOf(tx, workspaceId, s ?? {})),
+  };
+  return footerHasAny(footer) ? footer : null;
 }

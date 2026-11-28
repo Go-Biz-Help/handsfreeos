@@ -71,6 +71,8 @@ import {
   type MoneySettings,
   type MoneyTermsOut,
   type RequestMeta,
+  customerFooterOf,
+  type CustomerFooter,
 } from '@hfos/core/server';
 import { and, eq } from 'drizzle-orm';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
@@ -266,6 +268,8 @@ export interface PublicMoneyBusiness extends PublicBusiness {
    * shows customers. Null when they have given none (`businessPostalAddress`).
    */
   readonly address: string | null;
+  /** The bottom of the page: license number, address, phone, website and social links (design tools, part 7). */
+  readonly footer: CustomerFooter | null;
 }
 
 async function businessOf(
@@ -288,6 +292,7 @@ async function businessOf(
     phoneDisplay: phone ? formatPhone(phone.e164) : null,
     look: publicLookOf(w?.settings, storageUrl),
     address: await businessPostalAddress(tx, workspaceId),
+    footer: await customerFooterOf(tx, workspaceId, w?.settings ?? {}),
   };
 }
 

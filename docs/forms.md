@@ -503,7 +503,7 @@ campaign's preview draw the same thing in a frame that runs nothing.
 - **Social links** are `look.socials` in the brand kit (up to 8), added and removed under **Brand kit → Social links**
   in Settings → Workspace. A typed link becomes an https address (`socialUrlOf`; never `javascript:`, a login or a host
   without a dot) named for its site (`socialKindOf`: Facebook, Instagram, LinkedIn, YouTube, TikTok, X, Google, Yelp,
-  Nextdoor, Pinterest, else Website). The customer's pages (part 7) use the same list.
+  Nextdoor, Pinterest, else Website). The customer's pages (part 7, below) use the same list.
 - **A campaign email in blocks** (`campaigns.email_blocks`, `20261027037300_campaign_email_blocks.sql`): words, a
   picture from Your pictures (size small, medium, large or full, words under it that are also its alt text, and a link),
   a button (its words and address), a line and a space, each lined up left, centre or right (`campaigns/email-blocks.ts`,
@@ -518,6 +518,27 @@ campaign's preview draw the same thing in a frame that runs nothing.
   on Windows shows the words under the picture instead.
 - The Assistant does the same: `do_look_set` with `email` and `socials`, and `edit_campaign` `change_email` with
   `blocks` (a new subject alone keeps them). The phone shows neither screen.
+
+## The customer's pages (design tools, part 7)
+
+`HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`, part 7 (idea 20, decision 10). A customer's invoice, estimate,
+payment plan, document to sign and appointment page follow the brand kit, and end with the business's details.
+
+- **They follow the kit's font and corners** as well as its colour (`kitLook` in `apps/web/src/lib/look.ts`, from
+  core's `pageKitOf` in `look/page-kit.ts`). The font comes from Google Fonts through one stylesheet link, and the
+  corners set the page's radius tokens. A kit with neither changes nothing. The booking site's other pages follow it
+  too (`PublicFrame`), except a booking page with a design of its own (part 3), which keeps that.
+- **The footer** (`components/look/business-footer.tsx`) shows the business name and license number, the postal
+  address, the phone, the website and the social links. The worker fills it with `customerFooterOf` (core's
+  `look/email-contact.ts`): the same address, phone and website email footers use, plus the license. It rides on each
+  page's business: `PublicMoneyBusiness.footer` (`http/money.ts`), the signing view's (`documents/routes.ts`) and the
+  appointment page's (`manageView` in `http/booking.ts`). Nothing shows when the business has none of these. The
+  printed copy keeps everything but the social links, since contractors need the license on paperwork.
+- **The license number** is `look.license` in the brand kit (`{text, at}`, 80 characters at most), typed under **Brand
+  kit → License number** in Settings → Workspace and kept by `look.set` (`license`; null or empty takes it off). It's
+  on the customer's pages only, not in emails.
+- The Assistant does the same: `do_look_set` with `license`. The phone doesn't show the brand kit, and these pages are
+  on the web.
 
 ## Videos and steps (funnels)
 

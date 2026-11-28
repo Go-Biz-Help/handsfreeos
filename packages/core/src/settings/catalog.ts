@@ -275,7 +275,7 @@ const ROWS = {
   'workspace.look': {
     page: 'workspace',
     section: null,
-    label: 'Brand kit: logo, colour, font, corners and social links',
+    label: 'Brand kit: logo, colour, font, corners, social links and license number',
     words: [
       'logo',
       'brand',
@@ -289,6 +289,8 @@ const ROWS = {
       'facebook page',
       'instagram',
       'social media',
+      'license number',
+      'contractor license',
     ],
     anchor: 'logo-and-colour',
   },

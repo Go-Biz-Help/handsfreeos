@@ -19,57 +19,59 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 
 ## Where things are
 
-| What                                                     | Where                                                                            |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| The manifest, its permissions, events and pages          | `packages/core/src/addons/socialcontent/manifest.ts`                             |
-| The tables (and their Drizzle mirror)                    | `supabase/migrations/20261027023800_addon_socialcontent.sql`, `tables.ts`        |
-| What the reading computer is doing (`work.progress`)     | `supabase/migrations/20261027023900_socialcontent_progress.sql`                  |
-| Which posts stand out, and who has done well             | `standouts.ts` (pure; web, phone and server all use it)                          |
-| Reading a link to someone's page, and each network       | `networks.ts`                                                                    |
-| The pages' words                                         | `words.ts`                                                                       |
-| What the AI is asked about niches, and how it's checked  | `niches-ai.ts`                                                                   |
-| People's operations: settings, niches, creators, posts   | `ops/research.ts`                                                                |
-| The extension's operations: take work, save what it read | `ops/reading.ts`                                                                 |
-| The worker's operations: niches, searches, the schedule  | `ops/worker.ts`, and `apps/worker/src/addons/socialcontent/`                     |
-| What the AI helper is asked about a read, and its check  | `helper.ts`, and the worker's `apps/worker/src/addons/socialcontent/`            |
-| What the AI is asked about standouts, and its checks     | `notes-ai.ts`; the asks run in the worker's `socialcontent/notes.ts`             |
-| The Playbook, ideas and Try watching                     | `ops/notes.ts`                                                                   |
-| The extension's reading                                  | `apps/extension/src/research/` (its README's 0.127.0 section)                    |
-| Instagram's reads; Facebook's and LinkedIn's; Threads'   | `instagram-read.ts`; `page-read.ts`; `follow-read.ts` (Threads and X)            |
-| Watching a video in the reading tab                      | `apps/extension/src/research/watch.ts`                                           |
-| The web pages                                            | `apps/web/src/addons/socialcontent/`, routes under `a/socialcontent/`            |
-| What it's doing, on the Creators page                    | `activity-card.tsx` there; the extension's `Progress` in `research/read.ts`      |
-| The phone's pages                                        | `apps/mobile/src/addons/socialcontent/`, routes under `a/socialcontent/`         |
-| The Assistant's checklist for its screens                | `packages/core/src/assistant/ledger/socialcontent.json`                          |
-| The business's own posts: the table, plan and post kind  | `supabase/migrations/20261027025000_socialcontent_calendar.sql`                  |
-| The plan, its open days, and what a post still needs     | `calendar.ts` (pure)                                                             |
-| What the AI is asked to write and design, and its checks | `posts-ai.ts`; the shapes on the wire in `content-shapes.ts`                     |
-| The main offer and its lists, as the AI reads them       | `offer-ai.ts` (`offerForContent`); the worker's `socialcontent/business.ts`      |
-| The notice while the offer isn't live                    | `offer-notice.tsx` in the web's folder; `OfferNotLive` in the phone's `kit.tsx`  |
-| People's posts: calendar, save, OK, skip, remove         | `ops/content.ts`; the worker's keep in `ops/worker.ts`                           |
-| Writing, filling the calendar, and making pictures       | the worker's `socialcontent/content.ts`                                          |
-| Drawing a designed picture                               | the worker's `socialcontent/draw.ts` (Inter from `@fontsource/inter`)            |
-| OpenAI's photo-style pictures                            | `apps/worker/src/pictures.ts`                                                    |
-| The Calendar page and a post's sheet                     | `calendar-page.tsx` and `post-sheet.tsx` in the web's folder                     |
-| Posting: where a post goes, its words as they go up      | `calendar.ts` (`placesFor`, `postText`, `POSTING`)                               |
-| Posting: next post due, how it went, Post it now, Redo   | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql` |
-| Picking many posts: OK, hide, delete, mark, check, pick  | `ops/picked.ts`; `20261027027600_socialcontent_hide_and_look.sql`                |
-| Redo on many waiting posts: written again, one job each  | the worker's `socialcontent/content.ts` (`rewriteManyNow`, `runRewrite`)         |
-| The Calendar's looks, filters and what's picked (shared) | `calendar-looks.ts` (pure, used by the web and the phone)                        |
-| The web's Select bar, Pick menu, Week and Month          | `calendar-picking.tsx` and `calendar-grids.tsx` in the web's folder              |
-| The extension checking if a post went up                 | `apps/extension/src/research/look.ts`                                            |
-| The extension putting a post up                          | `apps/extension/src/research/posting.ts` and `post-here.ts`                      |
-| Your link: kept, checked, where it goes, what AI is told | `links.ts` (pure); `ops/links.ts`; `20261027036000_socialcontent_links.sql`      |
-| Your link on the Playbook, and a post's Link row         | `link-card.tsx` and `post-sheet.tsx` in the web's folder; `link.tsx` in phone's  |
-| The extension writing the link as the first comment      | `apps/extension/src/research/post-comment.ts`; `firstComment` in `posting.ts`    |
-| Its own posts' numbers: when they're read, doing well    | `own.ts` (pure); `ops/own.ts`; `20261027025200_socialcontent_own_numbers.sql`    |
-| The schedule: open places, the hours it learned, moves   | `schedule.ts` (pure); `ops/schedule.ts`; the worker's `socialcontent.times` job  |
-| Who set a post's time (`placed_by`)                      | `supabase/migrations/20261027026200_socialcontent_schedule.sql`                  |
-| The extension reading its own posts' numbers             | `apps/extension/src/research/own.ts`                                             |
-| Setting up on its own: who it picks, swaps, the steps    | `picking.ts` (pure; web, phone, server and worker); `ops/setup.ts`               |
-| What the AI is asked about how close a creator is        | `match-ai.ts`; the asks run in the worker's `socialcontent/setup.ts`             |
-| The setup steps, who picked a creator, their match       | `supabase/migrations/20261027026300_socialcontent_setup.sql`                     |
-| The setup steps on the Creators page                     | `setup-card.tsx` in the web's folder; `setup.tsx` in the phone's                 |
+| What                                                     | Where                                                                                                                  |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| The manifest, its permissions, events and pages          | `packages/core/src/addons/socialcontent/manifest.ts`                                                                   |
+| The tables (and their Drizzle mirror)                    | `supabase/migrations/20261027023800_addon_socialcontent.sql`, `tables.ts`                                              |
+| What the reading computer is doing (`work.progress`)     | `supabase/migrations/20261027023900_socialcontent_progress.sql`                                                        |
+| Which posts stand out, and who has done well             | `standouts.ts` (pure; web, phone and server all use it)                                                                |
+| Reading a link to someone's page, and each network       | `networks.ts`                                                                                                          |
+| The pages' words                                         | `words.ts`                                                                                                             |
+| What the AI is asked about niches, and how it's checked  | `niches-ai.ts`                                                                                                         |
+| People's operations: settings, niches, creators, posts   | `ops/research.ts`                                                                                                      |
+| The extension's operations: take work, save what it read | `ops/reading.ts`                                                                                                       |
+| The worker's operations: niches, searches, the schedule  | `ops/worker.ts`, and `apps/worker/src/addons/socialcontent/`                                                           |
+| What the AI helper is asked about a read, and its check  | `helper.ts`, and the worker's `apps/worker/src/addons/socialcontent/`                                                  |
+| What the AI is asked about standouts, and its checks     | `notes-ai.ts`; the asks run in the worker's `socialcontent/notes.ts`                                                   |
+| The Playbook, ideas and Try watching                     | `ops/notes.ts`                                                                                                         |
+| The extension's reading                                  | `apps/extension/src/research/` (its README's 0.127.0 section)                                                          |
+| Instagram's reads; Facebook's and LinkedIn's; Threads'   | `instagram-read.ts`; `page-read.ts`; `follow-read.ts` (Threads and X)                                                  |
+| Watching a video in the reading tab                      | `apps/extension/src/research/watch.ts`                                                                                 |
+| The web pages                                            | `apps/web/src/addons/socialcontent/`, routes under `a/socialcontent/`                                                  |
+| What it's doing, on the Creators page                    | `activity-card.tsx` there; the extension's `Progress` in `research/read.ts`                                            |
+| The phone's pages                                        | `apps/mobile/src/addons/socialcontent/`, routes under `a/socialcontent/`                                               |
+| The Assistant's checklist for its screens                | `packages/core/src/assistant/ledger/socialcontent.json`                                                                |
+| The business's own posts: the table, plan and post kind  | `supabase/migrations/20261027025000_socialcontent_calendar.sql`                                                        |
+| The plan, its open days, and what a post still needs     | `calendar.ts` (pure)                                                                                                   |
+| What the AI is asked to write and design, and its checks | `posts-ai.ts`; the shapes on the wire in `content-shapes.ts`                                                           |
+| The main offer and its lists, as the AI reads them       | `offer-ai.ts` (`offerForContent`); the worker's `socialcontent/business.ts`                                            |
+| The notice while the offer isn't live                    | `offer-notice.tsx` in the web's folder; `OfferNotLive` in the phone's `kit.tsx`                                        |
+| People's posts: calendar, save, OK, skip, remove         | `ops/content.ts`; the worker's keep in `ops/worker.ts`                                                                 |
+| Writing, filling the calendar, and making pictures       | the worker's `socialcontent/content.ts`                                                                                |
+| Drawing a designed picture                               | the worker's `socialcontent/draw.ts` (Inter from `@fontsource/inter`)                                                  |
+| OpenAI's photo-style pictures                            | `apps/worker/src/pictures.ts`                                                                                          |
+| How its pictures look: logo, fonts, layouts (shared)     | `picture-look.ts` and `design-names.ts` (pure); `20261027037400_socialcontent_picture_look.sql`                        |
+| Fixing a picture's words, and words on your own photo    | the worker's `socialcontent/content.ts` (`redrawPicturesNow`, `ownPhotoWordsNow`); `draw.ts` (`drawLogo`, `stampLogo`) |
+| The Calendar page and a post's sheet                     | `calendar-page.tsx` and `post-sheet.tsx` in the web's folder                                                           |
+| Posting: where a post goes, its words as they go up      | `calendar.ts` (`placesFor`, `postText`, `POSTING`)                                                                     |
+| Posting: next post due, how it went, Post it now, Redo   | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql`                                       |
+| Picking many posts: OK, hide, delete, mark, check, pick  | `ops/picked.ts`; `20261027027600_socialcontent_hide_and_look.sql`                                                      |
+| Redo on many waiting posts: written again, one job each  | the worker's `socialcontent/content.ts` (`rewriteManyNow`, `runRewrite`)                                               |
+| The Calendar's looks, filters and what's picked (shared) | `calendar-looks.ts` (pure, used by the web and the phone)                                                              |
+| The web's Select bar, Pick menu, Week and Month          | `calendar-picking.tsx` and `calendar-grids.tsx` in the web's folder                                                    |
+| The extension checking if a post went up                 | `apps/extension/src/research/look.ts`                                                                                  |
+| The extension putting a post up                          | `apps/extension/src/research/posting.ts` and `post-here.ts`                                                            |
+| Your link: kept, checked, where it goes, what AI is told | `links.ts` (pure); `ops/links.ts`; `20261027036000_socialcontent_links.sql`                                            |
+| Your link on the Playbook, and a post's Link row         | `link-card.tsx` and `post-sheet.tsx` in the web's folder; `link.tsx` in phone's                                        |
+| The extension writing the link as the first comment      | `apps/extension/src/research/post-comment.ts`; `firstComment` in `posting.ts`                                          |
+| Its own posts' numbers: when they're read, doing well    | `own.ts` (pure); `ops/own.ts`; `20261027025200_socialcontent_own_numbers.sql`                                          |
+| The schedule: open places, the hours it learned, moves   | `schedule.ts` (pure); `ops/schedule.ts`; the worker's `socialcontent.times` job                                        |
+| Who set a post's time (`placed_by`)                      | `supabase/migrations/20261027026200_socialcontent_schedule.sql`                                                        |
+| The extension reading its own posts' numbers             | `apps/extension/src/research/own.ts`                                                                                   |
+| Setting up on its own: who it picks, swaps, the steps    | `picking.ts` (pure; web, phone, server and worker); `ops/setup.ts`                                                     |
+| What the AI is asked about how close a creator is        | `match-ai.ts`; the asks run in the worker's `socialcontent/setup.ts`                                                   |
+| The setup steps, who picked a creator, their match       | `supabase/migrations/20261027026300_socialcontent_setup.sql`                                                           |
+| The setup steps on the Creators page                     | `setup-card.tsx` in the web's folder; `setup.tsx` in the phone's                                                       |
 
 ## How it works
 
@@ -346,6 +348,53 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   has Skip it, and the refusal says so (`socialcontent_remove_forbidden`). A post that went up or is going up can't be
   removed. The Assistant removes one on a Confirm card (`socialcontent_remove_own_post`). It's an online command on
   the phone.
+
+## How your pictures look
+
+Design tools, part 6 (`HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`, decision 9; the owner's ideas 13 to 16).
+
+- **Settings → How your pictures look** is for owners and admins (`socialcontent.manage`). It's kept in
+  `addon_socialcontent.settings.picture_look`, read forgivingly by `pictureLookOf`, and saved with
+  `socialcontent.settings.save`'s `pictureLook`, only the parts that change. Each change saves at once.
+  - **Your logo**: the brand kit's logo on every page (unset, since pictures never carried it before), on the last
+    page only, or never (`logoOnPage`). It sits in a small white box in the bottom right corner, at most 210 by 50
+    (`drawLogo` in `draw.ts`), and a page with it draws its footer to the left of it. OpenAI's whole graphics get it
+    stamped in the same corner (`stampLogo`). Which pages have it is kept on the design (`logoOn`), and the check is
+    told it's there on purpose (`LOGO_ON_PURPOSE`). With no logo in the brand kit none goes on, and the card says
+    where to add one.
+  - **Fonts**: **Like my brand kit** (unset) uses the design font nearest the brand kit's font (`designFontForKit`):
+    Inter is modern; Playfair Display and serif fonts like Lora are classic; condensed ones like Oswald are loud; round
+    ones like Nunito and Poppins are friendly; any other is modern. With no font in the kit it picks from all four,
+    as before. **Pick fonts** ticks any of the four (Inter, Playfair Display, Oswald, Poppins), at least one.
+  - **Layouts**: **All of them** (unset, ones added later too), or **Pick layouts**, keeping at least one of Bold,
+    Clean, Split or Sticky note (a page with only a heading needs one) and Photo or Framed (a picture with a photo
+    needs one). The last of each can't be unticked, and a list of all 12 is kept as unset (`pictureLookChanged`).
+  - The design AI is told only the fonts and layouts allowed (`designSystemFor`, `designSchemaFor`, `designChoices`),
+    and its answer is held to them (`checkedDesign`'s `allowed`): a layout it can't use becomes the first allowed of
+    its kind, and a font the first allowed. With everything allowed, it's told exactly what it was before. The
+    colours still come from the brand kit's colour. New pictures follow the look; ones already made stay as they are
+    until **Make it again**.
+- **Change the words** (the owner's idea 15). On a post's drawn pictures, **Change the words** shows each picture's
+  words, only the parts its layout draws (`pageFields`): the kicker, heading, body and footer, a big number's or a
+  highlight's mark, and a list's or a before and after's items. **Draw it again** draws them from the same design
+  (`socialcontent.content.redraw`, the worker's `redrawPicturesNow`). It asks no AI, makes no photo and runs no
+  check, so it costs nothing. Like any new pictures, they take the OK back, and the design is marked `edited`. It
+  isn't offered when OpenAI made the words with its whole graphic, or on a photo-style picture made before part 6,
+  whose photo wasn't kept (`pictureWordsOf` is null; `socialcontent_words_not_drawn`). Photo-style pictures now keep
+  their photo as a file on the post for this (`design.photoFile`, never among the pictures that go up).
+- **Words on your own photo** (the owner's idea 14). On a picture post with one photo of the person's own, **Put words
+  on it** has the design AI lay the post's words over it, in the photo or framed layout, with the business's colours,
+  fonts and logo (`socialcontent.content.own_photo` with `words: true`, the worker's `ownPhotoWordsNow`, then the
+  pictures job with `own`). What to change goes with it. The photo is turned upright and cut to the network's shape
+  (`ownPhotoFor`). It's never sent to OpenAI and never made again. The check is told it's the business's own photo
+  (`OWN_PHOTO_ON_PURPOSE`) and its photo problems are dropped (`withoutPhotoProblems`), so writing that's really in
+  it, like a van's name, is fine. The post stays Your own (`pictureWay` own, with the photo's file as `design.own`),
+  and its words can be changed by hand like any drawn picture. **Post it plain** (`words: false`) puts the photo back
+  as it was. Adding or removing its pictures by hand drops the design.
+- **The Assistant** does all three: `socialcontent_save_settings` (`pictureLook`, on a Confirm card),
+  `socialcontent_fix_picture_words` and `socialcontent_words_on_own_photo` (on their own, like Make it again).
+  `socialcontent_get_own_post` gives a post's `pictureWords` and `ownPhotoId`. The phone has the card and the buttons
+  too.
 
 ## Variety
 
@@ -735,6 +784,10 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - **Words on pictures are drawn by the worker, except OpenAI's whole graphics** (decisions 14 and 40): OpenAI's
   photos are asked for with no words in them and the words are laid over them (decision 39); a whole graphic, words
   and all, is kept only when the check passes it, and how often one is tried follows how the last ones did.
+- **A business's own photo is never sent to OpenAI, never changed, and never failed for what's in it** (design tools,
+  part 6). Words go over it only when someone asks, and Post it plain puts it back.
+- **Fixing a picture's words by hand never asks an AI** (design tools, part 6): Draw it again draws the same design
+  with the new words, at no cost.
 - **Every picture is checked before it's kept** (decision 40): a design that fails is designed again, or its photo
   made again when the mistake is in the photo (the owner, 15 Nov), up to twice more (16 Nov), and what still fails
   shows beside the picture; a graphic that fails is never kept, and a graphic the check couldn't look at isn't kept
@@ -775,6 +828,9 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - Removing a post's older AI pictures: a picture made again replaces them on the post, but the old files stay among
   its files, since deleting a file is a person's step.
 - TikTok and YouTube (part 7).
+- Changing the words on a photo-style picture made before design tools part 6: its photo wasn't kept, so it needs
+  Make it again first.
+- Words over a carousel of the person's own photos: words go over one photo.
 - Reading a Threads or X post's views and reposts: the readers take likes and replies (part 17). X's own count (a link as 23 characters, some emoji as 2) isn't followed: the writer leaves
   room, and a post X keeps off is said, never pressed.
 - LinkedIn company pages' posts (members' posts are read), and watching Facebook's and LinkedIn's videos.

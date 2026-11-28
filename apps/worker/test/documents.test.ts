@@ -29,6 +29,7 @@ import {
   documentVoid,
   executeCommand,
   fileConfirm,
+  lookSet,
   messageSend,
   personCreate,
   portalAccessGive,
@@ -351,9 +352,13 @@ describe('signing, start to finish', () => {
       code: code === '000000' ? '111111' : '000000',
     });
     expect((wrong.json() as { error: { rule: string } }).error.rule).toBe('document_code_wrong');
+    // The license number shows at the bottom of the page (design tools, part 7).
+    await run(w, lookSet, { workspaceId: w.workspaceId, license: 'TX HVAC Lic. TACLA4471C' });
     const opened = await post(`/public/sign/${token}/code/check`, { code });
     expect(opened.statusCode, opened.body).toBe(200);
+    await run(w, lookSet, { workspaceId: w.workspaceId, license: null });
     const view = opened.json() as {
+      business: { footer: { license: string | null } | null };
       content: {
         sourceUrl: string;
         pages: unknown[];
@@ -363,6 +368,7 @@ describe('signing, start to finish', () => {
       };
       consent: string;
     };
+    expect(view.business.footer?.license).toBe('TX HVAC Lic. TACLA4471C');
     expect(view.content.pages).toHaveLength(2);
     expect(view.content.sourceUrl).toMatch(/^http/);
     expect(

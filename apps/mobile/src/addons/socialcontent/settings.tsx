@@ -14,6 +14,16 @@ import {
   type NetworkPlan,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
+import {
+  DESIGN_FONT_FACES,
+  DESIGN_FONTS,
+  DESIGN_STYLES,
+  PHOTO_STYLES,
+  PLAIN_STYLES,
+  type DesignFont,
+  type DesignStyle,
+} from '@hfos/core/addons/socialcontent/design-names';
+import { PICTURE_LOGO, type PictureLookInput } from '@hfos/core/addons/socialcontent/picture-look';
 import type { LearnedShown } from '@hfos/core/addons/socialcontent/schedule';
 import type { Overview, Work } from '@hfos/core/addons/socialcontent/shapes';
 import {
@@ -81,6 +91,8 @@ export interface SettingsActions {
   autoFill(on: boolean): void;
   /** Whether it picks niches and creators on its own (decisions 29 to 31). */
   autoPick(on: boolean): void;
+  /** How its pictures look (design tools, part 6): only what changes. */
+  pictureLook(change: PictureLookInput): void;
 }
 
 export function SettingsScreen() {
@@ -127,6 +139,7 @@ export function settingsActions(
       plan?: Partial<Record<PostingNetwork, Partial<NetworkPlan>>>;
       autoFill?: boolean;
       autoPick?: boolean;
+      pictureLook?: PictureLookInput;
     },
     done: string = W.settings.saved,
   ) =>
@@ -161,6 +174,7 @@ export function settingsActions(
     autoFill: (on) =>
       save('autoFill', { autoFill: on }, on ? W.calendar.fillStarted : W.calendar.fillStopped),
     autoPick: (on) => save('pick', { autoPick: on }, W.settings.autoPickSaved(on)),
+    pictureLook: (look) => save('look', { pictureLook: look }, W.settings.look.saved),
   };
 }
 
@@ -351,6 +365,19 @@ export function SettingsBody({
             onChange={(c) => actions.setPlan(n, c)}
           />
         ))}
+        {managersOnly}
+      </Part>
+
+      <Part
+        title={W.settings.look.title}
+        about={W.settings.look.intro}
+        testID="socialcontent-picture-look"
+      >
+        <PictureLookBlock
+          settings={settings}
+          off={!online || !mayManage || busy !== null}
+          onChange={actions.pictureLook}
+        />
         {managersOnly}
       </Part>
 
@@ -691,6 +718,140 @@ export function PlanBlock({
           )}
         </View>
       </Sheet>
+    </View>
+  );
+}
+
+/**
+ * How its pictures look on the phone, as on the web (design tools, part 6; docs/socialcontent.md, "How your pictures
+ * look"): the logo on every page, the last only, or never; the fonts, like the brand kit or picked; and the layouts, all
+ * or picked. The last plain layout and the last photo layout can't be unticked.
+ */
+export function PictureLookBlock({
+  settings,
+  off,
+  onChange,
+}: {
+  settings: Overview['settings'];
+  off: boolean;
+  onChange: (change: PictureLookInput) => void;
+}) {
+  const L = W.settings.look;
+  const look = settings.pictureLook;
+  const kit = settings.kit;
+  // Every layout ticked is kept as all of them, so picking shows here until it's switched back.
+  const [pickingLayouts, setPickingLayouts] = React.useState(look.layouts !== null);
+  const fonts = look.fonts ?? [];
+  const layouts = look.layouts ?? [...DESIGN_STYLES];
+  const tickFont = (f: DesignFont) => {
+    const next = fonts.includes(f) ? fonts.filter((x) => x !== f) : [...fonts, f];
+    if (next.length) onChange({ fonts: next });
+  };
+  const lastOfKind = (l: DesignStyle) => {
+    const kind = PHOTO_STYLES.includes(l) ? PHOTO_STYLES : PLAIN_STYLES;
+    return kind.includes(l) && layouts.filter((x) => kind.includes(x)).length === 1;
+  };
+  const tid = 'socialcontent-picture';
+  return (
+    <View className="gap-2.5">
+      <Label>{L.logo}</Label>
+      <Chips>
+        {PICTURE_LOGO.map((v) => (
+          <FilterChip
+            key={v}
+            label={L.logoOptions[v]}
+            on={look.logo === v}
+            disabled={off}
+            accessibilityLabel={`${L.logo}: ${L.logoOptions[v]}`}
+            onPress={() => {
+              if (look.logo !== v) onChange({ logo: v });
+            }}
+            testID={`${tid}-logo-${v}`}
+          />
+        ))}
+      </Chips>
+      <Note>{kit.logo ? L.logoHint : L.noLogo}</Note>
+
+      <Label>{L.fonts}</Label>
+      <Chips>
+        <FilterChip
+          label={L.fontsKit}
+          on={!look.fonts}
+          disabled={off}
+          onPress={() => {
+            if (look.fonts) onChange({ fonts: null });
+          }}
+          testID={`${tid}-fonts-kit`}
+        />
+        <FilterChip
+          label={L.fontsPicked}
+          on={!!look.fonts}
+          disabled={off}
+          onPress={() => {
+            if (!look.fonts) onChange({ fonts: kit.fontAs ? [kit.fontAs] : [...DESIGN_FONTS] });
+          }}
+          testID={`${tid}-fonts-picked`}
+        />
+      </Chips>
+      {look.fonts ? (
+        <Chips>
+          {DESIGN_FONTS.map((f) => (
+            <FilterChip
+              key={f}
+              label={DESIGN_FONT_FACES[f]}
+              on={fonts.includes(f)}
+              disabled={off || (fonts.includes(f) && fonts.length === 1)}
+              onPress={() => tickFont(f)}
+              testID={`${tid}-font-${f}`}
+            />
+          ))}
+        </Chips>
+      ) : (
+        <Note>{L.kitFont(kit.font, DESIGN_FONT_FACES[kit.fontAs ?? 'modern'])}</Note>
+      )}
+
+      <Label>{L.layouts}</Label>
+      <Chips>
+        <FilterChip
+          label={L.layoutsAll}
+          on={!pickingLayouts}
+          disabled={off}
+          onPress={() => {
+            setPickingLayouts(false);
+            if (look.layouts) onChange({ layouts: null });
+          }}
+          testID={`${tid}-layouts-all`}
+        />
+        <FilterChip
+          label={L.layoutsPicked}
+          on={pickingLayouts}
+          disabled={off}
+          onPress={() => setPickingLayouts(true)}
+          testID={`${tid}-layouts-picked`}
+        />
+      </Chips>
+      {pickingLayouts ? (
+        <>
+          <Chips>
+            {DESIGN_STYLES.map((l) => {
+              const on = layouts.includes(l);
+              return (
+                <FilterChip
+                  key={l}
+                  label={L.layoutNames[l]}
+                  on={on}
+                  disabled={off || (on && lastOfKind(l))}
+                  onPress={() =>
+                    onChange({ layouts: on ? layouts.filter((x) => x !== l) : [...layouts, l] })
+                  }
+                  testID={`${tid}-layout-${l}`}
+                />
+              );
+            })}
+          </Chips>
+          <Note>{L.layoutsHint}</Note>
+        </>
+      ) : null}
     </View>
   );
 }

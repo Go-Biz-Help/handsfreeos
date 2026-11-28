@@ -48,6 +48,7 @@ import {
 } from '../content-shapes';
 import { socialcontentAddon } from '../manifest';
 import { pictureFlags } from '../check-ai';
+import { ownPhotoOf, pictureWordsOf } from '../picture-look';
 import { tidyHashtags } from '../posts-ai';
 import { isAngle } from '../variety';
 import { isOfferList } from '../../../main-offer/lists';
@@ -278,6 +279,15 @@ export async function contentOut(
       pictureFailure: c.pictureFailure,
       pictures,
       pictureFlags: c.pictureState === 'made' ? pictureFlags(c.design) : [],
+      // A person's own photo has words to change only once they're designed over it.
+      pictureWords:
+        c.pictureState === 'made' &&
+        c.format !== 'video' &&
+        c.format !== 'text' &&
+        (c.pictureWay !== 'own' || ownPhotoOf(c.design))
+          ? pictureWordsOf(c.design)
+          : null,
+      ownPhotoId: c.pictureWay === 'own' ? ownPhotoOf(c.design) : null,
       facebookWhere: c.facebookWhere,
       state: c.state,
       postAt: c.postAt?.toISOString() ?? null,
@@ -586,6 +596,11 @@ export const contentSave = defineAddonCommand(socialcontentAddon, {
           ...next,
           // A picture made for a post with no pictures now stays as it was; one whose pictures were taken off is none.
           pictureState: hasPictures(format) ? was.pictureState : 'none',
+          // Words designed over the person's own photo go with the pictures they were drawn on (design tools, part 6).
+          ...(ownPhotoOf(was.design) &&
+          (!sameList(next.fileIds, was.fileIds) || next.pictureWay !== was.pictureWay)
+            ? { design: null }
+            : {}),
           ...(unOk
             ? { state: 'draft' as const, approvedBy: null, approvedAt: null, failure: null }
             : {}),

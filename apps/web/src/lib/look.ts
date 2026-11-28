@@ -3,7 +3,14 @@
  * logo is seen, and the class and style that give part of a page the business's colour. The calls that change them
  * are in look-actions.ts.
  */
-import { buttonColorFor, logoUrlFor, pictureUrlFor, type PictureRef } from '@hfos/core';
+import {
+  buttonColorFor,
+  logoUrlFor,
+  pageKitOf,
+  pictureUrlFor,
+  type LookCorners,
+  type PictureRef,
+} from '@hfos/core';
 import type { CSSProperties } from 'react';
 import { publicEnv } from '@/lib/env';
 
@@ -37,4 +44,28 @@ export function brandLook(color: string | null | undefined): {
   return color
     ? { className: 'brand-look', style: { '--accent': buttonColorFor(color) } as CSSProperties }
     : {};
+}
+
+/**
+ * A customer's page in the brand kit (design tools, part 7): the business's colour on its buttons, and the kit's font
+ * and corners, with where the browser gets the font (a `<link>` the page puts in its head). Pages with a design of
+ * their own (forms, booking pages) use theirs instead. Nothing changes for a business whose kit has none of these.
+ */
+export function kitLook(
+  look:
+    | {
+        readonly color?: string | null;
+        readonly font?: string | null;
+        readonly corners?: LookCorners | null;
+      }
+    | null
+    | undefined,
+): { className: string; style?: CSSProperties; fontHref: string | null } {
+  const brand = brandLook(look?.color);
+  const kit = pageKitOf(look);
+  return {
+    className: ['kit-look', brand.className].filter(Boolean).join(' '),
+    style: { ...brand.style, ...kit.vars } as CSSProperties,
+    fontHref: kit.fontHref,
+  };
 }

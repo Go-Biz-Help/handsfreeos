@@ -1,7 +1,7 @@
 {
   "area": "documents",
   "title": "Documents to sign and their templates",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-27",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/documents.tsx": "a753a5248fa6",
     "apps/mobile/src/app/app/w/[workspaceId]/documents/[documentId]/index.tsx": "358731e8544c",
@@ -27,7 +27,7 @@
     "apps/web/src/components/documents/pdf-pages.tsx": "842a48651faa",
     "apps/web/src/components/documents/send-document.tsx": "8c27d9c1bbef",
     "apps/web/src/components/documents/signature-input.tsx": "ff97f138117c",
-    "apps/web/src/components/documents/signing-page.tsx": "93d3da610fb4",
+    "apps/web/src/components/documents/signing-page.tsx": "ac0d77fc15c7",
     "apps/web/src/components/documents/template-editor.tsx": "5db1cfcdb477"
   },
   "items": [
