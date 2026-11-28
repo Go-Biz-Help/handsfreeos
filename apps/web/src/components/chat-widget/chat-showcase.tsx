@@ -16,7 +16,7 @@ import { Turnstile } from '@/components/booking/turnstile';
 import { ApiError } from '@/lib/api/errors';
 import { fieldErrors } from '@/lib/api/field-errors';
 import { chatSignUp } from '@/lib/chat/client';
-import { widgetVars } from '@/lib/chat/look';
+import { chatDesignOf, widgetVars } from '@/lib/chat/look';
 import type { ChatConfig } from '@/lib/chat/lookup';
 import type { DetailsValues, FieldProblems } from '@/lib/chat/session';
 import { ChatFooter, ChatHeader, ChatStyles, DetailsForm } from './chat-parts';
@@ -29,6 +29,7 @@ const SIGN_UP_INTRO = 'Leave your details, and tick the box if you’d like text
 export function ChatShowcase({ config, widgetKey }: { config: ChatConfig; widgetKey: string }) {
   const business = config.business.name || 'This business';
   const { colors, vars } = widgetVars(config.look);
+  const design = chatDesignOf(config.look);
   const { askFor } = config;
   const show = {
     name: askFor.name !== 'never',
@@ -106,10 +107,13 @@ export function ChatShowcase({ config, widgetKey }: { config: ChatConfig; widget
   return (
     <main
       className="hfos-w min-h-dvh bg-bg px-4 py-10 text-text"
-      style={vars}
+      style={{ ...vars, ...design.vars }}
       data-testid="chat-showcase"
       {...{ [SIGN_UP_MARK]: 'live' }}
     >
+      {design.fontHref ? (
+        <link rel="stylesheet" href={design.fontHref} precedence="chat-font" />
+      ) : null}
       <ChatStyles page />
       <div className="mx-auto max-w-[420px]">
         <h1 className="text-[22px] font-semibold leading-tight">Get texts from {business}</h1>
@@ -117,10 +121,11 @@ export function ChatShowcase({ config, widgetKey }: { config: ChatConfig; widget
           This is the same form the chat on {business}’s website shows after a visitor’s first
           message. Fill it in and press Send to sign up. Ticking the box is up to you.
         </p>
-        <div className="mt-6 flex flex-col overflow-hidden rounded-[18px] border border-border bg-card shadow-2">
+        <div className="mt-6 flex flex-col overflow-hidden rounded-[var(--wr-card,18px)] border border-border bg-card shadow-2">
           <ChatHeader
             business={business}
             logo={config.business.logo}
+            face={config.face}
             subtitle={teammate ? `${teammate} (AI) and the team` : 'Chat with the team'}
             markColor={colors.mark}
             onClose={null}

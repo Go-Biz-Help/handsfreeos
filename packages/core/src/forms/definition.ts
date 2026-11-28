@@ -26,6 +26,7 @@ import {
   AnswerTargetRef,
   CHOICE_TYPES,
   QUESTION_CONFIGS,
+  QUESTION_WIDTHS,
   UNANSWERED_TYPES,
   targetAccepts,
   type QuestionType,
@@ -166,6 +167,11 @@ const questionBase = {
   mapTo: AnswerTargetRef.nullable().default(null),
   /** In a live poll: how long it stays up and who sees the totals. Left out, `LiveQuestion`'s defaults. */
   live: LiveQuestion.nullish(),
+  /**
+   * Half shares the row with the half next to it on a computer (first and last name side by side); on a phone, and
+   * when the one next to it is full width, it takes the whole row.
+   */
+  width: z.enum(QUESTION_WIDTHS).default('full'),
 };
 
 const question = <T extends QuestionType>(type: T) =>
@@ -194,6 +200,7 @@ export const Question = z.discriminatedUnion('type', [
   question('booking'),
   question('button'),
   question('quantities'),
+  question('picture'),
 ]);
 export type Question = z.infer<typeof Question>;
 export type QuestionInput = z.input<typeof Question>;
@@ -571,6 +578,19 @@ export function formProblems(definition: FormDefinition): string[] {
       question.config as { url: string; minPercent: number | null },
     );
     if (problem) problems.push(problem);
+  }
+
+  for (const question of questions) {
+    if (question.type !== 'picture') continue;
+    const { picture, link } = question.config;
+    if (!picture)
+      problems.push(
+        `“${question.title}” has no picture yet. Open it on the Questions tab and pick one from Your pictures.`,
+      );
+    if (link && !isWebAddress(link))
+      problems.push(
+        `The link on “${question.title}” isn’t a web address. Give one starting with https://, or leave it blank.`,
+      );
   }
 
   const bookings = questions.filter((q) => q.type === 'booking');

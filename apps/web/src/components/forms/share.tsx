@@ -1,9 +1,10 @@
 'use client';
-import { formEmbedSnippet } from '@hfos/core';
+import { formEmbedSnippet, POPUP_WORDS, type PopupButtonLook } from '@hfos/core';
 import { Download, Link2, QrCode } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { PopupEmbed } from '@/components/look/popup-embed';
 import { Card } from '@/components/ui/card';
 import { CopyField } from '@/components/ui/copy-field';
 import { Field, Hint } from '@/components/ui/field';
@@ -15,9 +16,9 @@ import { PUBLIC_FORM_PATH } from '@/lib/forms/words';
 import { useOrigin, usePublicOrigin } from '@/lib/use-origin';
 
 /**
- * The four ways a form reaches people: the link, a website embed, the AI teammate asking it in a
- * conversation, and a QR code for a truck door. The link and the QR need nothing set up; the embed needs
- * the sites it may appear on, which is also what stops anybody else framing it.
+ * The ways a form reaches people: the link, a website embed (a box in the page, or a pop-up), the AI teammate
+ * asking it in a conversation, and a QR code for a truck door. The link and the QR need nothing set up; the embed
+ * and the pop-up need the sites they may appear on, which is also what stops anybody else framing it.
  */
 export function FormShare({
   workspaceId,
@@ -25,6 +26,7 @@ export function FormShare({
   siteSlug,
   canManage,
   brandedOrigin,
+  popupLook = null,
 }: {
   workspaceId: string;
   form: FormSummary;
@@ -32,6 +34,8 @@ export function FormShare({
   canManage: boolean;
   /** Their own domain when one is serving (M17): the link to copy, and the QR code made from it. */
   brandedOrigin: string | null;
+  /** The form's own button colour, words and corners, for the pop-up's button. */
+  popupLook?: PopupButtonLook | null;
 }) {
   const [origins, setOrigins] = useState(form.embedOrigins.join(', '));
   const [inChat, setInChat] = useState(form.inChat);
@@ -183,6 +187,23 @@ export function FormShare({
           />
         </Field>
         <CopyField value={embedSnippet} label="Copy the snippet" copied="Copied the snippet" />
+      </Card>
+
+      <Card className="space-y-4 p-4" data-testid="form-share-popup">
+        <div>
+          <h3 className="text-[14px] font-medium text-text">{POPUP_WORDS.title}</h3>
+          <p className="mt-0.5 text-[12.5px] text-text-3">
+            {POPUP_WORDS.hint} They’re the same sites as the snippet’s, set beside it.
+          </p>
+        </div>
+        <PopupEmbed
+          url={publicUrl}
+          appOrigin={appOrigin}
+          name={form.name}
+          defaultLabel={form.name.length <= 40 ? form.name : 'Get started'}
+          look={popupLook}
+          testId="form-popup"
+        />
       </Card>
 
       <Card className="space-y-3 p-4">

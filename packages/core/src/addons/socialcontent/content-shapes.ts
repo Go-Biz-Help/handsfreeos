@@ -21,6 +21,7 @@ import { PICK_WHICH } from './calendar-looks';
 import { LINK } from './links';
 import { OWN_READS } from './own';
 import { POST_LIMITS } from './posts-ai';
+import { DESIGN_STYLES } from './design-names';
 import {
   AngleShape,
   LearnedPlanShape,
@@ -55,6 +56,57 @@ export const ScriptShape = z.object({
   lines: z.array(trimmed(POST_LIMITS.scriptLine)).max(POST_LIMITS.scriptLines),
   shots: z.array(trimmed(POST_LIMITS.shot)).max(POST_LIMITS.shots),
 });
+
+/** The words on one of its drawn pictures (design tools, part 6), as the screens show them to change. */
+export const PictureWordsShape = z.object({
+  layout: z.enum(DESIGN_STYLES),
+  kicker: z.string().nullable(),
+  heading: z.string(),
+  body: z.string().nullable(),
+  items: z.array(z.string()),
+  mark: z.string().nullable(),
+  footer: z.string().nullable(),
+});
+
+/** One picture's words as changed by hand: blank parts are left off it. */
+const pageText = (most: number, what: string) =>
+  z
+    .string()
+    .trim()
+    .max(most, `Keep ${what} under ${most} characters.`)
+    .nullable()
+    .default(null)
+    .transform((t) => t || null);
+export const PageWordsInput = z.object({
+  kicker: pageText(POST_LIMITS.kicker, 'the small line above the heading'),
+  heading: z
+    .string()
+    .trim()
+    .min(1, 'Give each picture a heading.')
+    .max(POST_LIMITS.heading, `Keep a heading under ${POST_LIMITS.heading} characters.`),
+  body: pageText(POST_LIMITS.body, 'the words under the heading'),
+  items: z
+    .array(
+      z
+        .string()
+        .trim()
+        .max(POST_LIMITS.item, `Keep each item under ${POST_LIMITS.item} characters.`),
+    )
+    .max(5, 'Keep a picture to 5 items.')
+    .default([])
+    .transform((items) => items.filter(Boolean)),
+  mark: pageText(POST_LIMITS.mark, 'the big number or highlighted words'),
+  footer: pageText(POST_LIMITS.footer, 'the line at the bottom'),
+});
+export type PageWordsInput = z.input<typeof PageWordsInput>;
+
+/** Its pictures' words changed by hand (design tools, part 6): one set for each picture, in order. */
+export const ContentRedrawInput = z
+  .object({
+    postId: uuid,
+    pages: z.array(PageWordsInput).min(1).max(CALENDAR.slidesMost),
+  })
+  .strict();
 
 /** One of its pictures: a core file on the post's record, which the web and the phone sign to show. */
 export const ContentPicture = z.object({
@@ -114,6 +166,14 @@ export const Content = z.object({
    * empty when they passed or weren't checked. Default for an older API.
    */
   pictureFlags: z.array(z.string()).default([]),
+  /**
+   * The words on each of its drawn pictures, to change by hand and draw again at no AI cost (design tools, part 6);
+   * null when they can't be: the person's own photo as it is, OpenAI's whole graphic, or a photo made before photos
+   * were kept. Default for an older API.
+   */
+  pictureWords: z.array(PictureWordsShape).nullable().default(null),
+  /** The person's own photo its words are designed over, to post it plain again; null otherwise. */
+  ownPhotoId: uuid.nullable().default(null),
   facebookWhere: z.array(FacebookWhere),
   state: z.enum(CONTENT_STATES),
   postAt: z.string().nullable(),

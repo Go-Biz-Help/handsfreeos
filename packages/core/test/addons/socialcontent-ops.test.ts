@@ -1840,4 +1840,119 @@ describe('Your link (the owner, 24 Nov)', () => {
       went: [{ place: 'feed', posted: true, link: null }],
     });
   });
+
+  it('lets owners and admins pick how its pictures look, and shows the words a drawn picture can have changed (design tools, part 6)', async () => {
+    expect(
+      await refused(as(member, 'socialcontent.settings.save', { pictureLook: { logo: 'never' } })),
+    ).toBe('forbidden');
+    expect(
+      await refused(
+        as(owner, 'socialcontent.settings.save', { pictureLook: { layouts: ['list', 'quote'] } }),
+      ),
+    ).toBe('validation');
+    // Unset is the logo in a corner, and the brand kit's font: Lora draws as classic.
+    await rows(
+      admin(),
+      sql`update app.workspaces
+          set settings = jsonb_set(coalesce(settings, '{}'), '{look}',
+            coalesce(settings->'look', '{}') || '{"font": {"name": "Lora", "at": "2026-11-27T12:00:00.000Z"}}')
+          where id = ${ws}`,
+    );
+    const unset = await as(owner, 'socialcontent.settings.save', {});
+    expect(unset).toMatchObject({
+      pictureLook: { logo: 'corner', fonts: null, layouts: null },
+      kit: { font: 'Lora', fontAs: 'classic', logo: false },
+    });
+    const saved = await as(owner, 'socialcontent.settings.save', {
+      pictureLook: {
+        logo: 'last',
+        fonts: ['loud', 'modern'],
+        layouts: ['clean', 'list', 'framed'],
+      },
+    });
+    expect(saved.pictureLook).toEqual({
+      logo: 'last',
+      fonts: ['modern', 'loud'],
+      layouts: ['clean', 'list', 'framed'],
+    });
+    // Only what's given changes; null follows the brand kit again.
+    const back = await as(owner, 'socialcontent.settings.save', { pictureLook: { fonts: null } });
+    expect(back.pictureLook).toEqual({ ...saved.pictureLook, fonts: null });
+    const [kept] = await rows<{ picture_look: unknown }>(
+      admin(),
+      sql`select picture_look from addon_socialcontent.settings where workspace_id = ${ws}`,
+    );
+    expect(kept!.picture_look).toEqual({
+      logo: 'last',
+      fonts: null,
+      layouts: ['clean', 'list', 'framed'],
+    });
+    await as(owner, 'socialcontent.settings.save', {
+      pictureLook: { logo: 'corner', layouts: null },
+    });
+
+    // A drawn carousel's words, to change by hand; none on one whose words OpenAI made.
+    const drawn = (
+      await worker('socialcontent.content.put', {
+        network: 'instagram',
+        postAt: new Date(Date.now() + 2 * DAY).toISOString(),
+        post: written({
+          title: 'Three signs',
+          format: 'carousel',
+          pictureWay: 'design',
+          slides: [
+            { heading: 'Three signs', body: 'Know them early.' },
+            { heading: 'Drips', body: 'A drip a second adds up.' },
+          ],
+        }),
+      })
+    ).postId;
+    const designed = {
+      font: 'modern',
+      pages: [
+        {
+          layout: 'list',
+          kicker: null,
+          heading: 'Three signs',
+          body: null,
+          items: ['Drips', 'Stains'],
+          mark: null,
+          footer: null,
+        },
+        {
+          layout: 'clean',
+          kicker: 'Last',
+          heading: 'Call us',
+          body: 'Today.',
+          items: [],
+          mark: null,
+          footer: 'Pipe Dreams',
+        },
+      ],
+    };
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content
+          set picture_state = 'made', design = ${JSON.stringify(designed)}::jsonb
+          where record_id = ${drawn}`,
+    );
+    const shown = async () =>
+      (await as(member, 'socialcontent.calendar.get')).posts.find((p: Any) => p.id === drawn);
+    expect((await shown()).pictureWords).toEqual([
+      expect.objectContaining({
+        layout: 'list',
+        heading: 'Three signs',
+        items: ['Drips', 'Stains'],
+      }),
+      expect.objectContaining({ layout: 'clean', kicker: 'Last', footer: 'Pipe Dreams' }),
+    ]);
+    expect((await shown()).ownPhotoId).toBeNull();
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content
+          set design = design || '{"graphic": {"tried": true, "passed": true}}'::jsonb
+          where record_id = ${drawn}`,
+    );
+    expect((await shown()).pictureWords).toBeNull();
+  });
 });

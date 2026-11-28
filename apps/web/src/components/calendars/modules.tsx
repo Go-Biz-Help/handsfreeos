@@ -10,6 +10,7 @@ import {
   type CalendarConfig,
   type ConfigPatch,
   type DepositTerms,
+  type FormDesign,
   type LocationKind,
   type Reminder,
   type VideoProvider,
@@ -95,6 +96,8 @@ export interface ModuleProps {
   readonly payments?: BuilderPayments;
   /** The business's colour, logo and website, which the Design section starts from. */
   readonly brand?: FormBrand;
+  /** The calendar's saved design, which Design → Use on all my calendars copies. */
+  readonly savedDesign?: FormDesign | null;
 }
 
 const WEEKDAYS_9_TO_5: WeeklyHours = [1, 2, 3, 4, 5].map((day) => ({
@@ -381,7 +384,13 @@ function TeamModule({ draft, patch, catalogs, people, territories }: ModuleProps
                     onSelect={() =>
                       setMembers([
                         ...members,
-                        { userId: p.userId, weight: 1, priority: 0, required: false },
+                        {
+                          userId: p.userId,
+                          weight: 1,
+                          priority: 0,
+                          required: false,
+                          picture: null,
+                        },
                       ])
                     }
                   >
@@ -2394,6 +2403,9 @@ export function ModuleForm(props: ModuleProps & { module: ModuleKey }) {
           patch={props.patch}
           brand={props.brand ?? { color: null, logo: null }}
           calendarName={props.calendarName ?? 'Your calendar'}
+          calendarId={props.calendarId}
+          saved={props.savedDesign}
+          people={props.people}
         />
       );
   }

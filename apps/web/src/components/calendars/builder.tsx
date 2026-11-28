@@ -2,9 +2,11 @@
 import {
   applyPatch,
   CALENDAR_COLORS,
+  formLook,
   hasBlockingIssues,
   inferLabels,
   parseConfig,
+  popupLookOf,
   validateCalendar,
   zonePickLabel,
   type CalendarConfig,
@@ -625,6 +627,7 @@ export function CalendarBuilder(props: BuilderProps) {
             calendarName={calendar.name}
             payments={props.payments}
             brand={props.brand}
+            savedDesign={current.base.design}
           />
         </Card>
 
@@ -681,6 +684,12 @@ export function CalendarBuilder(props: BuilderProps) {
                 bookingUrl={calendar.bookingPath ? `${origin}${calendar.bookingPath}` : null}
                 embedOrigins={calendar.embedOrigins}
                 bookingSiteHref={`${base}/calendars/booking-site`}
+                popupLook={popupLookOf(
+                  formLook(calendar.config.design, {
+                    businessColor: props.brand.color,
+                    kit: props.brand.kit,
+                  }).vars,
+                )}
               />
             </div>
             <p className="mt-1.5 text-[12.5px] text-text-3">

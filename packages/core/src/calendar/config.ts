@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { isClock, isLocalDate, parseClock } from './engine/zoned';
 import { POLL_AI_MODES } from '../meetings/polls';
 import { FormDesign } from '../forms/design';
+import { PictureRef } from '../look/pictures';
 
 export const CALENDAR_CONFIG_VERSION = 1;
 
@@ -115,6 +116,11 @@ export const TeamMember = z.object({
   priority: z.int().min(0).max(100).default(0),
   /** Collective: must attend. When nobody is marked, everyone must. */
   required: z.boolean().default(false),
+  /**
+   * Their photo on the booking page, beside their name where customers pick who comes (design tools, part 3; the
+   * calendar's Design → Pictures). From Your pictures, so it's on the public bucket already.
+   */
+  picture: PictureRef.nullable().default(null),
 });
 export type TeamMember = z.infer<typeof TeamMember>;
 

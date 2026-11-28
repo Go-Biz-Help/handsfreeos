@@ -15,6 +15,8 @@ import {
   answerWords,
   describeForm,
   formEmbedSnippet,
+  POPUP_NOTE,
+  popupCodesFor,
   FORM_SOURCE_WORDS,
   FORM_STARTERS,
   formState,
@@ -375,6 +377,14 @@ async function getForm(db: Db, ctx: ToolContext, args: Args, webUrl: string): Pr
             embedSnippet: formEmbedSnippet({ publicUrl: link, appOrigin: webUrl, name: f.name }),
             embedNote:
               'The snippet works only on the sites in sitesAllowedToShowIt (do_form_set_delivery embedOrigins sets the whole list).',
+            // Share → Pop-up on your website: the same form in a window over their site, on the same sites.
+            popupCodes: popupCodesFor(
+              link,
+              webUrl,
+              f.name,
+              f.name.length <= 40 ? f.name : 'Get started',
+            ),
+            popupNote: POPUP_NOTE,
           }
         : {}),
       sitesAllowedToShowIt: f.embedOrigins,

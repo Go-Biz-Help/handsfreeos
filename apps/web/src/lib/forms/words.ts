@@ -21,6 +21,7 @@ import {
   Film,
   Hash,
   Heading,
+  ImageIcon,
   ListChecks,
   ListOrdered,
   MapPin,
@@ -60,6 +61,7 @@ export const QUESTION_ICONS: Readonly<Record<QuestionType, LucideIcon>> = {
   booking: CalendarCheck,
   button: MousePointerClick,
   quantities: ListOrdered,
+  picture: ImageIcon,
 };
 
 export { QUESTION_LABELS, FORM_MODE_LABELS };
@@ -108,7 +110,8 @@ export const QUESTION_MENU: readonly { group: string; types: readonly QuestionMe
     types: ['first_name', 'last_name', 'email', 'phone', 'address', 'date', 'time'],
   },
   { group: 'Numbers', types: ['number', 'money', 'quantities', 'rating', 'scale'] },
-  { group: 'Other', types: ['content', 'video', 'booking', 'file', 'signature', 'payment'] },
+  { group: 'On the page', types: ['content', 'picture', 'video'] },
+  { group: 'Other', types: ['booking', 'file', 'signature', 'payment'] },
 ];
 
 /** A live poll's menu: what can pop up in a call (the owner's 9 and 17). */

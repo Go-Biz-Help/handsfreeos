@@ -4027,6 +4027,15 @@ export const chatWidgets = app.table('chat_widgets', {
   showLogo: boolean('show_logo').notNull().default(true),
   /** away_form, chat. */
   whenAway: text('when_away').notNull().default('away_form'),
+  /** A Google font's name; null: the brand kit's (design tools, part 4). */
+  font: text('font'),
+  /** square, slight, round; null: the brand kit's. */
+  corners: text('corners'),
+  /** The words beside the button after bubbleAfter seconds; null: no bubble. */
+  bubble: text('bubble'),
+  bubbleAfter: smallint('bubble_after').notNull().default(8),
+  /** A picture from Your pictures in the top bar ({path, width, height}); null: the logo or initials. */
+  face: jsonb('face').$type<Json>(),
   /** The install check; the worker's. */
   lastSeenOrigin: text('last_seen_origin'),
   lastSeenAt: ts('last_seen_at'),
@@ -8624,6 +8633,8 @@ export const campaigns = app.table('campaigns', {
   channel: text('channel').notNull().default('sms'),
   emailSubject: text('email_subject'),
   emailBody: text('email_body'),
+  /** Design tools, part 5: the email written in blocks (words, picture, button, line, space); null is plain words. */
+  emailBlocks: jsonb('email_blocks').$type<unknown[]>(),
   emailEdited: boolean('email_edited').notNull().default(false),
   /** AI outbound calls: a call campaign's one opening line ("about our fall tune-up …"), and whether a person changed it. */
   callOpening: text('call_opening'),

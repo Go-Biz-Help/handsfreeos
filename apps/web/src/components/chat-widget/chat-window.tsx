@@ -18,7 +18,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { Turnstile } from '@/components/booking/turnstile';
-import { widgetVars } from '@/lib/chat/look';
+import { chatDesignOf, widgetVars } from '@/lib/chat/look';
 import type { ChatConfig } from '@/lib/chat/lookup';
 import {
   INITIAL_SNAPSHOT,
@@ -177,6 +177,7 @@ export function ChatWindow({ widgetKey, config, origin, path, preview }: ChatWin
   };
 
   const { colors, vars } = widgetVars(config.look);
+  const design = chatDesignOf(config.look);
 
   const { askFor } = config;
   const show = {
@@ -279,14 +280,19 @@ export function ChatWindow({ widgetKey, config, origin, path, preview }: ChatWin
       ref={root}
       onKeyDown={onKeyDown}
       className="hfos-w hfos-in fixed inset-0 flex flex-col overflow-hidden bg-card text-text"
-      style={vars}
+      style={{ ...vars, ...design.vars }}
       data-testid="chat-window"
       data-phase={snap.phase}
     >
+      {/* React puts a stylesheet link in the page's head: the chat's font, when it has one. */}
+      {design.fontHref ? (
+        <link rel="stylesheet" href={design.fontHref} precedence="chat-font" />
+      ) : null}
       <ChatStyles />
       <ChatHeader
         business={config.business.name}
         logo={config.business.logo}
+        face={config.face}
         subtitle={subtitle}
         markColor={colors.mark}
         onClose={host ? close : null}

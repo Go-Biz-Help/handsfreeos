@@ -87,6 +87,7 @@ const newMember = (userId: string, required = false): TeamMember => ({
   weight: 1,
   priority: 0,
   required,
+  picture: null,
 });
 
 interface Ctx {

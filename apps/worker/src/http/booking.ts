@@ -599,9 +599,14 @@ async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, bot
   return {
     services: serviceList,
     durations: bookableDurations(config, null),
+    // Each with their photo, when the calendar's Design gives them one (Your pictures, already public).
     people:
       config.team.assignment === 'customer_choice'
-        ? memberIds.map((id) => ({ id, name: names.get(id)! }))
+        ? memberIds.map((id) => ({
+            id,
+            name: names.get(id)!,
+            picture: config.team.members.find((m) => m.userId === id)?.picture ?? null,
+          }))
         : [],
     locations: config.locations.options.map((o) => ({
       kind: o.kind,

@@ -15,9 +15,11 @@
 import { z } from 'zod';
 import { contrastRatio, readableTextOn } from '../chat/origins';
 import { buttonColorFor, isLookColor, LOOK_DEFAULT_COLOR, mixColors } from '../look/colour';
-import { FONT_NAME, formFontHref, formFontOf } from '../look/fonts';
+import { FONT_NAME, fontStackOf, formFontHref } from '../look/fonts';
+import { PictureRef } from '../look/pictures';
 
 export {
+  fontStackOf,
   FORM_DEFAULT_FONT,
   FORM_FONTS,
   formFontHref,
@@ -58,6 +60,9 @@ export const FORM_FIELD_STYLES = ['boxed', 'filled', 'underline'] as const;
 export const FORM_SPACINGS = ['compact', 'normal', 'roomy'] as const;
 export const FORM_LABEL_PLACES = ['above', 'inside'] as const;
 export const FORM_WIDTHS = ['narrow', 'medium', 'wide', 'full'] as const;
+/** Where the top (logo, name and intro) and the send button sit: on the left, or in the middle. */
+export const FORM_ALIGNS = ['left', 'center'] as const;
+export type FormAlign = (typeof FORM_ALIGNS)[number];
 
 export const FormDesign = z.object({
   /** Light or dark: what the colours left unset are worked out from. */
@@ -92,6 +97,15 @@ export const FormDesign = z.object({
   showLogo: z.boolean().default(false),
   /** The form's name at the top. Hidden, screen readers still hear it; a website's own heading often says it. */
   showTitle: z.boolean().default(true),
+  /** Line up: the logo, name and intro, and the send button, on the left or in the middle. */
+  align: z.enum(FORM_ALIGNS).default('left'),
+  /** A wide picture across the top (Your pictures), above the logo and name. */
+  cover: PictureRef.nullable().default(null),
+  /**
+   * A picture behind the whole form (Your pictures), filling the page around it. The form keeps its own background
+   * on top, so the questions always read.
+   */
+  backdrop: PictureRef.nullable().default(null),
   /** Filled in from a website by Match my website: which site, and when. A person's change leaves it be. */
   matched: z
     .object({ site: z.string().trim().max(300), at: z.iso.datetime() })
@@ -103,9 +117,6 @@ export type FormDesignInput = z.input<typeof FormDesign>;
 
 /** A design with nothing set: what every form had before the Design tab. */
 export const DEFAULT_FORM_DESIGN: FormDesign = FormDesign.parse({});
-
-const SANS_FALLBACK = "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
-const SERIF_FALLBACK = "Georgia, 'Times New Roman', serif";
 
 export type FormCorners = (typeof FORM_CORNERS)[number];
 
@@ -149,6 +160,22 @@ const MAX_WIDTH: Record<FormDesign['width'], string> = {
   wide: '880px',
   full: 'none',
 };
+/**
+ * A booking page's widths (a calendar's Design → Layout): the open times, then the details. Medium is what every
+ * booking page had before it could pick.
+ */
+const BOOKING_WIDTH: Record<FormDesign['width'], readonly [times: string, details: string]> = {
+  narrow: ['640px', '480px'],
+  medium: ['860px', '560px'],
+  wide: ['1040px', '640px'],
+  full: ['none', '720px'],
+};
+/** A booking page's space between its parts, and between the boxes of its details; normal is as before. */
+const BOOKING_GAP: Record<FormDesign['spacing'], readonly [parts: string, boxes: string]> = {
+  compact: ['0.75rem', '0.625rem'],
+  normal: ['1rem', '0.875rem'],
+  roomy: ['1.5rem', '1.25rem'],
+};
 
 const LIGHT = { background: '#ffffff', text: '#191d25', error: '#c43335', success: '#008743' };
 const DARK = { background: '#191d25', text: '#f2f4f8', error: '#ff7b73', success: '#3ccf7a' };
@@ -173,6 +200,11 @@ export interface FormLook {
   readonly paintsBackground: boolean;
   /** The Google font to load, or null for ours. */
   readonly fontHref: string | null;
+  /** The wide picture across the top, and the one behind the form (Your pictures), when the design has them. */
+  readonly cover: PictureRef | null;
+  readonly backdrop: PictureRef | null;
+  /** Where the top and the send button sit. */
+  readonly align: FormAlign;
   readonly dark: boolean;
   readonly labelsInside: boolean;
   readonly showLogo: boolean;
@@ -213,7 +245,6 @@ export function formLook(
   const border = c.fieldBorder ?? tint(base, text, 0.2);
   const radii = RADII[designCornersOf(d, options.kit)];
   const fontName = designFontOf(d, options.kit);
-  const font = formFontOf(fontName);
   const paintsBackground = !options.embedded || c.background !== null;
   const vars: Record<string, string> = {
     '--bg': base,
@@ -247,20 +278,27 @@ export function formLook(
     '--form-zoom': ZOOM[d.textSize],
     '--form-gap': GAP[d.spacing],
     '--form-max-width': MAX_WIDTH[d.width],
+    '--booking-max-width': BOOKING_WIDTH[d.width][0],
+    '--booking-details-width': BOOKING_WIDTH[d.width][1],
+    '--booking-gap': BOOKING_GAP[d.spacing][0],
+    '--booking-box-gap': BOOKING_GAP[d.spacing][1],
   };
-  if (font)
-    vars['--form-font'] =
-      `'${font.name}', ${font.kind === 'serif' ? SERIF_FALLBACK : SANS_FALLBACK}`;
+  const stack = fontStackOf(fontName);
+  if (stack) vars['--form-font'] = stack;
   return {
     vars,
     data: {
       'data-fields': d.fields,
       'data-button': d.button.style,
       'data-button-width': d.button.fullWidth ? 'full' : 'auto',
+      'data-align': d.align,
       'data-labels': d.labels,
     },
     paintsBackground,
     fontHref: formFontHref(fontName),
+    cover: d.cover,
+    backdrop: d.backdrop,
+    align: d.align,
     dark,
     labelsInside: d.labels === 'inside',
     showLogo: d.showLogo,

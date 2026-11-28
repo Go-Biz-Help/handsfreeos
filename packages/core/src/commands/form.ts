@@ -23,6 +23,7 @@ import {
   type FormRow,
 } from '../forms/load';
 import { applyFormOps, FormOpError, type FormOp } from '../forms/ops';
+import { asksSomething } from '../forms/questions';
 import { starterByKey, starterForm } from '../forms/starters';
 import { requireHuman } from '../kernel/actor';
 import { storedFilePath } from './file';
@@ -309,7 +310,7 @@ export const formPublish = defineCommand({
     assertNotArchived(current.row);
     if (current.row.revision !== input.baseRevision)
       throw formRevisionConflict(current.row.revision);
-    const asked = allQuestions(current.definition).filter((q) => q.type !== 'content');
+    const asked = allQuestions(current.definition).filter(asksSomething);
     if (!asked.length)
       throw HfosError.rule(
         'form_empty',
@@ -526,7 +527,7 @@ export const formSetDelivery = defineCommand({
 export const formUseDesignEverywhere = defineCommand({
   name: 'form.use_design_everywhere',
   description:
-    'Put one form’s design (its colours, font, shape and layout) on every other form. Live forms show it straight away; nothing else about them changes.',
+    'Put one form’s design (its colours, font, shape, layout, and pictures across the top and behind) on every other form. Live forms show it straight away; nothing else about them changes.',
   risk: 2,
   input: FormUseDesignEverywhereInput,
   output: FormUseDesignEverywhereOutput,

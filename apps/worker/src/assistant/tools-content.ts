@@ -14,6 +14,9 @@
 import {
   allSteps,
   applyWorkflowOps,
+  EmailBlocks,
+  emailBlocksText,
+  type EmailBlock,
   approvalDecidedLine,
   closedStageWords,
   decisionLines,
@@ -210,6 +213,7 @@ interface CampaignGet {
       body: string | null;
       edited: boolean;
       postalAddress: string | null;
+      blocks?: EmailBlock[] | null;
     } | null;
     call: { opening: string | null; edited: boolean } | null;
   };
@@ -896,6 +900,17 @@ function recipientOf(got: CampaignGet, personId: unknown): Recipient {
 }
 const OPEN = ['review', 'drafting'];
 
+/** An email's blocks as the Assistant passed them; refused in words when they aren't right. */
+function blocksOf(v: unknown): EmailBlock[] | null {
+  if (v === undefined || v === null) return null;
+  const r = EmailBlocks.safeParse(v);
+  if (!r.success)
+    throw need(
+      `Those blocks aren’t right: ${r.error.issues[0]?.message ?? 'check each one'}. Each is words {text}, picture {picture: path, width and height from read_picture_list}, button {label, url}, line or space, with an id and align left, center or right.`,
+    );
+  return r.data;
+}
+
 const editCampaign: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const act = action(args);
@@ -934,16 +949,27 @@ const editCampaign: SettingsConfirmTool = {
       case 'change_email': {
         const subject = str(args['subject']);
         const body = str(args['body']);
-        if (!subject && !body) throw need('Say what should change: pass subject, body or both.');
+        const blocks = blocksOf(args['blocks']);
+        if (!subject && !body && !blocks)
+          throw need('Say what should change: pass subject, body (or blocks), or both.');
         const blocked = c.channel !== 'email' ? 'This campaign doesn’t send an email.' : shut;
         const nextSubject = subject ?? c.email?.subject ?? '';
-        const nextBody = body ?? c.email?.body ?? '';
+        const nextBody = blocks ? emailBlocksText(blocks) : (body ?? c.email?.body ?? '');
         if (!blocked && !nextSubject.trim())
           throw need('The email has no subject yet. Pass one in subject too.');
         if (!blocked && !nextBody.trim())
           throw need('The email has no words yet. Pass them in body too.');
-        if (!blocked && nextSubject === c.email?.subject && nextBody === c.email.body)
+        if (
+          !blocked &&
+          nextSubject === c.email?.subject &&
+          nextBody === c.email.body &&
+          (blocks
+            ? JSON.stringify(blocks) === JSON.stringify(c.email.blocks ?? null)
+            : !body || !c.email.blocks)
+        )
           throw nothingChanges('The email already says that.');
+        const pictures = blocks?.filter((b) => b.kind === 'picture').length ?? 0;
+        const buttons = blocks?.filter((b) => b.kind === 'button').length ?? 0;
         return {
           card: card(toolCallId, 'edit_campaign', {
             title: `Change the email in “${c.name}”?`,
@@ -951,6 +977,14 @@ const editCampaign: SettingsConfirmTool = {
               base,
               { label: 'Subject', value: nextSubject },
               { label: 'Was', value: subject && c.email?.subject ? c.email.subject : '' },
+              {
+                label: 'Written in',
+                value: blocks
+                  ? `${blocks.length} blocks${pictures ? `, ${pictures === 1 ? 'a picture' : `${pictures} pictures`}` : ''}${buttons ? `, ${buttons === 1 ? 'a button' : `${buttons} buttons`}` : ''}`
+                  : body && c.email?.blocks
+                    ? 'Plain words (no more blocks)'
+                    : '',
+              },
               { label: 'Goes to', value: peopleOf(c.counts.ready + c.counts.drafting) },
             ],
             body: nextBody,
@@ -1017,13 +1051,24 @@ const editCampaign: SettingsConfirmTool = {
           command: 'campaign.update_draft',
         };
       }
-      case 'change_email':
+      case 'change_email': {
+        // Blocks, or plain words; a new subject alone keeps the email as it's written.
+        const blocks = blocksOf(args['blocks']);
+        const body = str(args['body']);
+        const was = got.campaign.email;
         await command(db, ctx, 'campaign.update_email', {
           campaignId,
-          subject: str(args['subject']) ?? got.campaign.email?.subject,
-          body: str(args['body']) ?? got.campaign.email?.body,
+          subject: str(args['subject']) ?? was?.subject,
+          ...(blocks
+            ? { blocks }
+            : body
+              ? { body, blocks: null }
+              : was?.blocks
+                ? { blocks: was.blocks }
+                : { body: was?.body }),
         });
         return { outcome: 'Saved the email.', href, command: 'campaign.update_email' };
+      }
       case 'change_call_opening':
         await command(db, ctx, 'campaign.update_call', { campaignId, opening: args['opening'] });
         return { outcome: 'Saved how the calls open.', href, command: 'campaign.update_call' };

@@ -3,10 +3,10 @@
  * link to a page with the form on it), without a database: what the model is shown, how a picture is made ready for
  * it, how the price list reads to the form builder, and how a linked page's forms are read.
  */
-import type { AiFormPriceList } from '@hfos/core/server';
+import type { AiFormPriceList, PictureRow } from '@hfos/core/server';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { priceListForModel } from '../src/forms/builder';
+import { priceListForModel, yourPicturesForModel } from '../src/forms/builder';
 import { linkAddress, readPageForms } from '../src/forms/page-forms';
 import { picturesForModel } from '../src/assistant/routes';
 import { modelMessages } from '../src/assistant/runtime';
@@ -98,6 +98,34 @@ describe('the price list, for the form builder', () => {
     expect(text).toContain('T-shirt=00000000-0000-4000-8000-000000000001 $12');
     expect(text).toContain('Youth S=v_youths01 $12, Adult 2XL=v_adult2xl $14');
     expect(priceListForModel([])).toBe('This business has nothing on its price list yet.');
+  });
+});
+
+describe('Your pictures, for the form builder', () => {
+  const row = (over: Partial<PictureRow>): PictureRow => ({
+    id: '00000000-0000-4000-8000-000000000009',
+    name: 'crew.jpg',
+    words: 'Our crew on a roof',
+    status: 'ready',
+    path: '11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222.webp',
+    width: 1200,
+    height: 800,
+    problem: null,
+    createdAt: '2026-11-27T12:00:00.000Z',
+    ...over,
+  });
+
+  it('gives each ready picture’s path and size to copy, with what it shows', () => {
+    const text = yourPicturesForModel([
+      row({}),
+      row({ status: 'making', path: null, name: 'wip.png' }),
+    ]);
+    expect(text).toContain(
+      '{"path": "11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222.webp", "width": 1200, "height": 800}',
+    );
+    expect(text).toContain('Our crew on a roof');
+    expect(text).not.toContain('wip.png');
+    expect(yourPicturesForModel([])).toMatch(/no pictures in Your pictures yet/);
   });
 });
 

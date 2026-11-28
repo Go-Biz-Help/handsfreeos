@@ -21,9 +21,20 @@
  *   isn't one of the widget's sites. The console says so, for whoever is installing it;
  * - loads the texting registration's browser check (/embed/v1/site-check.js) when the address ends in
  *   `#hfos-check=<code>`, which only HandsFreeOS's "Finish the check on my site" opens (lib/site-check/script.ts).
- * The host element, <hfos-chat>, has an `open` attribute while the chat is open.
+ * - draws the button and window with the chat's corners and the button in its font (design tools, part 4), written
+ *   in only when they differ from the usual;
+ * The host element, <hfos-chat>, has an `open` attribute while the chat is open. A greeting bubble, when the chat has
+ * one, is a second script after this one (lib/chat/bubble.ts), so the usual loader stays small.
  */
-import { chatColorsOf, chatPlacementOf, type ChatPlacement } from '@hfos/core';
+import {
+  chatColorsOf,
+  chatFontOf,
+  chatPlacementOf,
+  chatRadiiOf,
+  type ChatCorners,
+  type ChatPlacement,
+  type ChatRadii,
+} from '@hfos/core';
 
 export interface LoaderOptions {
   /** This app's origin, like https://app.handsfreeos.com. */
@@ -36,6 +47,13 @@ export interface LoaderOptions {
   readonly text?: string | null;
   /** Where the button sits on computers and phones; a computer's corner alone is enough for older callers. */
   readonly placement?: ChatPlacement;
+  /**
+   * The button's font (the chat's, else the brand kit's): used when the site has it, which Match my website makes
+   * likely; the loader never loads a font onto someone else's site. Null: the computer's own.
+   */
+  readonly font?: string | null;
+  /** The button's and window's corners (the chat's, else the brand kit's); null: the usual round button. */
+  readonly corners?: ChatCorners | null;
   readonly position: 'left' | 'right';
   /** The preview page's workspace: its chat window answers through the test console instead. */
   readonly preview: string | null;
@@ -50,7 +68,13 @@ const ICON_BUTTON = 'padding:0;width:54px;justify-content:center';
 const LABEL_BUTTON = 'padding:0 20px 0 17px;width:auto';
 
 /** The launcher and window's styles. The window animates itself (and respects reduced motion). */
-function styles(accent: string, text: string, place: ChatPlacement): string {
+function styles(
+  accent: string,
+  text: string,
+  place: ChatPlacement,
+  radii: ChatRadii,
+  font: string,
+): string {
   const side = place.desktop.position;
   const other = side === 'left' ? 'right' : 'left';
   const lifted = (n: number) => (n ? `calc(var(--b) + ${n}px)` : 'var(--b)');
@@ -79,11 +103,11 @@ function styles(accent: string, text: string, place: ChatPlacement): string {
   return [
     ':host{all:initial;--b:max(20px,env(safe-area-inset-bottom))}',
     `button,iframe{position:fixed;z-index:2147483000;${side}:24px}`,
-    `button{bottom:${lifted(place.desktop.lift)};display:flex;align-items:center;gap:9px;height:54px;${icon ? ICON_BUTTON : 'padding:0 20px 0 17px'};border:0;border-radius:99px;background:${accent};color:${text};font:600 15px system-ui;box-shadow:0 8px 24px #0004;cursor:pointer}`,
+    `button{bottom:${lifted(place.desktop.lift)};display:flex;align-items:center;gap:9px;height:54px;${icon ? ICON_BUTTON : 'padding:0 20px 0 17px'};border:0;border-radius:${radii.launcher};background:${accent};color:${text};font:600 15px ${font};box-shadow:0 8px 24px #0004;cursor:pointer}`,
     icon ? 'span{display:none}' : '',
     'svg{width:22px;height:22px}',
     `i{position:absolute;top:-5px;${side}:-5px;min-width:11px;padding:0 5px;border-radius:99px;background:#191d25;color:#fff;font:700 11px/21px system-ui;text-align:center;box-shadow:0 0 0 2px #fff}`,
-    'iframe{bottom:20px;width:380px;height:min(704px,100% - 40px);border:0;border-radius:16px;box-shadow:0 24px 60px #0004}',
+    `iframe{bottom:20px;width:380px;height:min(704px,100% - 40px);border:0;border-radius:${radii.window};box-shadow:0 24px 60px #0004}`,
     // A replaced element doesn't stretch between top and bottom, so the sheet's height is written out.
     `@media(max-width:480px){:host{--b:max(16px,env(safe-area-inset-bottom))}button{${phone}}${phoneMore}iframe{inset:env(safe-area-inset-top) 0 auto;width:100%;height:calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom));border-radius:0;box-shadow:0 0 0 99vmax ${accent}}}`,
     '[hidden]{display:none!important}',
@@ -119,6 +143,12 @@ const BODY =
 
 const json = (v: string) => JSON.stringify(v);
 
+/** The button's font as CSS: the font named, if the site has it, else the computer's own. */
+export const launcherFont = (font: string | null | undefined): string => {
+  const name = chatFontOf(font);
+  return name ? `"${name}",system-ui` : 'system-ui';
+};
+
 /** The loader for one widget, its look written in (the route keeps it for 5 minutes). */
 export function loaderScript(o: LoaderOptions): string {
   const { accent, accentText } = chatColorsOf({ accentColor: o.accent, textColor: o.text });
@@ -128,7 +158,7 @@ export function loaderScript(o: LoaderOptions): string {
     `K=${json(o.key)}`,
     `V=${json(o.preview ? `&preview=${o.preview}` : '')}`,
     `L=${json(o.label)}`,
-    `C=${json(styles(accent, accentText, placement))}`,
+    `C=${json(styles(accent, accentText, placement, chatRadiiOf(o.corners ?? null), launcherFont(o.font)))}`,
     `I=${json(ICON)}`,
   ].join(',');
   return `/*HandsFreeOS chat v1*/{const ${consts};${BODY}}\n`;

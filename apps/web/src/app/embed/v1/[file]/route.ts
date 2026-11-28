@@ -1,8 +1,10 @@
 import type { NextRequest } from 'next/server';
+import { bubbleScript } from '@/lib/chat/bubble';
 import { loaderScript } from '@/lib/chat/loader';
 import { lookupChat } from '@/lib/chat/lookup';
 import { publicEnv } from '@/lib/env';
 import { formEmbedScript } from '@/lib/forms/embed-script';
+import { popupScript } from '@/lib/forms/popup-script';
 import { siteCheckScript } from '@/lib/site-check/script';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -34,6 +36,9 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ file: s
   // calendar's embed (core's bookingEmbedSnippet) loads the same script by a name of its own.
   if (file === 'form.js' || file === 'book.js')
     return script(formEmbedScript(), 200, 'public, max-age=86400, s-maxage=86400');
+  // A form or booking page in a pop-up (lib/forms/popup-script.ts): the same for everyone, so kept for a day too.
+  if (file === 'popup.js')
+    return script(popupScript(), 200, 'public, max-age=86400, s-maxage=86400');
   // The texting registration's browser check (lib/site-check/script.ts), loaded by the two scripts above only when the
   // address carries a check's code: the same for everyone, so kept for 5 minutes.
   if (file === 'site-check.js')
@@ -61,19 +66,35 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ file: s
       200,
       MINUTE,
     );
-  const { look, business } = found.config;
+  const { look, business, bubble, face } = found.config;
+  const loader = loaderScript({
+    app: request.nextUrl.origin,
+    key: key!,
+    business: business.name,
+    label: look.launcherLabel,
+    accent: look.accentColor,
+    text: look.textColor,
+    placement: look.placement,
+    position: look.position,
+    font: look.font,
+    corners: look.corners,
+    preview,
+  });
+  // A chat with a greeting bubble gets its script after the loader's (lib/chat/bubble.ts); others don't carry it.
   return script(
-    loaderScript({
-      app: request.nextUrl.origin,
-      key: key!,
-      business: business.name,
-      label: look.launcherLabel,
-      accent: look.accentColor,
-      text: look.textColor,
-      placement: look.placement,
-      position: look.position,
-      preview,
-    }),
+    bubble
+      ? loader +
+          bubbleScript({
+            key: key!,
+            text: bubble.text,
+            after: bubble.after,
+            face: face?.url ?? null,
+            placement: look.placement,
+            corners: look.corners,
+            font: look.font,
+            accent: look.accentColor,
+          })
+      : loader,
     200,
     preview ? 'private, no-store' : 'public, max-age=300, s-maxage=300',
   );

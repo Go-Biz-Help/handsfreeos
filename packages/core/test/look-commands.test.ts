@@ -336,6 +336,73 @@ describe('the brand kit’s font and corners', () => {
   });
 });
 
+describe('how emails look, and the social links (design tools, part 5)', () => {
+  it('keeps the email layout, and null goes back to the usual look', async () => {
+    expect((await lookIn(ws)).email).toBeNull();
+    const r = await run(
+      lookSet,
+      { workspaceId: ws, email: { band: true, logo: 'center', footer: true } },
+      dale,
+    );
+    expect(r).toMatchObject({
+      changed: true,
+      look: { email: { band: true, logo: 'center', footer: true } },
+    });
+    expect(
+      (
+        await run(
+          lookSet,
+          { workspaceId: ws, email: { band: true, logo: 'center', footer: true } },
+          dale,
+        )
+      ).changed,
+    ).toBe(false);
+    await run(lookSet, { workspaceId: ws, email: null }, dale);
+    expect((await lookIn(ws)).email).toBeNull();
+    await expectHfos(
+      () =>
+        run(lookSet, { workspaceId: ws, email: { band: true, logo: 'top', footer: true } }, dale),
+      'validation',
+    );
+  });
+
+  it('keeps social links as web addresses named for their sites, once each, and [] takes them off', async () => {
+    const r = await run(
+      lookSet,
+      {
+        workspaceId: ws,
+        socials: [
+          'facebook.com/lookplumbing',
+          'https://www.instagram.com/lookplumbing/',
+          'http://facebook.com/lookplumbing',
+          'lookplumbing.com/blog',
+        ],
+      },
+      dale,
+    );
+    expect(r.look.socials?.links).toEqual([
+      { kind: 'facebook', url: 'https://facebook.com/lookplumbing' },
+      { kind: 'instagram', url: 'https://www.instagram.com/lookplumbing/' },
+      { kind: 'other', url: 'https://lookplumbing.com/blog' },
+    ]);
+    const err = await expectHfos(
+      () => run(lookSet, { workspaceId: ws, socials: ['not a link'] }, dale),
+      'validation',
+    );
+    expect(JSON.stringify(err.details)).toContain('facebook.com/yourbusiness');
+    await expectHfos(
+      () => run(lookSet, { workspaceId: ws, socials: ['javascript:alert(1)'] }, dale),
+      'validation',
+    );
+    await expectHfos(
+      () => run(lookSet, { workspaceId: ws, socials: ['facebook.com/x'] }, marco),
+      'forbidden',
+    );
+    await run(lookSet, { workspaceId: ws, socials: [] }, dale);
+    expect((await lookIn(ws)).socials).toBeNull();
+  });
+});
+
 describe('the website chat', () => {
   it('starts in the business’s colour, and follows it unless it was given its own', async () => {
     const r = await run(

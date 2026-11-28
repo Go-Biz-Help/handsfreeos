@@ -140,6 +140,7 @@ export * from './ai-setup/index';
 export * from './chat/index';
 // A campaign's state and its calls, as the Campaigns pages and the Assistant say them.
 export * from './campaigns/words';
+export * from './campaigns/email-blocks';
 export * from './attention/index';
 // The audit log's sentence, actor and kind of change for each row, on the web and in the Assistant's read of it.
 export * from './audit/describe';

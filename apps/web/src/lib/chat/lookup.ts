@@ -11,11 +11,15 @@
  */
 import {
   chatAskForOf,
+  chatBubbleOf,
   chatColorOf,
   chatColorsOf,
+  chatCornersOf,
+  chatFontOf,
   chatPlacementOf,
   chatWhenAwayOf,
   type ChatAskFor,
+  type ChatCorners,
   type ChatPlacement,
   type ChatWhenAway,
 } from '@hfos/core';
@@ -27,6 +31,10 @@ export interface ChatConfig {
     /** Its logo, on the header's white square instead of its initials; null when it has none. */
     readonly logo: { readonly url: string; readonly width: number; readonly height: number } | null;
   };
+  /** A picture from Your pictures in the top bar, instead of the logo or initials; null: none. */
+  readonly face: { readonly url: string; readonly width: number; readonly height: number } | null;
+  /** The words that pop up beside the button after `after` seconds; null: none. */
+  readonly bubble: { readonly text: string; readonly after: number } | null;
   /** The AI teammate that answers here: its name, nothing else. */
   readonly teammate: { readonly name: string } | null;
   readonly greeting: string | null;
@@ -49,6 +57,10 @@ export interface ChatConfig {
     readonly position: 'left' | 'right';
     /** Where the button sits on computers and on phones. */
     readonly placement: ChatPlacement;
+    /** A Google font's name (its own, else the brand kit's); null: the usual. */
+    readonly font: string | null;
+    /** Its corners (its own, else the brand kit's); null: the usual. */
+    readonly corners: ChatCorners | null;
   };
   readonly askFor: ChatAskFor;
   /** The texts box's wording (the booking page's, for a chat); null when the widget doesn't offer it. */
@@ -96,7 +108,10 @@ const text = (v: unknown): string | null => (typeof v === 'string' && v.trim() ?
 
 /** The worker's answer, read defensively: anything it doesn't say falls back to the widget defaults. */
 
-/** The business's logo, when the worker sent a web address and its size; anything else means its initials. */
+/**
+ * The business's logo (or the face in the top bar), when the worker sent a web address and its size; anything else
+ * means its initials.
+ */
 function logoOf(raw: unknown): ChatConfig['business']['logo'] {
   if (!isObj(raw) || typeof raw.url !== 'string') return null;
   const size = (v: unknown) =>
@@ -145,6 +160,10 @@ export function parseChatConfig(raw: unknown): ChatConfig | null {
   const max = typeof raw.maxMessageLength === 'number' ? raw.maxMessageLength : 1000;
   return {
     business: { name: text(raw.business.name) ?? 'Chat', logo: logoOf(raw.business.logo) },
+    face: logoOf(raw.face),
+    bubble: isObj(raw.bubble)
+      ? chatBubbleOf({ bubble: raw.bubble.text, bubbleAfter: raw.bubble.after })
+      : null,
     teammate: teammateName ? { name: teammateName } : null,
     greeting: text(raw.greeting),
     awayMessage: text(raw.awayMessage),
@@ -159,6 +178,8 @@ export function parseChatConfig(raw: unknown): ChatConfig | null {
       headerTextColor: headerText,
       position: placement.desktop.position,
       placement,
+      font: chatFontOf(look.font),
+      corners: chatCornersOf(look.corners),
     },
     askFor: chatAskForOf(raw.askFor),
     smsConsent: consent

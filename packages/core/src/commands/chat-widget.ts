@@ -19,6 +19,7 @@ import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { lookOf } from '../look/look';
+import type { PictureRef } from '../look/pictures';
 import { optInNowOf } from '../messaging/legal-source';
 import {
   ChatAskFor,
@@ -52,6 +53,22 @@ function originsOrThrow(typed: readonly string[]): string[] {
       })),
     );
   return origins;
+}
+
+/**
+ * A face for the top bar must be one of this business's pictures: its copy sits under the business's own folder in
+ * `pictures`. Kept as {path, width, height} only.
+ */
+function ownFace(
+  ctx: CommandContext,
+  face: PictureRef | null | undefined,
+): PictureRef | null | undefined {
+  if (!face) return face;
+  if (!face.path.startsWith(`${ctx.scope.workspaceId}/`))
+    throw HfosError.validation([
+      { path: 'face', message: 'Pick a picture from Your pictures (Settings → Workspace).' },
+    ]);
+  return { path: face.path, width: face.width, height: face.height };
 }
 
 /** A named teammate must be this business's live one. */
@@ -118,6 +135,11 @@ export const chatWidgetCreate = defineCommand({
         textColor: input.textColor?.toLowerCase() ?? null,
         headerColor: input.headerColor?.toLowerCase() ?? null,
         showLogo: input.showLogo,
+        font: input.font ?? null,
+        corners: input.corners ?? null,
+        bubble: input.bubble ?? null,
+        bubbleAfter: input.bubbleAfter,
+        face: ownFace(ctx, input.face) ?? null,
         awayMessage: input.awayMessage ?? null,
         whenAway: input.whenAway,
         askFor: input.askFor ?? ChatAskFor.parse({}),
@@ -183,6 +205,11 @@ export const chatWidgetUpdate = defineCommand({
     put('textColor', input.textColor === null ? null : input.textColor?.toLowerCase());
     put('headerColor', input.headerColor === null ? null : input.headerColor?.toLowerCase());
     put('showLogo', input.showLogo);
+    put('font', input.font);
+    put('corners', input.corners);
+    put('bubble', input.bubble);
+    put('bubbleAfter', input.bubbleAfter);
+    put('face', ownFace(ctx, input.face));
     put('awayMessage', input.awayMessage);
     put('whenAway', input.whenAway);
     if (input.askFor) {

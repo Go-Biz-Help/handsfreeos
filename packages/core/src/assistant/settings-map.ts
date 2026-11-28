@@ -145,7 +145,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     where: ['Settings', 'Workspace'],
     onScreen: [
       'Workspace: Business name, Time zone, Industry, Website, Review link (Google Business Profile), and Business hours (the AI teammate’s after-hours follows them)',
-      'Brand kit: the logo and the colour on the booking page, website chat, invoices and emails; then Match my website, Font and Corners, which forms and booking pages that haven’t picked their own follow',
+      'Brand kit: the logo and the colour on the booking page, website chat, invoices and emails; then Match my website, Font and Corners, which forms and booking pages that haven’t picked their own follow; then Social links (Facebook, Instagram and the rest: Add a link, and Remove on each), for email footers',
       'Your pictures: the business’s library of pictures (Upload pictures, or drop them on it); pressing one opens its name, What it shows, and Remove',
       'Your page: Show your page, and once it’s on, Your page is at, with Copy the link and Open it',
       'Getting started guide: Show Getting started, for everyone in the business',
@@ -161,6 +161,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'the business’s street address, which the setup’s Your business asks (it isn’t on this screen): estimates and invoices show it unless Settings → Payments gives another',
       'the colour, taking the logo off, or looking for the logo on the website again; adding one from their own computer or phone is theirs, under Brand kit',
       'the brand kit’s font and corners, or match them and the colour to a website (read_website_brand_kit, then do_look_set)',
+      'the social links (do_look_set with socials, the whole list)',
       'a picture’s name and what it shows, or take one out of Your pictures; adding pictures from their own computer or phone is theirs',
       'turn your page on or off',
       'turn Getting started on or off for everyone in the business',
@@ -673,6 +674,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Where senders’ mail goes: Remove',
       'Blocked addresses: Unblock',
       'Mail from people not in Contacts: Add or link, Dismiss',
+      'How your emails look: Colour band across the top (on or off), Logo (Left or Centre), Footer with your address, phone, website and social links (on or off), a preview of an email as customers get it, and Save; Back to the usual look once there is one',
     ],
     notHere: [
       'connecting a Gmail mailbox: coming soon, so connect Outlook or send from the workspace address',
@@ -693,6 +695,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'block an address',
       'file mail from someone not in Contacts under a customer, or dismiss it',
       'forget where a sender’s mail goes, so it is sorted as usual',
+      'how the automatic emails and campaigns look: the colour band, the logo left or centre, the footer (do_look_set with email; null goes back to the usual look)',
     ],
     handovers: [
       {

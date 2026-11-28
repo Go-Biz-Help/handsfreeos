@@ -2077,6 +2077,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/calendar.use_design_everywhere": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put one calendar’s saved booking page design (its colours, font, shape, layout and pictures) on every other calendar that isn’t archived. Each saves as a new revision; nothing else about them changes.
+         * @description Risk level 2. Requires calendars.manage. Emits calendar.updated.
+         */
+        post: operations["command_calendar_use_design_everywhere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/call_suggestion.decide": {
         parameters: {
             query?: never;
@@ -2367,7 +2387,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change the one email an email campaign sends (its subject and words), before it’s approved. {first_name} becomes each person’s first name.
+         * Change the one email an email campaign sends (its subject and words, or its blocks: words, pictures, buttons, lines and spaces, each lined up left, centre or right), before it’s approved. {first_name} becomes each person’s first name.
          * @description Risk level 1. Requires workflows.manage. Emits campaign.email_edited.
          */
         post: operations["command_campaign_update_email"];
@@ -5567,7 +5587,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Put one form’s design (its colours, font, shape and layout) on every other form. Live forms show it straight away; nothing else about them changes.
+         * Put one form’s design (its colours, font, shape, layout, and pictures across the top and behind) on every other form. Live forms show it straight away; nothing else about them changes.
          * @description Risk level 2. Requires forms.manage. Emits form.draft_saved, form.published.
          */
         post: operations["command_form_use_design_everywhere"];
@@ -7267,7 +7287,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), or take its logo off so its initials stand in. Forms, booking pages and the website chat that haven’t picked their own follow it.
+         * Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), its social links, and how its emails look (a colour band, the logo on the left or in the centre, a footer); or take its logo off so its initials stand in. Forms, booking pages, emails and the website chat that haven’t picked their own follow it.
          * @description Risk level 1. Requires workspace.update. Emits look.changed.
          */
         post: operations["command_look_set"];
@@ -17387,7 +17407,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook, LinkedIn, Threads and X: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), and whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month). What isn’t given stays as it is.
+         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook, LinkedIn, Threads and X: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month), and how its pictures look (the brand kit’s logo on them, and the fonts and layouts it may use). What isn’t given stays as it is.
          * @description Risk level 1. Requires socialcontent.manage. Emits socialcontent.settings.saved.
          */
         post: operations["command_socialcontent_settings_save"];
@@ -33038,6 +33058,17 @@ export interface operations {
                         };
                         /** @default null */
                         design?: {
+                            /**
+                             * @default left
+                             * @enum {string}
+                             */
+                            align?: "left" | "center";
+                            /** @default null */
+                            backdrop?: {
+                                height: number;
+                                path: string;
+                                width: number;
+                            } | null;
                             /** @default {} */
                             button?: {
                                 /** @default true */
@@ -33067,6 +33098,12 @@ export interface operations {
                             };
                             /** @default null */
                             corners?: ("square" | "slight" | "round") | null;
+                            /** @default null */
+                            cover?: {
+                                height: number;
+                                path: string;
+                                width: number;
+                            } | null;
                             /**
                              * @default boxed
                              * @enum {string}
@@ -33334,6 +33371,12 @@ export interface operations {
                             crewSize?: number;
                             /** @default [] */
                             members?: {
+                                /** @default null */
+                                picture?: {
+                                    height: number;
+                                    path: string;
+                                    width: number;
+                                } | null;
                                 /** @default 0 */
                                 priority?: number;
                                 /** @default false */
@@ -33542,6 +33585,37 @@ export interface operations {
                         }[];
                         /** @enum {string} */
                         status: "draft" | "active" | "paused" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_calendar_use_design_everywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calendarIds: string[];
                     };
                 };
             };
@@ -34089,7 +34163,65 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    body: string;
+                    blocks?: ({
+                        /**
+                         * @default left
+                         * @enum {string}
+                         */
+                        align?: "left" | "center" | "right";
+                        id: string;
+                        /** @enum {string} */
+                        kind: "words";
+                        text: string;
+                    } | {
+                        /**
+                         * @default center
+                         * @enum {string}
+                         */
+                        align?: "left" | "center" | "right";
+                        id: string;
+                        /** @enum {string} */
+                        kind: "picture";
+                        /** @default  */
+                        link?: string | "";
+                        picture: {
+                            height: number;
+                            path: string;
+                            width: number;
+                        };
+                        /**
+                         * @default full
+                         * @enum {string}
+                         */
+                        size?: "small" | "medium" | "large" | "full";
+                        /** @default  */
+                        words?: string;
+                    } | {
+                        /**
+                         * @default left
+                         * @enum {string}
+                         */
+                        align?: "left" | "center" | "right";
+                        id: string;
+                        /** @enum {string} */
+                        kind: "button";
+                        label: string;
+                        url: string;
+                    } | {
+                        id: string;
+                        /** @enum {string} */
+                        kind: "line";
+                    } | {
+                        id: string;
+                        /** @enum {string} */
+                        kind: "space";
+                        /**
+                         * @default medium
+                         * @enum {string}
+                         */
+                        size?: "small" | "medium" | "large";
+                    })[] | null;
+                    body?: string;
                     /** Format: uuid */
                     campaignId: string;
                     subject: string;
@@ -34208,10 +34340,19 @@ export interface operations {
                         phone?: "never" | "when_needed" | "after_first_message" | "before_chat";
                     };
                     awayMessage?: string | null;
+                    bubble?: string | null;
+                    bubbleAfter?: number;
+                    corners?: ("square" | "slight" | "round") | null;
                     dailyCap?: number;
                     /** @enum {string} */
                     desktopButton?: "label" | "icon";
                     desktopLift?: number;
+                    face?: {
+                        height: number;
+                        path: string;
+                        width: number;
+                    } | null;
+                    font?: string | null;
                     greeting?: string | null;
                     headerColor?: string | null;
                     launcherLabel?: string;
@@ -34401,10 +34542,19 @@ export interface operations {
                         phone?: "never" | "when_needed" | "after_first_message" | "before_chat";
                     };
                     awayMessage?: string | null;
+                    bubble?: string | null;
+                    bubbleAfter?: number;
+                    corners?: ("square" | "slight" | "round") | null;
                     dailyCap?: number;
                     /** @enum {string} */
                     desktopButton?: "label" | "icon";
                     desktopLift?: number;
+                    face?: {
+                        height: number;
+                        path: string;
+                        width: number;
+                    } | null;
+                    font?: string | null;
                     greeting?: string | null;
                     headerColor?: string | null;
                     launcherLabel?: string;
@@ -44454,6 +44604,15 @@ export interface operations {
                                 value: "square" | "slight" | "round";
                             } | null;
                             /** @default null */
+                            email: {
+                                /** Format: date-time */
+                                at: string;
+                                band: boolean;
+                                footer: boolean;
+                                /** @enum {string} */
+                                logo: "left" | "center";
+                            } | null;
+                            /** @default null */
                             font: {
                                 /** Format: date-time */
                                 at: string;
@@ -44485,6 +44644,17 @@ export interface operations {
                                 found: boolean;
                                 url: string;
                             } | null;
+                            /** @default null */
+                            socials: {
+                                /** Format: date-time */
+                                at: string;
+                                links: {
+                                    /** @enum {string} */
+                                    kind: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok" | "x" | "google" | "yelp" | "nextdoor" | "pinterest" | "other";
+                                    /** Format: uri */
+                                    url: string;
+                                }[];
+                            } | null;
                             upload: {
                                 /** Format: date-time */
                                 at: string;
@@ -44514,10 +44684,17 @@ export interface operations {
                 "application/json": {
                     color?: string;
                     corners?: ("square" | "slight" | "round") | null;
+                    email?: {
+                        band: boolean;
+                        footer: boolean;
+                        /** @enum {string} */
+                        logo: "left" | "center";
+                    } | null;
                     font?: string | null;
                     matchedSite?: string;
                     /** @enum {boolean} */
                     removeLogo?: true;
+                    socials?: string[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -44553,6 +44730,15 @@ export interface operations {
                                 value: "square" | "slight" | "round";
                             } | null;
                             /** @default null */
+                            email: {
+                                /** Format: date-time */
+                                at: string;
+                                band: boolean;
+                                footer: boolean;
+                                /** @enum {string} */
+                                logo: "left" | "center";
+                            } | null;
+                            /** @default null */
                             font: {
                                 /** Format: date-time */
                                 at: string;
@@ -44583,6 +44769,17 @@ export interface operations {
                                 at: string;
                                 found: boolean;
                                 url: string;
+                            } | null;
+                            /** @default null */
+                            socials: {
+                                /** Format: date-time */
+                                at: string;
+                                links: {
+                                    /** @enum {string} */
+                                    kind: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok" | "x" | "google" | "yelp" | "nextdoor" | "pinterest" | "other";
+                                    /** Format: uri */
+                                    url: string;
+                                }[];
                             } | null;
                             upload: {
                                 /** Format: date-time */
@@ -44645,6 +44842,15 @@ export interface operations {
                                 value: "square" | "slight" | "round";
                             } | null;
                             /** @default null */
+                            email: {
+                                /** Format: date-time */
+                                at: string;
+                                band: boolean;
+                                footer: boolean;
+                                /** @enum {string} */
+                                logo: "left" | "center";
+                            } | null;
+                            /** @default null */
                             font: {
                                 /** Format: date-time */
                                 at: string;
@@ -44675,6 +44881,17 @@ export interface operations {
                                 at: string;
                                 found: boolean;
                                 url: string;
+                            } | null;
+                            /** @default null */
+                            socials: {
+                                /** Format: date-time */
+                                at: string;
+                                links: {
+                                    /** @enum {string} */
+                                    kind: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok" | "x" | "google" | "yelp" | "nextdoor" | "pinterest" | "other";
+                                    /** Format: uri */
+                                    url: string;
+                                }[];
                             } | null;
                             upload: {
                                 /** Format: date-time */
@@ -69031,6 +69248,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -69047,6 +69266,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -69350,6 +69580,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -69366,6 +69598,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -69615,6 +69858,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -69631,6 +69876,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -69752,6 +70008,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -69768,6 +70026,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -70396,6 +70665,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -70412,6 +70683,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -70580,6 +70862,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -70596,6 +70880,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -70783,6 +71078,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -70799,6 +71096,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -70944,6 +71252,12 @@ export interface operations {
                     facebookPage?: string | null;
                     facebookWhere?: ("profile" | "page")[];
                     networks?: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
+                    pictureLook?: {
+                        fonts?: ("modern" | "classic" | "loud" | "friendly")[] | null;
+                        layouts?: ("bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed")[] | null;
+                        /** @enum {string} */
+                        logo?: "corner" | "last" | "never";
+                    };
                     plan?: {
                         [key: string]: {
                             from?: string;
@@ -70976,7 +71290,32 @@ export interface operations {
                         autoPick: boolean;
                         facebookPage: string | null;
                         facebookWhere: ("profile" | "page")[];
+                        /**
+                         * @default {
+                         *       "font": null,
+                         *       "fontAs": null,
+                         *       "logo": false
+                         *     }
+                         */
+                        kit: {
+                            font: string | null;
+                            fontAs: ("modern" | "classic" | "loud" | "friendly") | null;
+                            logo: boolean;
+                        };
                         networks: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
+                        /**
+                         * @default {
+                         *       "logo": "corner",
+                         *       "fonts": null,
+                         *       "layouts": null
+                         *     }
+                         */
+                        pictureLook: {
+                            fonts: ("modern" | "classic" | "loud" | "friendly")[] | null;
+                            layouts: ("bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed")[] | null;
+                            /** @enum {string} */
+                            logo: "corner" | "last" | "never";
+                        };
                         plan: {
                             facebook: {
                                 from: string;
@@ -80779,6 +81118,17 @@ export interface operations {
                                 };
                                 /** @default null */
                                 design: {
+                                    /**
+                                     * @default left
+                                     * @enum {string}
+                                     */
+                                    align: "left" | "center";
+                                    /** @default null */
+                                    backdrop: {
+                                        height: number;
+                                        path: string;
+                                        width: number;
+                                    } | null;
                                     button: {
                                         /** @default true */
                                         fullWidth: boolean;
@@ -80806,6 +81156,12 @@ export interface operations {
                                     };
                                     /** @default null */
                                     corners: ("square" | "slight" | "round") | null;
+                                    /** @default null */
+                                    cover: {
+                                        height: number;
+                                        path: string;
+                                        width: number;
+                                    } | null;
                                     /**
                                      * @default boxed
                                      * @enum {string}
@@ -81055,6 +81411,12 @@ export interface operations {
                                     crewSize: number;
                                     /** @default [] */
                                     members: {
+                                        /** @default null */
+                                        picture: {
+                                            height: number;
+                                            path: string;
+                                            width: number;
+                                        } | null;
                                         /** @default 0 */
                                         priority: number;
                                         /** @default false */
@@ -81377,6 +81739,64 @@ export interface operations {
                             /** Format: date-time */
                             createdAt: string;
                             email: {
+                                blocks?: ({
+                                    /**
+                                     * @default left
+                                     * @enum {string}
+                                     */
+                                    align: "left" | "center" | "right";
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "words";
+                                    text: string;
+                                } | {
+                                    /**
+                                     * @default center
+                                     * @enum {string}
+                                     */
+                                    align: "left" | "center" | "right";
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "picture";
+                                    /** @default  */
+                                    link: string | "";
+                                    picture: {
+                                        height: number;
+                                        path: string;
+                                        width: number;
+                                    };
+                                    /**
+                                     * @default full
+                                     * @enum {string}
+                                     */
+                                    size: "small" | "medium" | "large" | "full";
+                                    /** @default  */
+                                    words: string;
+                                } | {
+                                    /**
+                                     * @default left
+                                     * @enum {string}
+                                     */
+                                    align: "left" | "center" | "right";
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "button";
+                                    label: string;
+                                    url: string;
+                                } | {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "line";
+                                } | {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "space";
+                                    /**
+                                     * @default medium
+                                     * @enum {string}
+                                     */
+                                    size: "small" | "medium" | "large";
+                                })[] | null;
                                 body: string | null;
                                 edited: boolean;
                                 postalAddress: string | null;
@@ -81585,9 +82005,18 @@ export interface operations {
                                 phone: "never" | "when_needed" | "after_first_message" | "before_chat";
                             };
                             awayMessage: string | null;
+                            bubble: string | null;
+                            bubbleAfter: number;
+                            corners: ("square" | "slight" | "round") | null;
                             /** Format: date-time */
                             createdAt: string;
                             dailyCap: number;
+                            face: {
+                                height: number;
+                                path: string;
+                                width: number;
+                            } | null;
+                            font: string | null;
                             greeting: string | null;
                             headerColor: string | null;
                             hiddenUntilTexting: boolean;
@@ -81689,9 +82118,18 @@ export interface operations {
                                 phone: "never" | "when_needed" | "after_first_message" | "before_chat";
                             };
                             awayMessage: string | null;
+                            bubble: string | null;
+                            bubbleAfter: number;
+                            corners: ("square" | "slight" | "round") | null;
                             /** Format: date-time */
                             createdAt: string;
                             dailyCap: number;
+                            face: {
+                                height: number;
+                                path: string;
+                                width: number;
+                            } | null;
+                            font: string | null;
                             greeting: string | null;
                             headerColor: string | null;
                             hiddenUntilTexting: boolean;
@@ -85262,6 +85700,20 @@ export interface operations {
                             /** @enum {string} */
                             status: "pending" | "verified" | "failed";
                         }[];
+                        emailLook?: {
+                            contact: {
+                                address: string[];
+                                phone: string | null;
+                                socials: {
+                                    /** @enum {string} */
+                                    kind: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok" | "x" | "google" | "yelp" | "nextdoor" | "pinterest" | "other";
+                                    /** Format: uri */
+                                    url: string;
+                                }[];
+                                website: string | null;
+                            };
+                            name: string;
+                        };
                         inboundMxHost: string;
                         mailboxes: {
                             accountEmail: string | null;
@@ -91907,6 +92359,15 @@ export interface operations {
                                     value: "square" | "slight" | "round";
                                 } | null;
                                 /** @default null */
+                                email: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    band: boolean;
+                                    footer: boolean;
+                                    /** @enum {string} */
+                                    logo: "left" | "center";
+                                } | null;
+                                /** @default null */
                                 font: {
                                     /** Format: date-time */
                                     at: string;
@@ -91937,6 +92398,17 @@ export interface operations {
                                     at: string;
                                     found: boolean;
                                     url: string;
+                                } | null;
+                                /** @default null */
+                                socials: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    links: {
+                                        /** @enum {string} */
+                                        kind: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok" | "x" | "google" | "yelp" | "nextdoor" | "pinterest" | "other";
+                                        /** Format: uri */
+                                        url: string;
+                                    }[];
                                 } | null;
                                 upload: {
                                     /** Format: date-time */
@@ -108242,6 +108714,8 @@ export interface operations {
                                     };
                                 };
                             };
+                            /** @default null */
+                            ownPhotoId: string | null;
                             picture: string | null;
                             pictureFailure: string | null;
                             /** @default [] */
@@ -108258,6 +108732,17 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /** @default null */
+                            pictureWords: {
+                                body: string | null;
+                                footer: string | null;
+                                heading: string;
+                                items: string[];
+                                kicker: string | null;
+                                /** @enum {string} */
+                                layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                                mark: string | null;
+                            }[] | null;
                             /**
                              * @default ai
                              * @enum {string}
@@ -108351,6 +108836,8 @@ export interface operations {
                                     };
                                 };
                             };
+                            /** @default null */
+                            ownPhotoId: string | null;
                             picture: string | null;
                             pictureFailure: string | null;
                             /** @default [] */
@@ -108367,6 +108854,17 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /** @default null */
+                            pictureWords: {
+                                body: string | null;
+                                footer: string | null;
+                                heading: string;
+                                items: string[];
+                                kicker: string | null;
+                                /** @enum {string} */
+                                layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                                mark: string | null;
+                            }[] | null;
                             /**
                              * @default ai
                              * @enum {string}
@@ -108460,6 +108958,8 @@ export interface operations {
                                     };
                                 };
                             };
+                            /** @default null */
+                            ownPhotoId: string | null;
                             picture: string | null;
                             pictureFailure: string | null;
                             /** @default [] */
@@ -108476,6 +108976,17 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /** @default null */
+                            pictureWords: {
+                                body: string | null;
+                                footer: string | null;
+                                heading: string;
+                                items: string[];
+                                kicker: string | null;
+                                /** @enum {string} */
+                                layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                                mark: string | null;
+                            }[] | null;
                             /**
                              * @default ai
                              * @enum {string}
@@ -108596,6 +109107,8 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @default null */
+                        ownPhotoId: string | null;
                         picture: string | null;
                         pictureFailure: string | null;
                         /** @default [] */
@@ -108612,6 +109125,17 @@ export interface operations {
                         pictureState: "none" | "waiting" | "making" | "made" | "failed";
                         /** @enum {string} */
                         pictureWay: "design" | "photo" | "own";
+                        /** @default null */
+                        pictureWords: {
+                            body: string | null;
+                            footer: string | null;
+                            heading: string;
+                            items: string[];
+                            kicker: string | null;
+                            /** @enum {string} */
+                            layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                            mark: string | null;
+                        }[] | null;
                         /**
                          * @default ai
                          * @enum {string}
@@ -108736,6 +109260,8 @@ export interface operations {
                                     };
                                 };
                             };
+                            /** @default null */
+                            ownPhotoId: string | null;
                             picture: string | null;
                             pictureFailure: string | null;
                             /** @default [] */
@@ -108752,6 +109278,17 @@ export interface operations {
                             pictureState: "none" | "waiting" | "making" | "made" | "failed";
                             /** @enum {string} */
                             pictureWay: "design" | "photo" | "own";
+                            /** @default null */
+                            pictureWords: {
+                                body: string | null;
+                                footer: string | null;
+                                heading: string;
+                                items: string[];
+                                kicker: string | null;
+                                /** @enum {string} */
+                                layout: "bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed";
+                                mark: string | null;
+                            }[] | null;
                             /**
                              * @default ai
                              * @enum {string}
@@ -109093,7 +109630,32 @@ export interface operations {
                             autoPick: boolean;
                             facebookPage: string | null;
                             facebookWhere: ("profile" | "page")[];
+                            /**
+                             * @default {
+                             *       "font": null,
+                             *       "fontAs": null,
+                             *       "logo": false
+                             *     }
+                             */
+                            kit: {
+                                font: string | null;
+                                fontAs: ("modern" | "classic" | "loud" | "friendly") | null;
+                                logo: boolean;
+                            };
                             networks: ("instagram" | "facebook" | "linkedin" | "threads" | "x" | "tiktok" | "youtube")[];
+                            /**
+                             * @default {
+                             *       "logo": "corner",
+                             *       "fonts": null,
+                             *       "layouts": null
+                             *     }
+                             */
+                            pictureLook: {
+                                fonts: ("modern" | "classic" | "loud" | "friendly")[] | null;
+                                layouts: ("bold" | "clean" | "split" | "number" | "list" | "quote" | "myth" | "beforeAfter" | "note" | "highlight" | "photo" | "framed")[] | null;
+                                /** @enum {string} */
+                                logo: "corner" | "last" | "never";
+                            };
                             plan: {
                                 facebook: {
                                     from: string;

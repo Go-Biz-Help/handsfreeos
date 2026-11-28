@@ -5594,6 +5594,37 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 300
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "band": {
+                    "type": "boolean"
+                  },
+                  "logo": {
+                    "type": "string",
+                    "enum": ["left", "center"]
+                  },
+                  "footer": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["band", "logo", "footer"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "socials": {
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 300
+            }
           }
         },
         "required": ["workspaceId"]
@@ -17353,6 +17384,59 @@
           },
           "autoPick": {
             "type": "boolean"
+          },
+          "pictureLook": {
+            "type": "object",
+            "properties": {
+              "logo": {
+                "type": "string",
+                "enum": ["corner", "last", "never"]
+              },
+              "fonts": {
+                "anyOf": [
+                  {
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["modern", "classic", "loud", "friendly"]
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "layouts": {
+                "anyOf": [
+                  {
+                    "maxItems": 12,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "bold",
+                        "clean",
+                        "split",
+                        "number",
+                        "list",
+                        "quote",
+                        "myth",
+                        "beforeAfter",
+                        "note",
+                        "highlight",
+                        "photo",
+                        "framed"
+                      ]
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
           }
         },
         "required": ["workspaceId"]

@@ -400,6 +400,97 @@ describe('chat widgets (owners and admins)', () => {
     );
   });
 
+  it('keeps its font, corners, greeting bubble and a face from Your pictures (design tools, part 4)', async () => {
+    const { widgetId: w } = await run(
+      chatWidgetCreate,
+      { workspaceId: wsId, allowedOrigins: ['design-heating.com'] },
+      owner,
+    );
+    const ref = { workspaceId: wsId, widgetId: w };
+    // Nothing picked: it follows the brand kit, with no bubble and no face.
+    const { widget: fresh } = await ask(chatWidgetGet, ref, member);
+    expect(fresh).toMatchObject({
+      font: null,
+      corners: null,
+      bubble: null,
+      bubbleAfter: 8,
+      face: null,
+    });
+
+    const face = {
+      path: `${wsId}/${'3'.repeat(8)}-3333-4333-8333-${'3'.repeat(12)}.webp`,
+      width: 600,
+      height: 600,
+    };
+    const change = {
+      ...ref,
+      font: 'Poppins',
+      corners: 'round',
+      bubble: '  Need a quote? I can help.  ',
+      bubbleAfter: 5,
+      face,
+    };
+    expect((await run(chatWidgetUpdate, change, manager)).updated).toEqual([
+      'font',
+      'corners',
+      'bubble',
+      'bubbleAfter',
+      'face',
+    ]);
+    // Again: nothing to change, the face compared as kept.
+    expect((await run(chatWidgetUpdate, change, manager)).updated).toEqual([]);
+    const { widget } = await ask(chatWidgetGet, ref, member);
+    expect(widget).toMatchObject({
+      font: 'Poppins',
+      corners: 'round',
+      bubble: 'Need a quote? I can help.',
+      bubbleAfter: 5,
+      face,
+    });
+
+    // Back to the brand kit's, and no bubble.
+    await run(
+      chatWidgetUpdate,
+      { ...ref, font: null, corners: null, bubble: '', face: null },
+      manager,
+    );
+    const { widget: back } = await ask(chatWidgetGet, ref, member);
+    expect(back).toMatchObject({ font: null, corners: null, bubble: null, face: null });
+
+    // Only fonts spelt as Google names them, the three corners, a short bubble, and the business's own pictures.
+    await expectHfos(
+      () => run(chatWidgetUpdate, { ...ref, font: 'Comic Sans; color:red' }, manager),
+      'validation',
+    );
+    await expectHfos(
+      () => run(chatWidgetUpdate, { ...ref, corners: 'pill' }, manager),
+      'validation',
+    );
+    await expectHfos(
+      () => run(chatWidgetUpdate, { ...ref, bubble: 'x'.repeat(121) }, manager),
+      'validation',
+    );
+    await expectHfos(
+      () => run(chatWidgetUpdate, { ...ref, bubbleAfter: 0 }, manager),
+      'validation',
+    );
+    const notOurs = await expectHfos(
+      () =>
+        run(
+          chatWidgetUpdate,
+          {
+            ...ref,
+            face: { ...face, path: face.path.replace(wsId, '9'.repeat(8) + wsId.slice(8)) },
+          },
+          manager,
+        ),
+      'validation',
+    );
+    expect(notOurs.details).toEqual([
+      { path: 'face', message: expect.stringMatching(/Your pictures/) },
+    ]);
+  });
+
   it('names the business’s pages when it offers the texts box, so the box links to the policy and terms', async () => {
     const siteOf = async (workspaceId: string) =>
       (
@@ -512,6 +603,11 @@ describe('chat widgets (owners and admins)', () => {
         'ownTextColor',
         'headerColor',
         'showLogo',
+        'font',
+        'corners',
+        'bubble',
+        'bubbleAfter',
+        'face',
         'position',
         'placement',
         'awayMessage',

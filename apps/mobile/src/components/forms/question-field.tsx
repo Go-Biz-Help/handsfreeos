@@ -1,6 +1,7 @@
 import {
   isSingleCheckbox,
   MAX_QUANTITY,
+  PICTURE_SIZE_SHARE,
   money,
   quantityRowsOf,
   quantityTotal,
@@ -8,17 +9,33 @@ import {
   quantityWorthCents,
   rowPriceCents,
   type AnswerValue,
+  type ItemAlign,
+  type PictureRef,
+  type PictureSize,
   type Question,
 } from '@hfos/core';
-import { Minus, Plus } from 'lucide-react-native';
+import { Minus, Plus } from '@/components/icons';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { Image, Linking, Pressable, View } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
+import { pictureSrc } from '@/look/picture-src';
+
+/** Words lined up across the form, as the web lines them up. */
+const TEXT_ALIGN: Readonly<Record<ItemAlign, string>> = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+};
+const SELF_ALIGN: Readonly<Record<ItemAlign, 'flex-start' | 'center' | 'flex-end'>> = {
+  left: 'flex-start',
+  center: 'center',
+  right: 'flex-end',
+};
 
 /**
  * One question, on a phone (M17).
@@ -46,16 +63,26 @@ export function QuestionField({
 }) {
   const config = question.config as Record<string, unknown>;
   const choices = Array.isArray(config['choices'])
-    ? (config['choices'] as { id?: string; label?: string }[])
+    ? (config['choices'] as { id?: string; label?: string; picture?: PictureRef | null }[])
     : [];
 
-  if (question.type === 'content')
+  if (question.type === 'content') {
+    const align = TEXT_ALIGN[(config['align'] as ItemAlign | undefined) ?? 'left'];
+    const body = typeof config['body'] === 'string' ? config['body'] : '';
     return (
       <View className="gap-1 py-2">
-        {question.title ? <Text className="text-base font-semibold">{question.title}</Text> : null}
-        {question.help ? <Text className="text-[13px] text-text-2">{question.help}</Text> : null}
+        {question.title ? (
+          <Text className={cn('text-base font-semibold', align)}>{question.title}</Text>
+        ) : null}
+        {question.help ? (
+          <Text className={cn('text-[13px] text-text-2', align)}>{question.help}</Text>
+        ) : null}
+        {body ? <Text className={cn('text-[14px] text-text-2', align)}>{body}</Text> : null}
       </View>
     );
+  }
+
+  if (question.type === 'picture') return <PictureItem question={question} />;
 
   if (isSingleCheckbox(question)) {
     // One box to check: the question is the words beside it. Checked is a yes; unchecked is no answer at all.
@@ -147,6 +174,15 @@ export function QuestionField({
                     picked ? 'border-accent bg-accent' : 'border-border-strong',
                   )}
                 />
+                {choice.picture ? (
+                  <Image
+                    source={{ uri: pictureSrc(choice.picture.path) }}
+                    accessibilityIgnoresInvertColors
+                    className="my-1.5 h-12 w-16 rounded-[6px]"
+                    resizeMode="cover"
+                    testID={`choice-picture-${question.id}-${id}`}
+                  />
+                ) : null}
                 <Text className="flex-1 text-[15px]">{String(choice.label ?? id)}</Text>
               </Pressable>
             );
@@ -182,6 +218,57 @@ export function QuestionField({
         <Text className="text-[12.5px] text-danger-text" testID={`problem-${question.id}`}>
           {problem}
         </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * A picture on the form, as the web shows it: its share of the width, lined up left, centre or right, its caption
+ * underneath, and pressing it opens its web page when it has one. Its title is what it shows, read out by VoiceOver.
+ */
+function PictureItem({ question }: { question: Question }) {
+  const { picture, size, align, link } = question.config as {
+    picture: PictureRef | null;
+    size?: PictureSize;
+    align?: ItemAlign;
+    link?: string;
+  };
+  if (!picture) return null;
+  const place = size === 'full' ? 'center' : (align ?? 'center');
+  const opens = link && /^https?:\/\//i.test(link) ? link : null;
+  const image = (
+    <Image
+      source={{ uri: pictureSrc(picture.path) }}
+      accessibilityLabel={question.title}
+      accessibilityIgnoresInvertColors
+      resizeMode="cover"
+      className="rounded-menu"
+      style={{ width: '100%', aspectRatio: picture.width / picture.height }}
+      testID={`picture-${question.id}`}
+    />
+  );
+  return (
+    <View
+      className="gap-1.5 py-2"
+      style={{
+        width: `${PICTURE_SIZE_SHARE[size ?? 'large'] * 100}%`,
+        alignSelf: SELF_ALIGN[place],
+      }}
+    >
+      {opens ? (
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={question.title}
+          onPress={() => void Linking.openURL(opens)}
+        >
+          {image}
+        </Pressable>
+      ) : (
+        image
+      )}
+      {question.help ? (
+        <Text className={cn('text-[13px] text-text-3', TEXT_ALIGN[place])}>{question.help}</Text>
       ) : null}
     </View>
   );

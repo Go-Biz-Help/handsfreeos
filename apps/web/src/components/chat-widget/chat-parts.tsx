@@ -129,6 +129,7 @@ export function PhasePanel({ kind, onRetry }: { kind: UnavailableKind; onRetry?:
 export function ChatHeader({
   business,
   logo,
+  face = null,
   subtitle,
   markColor,
   onClose,
@@ -136,6 +137,8 @@ export function ChatHeader({
   business: string;
   /** The business's logo, on the white square instead of its initials. */
   logo: ShownLogo | null;
+  /** A picture from Your pictures (a person, the team), round, instead of the logo or initials. */
+  face?: ShownLogo | null;
   subtitle: string;
   markColor: string;
   onClose: (() => void) | null;
@@ -143,7 +146,16 @@ export function ChatHeader({
   const box = logo ? logoBox(logo, 34) : null;
   return (
     <header className="flex flex-none items-center gap-2.5 bg-[var(--whd)] py-3 pl-3.5 pr-2 text-[var(--whd-on)]">
-      {logo && box ? (
+      {face ? (
+        <img
+          src={face.url}
+          alt=""
+          width={36}
+          height={36}
+          className="h-9 w-9 flex-none rounded-full border-2 border-white/80 bg-white object-cover"
+          data-testid="chat-face"
+        />
+      ) : logo && box ? (
         <span
           aria-hidden
           className="inline-flex h-[34px] min-w-[34px] flex-none items-center justify-center rounded-[10px] bg-white"
@@ -295,10 +307,10 @@ export function LogEntry({
         <div
           title={timeOf(item.at)}
           className={cn(
-            'whitespace-pre-wrap rounded-2xl px-3 py-[9px] text-sm leading-[1.45] [overflow-wrap:anywhere]',
+            'whitespace-pre-wrap rounded-[var(--wr-bub,1rem)] px-3 py-[9px] text-sm leading-[1.45] [overflow-wrap:anywhere]',
             mine
-              ? 'rounded-br-[5px] bg-[var(--wacc)] text-[var(--wacc-on)]'
-              : 'rounded-bl-[5px] border border-border bg-card text-text',
+              ? 'rounded-br-[var(--wr-tail,5px)] bg-[var(--wacc)] text-[var(--wacc-on)]'
+              : 'rounded-bl-[var(--wr-tail,5px)] border border-border bg-card text-text',
             item.status === 'sending' && 'opacity-70',
           )}
         >
@@ -340,7 +352,7 @@ export function Typing({ name }: { name: string }) {
         <TeammateMark size="xs" className="h-4 w-4 shadow-none" />
         <b className="font-semibold text-text-2">{name}</b>
       </div>
-      <div className="hfos-dots inline-flex items-center gap-1 self-start rounded-2xl rounded-bl-[5px] border border-border bg-card px-3.5 py-3">
+      <div className="hfos-dots inline-flex items-center gap-1 self-start rounded-[var(--wr-bub,1rem)] rounded-bl-[var(--wr-tail,5px)] border border-border bg-card px-3.5 py-3">
         <i />
         <i />
         <i />
@@ -354,7 +366,7 @@ export function TestMissing() {
   return (
     <div
       role="status"
-      className="my-2 flex flex-col items-center gap-1.5 self-center rounded-[14px] border border-dashed border-border-strong bg-card px-4 py-4 text-center"
+      className="my-2 flex flex-col items-center gap-1.5 self-center rounded-[var(--wr-card,14px)] border border-dashed border-border-strong bg-card px-4 py-4 text-center"
       data-testid="chat-test-missing"
     >
       <FlaskConical className="h-5 w-5 text-text-3" aria-hidden />
@@ -492,7 +504,7 @@ export function DetailsForm(p: DetailsFormProps) {
       ref={form}
       onSubmit={submit}
       noValidate
-      className="flex flex-col gap-2.5 self-stretch rounded-[14px] border border-border bg-card p-3"
+      className="flex flex-col gap-2.5 self-stretch rounded-[var(--wr-card,14px)] border border-border bg-card p-3"
       data-testid={p.testId}
     >
       {p.intro ? <p className="text-[13px] font-medium leading-[1.4]">{p.intro}</p> : null}
@@ -625,7 +637,7 @@ export function DetailsDone({
   const said = [name, contact].filter(Boolean).join(' · ');
   return (
     <div
-      className="flex items-center gap-2.5 self-stretch rounded-[14px] bg-card-2 px-3 py-2.5 text-xs leading-[1.4]"
+      className="flex items-center gap-2.5 self-stretch rounded-[var(--wr-card,14px)] bg-card-2 px-3 py-2.5 text-xs leading-[1.4]"
       data-testid="chat-details-done"
     >
       <CircleCheck className="h-4 w-4 flex-none text-success" aria-hidden />
@@ -697,7 +709,7 @@ export function Composer({
             submit();
           }
         }}
-        className="max-h-[120px] min-h-11 min-w-0 flex-1 resize-none rounded-[22px] border border-border-strong bg-card px-3.5 py-[10px] text-[16px] leading-[1.4] text-text placeholder:text-placeholder focus:border-[var(--wacc)] focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_oklab,var(--wacc)_28%,transparent)] [@media(hover:hover)_and_(pointer:fine)]:min-h-[42px] [@media(hover:hover)_and_(pointer:fine)]:py-[9px] [@media(hover:hover)_and_(pointer:fine)]:text-[15px]"
+        className="max-h-[120px] min-h-11 min-w-0 flex-1 resize-none rounded-[var(--wr-in,22px)] border border-border-strong bg-card px-3.5 py-[10px] text-[16px] leading-[1.4] text-text placeholder:text-placeholder focus:border-[var(--wacc)] focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_oklab,var(--wacc)_28%,transparent)] [@media(hover:hover)_and_(pointer:fine)]:min-h-[42px] [@media(hover:hover)_and_(pointer:fine)]:py-[9px] [@media(hover:hover)_and_(pointer:fine)]:text-[15px]"
         data-testid="chat-input"
       />
       <button
