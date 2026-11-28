@@ -1750,8 +1750,8 @@
       "path": "Forms → a live poll → Your slides → Take them off",
       "kind": "do",
       "file": "apps/web/src/components/forms/poll-slides.tsx:98",
-      "covered": "no",
-      "by": "build_form’s set_form has no slides"
+      "covered": "yes",
+      "by": "build_form: the builder’s set_form removeSlides, then a slide tied to a question set to none (forms-16)"
     },
     {
       "path": "Forms → a live poll → Read the slides and write when to ask each question",
@@ -2086,15 +2086,15 @@
       "path": "Forms → a form → Share → QR code",
       "kind": "see",
       "file": "apps/web/src/components/forms/share.tsx:132",
-      "covered": "no",
-      "by": "nothing makes a QR code"
+      "covered": "yes",
+      "by": "make_qr_code with list_forms’ whole link: the code big on a page to print (forms-15)"
     },
     {
       "path": "Forms → a form → Share → QR code → Download",
       "kind": "do",
       "file": "apps/web/src/components/forms/share.tsx:143",
-      "covered": "no",
-      "by": "nothing makes a QR code"
+      "covered": "yes",
+      "by": "make_qr_code’s card: Download, kept 30 days; emailMe or email_file to send it"
     },
     {
       "path": "Forms → a form → Share → Sites allowed to show it: what’s set now",
@@ -2275,15 +2275,15 @@
       "path": "Phone → a form → Share the link or QR code (needs signal)",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/index.tsx:146",
-      "covered": "partly",
-      "by": "list_forms gives the whole link; send_form texts or emails it to a customer; no QR code"
+      "covered": "yes",
+      "by": "list_forms gives the whole link; send_form texts or emails it to a customer; make_qr_code makes the QR code"
     },
     {
       "path": "Phone → a form → link sheet → QR code",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/index.tsx:240",
-      "covered": "no",
-      "by": "nothing makes a QR code"
+      "covered": "yes",
+      "by": "make_qr_code with list_forms’ whole link (forms-15)"
     },
     {
       "path": "Phone → a form → link sheet → the link",
@@ -2303,8 +2303,8 @@
       "path": "Phone → a form → link sheet → Save the QR code",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/index.tsx:256",
-      "covered": "no",
-      "by": "nothing makes a QR code"
+      "covered": "yes",
+      "by": "make_qr_code’s card: Download, a PDF to print"
     },
     {
       "path": "Phone → a form → ANSWERS → N filled in on this phone are on their way",
@@ -2669,6 +2669,26 @@
       "fix": "In draftForm (apps/worker/src/forms/builder.ts:122-133), when the form is a poll with slides, add the slide count and the slides' words, as poll-cue-routes reads them (app.file_texts, capped as SLIDE_CHARS/SLIDES_CHARS), inside the <form> context. Or have build_form call the poll cue route's logic when asked to tie questions to slides.",
       "status": "fixed",
       "pr": null
+    },
+    {
+      "id": "forms-15",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Forms → a form → Share → QR code and its Download; the phone’s link sheet QR code and Save the QR code",
+      "gap": "The Share tab and the phone draw a QR code for a form’s link to print or hold up, but nothing in the Assistant made one: asked for “a QR code for my quote form”, it could only give the link.",
+      "fix": "A make_qr_code tool beside make_file: the whole link of one of the business’s own public pages (moved onto its own domain when one serves), drawn as squares on a Letter page with the title over it and the link under it, kept 30 days for the person alone with a Download card, emailMe and email_file. Any other website refuses.",
+      "status": "fixed",
+      "pr": 796
+    },
+    {
+      "id": "forms-16",
+      "severity": "low",
+      "kind": "do",
+      "where": "Forms → a live poll → Your slides → Take them off",
+      "gap": "The editor’s Take them off clears a live poll’s slides (set_form {slides: null}), but the form builder’s set_form had no way to: asked to take the slides off, the Assistant couldn’t.",
+      "fix": "A removeSlides flag on the builder’s set_form (forms/ai-tools.ts) that patches slides to null, as the editor does, and a line in the builder’s prompt saying when to use it and that slide-tied questions then go to no slide.",
+      "status": "fixed",
+      "pr": 796
     }
   ]
 }

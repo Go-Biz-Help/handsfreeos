@@ -3512,7 +3512,7 @@
       "gap": "The checklist said “no test tool”, but test_ai_teammate tries the teammate as a customer with the saved settings. What was missing was the screen’s own questions (core aiSetupTestQuestions, made from the answers), its badges’ and report’s words, and its tip, so the Assistant couldn’t run Try it as the screen does.",
       "fix": "Fixed: read_ai_setup_get and read_onboarding_setup_get add tryIt once there’s a teammate: the questions from aiSetupTestQuestions, how to ask each with test_ai_teammate and what its outcomes are called (Answered, Handed to a person, No reply), saving a missing answer with add_knowledge_item and asking again, the report (answered every question / N questions went to a person) and the tip, all in core’s AI_SETUP_FIELD_WORDS (apps/worker/src/assistant/setup-screens.ts tryItOf).",
       "status": "fixed",
-      "pr": null
+      "pr": 793
     },
     {
       "id": "onb-22",
@@ -3522,7 +3522,7 @@
       "gap": "The worker’s check (POST /v1/telephony/registration-preflight) records what it found for the details it checked (registration.record_check into app.registration_checks), but no query read it back, so the Assistant couldn’t say why the registration won’t go: “worker registrationPreflight has no tool”.",
       "fix": "Fixed: core query registration.last_check reads the last check (when, all green or not, what isn’t green, each row, and whether the registration was sent since), and get_settings texting gives it as registrationCheck in the step’s words, with what to do (apps/worker/src/assistant/tools-settings.ts registrationCheckRead). Running the check again opens the website, policy, terms and sign-up page live and stays on the step.",
       "status": "fixed",
-      "pr": null
+      "pr": 793
     }
   ]
 }

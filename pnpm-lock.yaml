@@ -725,6 +725,9 @@ importers:
       pino:
         specifier: ^10.0.0
         version: 10.3.1
+      qrcode:
+        specifier: 1.5.4
+        version: 1.5.4
       sanitize-html:
         specifier: ^2.18.0
         version: 2.18.2
@@ -756,6 +759,9 @@ importers:
       '@types/papaparse':
         specifier: ^5.5.2
         version: 5.5.2
+      '@types/qrcode':
+        specifier: 1.5.6
+        version: 1.5.6
       '@types/sanitize-html':
         specifier: ^2.16.1
         version: 2.16.1

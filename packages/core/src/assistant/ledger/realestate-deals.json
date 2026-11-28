@@ -3726,8 +3726,8 @@
       "path": "Marketing → Public page → QR code",
       "kind": "see",
       "file": "apps/web/src/addons/realestate/marketing-page.tsx:284",
-      "covered": "partly",
-      "by": "the whole link only; no tool makes the QR image"
+      "covered": "yes",
+      "by": "page.path as a whole link; make_qr_code draws its QR code on a page to print"
     },
     {
       "path": "Marketing → Public page → Copy link",
@@ -3866,8 +3866,8 @@
       "path": "Flyer → QR code to the public page",
       "kind": "see",
       "file": "apps/web/src/addons/realestate/flyer-page.tsx:146",
-      "covered": "partly",
-      "by": "whole link only; no QR image"
+      "covered": "yes",
+      "by": "the page’s whole link; make_qr_code draws the QR code to print"
     },
     {
       "path": "Flyer → Print",
@@ -4097,8 +4097,8 @@
       "path": "Open houses → sign-in sheet: Welcome, QR code, street, when; or why no QR yet",
       "kind": "see",
       "file": "apps/web/src/addons/realestate/open-houses-page.tsx:159",
-      "covered": "partly",
-      "by": "realestate_open_houses signInPath as a whole link; no QR image"
+      "covered": "yes",
+      "by": "realestate_open_houses signInPath as a whole link; make_qr_code prints its QR code with a title like “Welcome, sign in here”"
     },
     {
       "path": "Open houses → Print the sign-in sheet",
