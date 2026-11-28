@@ -26,6 +26,11 @@ import {
 import type { Content, ContentPicture } from '@hfos/core/addons/socialcontent/content-shapes';
 import { postLinkOf, type LinkPlace } from '@hfos/core/addons/socialcontent/links';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
+import {
+  pageFields,
+  type PageWordsField,
+  type PictureWords,
+} from '@hfos/core/addons/socialcontent/picture-look';
 import { ANGLE_LABELS } from '@hfos/core/addons/socialcontent/variety';
 import {
   SOCIALCONTENT_WORDS as W,
@@ -102,6 +107,8 @@ import { PostLinkChoice } from './link';
 
 const REWRITE = '/v1/addons/socialcontent/actions/socialcontent.content.rewrite';
 const PICTURE = '/v1/addons/socialcontent/actions/socialcontent.content.picture';
+const REDRAW = '/v1/addons/socialcontent/actions/socialcontent.content.redraw';
+const OWN_PHOTO = '/v1/addons/socialcontent/actions/socialcontent.content.own_photo';
 
 /** How each state looks, as on the web. */
 export const STATE_BADGE: Record<
@@ -360,6 +367,10 @@ export interface PostActions {
   skip(skipIt: boolean): void;
   rewrite(ask: string): void;
   makePicture(way: 'design' | 'photo', ask: string): void;
+  /** Its pictures drawn again with the words changed by hand, at no AI cost (design tools, part 6). */
+  redraw(pages: PictureWords[]): Promise<unknown>;
+  /** Words designed over the person's own photo, or the photo plain again (design tools, part 6). */
+  ownPhoto(words: boolean, ask: string): void;
   /** Adds the person's photos from the phone, or puts their video in place of the one it had. */
   add(video: boolean): void;
   remove(fileId: string): void;
@@ -485,6 +496,26 @@ export function PostScreen({ postId }: { postId: string }) {
             input: { postId, way, ...(ask.trim() ? { ask: ask.trim() } : {}) },
           }),
         W.post.makeAsked,
+      ),
+    redraw: (pages) =>
+      act(
+        'redraw',
+        () =>
+          workerPost(REDRAW, {
+            workspaceId: ws,
+            input: { postId, pages: pages.map(({ layout: _layout, ...words }) => words) },
+          }),
+        W.post.redrawn,
+      ),
+    ownPhoto: (words, ask) =>
+      void act(
+        words ? 'own:words' : 'own:plain',
+        () =>
+          workerPost(OWN_PHOTO, {
+            workspaceId: ws,
+            input: { postId, words, ...(words && ask.trim() ? { ask: ask.trim() } : {}) },
+          }),
+        words ? W.post.wordsOnPhotoAsked : W.post.plainPhotoDone,
       ),
     add: (video) => {
       if (!p) return;
@@ -652,6 +683,7 @@ export function PostBody({
   const [ask, setAsk] = React.useState('');
   const [pictureAsk, setPictureAsk] = React.useState('');
   const [viewing, setViewing] = React.useState<number | null>(null);
+  const [changingWords, setChangingWords] = React.useState(false);
   const was = p ? draftOf(p, timeZone) : null;
   const dirty = !!d && !!was && JSON.stringify(d) !== JSON.stringify(was);
   // What the post changed to while it was open (pictures made, written again) shows unless it's being edited.
@@ -1163,6 +1195,36 @@ export function PostBody({
               {W.post.pictureFlagged(p.pictureFlags)}
             </Text>
           ) : null}
+          {changeable && !making && p.pictureWords ? (
+            changingWords ? (
+              <PictureWordsEditor
+                key={p.updatedAt}
+                pages={p.pictureWords}
+                busy={busy === 'redraw'}
+                disabled={other('redraw')}
+                onSave={(pages) =>
+                  void actions.redraw(pages).then((out) => {
+                    if (out != null) setChangingWords(false);
+                  })
+                }
+                onCancel={() => setChangingWords(false)}
+              />
+            ) : (
+              <View className="gap-1">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="self-start"
+                  disabled={busy !== null}
+                  onPress={() => setChangingWords(true)}
+                  testID="socialcontent-change-words"
+                >
+                  {W.post.changeWords}
+                </Button>
+                <Note>{W.post.changeWordsHint}</Note>
+              </View>
+            )
+          ) : null}
           {p.picture ? (
             <Text className="text-[13px] leading-[18px] text-text-2">
               <Text className="text-text-3">{W.post.pictureShows}: </Text>
@@ -1177,6 +1239,7 @@ export function PostBody({
                 placeholder={W.post.makeAsk}
                 accessibilityLabel={W.post.makeAsk}
                 onChangeText={setPictureAsk}
+                testID="socialcontent-post-picture-ask"
               />
               <View className="flex-row flex-wrap gap-2">
                 <Button
@@ -1194,6 +1257,32 @@ export function PostBody({
                     ? W.post.makeAgain
                     : W.post.switchTo(W.post.ways.design)}
                 </Button>
+                {p.pictureWay === 'own' && d.format === 'photo' && p.ownPhotoId ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={busy === 'own:plain'}
+                    disabled={making || other('own:plain')}
+                    onPress={() => actions.ownPhoto(false, '')}
+                    testID="socialcontent-plain-photo"
+                  >
+                    {W.post.plainPhoto}
+                  </Button>
+                ) : p.pictureWay === 'own' && d.format === 'photo' && stills.length === 1 ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={busy === 'own:words'}
+                    disabled={making || other('own:words')}
+                    onPress={() => {
+                      actions.ownPhoto(true, pictureAsk);
+                      setPictureAsk('');
+                    }}
+                    testID="socialcontent-words-on-photo"
+                  >
+                    {W.post.wordsOnPhoto}
+                  </Button>
+                ) : null}
                 {d.format === 'photo' ? (
                   <Button
                     size="sm"
@@ -1223,7 +1312,13 @@ export function PostBody({
                   {uploading ? W.post.uploading : W.post.upload}
                 </Button>
               </View>
-              <Note>{d.format === 'photo' ? W.post.waysHint.photo : W.post.waysHint.design}</Note>
+              <Note>
+                {p.pictureWay === 'own' && d.format === 'photo' && stills.length === 1
+                  ? W.post.wordsOnPhotoHint
+                  : d.format === 'photo'
+                    ? W.post.waysHint.photo
+                    : W.post.waysHint.design}
+              </Note>
             </>
           ) : null}
         </Card>
@@ -1398,6 +1493,85 @@ function Field({
           {hint}
         </Text>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * A drawn picture's words, changed by hand on the phone, as on the web (the owner's idea 15; design tools, part 6):
+ * each picture shows the parts its layout draws, and Draw it again draws them from the same design with no AI.
+ */
+export function PictureWordsEditor({
+  pages: shown,
+  busy,
+  disabled,
+  onSave,
+  onCancel,
+}: {
+  pages: PictureWords[];
+  busy: boolean;
+  disabled: boolean;
+  onSave: (pages: PictureWords[]) => void;
+  onCancel: () => void;
+}) {
+  const [pages, setPages] = React.useState(shown);
+  const setField = (i: number, f: PageWordsField, v: string) =>
+    setPages((all) =>
+      all.map((pg, j) =>
+        j !== i ? pg : f === 'items' ? { ...pg, items: v.split('\n') } : { ...pg, [f]: v },
+      ),
+    );
+  const changed = JSON.stringify(pages) !== JSON.stringify(shown);
+  return (
+    <View
+      className="gap-3 rounded-card border border-border p-3"
+      testID="socialcontent-words-editor"
+    >
+      {pages.map((pg, i) => (
+        <View key={i} className="gap-2" testID="socialcontent-words-page">
+          {pages.length > 1 ? (
+            <Text className="text-[12.5px] font-medium text-text-2">
+              {W.post.wordsPage(i + 1, pages.length)}
+            </Text>
+          ) : null}
+          {pageFields(pg.layout).map((f) => {
+            const many = f === 'items' || f === 'body';
+            return (
+              <Field
+                key={f}
+                label={
+                  f === 'items' && pg.layout === 'beforeAfter'
+                    ? W.post.beforeAfterItems
+                    : W.post.wordsFields[f]
+                }
+              >
+                <Input
+                  value={f === 'items' ? pg.items.join('\n') : (pg[f] ?? '')}
+                  multiline={many}
+                  className={many ? 'min-h-[64px] py-2.5' : undefined}
+                  textAlignVertical={many ? 'top' : undefined}
+                  onChangeText={(v) => setField(i, f, v)}
+                  testID={`socialcontent-words-${f}-${i}`}
+                />
+              </Field>
+            );
+          })}
+        </View>
+      ))}
+      <View className="flex-row flex-wrap gap-2">
+        <Button
+          size="sm"
+          loading={busy}
+          disabled={disabled || !changed || pages.some((pg) => !pg.heading.trim())}
+          onPress={() => onSave(pages)}
+          testID="socialcontent-words-redraw"
+        >
+          {W.post.redraw}
+        </Button>
+        <Button size="sm" variant="ghost" disabled={busy} onPress={onCancel}>
+          {W.post.cancelWords}
+        </Button>
+      </View>
     </View>
   );
 }

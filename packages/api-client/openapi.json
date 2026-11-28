@@ -128984,7 +128984,7 @@
     "/v1/commands/socialcontent.settings.save": {
       "post": {
         "operationId": "command_socialcontent_settings_save",
-        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook, LinkedIn, Threads and X: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), and whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month). What isn’t given stays as it is.",
+        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (for each of Instagram, Facebook, LinkedIn, Threads and X: AI picks, with posts a week, the most a day and the hours it posts between, or I pick, with the times on each weekday), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away), whether it picks niches and creators on its own (the business’s own niche and the 2 closest, and the best 10 creators on each network, swapped once a month), and how its pictures look (the brand kit’s logo on them, and the fonts and layouts it may use). What isn’t given stays as it is.",
         "tags": [
           "commands"
         ],
@@ -129129,6 +129129,68 @@
                   },
                   "autoPick": {
                     "type": "boolean"
+                  },
+                  "pictureLook": {
+                    "type": "object",
+                    "properties": {
+                      "logo": {
+                        "type": "string",
+                        "enum": [
+                          "corner",
+                          "last",
+                          "never"
+                        ]
+                      },
+                      "fonts": {
+                        "anyOf": [
+                          {
+                            "minItems": 1,
+                            "maxItems": 4,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "modern",
+                                "classic",
+                                "loud",
+                                "friendly"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "layouts": {
+                        "anyOf": [
+                          {
+                            "maxItems": 12,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "bold",
+                                "clean",
+                                "split",
+                                "number",
+                                "list",
+                                "quote",
+                                "myth",
+                                "beforeAfter",
+                                "note",
+                                "highlight",
+                                "photo",
+                                "framed"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -129549,6 +129611,117 @@
                     "autoPick": {
                       "default": true,
                       "type": "boolean"
+                    },
+                    "pictureLook": {
+                      "default": {
+                        "logo": "corner",
+                        "fonts": null,
+                        "layouts": null
+                      },
+                      "type": "object",
+                      "properties": {
+                        "logo": {
+                          "type": "string",
+                          "enum": [
+                            "corner",
+                            "last",
+                            "never"
+                          ]
+                        },
+                        "fonts": {
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "modern",
+                                  "classic",
+                                  "loud",
+                                  "friendly"
+                                ]
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "layouts": {
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "bold",
+                                  "clean",
+                                  "split",
+                                  "number",
+                                  "list",
+                                  "quote",
+                                  "myth",
+                                  "beforeAfter",
+                                  "note",
+                                  "highlight",
+                                  "photo",
+                                  "framed"
+                                ]
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "logo",
+                        "fonts",
+                        "layouts"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "kit": {
+                      "default": {
+                        "font": null,
+                        "fontAs": null,
+                        "logo": false
+                      },
+                      "type": "object",
+                      "properties": {
+                        "font": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "fontAs": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "modern",
+                                "classic",
+                                "loud",
+                                "friendly"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "logo": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "font",
+                        "fontAs",
+                        "logo"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -129562,7 +129735,9 @@
                     "facebookPage",
                     "facebookWhere",
                     "autoFill",
-                    "autoPick"
+                    "autoPick",
+                    "pictureLook",
+                    "kit"
                   ],
                   "additionalProperties": false
                 }
@@ -131541,6 +131716,95 @@
                         "type": "string"
                       }
                     },
+                    "pictureWords": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "layout": {
+                                "type": "string",
+                                "enum": [
+                                  "bold",
+                                  "clean",
+                                  "split",
+                                  "number",
+                                  "list",
+                                  "quote",
+                                  "myth",
+                                  "beforeAfter",
+                                  "note",
+                                  "highlight",
+                                  "photo",
+                                  "framed"
+                                ]
+                              },
+                              "kicker": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "heading": {
+                                "type": "string"
+                              },
+                              "body": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "mark": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "footer": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "layout",
+                              "kicker",
+                              "heading",
+                              "body",
+                              "items",
+                              "mark",
+                              "footer"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ownPhotoId": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -131949,6 +132213,8 @@
                     "pictureFailure",
                     "pictures",
                     "pictureFlags",
+                    "pictureWords",
+                    "ownPhotoId",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -132199,6 +132465,95 @@
                         "type": "string"
                       }
                     },
+                    "pictureWords": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "layout": {
+                                "type": "string",
+                                "enum": [
+                                  "bold",
+                                  "clean",
+                                  "split",
+                                  "number",
+                                  "list",
+                                  "quote",
+                                  "myth",
+                                  "beforeAfter",
+                                  "note",
+                                  "highlight",
+                                  "photo",
+                                  "framed"
+                                ]
+                              },
+                              "kicker": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "heading": {
+                                "type": "string"
+                              },
+                              "body": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "mark": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "footer": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "layout",
+                              "kicker",
+                              "heading",
+                              "body",
+                              "items",
+                              "mark",
+                              "footer"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ownPhotoId": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -132607,6 +132962,8 @@
                     "pictureFailure",
                     "pictures",
                     "pictureFlags",
+                    "pictureWords",
+                    "ownPhotoId",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -132940,6 +133297,95 @@
                         "type": "string"
                       }
                     },
+                    "pictureWords": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "layout": {
+                                "type": "string",
+                                "enum": [
+                                  "bold",
+                                  "clean",
+                                  "split",
+                                  "number",
+                                  "list",
+                                  "quote",
+                                  "myth",
+                                  "beforeAfter",
+                                  "note",
+                                  "highlight",
+                                  "photo",
+                                  "framed"
+                                ]
+                              },
+                              "kicker": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "heading": {
+                                "type": "string"
+                              },
+                              "body": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "mark": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "footer": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "layout",
+                              "kicker",
+                              "heading",
+                              "body",
+                              "items",
+                              "mark",
+                              "footer"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ownPhotoId": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -133348,6 +133794,8 @@
                     "pictureFailure",
                     "pictures",
                     "pictureFlags",
+                    "pictureWords",
+                    "ownPhotoId",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -133928,6 +134376,95 @@
                         "type": "string"
                       }
                     },
+                    "pictureWords": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "layout": {
+                                "type": "string",
+                                "enum": [
+                                  "bold",
+                                  "clean",
+                                  "split",
+                                  "number",
+                                  "list",
+                                  "quote",
+                                  "myth",
+                                  "beforeAfter",
+                                  "note",
+                                  "highlight",
+                                  "photo",
+                                  "framed"
+                                ]
+                              },
+                              "kicker": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "heading": {
+                                "type": "string"
+                              },
+                              "body": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "mark": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "footer": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "layout",
+                              "kicker",
+                              "heading",
+                              "body",
+                              "items",
+                              "mark",
+                              "footer"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ownPhotoId": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -134336,6 +134873,8 @@
                     "pictureFailure",
                     "pictures",
                     "pictureFlags",
+                    "pictureWords",
+                    "ownPhotoId",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -134582,6 +135121,95 @@
                         "type": "string"
                       }
                     },
+                    "pictureWords": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "layout": {
+                                "type": "string",
+                                "enum": [
+                                  "bold",
+                                  "clean",
+                                  "split",
+                                  "number",
+                                  "list",
+                                  "quote",
+                                  "myth",
+                                  "beforeAfter",
+                                  "note",
+                                  "highlight",
+                                  "photo",
+                                  "framed"
+                                ]
+                              },
+                              "kicker": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "heading": {
+                                "type": "string"
+                              },
+                              "body": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "mark": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "footer": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "layout",
+                              "kicker",
+                              "heading",
+                              "body",
+                              "items",
+                              "mark",
+                              "footer"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ownPhotoId": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -134990,6 +135618,8 @@
                     "pictureFailure",
                     "pictures",
                     "pictureFlags",
+                    "pictureWords",
+                    "ownPhotoId",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -135976,6 +136606,95 @@
                         "type": "string"
                       }
                     },
+                    "pictureWords": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "layout": {
+                                "type": "string",
+                                "enum": [
+                                  "bold",
+                                  "clean",
+                                  "split",
+                                  "number",
+                                  "list",
+                                  "quote",
+                                  "myth",
+                                  "beforeAfter",
+                                  "note",
+                                  "highlight",
+                                  "photo",
+                                  "framed"
+                                ]
+                              },
+                              "kicker": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "heading": {
+                                "type": "string"
+                              },
+                              "body": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "mark": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "footer": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "layout",
+                              "kicker",
+                              "heading",
+                              "body",
+                              "items",
+                              "mark",
+                              "footer"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ownPhotoId": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -136384,6 +137103,8 @@
                     "pictureFailure",
                     "pictures",
                     "pictureFlags",
+                    "pictureWords",
+                    "ownPhotoId",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -136855,6 +137576,95 @@
                         "type": "string"
                       }
                     },
+                    "pictureWords": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "layout": {
+                                "type": "string",
+                                "enum": [
+                                  "bold",
+                                  "clean",
+                                  "split",
+                                  "number",
+                                  "list",
+                                  "quote",
+                                  "myth",
+                                  "beforeAfter",
+                                  "note",
+                                  "highlight",
+                                  "photo",
+                                  "framed"
+                                ]
+                              },
+                              "kicker": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "heading": {
+                                "type": "string"
+                              },
+                              "body": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "mark": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "footer": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "layout",
+                              "kicker",
+                              "heading",
+                              "body",
+                              "items",
+                              "mark",
+                              "footer"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ownPhotoId": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -137263,6 +138073,8 @@
                     "pictureFailure",
                     "pictures",
                     "pictureFlags",
+                    "pictureWords",
+                    "ownPhotoId",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -279565,6 +280377,117 @@
                         "autoPick": {
                           "default": true,
                           "type": "boolean"
+                        },
+                        "pictureLook": {
+                          "default": {
+                            "logo": "corner",
+                            "fonts": null,
+                            "layouts": null
+                          },
+                          "type": "object",
+                          "properties": {
+                            "logo": {
+                              "type": "string",
+                              "enum": [
+                                "corner",
+                                "last",
+                                "never"
+                              ]
+                            },
+                            "fonts": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "modern",
+                                      "classic",
+                                      "loud",
+                                      "friendly"
+                                    ]
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "layouts": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "bold",
+                                      "clean",
+                                      "split",
+                                      "number",
+                                      "list",
+                                      "quote",
+                                      "myth",
+                                      "beforeAfter",
+                                      "note",
+                                      "highlight",
+                                      "photo",
+                                      "framed"
+                                    ]
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "logo",
+                            "fonts",
+                            "layouts"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "kit": {
+                          "default": {
+                            "font": null,
+                            "fontAs": null,
+                            "logo": false
+                          },
+                          "type": "object",
+                          "properties": {
+                            "font": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "fontAs": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "modern",
+                                    "classic",
+                                    "loud",
+                                    "friendly"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "logo": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "font",
+                            "fontAs",
+                            "logo"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -279578,7 +280501,9 @@
                         "facebookPage",
                         "facebookWhere",
                         "autoFill",
-                        "autoPick"
+                        "autoPick",
+                        "pictureLook",
+                        "kit"
                       ],
                       "additionalProperties": false
                     },
@@ -282320,6 +283245,95 @@
                               "type": "string"
                             }
                           },
+                          "pictureWords": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "layout": {
+                                      "type": "string",
+                                      "enum": [
+                                        "bold",
+                                        "clean",
+                                        "split",
+                                        "number",
+                                        "list",
+                                        "quote",
+                                        "myth",
+                                        "beforeAfter",
+                                        "note",
+                                        "highlight",
+                                        "photo",
+                                        "framed"
+                                      ]
+                                    },
+                                    "kicker": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "heading": {
+                                      "type": "string"
+                                    },
+                                    "body": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "items": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "mark": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "footer": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "layout",
+                                    "kicker",
+                                    "heading",
+                                    "body",
+                                    "items",
+                                    "mark",
+                                    "footer"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "ownPhotoId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "facebookWhere": {
                             "type": "array",
                             "items": {
@@ -282728,6 +283742,8 @@
                           "pictureFailure",
                           "pictures",
                           "pictureFlags",
+                          "pictureWords",
+                          "ownPhotoId",
                           "facebookWhere",
                           "state",
                           "postAt",
@@ -282932,6 +283948,95 @@
                               "type": "string"
                             }
                           },
+                          "pictureWords": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "layout": {
+                                      "type": "string",
+                                      "enum": [
+                                        "bold",
+                                        "clean",
+                                        "split",
+                                        "number",
+                                        "list",
+                                        "quote",
+                                        "myth",
+                                        "beforeAfter",
+                                        "note",
+                                        "highlight",
+                                        "photo",
+                                        "framed"
+                                      ]
+                                    },
+                                    "kicker": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "heading": {
+                                      "type": "string"
+                                    },
+                                    "body": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "items": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "mark": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "footer": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "layout",
+                                    "kicker",
+                                    "heading",
+                                    "body",
+                                    "items",
+                                    "mark",
+                                    "footer"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "ownPhotoId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "facebookWhere": {
                             "type": "array",
                             "items": {
@@ -283340,6 +284445,8 @@
                           "pictureFailure",
                           "pictures",
                           "pictureFlags",
+                          "pictureWords",
+                          "ownPhotoId",
                           "facebookWhere",
                           "state",
                           "postAt",
@@ -283544,6 +284651,95 @@
                               "type": "string"
                             }
                           },
+                          "pictureWords": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "layout": {
+                                      "type": "string",
+                                      "enum": [
+                                        "bold",
+                                        "clean",
+                                        "split",
+                                        "number",
+                                        "list",
+                                        "quote",
+                                        "myth",
+                                        "beforeAfter",
+                                        "note",
+                                        "highlight",
+                                        "photo",
+                                        "framed"
+                                      ]
+                                    },
+                                    "kicker": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "heading": {
+                                      "type": "string"
+                                    },
+                                    "body": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "items": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "mark": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "footer": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "layout",
+                                    "kicker",
+                                    "heading",
+                                    "body",
+                                    "items",
+                                    "mark",
+                                    "footer"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "ownPhotoId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "facebookWhere": {
                             "type": "array",
                             "items": {
@@ -283952,6 +285148,8 @@
                           "pictureFailure",
                           "pictures",
                           "pictureFlags",
+                          "pictureWords",
+                          "ownPhotoId",
                           "facebookWhere",
                           "state",
                           "postAt",
@@ -284375,6 +285573,95 @@
                         "type": "string"
                       }
                     },
+                    "pictureWords": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "layout": {
+                                "type": "string",
+                                "enum": [
+                                  "bold",
+                                  "clean",
+                                  "split",
+                                  "number",
+                                  "list",
+                                  "quote",
+                                  "myth",
+                                  "beforeAfter",
+                                  "note",
+                                  "highlight",
+                                  "photo",
+                                  "framed"
+                                ]
+                              },
+                              "kicker": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "heading": {
+                                "type": "string"
+                              },
+                              "body": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "mark": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "footer": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "layout",
+                              "kicker",
+                              "heading",
+                              "body",
+                              "items",
+                              "mark",
+                              "footer"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ownPhotoId": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "facebookWhere": {
                       "type": "array",
                       "items": {
@@ -284783,6 +286070,8 @@
                     "pictureFailure",
                     "pictures",
                     "pictureFlags",
+                    "pictureWords",
+                    "ownPhotoId",
                     "facebookWhere",
                     "state",
                     "postAt",
@@ -285056,6 +286345,95 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "pictureWords": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "layout": {
+                                      "type": "string",
+                                      "enum": [
+                                        "bold",
+                                        "clean",
+                                        "split",
+                                        "number",
+                                        "list",
+                                        "quote",
+                                        "myth",
+                                        "beforeAfter",
+                                        "note",
+                                        "highlight",
+                                        "photo",
+                                        "framed"
+                                      ]
+                                    },
+                                    "kicker": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "heading": {
+                                      "type": "string"
+                                    },
+                                    "body": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "items": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "mark": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "footer": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "layout",
+                                    "kicker",
+                                    "heading",
+                                    "body",
+                                    "items",
+                                    "mark",
+                                    "footer"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "ownPhotoId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
                           "facebookWhere": {
                             "type": "array",
@@ -285465,6 +286843,8 @@
                           "pictureFailure",
                           "pictures",
                           "pictureFlags",
+                          "pictureWords",
+                          "ownPhotoId",
                           "facebookWhere",
                           "state",
                           "postAt",

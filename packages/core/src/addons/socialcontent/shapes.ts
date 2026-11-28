@@ -9,6 +9,8 @@ import { PICKING, RecentPost, SetupFacts, SetupMarks } from './picking';
 import { CONTENT_NETWORKS } from './networks';
 import { LINK_PLACES } from './links';
 import { ANGLES } from './variety';
+import { DESIGN_FONTS } from './design-names';
+import { PictureLookInput, PictureLookShape } from './picture-look';
 import { OFFER_LIST_LIMITS, OFFER_LISTS } from '../../main-offer/lists';
 
 export const uuid = z.uuid();
@@ -349,6 +351,22 @@ export const Settings = z.object({
   autoFill: z.boolean(),
   /** Whether it picks niches and creators on its own (decisions 29 and 30). Defaults, for an older API. */
   autoPick: z.boolean().default(true),
+  /**
+   * How its pictures look (design tools, part 6; `picture-look.ts`): the logo on them, and the fonts and layouts the
+   * design AI may use. Defaults, for an older API.
+   */
+  pictureLook: PictureLookShape.default({ logo: 'corner', fonts: null, layouts: null }),
+  /**
+   * The brand kit as How your pictures look shows it: its font, the design font that's drawn as, and whether it has a
+   * logo to put on the pictures. Defaults, for an older API.
+   */
+  kit: z
+    .object({
+      font: z.string().nullable(),
+      fontAs: z.enum(DESIGN_FONTS).nullable(),
+      logo: z.boolean(),
+    })
+    .default({ font: null, fontAs: null, logo: false }),
 });
 export type Settings = z.infer<typeof Settings>;
 
@@ -455,6 +473,11 @@ export const SettingsSaveInput = z.object({
    * creators on each network, swapped once a month. Off, a person ticks them.
    */
   autoPick: z.boolean().optional(),
+  /**
+   * How its pictures look (design tools, part 6), the parts that change: `logo` ("corner", "last" or "never"),
+   * `fonts` (null follows the brand kit) and `layouts` (null is every one).
+   */
+  pictureLook: PictureLookInput.optional(),
 });
 
 /** A standout a Playbook item or an idea came from, to open. */
