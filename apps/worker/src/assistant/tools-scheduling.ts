@@ -12,6 +12,8 @@ import {
   addDays,
   automationSettingsOf,
   bookingEmbedSnippet,
+  POPUP_NOTE,
+  popupCodesFor,
   byLead,
   CALENDAR_COLORS,
   depositInvoiceOf,
@@ -791,6 +793,9 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
                 }),
                 embedNote:
                   'The embed code shows the calendar only on the sites in sitesAllowedToShowIt (do_calendar_set_embed_sites embedOrigins sets the whole list); anywhere else it is a blank box.',
+                // Booking link → Embed → Pop-up: the same page in a window over their site, on the same sites.
+                popupCodes: popupCodesFor(calendar.bookingPath, '', calendar.name, 'Book now'),
+                popupNote: POPUP_NOTE,
               }
             : {
                 embedNote:
@@ -831,6 +836,7 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
             weight: m.weight,
             mustGo: m.required,
             ...(m.priority ? { priority: m.priority } : {}),
+            ...(m.picture ? { photo: m.picture } : {}),
           })),
         },
         services: {
@@ -2295,6 +2301,9 @@ function designView(d: CalendarConfig['design'], tz: string) {
     buttonsFullWidth: d.button.fullWidth,
     showName: d.showTitle,
     showLogo: d.showLogo,
+    spacing: d.spacing,
+    width: d.width,
+    coverPicture: d.cover ?? 'none',
     ...(d.matched
       ? { matchedTo: d.matched.site, matchedOn: atLabel(Date.parse(d.matched.at), tz) }
       : {}),
@@ -2327,7 +2336,7 @@ async function settingsPatch(
     const had = new Map(config.team.members.map((m) => [m.userId, m]));
     const seen = new Set<string>();
     const members = team['members'] as
-      { userId: string; weight?: number; mustGo?: boolean }[] | undefined;
+      { userId: string; weight?: number; mustGo?: boolean; photo?: unknown }[] | undefined;
     patch['team'] = some({
       assignment: team['assignment'],
       crewSize: team['peoplePerBooking'],
@@ -2340,6 +2349,8 @@ async function settingsPatch(
             weight: m.weight ?? old?.weight,
             priority: old?.priority,
             required: m.mustGo ?? old?.required,
+            // Their photo stays unless it's given (null takes it off).
+            picture: m.photo !== undefined ? m.photo : old?.picture,
           });
         }),
     });
@@ -2596,6 +2607,9 @@ async function designPatch(look: Record<string, unknown>, deps?: SettingsDeps) {
       fields: look['boxes'],
       showTitle: look['showName'],
       showLogo: look['showLogo'],
+      spacing: look['spacing'],
+      width: look['width'],
+      cover: look['coverPicture'],
     }),
     colors: some({
       ...part('colors'),

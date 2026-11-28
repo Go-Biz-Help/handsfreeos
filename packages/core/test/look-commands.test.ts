@@ -17,6 +17,7 @@ import { HfosError } from '../src/errors';
 import { executeCommand } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, RequestMeta, SystemActor } from '../src/kernel/types';
 import { LOOK_DEFAULT_COLOR, lookOf, type BusinessLook } from '../src/look/index';
+import { customerFooterOf } from '../src/look/email-contact';
 import {
   chatWidgetCreate,
   chatWidgetUpdate,
@@ -285,6 +286,178 @@ describe('the colour', () => {
     const r = await run(lookSet, { workspaceId: ws, removeLogo: true }, dale);
     expect(r.changed).toBe(true);
     expect((await lookIn(ws)).logo).toBeNull();
+  });
+});
+
+describe('the brand kit’s font and corners', () => {
+  it('are unset until picked, and null puts HandsFreeOS’s own back', async () => {
+    expect(await lookIn(ws)).toMatchObject({ font: null, corners: null, matched: null });
+    const r = await run(lookSet, { workspaceId: ws, font: 'Poppins', corners: 'round' }, dale);
+    expect(r).toMatchObject({
+      changed: true,
+      look: { font: { name: 'Poppins' }, corners: { value: 'round' } },
+    });
+    expect(
+      (await run(lookSet, { workspaceId: ws, font: 'Poppins', corners: 'round' }, dale)).changed,
+    ).toBe(false);
+    const back = await run(lookSet, { workspaceId: ws, font: null, corners: null }, dale);
+    expect(back.changed).toBe(true);
+    expect(await lookIn(ws)).toMatchObject({ font: null, corners: null });
+  });
+
+  it('keep the site they were matched to, with the colour', async () => {
+    const before = await eventCount(ws, 'look.changed');
+    const r = await run(
+      lookSet,
+      {
+        workspaceId: ws,
+        color: '#c2410c',
+        font: 'Montserrat',
+        corners: 'square',
+        matchedSite: 'https://lonestarhvac.com/',
+      },
+      dale,
+    );
+    expect(r.look).toMatchObject({
+      color: { hex: '#c2410c', from: 'person' },
+      font: { name: 'Montserrat' },
+      corners: { value: 'square' },
+      matched: { site: 'https://lonestarhvac.com/' },
+    });
+    expect(await eventCount(ws, 'look.changed')).toBe(before + 1);
+  });
+
+  it('take only a font’s name, and are for those who may change the business', async () => {
+    await expectHfos(
+      () => run(lookSet, { workspaceId: ws, font: 'Poppins; } body { display:none' }, dale),
+      'validation',
+    );
+    await expectHfos(() => run(lookSet, { workspaceId: ws, corners: 'wavy' }, dale), 'validation');
+    await expectHfos(() => run(lookSet, { workspaceId: ws, font: 'Lato' }, marco), 'forbidden');
+  });
+});
+
+describe('how emails look, and the social links (design tools, part 5)', () => {
+  it('keeps the email layout, and null goes back to the usual look', async () => {
+    expect((await lookIn(ws)).email).toBeNull();
+    const r = await run(
+      lookSet,
+      { workspaceId: ws, email: { band: true, logo: 'center', footer: true } },
+      dale,
+    );
+    expect(r).toMatchObject({
+      changed: true,
+      look: { email: { band: true, logo: 'center', footer: true } },
+    });
+    expect(
+      (
+        await run(
+          lookSet,
+          { workspaceId: ws, email: { band: true, logo: 'center', footer: true } },
+          dale,
+        )
+      ).changed,
+    ).toBe(false);
+    await run(lookSet, { workspaceId: ws, email: null }, dale);
+    expect((await lookIn(ws)).email).toBeNull();
+    await expectHfos(
+      () =>
+        run(lookSet, { workspaceId: ws, email: { band: true, logo: 'top', footer: true } }, dale),
+      'validation',
+    );
+  });
+
+  it('keeps social links as web addresses named for their sites, once each, and [] takes them off', async () => {
+    const r = await run(
+      lookSet,
+      {
+        workspaceId: ws,
+        socials: [
+          'facebook.com/lookplumbing',
+          'https://www.instagram.com/lookplumbing/',
+          'http://facebook.com/lookplumbing',
+          'lookplumbing.com/blog',
+        ],
+      },
+      dale,
+    );
+    expect(r.look.socials?.links).toEqual([
+      { kind: 'facebook', url: 'https://facebook.com/lookplumbing' },
+      { kind: 'instagram', url: 'https://www.instagram.com/lookplumbing/' },
+      { kind: 'other', url: 'https://lookplumbing.com/blog' },
+    ]);
+    const err = await expectHfos(
+      () => run(lookSet, { workspaceId: ws, socials: ['not a link'] }, dale),
+      'validation',
+    );
+    expect(JSON.stringify(err.details)).toContain('facebook.com/yourbusiness');
+    await expectHfos(
+      () => run(lookSet, { workspaceId: ws, socials: ['javascript:alert(1)'] }, dale),
+      'validation',
+    );
+    await expectHfos(
+      () => run(lookSet, { workspaceId: ws, socials: ['facebook.com/x'] }, marco),
+      'forbidden',
+    );
+    await run(lookSet, { workspaceId: ws, socials: [] }, dale);
+    expect((await lookIn(ws)).socials).toBeNull();
+  });
+});
+
+describe('the license number, at the bottom of the customer’s pages (design tools, part 7)', () => {
+  const footerOf = () => admin().transaction((tx) => customerFooterOf(tx, ws));
+
+  it('keeps it as typed, empty or null takes it off, and the footer shows it', async () => {
+    expect((await lookIn(ws)).license).toBeNull();
+    const r = await run(lookSet, { workspaceId: ws, license: '  TX HVAC Lic. TACLA12345C ' }, dale);
+    expect(r).toMatchObject({
+      changed: true,
+      look: { license: { text: 'TX HVAC Lic. TACLA12345C' } },
+    });
+    expect((await footerOf())?.license).toBe('TX HVAC Lic. TACLA12345C');
+    // The same number again changes nothing, and keeps when it was set.
+    const again = await run(
+      lookSet,
+      { workspaceId: ws, license: 'TX HVAC Lic. TACLA12345C' },
+      dale,
+    );
+    expect(again.changed).toBe(false);
+    expect(again.look.license?.at).toBe(r.look.license?.at);
+    // Changing something else keeps it.
+    await run(lookSet, { workspaceId: ws, corners: 'round' }, dale);
+    expect((await lookIn(ws)).license?.text).toBe('TX HVAC Lic. TACLA12345C');
+    await run(lookSet, { workspaceId: ws, license: '' }, dale);
+    expect((await lookIn(ws)).license).toBeNull();
+    await run(lookSet, { workspaceId: ws, license: 'Lic. 1' }, dale);
+    await run(lookSet, { workspaceId: ws, license: null, corners: null }, dale);
+    expect((await lookIn(ws)).license).toBeNull();
+    expect((await footerOf())?.license ?? null).toBeNull();
+  });
+
+  it('takes only a short one, from those who may change the business', async () => {
+    const err = await expectHfos(
+      () => run(lookSet, { workspaceId: ws, license: 'x'.repeat(81) }, dale),
+      'validation',
+    );
+    expect(JSON.stringify(err.details)).toContain('under 80 characters');
+    await expectHfos(
+      () => run(lookSet, { workspaceId: ws, license: 'Lic. 9' }, marco),
+      'forbidden',
+    );
+  });
+
+  it('shows the social links with it, and nothing when there’s nothing to say', async () => {
+    await run(lookSet, { workspaceId: ws, socials: ['facebook.com/lookplumbing'] }, dale);
+    expect((await footerOf())?.socials).toEqual([
+      { kind: 'facebook', url: 'https://facebook.com/lookplumbing' },
+    ]);
+    await run(lookSet, { workspaceId: ws, socials: [] }, dale);
+    const footer = await footerOf();
+    // A business with no address, number or website yet has no footer at all.
+    if (footer)
+      expect(
+        footer.address.length + (footer.phone ? 1 : 0) + (footer.website ? 1 : 0),
+      ).toBeGreaterThan(0);
   });
 });
 

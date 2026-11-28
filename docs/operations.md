@@ -1122,22 +1122,31 @@ If the job fails 5 times it stops with the business hidden but not yet purged, a
 
 The migrations create four private buckets and one public one. There is nothing to create by hand.
 
-| Bucket          | Holds                                                                        | Largest file | Who adds files                                                                               |
-| --------------- | ---------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------- |
-| `attachments`   | Files and photos people add in the app (images, PDF, Word, Excel, text, CSV) | 25 MiB       | Signed-in people, only at paths the app reserved first                                       |
-| `imports`       | CSV files for customer imports                                               | 10 MiB       | Signed-in people, only at reserved paths                                                     |
-| `telephony`     | Text-message media, voicemail recordings and inbound email attachments       | 250 MiB      | The worker, and customers through a video or file link                                       |
-| `brand-uploads` | A logo someone uploads, until the worker makes it ready                      | 5 MiB        | Signed-in people who may change the business's settings, only at the place reserved for them |
-| `brand`         | Businesses' logos, as the PNGs the worker made. **Public**                   | 2 MiB        | The worker                                                                                   |
+| Bucket            | Holds                                                                            | Largest file | Who adds files                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `attachments`     | Files and photos people add in the app (images, PDF, Word, Excel, text, CSV)     | 25 MiB       | Signed-in people, only at paths the app reserved first                                                              |
+| `imports`         | CSV files for customer imports                                                   | 10 MiB       | Signed-in people, only at reserved paths                                                                            |
+| `telephony`       | Text-message media, voicemail recordings and inbound email attachments           | 250 MiB      | The worker, and customers through a video or file link                                                              |
+| `brand-uploads`   | A logo someone uploads, until the worker makes it ready                          | 5 MiB        | Signed-in people who may change the business's settings, only at the place reserved for them                        |
+| `brand`           | Businesses' logos, as the PNGs the worker made. **Public**                       | 2 MiB        | The worker                                                                                                          |
+| `picture-uploads` | A picture someone adds to **Your pictures**, until the worker makes its web copy | 20 MiB       | Signed-in people who may change the business, its forms, calendars or channels, only at the place reserved for them |
+| `pictures`        | **Your pictures**, as the WebP copies the worker made. **Public**                | 8 MiB        | The worker                                                                                                          |
 
 - Signed-in people can only read files that belong to their own workspaces. Only the worker deletes files, and it uses the secret key to do so.
 - `brand` is public on purpose: a business's logo shows in its emails, booking page and website chat, and an email
   sent last month still shows it. It only ever holds logos, each at an address nobody can guess
   (`<business>/logo/<random id>.png`). See "Your logo and colour" in
   `HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md`.
+- `pictures` is public for the same reason: a picture on a form, a booking page or an email has to show to anyone
+  who opens it. Each is at `<business>/<random id>.webp`, at most 2000 pixels on its longer side, with the
+  original's hidden details (where it was taken, the phone) left out. Taking one out of **Your pictures** keeps the
+  file, so pages and emails already showing it don't break. See "Your pictures" in
+  `HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`.
+- Apple's HEIC photos are refused when they're added, with how to save one as a JPG: the image library the worker
+  uses can't open them.
 - To check the buckets, click **Storage** in the left sidebar.
 
-  You should see the five buckets, with only `brand` public.
+  You should see these buckets among the rest, with only `brand` and `pictures` public.
 
 - Never make a bucket public or change its limits in the dashboard. Put any change in a new migration.
 - Database backups do not include these files (see "Backups").
@@ -8346,7 +8355,11 @@ How it works:
 - **It's part of the calendar's settings** (`config.design`, the same `FormDesign` a form keeps), so it goes live with **Save**, shows in **History** ("Design: the business’s colour → its own look") and **Restore** puts an older look back. No migration: the settings are one JSON column. Never designed (`null`) is the look every calendar had before, the business's colour and nothing else.
 - **On its own page** the whole page wears it, header included; the header already has the logo, so **Your logo, on your website** shows only in the embed. **On a website** it's see-through unless the design picks a background, like a form, so it sits on the site's own background.
 - **Match my website** for a calendar is `POST /v1/calendars/website-style` on the worker, which needs `calendars.manage` (a form's needs `forms.manage`); both read the site the same way (`apps/worker/src/http/website-style.ts`). The Assistant does it too, through `update_calendar_settings` `design.matchWebsite`, reading the site again when the change is confirmed.
-- **Spacing, where question words go and the widest it gets** are a form's alone; a calendar's layout is the booking page's own.
+- **Space between parts and the widest it gets** (Layout) are a form's choices on the booking page's own widths: Medium and Normal are what it had before. Where question words go is a form's alone.
+- **Pictures** (design tools, part 3): a picture across the top of the first step, and each person's photo beside their name where customers pick who comes, both from Your pictures. The photos are kept on the calendar's team, so they stay with their calendar.
+- **Use on all my calendars**, at the bottom of Design, puts the saved design on every other calendar that isn't archived, each as a change in its History. Save first: it's greyed out while the design has unsaved changes.
+
+**As a pop-up** (design tools, part 3): in the Embed window, click **Pop-up**, pick how it opens (**From a button**, **After a few seconds** or **When they go to leave**), and copy the code. It shows on the same listed sites as the box in the page, since the window holds the same `?embed=1` page; the script is `/embed/v1/popup.js`. A visitor who closes one that opened by itself isn't shown it again for 7 days in that browser, so to see it again while testing, open the site in a private window. A form's is on its **Share** tab, under **Pop-up on your website**. More in `docs/forms.md`, "Pop-ups and booking pages".
 
 **If it shows a blank box:** the site isn't listed, or is listed differently (`shop.acme.com` needs its own entry). Check from a terminal with `curl https://hooks.handsfreeos.com/public/book/<site>/<calendar>/embed` and read `embedOrigins`. In the browser's developer console on the client's site, an error that mentions `frame-ancestors` means the site the visitor is on isn't in that list. A private or archived calendar is shown nowhere. A change to the list can take a minute to reach the site.
 
@@ -9383,13 +9396,15 @@ Do this with the client's web person, or send them the page: it has the steps fo
 2. In the business, open **Settings** → **Website chat** and click **Start** on **Set up website chat** for its first one (see "Website chat: the guided setup" below; the steps here are the same settings under **All settings**), or open **Forms** and click **New website chat** under **Website chats** for another.
 3. Under **Your sites**, add each website the chat button may show on, such as `acmeroofing.com`, up to 10. Type the address people visit. `http://` becomes `https://`, and a bare domain gets its `www` version too. Wildcards like `*.acme.com` don't work, so add each subdomain on its own. Browsers refuse to show the chat window on any site that isn't listed, even with the snippet pasted.
 4. Choose **Who answers**: the AI teammate, or **Only your team**. The teammate also needs **Website chat** on in its **Channels**.
-5. Set the look (its name, greeting, button label, the button's colour, the words' colour and the top bar's, and **Show your logo**), **Where the button sits** (below), what happens **When nobody is answering** with its **Away message**, **What to ask visitors for** (**Don’t ask**, **When needed**, **After their first message** or **Before the chat starts**), whether to **Offer a box to get texts**, and the **Daily limit** of new chats, so a flood of strangers can't use up the business's AI time. Click **Save**.
+5. Set the look (its name, greeting, button label, the button's colour, the words' colour and the top bar's, **Show your logo**, and under them **Match my website**, the **Font** and **Corners** (the brand kit's unless you pick), **A face in the top bar** from Your pictures, and a **Greeting bubble** that pops up beside the button after the seconds you pick), **Where the button sits** (below), what happens **When nobody is answering** with its **Away message**, **What to ask visitors for** (**Don’t ask**, **When needed**, **After their first message** or **Before the chat starts**), whether to **Offer a box to get texts**, and the **Daily limit** of new chats, so a flood of strangers can't use up the business's AI time. Click **Save**.
 
    You should see "Website chat saved."
 
    **Where the button sits** is set on its own for computers and for phones (screens up to 480 pixels wide): the **Button** (its label beside the icon, **Icon only**, or on phones **Hidden**), its **Corner**, and **Higher up by**, the pixels above its usual spot. Raise it on phones when the site has a bar along the bottom, like a Call or Book button: about 90 clears most. With the button hidden on phones, a link to `#hfos-chat` on the site (a Chat item in its menu) opens the chat.
 
-   The logo is the business's own, from **Settings** → **Workspace** → **Logo and colour**. **Your logo** on the chat's page changes the same one.
+   The logo is the business's own, from **Settings** → **Workspace** → **Brand kit**. **Your logo** on the chat's page changes the same one.
+
+   **Match my website** copies the site's button colour, font and corners into the look; check them, then **Save**. The button on the site uses the font only when the site has it already, so a font the site doesn't use shows in the open chat but not on the button. The **Greeting bubble** shows once per visit: a visitor who closes it or opens the chat doesn't see it again until a later visit in a new tab or window. A face in the top bar takes the place of the logo; take it off with **None**.
 
 6. Click **Copy** next to the snippet. It looks like this, with the widget's own key:
 
@@ -9852,6 +9867,7 @@ Kept in `app.campaigns` and `app.campaign_recipients`; the worker's jobs are `ca
 - The AI writes one subject and body from the goal (and the offer, if any). The owner changes it on the review screen. `{first_name}` becomes each person's first name ("there" when it isn't known), and nothing else changes per person.
 - Every email ends with why they get it, an unsubscribe link (`/u/…`, a page with one button, because mail scanners open links) and the business's address. It also carries the `List-Unsubscribe` and `List-Unsubscribe-Post` headers, so mail apps show their own **Unsubscribe** button.
 - An email campaign can't be made until the business has an address: the one in Settings → Payments, or failing that the "at our place" address on a calendar.
+- On the campaign's page, **Design it: add pictures and buttons** writes the email in blocks: words, a picture from Your pictures, a button, a line and a space, each lined up left, centre or right, moved by dragging or the arrows. Press **Save the email**, and **Preview** to see it as people get it. **Back to plain words** undoes it. How every automatic email and campaign looks (a colour band, the logo on the left or in the centre, a footer with the address, phone, website and social links) is **Settings** → **Email** → **How your emails look**; the social links are in **Settings** → **Workspace** → **Brand kit**.
 - Unsubscribing stops that business's campaign email only. Visit confirmations, receipts and one-to-one replies still reach them. Unsubscribes are kept in `app.email_unsubscribes`, by address. Nobody at the business can add or remove one.
 - The same pace, open hours, quiet hours, **Pause**, **Resume** and **Stop** as texts. It pauses itself, saying why, if Postmark has no Broadcasts stream (`POSTMARK_BROADCAST_STREAM`, "Postmark Part L"), if the business's address is gone, or if the business can't send email.
 

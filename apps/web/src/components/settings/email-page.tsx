@@ -1,5 +1,5 @@
 'use client';
-import { dnsHostFor, relativeHost, RETURN_PATH_DEFAULT } from '@hfos/core';
+import { dnsHostFor, relativeHost, RETURN_PATH_DEFAULT, type BusinessLook } from '@hfos/core';
 import { ArrowRight, ChevronDown, CircleAlert, Globe, ListChecks, RotateCw, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { GoogleLogo, MicrosoftLogo, providerName } from './provider-logos';
 import { SettingAnchor } from './setting-anchor';
 import { run, Section, YourAddresses, type Person } from './email-addresses';
+import { EmailLookCard } from './email-look';
 
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -1051,9 +1052,14 @@ export function EmailPage({
   myUserId,
   tags,
   mailboxResult,
+  look,
+  canChangeLook,
 }: {
   workspaceId: string;
   status: EmailSetupStatus;
+  /** The brand kit, which holds how emails look (design tools, part 5). */
+  look: BusinessLook;
+  canChangeLook: boolean;
   blocked: EmailSuppression[];
   unmatched: EmailUnmatched[];
   senderRules: EmailSenderRule[];
@@ -1142,6 +1148,14 @@ export function EmailPage({
           </Link>
         </p>
       ) : null}
+      <EmailLookCard
+        workspaceId={workspaceId}
+        look={look}
+        name={status.emailLook?.name ?? ''}
+        contact={status.emailLook?.contact ?? null}
+        canChange={canChangeLook}
+        onChanged={refresh}
+      />
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
         <div className="flex flex-col gap-5">
           <Mailboxes workspaceId={workspaceId} mailboxes={status.mailboxes} onChanged={refresh} />

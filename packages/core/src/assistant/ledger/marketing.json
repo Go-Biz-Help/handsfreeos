@@ -7,40 +7,41 @@
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx": "ee23933f5989",
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/fill.tsx": "4b12a155a165",
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/index.tsx": "3763eae06167",
-    "apps/mobile/src/components/forms/question-field.tsx": "59450d2e196b",
+    "apps/mobile/src/components/forms/question-field.tsx": "329bdffdc1c2",
     "apps/mobile/src/forms/export-answers.ts": "3f98c2892b3a",
     "apps/mobile/src/forms/qr-image.ts": "335d7b886235",
     "apps/mobile/src/forms/qr.ts": "7b9c6c1d6851",
     "apps/mobile/src/forms/use-answers.ts": "38c18d46d689",
     "apps/mobile/src/forms/use-forms.ts": "14ac0231b801",
     "apps/mobile/src/forms/words.ts": "f0cab84bfc9c",
-    "apps/web/src/app/app/w/[workspaceId]/campaigns/[campaignId]/page.tsx": "c1acd9fd6e5f",
+    "apps/web/src/app/app/w/[workspaceId]/campaigns/[campaignId]/page.tsx": "ab7a0ce083c3",
     "apps/web/src/app/app/w/[workspaceId]/campaigns/new/page.tsx": "9ba736aae3db",
     "apps/web/src/app/app/w/[workspaceId]/campaigns/page.tsx": "afbe1dd89cb2",
     "apps/web/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId]/page.tsx": "059088e64125",
-    "apps/web/src/app/app/w/[workspaceId]/forms/[formId]/page.tsx": "5db7f4dd01ff",
+    "apps/web/src/app/app/w/[workspaceId]/forms/[formId]/page.tsx": "6e17d88624a0",
     "apps/web/src/app/app/w/[workspaceId]/forms/chats/[widgetId]/page.tsx": "a65c88548632",
     "apps/web/src/app/app/w/[workspaceId]/forms/chats/new/page.tsx": "91514aae21d7",
     "apps/web/src/app/app/w/[workspaceId]/forms/page.tsx": "53e21d6e66d4",
     "apps/web/src/app/app/w/[workspaceId]/reviews/page.tsx": "c08c62d9d605",
     "apps/web/src/components/campaigns/campaign-list.tsx": "7765dfed84ec",
-    "apps/web/src/components/campaigns/campaign-view.tsx": "1b1388ac72ed",
+    "apps/web/src/components/campaigns/campaign-view.tsx": "b453a2ffc4aa",
+    "apps/web/src/components/campaigns/email-blocks-editor.tsx": "8f25fe56a1ae",
     "apps/web/src/components/campaigns/new-campaign.tsx": "cf5b5f5af705",
     "apps/web/src/components/campaigns/unsubscribe-page.tsx": "b2e66720312a",
     "apps/web/src/components/campaigns/words.ts": "01bb44a8879d",
-    "apps/web/src/components/chat-widget/chat-parts.tsx": "9e49cd44afb5",
-    "apps/web/src/components/chat-widget/chat-showcase.tsx": "ca141aed1861",
-    "apps/web/src/components/chat-widget/chat-window.tsx": "96ea0e00ee8e",
+    "apps/web/src/components/chat-widget/chat-parts.tsx": "43647a6e301d",
+    "apps/web/src/components/chat-widget/chat-showcase.tsx": "7159f273a8a6",
+    "apps/web/src/components/chat-widget/chat-window.tsx": "0f78dd249221",
     "apps/web/src/components/crm/tag-picker.tsx": "74b0055a510a",
     "apps/web/src/components/forms/booking-picker.tsx": "ab0798d78741",
     "apps/web/src/components/forms/chips.tsx": "9f46c43f3308",
-    "apps/web/src/components/forms/design-panel.tsx": "27d98f6bf348",
-    "apps/web/src/components/forms/editor-state.ts": "46b32473f0ab",
-    "apps/web/src/components/forms/editor.tsx": "b6c032a1bfad",
+    "apps/web/src/components/forms/design-panel.tsx": "5d7d16f79b07",
+    "apps/web/src/components/forms/editor-state.ts": "5eec0bcf847b",
+    "apps/web/src/components/forms/editor.tsx": "e12d303a8dff",
     "apps/web/src/components/forms/embed-height.tsx": "bafe88e2662d",
     "apps/web/src/components/forms/file-field.tsx": "28b1f2394118",
     "apps/web/src/components/forms/form-list.tsx": "56e0517bcfd4",
-    "apps/web/src/components/forms/form-look.tsx": "228d675dd64c",
+    "apps/web/src/components/forms/form-look.tsx": "99ffed4ece6a",
     "apps/web/src/components/forms/name-header.tsx": "490c11e1f3ab",
     "apps/web/src/components/forms/new-form-button.tsx": "f2b28d487f05",
     "apps/web/src/components/forms/new-form.tsx": "ce355379405f",
@@ -48,25 +49,28 @@
     "apps/web/src/components/forms/poll-draft.tsx": "681b59e88397",
     "apps/web/src/components/forms/poll-leads.tsx": "2f01977a2b51",
     "apps/web/src/components/forms/poll-slides.tsx": "9a3e003f5c23",
-    "apps/web/src/components/forms/preview.tsx": "1cf76a16916f",
-    "apps/web/src/components/forms/public-form.tsx": "ac0e16652a87",
-    "apps/web/src/components/forms/quantities-field.tsx": "ebfd1a2e5fa9",
+    "apps/web/src/components/forms/preview.tsx": "d66b1f64174c",
+    "apps/web/src/components/forms/public-form.tsx": "bd1ee4d629ae",
+    "apps/web/src/components/forms/quantities-field.tsx": "526b0d724c85",
     "apps/web/src/components/forms/quantities-settings.tsx": "2f4b78f86887",
-    "apps/web/src/components/forms/question-field.tsx": "2e6905b08154",
-    "apps/web/src/components/forms/question-list.tsx": "0574a7ce3a88",
-    "apps/web/src/components/forms/question-settings.tsx": "fcce8ce168dc",
+    "apps/web/src/components/forms/question-field.tsx": "261e28d7e0e0",
+    "apps/web/src/components/forms/question-list.tsx": "0efc6a4b03c1",
+    "apps/web/src/components/forms/question-settings.tsx": "4f8bef6a2db9",
     "apps/web/src/components/forms/required-text.tsx": "0cb90deec1e4",
     "apps/web/src/components/forms/responses.tsx": "38736768af55",
     "apps/web/src/components/forms/results.tsx": "051baab9f435",
-    "apps/web/src/components/forms/share.tsx": "2bfbad5c8d8f",
+    "apps/web/src/components/forms/share.tsx": "dd12acd86691",
     "apps/web/src/components/forms/steps.tsx": "45030e8f6bdb",
     "apps/web/src/components/forms/video-player.tsx": "15b62433f2c1",
     "apps/web/src/components/forms/website-chats.tsx": "7b25ec4e137e",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
+    "apps/web/src/components/look/picture-picker.tsx": "da5decb00ff4",
+    "apps/web/src/components/look/popup-embed.tsx": "fd00c665e31f",
     "apps/web/src/components/reviews/reviews-board.tsx": "685e5ab4c16c",
+    "apps/web/src/components/settings/chat-design.tsx": "160cb091cb88",
     "apps/web/src/components/settings/chat-install.tsx": "000b8ddf3f39",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
-    "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d"
+    "apps/web/src/components/settings/website-chat-page.tsx": "bbf3a4ed8fa2"
   },
   "items": [
     {
@@ -362,6 +366,111 @@
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:600",
       "covered": "yes",
       "by": "edit_campaign change_email subject, body"
+    },
+    {
+      "path": "Campaigns → a campaign → Read the email → Design it: add pictures and buttons (its words become blocks)",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/campaign-view.tsx:794",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks: each block (words, picture, button, line, space) in order",
+      "kind": "see",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:232",
+      "covered": "yes",
+      "by": "get_campaign email blocks"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → Add: Words, Picture, Button, Line, Space",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:166",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks (the whole list)"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → drag a block, or its up and down arrows",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:257",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks in the new order"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → take a block out",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:276",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks without it"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → Line up: Left, Centre, Right",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:196",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks align"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a block of words",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:293",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks words text"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a picture: pick from Your pictures",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:306",
+      "covered": "yes",
+      "by": "read_picture_list, then edit_campaign change_email blocks picture"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a picture: upload one from the picker",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:306",
+      "covered": "person",
+      "by": "a picture from their own computer or phone is theirs to pick"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a picture: size, words under it, the address it opens",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:316",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks picture size, words, link"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a button: its words and the address it opens",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:359",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks button label, url"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → a space: Small, Medium, Large",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/email-blocks-editor.tsx:384",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks space size"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → Save the email, and what’s still to do before it can",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/campaign-view.tsx:758",
+      "covered": "yes",
+      "by": "edit_campaign change_email blocks (refused in words when they aren’t right)"
+    },
+    {
+      "path": "Campaigns → a campaign → the email in blocks → Back to plain words",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/campaign-view.tsx:766",
+      "covered": "yes",
+      "by": "edit_campaign change_email body"
+    },
+    {
+      "path": "Campaigns → a campaign → the email → Write / Preview: the email as Sam gets it",
+      "kind": "see",
+      "file": "apps/web/src/components/campaigns/campaign-view.tsx:712",
+      "covered": "partly",
+      "by": "get_campaign email subject, words and blocks; the picture of it is the screen’s"
     },
     {
       "path": "Campaigns → a campaign → The email: Edited",
@@ -980,6 +1089,55 @@
       "by": "manage_website_chat showLogo"
     },
     {
+      "path": "Forms → a website chat → Look → Match my website (a site, then Match)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:134",
+      "covered": "yes",
+      "by": "manage_website_chat matchWebsite"
+    },
+    {
+      "path": "Forms → a website chat → Look → Font (Use your brand kit’s, or a Google font)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:151",
+      "covered": "yes",
+      "by": "manage_website_chat font"
+    },
+    {
+      "path": "Forms → a website chat → Look → Corners: Brand kit’s / Square / Slightly round / Round",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:168",
+      "covered": "yes",
+      "by": "manage_website_chat corners"
+    },
+    {
+      "path": "Forms → a website chat → Look → A face in the top bar (Your pictures)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:195",
+      "covered": "yes",
+      "by": "manage_website_chat facePicture"
+    },
+    {
+      "path": "Forms → a website chat → Look → Greeting bubble",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:210",
+      "covered": "yes",
+      "by": "manage_website_chat greetingBubble"
+    },
+    {
+      "path": "Forms → a website chat → Look → Greeting bubble → Show it after (seconds)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:239",
+      "covered": "yes",
+      "by": "manage_website_chat bubbleAfterSeconds"
+    },
+    {
+      "path": "Forms → a website chat → Look → preview: the face, the bubble, the font and corners",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1315",
+      "covered": "partly",
+      "by": "get_settings website_chat gives the values, not the picture"
+    },
+    {
       "path": "Forms → a website chat → Look → the preview of the button and open chat",
       "kind": "see",
       "file": "apps/web/src/components/settings/website-chat-page.tsx:1093",
@@ -1204,6 +1362,13 @@
       "by": "build_form move_question"
     },
     {
+      "path": "Forms → a form → Questions → each question: drag its handle to move it, onto another page too",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-list.tsx:425",
+      "covered": "yes",
+      "by": "build_form move_question"
+    },
+    {
       "path": "Forms → a form → Questions → each question: Duplicate",
       "kind": "do",
       "file": "apps/web/src/components/forms/question-list.tsx:195",
@@ -1272,6 +1437,13 @@
       "file": "apps/web/src/components/forms/question-settings.tsx:112",
       "covered": "yes",
       "by": "build_form update_question required"
+    },
+    {
+      "path": "Forms → a form → a question → Half width (sits beside the half-width one next to it on a computer)",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:151",
+      "covered": "yes",
+      "by": "build_form update_question width half or full"
     },
     {
       "path": "Forms → a form → a question → The choices: change a choice’s words",
@@ -1384,6 +1556,48 @@
       "file": "apps/web/src/components/forms/question-settings.tsx:153",
       "covered": "yes",
       "by": "build_form config body"
+    },
+    {
+      "path": "Forms → a form → Add a question → Picture → What it shows, Caption",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:91",
+      "covered": "yes",
+      "by": "build_form picture title (what it shows) and help (the caption)"
+    },
+    {
+      "path": "Forms → a form → a picture → The picture: pick from Your pictures, Change, None",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:417",
+      "covered": "yes",
+      "by": "build_form config.picture, copied from read_picture_list (the builder is given Your pictures)"
+    },
+    {
+      "path": "Forms → a form → a picture → Size: Small, Medium, Large, Full",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:437",
+      "covered": "yes",
+      "by": "build_form config.size"
+    },
+    {
+      "path": "Forms → a form → a picture, or words on the page → Line up: Left, Centre, Right",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:450",
+      "covered": "yes",
+      "by": "build_form config.align"
+    },
+    {
+      "path": "Forms → a form → a picture → Opens a web page when pressed",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:462",
+      "covered": "yes",
+      "by": "build_form config.link"
+    },
+    {
+      "path": "Forms → a form → a question → The choices: a choice’s picture",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-settings.tsx:1068",
+      "covered": "yes",
+      "by": "build_form update_question config.choices picture"
     },
     {
       "path": "Forms → a form → a question → What they are signing",
@@ -1645,6 +1859,20 @@
       "by": "build_form set_design spacing, labels, width"
     },
     {
+      "path": "Forms → a form → Design → Layout: Line up (Left, Centre)",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/design-panel.tsx:301",
+      "covered": "yes",
+      "by": "build_form set_design align"
+    },
+    {
+      "path": "Forms → a form → Design → Pictures: Across the top, Behind the form (pick, Change, None)",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/design-panel.tsx:332",
+      "covered": "yes",
+      "by": "build_form set_design cover, backdrop, copied from read_picture_list (the builder is given Your pictures)"
+    },
+    {
       "path": "Forms → a form → Design → The form’s name at the top, Your logo at the top (add a logo first)",
       "kind": "do",
       "file": "apps/web/src/components/forms/design-panel.tsx:291",
@@ -1659,7 +1887,7 @@
       "by": "do_form_use_design_everywhere"
     },
     {
-      "path": "Forms → a form → Design → Start over from your colour",
+      "path": "Forms → a form → Design → Start over from your brand kit",
       "kind": "do",
       "file": "apps/web/src/components/forms/design-panel.tsx:316",
       "covered": "yes",
@@ -1676,6 +1904,13 @@
       "path": "Forms → a form → Design → preview: On your website / On its own page, Computer / Phone",
       "kind": "do",
       "file": "apps/web/src/components/forms/design-panel.tsx:330",
+      "covered": "no",
+      "by": "a picture only; nothing shows it"
+    },
+    {
+      "path": "Forms → a form → Preview → Computer / Phone",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/editor.tsx:447",
       "covered": "no",
       "by": "a picture only; nothing shows it"
     },
@@ -1881,6 +2116,13 @@
       "file": "apps/web/src/components/forms/share.tsx:185",
       "covered": "yes",
       "by": "get_form embedSnippet"
+    },
+    {
+      "path": "Forms → a form → Share → Pop-up on your website: How it opens (From a button, After a few seconds, When they go to leave), Words on the button, Seconds, Copy the code",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/share.tsx:192",
+      "covered": "yes",
+      "by": "get_form popupCodes (button, afterTenSeconds, whenLeaving) and popupNote: the words and seconds are in the code"
     },
     {
       "path": "Forms → a form → Share → Let the AI teammate ask it: on or off now",

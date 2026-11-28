@@ -1,11 +1,17 @@
 /** A business's logo and colour (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §4): the commands. */
 import { z } from 'zod';
 import { isLookColor } from '../look/colour';
+import { FONT_NAME } from '../look/fonts';
 import {
   BusinessLookSchema,
+  LOOK_CORNERS,
+  LOOK_LICENSE_MOST,
   LOOK_LOGO_PATH,
+  LOOK_SOCIALS_MAX,
   LOOK_UPLOAD_BUCKET,
   LOOK_UPLOAD_PATH,
+  LookEmailLayout,
+  socialUrlOf,
 } from '../look/look';
 import { uuid } from './common';
 
@@ -40,8 +46,54 @@ export const LookSetInput = z
     color: hex.optional(),
     /** Takes the logo off: the initials stand in again. */
     removeLogo: z.literal(true).optional(),
+    /** The brand kit's font, a Google font's name; null goes back to HandsFreeOS's own. */
+    font: z
+      .string()
+      .trim()
+      .max(60)
+      .regex(FONT_NAME, { error: 'Pick a font from the list.' })
+      .nullable()
+      .optional(),
+    /** The brand kit's corners; null goes back to slight. */
+    corners: z.enum(LOOK_CORNERS).nullable().optional(),
+    /** The website Match my website read these from, kept to say so. */
+    matchedSite: z.string().trim().min(1).max(300).optional(),
+    /** How its emails look (Settings → Email); null goes back to the look they had before. */
+    email: LookEmailLayout.nullable().optional(),
+    /** Its social links, all of them, as typed ("facebook.com/acme"); none takes them all off. */
+    socials: z
+      .array(
+        z
+          .string()
+          .trim()
+          .max(300)
+          .refine((s) => socialUrlOf(s) !== null, {
+            error: 'Type a web address, like facebook.com/yourbusiness.',
+          }),
+      )
+      .max(LOOK_SOCIALS_MAX, { error: `Keep it to ${LOOK_SOCIALS_MAX} links.` })
+      .optional(),
+    /** Its license number, as it writes it; blank or null takes it off. */
+    license: z
+      .string()
+      .trim()
+      .max(LOOK_LICENSE_MOST, {
+        error: `Keep the license number under ${LOOK_LICENSE_MOST} characters.`,
+      })
+      .nullable()
+      .optional(),
   })
-  .refine((v) => v.color !== undefined || v.removeLogo, { error: 'Nothing to change.' });
+  .refine(
+    (v) =>
+      v.color !== undefined ||
+      v.removeLogo ||
+      v.font !== undefined ||
+      v.corners !== undefined ||
+      v.email !== undefined ||
+      v.socials !== undefined ||
+      v.license !== undefined,
+    { error: 'Nothing to change.' },
+  );
 export const LookSetOutput = z.object({ look: BusinessLookSchema, changed: z.boolean() });
 
 export const LookFindInput = z.object({ workspaceId: uuid });

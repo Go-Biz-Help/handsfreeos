@@ -46,10 +46,13 @@ const DESIGN_PARTS: readonly (readonly [keyof NonNullable<CalendarConfig['design
   ['button', 'button'],
   ['showLogo', 'logo'],
   ['showTitle', 'name at the top'],
+  ['spacing', 'space between parts'],
+  ['width', 'width'],
+  ['cover', 'picture across the top'],
   ['matched', 'matched website'],
 ];
 const look = (d: CalendarConfig['design']) =>
-  !d ? 'the business’s colour' : d.matched ? `matches ${d.matched.site}` : 'its own look';
+  !d ? 'your brand kit' : d.matched ? `matches ${d.matched.site}` : 'its own look';
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const onOff = (v: boolean) => (v ? 'on' : 'off');
@@ -89,6 +92,12 @@ export function diffConfigs(a: CalendarConfig, b: CalendarConfig, catalogs?: Nam
     change(`${who(m.userId)}’s weight`, old.weight, m.weight);
     change(`${who(m.userId)}’s priority`, old.priority, m.priority);
     change(who(m.userId), old.required, m.required, (v) => (v ? 'required' : 'optional'));
+    if (!same(old.picture, m.picture))
+      lines.push(
+        m.picture
+          ? `${old.picture ? 'Changed' : 'Added'} ${who(m.userId)}’s photo`
+          : `Took off ${who(m.userId)}’s photo`,
+      );
   }
   const order = (c: CalendarConfig) =>
     c.team.members.map((m) => m.userId).filter((u) => before.has(u) && after.has(u));
@@ -297,7 +306,7 @@ export function diffConfigs(a: CalendarConfig, b: CalendarConfig, catalogs?: Nam
   if (!da || !db) change('Design', da, db, look);
   else {
     const parts = DESIGN_PARTS.filter(([k]) => !same(da[k], db[k])).map(([, name]) => name);
-    // The parts it doesn't offer (spacing, labels, width) still count, so a save is never lost.
+    // The parts it doesn't offer (labels, line up, the picture behind) still count, so a save is never lost.
     if (parts.length) lines.push(`Design: changed the ${parts.join(', ')}`);
     else if (!same(da, db)) lines.push('Design changed');
   }

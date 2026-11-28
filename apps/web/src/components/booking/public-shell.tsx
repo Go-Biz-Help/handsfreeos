@@ -6,11 +6,12 @@
 import { isWideLogo } from '@hfos/core';
 import { CalendarOff, Phone } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { BusinessFooter } from '@/components/look/business-footer';
 import { BusinessMark } from '@/components/look/business-mark';
 import { BrandMark } from '@/components/ui/brand';
 import { buttonClassName } from '@/components/ui/button';
 import type { PublicBusiness } from '@/lib/api/public-booking';
-import { brandLook } from '@/lib/look';
+import { kitLook } from '@/lib/look';
 import { cn } from '@/lib/utils';
 
 /** The business's name, said by its logo when that spells it out; and its phone. */
@@ -83,18 +84,25 @@ export function PublicFrame({
   designed?: boolean;
   children: ReactNode;
 }) {
+  // The brand kit's colour, font and corners (design tools, part 7), unless the page has a design of its own.
   const look = designed
-    ? { className: undefined, style: undefined }
-    : brandLook(business?.look?.color);
+    ? { className: undefined, style: undefined, fontHref: null }
+    : kitLook(business?.look);
   return (
     <div
       className={cn('flex min-h-dvh flex-col bg-bg text-text', look.className)}
       style={look.style}
       data-testid="public-page"
     >
+      {look.fontHref ? <link rel="stylesheet" href={look.fontHref} precedence="kit-font" /> : null}
       {business ? <PublicHeader business={business} /> : null}
       <div className="flex flex-1 flex-col">{children}</div>
-      <footer className="px-4 pb-5 pt-3">{footer ?? <Byline words={byline} />}</footer>
+      <footer className="px-4 pb-5 pt-3">
+        {business ? (
+          <BusinessFooter name={business.name} footer={business.footer} className="mb-3" />
+        ) : null}
+        {footer ?? <Byline words={byline} />}
+      </footer>
     </div>
   );
 }

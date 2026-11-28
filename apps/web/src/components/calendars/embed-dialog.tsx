@@ -1,20 +1,23 @@
 'use client';
 /**
  * A calendar on the business's own website (the owner, 2026-11-18: an embed like forms have). From the calendar's
- * Booking link card: the sites allowed to show it, and the code to paste where the calendar should go. The code is
- * core's (`bookingEmbedSnippet`), which the Assistant hands out too. Sites save when the box loses focus, as a form's
- * Share tab saves them, and the list is also what stops anybody else framing the booking page.
+ * Booking link card: the sites allowed to show it, and the code to paste, either for a box in the page where the
+ * calendar should go or for a pop-up a button opens (design tools, part 3). The codes are core's
+ * (`bookingEmbedSnippet`, `popupSnippet`), which the Assistant hands out too. Sites save when the box loses focus, as
+ * a form's Share tab saves them, and the list is also what stops anybody else framing the booking page.
  */
-import { bookingEmbedSnippet } from '@hfos/core';
+import { bookingEmbedSnippet, type PopupButtonLook } from '@hfos/core';
 import { AlertTriangle, Code2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { PopupEmbed } from '@/components/look/popup-embed';
 import { Button } from '@/components/ui/button';
 import { CopyField } from '@/components/ui/copy-field';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useOrigin } from '@/lib/use-origin';
 
@@ -35,6 +38,7 @@ export function CalendarEmbed({
   bookingUrl,
   embedOrigins,
   bookingSiteHref,
+  popupLook = null,
 }: {
   workspaceId: string;
   calendarId: string;
@@ -44,8 +48,11 @@ export function CalendarEmbed({
   embedOrigins: readonly string[];
   /** Settings → Calendars → Booking site, for a business that hasn't set one up. */
   bookingSiteHref: string;
+  /** The booking page's own button colour, words and corners, for the pop-up's button. */
+  popupLook?: PopupButtonLook | null;
 }) {
   const [open, setOpen] = useState(false);
+  const [how, setHow] = useState<'page' | 'popup'>('page');
   const [saved, setSaved] = useState<readonly string[]>(embedOrigins);
   const [typed, setTyped] = useState(shown(embedOrigins));
   const [saving, setSaving] = useState(false);
@@ -123,18 +130,38 @@ export function CalendarEmbed({
                   there.
                 </p>
               )}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[13px] font-medium">The code to paste</span>
-                <CopyField
-                  value={bookingEmbedSnippet({ bookingUrl, appOrigin, name: calendarName })}
-                  label="Copy the code"
-                  copied="Copied the code"
+              <Segmented
+                ariaLabel="How it shows"
+                value={how}
+                onChange={setHow}
+                options={[
+                  { value: 'page', label: 'In the page', testId: 'calendar-embed-in-page' },
+                  { value: 'popup', label: 'Pop-up', testId: 'calendar-embed-popup' },
+                ]}
+              />
+              {how === 'page' ? (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-medium">The code to paste</span>
+                  <CopyField
+                    value={bookingEmbedSnippet({ bookingUrl, appOrigin, name: calendarName })}
+                    label="Copy the code"
+                    copied="Copied the code"
+                  />
+                  <p className="text-[12.5px] text-text-3">
+                    Paste it where the calendar should go, in an HTML or embed block. The box grows
+                    and shrinks to fit. Payments and Change or cancel open in a new tab.
+                  </p>
+                </div>
+              ) : (
+                <PopupEmbed
+                  url={bookingUrl}
+                  appOrigin={appOrigin}
+                  name={calendarName}
+                  defaultLabel="Book now"
+                  look={popupLook}
+                  testId="calendar-popup"
                 />
-                <p className="text-[12.5px] text-text-3">
-                  Paste it where the calendar should go, in an HTML or embed block. The box grows
-                  and shrinks to fit. Payments and Change or cancel open in a new tab.
-                </p>
-              </div>
+              )}
             </div>
           ) : (
             <div

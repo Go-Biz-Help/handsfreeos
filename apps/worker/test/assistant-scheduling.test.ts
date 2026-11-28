@@ -969,12 +969,12 @@ describe('a calendar’s other sections', () => {
     expect(after.config.payments.mode).toBe('none');
   });
 
-  it('changes how the booking page looks, as the Design section does, and goes back to the business’s colour', async () => {
+  it('changes how the booking page looks, as the Design section does, and goes back to the brand kit', async () => {
     const { card, parsed } = await prepare('update_calendar_settings', {
       calendarId: ducts,
       design: { buttonColor: '#0F766E', corners: 'round', font: 'Lora', showName: false },
     });
-    expect(field(card, 'Design')).toBe('the business’s colour → its own look');
+    expect(field(card, 'Design')).toBe('your brand kit → its own look');
     await confirm('update_calendar_settings', parsed);
     expect((await calendarNow(ducts)).config.design).toMatchObject({
       colors: { button: '#0f766e', background: null },
@@ -1007,7 +1007,7 @@ describe('a calendar’s other sections', () => {
       calendarId: ducts,
       design: { reset: true },
     });
-    expect(field(back.card, 'Design')).toBe('its own look → the business’s colour');
+    expect(field(back.card, 'Design')).toBe('its own look → your brand kit');
     await confirm('update_calendar_settings', back.parsed);
     expect((await calendarNow(ducts)).config.design).toBeNull();
   });
@@ -1052,6 +1052,45 @@ describe('a calendar’s other sections', () => {
     expect(after.config.team.members).toEqual([
       expect.objectContaining({ userId: owner.id, weight: 2, required: true }),
     ]);
+  });
+
+  it('puts a photo on someone and a picture across the top, and keeps the photo when the team is sent without it', async () => {
+    const PIC = {
+      path: '11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222.webp',
+      width: 1200,
+      height: 800,
+    };
+    const { card, parsed } = await prepare('update_calendar_settings', {
+      calendarId: ducts,
+      team: { members: [{ userId: owner.id, photo: PIC }] },
+      design: { coverPicture: PIC, spacing: 'roomy', width: 'wide' },
+    });
+    expect(card.fields.map((f) => f.value)).toContain('Added Dale Owner’s photo');
+    await confirm('update_calendar_settings', parsed);
+    const set = await calendarNow(ducts);
+    expect(set.config.team.members[0]).toMatchObject({ userId: owner.id, picture: PIC });
+    expect(set.config.design).toMatchObject({ cover: PIC, spacing: 'roomy', width: 'wide' });
+
+    const again = await prepare('update_calendar_settings', {
+      calendarId: ducts,
+      team: { members: [{ userId: owner.id, weight: 3 }] },
+    });
+    await confirm('update_calendar_settings', again.parsed);
+    expect((await calendarNow(ducts)).config.team.members[0]).toMatchObject({
+      weight: 3,
+      picture: PIC,
+    });
+    const { result } = await read('get_calendar_settings', { calendarId: ducts });
+    expect((result['team'] as { members: unknown[] }).members[0]).toMatchObject({ photo: PIC });
+    expect(result['design']).toMatchObject({ coverPicture: PIC, spacing: 'roomy', width: 'wide' });
+
+    // A picture it made up isn't one from Your pictures.
+    await expect(
+      prepare('update_calendar_settings', {
+        calendarId: ducts,
+        design: { coverPicture: { path: 'https://x.test/a.jpg', width: 1, height: 1 } },
+      }),
+    ).rejects.toBeTruthy();
   });
 
   it('applies a fix Things to check offers, and says when it isn’t offered any more', async () => {

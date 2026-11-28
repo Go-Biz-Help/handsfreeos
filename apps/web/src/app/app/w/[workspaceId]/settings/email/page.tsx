@@ -1,4 +1,4 @@
-import { can } from '@hfos/core';
+import { can, lookOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { EmailPage } from '@/components/settings/email-page';
@@ -48,6 +48,8 @@ export default async function EmailSettingsPage({
         myUserId={userId}
         tags={tags.tags}
         mailboxResult={typeof mailbox === 'string' ? mailbox : null}
+        look={lookOf(got.workspace.settings)}
+        canChangeLook={can(got.workspace.permissions, 'workspace.update')}
       />
     </>
   );

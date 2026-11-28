@@ -31,6 +31,8 @@ import {
   type DocumentEdit,
   type DocumentPage,
   type RequestMeta,
+  customerFooterOf,
+  type CustomerFooter,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -135,6 +137,8 @@ export interface SigningView {
     readonly phone: string | null;
     readonly phoneDisplay: string | null;
     readonly look: PublicLook;
+    /** The bottom of the page: license number, address, phone, website and social links (design tools, part 7). */
+    readonly footer: CustomerFooter | null;
   };
   readonly document: {
     readonly name: string;
@@ -246,7 +250,8 @@ async function viewOf(
       : [];
     const route =
       signer.askCode && !signer.codeCheckedAt ? await codeRoute(tx, scope, signer) : null;
-    return { row, definition, signers, signer, values, m, phone, look, source, route };
+    const footer = await customerFooterOf(tx, ws, look?.settings ?? {});
+    return { row, definition, signers, signer, values, m, phone, look, source, route, footer };
   });
   const { row, definition, signer } = found;
   const expired = row.status === 'out' && row.expiresAt.getTime() <= Date.now();
@@ -298,6 +303,7 @@ async function viewOf(
       phone: found.phone?.e164 ?? null,
       phoneDisplay: found.phone ? formatPhone(found.phone.e164) : null,
       look: publicLookOf(found.look?.settings, deps.storageUrl),
+      footer: found.footer,
     },
     document: {
       name: row.name,

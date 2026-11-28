@@ -42,6 +42,7 @@ import {
 } from './document-actions';
 import { CopyLinkButton } from './copy-link';
 import { DocumentView } from './document-view';
+import { InvoiceDeleteButton } from './invoice-delete';
 import { listState } from './list-bits';
 import { MoneyCrumbs } from './subnav';
 import { StatusBadge } from './status-badge';
@@ -441,6 +442,7 @@ export function InvoiceDocument({
   data,
   canBill,
   canManage,
+  canDelete = false,
   timeZone,
   now,
 }: {
@@ -450,6 +452,8 @@ export function InvoiceDocument({
   canBill: boolean;
   /** Give money back: only for whoever manages money. */
   canManage: boolean;
+  /** Delete it, through the 30-day Deleted bin: owners, unless one gives it out (records.delete). */
+  canDelete?: boolean;
   timeZone: string;
   now: number;
 }) {
@@ -473,7 +477,6 @@ export function InvoiceDocument({
       hasProcessingPayment: data.payments.some((p) => p.status === 'processing'),
       hasPendingRefund: data.refunds.some((r) => r.status === 'pending'),
     }) === null;
-
   const events: Event[] = [
     {
       icon: <FileText className="h-3.5 w-3.5" strokeWidth={1.5} />,
@@ -581,6 +584,15 @@ export function InvoiceDocument({
               >
                 Void
               </Button>
+            ) : null}
+            {/* Paid ones too (20261027037500): the box says what waits, and what a paid one leaves out. */}
+            {canDelete ? (
+              <InvoiceDeleteButton
+                workspaceId={workspaceId}
+                invoiceId={inv.id}
+                name={inv.number ?? inv.title ?? 'This invoice'}
+                className="max-md:h-11"
+              />
             ) : null}
           </>
         }

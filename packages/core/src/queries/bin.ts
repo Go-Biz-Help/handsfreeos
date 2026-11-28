@@ -1,5 +1,5 @@
 /**
- * The Deleted bin (20261027000400, 20261027000800): what a delete would take with it, before it's done, and what's
+ * The Deleted bin (20261027000400, 20261027000800, 20261027037500): what a delete would take with it, before it's done, and what's
  * in the bin now. Only who may delete for good sees either.
  */
 import { and, desc, eq, sql } from 'drizzle-orm';
@@ -32,7 +32,7 @@ function contentsOf(raw: unknown): BinContents {
 export const binPreview = defineQuery({
   name: 'bin.preview',
   description:
-    'What deleting these customers, conversations, bookings, leads, companies or records would take with them, or why one can’t go yet.',
+    'What deleting these customers, conversations, bookings, leads, companies, records or invoices would take with them, or why one can’t go yet.',
   input: BinPreviewInput,
   output: BinPreviewOutput,
   permission: 'records.delete',
@@ -50,8 +50,9 @@ export const binPreview = defineQuery({
     );
     return {
       items: found.map((f) => {
-        // A booking still to come doesn't stop it: deleting cancels it first (contents.upcoming says how many).
-        const stops = f.rule !== 'bin_upcoming_booking';
+        // A booking still to come doesn't stop it: deleting cancels it first (contents.upcoming says how many). Nor
+        // does an invoice still out for payment: deleting voids it first (contents.voidFirst).
+        const stops = f.rule !== 'bin_upcoming_booking' && f.rule !== 'bin_invoice_open';
         return {
           id: f.record_id,
           name: f.name,

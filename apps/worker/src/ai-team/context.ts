@@ -768,7 +768,9 @@ async function cameInWithOf(tx: Tx, leadId: string): Promise<string | null> {
         // Their contact details are already on the record: only what they asked for helps.
         if (
           text &&
-          !['email', 'phone', 'signature', 'file', 'payment', 'content'].includes(question.type)
+          !['email', 'phone', 'signature', 'file', 'payment', 'content', 'picture'].includes(
+            question.type,
+          )
         )
           lines.push(`${question.title}: ${text}`);
       }

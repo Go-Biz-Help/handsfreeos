@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { DocumentEditor } from '@/components/money/document-editor';
 import { InvoiceDocument } from '@/components/money/document-page';
@@ -24,6 +25,8 @@ export default async function InvoicePage({
   ]);
   const inv = data.invoice;
   const editable = shell.canBill && inv.status === 'draft' && !inv.sentAt;
+  // Delete it, through the 30-day Deleted bin (20261027037500): owners, unless one gives it out.
+  const canDelete = can(shell.permissions, 'records.delete');
 
   if (!editable)
     return (
@@ -32,6 +35,7 @@ export default async function InvoicePage({
         data={data}
         canBill={shell.canBill}
         canManage={shell.canManage}
+        canDelete={canDelete}
         timeZone={shell.timeZone}
         now={shell.now}
       />
@@ -54,6 +58,7 @@ export default async function InvoicePage({
         startedBy={inv.assignee?.fullName ?? null}
         startedAt={inv.createdAt}
         paidThroughNames={data.paidThroughNames}
+        canDelete={canDelete}
       />
     </>
   );

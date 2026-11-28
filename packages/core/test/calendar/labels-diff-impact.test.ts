@@ -211,18 +211,28 @@ describe('diff', () => {
 
   it('describes the booking page’s design, so a design change is a save of its own', () => {
     const designed = applyPatch(personal, { design: { colors: { button: '#0f766e' } } });
-    expect(designed.design).toMatchObject({ colors: { button: '#0f766e' }, corners: 'slight' });
+    // The corners and font it didn't pick follow the brand kit.
+    expect(designed.design).toMatchObject({
+      colors: { button: '#0f766e' },
+      corners: null,
+      font: null,
+    });
     expect(diffConfigs(personal, designed, catalogs)).toEqual([
-      'Design: the business’s colour → its own look',
+      'Design: your brand kit → its own look',
     ]);
     const rounder = applyPatch(designed, { design: { corners: 'round', font: 'Lora' } });
     expect(diffConfigs(designed, rounder, catalogs)).toEqual(['Design: changed the font, corners']);
+    // Part 3's layout and picture are named too.
+    const wide = applyPatch(rounder, { design: { spacing: 'roomy', width: 'wide' } });
+    expect(diffConfigs(rounder, wide, catalogs)).toEqual([
+      'Design: changed the space between parts, width',
+    ]);
     // A part the Design section doesn't offer still counts.
-    const roomy = applyPatch(rounder, { design: { spacing: 'roomy' } });
-    expect(diffConfigs(rounder, roomy, catalogs)).toEqual(['Design changed']);
+    const roomy = applyPatch(wide, { design: { labels: 'inside' } });
+    expect(diffConfigs(wide, roomy, catalogs)).toEqual(['Design changed']);
     // Back to the business's colour.
     expect(diffConfigs(roomy, applyPatch(roomy, { design: null }), catalogs)).toEqual([
-      'Design: its own look → the business’s colour',
+      'Design: its own look → your brand kit',
     ]);
   });
 

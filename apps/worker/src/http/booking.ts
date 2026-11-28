@@ -60,6 +60,8 @@ import {
   type LoadedCalendar,
   type RequestMeta,
   type SlotOut,
+  customerFooterOf,
+  type CustomerFooter,
 } from '@hfos/core/server';
 import { and, eq, inArray } from 'drizzle-orm';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
@@ -208,6 +210,11 @@ export interface PublicBusiness {
   readonly offersConsent?: { readonly title: string; readonly detail: string } | null;
   /** The "OK to call" box under those, for a business that asks for one; null otherwise. */
   readonly callConsent?: { readonly title: string; readonly detail: string } | null;
+  /**
+   * The bottom of the customer's appointment page: license number, address, phone, website and social links (design
+   * tools, part 7). Only there; booking pages have their own design.
+   */
+  readonly footer?: CustomerFooter | null;
 }
 
 const SLUG_RE = /^[A-Za-z0-9-]{1,80}$/;
@@ -599,9 +606,14 @@ async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, bot
   return {
     services: serviceList,
     durations: bookableDurations(config, null),
+    // Each with their photo, when the calendar's Design gives them one (Your pictures, already public).
     people:
       config.team.assignment === 'customer_choice'
-        ? memberIds.map((id) => ({ id, name: names.get(id)! }))
+        ? memberIds.map((id) => ({
+            id,
+            name: names.get(id)!,
+            picture: config.team.members.find((m) => m.userId === id)?.picture ?? null,
+          }))
         : [],
     locations: config.locations.options.map((o) => ({
       kind: o.kind,
@@ -923,7 +935,10 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
         .select()
         .from(bookingSites)
         .where(eq(bookingSites.workspaceId, scope.workspaceId));
-      const business = await businessIn(tx, scope.workspaceId, site?.name ?? null, deps.storageUrl);
+      const business: PublicBusiness = {
+        ...(await businessIn(tx, scope.workspaceId, site?.name ?? null, deps.storageUrl)),
+        footer: await customerFooterOf(tx, scope.workspaceId),
+      };
       // The booking keeps the policies of the revision it was made under.
       const [rev] = await tx
         .select({ config: calendarRevisions.config })

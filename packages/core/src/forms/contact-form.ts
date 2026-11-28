@@ -24,6 +24,7 @@ import { userIdOf } from '../kernel/actor';
 import type { CommandContext } from '../kernel/types';
 import { allQuestions, type FormDefinition } from './definition';
 import { formIssues, freeFormSlug, parseStoredForm } from './load';
+import { asksSomething } from './questions';
 import { starterByKey, starterForm } from './starters';
 import { worksAsContactForm } from './texting-box';
 
@@ -193,7 +194,7 @@ export async function ensureContactForm(
     .update(forms)
     .set({ activeVersionId: version.id, status: 'live' })
     .where(eq(forms.id, row.id));
-  const questionCount = allQuestions(definition).filter((q) => q.type !== 'content').length;
+  const questionCount = allQuestions(definition).filter(asksSomething).length;
   await ctx.emit({
     type: 'form.published',
     entityType: 'form',

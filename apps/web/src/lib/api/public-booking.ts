@@ -5,7 +5,13 @@
  * production so a busy page doesn't spend the worker's per-address limits. Open times, bookings and the
  * change-or-cancel page are asked from the customer's own browser, so those limits count per customer.
  */
-import type { BusinessPageParts, FormDesign, PollOnScreen } from '@hfos/core';
+import type {
+  BusinessPageParts,
+  CustomerFooter,
+  FormDesign,
+  PictureRef,
+  PollOnScreen,
+} from '@hfos/core';
 import { notFound } from 'next/navigation';
 import { publicEnv } from '../env';
 import type { PayPalButtonsConfig } from '../payments/provider-scripts';
@@ -27,7 +33,15 @@ export interface PublicBusiness {
     readonly logo: { readonly url: string; readonly width: number; readonly height: number } | null;
     /** As picked (#rrggbb); the buttons are worked out from it (`brandLook`). */
     readonly color: string | null;
+    /** The brand kit's font and corners, which a design leaving them unset follows. */
+    readonly font?: string | null;
+    readonly corners?: 'square' | 'slight' | 'round' | null;
   };
+  /**
+   * The bottom of a customer's page (design tools, part 7): the license number, address, phone, website and social
+   * links. On their invoice, estimate, payment plan, document to sign and appointment; null when there's nothing.
+   */
+  readonly footer?: CustomerFooter | null;
 }
 
 export interface PublicSite {
@@ -84,7 +98,12 @@ export interface BookingInfo {
   /** Lengths when there are no services. */
   readonly durations: readonly number[];
   /** Filled when customers pick who comes. */
-  readonly people: readonly { readonly id: string; readonly name: string }[];
+  /** Who customers can pick, each with their photo when the calendar's Design gives them one. */
+  readonly people: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly picture?: PictureRef | null;
+  }[];
   readonly locations: readonly {
     readonly kind: LocationKind;
     readonly label: string;

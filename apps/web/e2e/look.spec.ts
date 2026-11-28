@@ -23,7 +23,7 @@ test('Settings: a logo refused and why, one made ready, a colour picked, and the
   const { workspaceId, site } = await ownerWithSite(page, 'look-owner', 'Lone Star HVAC');
   await page.goto(`/app/w/${workspaceId}/settings/workspace`);
   const card = page.getByTestId('look-card');
-  await expect(card).toContainText('Logo and colour');
+  await expect(card).toContainText('Brand kit');
   await expect(card.getByTestId('look-no-logo')).toContainText('Your initials stand in');
   await expect(card.getByTestId('look-colour-2d69d8')).toHaveAttribute('aria-checked', 'true');
 
@@ -75,4 +75,60 @@ test('Settings: a logo refused and why, one made ready, a colour picked, and the
   await expect(card.getByTestId('look-no-logo')).toBeVisible();
   await expect(page.getByText('Logo removed')).toBeVisible();
   await expect(card.getByTestId('look-colour-7c3aed')).toHaveAttribute('aria-checked', 'true');
+});
+
+/** A 64 × 48 picture in one colour. */
+const PHOTO_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAwCAIAAAAuKetIAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAfUlEQVRoge2SAQkAURSDlsC0F8TIF2M8/sAAOhY+T5O6AQuwviK7kHdJ3YAFWF+RXci7pG7AAqyvyC7kXVI3YAHWV2QX8i6pG7AA6yuyC3mX1A1YgPUV2YW8S+oGLMD6iuxC3iV1AxZgfUV2Ie+SugELsL4iu5B3Sd2AxwN+6nXYtTxbdTgAAAAASUVORK5CYII=',
+  'base64',
+);
+
+/**
+ * The rest of the brand kit and Your pictures (HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md, part 1): a font and
+ * corners picked are kept; a picture uploaded is made ready by the worker, can be named and say what it shows, and
+ * comes out of the library when removed.
+ */
+test('Settings: the brand kit’s font and corners, and a picture added, named and removed', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { workspaceId } = await ownerWithSite(page, 'kit-owner', 'Kit Roofing');
+  await page.goto(`/app/w/${workspaceId}/settings/workspace`);
+  const kit = page.getByTestId('brand-kit');
+
+  await kit.getByTestId('brand-kit-font').selectOption('Poppins');
+  await expect(page.getByText('Font saved')).toBeVisible();
+  await kit.getByTestId('brand-kit-corners-round').click();
+  await expect(page.getByText('Corners saved')).toBeVisible();
+  await page.reload();
+  await expect(kit.getByTestId('brand-kit-font')).toHaveValue('Poppins');
+  await expect(kit.getByTestId('brand-kit-corners-round')).toHaveAttribute('aria-selected', 'true');
+
+  const pictures = page.getByTestId('pictures-card');
+  await expect(pictures).toContainText('No pictures yet');
+  await pictures.getByTestId('picture-upload-input').setInputFiles({
+    name: 'crew.png',
+    mimeType: 'image/png',
+    buffer: PHOTO_PNG,
+  });
+  const tile = pictures.getByTestId('picture-tile');
+  await expect(tile).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
+  await expect(tile.locator('img')).toHaveAttribute(
+    'src',
+    new RegExp(`/storage/v1/object/public/pictures/${workspaceId}/[0-9a-f-]{36}\\.webp$`),
+  );
+
+  await tile.click();
+  const dialog = page.getByTestId('picture-dialog');
+  await dialog.getByTestId('picture-name').fill('Crew on a roof');
+  await dialog.getByTestId('picture-words').fill('Our crew on a roof in Austin');
+  await dialog.getByTestId('picture-save').click();
+  await expect(dialog).toHaveCount(0);
+  await expect(tile).toHaveAttribute('aria-label', 'Our crew on a roof in Austin');
+  await expect(tile).toContainText('Crew on a roof');
+
+  await tile.click();
+  await page.getByTestId('picture-remove').click();
+  await expect(page.getByText('Picture removed.')).toBeVisible();
+  await expect(pictures.getByTestId('picture-tile')).toHaveCount(0);
 });

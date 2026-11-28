@@ -5,18 +5,30 @@ import {
   CAMPAIGN_EMAIL_BODY_MAX,
   CAMPAIGN_EMAIL_SUBJECT_MAX,
   CAMPAIGN_PER_HOUR_MAX,
+  emailBlocksFromText,
+  emailBlocksText,
+  emailHtml,
+  fillEmailBlocks,
+  FIRST_NAME_PLACEHOLDER,
+  type BusinessLook,
+  type EmailBlock,
 } from '@hfos/core';
+import { LayoutList } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { CampaignGet, CampaignRecipient } from '@/lib/api/types';
+import { logoSrc, pictureSrc } from '@/lib/look';
+import { blocksProblem, EmailBlocksEditor, type DraftBlock } from './email-blocks-editor';
 import {
   CAMPAIGN_STATUS_BADGE,
   callWords,
@@ -46,10 +58,13 @@ export function CampaignView({
   workspaceId,
   data,
   canManage,
+  brand,
 }: {
   workspaceId: string;
   data: CampaignGet;
   canManage: boolean;
+  /** The business, for an email's preview. */
+  brand: CampaignBrand;
 }) {
   const router = useRouter();
   const { campaign: c, recipients } = data;
@@ -202,6 +217,7 @@ export function CampaignView({
           campaignId={c.id}
           email={c.email}
           editable={canManage && c.status === 'review'}
+          brand={brand}
         />
       ) : email && c.status === 'drafting' ? (
         <p className="text-[13px] text-text-2">
@@ -548,54 +564,188 @@ function RecipientRow({
   );
 }
 
-/** An email campaign's one email: subject and words (saved when a box is left), and the footer it always gets. */
+/** The business, for the email's preview: its name, brand kit (with how emails look) and website. */
+export interface CampaignBrand {
+  readonly name: string;
+  readonly look: BusinessLook;
+  readonly website: string | null;
+}
+
+/** Blocks as kept, from blocks being written that are ready (every picture picked). */
+const keptBlocks = (blocks: readonly DraftBlock[]): EmailBlock[] =>
+  blocks.filter((b): b is EmailBlock => b.kind !== 'picture' || !!b.picture);
+
+/**
+ * An email campaign's one email: its subject, and its words written plainly (saved when a box is left) or in blocks
+ * (words, pictures, buttons, lines and spaces, saved with Save the email); a preview as people get it; and the footer
+ * it always gets.
+ */
 function EmailCard({
   workspaceId,
   campaignId,
   email,
   editable,
+  brand,
 }: {
   workspaceId: string;
   campaignId: string;
   email: NonNullable<CampaignGet['campaign']['email']>;
   editable: boolean;
+  brand: CampaignBrand;
 }) {
   const router = useRouter();
+  const savedBlocks = (email.blocks ?? null) as EmailBlock[] | null;
   const [subject, setSubject] = useState(email.subject ?? '');
   const [body, setBody] = useState(email.body ?? '');
+  const [blocks, setBlocks] = useState<DraftBlock[] | null>(savedBlocks);
+  const [view, setView] = useState<'edit' | 'preview'>('edit');
   const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
   useEffect(() => setSubject(email.subject ?? ''), [email.subject]);
   useEffect(() => setBody(email.body ?? ''), [email.body]);
+  const savedJson = JSON.stringify(savedBlocks);
+  useEffect(() => setBlocks(JSON.parse(savedJson) as EmailBlock[] | null), [savedJson]);
+  const blocksDirty =
+    JSON.stringify(blocks) !== savedJson || (!!blocks && subject.trim() !== (email.subject ?? ''));
 
-  async function save() {
-    const s = subject.trim();
-    const b = body.trim();
-    if (!s || !b || (s === (email.subject ?? '') && b === (email.body ?? ''))) return;
+  async function send(patch: { body: string; blocks: null } | { blocks: EmailBlock[] }) {
     setBusy(true);
     try {
       unwrap(
         await apiBrowser().POST('/v1/commands/campaign.update_email', {
-          body: { workspaceId, campaignId, subject: s, body: b },
+          body: { workspaceId, campaignId, subject: subject.trim(), ...patch },
         }),
       );
       router.refresh();
+      return true;
     } catch (e) {
       toast.error(errorMessage(e));
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
+  /** Plain words, saved when a box is left. */
+  async function save() {
+    const s = subject.trim();
+    const b = body.trim();
+    if (
+      blocks ||
+      !s ||
+      !b ||
+      (s === (email.subject ?? '') && b === (email.body ?? '') && !savedBlocks)
+    )
+      return;
+    await send({ body: b, blocks: null });
+  }
+
+  async function saveBlocks() {
+    if (!blocks) return;
+    const wrong = !subject.trim() ? 'Write a subject.' : blocksProblem(blocks);
+    setProblem(wrong);
+    if (wrong) return;
+    if (await send({ blocks: keptBlocks(blocks) })) toast.success('Email saved');
+  }
+
+  async function backToPlain() {
+    if (!blocks) return;
+    const words = emailBlocksText(keptBlocks(blocks));
+    if (
+      savedBlocks?.some((b) => b.kind === 'picture') &&
+      !window.confirm(
+        'Go back to plain words? The email’s pictures come out, and its buttons become lines of words.',
+      )
+    )
+      return;
+    setBlocks(null);
+    setBody(words);
+    setProblem(null);
+    if (subject.trim() && words.trim()) await send({ body: words, blocks: null });
+  }
+
+  const html = useMemo(() => {
+    const draw = blocks ? keptBlocks(blocks) : null;
+    const address = (email.postalAddress ?? '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const words = draw ? emailBlocksText(draw) : body;
+    const smallPrint = [
+      '--',
+      `You’re getting this because you’re a customer of ${brand.name}.`,
+      'Unsubscribe: https://example.com/unsubscribe',
+      '',
+      brand.name,
+      ...address,
+    ].join('\n');
+    const look = brand.look;
+    return emailHtml(
+      `${words.replaceAll(FIRST_NAME_PLACEHOLDER, 'Sam')}\n\n${smallPrint}`,
+      {
+        name: brand.name,
+        look: {
+          logo: look.logo
+            ? { url: logoSrc(look.logo.path), width: look.logo.width, height: look.logo.height }
+            : null,
+          color: look.color?.hex ?? null,
+          corners: look.corners?.value ?? null,
+        },
+        layout: look.email,
+        contact: {
+          address,
+          phone: null,
+          website: brand.website,
+          socials: look.socials?.links ?? [],
+        },
+      },
+      draw?.length
+        ? {
+            blocks: fillEmailBlocks(draw, (t) => t.replaceAll(FIRST_NAME_PLACEHOLDER, 'Sam')),
+            pictureUrl: pictureSrc,
+          }
+        : null,
+    );
+  }, [blocks, body, brand, email.postalAddress]);
+
   return (
     <section className="flex flex-col gap-2" data-testid="campaign-email">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
           {editable ? 'Read the email' : 'The email'}
         </h2>
-        {email.edited ? <span className="text-[12.5px] text-text-2">Edited</span> : null}
+        <div className="flex items-center gap-3">
+          {email.edited ? <span className="text-[12.5px] text-text-2">Edited</span> : null}
+          <Segmented
+            ariaLabel="Show"
+            value={view}
+            onChange={setView}
+            options={[
+              {
+                value: 'edit',
+                label: editable ? 'Write' : 'Words',
+                testId: 'campaign-email-write',
+              },
+              { value: 'preview', label: 'Preview', testId: 'campaign-email-preview-tab' },
+            ]}
+          />
+        </div>
       </div>
       <Card className="flex flex-col gap-3 p-[18px]">
-        {editable ? (
+        {view === 'preview' ? (
+          <div className="overflow-hidden rounded-control border border-border bg-[#f3f4f6]">
+            <p className="border-b border-border bg-card px-3 py-2 text-[12px] text-text-3">
+              {subject || 'No subject yet'} · as Sam gets it
+            </p>
+            <iframe
+              title="Preview of the email"
+              srcDoc={html}
+              sandbox=""
+              className="block h-[560px] w-full bg-[#f3f4f6]"
+              data-testid="campaign-email-preview"
+            />
+          </div>
+        ) : editable ? (
           <>
             <Input
               value={subject}
@@ -606,16 +756,66 @@ function EmailCard({
               aria-label="Subject"
               data-testid="campaign-email-subject"
             />
-            <Textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              onBlur={save}
-              maxLength={CAMPAIGN_EMAIL_BODY_MAX}
-              disabled={busy}
-              className="min-h-[200px] text-[13.5px]"
-              aria-label="Email"
-              data-testid="campaign-email-body"
-            />
+            {blocks ? (
+              <>
+                <EmailBlocksEditor
+                  workspaceId={workspaceId}
+                  blocks={blocks}
+                  onChange={(next) => {
+                    setBlocks(next);
+                    setProblem(null);
+                  }}
+                  disabled={busy}
+                />
+                <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                  <Button
+                    onClick={() => void saveBlocks()}
+                    disabled={!blocksDirty || busy}
+                    loading={busy}
+                    data-testid="campaign-email-save"
+                  >
+                    Save the email
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => void backToPlain()}
+                    disabled={busy}
+                    data-testid="campaign-email-plain"
+                  >
+                    Back to plain words
+                  </Button>
+                  {blocksDirty ? (
+                    <span className="text-[12.5px] text-text-3">Not saved yet.</span>
+                  ) : null}
+                </div>
+                <FieldError>{problem}</FieldError>
+              </>
+            ) : (
+              <>
+                <Textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  onBlur={save}
+                  maxLength={CAMPAIGN_EMAIL_BODY_MAX}
+                  disabled={busy}
+                  className="min-h-[200px] text-[13.5px]"
+                  aria-label="Email"
+                  data-testid="campaign-email-body"
+                />
+                <div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setBlocks(emailBlocksFromText(body))}
+                    disabled={busy}
+                    data-testid="campaign-email-blocks"
+                  >
+                    <LayoutList className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    Design it: add pictures and buttons
+                  </Button>
+                </div>
+              </>
+            )}
             <span className="text-[12px] text-text-3">
               {'{first_name}'} becomes each person’s first name (“there” when you don’t have it).
             </span>

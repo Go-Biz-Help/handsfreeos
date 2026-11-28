@@ -75,6 +75,9 @@ describe('the widget’s settings', () => {
     expect(res.headers['cache-control']).toBe('no-store');
     expect(res.json()).toEqual({
       business: { name: 'chat-routes Booking HVAC', logo: null },
+      // Nothing designed yet: no face in the top bar, no greeting bubble.
+      face: null,
+      bubble: null,
       teammate: { name: 'Ava' },
       greeting: GREETING,
       awayMessage: AWAY,
@@ -94,6 +97,9 @@ describe('the widget’s settings', () => {
         mobileLift: 0,
         desktopButton: 'label',
         mobileButton: 'label',
+        // No font or corners of its own and none in the brand kit: the usual look.
+        font: null,
+        corners: null,
       },
       askFor: { name: 'when_needed', phone: 'when_needed', email: 'when_needed' },
       // The widget says the same six things the public form and the booking page say, and names the
@@ -199,6 +205,51 @@ describe('the business’s logo', () => {
         },
       });
     } finally {
+      await rows(
+        admin(),
+        sql`update app.workspaces set settings = settings - 'look' where id = ${w.workspaceId}`,
+      );
+    }
+  });
+});
+
+describe('its design (design tools, part 4)', () => {
+  it('follows the brand kit’s font and corners until it picks its own, and sends its bubble and face', async () => {
+    const at = new Date().toISOString();
+    const look = { font: { name: 'Lora', at }, corners: { value: 'square', at } };
+    await rows(
+      admin(),
+      sql`update app.workspaces set settings = settings || jsonb_build_object('look', ${JSON.stringify(look)}::jsonb)
+          where id = ${w.workspaceId}`,
+    );
+    try {
+      expect((await configOf(w.key)).json()).toMatchObject({
+        look: { font: 'Lora', corners: 'square' },
+        face: null,
+        bubble: null,
+      });
+      const face = { path: `${w.workspaceId}/${randomUUID()}.webp`, width: 640, height: 640 };
+      await rows(
+        admin(),
+        sql`update app.chat_widgets set font = 'Poppins', corners = 'round', bubble = 'Need a quote? I can help.',
+              bubble_after = 4, face = ${JSON.stringify(face)}::jsonb
+            where id = ${w.widgetId}`,
+      );
+      expect((await configOf(w.key)).json()).toMatchObject({
+        look: { font: 'Poppins', corners: 'round' },
+        bubble: { text: 'Need a quote? I can help.', after: 4 },
+        face: {
+          url: `${testEnv().supabaseUrl}/storage/v1/object/public/pictures/${face.path}`,
+          width: 640,
+          height: 640,
+        },
+      });
+    } finally {
+      await rows(
+        admin(),
+        sql`update app.chat_widgets set font = null, corners = null, bubble = null, bubble_after = 8, face = null
+            where id = ${w.widgetId}`,
+      );
       await rows(
         admin(),
         sql`update app.workspaces set settings = settings - 'look' where id = ${w.workspaceId}`,

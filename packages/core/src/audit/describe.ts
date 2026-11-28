@@ -199,14 +199,15 @@ function describeAction(e: AuditEntry): string {
       return `restored ${name(e)}`;
     case 'person.merge':
       return `merged ${s(e.before?.mergedName) || 'a duplicate'} into ${name(e)}`;
-    // Deleting for good, through the Deleted bin (20261027000400, 20261027000800): these lines keep the name once
-    // it's emptied.
+    // Deleting for good, through the Deleted bin (20261027000400, 20261027000800, 20261027037500): these lines keep
+    // the name once it's emptied.
     case 'person.delete':
     case 'conversation.delete':
     case 'appointment.delete':
     case 'lead.delete':
     case 'company.delete':
     case 'custom_record.delete':
+    case 'invoice.delete':
       return binDeleteSentence(e);
     case 'bin.restore':
       return `brought ${binThing(e)} back from the Deleted bin`;
@@ -1447,6 +1448,11 @@ const CHAT_WIDGET_FIELD: Record<string, string> = {
   textColor: 'words’ colour',
   headerColor: 'top bar colour',
   showLogo: 'logo',
+  font: 'font',
+  corners: 'corners',
+  bubble: 'greeting bubble',
+  bubbleAfter: 'when the greeting bubble shows',
+  face: 'face in the top bar',
   position: 'position',
   mobilePosition: 'corner on phones',
   desktopLift: 'height on computers',
@@ -1925,6 +1931,7 @@ function binThing(e: AuditEntry): string {
   if (e.entityType === 'conversation') return `the conversation with ${name(e)}`;
   if (e.entityType === 'appointment') return `the booking ${name(e)}`;
   if (e.entityType === 'lead') return `the lead ${name(e)}`;
+  if (e.entityType === 'invoice') return `the invoice ${name(e)}`;
   const contents = e.after?.contents;
   const kind =
     e.entityType === 'custom_record' && contents && typeof contents === 'object'

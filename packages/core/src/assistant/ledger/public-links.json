@@ -1,7 +1,7 @@
 {
   "area": "public-links",
   "title": "Every link a business gives out, and the public pages behind them",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-27",
   "files": {
     "apps/web/src/addons/realestate/portal/bits.tsx": "d7b704452b09",
     "apps/web/src/addons/realestate/portal/home-panel.tsx": "94db9d871e1e",
@@ -9,7 +9,7 @@
     "apps/web/src/addons/realestate/portal/pages.tsx": "ee125e35ca09",
     "apps/web/src/addons/realestate/public/pages.tsx": "a1f276e85386",
     "apps/web/src/app/a/[site]/[addonId]/[...path]/page.tsx": "580e89c8734c",
-    "apps/web/src/app/book/[site]/[calendar]/page.tsx": "7edde9053196",
+    "apps/web/src/app/book/[site]/[calendar]/page.tsx": "85ea43232642",
     "apps/web/src/app/book/[site]/page.tsx": "2aa66e8e2004",
     "apps/web/src/app/book/c/[id]/page.tsx": "ab0ff6351f2b",
     "apps/web/src/app/book/not-found.tsx": "e0c56c21c68b",
@@ -25,7 +25,7 @@
     "apps/web/src/app/chat/[key]/page.tsx": "8c826d330d83",
     "apps/web/src/app/d/[token]/page.tsx": "8a96c39a8600",
     "apps/web/src/app/e/[token]/page.tsx": "145bcd951eee",
-    "apps/web/src/app/f/[site]/[slug]/page.tsx": "0c0cc45489b0",
+    "apps/web/src/app/f/[site]/[slug]/page.tsx": "a9c84c32c3f2",
     "apps/web/src/app/hold/[token]/page.tsx": "d5ddbb807f7a",
     "apps/web/src/app/i/[token]/page.tsx": "f794cf29bcc7",
     "apps/web/src/app/invite/[token]/page.tsx": "a1abb7862fdb",
@@ -42,7 +42,7 @@
     "apps/web/src/components/admin/accept-support-invite.tsx": "715e026544a0",
     "apps/web/src/components/booking/add-to-calendar.tsx": "b1fe85e88a23",
     "apps/web/src/components/booking/booked-panel.tsx": "ff76fb3f55d0",
-    "apps/web/src/components/booking/booking-flow.tsx": "b2f7a2b6f9a6",
+    "apps/web/src/components/booking/booking-flow.tsx": "7df1327492f6",
     "apps/web/src/components/booking/business-page.tsx": "2638ffe26ea9",
     "apps/web/src/components/booking/chat-button.tsx": "2eb031ad5c0b",
     "apps/web/src/components/booking/deposit-pay.tsx": "6e313e43ece1",
@@ -50,27 +50,28 @@
     "apps/web/src/components/booking/hold-page.tsx": "9360c3c1c2dd",
     "apps/web/src/components/booking/join-session.tsx": "5106dc9cc988",
     "apps/web/src/components/booking/manage-booking.tsx": "8c2bab34c5e9",
-    "apps/web/src/components/booking/public-shell.tsx": "d13010341740",
+    "apps/web/src/components/booking/public-shell.tsx": "1f2ddb4eab16",
     "apps/web/src/components/booking/time-picker.tsx": "5f1a28eaa2f5",
     "apps/web/src/components/booking/viewer-zone.tsx": "f36a65de3bfa",
     "apps/web/src/components/booking/waitlist-offer.tsx": "6d0890441564",
     "apps/web/src/components/booking/webinar-door.tsx": "aa74fac075b5",
     "apps/web/src/components/campaigns/unsubscribe-page.tsx": "b2e66720312a",
-    "apps/web/src/components/chat-widget/chat-parts.tsx": "9e49cd44afb5",
-    "apps/web/src/components/chat-widget/chat-showcase.tsx": "ca141aed1861",
-    "apps/web/src/components/chat-widget/chat-window.tsx": "96ea0e00ee8e",
-    "apps/web/src/components/documents/signing-page.tsx": "93d3da610fb4",
+    "apps/web/src/components/chat-widget/chat-parts.tsx": "43647a6e301d",
+    "apps/web/src/components/chat-widget/chat-showcase.tsx": "7159f273a8a6",
+    "apps/web/src/components/chat-widget/chat-window.tsx": "0f78dd249221",
+    "apps/web/src/components/documents/signing-page.tsx": "ac0d77fc15c7",
     "apps/web/src/components/forms/address-field.tsx": "20ece36ae74b",
     "apps/web/src/components/forms/booking-picker.tsx": "ab0798d78741",
-    "apps/web/src/components/forms/public-form.tsx": "e542de786abd",
-    "apps/web/src/components/forms/question-field.tsx": "2e6905b08154",
+    "apps/web/src/components/forms/public-form.tsx": "bd1ee4d629ae",
+    "apps/web/src/components/forms/question-field.tsx": "261e28d7e0e0",
+    "apps/web/src/components/look/business-footer.tsx": "69d2ca971f81",
     "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
     "apps/web/src/components/money/paypal-buttons.tsx": "d1d0351e7497",
     "apps/web/src/components/money/provider-fields.tsx": "96d28fde2225",
     "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
     "apps/web/src/components/money/public-invoice.tsx": "dcd7994a5807",
     "apps/web/src/components/money/public-plan.tsx": "c149e1585a54",
-    "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
+    "apps/web/src/components/money/public-shell.tsx": "7cb88b12f0ba",
     "apps/web/src/components/portal/partner-page.tsx": "1e5fbe8cd600",
     "apps/web/src/components/portal/portal-pages.tsx": "6a270ce8937e",
     "apps/web/src/components/portal/portal-shell.tsx": "d896bce81892",
@@ -267,6 +268,20 @@
       "by": "get_calendar_settings embedCode and sitesAllowedToShowIt"
     },
     {
+      "path": "Calendar page → the design’s picture across the top (first step), each person’s photo where customers pick who comes, and its width and spacing",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1645",
+      "covered": "yes",
+      "by": "get_calendar_settings design (coverPicture, spacing, width) and team.members photo"
+    },
+    {
+      "path": "A business’s website → a form or calendar in a pop-up: opened by a button, after some seconds, or when a computer visitor goes to leave; closed, it stays away 7 days",
+      "kind": "see",
+      "file": "apps/web/src/app/embed/v1/[file]/route.ts:33",
+      "covered": "yes",
+      "by": "get_form and get_calendar_settings popupCodes and popupNote"
+    },
+    {
       "path": "Calendar page, embedded → paying a deposit opens the payment page in a new tab",
       "kind": "see",
       "file": "apps/web/src/components/booking/deposit-pay.tsx:409",
@@ -286,6 +301,27 @@
       "file": "apps/web/src/components/booking/public-shell.tsx:165",
       "covered": "yes",
       "by": "get_settings booking_site enabled; calendars"
+    },
+    {
+      "path": "Invoice, estimate, payment plan, document to sign and appointment pages → the brand kit’s font and corners",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-shell.tsx:98",
+      "covered": "yes",
+      "by": "get_settings business settings.look (font, corners); do_look_set font, corners"
+    },
+    {
+      "path": "Invoice, estimate, payment plan, document to sign and appointment pages → footer: business name and license number, address, phone, website, social links",
+      "kind": "see",
+      "file": "apps/web/src/components/look/business-footer.tsx:50",
+      "covered": "yes",
+      "by": "get_settings business settings.look.license and look.socials; get_settings payments for the address and phone"
+    },
+    {
+      "path": "Invoice, estimate, payment plan, document to sign and appointment pages → footer: tap the phone, the website or a social link",
+      "kind": "do",
+      "file": "apps/web/src/components/look/business-footer.tsx:21",
+      "covered": "person",
+      "by": "the customer calls the business or opens its pages"
     },
     {
       "path": "Booking flow → What do you need? → service choice",
@@ -1408,6 +1444,20 @@
       "by": "the visitor's own yes to texts"
     },
     {
+      "path": "Website chat on a site → the chat in its font and corners (its own, else the brand kit’s), and the face in its top bar",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-widget/chat-parts.tsx:156",
+      "covered": "yes",
+      "by": "manage_website_chat font, corners and facePicture set what it shows"
+    },
+    {
+      "path": "Website chat on a site → the greeting bubble beside the button: its words open the chat, Close keeps it away for the visit",
+      "kind": "do",
+      "file": "apps/web/src/lib/chat/bubble.ts:1",
+      "covered": "person",
+      "by": "the visitor’s own, on the business’s website"
+    },
+    {
       "path": "Form link (/f/<site>/<slug>, ?embed=1, personal ?k, ?ref)",
       "kind": "see",
       "file": "apps/web/src/app/f/[site]/[slug]/page.tsx:1",
@@ -1448,6 +1498,13 @@
       "file": "apps/web/src/components/forms/question-field.tsx:1",
       "covered": "yes",
       "by": "get_form asks, questionIds"
+    },
+    {
+      "path": "Form → pictures: a picture and its caption (opens its web page when it has one), pictures on choices, the picture across the top and behind, half-width questions side by side",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/question-field.tsx:1",
+      "covered": "yes",
+      "by": "get_form asks and design"
     },
     {
       "path": "Form → answer questions: text, choice, checkboxes, yes/no, rating, number, money, date, time, address, email, phone, video, button",

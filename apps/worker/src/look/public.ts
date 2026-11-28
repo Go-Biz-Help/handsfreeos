@@ -1,11 +1,11 @@
-import { buttonColorFor, logoUrlFor, lookOf } from '@hfos/core/server';
+import { emailColorOf, emailContactOf, logoUrlFor, lookKitOf, lookOf } from '@hfos/core/server';
 import type { Tx } from '@hfos/db/client';
 import { workspaces } from '@hfos/db/schema';
 import { eq } from 'drizzle-orm';
 import type { EmailBrand } from '../email/render';
 
 /**
- * A business's logo and colour as its customers see them (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md
+ * A business's logo, colour and brand kit as its customers see them (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md
  * §4): on its booking page, website chat and invoices (the worker's public routes), and at the top of the emails
  * HandsFreeOS sends for it.
  */
@@ -14,9 +14,13 @@ export interface PublicLook {
   readonly logo: { readonly url: string; readonly width: number; readonly height: number } | null;
   /** Its colour as #rrggbb; null for HandsFreeOS's own. */
   readonly color: string | null;
+  /** Its brand kit's font, a Google font's name; null for HandsFreeOS's own. */
+  readonly font: string | null;
+  /** Its brand kit's corners; null for slight. */
+  readonly corners: 'square' | 'slight' | 'round' | null;
 }
 
-export const NO_PUBLIC_LOOK: PublicLook = { logo: null, color: null };
+export const NO_PUBLIC_LOOK: PublicLook = { logo: null, color: null, font: null, corners: null };
 
 /** The look from a business's settings, its logo at Storage's public address (none without that address). */
 export function publicLookOf(settings: unknown, storageUrl: string | null | undefined): PublicLook {
@@ -31,27 +35,18 @@ export function publicLookOf(settings: unknown, storageUrl: string | null | unde
           }
         : null,
     color: look.color?.hex ?? null,
+    ...lookKitOf(look),
   };
 }
 
-/** How big a logo is drawn at the top of an email: 48 pixels high, at most 240 across, its shape kept. */
-export function emailLogoSize(logo: { readonly width: number; readonly height: number }): {
-  width: number;
-  height: number;
-} {
-  const scale = Math.min(48 / logo.height, 240 / logo.width, 1);
-  return {
-    width: Math.max(1, Math.round(logo.width * scale)),
-    height: Math.max(1, Math.round(logo.height * scale)),
-  };
-}
+/** How big a logo is drawn at the top of an email (core's look/email.ts). */
+export { emailLogoSize } from '@hfos/core';
 
 /** The colour a business's links are in its emails: its own, dark enough to read on white. */
-export const emailLinkColor = (look: PublicLook): string | null =>
-  look.color ? buttonColorFor(look.color) : null;
+export const emailLinkColor = (look: PublicLook): string | null => emailColorOf(look.color);
 
 /**
- * The look at the top of an email, for one HandsFreeOS sends for the business automatically: nobody wrote it
+ * The look of an email HandsFreeOS sends for the business automatically: nobody wrote it
  * there and then (a confirmation, a reminder, an invoice, a campaign). Emails a person or the AI teammate wrote
  * in a conversation go plain, as people's own emails do.
  */
@@ -69,5 +64,13 @@ export async function emailBrandFor(
     .select({ name: workspaces.name, settings: workspaces.settings })
     .from(workspaces)
     .where(eq(workspaces.id, m.workspaceId));
-  return w ? { name: w.name, look: publicLookOf(w.settings, storageUrl) } : null;
+  if (!w) return null;
+  // How its emails look (Settings → Email); the footer's details are looked up only when it shows one.
+  const layout = lookOf(w.settings).email;
+  return {
+    name: w.name,
+    look: publicLookOf(w.settings, storageUrl),
+    layout: layout ? { band: layout.band, logo: layout.logo, footer: layout.footer } : null,
+    contact: layout?.footer ? await emailContactOf(tx, m.workspaceId, w.settings) : null,
+  };
 }

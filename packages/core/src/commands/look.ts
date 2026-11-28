@@ -28,8 +28,14 @@ import {
   LOOK_UPLOAD_MAX_BYTES,
   LOOK_UPLOAD_TYPES,
   lookOf,
+  socialKindOf,
+  socialUrlOf,
   type BusinessLook,
   type LookColor,
+  type LookEmail,
+  type LookEmailLayout,
+  type LookSocialLink,
+  type LookSocials,
 } from '../look/look';
 import { LOOK_WORDS } from '../look/words';
 import {
@@ -158,6 +164,11 @@ async function emitChanged(
   const shown = (l: BusinessLook) => ({
     logo: l.logo ? l.logo.from : null,
     color: l.color?.hex ?? null,
+    font: l.font?.name ?? null,
+    corners: l.corners?.value ?? null,
+    email: l.email ? { band: l.email.band, logo: l.email.logo, footer: l.email.footer } : null,
+    socials: l.socials?.links.map((s) => s.url) ?? [],
+    license: l.license?.text ?? null,
   });
   await ctx.emit({
     type: 'look.changed',
@@ -264,10 +275,31 @@ export const lookUseUpload = defineCommand({
   },
 });
 
+const sameEmail = (a: LookEmailLayout | null, b: LookEmail | null): boolean =>
+  (a?.band ?? null) === (b?.band ?? null) &&
+  (a?.logo ?? null) === (b?.logo ?? null) &&
+  (a?.footer ?? null) === (b?.footer ?? null);
+
+/** Social links as typed, as kept: each made a web address and named for its site, the same one once. */
+export function socialLinksOf(typed: readonly string[]): LookSocialLink[] {
+  const seen = new Set<string>();
+  const out: LookSocialLink[] = [];
+  for (const t of typed) {
+    const url = socialUrlOf(t);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    out.push({ kind: socialKindOf(url), url });
+  }
+  return out;
+}
+
+const sameSocials = (a: readonly LookSocialLink[], b: LookSocials | null): boolean =>
+  JSON.stringify(a) === JSON.stringify(b?.links ?? []);
+
 export const lookSet = defineCommand({
   name: 'look.set',
   description:
-    'Change the business’s colour, or take its logo off so its initials stand in. The website chat follows the colour unless it has one of its own.',
+    'Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), its social links, its license number (at the bottom of its invoices, estimates, documents to sign and appointment pages), and how its emails look (a colour band, the logo on the left or in the centre, a footer); or take its logo off so its initials stand in. Forms, booking pages, emails and the website chat that haven’t picked their own follow it.',
   risk: 1,
   input: LookSetInput,
   output: LookSetOutput,
@@ -285,10 +317,33 @@ export const lookSet = defineCommand({
           ? { color: { ...look.color, from: 'person' as const } }
           : {}),
       ...(input.removeLogo ? { logo: null } : {}),
+      ...(input.font !== undefined && input.font !== (look.font?.name ?? null)
+        ? { font: input.font ? { name: input.font, at } : null }
+        : {}),
+      ...(input.corners !== undefined && input.corners !== (look.corners?.value ?? null)
+        ? { corners: input.corners ? { value: input.corners, at } : null }
+        : {}),
+      ...(input.matchedSite ? { matched: { site: input.matchedSite, at } } : {}),
+      ...(input.email !== undefined && !sameEmail(input.email, look.email)
+        ? { email: input.email ? { ...input.email, at } : null }
+        : {}),
+      ...(input.socials !== undefined && !sameSocials(socialLinksOf(input.socials), look.socials)
+        ? {
+            socials: input.socials.length ? { links: socialLinksOf(input.socials), at } : null,
+          }
+        : {}),
+      ...(input.license !== undefined && (input.license || null) !== (look.license?.text ?? null)
+        ? { license: input.license ? { text: input.license, at } : null }
+        : {}),
     };
     const changed =
       next.color?.hex !== look.color?.hex ||
-      (next.logo?.path ?? null) !== (look.logo?.path ?? null);
+      (next.logo?.path ?? null) !== (look.logo?.path ?? null) ||
+      (next.font?.name ?? null) !== (look.font?.name ?? null) ||
+      (next.corners?.value ?? null) !== (look.corners?.value ?? null) ||
+      next.email !== look.email ||
+      next.socials !== look.socials ||
+      next.license !== look.license;
     if (JSON.stringify(next) === JSON.stringify(look)) return { look, changed: false };
     await keepLook(ctx, next);
     if (changed) await emitChanged(ctx, look, next, 'person');

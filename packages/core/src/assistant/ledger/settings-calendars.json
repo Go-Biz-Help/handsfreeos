@@ -1,9 +1,9 @@
 {
   "area": "settings-calendars",
   "title": "Settings: calendars, services, resources, territories and the booking site",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-27",
   "files": {
-    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/all/page.tsx": "1c471eedce59",
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/all/page.tsx": "fb713c558150",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/page.tsx": "0e22c274ca53",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/booking-site/page.tsx": "e411dfb0bf46",
     "apps/web/src/app/app/w/[workspaceId]/settings/calendars/new/page.tsx": "1b37fdd5533a",
@@ -17,15 +17,15 @@
     "apps/web/src/components/calendars/address-input.tsx": "9a72d8346951",
     "apps/web/src/components/calendars/area-map.tsx": "e71af06c083d",
     "apps/web/src/components/calendars/booking-site-form.tsx": "f9c406f07de7",
-    "apps/web/src/components/calendars/builder.tsx": "50e3cd5323db",
+    "apps/web/src/components/calendars/builder.tsx": "ef78c15770e8",
     "apps/web/src/components/calendars/calendar-card.tsx": "658da205d6fd",
     "apps/web/src/components/calendars/calendars-list.tsx": "a1b8e09035e6",
     "apps/web/src/components/calendars/chips.tsx": "e12df0c43d2b",
-    "apps/web/src/components/calendars/design-module.tsx": "ca405a334a21",
-    "apps/web/src/components/calendars/embed-dialog.tsx": "be51af03b53d",
+    "apps/web/src/components/calendars/design-module.tsx": "104ac67dab3a",
+    "apps/web/src/components/calendars/embed-dialog.tsx": "1caea6bf874b",
     "apps/web/src/components/calendars/history-sheet.tsx": "84f5900a0942",
     "apps/web/src/components/calendars/impact-dialog.tsx": "a4f8fffc6f1b",
-    "apps/web/src/components/calendars/modules.tsx": "ed0a2228872a",
+    "apps/web/src/components/calendars/modules.tsx": "18683fc91817",
     "apps/web/src/components/calendars/preset-picker.tsx": "933352f586c9",
     "apps/web/src/components/calendars/resources-page.tsx": "2be3dc659304",
     "apps/web/src/components/calendars/services-page.tsx": "b24ab458a23f",
@@ -33,6 +33,7 @@
     "apps/web/src/components/calendars/territories-page.tsx": "26ca9cad2de8",
     "apps/web/src/components/calendars/weekly-hours.tsx": "86cab98e3be1",
     "apps/web/src/components/calendars/zip-map.tsx": "c5f9f09dbb84",
+    "apps/web/src/components/look/popup-embed.tsx": "fd00c665e31f",
     "apps/web/src/components/settings/my-calendar.tsx": "b3a3033240a1",
     "apps/web/src/components/workflows/calendar-automations.tsx": "42e8c6be6b8a",
     "apps/web/src/components/workflows/publish.tsx": "a8f1ae2114f8"
@@ -1236,6 +1237,20 @@
       "by": "get_calendar_settings embedCode (written out whole, on the business’s own domain when one is serving)"
     },
     {
+      "path": "Calendar → Booking link → Embed → In the page or Pop-up",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/embed-dialog.tsx:133",
+      "covered": "yes",
+      "by": "get_calendar_settings embedCode (in the page) and popupCodes (pop-up)"
+    },
+    {
+      "path": "Calendar → Booking link → Embed → Pop-up: How it opens (From a button, After a few seconds, When they go to leave), Words on the button, Seconds, Copy the code",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/embed-dialog.tsx:157",
+      "covered": "yes",
+      "by": "get_calendar_settings popupCodes (button, afterTenSeconds, whenLeaving) and popupNote: the words and seconds are in the code"
+    },
+    {
       "path": "Calendar → Booking link → Embed → Set up the booking site (no site)",
       "kind": "do",
       "file": "apps/web/src/components/calendars/embed-dialog.tsx:149",
@@ -1992,11 +2007,39 @@
       "by": "update_calendar_settings design.showName, showLogo; adding a logo is Settings → Workspace (settings_help)"
     },
     {
-      "path": "Calendar → Design → Start over from your colour",
+      "path": "Calendar → Design → Start over from your brand kit",
       "kind": "do",
       "file": "apps/web/src/components/calendars/design-module.tsx:244",
       "covered": "yes",
       "by": "update_calendar_settings design.reset"
+    },
+    {
+      "path": "Calendar → Design → Layout: Space between parts, Widest it gets",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:250",
+      "covered": "yes",
+      "by": "update_calendar_settings design.spacing, width"
+    },
+    {
+      "path": "Calendar → Design → Pictures: Across the top (pick from Your pictures, Change, None)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:278",
+      "covered": "yes",
+      "by": "update_calendar_settings design.coverPicture, copied from read_picture_list"
+    },
+    {
+      "path": "Calendar → Design → Pictures: Each person’s photo (pick, Change, None)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:295",
+      "covered": "yes",
+      "by": "update_calendar_settings team.members[].photo, copied from read_picture_list; get_calendar_settings team.members photo"
+    },
+    {
+      "path": "Calendar → Design → Use on all my calendars (Save first while the design has unsaved changes)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/design-module.tsx:596",
+      "covered": "yes",
+      "by": "do_calendar_use_design_everywhere (the saved design)"
     },
     {
       "path": "Calendar → Design → the design as set now",

@@ -262,7 +262,21 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   // ---- Settings → Workspace, Add-ons and Safety ----
   'look.find': {},
-  'look.set': {},
+  'look.set': {
+    about:
+      'The brand kit. Give only what changes: color (#rrggbb), font (a Google font’s name, or null for HandsFreeOS’s own), corners (square, slight or round, or null for slight), socials (every social link, as typed, like facebook.com/acme: the whole list, [] for none), license (the license number customers’ invoices, estimates and other pages show at the bottom, as typed, like "Lic. #123456"; null to take it off), email (how emails look, Settings → Email: band true for a strip of the colour across the top, logo left or center, footer true for the address, phone, website and social links at the bottom; null for the look they had before). To match their website, read it with read_website_brand_kit first and pass what it found, with matchedSite.',
+  },
+  // Your pictures (Settings → Workspace): renaming one, saying what it shows, taking it out of the library.
+  'picture.update': {
+    offeredTo: 'forms.manage',
+    about:
+      'pictureId from read_picture_list. name renames it; words says what it shows, read out to people who can’t see it.',
+  },
+  'picture.remove': {
+    offeredTo: 'forms.manage',
+    about:
+      'pictureId from read_picture_list. Takes it out of the library; pages and emails already showing it keep it.',
+  },
   'onboarding.set_enabled': {},
   'addon.save_my_settings': {},
   'addon.vote': {},
@@ -432,6 +446,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'calendar.set_embed_sites': {
     about:
       'embedOrigins is the whole list: read get_calendar_settings sitesAllowedToShowIt first and pass every site to keep plus the new ones (an empty list stops it showing on any site).',
+  },
+  // A calendar's Design → Use on all my calendars: its saved design on every other calendar.
+  'calendar.use_design_everywhere': {
+    about:
+      'It copies the saved design only: save the calendar first (do_calendar_save) if the design was just changed.',
   },
   // ---- Settings → Payments and Partners ----
   'payment_connection.set_access': {},
@@ -670,6 +689,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   // import.create and import.start run in import_contacts, for a list sent with the question (25 Nov 2026).
   'look.begin_upload': 'a picture from the person’s own computer or phone',
   'look.use_upload': 'a picture from the person’s own computer or phone',
+  'picture.begin_upload': 'a picture from the person’s own computer or phone',
+  'picture.use_upload': 'a picture from the person’s own computer or phone',
   'number_port.begin_upload': 'a file from the person’s own computer or phone',
   'number_port.attach_document': 'a file from the person’s own computer or phone',
   'organization.create': 'a new business is set up on its own pages, where it pays',
@@ -792,6 +813,16 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   'workspace.look': [
     { tool: 'do_look_set', field: 'color' },
     { tool: 'do_look_set', field: 'removeLogo' },
+    { tool: 'do_look_set', field: 'font' },
+    { tool: 'do_look_set', field: 'corners' },
+    { tool: 'do_look_set', field: 'matchedSite' },
+    { tool: 'do_look_set', field: 'socials' },
+    { tool: 'do_look_set', field: 'license' },
+  ],
+  // Uploading one is the person's own (picture.begin_upload is on the Never list).
+  'workspace.pictures': [
+    { tool: 'do_picture_update', field: 'words' },
+    { tool: 'do_picture_remove', field: 'pictureId' },
   ],
   'workspace.your_page': [{ tool: 'do_booking_site_set_page', field: 'on' }],
   'workspace.getting_started': [{ tool: 'do_onboarding_set_enabled', field: 'enabled' }],
@@ -947,6 +978,8 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'sort_unmatched_email', field: 'action', value: 'dismiss' },
   ],
   'email.sender_rules': [{ tool: 'do_email_sender_rule_remove', field: 'address' }],
+  // How your emails look (design tools, part 5): kept in the brand kit, so look.set changes it.
+  'email.look': [{ tool: 'do_look_set', field: 'email' }],
   // Settings → Website chat, and each chat in Forms → Website chats, changed as its screen does.
   'website_chat.who_answers': [{ tool: 'manage_website_chat', field: 'answeredByAi' }],
   'website_chat.daily_limit': [{ tool: 'manage_website_chat', field: 'dailyCap' }],
@@ -962,6 +995,13 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_website_chat', field: 'color', value: '#2d69d8' },
     { tool: 'manage_website_chat', field: 'textColor', value: 'automatic' },
     { tool: 'manage_website_chat', field: 'topBarColor', value: '#191d25' },
+    // Design tools, part 4: Match my website, the font and corners, a face in the top bar, the greeting bubble.
+    { tool: 'manage_website_chat', field: 'matchWebsite', value: 'lonestarhvac.com' },
+    { tool: 'manage_website_chat', field: 'font', value: 'Poppins' },
+    { tool: 'manage_website_chat', field: 'corners', value: 'brand_kit' },
+    { tool: 'manage_website_chat', field: 'facePicture' },
+    { tool: 'manage_website_chat', field: 'greetingBubble' },
+    { tool: 'manage_website_chat', field: 'bubbleAfterSeconds' },
   ],
   'website_chat.logo': [{ tool: 'manage_website_chat', field: 'showLogo' }],
   'website_chat.placement': [

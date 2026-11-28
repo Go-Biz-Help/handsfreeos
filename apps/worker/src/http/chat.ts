@@ -24,7 +24,11 @@ import {
   CHAT_MESSAGE_MAX,
   chatAskForOf,
   chatColorOf,
+  chatBubbleOf,
   chatColorsOf,
+  chatCornersOf,
+  chatFaceOf,
+  chatFontOf,
   chatIdentify,
   chatMarkRead,
   chatReceive,
@@ -39,6 +43,7 @@ import {
   HfosError,
   legalSourceOf,
   openHoursOf,
+  pictureUrlFor,
   type CommandDef,
   type RequestMeta,
   consentPolicyPath,
@@ -458,9 +463,21 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
           const brand = publicLookOf(ws?.settings, deps.storageUrl);
           const colors = chatColorsOf(widget);
           const placement = chatPlacementOf(widget);
+          const face = chatFaceOf(widget.face);
           return {
             // Its logo for the top of the chat (its initials without one, or when the chat is set not to show it).
             business: { name: ws?.name ?? '', logo: widget.showLogo ? brand.logo : null },
+            // A picture from Your pictures in the top bar instead (design tools, part 4).
+            face:
+              face && deps.storageUrl
+                ? {
+                    url: pictureUrlFor(deps.storageUrl, face.path),
+                    width: face.width,
+                    height: face.height,
+                  }
+                : null,
+            // The words that pop up beside the button after a few seconds; null: none.
+            bubble: chatBubbleOf(widget),
             /** The AI teammate that answers here: its name, nothing else. */
             teammate: teammate ? { name: teammate.name } : null,
             greeting: widget.greeting,
@@ -484,6 +501,9 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
               mobileLift: placement.mobile.lift,
               desktopButton: placement.desktop.button,
               mobileButton: placement.mobile.button,
+              // Its own font and corners, else the brand kit's; null for both is the usual look.
+              font: chatFontOf(widget.font) ?? brand.font,
+              corners: chatCornersOf(widget.corners) ?? brand.corners,
             },
             askFor: chatAskForOf(widget.askFor),
             smsConsent: widget.smsConsent ? { ...consentWords, text: consentWords.detail } : null,

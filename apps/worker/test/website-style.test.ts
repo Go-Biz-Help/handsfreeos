@@ -7,6 +7,7 @@ import {
   rulesOf,
   websiteStyleOf,
 } from '../src/look/style';
+import { websiteChatLook } from '../src/http/website-style';
 
 /**
  * Match my website (look/style.ts): a website's button colour, words, font and corners, read from its HTML and CSS
@@ -138,12 +139,66 @@ describe('the design it makes', () => {
     expect(patch.scheme).toBe('dark');
     expect(patch.font).toBe('Inter');
     expect(patch).not.toHaveProperty('corners');
-    expect(fontNote).toBe(
-      'Proxima Nova isn’t a free font, so the form uses Inter, the closest one.',
-    );
+    expect(fontNote).toBe('Proxima Nova isn’t a free font, so we picked Inter, the closest one.');
     expect(formFontFor({ name: 'Adobe Garamond', google: false })).toEqual({
       name: 'Lora',
       stoodIn: true,
+    });
+  });
+});
+
+describe('a website chat’s Match my website', () => {
+  /** A site whose robots.txt is missing (so anything may be read) and whose start page is the GoDaddy one above. */
+  const page = `<!doctype html><html><head>
+    <link rel="stylesheet" href="//img1.wsimg.com/gfonts/css?family=Lato:400&amp;display=swap">
+    <style>
+      .x{font-family:'Lato', arial, sans-serif;color:rgb(27, 27, 27);background-color:rgb(255, 255, 255)}
+      .c1-a{background-color:rgb(232, 93, 4)}
+      .c1-b{color:#fe9}
+      .c1-c{border-radius:4px}
+    </style></head>
+    <body class="x">
+      <a data-ux="ButtonPrimary" class="c1-a c1-b c1-c" href="/quote">Get a quote</a>
+      <a data-ux="ButtonPrimary" class="c1-a c1-b c1-c" href="/call">Call us</a>
+    </body></html>`;
+  const deps = (html: string) => ({
+    log: { info: () => undefined } as never,
+    fetchUrl: (async (url: string) => {
+      const robots = url.endsWith('/robots.txt');
+      const body = robots ? '' : html;
+      return {
+        status: robots ? 404 : 200,
+        headers: { 'content-type': robots ? 'text/plain' : 'text/html' },
+        body,
+        bytes: Buffer.from(body),
+        finalUrl: url,
+        truncated: false,
+      };
+    }) as never,
+  });
+
+  it('copies the button colour, its words where they read, the font and the corners', async () => {
+    expect(await websiteChatLook(deps(page), 'https://acme-solar.com/')).toEqual({
+      site: 'https://acme-solar.com/',
+      accentColor: '#e85d04',
+      // #fe9 is too faint on that orange to read, so the chat works its words out instead.
+      textColor: null,
+      font: 'Lato',
+      corners: 'slight',
+      fontNote: null,
+    });
+    const readable = page.replace('.c1-b{color:#fe9}', '.c1-b{color:#fff}');
+    expect((await websiteChatLook(deps(readable), 'https://acme-solar.com/')).textColor).toBe(
+      '#ffffff',
+    );
+  });
+
+  it('says so, with where to pick by hand, when the site gives nothing to go on', async () => {
+    await expect(
+      websiteChatLook(deps('<html><body><p>Hi</p></body></html>'), 'https://plain.example/'),
+    ).rejects.toMatchObject({
+      rule: 'website_style_unknown',
+      message: expect.stringContaining('the chat’s Look section'),
     });
   });
 });

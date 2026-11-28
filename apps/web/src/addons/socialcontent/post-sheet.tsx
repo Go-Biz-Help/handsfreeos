@@ -25,6 +25,11 @@ import {
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
+import {
+  pageFields,
+  type PageWordsField,
+  type PictureWords,
+} from '@hfos/core/addons/socialcontent/picture-look';
 import { LINK_PLACES, postLinkOf, type LinkPlace } from '@hfos/core/addons/socialcontent/links';
 import { ANGLE_LABELS } from '@hfos/core/addons/socialcontent/variety';
 import {
@@ -69,6 +74,8 @@ import { useAct } from './use-act';
 
 const REWRITE = '/v1/addons/socialcontent/actions/socialcontent.content.rewrite';
 const PICTURE = '/v1/addons/socialcontent/actions/socialcontent.content.picture';
+const REDRAW = '/v1/addons/socialcontent/actions/socialcontent.content.redraw';
+const OWN_PHOTO = '/v1/addons/socialcontent/actions/socialcontent.content.own_photo';
 /** A picture shown in its network's shape (Instagram's own, else 4:5). */
 const ASPECT: Record<PictureShape, string> = {
   '4:5': 'aspect-[4/5]',
@@ -350,6 +357,7 @@ export function PostSheet({
   const [ask, setAsk] = useState('');
   const [pictureAsk, setPictureAsk] = useState('');
   const [viewing, setViewing] = useState<number | null>(null);
+  const [changingWords, setChangingWords] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
@@ -460,6 +468,39 @@ export function PostSheet({
         }),
       W.post.makeAsked,
     ).then(() => setPictureAsk(''));
+  /** Its pictures drawn again with the words changed by hand, at no AI cost (design tools, part 6). */
+  const redraw = (pages: PictureWords[]) =>
+    act(
+      'redraw',
+      () =>
+        workerPost(REDRAW, {
+          workspaceId,
+          input: {
+            postId: p.id,
+            pages: pages.map(({ layout: _layout, ...words }) => words),
+          },
+        }),
+      W.post.redrawn,
+    ).then((out) => {
+      if (out !== null) setChangingWords(false);
+    });
+  /** Words designed over the person's own photo, or the photo plain again (design tools, part 6). */
+  const ownPhoto = (words: boolean) =>
+    act(
+      words ? 'own:words' : 'own:plain',
+      () =>
+        workerPost(OWN_PHOTO, {
+          workspaceId,
+          input: {
+            postId: p.id,
+            words,
+            ...(words && pictureAsk.trim() ? { ask: pictureAsk.trim() } : {}),
+          },
+        }),
+      words ? W.post.wordsOnPhotoAsked : W.post.plainPhotoDone,
+    ).then(() => {
+      if (words) setPictureAsk('');
+    });
   const setPictures = (fileIds: string[], key: string, done: string) =>
     act(
       key,
@@ -965,6 +1006,31 @@ export function PostSheet({
                   {W.post.pictureFlagged(p.pictureFlags)}
                 </p>
               ) : null}
+              {changeable && !making && p.pictureWords ? (
+                changingWords ? (
+                  <PictureWordsEditor
+                    key={p.updatedAt}
+                    pages={p.pictureWords}
+                    busy={busy === 'redraw'}
+                    disabled={other('redraw')}
+                    onSave={(pages) => void redraw(pages)}
+                    onCancel={() => setChangingWords(false)}
+                  />
+                ) : (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={busy !== null}
+                      onClick={() => setChangingWords(true)}
+                      data-testid="socialcontent-change-words"
+                    >
+                      {W.post.changeWords}
+                    </Button>
+                    <span className="text-[12.5px] text-text-3">{W.post.changeWordsHint}</span>
+                  </div>
+                )
+              ) : null}
               <Field label={W.post.pictureShows} htmlFor="post-picture">
                 <Textarea
                   id="post-picture"
@@ -996,6 +1062,30 @@ export function PostSheet({
                         ? W.post.makeAgain
                         : W.post.switchTo(W.post.ways.design)}
                     </Button>
+                    {p.pictureWay === 'own' && d.format === 'photo' && p.ownPhotoId ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={busy === 'own:plain'}
+                        disabled={making || other('own:plain')}
+                        onClick={() => void ownPhoto(false)}
+                        data-testid="socialcontent-plain-photo"
+                      >
+                        {W.post.plainPhoto}
+                      </Button>
+                    ) : p.pictureWay === 'own' && d.format === 'photo' && stills.length === 1 ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={busy === 'own:words'}
+                        disabled={making || other('own:words')}
+                        onClick={() => void ownPhoto(true)}
+                        title={W.post.wordsOnPhotoHint}
+                        data-testid="socialcontent-words-on-photo"
+                      >
+                        {W.post.wordsOnPhoto}
+                      </Button>
+                    ) : null}
                     {d.format === 'photo' ? (
                       <Button
                         size="sm"
@@ -1029,7 +1119,11 @@ export function PostSheet({
                     />
                   </div>
                   <p className="text-[12.5px] text-text-3">
-                    {d.format === 'photo' ? W.post.waysHint.photo : W.post.waysHint.design}
+                    {p.pictureWay === 'own' && d.format === 'photo' && stills.length === 1
+                      ? W.post.wordsOnPhotoHint
+                      : d.format === 'photo'
+                        ? W.post.waysHint.photo
+                        : W.post.waysHint.design}
                   </p>
                 </>
               ) : null}
@@ -1164,6 +1258,90 @@ export function PostSheet({
  * On Threads and X (decision 41): how many characters the words and tags take of what the network allows, and the
  * posts that go under the first one for a longer tip, up to 4.
  */
+/**
+ * A drawn picture's words, changed by hand (the owner's idea 15; design tools, part 6): each picture shows the parts its
+ * layout draws, and Draw it again draws them from the same design with no AI.
+ */
+function PictureWordsEditor({
+  pages: shown,
+  busy,
+  disabled,
+  onSave,
+  onCancel,
+}: {
+  pages: PictureWords[];
+  busy: boolean;
+  disabled: boolean;
+  onSave: (pages: PictureWords[]) => void;
+  onCancel: () => void;
+}) {
+  const [pages, setPages] = useState(shown);
+  const setField = (i: number, f: PageWordsField, v: string) =>
+    setPages((all) =>
+      all.map((pg, j) =>
+        j !== i ? pg : f === 'items' ? { ...pg, items: v.split('\n') } : { ...pg, [f]: v },
+      ),
+    );
+  const changed = JSON.stringify(pages) !== JSON.stringify(shown);
+  return (
+    <div
+      className="space-y-3 rounded-card border border-border p-3"
+      data-testid="socialcontent-words-editor"
+    >
+      {pages.map((pg, i) => (
+        <div key={i} className="space-y-2" data-testid="socialcontent-words-page">
+          {pages.length > 1 ? (
+            <div className="text-[12.5px] font-medium text-text-2">
+              {W.post.wordsPage(i + 1, pages.length)}
+            </div>
+          ) : null}
+          {pageFields(pg.layout).map((f) => {
+            const id = `words-${i}-${f}`;
+            const label =
+              f === 'items' && pg.layout === 'beforeAfter'
+                ? W.post.beforeAfterItems
+                : W.post.wordsFields[f];
+            return (
+              <Field key={f} label={label} htmlFor={id}>
+                {f === 'items' || f === 'body' ? (
+                  <Textarea
+                    id={id}
+                    rows={f === 'items' ? Math.max(2, pg.items.length) : 2}
+                    value={f === 'items' ? pg.items.join('\n') : (pg.body ?? '')}
+                    onChange={(e) => setField(i, f, e.target.value)}
+                    data-testid={`socialcontent-words-${f}`}
+                  />
+                ) : (
+                  <Input
+                    id={id}
+                    value={pg[f] ?? ''}
+                    onChange={(e) => setField(i, f, e.target.value)}
+                    data-testid={`socialcontent-words-${f}`}
+                  />
+                )}
+              </Field>
+            );
+          })}
+        </div>
+      ))}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          loading={busy}
+          disabled={disabled || !changed || pages.some((pg) => !pg.heading.trim())}
+          onClick={() => onSave(pages)}
+          data-testid="socialcontent-words-redraw"
+        >
+          {W.post.redraw}
+        </Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={onCancel}>
+          {W.post.cancelWords}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ShortChain({
   network,
   words,

@@ -25,6 +25,7 @@ import {
   ANSWER_TARGET_KEYS,
   QUESTION_CONFIGS,
   QUESTION_TYPES,
+  QUESTION_WIDTHS,
   type QuantityRow,
 } from './questions';
 
@@ -101,12 +102,16 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
         index: int('Position on that page, 0 first; leave it out to add it at the end.'),
         help: str('The smaller line underneath.'),
         required: bool('Whether it must be answered. Default: no.'),
+        width: oneOf(
+          QUESTION_WIDTHS,
+          'half shares the row with the half-width question next to it on a computer (first and last name side by side). Default: full.',
+        ),
         mapTo: oneOf(
           ANSWER_TARGET_KEYS,
           'The field on the customer or the lead this answer fills in; leave it out to keep it on the response.',
         ),
         json: str(
-          'The question’s own settings as a JSON object (choices, min, max, statement…); leave it out for none. A video takes {"url": "a YouTube, Vimeo or Loom link", "minPercent": 80} — minPercent holds the Next button until they have watched that much, null lets them move on. One box to check (I agree to the terms, I own my home) is a yes_no with {"display": "checkbox"}, its title the words beside the box; a required one must be checked. An address can suggest real addresses from Google as they type the street with {"search": true}. A First name or Last name box is a short_text with mapTo person.first_name or person.last_name. A quantities question (How many of each) is rows with a number box beside each, for an order of several kinds: {"choices": [{"label": "Adult M", "price": 12}, {"label": "Adult L", "price": 12}], "unit": "shirts", "minTotal": 12} — price is one of it in dollars (leave it out for none), unit is what the total counts, minTotal and maxTotal limit how many in all. A row for something on the price list also takes its "productId", and "optionChoiceId" when it is one of the product’s choices (a size), copied from the price list with its label and price. Use one for sizes, flavours, colours or products ordered several at a time (T-shirts, mugs, tumblers, keychains, pins), never a number question per row. Never add a box asking to text them: HandsFreeOS adds that one to every form itself, in the words the carriers approved.',
+          'The question’s own settings as a JSON object (choices, min, max, statement…); leave it out for none. A video takes {"url": "a YouTube, Vimeo or Loom link", "minPercent": 80} — minPercent holds the Next button until they have watched that much, null lets them move on. One box to check (I agree to the terms, I own my home) is a yes_no with {"display": "checkbox"}, its title the words beside the box; a required one must be checked. An address can suggest real addresses from Google as they type the street with {"search": true}. A First name or Last name box is a short_text with mapTo person.first_name or person.last_name. A quantities question (How many of each) is rows with a number box beside each, for an order of several kinds: {"choices": [{"label": "Adult M", "price": 12}, {"label": "Adult L", "price": 12}], "unit": "shirts", "minTotal": 12} — price is one of it in dollars (leave it out for none), unit is what the total counts, minTotal and maxTotal limit how many in all. A row for something on the price list also takes its "productId", and "optionChoiceId" when it is one of the product’s choices (a size), copied from the price list with its label and price. Use one for sizes, flavours, colours or products ordered several at a time (T-shirts, mugs, tumblers, keychains, pins), never a number question per row. A picture (type picture) shows one of the business’s own pictures: {"picture": {"path", "width", "height"} copied exactly from the business’s pictures (read_picture_list, or Your pictures as listed), "size": "small", "medium", "large" or "full", "align": "left", "center" or "right", "link": an https address it opens, or blank}; its title says what the picture shows (read out to people who can’t see it) and help is the line under it; never make up a path. A choice can carry a "picture" the same way, so people pick by looking. Text on the page takes "align" too. Never add a box asking to text them: HandsFreeOS adds that one to every form itself, in the words the carriers approved.',
         ),
         showIfJson: str(
           'When to show it, as a JSON condition group: {"match":"all","conditions":[{"source":{"kind":"question","questionId":"…"},"op":"is","value":"…"}]}. Only questions asked earlier. Leave it out to always show it.',
@@ -118,7 +123,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'update_question',
     description:
-      'Change a question with a JSON merge patch: objects merge, lists and null replace. Its own settings go under "config"; a new "type" replaces them. Choices, and a quantities question’s rows, are edited by id under config.choices: [{"id", "label"}] (a row also takes "price", and "productId" and "optionChoiceId" from the price list). In a live poll, "live" holds {"seconds": 60, "showResults": false, "cues": ["what the presenter might say just before asking it"], "points": {"c_…": 10}}; points are what each answer says about how ready someone is (-100 to 100), by a choice’s id, "yes" and "no", a rating or scale’s number, "answered" for a short answer or "pressed" for a button, and are replaced whole.',
+      'Change a question with a JSON merge patch: objects merge, lists and null replace. Its own settings go under "config"; a new "type" replaces them. Its "width" ("half" or "full") sits beside its "title", not under config. Choices, and a quantities question’s rows, are edited by id under config.choices: [{"id", "label"}] (a row also takes "price", and "productId" and "optionChoiceId" from the price list). In a live poll, "live" holds {"seconds": 60, "showResults": false, "cues": ["what the presenter might say just before asking it"], "points": {"c_…": 10}}; points are what each answer says about how ready someone is (-100 to 100), by a choice’s id, "yes" and "no", a rating or scale’s number, "answered" for a short answer or "pressed" for a button, and are replaced whole.',
     inputSchema: obj({
       questionId: questionRef,
       json: str('The merge patch as a JSON object.'),
@@ -254,7 +259,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'set_design',
     description:
-      'How it looks: scheme (light or dark), colors {button, buttonText, background, text, field, fieldBorder, error} as #rrggbb or null to follow the business, font (a Google font name or null for ours), textSize (small, medium, large), corners (square, slight, round), fields (boxed, filled, underline), button {style: filled or outline, fullWidth}, spacing (compact, normal, roomy), labels (above or inside), width (narrow, medium, wide, full), showLogo, showTitle (false hides the form’s name at the top). Only when they ask about how it looks.',
+      'How it looks: scheme (light or dark), colors {button, buttonText, background, text, field, fieldBorder, error} as #rrggbb or null to follow the business, font (a Google font name, or null for the business’s brand kit font, else ours), textSize (small, medium, large), corners (square, slight, round, or null for the brand kit’s), fields (boxed, filled, underline), button {style: filled or outline, fullWidth}, spacing (compact, normal, roomy), labels (above or inside), width (narrow, medium, wide, full), showLogo, showTitle (false hides the form’s name at the top), align (left or center: the top and the button), cover (a picture across the top) and backdrop (a picture behind it on its own page), each {"path", "width", "height"} copied exactly from the business’s pictures, or null for none. Only when they ask about how it looks.',
     inputSchema: obj({ json: str('The merge patch as a JSON object.') }),
     strict: true,
   },
@@ -319,6 +324,7 @@ const INPUTS = {
     help: z.string().max(500).nullish(),
     required: z.boolean().nullish(),
     mapTo: z.string().nullish(),
+    width: z.enum(QUESTION_WIDTHS).nullish(),
     json: z.string().nullish(),
     showIfJson: z.string().nullish(),
   }),
@@ -453,6 +459,7 @@ export function formToolCallsToOps(
               ...(input.help ? { help: input.help } : {}),
               ...(input.required ? { required: true } : {}),
               ...(input.mapTo ? { mapTo: input.mapTo } : {}),
+              ...(input.width === 'half' ? { width: 'half' } : {}),
               ...(showIf ? { showIf } : {}),
               config: parsedConfig.data,
             } as never,

@@ -133,6 +133,25 @@ describe('how it looks', () => {
     expect(look.vars['--form-font']).toContain("'Merriweather', Georgia");
   });
 
+  it('follows the brand kit’s font and corners until the form picks its own', () => {
+    const kit = { font: 'Poppins', corners: 'round' as const };
+    // Nothing kept, nothing picked: HandsFreeOS's own, as before the brand kit.
+    const plain = formLook(DEFAULT_FORM_DESIGN);
+    expect(plain.vars['--radius-control']).toBe('8px');
+    expect(plain.fontHref).toBeNull();
+    const kitted = formLook(DEFAULT_FORM_DESIGN, { kit });
+    expect(kitted.vars['--radius-control']).toBe('22px');
+    expect(kitted.vars['--form-font']).toContain("'Poppins'");
+    expect(formLook(null, { kit }).vars['--radius-control']).toBe('22px');
+    // The form's own picks win.
+    const own = formLook(FormDesign.parse({ font: 'Lato', corners: 'square' }), { kit });
+    expect(own.vars['--radius-control']).toBe('0px');
+    expect(own.vars['--form-font']).toContain("'Lato'");
+    // A form saved before the brand kit kept slightly round corners, so it keeps them.
+    const saved = FormDesign.parse({ corners: 'slight' });
+    expect(formLook(saved, { kit }).vars['--radius-control']).toBe('8px');
+  });
+
   it('turns the shape and layout into what the stylesheet reads', () => {
     const look = formLook(
       FormDesign.parse({
@@ -151,6 +170,7 @@ describe('how it looks', () => {
       'data-fields': 'underline',
       'data-button': 'outline',
       'data-button-width': 'auto',
+      'data-align': 'left',
       'data-labels': 'inside',
     });
     expect(look.labelsInside).toBe(true);

@@ -3,8 +3,16 @@ import { ABOUT_YOU_MOST } from '../account/about-you';
 import { ATTENTION_KINDS, AUTO_CANCEL_WINDOW_MINUTES } from '../attention/kinds';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { CALENDAR_COLORS, CALENDAR_PRESETS, PRESET_KEYS } from '../calendar/presets';
+import {
+  CHAT_BUBBLE_AFTER_MAX,
+  CHAT_BUBBLE_AFTER_MIN,
+  CHAT_BUBBLE_MAX,
+  CHAT_CORNERS,
+} from '../chat/look';
 import { COMPANY_FIELDS, PERSON_FIELDS, SKIP } from '../crm/import-mapping';
 import { FORM_STARTERS } from '../forms/starters';
+import { FONT_NAME } from '../look/fonts';
+import { PictureRef } from '../look/pictures';
 import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
 import { MANUAL_PAYMENT_METHODS } from '../money/status';
 import { PRODUCT_KINDS } from '../schemas/money';
@@ -1116,7 +1124,7 @@ export const assistantTools = [
   define({
     name: 'manage_website_chat',
     description:
-      'Set up or change a chat box on the business’s website, as the Website chats list on the Forms page (and Settings → Website chat) does: its name, the sites it may show on, who answers it (the AI teammate, or only the team), the most new chats a day, its greeting, button label and colours, showing the business’s logo, where its button sits on computers and on phones (corner, how far up, label or icon only, or hidden on phones), what happens while nobody is answering, the away message, when it asks visitors for their name, mobile and email, the box to get texts, and turning it on or off. A business can have more than one; create adds another. Read them with get_settings (area website_chat) first and pass only what changes. The snippet still has to be pasted into their site, so say so; a new snippet key is do_chat_widget_rotate_key.',
+      'Set up or change a chat box on the business’s website, as the Website chats list on the Forms page (and Settings → Website chat) does: its name, the sites it may show on, who answers it (the AI teammate, or only the team), the most new chats a day, its greeting, button label and colours, its font and corners, a greeting bubble beside its button, a face in its top bar, Match my website, showing the business’s logo, where its button sits on computers and on phones (corner, how far up, label or icon only, or hidden on phones), what happens while nobody is answering, the away message, when it asks visitors for their name, mobile and email, the box to get texts, and turning it on or off. A business can have more than one; create adds another. Read them with get_settings (area website_chat) first and pass only what changes. The snippet still has to be pasted into their site, so say so; a new snippet key is do_chat_widget_rotate_key.',
     input: z.object({
       action: z.enum(['create', 'change', 'turn_on', 'turn_off']),
       widgetId: uuid
@@ -1183,6 +1191,46 @@ export const assistantTools = [
         .optional()
         .describe(
           'Show the business’s logo (Settings → Workspace) at the top of the chat; false shows its initials',
+        ),
+      matchWebsite: z
+        .string()
+        .trim()
+        .max(300)
+        .optional()
+        .describe(
+          'Match my website: a site like lonestarhvac.com to copy the button colour (and its words’ colour), font and corners from. What else is given goes on top. Read when the card is confirmed.',
+        ),
+      font: z
+        .union([z.string().trim().max(60).regex(FONT_NAME), z.literal('brand_kit')])
+        .optional()
+        .describe(
+          'The chat’s font, a Google font’s name like Poppins (the Design tab’s list), or brand_kit to follow the brand kit’s (Settings → Workspace). Its button on the site uses it when the site has the font.',
+        ),
+      corners: z
+        .enum([...CHAT_CORNERS, 'brand_kit'])
+        .optional()
+        .describe(
+          'The chat’s corners and its button’s: square, slight or round, or brand_kit to follow the brand kit’s (no kit corners: the usual soft corners and round button)',
+        ),
+      greetingBubble: z
+        .string()
+        .trim()
+        .max(CHAT_BUBBLE_MAX)
+        .nullable()
+        .optional()
+        .describe(
+          'Words that pop up beside the chat button after a few seconds, like “Need a quote? I can help.”; empty or null shows no bubble. A visitor who closes it doesn’t see it again that visit.',
+        ),
+      bubbleAfterSeconds: z
+        .int()
+        .min(CHAT_BUBBLE_AFTER_MIN)
+        .max(CHAT_BUBBLE_AFTER_MAX)
+        .optional()
+        .describe('Seconds on the page before the greeting bubble shows (the usual is 8)'),
+      facePicture: PictureRef.nullable()
+        .optional()
+        .describe(
+          'A face in the top bar, round, instead of the logo or initials: {"path","width","height"} copied exactly from Your pictures (read_picture_list), or null for none',
         ),
       position: z
         .enum(['right', 'left'])

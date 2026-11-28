@@ -23,6 +23,7 @@ import {
   HfosError,
   loadForm,
   money,
+  pictureList,
   priceWithChoices,
   quoteData,
   workspaceGet,
@@ -30,6 +31,7 @@ import {
   type FormDefinition,
   type FormOp,
   type HumanActor,
+  type PictureRow,
   type RequestMeta,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
@@ -82,6 +84,29 @@ export function priceListForModel(list: AiFormPriceList): string {
     'The price list (productId, its price, and each option’s choices with their full price):',
     ...lines,
     ...(list.length > PRICE_LIST_MAX ? [`  …and ${list.length - PRICE_LIST_MAX} more.`] : []),
+  ].join('\n');
+}
+
+/** The most pictures the builder is told about. */
+const PICTURES_MAX = 40;
+
+/**
+ * Your pictures as the builder reads them (HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md, part 2): each ready one's
+ * path and size, to copy into a picture question or a choice, with its name and what it shows to pick by.
+ */
+export function yourPicturesForModel(list: readonly PictureRow[]): string {
+  const ready = list.filter((p) => p.status === 'ready' && p.path && p.width && p.height);
+  if (!ready.length)
+    return 'This business has no pictures in Your pictures yet: add no picture questions.';
+  return [
+    'Your pictures (copy path, width and height exactly into a picture):',
+    ...ready
+      .slice(0, PICTURES_MAX)
+      .map(
+        (p) =>
+          `  ${quoteData(p.name)}${p.words ? ` showing ${quoteData(p.words)}` : ''}: {"path": "${p.path}", "width": ${p.width}, "height": ${p.height}}`,
+      ),
+    ...(ready.length > PICTURES_MAX ? [`  …and ${ready.length - PICTURES_MAX} more.`] : []),
   ].join('\n');
 }
 
@@ -168,6 +193,14 @@ export async function draftForm(
     actor,
     meta(),
   );
+  // Your pictures, read as the person too: anyone in the business sees the library.
+  const { pictures: library } = await executeQuery(
+    deps.db,
+    pictureList,
+    { workspaceId: input.workspaceId },
+    actor,
+    meta(),
+  );
   // A live poll's slides, as Read them on its Slides card reads them: what the worker already read in the PDF.
   const slides = loaded.definition.mode === 'poll' ? (loaded.definition.slides ?? null) : null;
   const [read] = slides
@@ -199,6 +232,7 @@ export async function draftForm(
           .join('; ')}`
       : 'This business has no calendars yet.',
     priceListForModel(priceList),
+    yourPicturesForModel(library),
     ...(slides
       ? [
           `Its slides: ${quoteData(slides.name)}, ${slides.pages} ${slides.pages === 1 ? 'slide' : 'slides'}.`,

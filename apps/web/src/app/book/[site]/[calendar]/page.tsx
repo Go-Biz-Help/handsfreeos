@@ -1,4 +1,4 @@
-import { linkRefOf } from '@hfos/core';
+import { DEFAULT_FORM_DESIGN, linkRefOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { permanentRedirect } from 'next/navigation';
 import { BookingFlow } from '@/components/booking/booking-flow';
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  *
  * A calendar with a design (its Design section, the same choices as a form's Design tab) wears it on both: the whole
  * page on its own, and the box on a website, see-through there unless the design picks a background. Without one,
- * the business's colour, as before.
+ * the business's colour, as before, and the brand kit's font and corners once it has them (Settings → Workspace).
  */
 export default async function CalendarBookingPage({ params, searchParams }: Props) {
   const { site, calendar } = await params;
@@ -68,8 +68,10 @@ export default async function CalendarBookingPage({ params, searchParams }: Prop
         linkRef={ref}
       />
     );
-  const design = page.calendar.design;
-  const businessColor = page.business.look?.color ?? null;
+  const kit = page.business.look ?? null;
+  // A calendar without a design of its own wears the brand kit's font and corners, once the kit has them.
+  const design = page.calendar.design ?? (kit?.font || kit?.corners ? DEFAULT_FORM_DESIGN : null);
+  const businessColor = kit?.color ?? null;
   if (!embedded) {
     const frame = (
       <PublicFrame
@@ -82,7 +84,7 @@ export default async function CalendarBookingPage({ params, searchParams }: Prop
     );
     // The header has the logo already, so the design's own logo isn't shown again here.
     return design ? (
-      <FormLookFrame design={design} businessColor={businessColor}>
+      <FormLookFrame design={design} businessColor={businessColor} kit={kit}>
         {frame}
       </FormLookFrame>
     ) : (
@@ -94,6 +96,7 @@ export default async function CalendarBookingPage({ params, searchParams }: Prop
     <FormLookFrame
       design={design}
       businessColor={businessColor}
+      kit={kit}
       logo={page.business.look?.logo ?? null}
       embedded
     >

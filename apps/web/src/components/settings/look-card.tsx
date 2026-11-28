@@ -1,11 +1,13 @@
 'use client';
 /**
- * Settings → Workspace's "Logo and colour": the business's look on its booking page, website chat, invoices and
- * the emails HandsFreeOS sends for it, as the setup's screen shows it (look-editor.tsx). The page is drawn again as
- * the worker finds the logo on the website or makes an upload ready.
+ * Settings → Workspace's "Brand kit": the business's logo and colour on its booking page, website chat, invoices and
+ * the emails HandsFreeOS sends for it, as the setup's screen shows them (look-editor.tsx), then its font and corners
+ * and Match my website (brand-kit.tsx). The page is drawn again as the worker finds the logo on the website or makes
+ * an upload ready.
  */
 import { LOOK_WORDS as L, type BusinessLook } from '@hfos/core';
 import { useRouter } from 'next/navigation';
+import { BrandKitExtras } from '@/components/look/brand-kit';
 import { LookEditor } from '@/components/look/look-editor';
 import { Card } from '@/components/ui/card';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
@@ -33,6 +35,13 @@ export function LookCard({
         workspaceId={workspaceId}
         look={look}
         businessName={businessName}
+        website={website}
+        canChange={canChange}
+        onChanged={() => router.refresh()}
+      />
+      <BrandKitExtras
+        workspaceId={workspaceId}
+        look={look}
         website={website}
         canChange={canChange}
         onChanged={() => router.refresh()}

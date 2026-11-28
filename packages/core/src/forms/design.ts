@@ -7,65 +7,26 @@
  * - Every colour left unset follows the business: its buttons take the business's own colour (Settings →
  *   Workspace, under the logo), darkened just enough for white words, as on its booking page; the rest are
  *   worked out from the background.
+ * - An unset font or corners follow the brand kit (Settings → Workspace → Brand kit, `FormKit`), then HandsFreeOS's
+ *   own: `designFontOf` and `designCornersOf` decide, and `formLook` takes the kit as `options.kit`.
  * - A form on a website with no background of its own is see-through, so it sits on the site's own background.
  * - Match my website fills this in from the business's website, and says which site and when (`matched`).
  */
 import { z } from 'zod';
 import { contrastRatio, readableTextOn } from '../chat/origins';
 import { buttonColorFor, isLookColor, LOOK_DEFAULT_COLOR, mixColors } from '../look/colour';
+import { FONT_NAME, fontStackOf, formFontHref } from '../look/fonts';
+import { PictureRef } from '../look/pictures';
 
-/** A font from Google Fonts: its name, the weights asked for, and what stands in while it loads. */
-export interface FormFont {
-  readonly name: string;
-  readonly weights: string;
-  readonly kind: 'sans' | 'serif';
-}
-
-/** The fonts the Design tab offers, HandsFreeOS's own first. Match my website may pick another Google font. */
-export const FORM_FONTS: readonly FormFont[] = [
-  { name: 'Hanken Grotesk', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Inter', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Roboto', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Open Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Lato', weights: '400;700', kind: 'sans' },
-  { name: 'Montserrat', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Poppins', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Nunito', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Nunito Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Raleway', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Source Sans 3', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Work Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'DM Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Manrope', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Rubik', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Mulish', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Karla', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Barlow', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Archivo', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Figtree', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Outfit', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Plus Jakarta Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Lexend', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Josefin Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Quicksand', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Oswald', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Ubuntu', weights: '400;500;700', kind: 'sans' },
-  { name: 'Noto Sans', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Cabin', weights: '400;500;600;700', kind: 'sans' },
-  { name: 'Merriweather', weights: '400;700', kind: 'serif' },
-  { name: 'Playfair Display', weights: '400;500;600;700', kind: 'serif' },
-  { name: 'Lora', weights: '400;500;600;700', kind: 'serif' },
-  { name: 'PT Serif', weights: '400;700', kind: 'serif' },
-  { name: 'Libre Baskerville', weights: '400;700', kind: 'serif' },
-  { name: 'EB Garamond', weights: '400;500;600;700', kind: 'serif' },
-  { name: 'Roboto Slab', weights: '400;500;600;700', kind: 'serif' },
-];
-
-/** HandsFreeOS's own font, which every page already has: a form "in our font" loads nothing. */
-export const FORM_DEFAULT_FONT = 'Hanken Grotesk';
-
-/** A Google font's name as Google spells it: letters, numbers and single spaces. */
-const FONT_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9]| (?! ))*[A-Za-z0-9]$/;
+export {
+  fontStackOf,
+  FORM_DEFAULT_FONT,
+  FORM_FONTS,
+  formFontHref,
+  formFontOf,
+  isFontName,
+  type FormFont,
+} from '../look/fonts';
 
 const colour = z
   .string()
@@ -99,12 +60,15 @@ export const FORM_FIELD_STYLES = ['boxed', 'filled', 'underline'] as const;
 export const FORM_SPACINGS = ['compact', 'normal', 'roomy'] as const;
 export const FORM_LABEL_PLACES = ['above', 'inside'] as const;
 export const FORM_WIDTHS = ['narrow', 'medium', 'wide', 'full'] as const;
+/** Where the top (logo, name and intro) and the send button sit: on the left, or in the middle. */
+export const FORM_ALIGNS = ['left', 'center'] as const;
+export type FormAlign = (typeof FORM_ALIGNS)[number];
 
 export const FormDesign = z.object({
   /** Light or dark: what the colours left unset are worked out from. */
   scheme: z.enum(['light', 'dark']).default('light'),
   colors: FormDesignColors.prefault({}),
-  /** A Google font's name; null is HandsFreeOS's own. */
+  /** A Google font's name; null follows the brand kit's, and HandsFreeOS's own when it has none. */
   font: z
     .string()
     .trim()
@@ -113,7 +77,8 @@ export const FormDesign = z.object({
     .nullable()
     .default(null),
   textSize: z.enum(FORM_TEXT_SIZES).default('medium'),
-  corners: z.enum(FORM_CORNERS).default('slight'),
+  /** Null follows the brand kit's (Settings → Workspace), and slight corners when it has none. */
+  corners: z.enum(FORM_CORNERS).nullable().default(null),
   /** Boxed all round, filled in, or a line underneath. */
   fields: z.enum(FORM_FIELD_STYLES).default('boxed'),
   button: z
@@ -132,6 +97,15 @@ export const FormDesign = z.object({
   showLogo: z.boolean().default(false),
   /** The form's name at the top. Hidden, screen readers still hear it; a website's own heading often says it. */
   showTitle: z.boolean().default(true),
+  /** Line up: the logo, name and intro, and the send button, on the left or in the middle. */
+  align: z.enum(FORM_ALIGNS).default('left'),
+  /** A wide picture across the top (Your pictures), above the logo and name. */
+  cover: PictureRef.nullable().default(null),
+  /**
+   * A picture behind the whole form (Your pictures), filling the page around it. The form keeps its own background
+   * on top, so the questions always read.
+   */
+  backdrop: PictureRef.nullable().default(null),
   /** Filled in from a website by Match my website: which site, and when. A person's change leaves it be. */
   matched: z
     .object({ site: z.string().trim().max(300), at: z.iso.datetime() })
@@ -144,30 +118,31 @@ export type FormDesignInput = z.input<typeof FormDesign>;
 /** A design with nothing set: what every form had before the Design tab. */
 export const DEFAULT_FORM_DESIGN: FormDesign = FormDesign.parse({});
 
-/** The font's Google entry: one of ours, or a Google font Match my website found (weights unknown, so none asked for). */
-export function formFontOf(name: string | null | undefined): FormFont | null {
-  if (!name || name === FORM_DEFAULT_FONT) return null;
-  return (
-    FORM_FONTS.find((f) => f.name.toLowerCase() === name.toLowerCase()) ?? {
-      name,
-      weights: '',
-      kind: 'sans',
-    }
-  );
+export type FormCorners = (typeof FORM_CORNERS)[number];
+
+/**
+ * What a design leaves unset follows: the business's brand kit (Settings → Workspace, look/look.ts). Its colour is
+ * `businessColor`; a font and corners it has none of are HandsFreeOS's own.
+ */
+export interface FormKit {
+  readonly font?: string | null;
+  readonly corners?: FormCorners | null;
 }
 
-/** Where the browser gets a font from Google; null for HandsFreeOS's own, which every page has. */
-export function formFontHref(name: string | null | undefined): string | null {
-  const font = formFontOf(name);
-  if (!font) return null;
-  const family = font.name.replace(/ /g, '+');
-  return `https://fonts.googleapis.com/css2?family=${family}${font.weights ? `:wght@${font.weights}` : ''}&display=swap`;
-}
+/** The font a design is drawn in: its own, else the kit's; null is HandsFreeOS's own. */
+export const designFontOf = (
+  design: Pick<FormDesign, 'font'> | null | undefined,
+  kit?: FormKit | null,
+): string | null => design?.font ?? kit?.font ?? null;
 
-const SANS_FALLBACK = "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
-const SERIF_FALLBACK = "Georgia, 'Times New Roman', serif";
+/** The corners a design is drawn with: its own, else the kit's, else slight. */
+export const designCornersOf = (
+  design: Pick<FormDesign, 'corners'> | null | undefined,
+  kit?: FormKit | null,
+): FormCorners => design?.corners ?? kit?.corners ?? 'slight';
 
-const RADII: Record<FormDesign['corners'], { control: string; menu: string; card: string }> = {
+/** Each corners choice as the app's radius tokens: forms, booking pages and the customer's pages (look/page-kit.ts). */
+export const CORNER_RADII: Record<FormCorners, { control: string; menu: string; card: string }> = {
   square: { control: '0px', menu: '0px', card: '0px' },
   slight: { control: '8px', menu: '10px', card: '12px' },
   // Pills for buttons and one-line boxes (they're 36 to 44 high); a box for a long answer stops at 16 (globals.css).
@@ -185,6 +160,22 @@ const MAX_WIDTH: Record<FormDesign['width'], string> = {
   medium: '672px',
   wide: '880px',
   full: 'none',
+};
+/**
+ * A booking page's widths (a calendar's Design → Layout): the open times, then the details. Medium is what every
+ * booking page had before it could pick.
+ */
+const BOOKING_WIDTH: Record<FormDesign['width'], readonly [times: string, details: string]> = {
+  narrow: ['640px', '480px'],
+  medium: ['860px', '560px'],
+  wide: ['1040px', '640px'],
+  full: ['none', '720px'],
+};
+/** A booking page's space between its parts, and between the boxes of its details; normal is as before. */
+const BOOKING_GAP: Record<FormDesign['spacing'], readonly [parts: string, boxes: string]> = {
+  compact: ['0.75rem', '0.625rem'],
+  normal: ['1rem', '0.875rem'],
+  roomy: ['1.5rem', '1.25rem'],
 };
 
 const LIGHT = { background: '#ffffff', text: '#191d25', error: '#c43335', success: '#008743' };
@@ -210,6 +201,11 @@ export interface FormLook {
   readonly paintsBackground: boolean;
   /** The Google font to load, or null for ours. */
   readonly fontHref: string | null;
+  /** The wide picture across the top, and the one behind the form (Your pictures), when the design has them. */
+  readonly cover: PictureRef | null;
+  readonly backdrop: PictureRef | null;
+  /** Where the top and the send button sit. */
+  readonly align: FormAlign;
   readonly dark: boolean;
   readonly labelsInside: boolean;
   readonly showLogo: boolean;
@@ -228,6 +224,8 @@ export function formLook(
     readonly businessColor?: string | null;
     /** On someone else's website (`?embed=1`). */
     readonly embedded?: boolean;
+    /** The brand kit's font and corners, which a design that leaves them unset follows. */
+    readonly kit?: FormKit | null;
   } = {},
 ): FormLook {
   const d = design ?? DEFAULT_FORM_DESIGN;
@@ -246,8 +244,8 @@ export function formLook(
   const errorText = readableOn(error, base, text, 4.5);
   const field = c.field ?? (dark ? tint(base, text, 0.05) : '#ffffff');
   const border = c.fieldBorder ?? tint(base, text, 0.2);
-  const radii = RADII[d.corners];
-  const font = formFontOf(d.font);
+  const radii = CORNER_RADII[designCornersOf(d, options.kit)];
+  const fontName = designFontOf(d, options.kit);
   const paintsBackground = !options.embedded || c.background !== null;
   const vars: Record<string, string> = {
     '--bg': base,
@@ -281,20 +279,27 @@ export function formLook(
     '--form-zoom': ZOOM[d.textSize],
     '--form-gap': GAP[d.spacing],
     '--form-max-width': MAX_WIDTH[d.width],
+    '--booking-max-width': BOOKING_WIDTH[d.width][0],
+    '--booking-details-width': BOOKING_WIDTH[d.width][1],
+    '--booking-gap': BOOKING_GAP[d.spacing][0],
+    '--booking-box-gap': BOOKING_GAP[d.spacing][1],
   };
-  if (font)
-    vars['--form-font'] =
-      `'${font.name}', ${font.kind === 'serif' ? SERIF_FALLBACK : SANS_FALLBACK}`;
+  const stack = fontStackOf(fontName);
+  if (stack) vars['--form-font'] = stack;
   return {
     vars,
     data: {
       'data-fields': d.fields,
       'data-button': d.button.style,
       'data-button-width': d.button.fullWidth ? 'full' : 'auto',
+      'data-align': d.align,
       'data-labels': d.labels,
     },
     paintsBackground,
-    fontHref: formFontHref(d.font),
+    fontHref: formFontHref(fontName),
+    cover: d.cover,
+    backdrop: d.backdrop,
+    align: d.align,
     dark,
     labelsInside: d.labels === 'inside',
     showLogo: d.showLogo,

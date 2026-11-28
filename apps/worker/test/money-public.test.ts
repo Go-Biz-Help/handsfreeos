@@ -13,6 +13,7 @@ import {
   estimateCreate,
   estimateVoid,
   invoiceVoid,
+  lookSet,
   paymentRefund,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -331,6 +332,29 @@ describe('the estimate a customer was sent', () => {
     };
     expect(invoice.business.address).toBe(BUSINESS_ADDRESS);
     // Put back, so the tests that came before this one keep the world they were written against.
+    await patchMoneySettings(w, { businessAddress: '' });
+  });
+
+  it('ends with the business’s license number, and the address from Settings → Payments', async () => {
+    const footerOf = async (path: string) =>
+      ((await get(w, path)).json() as { business: { footer: unknown } }).business.footer;
+    const e = await sentEstimate(w);
+    const inv = await sentInvoice(w);
+    // No license yet, and the calendar's address standing in.
+    expect(await footerOf(`/public/estimate/${e.token}`)).toMatchObject({
+      license: null,
+      address: [CALENDAR_ADDRESS],
+    });
+    await run(w, lookSet, { workspaceId: w.workspaceId, license: 'TX HVAC Lic. TACLA12345C' });
+    await patchMoneySettings(w, { businessAddress: BUSINESS_ADDRESS });
+    const want = {
+      license: 'TX HVAC Lic. TACLA12345C',
+      address: BUSINESS_ADDRESS.split('\n').map((l) => l.trim()),
+    };
+    expect(await footerOf(`/public/estimate/${e.token}`)).toMatchObject(want);
+    expect(await footerOf(`/public/invoice/${inv.token}`)).toMatchObject(want);
+    // Put back, so the tests that come after keep the world they were written against.
+    await run(w, lookSet, { workspaceId: w.workspaceId, license: null });
     await patchMoneySettings(w, { businessAddress: '' });
   });
 

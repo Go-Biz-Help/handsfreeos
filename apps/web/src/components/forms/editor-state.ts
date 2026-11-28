@@ -173,6 +173,8 @@ const DEFAULT_TITLES: Partial<Record<QuestionType, string>> = {
   booking: 'Pick a time',
   button: 'Ready to take the next step?',
   quantities: 'How many of each?',
+  // A picture's title is what it shows, read out to people who can't see it: picking one fills it in.
+  picture: 'A picture',
 };
 
 /** A question of that type with the smallest sensible config, ready to drop on a page. */

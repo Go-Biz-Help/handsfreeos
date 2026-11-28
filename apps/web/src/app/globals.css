@@ -187,6 +187,15 @@
   --radius-card: 12px;
 }
 
+/* A customer's page in the brand kit (lib/look.ts `kitLook`; design tools, part 7): the invoice, estimate, document to
+   sign and appointment take the kit's font, and its corners through the radius tokens set on the element. */
+.kit-look {
+  font-family: var(--kit-font, inherit);
+}
+.kit-look textarea {
+  border-radius: min(var(--radius-control), 16px);
+}
+
 /* A form in its design (core's forms/design.ts, worked out by formLook in components/forms/form-look.tsx): the element
    sets the colour tokens, the corners and the --form-* values below, and these rules read its data attributes. They
    sit outside Tailwind's layers on purpose, so they win over the utilities on the inputs and buttons inside. */
@@ -210,6 +219,19 @@
 }
 .form-look[data-button-width='auto'] [data-form-action] {
   flex: none;
+}
+/* A form lined up in the middle (its design's Line up): its top and its buttons centred, the questions as they are. */
+.form-look[data-align='center'] [data-form-head] {
+  text-align: center;
+}
+.form-look[data-align='center'] [data-form-head] [data-testid='form-logo'] {
+  margin-inline: auto;
+}
+.form-look[data-align='center'] :has(> [data-form-action]) {
+  justify-content: center;
+}
+.form-look[data-align='center'][data-button-width='auto'] [data-form-action].w-full {
+  align-self: center;
 }
 /* A booking page's buttons are as wide as it (w-full) until its design says as wide as their words. */
 .form-look[data-button-width='auto'] [data-form-action].w-full {

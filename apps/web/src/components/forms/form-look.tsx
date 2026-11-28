@@ -1,6 +1,7 @@
 'use client';
-import { formLook, type FormDesign } from '@hfos/core';
+import { formLook, type FormDesign, type FormKit, type PictureRef } from '@hfos/core';
 import { createContext, useContext, type CSSProperties, type ReactNode } from 'react';
+import { pictureSrc } from '@/lib/look';
 import { cn } from '@/lib/utils';
 
 /** A business's logo where anyone can see it (the worker's PublicLook). */
@@ -21,6 +22,8 @@ interface FormLookValue {
   readonly showTitle: boolean;
   /** A dark form, for parts drawn by others (Cloudflare's check) to match. */
   readonly dark: boolean;
+  /** The picture across the top of the form, from Your pictures. */
+  readonly cover: PictureRef | null;
 }
 
 const FormLookContext = createContext<FormLookValue>({
@@ -29,6 +32,7 @@ const FormLookContext = createContext<FormLookValue>({
   logo: null,
   showTitle: true,
   dark: false,
+  cover: null,
 });
 
 export const useFormLook = (): FormLookValue => useContext(FormLookContext);
@@ -41,6 +45,7 @@ export const useFormLook = (): FormLookValue => useContext(FormLookContext);
 export function FormLookFrame({
   design,
   businessColor = null,
+  kit = null,
   logo = null,
   embedded = false,
   className,
@@ -49,13 +54,15 @@ export function FormLookFrame({
   design: FormDesign | null | undefined;
   /** The business's own colour; null for HandsFreeOS's blue. */
   businessColor?: string | null;
+  /** The brand kit's font and corners, which the design follows where it leaves them unset. */
+  kit?: FormKit | null;
   logo?: FormLogo | null;
   /** On someone else's website (`?embed=1`). */
   embedded?: boolean;
   className?: string;
   children: ReactNode;
 }) {
-  const look = formLook(design, { businessColor, embedded });
+  const look = formLook(design, { businessColor, embedded, kit });
   return (
     <FormLookContext.Provider
       value={{
@@ -64,6 +71,7 @@ export function FormLookFrame({
         logo: look.showLogo ? logo : null,
         showTitle: look.showTitle,
         dark: look.dark,
+        cover: look.cover,
       }}
     >
       {/* React puts a stylesheet link in the page's head, once however many forms ask for it. */}
@@ -80,13 +88,38 @@ export function FormLookFrame({
   );
 }
 
-/** The panel the form sits on: its own background and a border, or nothing at all on a website without one. */
+/**
+ * The panel the form sits on: its own background and a border, or nothing at all on a website without one. A cover
+ * picture runs across its top, edge to edge, above everything else.
+ */
 export function FormSurface({
   className,
   children,
   ...props
 }: { className?: string; children: ReactNode } & Record<`data-${string}`, string>) {
-  const { bare } = useFormLook();
+  const { bare, cover } = useFormLook();
+  if (cover)
+    return (
+      <div
+        className={cn(
+          'overflow-hidden rounded-card',
+          bare ? '' : 'border border-border bg-[var(--form-surface)] shadow-1',
+        )}
+        {...props}
+      >
+        {/* Storage's public address: plain <img>, its shape kept up to a banner's height. */}
+        <img
+          src={pictureSrc(cover.path)}
+          alt=""
+          width={cover.width}
+          height={cover.height}
+          className="block max-h-[260px] w-full object-cover"
+          style={{ aspectRatio: `${cover.width} / ${cover.height}` }}
+          data-testid="form-cover"
+        />
+        <div className={cn(bare && 'px-1 py-2', className)}>{children}</div>
+      </div>
+    );
   return (
     <div
       className={cn(
@@ -98,6 +131,27 @@ export function FormSurface({
     >
       {children}
     </div>
+  );
+}
+
+/**
+ * The design's picture across the top as a banner of its own, for a page that isn't one panel (a booking page): its
+ * shape kept up to a banner's height, with the design's corners.
+ */
+export function FormCover({ className }: { className?: string }) {
+  const { cover } = useFormLook();
+  if (!cover) return null;
+  // Storage's public address: plain <img>, nothing for an image optimizer to keep.
+  return (
+    <img
+      src={pictureSrc(cover.path)}
+      alt=""
+      width={cover.width}
+      height={cover.height}
+      className={cn('block max-h-[260px] w-full rounded-card object-cover', className)}
+      style={{ aspectRatio: `${cover.width} / ${cover.height}` }}
+      data-testid="form-cover"
+    />
   );
 }
 

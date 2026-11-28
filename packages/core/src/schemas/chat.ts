@@ -3,7 +3,15 @@
  * worker's chat routes and Settings → Website chat send and get back.
  */
 import { z } from 'zod';
-import { CHAT_LIFT_LIMIT } from '../chat/look';
+import {
+  CHAT_BUBBLE_AFTER_MAX,
+  CHAT_BUBBLE_AFTER_MIN,
+  CHAT_BUBBLE_MAX,
+  CHAT_CORNERS,
+  CHAT_LIFT_LIMIT,
+} from '../chat/look';
+import { FONT_NAME } from '../look/fonts';
+import { PictureRef } from '../look/pictures';
 import { isoDateTime, uuid } from './common';
 import { optionalEmail, phoneInput } from './crm';
 
@@ -105,6 +113,33 @@ const widgetFields = {
   headerColor: optionalColor,
   /** The business's logo at the top of the chat (Settings → Workspace); off: its initials. */
   showLogo: z.boolean().optional(),
+  /** A Google font's name (design tools, part 4); null: the brand kit's, and the usual when it has none. */
+  font: z
+    .string()
+    .trim()
+    .max(60)
+    .regex(FONT_NAME, { error: 'Pick a font from the list.' })
+    .nullable()
+    .optional(),
+  /** The chat's corners; null: the brand kit's, and the usual soft ones when it has none. */
+  corners: z.enum(CHAT_CORNERS).nullable().optional(),
+  /** The words that pop up beside the button ("Need a quote? I can help."); blank or null: no bubble. */
+  bubble: z
+    .string()
+    .trim()
+    .max(CHAT_BUBBLE_MAX, `Keep the bubble under ${CHAT_BUBBLE_MAX} characters.`)
+    .nullable()
+    .optional()
+    .transform((v) => (v === '' ? null : v)),
+  /** Seconds on the page before the bubble shows. */
+  bubbleAfter: z
+    .number()
+    .int()
+    .min(CHAT_BUBBLE_AFTER_MIN, 'Show it after at least 1 second.')
+    .max(CHAT_BUBBLE_AFTER_MAX, `Show it within ${CHAT_BUBBLE_AFTER_MAX} seconds.`)
+    .optional(),
+  /** A picture from Your pictures in the top bar, instead of the logo or initials; null: none. */
+  face: PictureRef.nullable().optional(),
   /** Shown when nobody is answering. */
   awayMessage: optionalMessage,
   whenAway: chatWhenAway.optional(),
@@ -190,6 +225,16 @@ export const ChatWidgetOut = z.object({
   /** The top bar's colour picked; null when it's the button's. */
   headerColor: z.string().nullable(),
   showLogo: z.boolean(),
+  /** The font picked; null follows the brand kit's. */
+  font: z.string().nullable(),
+  /** The corners picked; null follows the brand kit's. */
+  corners: z.enum(CHAT_CORNERS).nullable(),
+  /** The greeting bubble's words beside the button; null when it has none. */
+  bubble: z.string().nullable(),
+  /** Seconds on the page before the bubble shows. */
+  bubbleAfter: z.number().int(),
+  /** The picture in the top bar; null: the logo or initials. */
+  face: PictureRef.nullable(),
   position: chatWidgetPosition,
   /** Where the button sits on phones and on computers. */
   placement: z.object({

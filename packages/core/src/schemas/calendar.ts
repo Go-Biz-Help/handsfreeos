@@ -215,6 +215,11 @@ export const CalendarSetEmbedSitesOutput = z.object({
   calendarId: uuid,
   embedOrigins: z.array(z.string()),
 });
+export const CalendarUseDesignEverywhereInput = z.object({ workspaceId: uuid, calendarId: uuid });
+export const CalendarUseDesignEverywhereOutput = z.object({
+  /** The calendars whose booking page took the design, each saved as a new revision. */
+  calendarIds: z.array(uuid),
+});
 
 export const CalendarSummary = z.object({
   id: uuid,

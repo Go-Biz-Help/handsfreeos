@@ -60,6 +60,7 @@ import {
   calendarSetEmbedSites,
   calendarSetSlug,
   calendarSetStatus,
+  calendarUseDesignEverywhere,
 } from './calendar';
 import { calendarSetupSave } from './calendar-setup';
 import {
@@ -173,6 +174,7 @@ export {
   companyDelete,
   conversationDelete,
   customRecordDelete,
+  invoiceDelete,
   leadDelete,
   personDelete,
 } from './bin';
@@ -393,6 +395,13 @@ import {
   lookSet,
   lookUseUpload,
 } from './look';
+import {
+  pictureBeginUpload,
+  pictureNoteMade,
+  pictureRemove,
+  pictureUpdate,
+  pictureUseUpload,
+} from './picture';
 import {
   aiSetupTemplateDelete,
   aiSetupTemplateRename,
@@ -768,6 +777,7 @@ export {
   calendarSetStatus,
   calendarSetSlug,
   calendarSetEmbedSites,
+  calendarUseDesignEverywhere,
   calendarSetupSave,
   chatSetupSave,
   facebookSetupSave,
@@ -1008,6 +1018,7 @@ export const commands: readonly CommandDef[] = [
   calendarSetStatus,
   calendarSetSlug,
   calendarSetEmbedSites,
+  calendarUseDesignEverywhere,
   calendarSetupSave,
   serviceCreate,
   serviceUpdate,
@@ -1378,6 +1389,12 @@ export const commands: readonly CommandDef[] = [
   lookFind,
   lookNoteWebsite,
   lookNoteUpload,
+  // Your pictures: the business's library for its forms, booking pages, emails, chat and invoices.
+  pictureBeginUpload,
+  pictureUseUpload,
+  pictureUpdate,
+  pictureRemove,
+  pictureNoteMade,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -1434,6 +1451,7 @@ export * from './intake-source';
 export * from './onboarding';
 export * from './onboarding-setup';
 export * from './look';
+export * from './picture';
 export * from './intake';
 export * from './chat';
 export * from './attention';

@@ -9,11 +9,13 @@ import {
   type AnswerSheet,
   type AnswerValue,
   type FormDefinition,
+  type FormKit,
 } from '@hfos/core';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { backdropStyle } from '@/lib/look';
 import { FormHead, FormLookFrame, FormSurface, type FormLogo } from './form-look';
-import { QuestionField } from './question-field';
+import { QuestionField, QuestionRows } from './question-field';
 import { StepButtons, StepProgress, useFormSteps } from './steps';
 
 /**
@@ -27,6 +29,7 @@ export function FormPreview({
   definition,
   className,
   businessColor = null,
+  kit = null,
   logo = null,
   embedded = false,
 }: {
@@ -34,20 +37,35 @@ export function FormPreview({
   className?: string;
   /** The business's own colour, which buttons follow until the design picks one. */
   businessColor?: string | null;
+  /** The brand kit's font and corners, which the design follows where it leaves them unset. */
+  kit?: FormKit | null;
   logo?: FormLogo | null;
   /** As it sits on a website: see-through unless the design gives it a background. */
   embedded?: boolean;
 }) {
-  return (
+  const frame = (
     <FormLookFrame
       design={definition.design}
       businessColor={businessColor}
+      kit={kit}
       logo={logo}
       embedded={embedded}
       className={className}
     >
       <Rehearsal definition={definition} />
     </FormLookFrame>
+  );
+  // Its background picture is behind it on its own page, so the preview shows it there too (not on a website).
+  const backdrop = embedded ? null : (definition.design?.backdrop ?? null);
+  if (!backdrop) return frame;
+  return (
+    <div
+      className="rounded-card p-4 sm:p-6"
+      style={backdropStyle(backdrop)}
+      data-testid="preview-backdrop"
+    >
+      {frame}
+    </div>
   );
 }
 
@@ -112,22 +130,28 @@ function Rehearsal({ definition: raw }: { definition: FormDefinition }) {
 
       <div className="mt-5 flex flex-col gap-[var(--form-gap,1.5rem)]">
         {steps.shown.map((page) => (
-          <section key={page.page.id} className="flex flex-col gap-[var(--form-gap,1.5rem)]">
+          <section
+            key={page.page.id}
+            className="@container flex flex-col gap-[var(--form-gap,1.5rem)]"
+          >
             {page.page.title ? (
               <h3 className="text-[14px] font-medium text-text-2">{page.page.title}</h3>
             ) : null}
-            {page.questions.map((question) => {
-              const value = state.answers[question.id] ?? null;
-              return (
-                <QuestionField
-                  key={question.id}
-                  question={question}
-                  value={value}
-                  problem={tried ? answerProblem(question, value) : null}
-                  onChange={(v) => set(question.id, v)}
-                />
-              );
-            })}
+            <QuestionRows
+              questions={page.questions}
+              render={(question) => {
+                const value = state.answers[question.id] ?? null;
+                return (
+                  <QuestionField
+                    key={question.id}
+                    question={question}
+                    value={value}
+                    problem={tried ? answerProblem(question, value) : null}
+                    onChange={(v) => set(question.id, v)}
+                  />
+                );
+              }}
+            />
           </section>
         ))}
       </div>

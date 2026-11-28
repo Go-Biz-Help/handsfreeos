@@ -1,7 +1,7 @@
 {
   "area": "settings-channels",
   "title": "Settings: texting, email, website chat, Facebook and Instagram, templates and lead intake",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-27",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "4f114178dc72",
     "apps/mobile/src/app/app/w/[workspaceId]/chat-setup.tsx": "4a2af3014be3",
@@ -13,7 +13,7 @@
     "apps/mobile/src/components/phone-setup/guided-flow.tsx": "36216bb152e1",
     "apps/mobile/src/components/phone-setup/number-picker.tsx": "bf53e3c04b02",
     "apps/web/src/app/app/oauth/finish/page.tsx": "32b5c89b1bb7",
-    "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "ad68b7bf922c",
+    "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "5d5c6e369088",
     "apps/web/src/app/app/w/[workspaceId]/settings/facebook-instagram/page.tsx": "dd7668234a51",
     "apps/web/src/app/app/w/[workspaceId]/settings/lead-intake/page.tsx": "3a358f27f274",
     "apps/web/src/app/app/w/[workspaceId]/settings/templates/page.tsx": "8bac184b35c2",
@@ -31,10 +31,12 @@
     "apps/web/src/components/phone-setup/number-picker.tsx": "0c548fbb78a8",
     "apps/web/src/components/phone-setup/phone-setup-flow.tsx": "1b96c6135e2a",
     "apps/web/src/components/settings/a2p-wizard.tsx": "45ac1acabcce",
+    "apps/web/src/components/settings/chat-design.tsx": "160cb091cb88",
     "apps/web/src/components/settings/chat-install.tsx": "000b8ddf3f39",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
     "apps/web/src/components/settings/email-addresses.tsx": "0a161e86d75f",
-    "apps/web/src/components/settings/email-page.tsx": "f050b6292547",
+    "apps/web/src/components/settings/email-look.tsx": "f1d622ca10af",
+    "apps/web/src/components/settings/email-page.tsx": "6221abb63a87",
     "apps/web/src/components/settings/facebook-instagram-overview.tsx": "762c9b38ab69",
     "apps/web/src/components/settings/facebook-instagram-page.tsx": "15ae43871871",
     "apps/web/src/components/settings/inbox-visibility-card.tsx": "e7ce1e333cd7",
@@ -53,7 +55,7 @@
     "apps/web/src/components/settings/texting-page.tsx": "82451ea75083",
     "apps/web/src/components/settings/web-person.tsx": "3e1b03dad5dc",
     "apps/web/src/components/settings/website-chat-overview.tsx": "5fb5d1cfdc6a",
-    "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d",
+    "apps/web/src/components/settings/website-chat-page.tsx": "bbf3a4ed8fa2",
     "apps/web/src/components/texting-approval/texting-approval-flow.tsx": "3d171675cb71",
     "apps/web/src/lib/chat/editor-data.ts": "997a752276ed",
     "apps/web/src/lib/texting.ts": "fcba854a7d0a"
@@ -2118,6 +2120,48 @@
       "by": "sort_unmatched_email dismiss"
     },
     {
+      "path": "Email → How your emails look → Colour band across the top",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-look.tsx:144",
+      "covered": "yes",
+      "by": "do_look_set email band"
+    },
+    {
+      "path": "Email → How your emails look → Logo: Left or Centre (no logo: the business name stands in)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-look.tsx:156",
+      "covered": "yes",
+      "by": "do_look_set email logo"
+    },
+    {
+      "path": "Email → How your emails look → Footer with your address, phone, website and social links, and what it leaves out",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-look.tsx:171",
+      "covered": "yes",
+      "by": "do_look_set email footer; get_settings email emailLook says what it shows"
+    },
+    {
+      "path": "Email → How your emails look → Use this look / Save",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-look.tsx:188",
+      "covered": "yes",
+      "by": "do_look_set email"
+    },
+    {
+      "path": "Email → How your emails look → Back to the usual look",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/email-look.tsx:198",
+      "covered": "yes",
+      "by": "do_look_set email null"
+    },
+    {
+      "path": "Email → How your emails look → the preview: a booking confirmation as customers get it",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/email-look.tsx:222",
+      "covered": "partly",
+      "by": "get_settings business look.email and email emailLook say what it shows; the picture itself is the screen’s"
+    },
+    {
       "path": "Website chat → how many chats callout",
       "kind": "see",
       "file": "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx:58",
@@ -2536,6 +2580,55 @@
       "file": "apps/web/src/components/settings/website-chat-page.tsx:1041",
       "covered": "yes",
       "by": "manage_website_chat showLogo"
+    },
+    {
+      "path": "Website chat → Look → Match my website (a site, then Match)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:134",
+      "covered": "yes",
+      "by": "manage_website_chat matchWebsite"
+    },
+    {
+      "path": "Website chat → Look → Font (Use your brand kit’s, or a Google font)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:151",
+      "covered": "yes",
+      "by": "manage_website_chat font"
+    },
+    {
+      "path": "Website chat → Look → Corners: Brand kit’s / Square / Slightly round / Round",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:168",
+      "covered": "yes",
+      "by": "manage_website_chat corners"
+    },
+    {
+      "path": "Website chat → Look → A face in the top bar (Your pictures)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:195",
+      "covered": "yes",
+      "by": "manage_website_chat facePicture"
+    },
+    {
+      "path": "Website chat → Look → Greeting bubble",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:210",
+      "covered": "yes",
+      "by": "manage_website_chat greetingBubble"
+    },
+    {
+      "path": "Website chat → Look → Greeting bubble → Show it after (seconds)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/chat-design.tsx:239",
+      "covered": "yes",
+      "by": "manage_website_chat bubbleAfterSeconds"
+    },
+    {
+      "path": "Website chat → Look → preview: the face, the bubble, the font and corners",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1315",
+      "covered": "partly",
+      "by": "get_settings website_chat gives the values, not the picture"
     },
     {
       "path": "Website chat → Look → preview",

@@ -352,6 +352,13 @@ words.
 - **Unset colours follow the business.** The buttons take the business's colour (Settings → Workspace), darkened for
   white words as on its booking page; every other colour is worked out from the background. `formLook` sets every
   colour token the form's parts use, so a visitor's own dark mode never turns a form on a light site dark.
+- **An unset font or corners follow the brand kit** (Settings → Workspace → **Brand kit**, `look.font` and
+  `look.corners` in the business's settings, kept by `look.set`). `designFontOf` and `designCornersOf` pick the
+  form's own, then the kit's, then HandsFreeOS's (Hanken Grotesk, slightly round), and `formLook` takes the kit as
+  `options.kit`. Forms saved before the kit already hold `corners: 'slight'`, so they keep their look until someone
+  presses **Start over from your brand kit**. The Font list's first choice, "Your brand kit’s", is null. The brand
+  kit's own **Match my website** (`/v1/look/website-style`, `workspace.update`) fills its colour, font and corners at
+  once and keeps them; the Assistant does the same with `read_website_brand_kit`, then `look.set`.
 - **A form on a website is see-through** unless its design gives it a background, so it sits on whatever part of the
   site it's in. Its page is always in the light colour scheme there, because a browser paints a solid backdrop behind
   a frame whose scheme differs from the page around it.
@@ -375,6 +382,163 @@ words.
 - **Site builders that wrap pasted code in a frame of their own** (GoDaddy's HTML section: an `srcdoc` frame sized
   once, when the page loads) get that frame grown with the form by `/embed/v1/form.js` too. The script also asks each
   form for its height when it starts, so a form that loaded first isn't left at the snippet's height.
+
+## Pictures and layout (design tools, part 2)
+
+`HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`, part 2. Every picture comes from the business's **Your pictures**
+library (Settings → Workspace, `docs/operations.md` for its buckets) and is kept on the form as a `PictureRef`: the made
+copy's path in the public `pictures` bucket, with its width and height, so it shows without asking the library and keeps
+showing after it's taken out of the library.
+
+- **A picture question** (`type: 'picture'`, Add a question → On the page → Picture) asks nothing, like words on the
+  page (`UNANSWERED_TYPES`, `asksSomething`): never required, never answered, left out of contact forms, the chat and
+  the AI team's read of a form. Its `config` is `picture`, `size` (small, medium, large, full: a third, half, three
+  quarters or all of the form's width, `PICTURE_SIZE_SHARE`), `align` (left, center, right; full is always centred) and
+  `link` (an `https://` page it opens in a new tab, `rel="noopener noreferrer nofollow"`). Its **title is what it
+  shows** (the `alt`, read out to people who can't see it) and its **help is the caption** under it. A new one takes the
+  picture's own words, or its name, as its title. `formProblems` holds back Publish while one has no picture, or a link
+  that isn't a web address.
+- **Choices can have pictures** (`choices[].picture`). When any choice of a pick-one or tick-any has one, the public
+  page shows a grid of pictures with each choice's words underneath; the phone shows each picture small beside its words.
+- **Words on the page line up** left, centre or right (`config.align` on `content`).
+- **Half width** (`width: 'half'` on any question, beside its title, not under config). `questionRows` pairs two
+  half-width questions that are next to each other among the ones showing, so one hidden by logic leaves no gap. The
+  pair sits side by side once the form's section is 480 px wide (a container query, so the editor's narrow preview and
+  a phone stack them); a half-width question with no half-width neighbour takes the whole row.
+- **The design's Line up** (`design.align`: left or center) centres the logo, the name and intro, and the buttons
+  (`globals.css`, `.form-look[data-align='center']`). The questions stay as they are.
+- **A cover** (`design.cover`) runs edge to edge across the top of the form's panel, at most 260 px high. **A picture
+  behind** (`design.backdrop`) fills the form's own page behind its panel; on a website it isn't drawn, because the site
+  is behind it there. The Design tab's preview moves to "On its own page" when one is picked. Both travel with **Use on
+  all my forms**.
+- **Questions move by dragging** their handle in the Questions list (dnd-kit, onto another page too), or by their
+  arrows, which still work with a keyboard and on a phone. A drop is one `move_question` op, so Undo takes it back.
+- **The Preview tab** shows the form as wide as a computer or a phone, like the Design tab.
+- **The Assistant and the AI form builder** add pictures with `add_question` and `set_design`, copying a path from
+  `read_picture_list` (the builder is given Your pictures in its prompt, at most 40 ready ones). They never make up a path:
+  `PictureRef` refuses one that isn't a made picture's.
+
+## Pop-ups and booking pages (design tools, part 3)
+
+`HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`, part 3 (ideas 6 to 9).
+
+- **A pop-up is the second way to embed** a form (Share → Pop-up on your website) or a calendar (its Booking link →
+  Embed → Pop-up). It opens from a button, by itself after a number of seconds (1 to 300), or when a visitor on a
+  computer moves to leave (never on a phone). One that opened by itself and was closed stays away 7 days in that
+  browser (`localStorage`); a button always opens it. The code is core's `popupSnippet` (`look/popup.ts`): one element
+  with `data-hfos-popup` (the page's `?embed=1` address) and the line that loads `/embed/v1/popup.js`
+  (`apps/web/src/lib/forms/popup-script.ts`). Nothing is saved, so the words and seconds live in the code, and any
+  button or link of the business's own opens it once it carries the same `data-hfos-popup` part.
+- **It shows only where the box in the page would**: the window frames the same `?embed=1` page, so the same Sites
+  allowed to show it list decides. Its box fits the page's height up to the screen's and scrolls inside past that; the
+  script believes a height only from the frame's own address. The button wears the page's own button colour, words
+  colour and corners (`popupLookOf`), checked before they go in its style.
+- **The Assistant hands out all three codes** (`popupCodes` on `get_form` and `get_calendar_settings`, with
+  `popupNote`).
+- **Use on all my calendars** (a calendar's Design) is `calendar.use_design_everywhere`: the calendar's saved design
+  on every other calendar that isn't archived, each as a new revision with "Took the design from “…”" in its History,
+  so Restore undoes it. It's disabled while the design has unsaved changes, since it's the saved one that's copied.
+- **A booking page's width and spacing** are a form's Layout choices (Widest it gets, Space between parts). Medium and
+  Normal are what every booking page had before (860 pixels for the times, 560 for the details, a 1rem gap), so
+  nothing changes until one is picked. `formLook` gives them as `--booking-*` variables, read with today's values as
+  fallbacks.
+- **The picture across the top** (`design.cover`) shows on a booking page's first step only, as a banner of its own
+  (`FormCover`), so the times stay near the top after it. The picture behind isn't offered for calendars.
+- **Each person's photo** is kept on the calendar's team (`team.members[].picture`, from Your pictures), so it stays
+  with its calendar when Use on all my calendars copies the design. It shows beside their name where customers pick
+  who comes (Team → Customer picks); the public booking info sends it with each person.
+
+## Website chat look (design tools, part 4)
+
+`HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`, part 4 (ideas 10 to 12). Five columns on `chat_widgets`
+(`20261027037200_chat_design.sql`), changed by `chat_widget.update` from a chat's **Look** card
+(`components/settings/chat-design.tsx`) and by the Assistant's `manage_website_chat`.
+
+- **Font and corners** (`font`, `corners`) are a form's: a Google font's name and square, slight or round. Null follows
+  the brand kit's (Settings → Workspace), and with nothing in the kit the chat keeps the look every chat had (its own
+  font, soft corners and a round button). The worker's public config sends them already resolved (`look.font`,
+  `look.corners`), so the window and the loader never read the kit themselves. Core's `chatRadiiOf` gives every part's
+  radius (`CHAT_RADII`, and `CHAT_USUAL_RADII` for none); the window writes them as `--radius-control` and `--wr-*`
+  variables only when corners are set, and the parts read them with today's values as fallbacks.
+- **The loader writes the button's font and corners in only when they differ**, so the usual loader is byte for byte
+  what it was and stays under 3 KB. It never loads a font onto someone else's site: the button uses the font when the
+  site already has it (Match my website makes that likely) and the computer's own otherwise. The window, on our own
+  page, loads it from Google like a form does.
+- **The greeting bubble** (`bubble`, up to 120 characters; `bubble_after`, 1 to 120 seconds, 8 by default) is a second
+  script the loader route adds after the loader only for a chat that has one (`lib/chat/bubble.ts`). It waits for the
+  button, sits above it as the button is placed on computers and phones (hidden on phones when the button is), and is
+  drawn in a closed shadow root with its words as text. Pressing its words opens the chat the way a `#hfos-chat` link
+  does (the address shows it for a moment, then goes back, with nothing added to history); closing it, or opening the
+  chat any way, keeps it away for the rest of the visit (`sessionStorage`).
+- **A face in the top bar** (`face`, a `PictureRef` from Your pictures) shows round instead of the logo or initials,
+  and in the bubble. The command takes only a picture under the business's own folder in `pictures`.
+- **Match my website** for a chat is the worker's `POST /v1/chat/website-style` (`channels.manage`): the site's button
+  colour, the words on it when they read there (3 to 1, where the Look card starts warning), the font and corners. It
+  lands in the Look card's unsaved changes, to check and save; the Assistant's `matchWebsite` reads it again when its
+  card is confirmed.
+- The phone only has the guided chat set-up, which doesn't ask about these.
+
+## How your emails look (design tools, part 5)
+
+`HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`, part 5 (ideas 17 to 19). The HTML of every email lives once, in
+core's `look/email.ts` (`emailHtml`): the worker sends it (`email/render.ts`), and Settings → Email's preview and a
+campaign's preview draw the same thing in a frame that runs nothing.
+
+- **Plain stays plain.** An email a person or the AI teammate wrote in a conversation has no brand
+  (`emailBrandFor` gives null), and its HTML is byte for byte what it was: paragraphs, line breaks and links.
+- **Automatic emails get real buttons** (a confirmation, a reminder, an invoice, a campaign): a line that is only "Some
+  words: https://…" (`EMAIL_BUTTON_LINE`, 40 characters of words at most) is drawn as a button in the business's colour
+  made readable under white words (`buttonColorFor`), the first filled and the rest outlined, with the brand kit's
+  corners. The plain text keeps the line, so every mail app still has the link. Everything after the last line that is
+  only "--" is the small print: smaller and grey, its links still links. Nothing else changes for a business that
+  hasn't picked a layout: the logo on the left at the top, as before.
+- **The layout** is `look.email` in the brand kit (`{band, logo: left | center, footer}`, written by `look.set`; null is
+  the usual look), from **Settings → Email → How your emails look** (`components/settings/email-look.tsx`, which saves
+  only when someone presses Save, and needs `workspace.update` like the rest of the kit). It draws a white card 600
+  pixels across on grey, built from tables and inline styles: a 6-pixel band of the colour, the logo on the left or in
+  the centre (the business name where there's none), and a footer with the name, the postal address (the one
+  campaigns carry, `businessPostalAddress`), the default texting number, the website and the social links
+  (`emailContactOf`, looked up only when the footer is on). The footer's name and address lines aren't said again in
+  a campaign's small print.
+- **Social links** are `look.socials` in the brand kit (up to 8), added and removed under **Brand kit → Social links**
+  in Settings → Workspace. A typed link becomes an https address (`socialUrlOf`; never `javascript:`, a login or a host
+  without a dot) named for its site (`socialKindOf`: Facebook, Instagram, LinkedIn, YouTube, TikTok, X, Google, Yelp,
+  Nextdoor, Pinterest, else Website). The customer's pages (part 7, below) use the same list.
+- **A campaign email in blocks** (`campaigns.email_blocks`, `20261027037300_campaign_email_blocks.sql`): words, a
+  picture from Your pictures (size small, medium, large or full, words under it that are also its alt text, and a link),
+  a button (its words and address), a line and a space, each lined up left, centre or right (`campaigns/email-blocks.ts`,
+  up to 40). `campaign.update_email` takes `blocks` in place of `body` and keeps `email_body` as their plain words
+  (`emailBlocksText`: a button is "Its words: address", a line is "———", never "--"), so text-only mail apps, the
+  Assistant and everything that reads the body work as before; `body` with `blocks: null` goes back to plain words. A
+  picture must be under the business's own folder. On the campaign page, **Design it: add pictures and buttons** turns
+  the words into blocks (`emailBlocksFromText`), each block moves by dragging or its arrows, and **Save the email**
+  keeps them. When an email is sent, the worker draws the blocks only while their filled words still begin its body
+  (`email/campaign-blocks.ts`), so an email changed since goes out as its words say.
+- **Pictures are WebP** (Your pictures' web copies). Gmail, Apple Mail and the new Outlook show them; classic Outlook
+  on Windows shows the words under the picture instead.
+- The Assistant does the same: `do_look_set` with `email` and `socials`, and `edit_campaign` `change_email` with
+  `blocks` (a new subject alone keeps them). The phone shows neither screen.
+
+## The customer's pages (design tools, part 7)
+
+`HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md`, part 7 (idea 20, decision 10). A customer's invoice, estimate,
+payment plan, document to sign and appointment page follow the brand kit, and end with the business's details.
+
+- **They follow the kit's font and corners** as well as its colour (`kitLook` in `apps/web/src/lib/look.ts`, from
+  core's `pageKitOf` in `look/page-kit.ts`). The font comes from Google Fonts through one stylesheet link, and the
+  corners set the page's radius tokens. A kit with neither changes nothing. The booking site's other pages follow it
+  too (`PublicFrame`), except a booking page with a design of its own (part 3), which keeps that.
+- **The footer** (`components/look/business-footer.tsx`) shows the business name and license number, the postal
+  address, the phone, the website and the social links. The worker fills it with `customerFooterOf` (core's
+  `look/email-contact.ts`): the same address, phone and website email footers use, plus the license. It rides on each
+  page's business: `PublicMoneyBusiness.footer` (`http/money.ts`), the signing view's (`documents/routes.ts`) and the
+  appointment page's (`manageView` in `http/booking.ts`). Nothing shows when the business has none of these. The
+  printed copy keeps everything but the social links, since contractors need the license on paperwork.
+- **The license number** is `look.license` in the brand kit (`{text, at}`, 80 characters at most), typed under **Brand
+  kit → License number** in Settings → Workspace and kept by `look.set` (`license`; null or empty takes it off). It's
+  on the customer's pages only, not in emails.
+- The Assistant does the same: `do_look_set` with `license`. The phone doesn't show the brand kit, and these pages are
+  on the web.
 
 ## Videos and steps (funnels)
 
@@ -499,7 +663,7 @@ them (`channels.manage`), because a chat is how most visitors leave their detail
 `chat_widgets` row, edited by `chat_widget.update` on its own page (`forms/chats/<id>`, the same editor as
 **Settings** → **Website chat**), and the texting registration's chat is one of them, not a kind of its own. A chat
 keeps its name, its look, where its button sits on computers and phones, and what happens while nobody is answering
-(`20261027021600_website_chat_look_and_place.sql`). The operator's side is "Set up the website chat for a client" in
+(`20261027021600_website_chat_look_and_place.sql`), and its font, corners, greeting bubble and face (above). The operator's side is "Set up the website chat for a client" in
 `docs/operations.md`.
 
 ## On the phone (M17)

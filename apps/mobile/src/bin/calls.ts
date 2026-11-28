@@ -73,5 +73,10 @@ export async function putInBin(
         }),
       );
       return;
+    case 'invoice':
+      unwrap(
+        await api.POST('/v1/commands/invoice.delete', { body: { workspaceId, invoiceIds: list } }),
+      );
+      return;
   }
 }

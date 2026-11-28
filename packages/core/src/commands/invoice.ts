@@ -495,6 +495,69 @@ export const invoiceSend = defineCommand({
   },
 });
 
+/**
+ * Voids an invoice as the person: Void does, and so does deleting one still out for payment (`invoice.delete`), so
+ * its link stops taking payments before it goes in the bin.
+ */
+export async function voidInvoice(
+  ctx: CommandContext,
+  input: { readonly invoiceId: string; readonly reason?: string | null },
+) {
+  const me = requireHuman(ctx).userId;
+  const before = await requireInvoice(ctx, input.invoiceId);
+  if (before.status === 'void') return stateOut(before, false);
+  assertMove(before, 'void');
+  const paid = Number(before.amount_paid_cents);
+  const refunded = Number(before.amount_refunded_cents);
+  const [refunding] = await rows<{ pending: boolean }>(
+    ctx.tx,
+    sql`select exists (select 1 from app.refunds r
+            where r.invoice_id = ${before.id}::uuid and r.status = 'pending') as pending`,
+  );
+  const block = invoiceVoidBlock({
+    paidCents: paid,
+    refundedCents: refunded,
+    hasProcessingPayment: before.settling,
+    hasPendingRefund: refunding?.pending === true,
+  });
+  // Until the money stops moving nobody knows what the invoice holds, so neither answer below is safe yet.
+  if (block === 'money_moving')
+    throw HfosError.rule(
+      'invoice_money_moving',
+      409,
+      before.settling
+        ? 'A payment on this invoice is still on its way. Once it lands, refund it, then void the invoice.'
+        : 'A refund on this invoice is still on its way back. Void it once the refund has gone through.',
+    );
+  if (block === 'money_held')
+    throw HfosError.rule(
+      'invoice_has_payments',
+      409,
+      refunded > 0
+        ? `${money(paid - refunded)} paid against this invoice hasn’t been given back. Refund it instead.`
+        : `${money(paid)} has been paid against this invoice. Refund it instead.`,
+    );
+  await ctx.tx
+    .update(invoices)
+    .set({
+      status: 'void',
+      voidedAt: dsql`now()`,
+      voidedBy: me,
+      voidReason: input.reason ?? null,
+    })
+    .where(eq(invoices.id, before.id));
+  const fresh = await requireInvoice(ctx, before.id);
+  await ctx.emit({
+    type: 'invoice.voided',
+    entityType: 'invoice',
+    entityId: fresh.id,
+    payload: { ...subjectOf(fresh), reason: input.reason ?? null },
+    before: { status: before.status },
+    after: { invoice: nameOf(fresh), status: 'void', reason: input.reason ?? null },
+  });
+  return stateOut(fresh, true);
+}
+
 export const invoiceVoid = defineCommand({
   name: 'invoice.void',
   description:
@@ -506,59 +569,7 @@ export const invoiceVoid = defineCommand({
   scope: inWorkspace,
   emits: ['invoice.voided'],
   async handler(ctx, input) {
-    const me = requireHuman(ctx).userId;
-    const before = await requireInvoice(ctx, input.invoiceId);
-    if (before.status === 'void') return stateOut(before, false);
-    assertMove(before, 'void');
-    const paid = Number(before.amount_paid_cents);
-    const refunded = Number(before.amount_refunded_cents);
-    const [refunding] = await rows<{ pending: boolean }>(
-      ctx.tx,
-      sql`select exists (select 1 from app.refunds r
-            where r.invoice_id = ${before.id}::uuid and r.status = 'pending') as pending`,
-    );
-    const block = invoiceVoidBlock({
-      paidCents: paid,
-      refundedCents: refunded,
-      hasProcessingPayment: before.settling,
-      hasPendingRefund: refunding?.pending === true,
-    });
-    // Until the money stops moving nobody knows what the invoice holds, so neither answer below is safe yet.
-    if (block === 'money_moving')
-      throw HfosError.rule(
-        'invoice_money_moving',
-        409,
-        before.settling
-          ? 'A payment on this invoice is still on its way. Once it lands, refund it, then void the invoice.'
-          : 'A refund on this invoice is still on its way back. Void it once the refund has gone through.',
-      );
-    if (block === 'money_held')
-      throw HfosError.rule(
-        'invoice_has_payments',
-        409,
-        refunded > 0
-          ? `${money(paid - refunded)} paid against this invoice hasn’t been given back. Refund it instead.`
-          : `${money(paid)} has been paid against this invoice. Refund it instead.`,
-      );
-    await ctx.tx
-      .update(invoices)
-      .set({
-        status: 'void',
-        voidedAt: dsql`now()`,
-        voidedBy: me,
-        voidReason: input.reason ?? null,
-      })
-      .where(eq(invoices.id, before.id));
-    const fresh = await requireInvoice(ctx, before.id);
-    await ctx.emit({
-      type: 'invoice.voided',
-      entityType: 'invoice',
-      entityId: fresh.id,
-      payload: { ...subjectOf(fresh), reason: input.reason ?? null },
-      before: { status: before.status },
-      after: { invoice: nameOf(fresh), status: 'void', reason: input.reason ?? null },
-    });
-    return stateOut(fresh, true);
+    return voidInvoice(ctx, input);
   },
 });
 

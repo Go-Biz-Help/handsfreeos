@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import type { PictureWords } from '@hfos/core/addons/socialcontent/picture-look';
 import type { Creator, Post } from '@hfos/core/addons/socialcontent/shapes';
 import * as React from 'react';
 
@@ -615,6 +616,7 @@ describe('Settings', () => {
       setPlan: jest.fn(),
       autoFill: jest.fn(),
       autoPick: jest.fn(),
+      pictureLook: jest.fn(),
     };
   }
   const body = (props: Partial<React.ComponentProps<typeof SettingsBody>> = {}) => (
@@ -672,6 +674,42 @@ describe('Settings', () => {
         'socialcontent-work-stop',
       ),
     ).toBeNull();
+  });
+
+  it('picks where the logo goes, the fonts and the layouts its pictures use (design tools, part 6)', async () => {
+    const actions = settingsActionsMock();
+    await render(body({ actions }));
+    expect(screen.getByTestId('socialcontent-picture-look')).toHaveTextContent(
+      /Your brand kit’s font is Lora, so pictures use Playfair Display, the nearest one\./,
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-picture-logo-last'));
+    expect(actions.pictureLook).toHaveBeenCalledWith({ logo: 'last' });
+    await fireEvent.press(screen.getByTestId('socialcontent-picture-fonts-picked'));
+    expect(actions.pictureLook).toHaveBeenCalledWith({ fonts: ['classic'] });
+    // Every layout to start with; the last photo layout left can't be taken off.
+    expect(screen.queryByTestId('socialcontent-picture-layout-bold')).toBeNull();
+    await fireEvent.press(screen.getByTestId('socialcontent-picture-layouts-picked'));
+    await fireEvent.press(screen.getByTestId('socialcontent-picture-layout-quote'));
+    expect(actions.pictureLook).toHaveBeenLastCalledWith({
+      layouts: expect.not.arrayContaining(['quote']),
+    });
+    const picked = overview().settings;
+    await render(
+      body({
+        actions,
+        overview: overview({
+          settings: {
+            ...picked,
+            pictureLook: { logo: 'never', fonts: ['loud'], layouts: ['clean', 'list', 'framed'] },
+          },
+        }),
+      }),
+    );
+    expect(screen.getByTestId('socialcontent-picture-layout-framed')).toBeDisabled();
+    expect(screen.getByTestId('socialcontent-picture-layout-clean')).toBeDisabled();
+    expect(screen.getByTestId('socialcontent-picture-font-loud')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('socialcontent-picture-layouts-all'));
+    expect(actions.pictureLook).toHaveBeenLastCalledWith({ layouts: null });
   });
 
   it('leaves the settings to owners and admins, and says where the extension goes', async () => {
@@ -1217,6 +1255,8 @@ describe('one of its posts', () => {
       skip: jest.fn(),
       rewrite: jest.fn(),
       makePicture: jest.fn(),
+      redraw: jest.fn(async (_pages: PictureWords[]): Promise<unknown> => ({ pictures: 1 })),
+      ownPhoto: jest.fn(),
       add: jest.fn(),
       remove: jest.fn(),
       share: jest.fn(),
@@ -1367,6 +1407,52 @@ describe('one of its posts', () => {
     await fireEvent.changeText(screen.getByTestId('socialcontent-post-rewrite-ask'), 'Shorter');
     await fireEvent.press(screen.getByTestId('socialcontent-post-rewrite'));
     expect(actions.rewrite).toHaveBeenCalledWith('Shorter');
+  });
+
+  it('changes a drawn picture’s words by hand and draws it again (design tools, part 6)', async () => {
+    const actions = actionsMock();
+    const words = {
+      layout: 'number' as const,
+      kicker: null,
+      heading: 'Of leaks start small',
+      body: null,
+      items: [],
+      mark: '73%',
+      footer: 'Porch Pros',
+    };
+    await render(body({ actions, post: content(40, { pictureWords: [words] }) }));
+    await fireEvent.press(screen.getByTestId('socialcontent-change-words'));
+    expect(screen.getByTestId('socialcontent-words-redraw')).toBeDisabled();
+    // A big number's page has its number to change, and no items.
+    expect(screen.queryByTestId('socialcontent-words-items-0')).toBeNull();
+    await fireEvent.changeText(screen.getByTestId('socialcontent-words-mark-0'), '74%');
+    await fireEvent.press(screen.getByTestId('socialcontent-words-redraw'));
+    expect(actions.redraw).toHaveBeenCalledWith([{ ...words, mark: '74%' }]);
+    await waitFor(() => expect(screen.queryByTestId('socialcontent-words-editor')).toBeNull());
+  });
+
+  it('puts words on the person’s own photo, and posts it plain again', async () => {
+    const actions = actionsMock();
+    const pic = {
+      fileId: id(91),
+      bucket: 'files',
+      objectPath: 'w/1.jpg',
+      name: 'Van',
+      mimeType: 'image/jpeg',
+    };
+    await render(body({ actions, post: content(40, { pictureWay: 'own', pictures: [pic] }) }));
+    await fireEvent.changeText(screen.getByTestId('socialcontent-post-picture-ask'), 'Bigger');
+    await fireEvent.press(screen.getByTestId('socialcontent-words-on-photo'));
+    expect(actions.ownPhoto).toHaveBeenCalledWith(true, 'Bigger');
+    expect(screen.queryByTestId('socialcontent-plain-photo')).toBeNull();
+    await render(
+      body({
+        actions,
+        post: content(40, { pictureWay: 'own', pictures: [pic], ownPhotoId: id(92) }),
+      }),
+    );
+    await fireEvent.press(screen.getByTestId('socialcontent-plain-photo'));
+    expect(actions.ownPhoto).toHaveBeenCalledWith(false, '');
   });
 
   it('opens its pictures full screen, and goes between them (the owner, 11 Nov)', async () => {

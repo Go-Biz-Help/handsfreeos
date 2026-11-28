@@ -1311,6 +1311,7 @@ describe('bounds and speed', () => {
       weight: 1,
       priority: 0,
       required: false,
+      picture: null,
     }));
     const base = defaultConfig();
     expect(() =>

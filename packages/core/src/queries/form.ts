@@ -15,7 +15,7 @@ import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
 import { allQuestions, type FormDefinition, type FormMode } from '../forms/definition';
 import { formIssues, loadForm, loadFormCatalogs, parseStoredForm } from '../forms/load';
-import type { AnswerFile } from '../forms/questions';
+import { asksSomething, type AnswerFile } from '../forms/questions';
 import { isAnswerFiles } from '../forms/uploads';
 import { productOptionsOf } from '../money/options';
 import { jsonEqual } from '../workflows/json';
@@ -46,7 +46,7 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 type FormRow = typeof forms.$inferSelect;
 
 const asked = (definition: FormDefinition): number =>
-  allQuestions(definition).filter((q) => q.type !== 'content').length;
+  allQuestions(definition).filter(asksSomething).length;
 
 /**
  * An answer sheet's score as a percentage, or null when nothing on it was worth points. Every finished sheet stores a
@@ -481,7 +481,7 @@ export const formResponseExport = defineQuery({
     // The questions people are answering now, in order, as the results page reads them.
     const asking = live[0] ? parseStoredForm(live[0].definition) : definition;
     const columns = allQuestions(asking)
-      .filter((q) => q.type !== 'content')
+      .filter(asksSomething)
       .map((q) => ({ questionId: q.id, title: q.title }));
     // Then anything an older version asked that somebody answered, worded as it last was, in the order it first came.
     const answered = await rows<{ question_id: string; title: string }>(
@@ -627,7 +627,7 @@ export const formResults = defineQuery({
 
     const answeredOf = new Map(counts.map((c) => [c.question_id, c]));
     const questions = allQuestions(asking)
-      .filter((q) => q.type !== 'content')
+      .filter(asksSomething)
       .map((q) => {
         const found = answeredOf.get(q.id);
         return {

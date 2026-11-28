@@ -1,10 +1,12 @@
 'use client';
 import {
   DEFAULT_FORM_DESIGN,
+  designCornersOf,
   FORM_DEFAULT_FONT,
   FORM_FONTS,
   formLook,
   type FormDefinition,
+  type FormKit,
   type FormDesign,
   type FormDesignColors,
   type FormDesignInput,
@@ -23,6 +25,7 @@ import { errorMessage } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
+import { PicturePicker } from '@/components/look/picture-picker';
 import { cn } from '@/lib/utils';
 import type { FormLogo } from './form-look';
 import { FormPreview } from './preview';
@@ -34,6 +37,8 @@ export interface FormBrand {
   readonly logo: FormLogo | null;
   /** Its website (Settings → Workspace), which Match my website reads when no site is listed for the form. */
   readonly website?: string | null;
+  /** Its brand kit's font and corners (Settings → Workspace), which a design leaving them unset follows. */
+  readonly kit?: FormKit | null;
 }
 
 /** What the worker hands back for Match my website (apps/worker/src/http/website-style.ts). */
@@ -129,7 +134,7 @@ export function FormDesignPanel({
   const setColour = (key: keyof FormDesignColors, value: string | null) =>
     set({ colors: { [key]: value } });
   // What "Automatic" gives right now, worked out exactly as the page does.
-  const shown = formLook(design, { businessColor: brand.color }).vars;
+  const shown = formLook(design, { businessColor: brand.color, kit: brand.kit }).vars;
   const fonts =
     FORM_FONTS.some((f) => f.name === design.font) || !design.font
       ? FORM_FONTS
@@ -176,21 +181,14 @@ export function FormDesignPanel({
         <Section title="Font">
           <Labelled title="Font">
             {(id) => (
-              <Select
+              <FontSelect
                 id={id}
-                value={design.font ?? FORM_DEFAULT_FONT}
+                value={design.font}
+                kit={brand.kit}
+                fonts={fonts}
                 disabled={readOnly}
-                onChange={(e) =>
-                  set({ font: e.target.value === FORM_DEFAULT_FONT ? null : e.target.value })
-                }
-                data-testid="design-font"
-              >
-                {fonts.map((f) => (
-                  <option key={f.name} value={f.name}>
-                    {f.name === FORM_DEFAULT_FONT ? `${f.name} (HandsFreeOS’s)` : f.name}
-                  </option>
-                ))}
-              </Select>
+                onChange={(font) => set({ font })}
+              />
             )}
           </Labelled>
           <Choice
@@ -209,7 +207,7 @@ export function FormDesignPanel({
         <Section title="Shape">
           <Choice
             title="Corners"
-            value={design.corners}
+            value={designCornersOf(design, brand.kit)}
             onChange={(corners) => set({ corners })}
             options={[
               ['square', 'Square'],
@@ -217,6 +215,11 @@ export function FormDesignPanel({
               ['round', 'Round'],
             ]}
             testId="design-corners"
+          />
+          <KitNote
+            following={design.corners === null}
+            onFollow={readOnly ? undefined : () => set({ corners: null })}
+            testId="design-corners-kit"
           />
           <Choice
             title="Boxes"
@@ -287,6 +290,17 @@ export function FormDesignPanel({
             ]}
             testId="design-width"
           />
+          <Choice
+            title="Line up"
+            value={design.align}
+            onChange={(align) => set({ align })}
+            options={[
+              ['left', 'Left'],
+              ['center', 'Centre'],
+            ]}
+            testId="design-align"
+            hint="The logo, the form’s name and its words at the top, and the button."
+          />
           <SwitchRow
             label="The form’s name at the top"
             checked={design.showTitle}
@@ -306,6 +320,43 @@ export function FormDesignPanel({
           ) : null}
         </Section>
 
+        <Section title="Pictures">
+          <Labelled title="Across the top">
+            {() => (
+              <PicturePicker
+                workspaceId={workspaceId}
+                label="Picture across the top"
+                value={design.cover}
+                disabled={readOnly}
+                canUpload={!readOnly}
+                testId="design-cover"
+                onChange={(cover) => set({ cover })}
+              />
+            )}
+          </Labelled>
+          <Labelled title="Behind the form">
+            {() => (
+              <PicturePicker
+                workspaceId={workspaceId}
+                label="Picture behind the form"
+                value={design.backdrop}
+                disabled={readOnly}
+                canUpload={!readOnly}
+                testId="design-backdrop"
+                onChange={(backdrop) => {
+                  set({ backdrop });
+                  // It shows on the form's own page, so that's where the preview goes.
+                  if (backdrop) setWhere('page');
+                }}
+              />
+            )}
+          </Labelled>
+          <Hint className="mt-0">
+            The picture behind shows on the form’s own page. On your website, your site is behind
+            it. Add pictures to the form itself with Add a question → Picture.
+          </Hint>
+        </Section>
+
         {!readOnly && onUseEverywhere ? <UseEverywhere onConfirm={onUseEverywhere} /> : null}
 
         {!readOnly ? (
@@ -315,7 +366,7 @@ export function FormDesignPanel({
             onClick={() => set(DEFAULT_FORM_DESIGN)}
             data-testid="design-reset"
           >
-            Start over from your colour
+            Start over from your brand kit
           </Button>
         ) : null}
       </div>
@@ -364,6 +415,7 @@ export function FormDesignPanel({
             <FormPreview
               definition={definition}
               businessColor={brand.color}
+              kit={brand.kit}
               logo={brand.logo}
               embedded={where === 'website'}
               className="mx-auto w-full max-w-[var(--form-max-width,672px)]"
@@ -478,7 +530,7 @@ function UseEverywhere({ onConfirm }: { onConfirm: () => Promise<void> }) {
         </Button>
         <DialogContent
           title="Use this design on all your forms?"
-          description="Your other forms take these colours, font, shape and layout, and live ones show them straight away. Nothing else about them changes. This form’s own changes still go live when you publish it."
+          description="Your other forms take these colours, font, shape, layout and pictures across the top and behind, and live ones show them straight away. Nothing else about them changes. This form’s own changes still go live when you publish it."
         >
           <div className="mt-5 flex justify-end gap-2">
             <DialogClose asChild>
@@ -550,6 +602,79 @@ export function SwitchRow(props: {
       <span className="text-[13px] font-medium">{props.label}</span>
       <Switch {...props} />
     </label>
+  );
+}
+
+/**
+ * A design's font: the brand kit's (Settings → Workspace) until one is picked here, then that one. HandsFreeOS's own
+ * picked here stays HandsFreeOS's whatever the kit says.
+ */
+export function FontSelect({
+  id,
+  value,
+  kit,
+  fonts,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  /** The design's own; null follows the kit. */
+  value: string | null;
+  kit: FormKit | null | undefined;
+  fonts: readonly { readonly name: string }[];
+  disabled?: boolean;
+  onChange: (font: string | null) => void;
+}) {
+  const kitFont = kit?.font ?? FORM_DEFAULT_FONT;
+  return (
+    <>
+      <Select
+        id={id}
+        value={value ?? ''}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value || null)}
+        data-testid="design-font"
+      >
+        <option value="">{`Your brand kit’s: ${kitFont}`}</option>
+        {fonts.map((f) => (
+          <option key={f.name} value={f.name}>
+            {f.name === FORM_DEFAULT_FONT ? `${f.name} (HandsFreeOS’s)` : f.name}
+          </option>
+        ))}
+      </Select>
+      {value === null ? (
+        <Hint className="mt-1">Change your brand kit in Settings → Workspace.</Hint>
+      ) : null}
+    </>
+  );
+}
+
+/** Under a choice the brand kit fills: says it's following the kit, or offers to follow it again. */
+export function KitNote({
+  following,
+  onFollow,
+  testId,
+}: {
+  following: boolean;
+  onFollow?: () => void;
+  testId: string;
+}) {
+  if (following)
+    return (
+      <p className="mt-1 text-[12.5px] text-text-3" data-testid={testId}>
+        From your brand kit in Settings → Workspace.
+      </p>
+    );
+  if (!onFollow) return null;
+  return (
+    <button
+      type="button"
+      className="mt-1 text-[12.5px] font-medium text-accent-text hover:underline"
+      onClick={onFollow}
+      data-testid={testId}
+    >
+      Use your brand kit’s
+    </button>
   );
 }
 

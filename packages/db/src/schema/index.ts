@@ -464,7 +464,10 @@ export const companies = app.table('companies', {
 /** Milestone 3: whether a person agreed to texts (declared here because `people` uses it). */
 export const smsConsent = app.enum('sms_consent', ['unknown', 'opted_in', 'opted_out']);
 
-/** What the Deleted bin holds (20261027000400; leads, companies and records from 20261027000800). */
+/**
+ * What the Deleted bin holds (20261027000400; leads, companies and records from 20261027000800; invoices from
+ * 20261027037500).
+ */
 export const BIN_KINDS = [
   'person',
   'conversation',
@@ -472,11 +475,12 @@ export const BIN_KINDS = [
   'lead',
   'company',
   'custom_record',
+  'invoice',
 ] as const;
 export type BinKind = (typeof BIN_KINDS)[number];
 
 /**
- * The Deleted bin (20261027000400): a customer, conversation, booking, lead, company or record deleted, and
+ * The Deleted bin (20261027000400): a customer, conversation, booking, lead, company, record or invoice deleted, and
  * everything that went with it, kept 30 days and then emptied by the worker. Only its functions write it.
  */
 export const binItems = app.table('bin_items', {
@@ -4023,6 +4027,15 @@ export const chatWidgets = app.table('chat_widgets', {
   showLogo: boolean('show_logo').notNull().default(true),
   /** away_form, chat. */
   whenAway: text('when_away').notNull().default('away_form'),
+  /** A Google font's name; null: the brand kit's (design tools, part 4). */
+  font: text('font'),
+  /** square, slight, round; null: the brand kit's. */
+  corners: text('corners'),
+  /** The words beside the button after bubbleAfter seconds; null: no bubble. */
+  bubble: text('bubble'),
+  bubbleAfter: smallint('bubble_after').notNull().default(8),
+  /** A picture from Your pictures in the top bar ({path, width, height}); null: the logo or initials. */
+  face: jsonb('face').$type<Json>(),
   /** The install check; the worker's. */
   lastSeenOrigin: text('last_seen_origin'),
   lastSeenAt: ts('last_seen_at'),
@@ -4622,6 +4635,8 @@ export const invoices = app.table('invoices', {
   // Milestone 10
   syncWindow: syncWindow(),
   memberViewerIds: memberViewerIds(),
+  /** In the Deleted bin (20261027037500): hidden, off phones, and emptied after 30 days. */
+  binItemId: binItemRef(),
 });
 
 export const invoiceLines = app.table('invoice_lines', {
@@ -4777,6 +4792,8 @@ export const payments = app.table('payments', {
   // Milestone 10: the invoice's, copied by trigger.
   syncWindow: syncWindow(),
   memberViewerIds: memberViewerIds(),
+  /** Its invoice is in the Deleted bin (20261027037500): hidden with it, and emptied with it. */
+  binItemId: binItemRef(),
 });
 
 export const refunds = app.table('refunds', {
@@ -4806,6 +4823,8 @@ export const refunds = app.table('refunds', {
   // Milestone 10: the invoice's, copied by trigger.
   syncWindow: syncWindow(),
   memberViewerIds: memberViewerIds(),
+  /** Its invoice is in the Deleted bin (20261027037500): hidden with it, and emptied with it. */
+  binItemId: binItemRef(),
 });
 /**
  * What the business spent, a purchase a row (20261027036800): Money → Expenses, and the Assistant from a photo of a
@@ -4832,6 +4851,31 @@ export const expenses = app.table('expenses', {
   createdBy: userRef('created_by'),
   deletedAt: ts('deleted_at'),
   deletedBy: userRef('deleted_by'),
+  ...timestamps(),
+});
+
+/**
+ * Your pictures (20261027037100, HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md part 1): a business's library of
+ * pictures for its forms, booking pages, emails, chat and invoices. Uploaded to `picture-uploads`, made into a public
+ * WebP in `pictures` by the worker; removing one keeps its file, so pages showing it don't break.
+ */
+export const designPictures = app.table('design_pictures', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  /** What it shows, for screen readers and when it doesn't load. */
+  words: text('words').notNull().default(''),
+  /** 'uploading', 'making', 'ready' or 'failed'. */
+  status: text('status').notNull().default('uploading'),
+  uploadPath: text('upload_path').unique(),
+  path: text('path'),
+  width: integer('width'),
+  height: integer('height'),
+  bytes: integer('bytes'),
+  problem: text('problem'),
+  createdBy: userRef('created_by'),
+  removedAt: ts('removed_at'),
+  removedBy: userRef('removed_by'),
   ...timestamps(),
 });
 
@@ -8589,6 +8633,8 @@ export const campaigns = app.table('campaigns', {
   channel: text('channel').notNull().default('sms'),
   emailSubject: text('email_subject'),
   emailBody: text('email_body'),
+  /** Design tools, part 5: the email written in blocks (words, picture, button, line, space); null is plain words. */
+  emailBlocks: jsonb('email_blocks').$type<unknown[]>(),
   emailEdited: boolean('email_edited').notNull().default(false),
   /** AI outbound calls: a call campaign's one opening line ("about our fall tune-up …"), and whether a person changed it. */
   callOpening: text('call_opening'),

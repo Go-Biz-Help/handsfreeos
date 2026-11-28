@@ -1,7 +1,7 @@
 {
   "area": "socialcontent",
   "title": "The AI Social Media Content Creator add-on: Creators, Standouts, Playbook, Ideas, Calendar and Settings, on the web and the phone",
-  "checkedOn": "2026-11-24",
+  "checkedOn": "2026-11-27",
   "files": {
     "apps/mobile/src/addons/socialcontent/activity.tsx": "9744b485ef7b",
     "apps/mobile/src/addons/socialcontent/calendar-picking.tsx": "ae5dd25fd599",
@@ -12,10 +12,10 @@
     "apps/mobile/src/addons/socialcontent/kit.tsx": "f3734b26ca2f",
     "apps/mobile/src/addons/socialcontent/link.tsx": "6b15b0b2e56b",
     "apps/mobile/src/addons/socialcontent/more.tsx": "41a0e2e099f1",
-    "apps/mobile/src/addons/socialcontent/own-post.tsx": "4432971bc19d",
+    "apps/mobile/src/addons/socialcontent/own-post.tsx": "4b6d255d5720",
     "apps/mobile/src/addons/socialcontent/playbook.tsx": "0e93691d546c",
     "apps/mobile/src/addons/socialcontent/post-card.tsx": "047b4bb8df26",
-    "apps/mobile/src/addons/socialcontent/settings.tsx": "965748f592e6",
+    "apps/mobile/src/addons/socialcontent/settings.tsx": "fdd3d305d3f2",
     "apps/mobile/src/addons/socialcontent/setup.tsx": "0f359ad31454",
     "apps/mobile/src/addons/socialcontent/standouts.tsx": "dd105b04655a",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/_layout.tsx": "70a8fb6d279c",
@@ -37,8 +37,8 @@
     "apps/web/src/addons/socialcontent/offer-notice.tsx": "bd18d03766c4",
     "apps/web/src/addons/socialcontent/playbook-page.tsx": "93c8d0cc6847",
     "apps/web/src/addons/socialcontent/post-card.tsx": "67aaf4c54254",
-    "apps/web/src/addons/socialcontent/post-sheet.tsx": "5cbe0db7baee",
-    "apps/web/src/addons/socialcontent/settings-page.tsx": "6d8a2b281731",
+    "apps/web/src/addons/socialcontent/post-sheet.tsx": "b57ba4af9c74",
+    "apps/web/src/addons/socialcontent/settings-page.tsx": "a4852c6ca361",
     "apps/web/src/addons/socialcontent/setup-card.tsx": "c30a470b168c",
     "apps/web/src/addons/socialcontent/standout-links.tsx": "1d5a6acf8414",
     "apps/web/src/addons/socialcontent/standouts-page.tsx": "432ad6ca185d",
@@ -1752,6 +1752,76 @@
       "file": "apps/mobile/src/addons/socialcontent/ideas.tsx:137",
       "covered": "yes",
       "by": "socialcontent_list_ideas → offerLive"
+    },
+    {
+      "path": "Settings → How your pictures look: what it sets, and that the colours come from the brand kit",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:742",
+      "covered": "yes",
+      "by": "the place’s words; socialcontent_save_settings description"
+    },
+    {
+      "path": "Settings → How your pictures look → Your logo: Every page, Last page only or Never, with where it sits (or to add one in the brand kit)",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:759",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (pictureLook.logo); socialcontent_overview (settings.pictureLook, settings.kit.logo)"
+    },
+    {
+      "path": "Settings → How your pictures look → Fonts: Like my brand kit (its font, and the nearest one pictures use) or Pick fonts, then Inter, Playfair Display, Oswald and Poppins to tick (the last stays ticked)",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:787",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (pictureLook.fonts; null follows the brand kit); socialcontent_overview (settings.kit.font, settings.kit.fontAs)"
+    },
+    {
+      "path": "Settings → How your pictures look → Layouts: All of them or Pick layouts, then the 12 layouts to tick (the last plain one and the last photo one stay ticked)",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:836",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (pictureLook.layouts; null is all of them, and a list without a plain and a photo layout is refused)"
+    },
+    {
+      "path": "Post → Picture → Change the words: each picture’s words, the parts its layout draws, then Draw it again or Cancel",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:1026",
+      "covered": "yes",
+      "by": "socialcontent_fix_picture_words (pages), on its own; socialcontent_get_own_post (pictureWords: the words each picture has, null when they can’t be drawn again)"
+    },
+    {
+      "path": "Post → Picture → Put words on it (your one photo), with what to change",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:1084",
+      "covered": "yes",
+      "by": "socialcontent_words_on_own_photo (words: true, ask), on its own"
+    },
+    {
+      "path": "Post → Picture → Post it plain (your photo, with words on it)",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:1072",
+      "covered": "yes",
+      "by": "socialcontent_words_on_own_photo (words: false); socialcontent_get_own_post (ownPhotoId)"
+    },
+    {
+      "path": "Phone → Settings → How your pictures look: Your logo (Every page, Last page only, Never), Fonts (Like my brand kit or picked) and Layouts (All of them or picked), as on the web",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/settings.tsx:374",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (pictureLook.logo); socialcontent_overview (settings.pictureLook, settings.kit.logo); socialcontent_save_settings (pictureLook.fonts; null follows the brand kit); socialcontent_overview (settings.kit.font, settings.kit.fontAs); socialcontent_save_settings (pictureLook.layouts; null is all of them, and a list without a plain and a photo layout is refused)"
+    },
+    {
+      "path": "Phone → Post → Picture → Change the words: each picture’s words, the parts its layout draws, then Draw it again or Cancel",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:1220",
+      "covered": "yes",
+      "by": "socialcontent_fix_picture_words (pages), on its own; socialcontent_get_own_post (pictureWords: the words each picture has, null when they can’t be drawn again)"
+    },
+    {
+      "path": "Phone → Post → Picture → Put words on it (your one photo, with what to change) / Post it plain",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:1281",
+      "covered": "yes",
+      "by": "socialcontent_words_on_own_photo (words: true, ask), on its own; socialcontent_words_on_own_photo (words: false); socialcontent_get_own_post (ownPhotoId)"
     }
   ],
   "gaps": []

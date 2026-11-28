@@ -1,6 +1,7 @@
 /**
- * The business's logo and colour (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §4, "Your logo and
- * colour"): what's kept, and where the logo is. Browser-safe.
+ * The business's brand kit: its logo and colour (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §4, "Your
+ * logo and colour"), and its font and corners (HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md, part 1): what's kept,
+ * and where the logo is. Browser-safe.
  *
  * - They're kept in `workspaces.settings.look`, written only by the look commands (`workspace.update` refuses the
  *   key), and read forgivingly: a part that doesn't parse counts as never set.
@@ -8,9 +9,12 @@
  *   good): from the business's website when it has one, else uploaded. Uploads land in the private
  *   `brand-uploads` bucket first, at a place `look.begin_upload` reserved, and the worker makes the PNG from them.
  * - The colour comes from the logo, or the website's own colour when the logo has none, until a person picks one.
+ * - The font and corners are unset until a person picks them or matches a website (`matched`): unset is HandsFreeOS's
+ *   own look. Forms and booking pages that haven't picked their own follow them (`lookKitOf`).
  */
 import { z } from 'zod';
 import { isLookColor } from './colour';
+import { FONT_NAME } from './fonts';
 
 export const LOOK_SETTINGS_KEY = 'look';
 
@@ -66,6 +70,139 @@ export const LookColor = z.object({
 });
 export type LookColor = z.infer<typeof LookColor>;
 
+/** The corners the brand kit offers, the same as a form's. */
+export const LOOK_CORNERS = ['square', 'slight', 'round'] as const;
+export type LookCorners = (typeof LOOK_CORNERS)[number];
+
+/**
+ * The brand kit's font (DESIGN_TOOLS plan, part 1): a Google font's name. Forms, booking pages and the rest that leave
+ * theirs unset are drawn in it; none kept is HandsFreeOS's own.
+ */
+export const LookFont = z.object({
+  name: z.string().trim().max(60).regex(FONT_NAME),
+  at,
+});
+export type LookFont = z.infer<typeof LookFont>;
+
+/** The brand kit's corners: square, slight or round, on the buttons and boxes of everything that follows it. */
+export const LookCornersKept = z.object({ value: z.enum(LOOK_CORNERS), at });
+export type LookCornersKept = z.infer<typeof LookCornersKept>;
+
+/** Which website Match my website last filled the brand kit from, and when. */
+export const LookMatched = z.object({ site: z.string().trim().max(300), at });
+export type LookMatched = z.infer<typeof LookMatched>;
+
+/** Where the logo sits at the top of an email. */
+export const LOOK_EMAIL_LOGO = ['left', 'center'] as const;
+export type LookEmailLogo = (typeof LOOK_EMAIL_LOGO)[number];
+
+/**
+ * How the business's emails look (design tools, part 5; Settings → Email → How your emails look): a band of its colour
+ * across the top, its logo on the left or in the middle, and a footer with its address, phone, website and social
+ * links. Unset is the look emails had before: the logo on the left, no band and no footer.
+ */
+export const LookEmailLayout = z.object({
+  band: z.boolean(),
+  logo: z.enum(LOOK_EMAIL_LOGO),
+  footer: z.boolean(),
+});
+export type LookEmailLayout = z.infer<typeof LookEmailLayout>;
+export const LookEmail = LookEmailLayout.extend({ at });
+export type LookEmail = z.infer<typeof LookEmail>;
+
+/** The social sites a link is recognised as, for its name and order; anything else is its own site. */
+export const LOOK_SOCIAL_KINDS = [
+  'facebook',
+  'instagram',
+  'linkedin',
+  'youtube',
+  'tiktok',
+  'x',
+  'google',
+  'yelp',
+  'nextdoor',
+  'pinterest',
+  'other',
+] as const;
+export type LookSocialKind = (typeof LOOK_SOCIAL_KINDS)[number];
+export const LOOK_SOCIAL_NAMES: Record<LookSocialKind, string> = {
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  linkedin: 'LinkedIn',
+  youtube: 'YouTube',
+  tiktok: 'TikTok',
+  x: 'X',
+  google: 'Google',
+  yelp: 'Yelp',
+  nextdoor: 'Nextdoor',
+  pinterest: 'Pinterest',
+  other: 'Website',
+};
+/** The most social links a business keeps. */
+export const LOOK_SOCIALS_MAX = 8;
+const SOCIAL_HOSTS: readonly (readonly [RegExp, LookSocialKind])[] = [
+  [/(^|\.)(facebook\.com|fb\.com|fb\.me)$/, 'facebook'],
+  [/(^|\.)instagram\.com$/, 'instagram'],
+  [/(^|\.)linkedin\.com$/, 'linkedin'],
+  [/(^|\.)(youtube\.com|youtu\.be)$/, 'youtube'],
+  [/(^|\.)tiktok\.com$/, 'tiktok'],
+  [/(^|\.)(x\.com|twitter\.com)$/, 'x'],
+  [/(^|\.)(g\.page|business\.google\.com|maps\.app\.goo\.gl)$/, 'google'],
+  [/(^|\.)yelp\.[a-z.]+$/, 'yelp'],
+  [/(^|\.)nextdoor\.com$/, 'nextdoor'],
+  [/(^|\.)pinterest\.[a-z.]+$/, 'pinterest'],
+];
+/** Which social site a link is on, from its address. */
+export function socialKindOf(url: string): LookSocialKind {
+  let host = '';
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return 'other';
+  }
+  return SOCIAL_HOSTS.find(([re]) => re.test(host))?.[1] ?? 'other';
+}
+/**
+ * A social link as typed ("facebook.com/acme", "https://www.instagram.com/acme/"), as kept: https, no spaces; null
+ * when it isn't a web address.
+ */
+export function socialUrlOf(typed: string): string | null {
+  const t = typed.trim();
+  if (!t || t.length > 300 || /\s/.test(t)) return null;
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`;
+  try {
+    const u = new URL(withScheme);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    if (!u.hostname.includes('.') || u.username || u.password) return null;
+    u.protocol = 'https:';
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+export const LookSocialLink = z.object({
+  kind: z.enum(LOOK_SOCIAL_KINDS),
+  url: z.url({ protocol: /^https$/ }).max(300),
+});
+export type LookSocialLink = z.infer<typeof LookSocialLink>;
+export const LookSocials = z.object({
+  links: z.array(LookSocialLink).max(LOOK_SOCIALS_MAX),
+  at,
+});
+export type LookSocials = z.infer<typeof LookSocials>;
+
+/** The most a license number may be, as written ("TX HVAC Lic. TACLA12345C"). */
+export const LOOK_LICENSE_MOST = 80;
+/**
+ * The business's license number, as it writes it (design tools, part 7): at the bottom of its customers' pages, the
+ * invoice, estimate, document to sign and appointment, with its address and social links.
+ */
+export const LookLicense = z.object({
+  text: z.string().trim().min(1).max(LOOK_LICENSE_MOST),
+  at,
+});
+export type LookLicense = z.infer<typeof LookLicense>;
+
 /** A place reserved for an upload, and whether the picture's there for the worker yet. */
 export const LookUpload = z.object({
   path: z.string().regex(LOOK_UPLOAD_PATH),
@@ -86,6 +223,18 @@ export const BusinessLookSchema = z.object({
   searched: z.object({ url: z.string().max(500), at, found: z.boolean() }).nullable(),
   /** When someone (or saving the website) asked for that. */
   asked: z.object({ url: z.string().max(500), at }).nullable(),
+  /** The brand kit's font; null is HandsFreeOS's own. */
+  font: LookFont.nullable().default(null),
+  /** The brand kit's corners; null is slight. */
+  corners: LookCornersKept.nullable().default(null),
+  /** Which website Match my website last filled the brand kit from. */
+  matched: LookMatched.nullable().default(null),
+  /** How its emails look; null is the look they had before. */
+  email: LookEmail.nullable().default(null),
+  /** Its social links (Facebook, Instagram and the rest), for email footers and its customers' pages. */
+  socials: LookSocials.nullable().default(null),
+  /** Its license number, at the bottom of its customers' pages; null for none. */
+  license: LookLicense.nullable().default(null),
 });
 export type BusinessLook = z.infer<typeof BusinessLookSchema>;
 
@@ -96,6 +245,12 @@ export const NO_LOOK: BusinessLook = {
   problem: null,
   searched: null,
   asked: null,
+  font: null,
+  corners: null,
+  matched: null,
+  email: null,
+  socials: null,
+  license: null,
 };
 
 const asRecord = (v: unknown): Record<string, unknown> =>
@@ -116,8 +271,22 @@ export function lookOf(settings: unknown): BusinessLook {
     problem: part(BusinessLookSchema.shape.problem, look['problem']),
     searched: part(BusinessLookSchema.shape.searched, look['searched']),
     asked: part(BusinessLookSchema.shape.asked, look['asked']),
+    font: part(LookFont, look['font']),
+    corners: part(LookCornersKept, look['corners']),
+    matched: part(LookMatched, look['matched']),
+    email: part(LookEmail, look['email']),
+    socials: part(LookSocials, look['socials']),
+    license: part(LookLicense, look['license']),
   };
 }
+
+/** The brand kit as the pages that follow it need it: its font and corners, null where it has none. */
+export const lookKitOf = (
+  look: Pick<BusinessLook, 'font' | 'corners'> | null | undefined,
+): { font: string | null; corners: LookCorners | null } => ({
+  font: look?.font?.name ?? null,
+  corners: look?.corners?.value ?? null,
+});
 
 /** A logo wider than this usually spells the name out, so it stands for the name on its own. */
 export const LOOK_WIDE_LOGO = 1.6;

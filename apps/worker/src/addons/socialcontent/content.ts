@@ -48,11 +48,12 @@ import {
 import {
   checkedDesign,
   checkedPost,
+  designOf,
   designChoices,
-  DESIGN_SCHEMA,
-  DESIGN_SYSTEM,
   DesignAnswer,
   designPrompt,
+  designSchemaFor,
+  designSystemFor,
   photoPromptFor,
   POST_LIMITS,
   WRITE_SCHEMA,
@@ -66,9 +67,19 @@ import {
 } from '@hfos/core/addons/socialcontent/posts-ai';
 import type { AiContent } from '@hfos/ai';
 import {
+  ContentRedrawInput,
   ContentRewriteManyInput,
   type ContentPicturedInput,
 } from '@hfos/core/addons/socialcontent/content-shapes';
+import {
+  designAllowedOf,
+  logoOnPage,
+  ownPhotoOf,
+  photoFileOf,
+  pictureLookOf,
+  pictureWordsOf,
+  type PictureLook,
+} from '@hfos/core/addons/socialcontent/picture-look';
 import { SOCIALCONTENT_WORDS as W } from '@hfos/core/addons/socialcontent/words';
 import { isLinkPlace, linkPlacesOf } from '@hfos/core/addons/socialcontent/links';
 import {
@@ -85,9 +96,11 @@ import {
   PICTURE_CHECK_SYSTEM,
   PictureCheckAnswer,
   graphicToCheck,
+  logoPagesOf,
   pageToCheck,
   pictureCheckPrompt,
   withCutWords,
+  withoutPhotoProblems,
   type PageToCheck,
   type GraphicTry,
   type PictureCheck,
@@ -109,6 +122,7 @@ import {
   executeCommand,
   fileStore,
   HfosError,
+  LOOK_BUCKET,
   LOOK_DEFAULT_COLOR,
   lookOf,
   storedFilePath,
@@ -125,7 +139,7 @@ import { chargeUsage } from '../../money/wallet';
 import { PictureError } from '../../pictures';
 import { scheduleAddonJob } from '../queue';
 import { businessText, listsAllFilled, listsHere, offerIsLive, requireLiveOffer } from './business';
-import { drawDesign, type Drawn } from './draw';
+import { drawDesign, stampLogo, type Drawn, type LogoOn } from './draw';
 import { aiRefusal, suggestIdeas } from './notes';
 import { everResearched, queueResearch, researchNow } from './research';
 import { aboutOf, creatorPosts, ideasBefore, postsBefore, topicOf, type PostSeen } from './variety';
@@ -154,6 +168,12 @@ interface Here {
   readonly timeZone: string;
   readonly businessName: string;
   readonly color: string;
+  /** How its pictures look (design tools, part 6): the logo on them, and the fonts and layouts the AI may use. */
+  readonly look: PictureLook;
+  /** The brand kit's font, which the pictures follow until the business picks its own fonts. */
+  readonly kitFont: string | null;
+  /** Where the brand kit's logo is, in the `brand` bucket; null when it has none. */
+  readonly logoPath: string | null;
   readonly plan: ReturnType<typeof planOf>;
   readonly playbook: WriteInput['playbook'];
   /** Whether it fills the calendar on its own (Settings → Posting, and the Calendar's switch). */
@@ -166,19 +186,23 @@ async function hereOf(ctx: AddonScopeContext): Promise<Here> {
       tx,
       sql`select timezone, name, settings from app.workspaces where id = ${ctx.scope.workspaceId}`,
     );
-    const [s] = await rows<{ plan: unknown; auto_fill: boolean }>(
+    const [s] = await rows<{ plan: unknown; auto_fill: boolean; picture_look: unknown }>(
       tx,
-      sql`select plan, auto_fill from addon_socialcontent.settings where workspace_id = ${ctx.scope.workspaceId}`,
+      sql`select plan, auto_fill, picture_look from addon_socialcontent.settings where workspace_id = ${ctx.scope.workspaceId}`,
     );
     const [p] = await rows<{ summary: string | null; sections: unknown }>(
       tx,
       sql`select summary, sections from addon_socialcontent.playbook
           where workspace_id = ${ctx.scope.workspaceId} and written_at is not null`,
     );
+    const kit = lookOf(w?.settings);
     return {
       timeZone: w?.timezone || 'America/Chicago',
       businessName: w?.name ?? 'the business',
-      color: lookOf(w?.settings).color?.hex ?? LOOK_DEFAULT_COLOR,
+      color: kit.color?.hex ?? LOOK_DEFAULT_COLOR,
+      look: pictureLookOf(s?.picture_look),
+      kitFont: kit.font?.name ?? null,
+      logoPath: kit.logo?.path ?? null,
       plan: planOf(s?.plan),
       autoFill: s?.auto_fill ?? true,
       playbook: p
@@ -369,6 +393,8 @@ async function queuePictures(
     readonly way: 'design' | 'photo';
     readonly prompt: string | null;
     readonly ask: string | null;
+    /** The person's own photo to design the words over (design tools, part 6). */
+    readonly own?: string;
   },
 ): Promise<void> {
   await asWorker(ctx.db, ctx.scope, (tx) =>
@@ -379,7 +405,13 @@ async function queuePictures(
         kind: PICTURES_JOB,
         dedupeKey: `${PICTURES_JOB}:${postId}`,
         runAt: new Date(),
-        payload: { postId, way: p.way, prompt: p.prompt, ask: p.ask },
+        payload: {
+          postId,
+          way: p.way,
+          prompt: p.prompt,
+          ask: p.ask,
+          ...(p.own ? { own: p.own } : {}),
+        },
         workspaceId: ctx.scope.workspaceId,
         organizationId: ctx.scope.organizationId,
       },
@@ -1121,9 +1153,9 @@ export const makePictureNow: AddonWorkerAction<z.output<typeof PictureInput>> = 
   input: PictureInput,
   async run(ctx, input) {
     const [was] = await asWorker(ctx.db, ctx.scope, (tx) =>
-      rows<{ format: ContentFormat; picture_way: string; state: string }>(
+      rows<{ format: ContentFormat; picture_way: string; state: string; design: unknown }>(
         tx,
-        sql`select c.format, c.picture_way, c.state from addon_socialcontent.content c
+        sql`select c.format, c.picture_way, c.state, c.design from addon_socialcontent.content c
             join app.custom_records r on r.id = c.record_id and r.archived_at is null
             where c.record_id = ${input.postId}::uuid and c.workspace_id = ${ctx.scope.workspaceId}`,
       ),
@@ -1140,6 +1172,24 @@ export const makePictureNow: AddonWorkerAction<z.output<typeof PictureInput>> = 
           ? 'A video post has no pictures to make: record the video from its script.'
           : 'A post with words only has no picture. Change its format to Picture first.',
       );
+    // Words over the person's own photo are designed again over the same photo (design tools, part 6).
+    const own = !input.way && was.picture_way === 'own' ? ownPhotoOf(was.design) : null;
+    if (own) {
+      await executeCommand(
+        ctx.db,
+        contentPictured,
+        { workspaceId: ctx.scope.workspaceId, postId: input.postId, state: 'waiting' },
+        ctx.actor,
+        ctx.meta,
+      );
+      await queuePictures(ctx, input.postId, {
+        way: 'design',
+        prompt: null,
+        ask: input.ask ?? null,
+        own,
+      });
+      return { postId: input.postId, way: 'design' as const };
+    }
     const way = input.way ?? (was.picture_way === 'photo' ? 'photo' : 'design');
     if (way === 'photo' && !ctx.pictures)
       throw HfosError.rule(
@@ -1156,6 +1206,243 @@ export const makePictureNow: AddonWorkerAction<z.output<typeof PictureInput>> = 
     );
     await queuePictures(ctx, input.postId, { way, prompt: null, ask: input.ask ?? null });
     return { postId: input.postId, way };
+  },
+};
+
+export const REDRAW_ACTION = 'socialcontent.content.redraw';
+export const OWN_PHOTO_ACTION = 'socialcontent.content.own_photo';
+
+/** A post's pictures as kept, to change their words or put words on the person's own photo (design tools, part 6). */
+async function picturesKept(ctx: AddonScopeContext, postId: string) {
+  const [c] = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{
+      title: string;
+      network: string;
+      format: ContentFormat;
+      state: string;
+      picture_way: string;
+      picture_state: string;
+      design: Record<string, unknown> | null;
+      file_ids: string[];
+    }>(
+      tx,
+      sql`select r.name as title, c.network, c.format, c.state, c.picture_way, c.picture_state, c.design, c.file_ids
+          from addon_socialcontent.content c
+          join app.custom_records r on r.id = c.record_id and r.archived_at is null
+          where c.record_id = ${postId}::uuid and c.workspace_id = ${ctx.scope.workspaceId}`,
+    ),
+  );
+  if (!c)
+    throw HfosError.notFound(
+      'That post isn’t there anymore. Refresh the page to see the ones there are.',
+    );
+  if (c.state === 'posted' || c.state === 'posting')
+    throw HfosError.rule(
+      'socialcontent_post_went_up',
+      409,
+      c.state === 'posted'
+        ? 'This post has gone up, so its pictures stay as they are. Write a new post to change them.'
+        : 'This post is going up right now, so its pictures can’t change. Wait until it’s up.',
+    );
+  return c;
+}
+
+/**
+ * Fix a word by hand (the owner's idea 15; design tools, part 6): the words on a post's drawn pictures changed and the
+ * pictures drawn again from the same design, at no AI cost and with no check, so nothing is designed or made again.
+ * Like any new pictures, they take the post's OK back.
+ */
+export const redrawPicturesNow: AddonWorkerAction<z.output<typeof ContentRedrawInput>> = {
+  permission: 'socialcontent.use',
+  ai: {
+    tool: 'socialcontent_fix_picture_words',
+    description:
+      'Change the words on one of the business’s own posts’ pictures by hand and draw them again, keeping their design, colours and photo, at no AI cost: give `pages`, one for each picture in order (as the post’s pictureWords show them), each with `heading` and, where its layout draws them, `kicker` (the small line above), `body`, `items` (a list’s items or a before and after’s two sides), `mark` (a number page’s big number or a highlight’s painted words) and `footer`. Blank parts are left off. It can’t change words OpenAI made as part of a whole graphic: make those pictures again instead. The new pictures take the post’s OK back.',
+    autonomy: 'auto',
+    keywords: [
+      'fix picture words',
+      'typo on picture',
+      'change words on image',
+      'edit picture text',
+    ],
+  },
+  input: ContentRedrawInput,
+  async run(ctx, input) {
+    const c = await picturesKept(ctx, input.postId);
+    if (c.picture_state !== 'made')
+      throw HfosError.rule(
+        'socialcontent_pictures_not_ready',
+        409,
+        c.picture_state === 'failed'
+          ? 'This post’s pictures didn’t get made, so there are no words on them to change. Press Make it again first.'
+          : 'This post’s pictures are still being made. Try again in a minute, once they show.',
+      );
+    if (c.picture_way === 'own' && !ownPhotoOf(c.design))
+      throw HfosError.rule(
+        'socialcontent_own_photo_plain',
+        409,
+        'This picture is your own photo, with no words drawn on it. Press Put words on it to have words designed over it.',
+      );
+    const words = pictureWordsOf(c.design);
+    if (!words)
+      throw HfosError.rule(
+        'socialcontent_words_not_drawn',
+        409,
+        (c.design?.['graphic'] as { passed?: unknown } | undefined)?.passed === true
+          ? 'OpenAI made this picture words and all, so its words can’t be changed by hand. Press Make it again and say what to change.'
+          : 'This picture was made before its photo was kept, so its words can’t be changed by hand. Press Make it again and say the words you want in What to change.',
+      );
+    if (input.pages.length !== words.length)
+      throw HfosError.validation(
+        [{ path: 'pages', message: `Send words for each of its ${words.length} pictures.` }],
+        `This post has ${words.length === 1 ? '1 picture' : `${words.length} pictures`}: send words for each, in order.`,
+      );
+    const stored = designOf(c.design);
+    if (!stored)
+      throw HfosError.rule(
+        'socialcontent_words_not_drawn',
+        409,
+        'This picture’s design wasn’t kept, so its words can’t be changed by hand. Press Make it again.',
+      );
+    const design: Design = {
+      ...stored,
+      pages: stored.pages.map((page, i) => {
+        const w = input.pages[i]!;
+        return {
+          ...page,
+          kicker: w.kicker,
+          heading: w.heading,
+          body: w.body,
+          items: w.items.slice(0, 5),
+          mark: w.mark,
+          footer: w.footer,
+        };
+      }),
+    };
+    const photoId = design.photo ? photoFileOf(c.design) : null;
+    let photo: Buffer | null = null;
+    if (photoId) {
+      const f = await readFileBytes(ctx, ctx.scope, photoId, KEPT_PICTURE_MOST);
+      if (!f.ok)
+        throw HfosError.rule(
+          'socialcontent_photo_gone',
+          409,
+          'The photo under these words isn’t on the post anymore, so they can’t be drawn again. Press Make it again.',
+        );
+      photo = f.bytes;
+    }
+    const here = await hereOf(ctx);
+    const shape = pictureShapeOf(c.network);
+    const logo = await logoFor(ctx, here, design.pages.length);
+    const pictures = await drawDesign(design, photo, shape, logo);
+    const fileIds = await keepPictures(ctx, input.postId, c, pictures);
+    // Only what drawing knows for free: words that didn't fit. The check before was of the old words.
+    const cut = withCutWords(
+      null,
+      pictures.map((x) => !!x.cut),
+    );
+    const { check: _old, ...rest } = c.design ?? {};
+    await executeCommand(
+      ctx.db,
+      contentPictured,
+      {
+        workspaceId: ctx.scope.workspaceId,
+        postId: input.postId,
+        state: 'made',
+        fileIds,
+        design: {
+          ...rest,
+          pages: design.pages,
+          ...(cut ? { check: cut } : {}),
+          logoOn: logo?.pages ?? [],
+          edited: true,
+        } as unknown as Record<string, unknown>,
+      },
+      ctx.actor,
+      ctx.meta,
+    );
+    return { postId: input.postId, pictures: fileIds.length, cut: !!cut };
+  },
+};
+
+const OwnPhotoInput = z
+  .object({
+    postId: z.uuid(),
+    /** True puts words over the photo; false posts the photo plain again. */
+    words: z.boolean(),
+    ask: z.string().trim().max(POST_LIMITS.ask).optional(),
+  })
+  .strict();
+
+/**
+ * Words designed over the person's own photo (the owner's idea 14; design tools, part 6), or the photo posted plain
+ * again. The design AI lays out the words (its colours, the business's fonts and layouts, the logo) over the photo,
+ * which stays theirs: never sent to OpenAI, never made again, and the check never fails it for what's in it.
+ */
+export const ownPhotoWordsNow: AddonWorkerAction<z.output<typeof OwnPhotoInput>> = {
+  permission: 'socialcontent.use',
+  ai: {
+    tool: 'socialcontent_words_on_own_photo',
+    description:
+      'For one of the business’s own posts with the person’s own photo: `words` true has the AI design words over the photo (from the post’s hook and words; ask says what to change), in the business’s colours, fonts and layouts with its logo, ready in a minute; `words` false puts the photo back as it was, with no words. Words go over one photo only, so a post with several photos is refused. The photo is never sent to OpenAI or changed. Either takes the post’s OK back.',
+    autonomy: 'auto',
+    keywords: ['words on my photo', 'text over photo', 'design my photo', 'plain photo'],
+  },
+  input: OwnPhotoInput,
+  async run(ctx, input) {
+    const c = await picturesKept(ctx, input.postId);
+    if (c.picture_way !== 'own')
+      throw HfosError.rule(
+        'socialcontent_not_own_photo',
+        409,
+        'This post’s picture is made by HandsFreeOS, not your own photo. Add your photo to the post first, then put words on it.',
+      );
+    const own = ownPhotoOf(c.design);
+    if (!input.words) {
+      if (!own)
+        throw HfosError.rule(
+          'socialcontent_own_photo_plain',
+          409,
+          'This post already has your photo as it is, with no words on it.',
+        );
+      await executeCommand(
+        ctx.db,
+        contentPictured,
+        {
+          workspaceId: ctx.scope.workspaceId,
+          postId: input.postId,
+          state: 'made',
+          fileIds: [own],
+          design: null,
+        },
+        ctx.actor,
+        ctx.meta,
+      );
+      return { postId: input.postId, words: false };
+    }
+    const photo = own ?? (c.file_ids.length === 1 ? c.file_ids[0]! : null);
+    if (c.format !== 'photo' || !photo)
+      throw HfosError.rule(
+        'socialcontent_own_photo_one',
+        409,
+        c.file_ids.length
+          ? `Words go over one photo, and this post has ${c.file_ids.length}. Keep one photo to put words on it, or post them as they are.`
+          : 'This post has no photo yet. Add your photo first, then put words on it.',
+      );
+    await executeCommand(
+      ctx.db,
+      contentPictured,
+      { workspaceId: ctx.scope.workspaceId, postId: input.postId, state: 'waiting' },
+      ctx.actor,
+      ctx.meta,
+    );
+    await queuePictures(ctx, input.postId, {
+      way: 'design',
+      prompt: null,
+      ask: input.ask ?? null,
+      own: photo,
+    });
+    return { postId: input.postId, words: true };
   },
 };
 
@@ -1272,9 +1559,10 @@ async function askDesign(
 ): Promise<Design> {
   const slides = slidesOf(p);
   const pagesWanted = p.format === 'carousel' && slides.length ? slides.length : 1;
-  const choices = designChoices(await designsBefore(ctx, postId), !!photo);
+  const allowed = designAllowedOf(here.look, here.kitFont);
+  const choices = designChoices(await designsBefore(ctx, postId), !!photo, Math.random, allowed);
   const { value } = await askStructured(ctx, ctx.scope, {
-    system: DESIGN_SYSTEM,
+    system: designSystemFor(allowed),
     messages: [
       {
         role: 'user',
@@ -1294,10 +1582,11 @@ async function askDesign(
           photo,
           choices,
           link: isLinkPlace(p.link_place) ? p.link_place : null,
+          layouts: allowed.layouts,
         }),
       },
     ],
-    schema: DESIGN_SCHEMA,
+    schema: designSchemaFor(allowed),
     zod: DesignAnswer,
     maxTokens: 3000,
     usage: { source: 'addon', addonId: ctx.manifest.id },
@@ -1306,6 +1595,7 @@ async function askDesign(
     photo: !!photo,
     avoid: choices.avoid,
     noLink: !isLinkPlace(p.link_place),
+    allowed,
   });
   if (!design) throw new PictureError('The AI’s design had no words to put on the picture.', true);
   return design;
@@ -1365,6 +1655,34 @@ async function checkPictures(
 }
 
 /**
+ * The brand kit's logo for a post's pictures (design tools, part 6), with the pages that carry it: none when the business
+ * picked Never or the kit has no logo. A logo that can't be read leaves the pictures without it rather than failing them.
+ */
+async function logoFor(ctx: AddonScopeContext, here: Here, pages: number): Promise<LogoOn | null> {
+  if (!here.logoPath || here.look.logo === 'never' || pages < 1) return null;
+  try {
+    const bytes = await ctx.store.download(LOOK_BUCKET, here.logoPath);
+    return {
+      bytes,
+      pages: Array.from({ length: pages }, (_, i) => logoOnPage(here.look.logo, i, pages)),
+    };
+  } catch (e) {
+    ctx.log.warn({ err: e }, 'the brand kit’s logo couldn’t be read; the pictures go without it');
+    return null;
+  }
+}
+
+/** Which pages carry the logo, kept on the design so a later check is told it's there on purpose. */
+const logoKept = (logo: LogoOn | null): { logoOn?: boolean[] } =>
+  logo?.pages.some(Boolean) ? { logoOn: [...logo.pages] } : {};
+
+/** The pages as the check is told them, with the logo and the business's own photo said to be on purpose. */
+const pagesToCheck = (d: Design, logo: LogoOn | null, ownPhoto: boolean): PageToCheck[] =>
+  d.pages.map((page, i) =>
+    pageToCheck(page, { logo: !!logo?.pages[i], ownPhoto: ownPhoto && i === 0 }),
+  );
+
+/**
  * Draws a design and has it checked (decision 40); one that fails is tried up to twice more (`CHECKS.retries`), and
  * the one with the fewest problems is kept. A problem in the words or the layout is designed again with the problems
  * to fix; a mistake in the photo itself, like a blank screen in someone's hand or words showing through from it (the
@@ -1380,19 +1698,34 @@ async function drawChecked(
   ask: string | null,
   first: Design,
   photo: MadePhoto | null,
-): Promise<{ design: Design; pictures: Drawn[]; check: PictureCheck | null }> {
+  own = false,
+): Promise<{
+  design: Design;
+  pictures: Drawn[];
+  check: PictureCheck | null;
+  photo: MadePhoto | null;
+  logo: LogoOn | null;
+}> {
   const shape = pictureShapeOf(p.network);
+  const logos = new Map<number, LogoOn | null>();
+  const logoOf = async (pages: number) => {
+    if (!logos.has(pages)) logos.set(pages, await logoFor(ctx, here, pages));
+    return logos.get(pages)!;
+  };
   const drawn = async (d: Design, under: MadePhoto | null) => {
-    const pictures = await drawDesign(d, under?.bytes ?? null, shape);
-    const check = withCutWords(
+    const logo = await logoOf(d.pages.length);
+    const pictures = await drawDesign(d, under?.bytes ?? null, shape, logo);
+    const checked = withCutWords(
       await checkPictures(
         ctx,
         pictures.map((x) => ({ bytes: x.bytes, photo: x.mimeType === 'image/jpeg' })),
-        d.pages.map(pageToCheck),
+        pagesToCheck(d, logo, own && !!under),
       ),
       pictures.map((x) => !!x.cut),
     );
-    return { design: d, pictures, check };
+    // The business's own photo was taken with a camera: what the check finds in it isn't the image AI's to fix.
+    const check = own ? withoutPhotoProblems(checked) : checked;
+    return { design: d, pictures, check, photo: under, logo };
   };
   let last = await drawn(first, photo);
   let best = last;
@@ -1458,7 +1791,7 @@ async function drawChecked(
 async function keepPictures(
   ctx: AddonScopeContext,
   postId: string,
-  p: PostForPictures,
+  p: Pick<PostForPictures, 'title'>,
   pictures: readonly Drawn[],
 ): Promise<string[]> {
   const fileIds: string[] = [];
@@ -1700,7 +2033,12 @@ async function recheckKept(
     if (!f.ok) return gone;
     pictures.push({ bytes: f.bytes, photo: f.mimeType === 'image/jpeg' });
   }
-  const toCheck = graphic ? [graphicToCheck(pages[0]!)] : pages.map(pageToCheck);
+  const logoOn = logoPagesOf(stored);
+  const toCheck = graphic
+    ? [graphicToCheck(pages[0]!, { logo: logoOn[0] })]
+    : pages.map((page, i) =>
+        pageToCheck(page, { logo: logoOn[i], ownPhoto: !!ownPhotoOf(stored) && i === 0 }),
+      );
   if (toCheck.length !== pictures.length) return gone;
   const check = await checkPictures(ctx, pictures, toCheck);
   if (!check) return null;
@@ -1732,6 +2070,38 @@ async function recheckKept(
   };
 }
 
+/** The person's own photo, turned the right way up and cut to the post's shape, to design words over (part 6). */
+async function ownPhotoFor(
+  ctx: AddonScopeContext,
+  fileId: string,
+  p: PostForPictures,
+): Promise<MadePhoto> {
+  const f = await readFileBytes(ctx, ctx.scope, fileId, KEPT_PICTURE_MOST);
+  if (!f.ok)
+    throw new PictureError(
+      f.why === 'too_large'
+        ? 'Your photo is too big to put words on. Add a smaller one (under 20 MB), then press Put words on it.'
+        : 'Your photo isn’t on the post anymore. Add it again, then press Put words on it.',
+      false,
+    );
+  if (!/^image\/(jpeg|png|webp)$/.test(f.mimeType ?? ''))
+    throw new PictureError(
+      'Words go over a photo: a JPG, PNG or WebP picture. Add one of those, then press Put words on it.',
+      false,
+    );
+  const size = PICTURE_SIZES[pictureShapeOf(p.network)];
+  const bytes = await sharp(f.bytes)
+    .rotate()
+    .resize(size.width, size.height, { fit: 'cover', position: 'attention' })
+    .jpeg({ quality: 92 })
+    .toBuffer();
+  return {
+    bytes,
+    shows: p.picture ? `the business’s own photo of ${p.picture}` : 'the business’s own photo',
+    scene: '',
+  };
+}
+
 /**
  * `socialcontent.pictures`: one post's AI-made pictures. The design comes first (its words); a photo post's single
  * picture is then OpenAI's whole graphic when one is due and passes the check (decision 40), else a photo OpenAI
@@ -1755,18 +2125,59 @@ export const runPictures: AddonJobHandler = async (ctx) => {
     ),
   );
   if (!p || p.state === 'posted' || p.state === 'posting' || !hasPictures(p.format)) return;
-  const asked = payloadWay === 'photo' || payloadWay === 'design' ? payloadWay : p.picture_way;
+  // Words designed over the person's own photo (design tools, part 6): it stays their picture, never OpenAI's.
+  const own =
+    typeof ctx.job.payload['own'] === 'string' && p.picture_way === 'own'
+      ? ctx.job.payload['own']
+      : null;
+  const asked = own
+    ? 'design'
+    : payloadWay === 'photo' || payloadWay === 'design'
+      ? payloadWay
+      : p.picture_way;
   if (asked !== 'photo' && asked !== 'design') return;
   // Without OpenAI's image model here, a photo-style picture is designed instead.
   let way: 'design' | 'photo' = asked === 'photo' && !ctx.pictures ? 'design' : asked;
-  const pictured: Pictured = (input) =>
+  const pictured: Pictured = ({ way: changedTo, ...input }) =>
     executeCommand(
       ctx.db,
       contentPictured,
-      { workspaceId: ctx.scope.workspaceId, postId, ...input },
+      // An own photo's post keeps its way: the person's own.
+      { workspaceId: ctx.scope.workspaceId, postId, ...input, ...(own ? {} : { way: changedTo }) },
       ctx.actor,
       ctx.meta,
     );
+  if (own) {
+    await pictured({ state: 'making' });
+    try {
+      const here = await hereOf(ctx);
+      const photo = await ownPhotoFor(ctx, own, p);
+      const business = await businessText(ctx);
+      const design = await askDesign(ctx, here, business, postId, p, ask, photo.shows);
+      const done = await drawChecked(ctx, here, business, postId, p, ask, design, photo, true);
+      const fileIds = await keepPictures(ctx, postId, p, done.pictures);
+      await pictured({
+        state: 'made',
+        fileIds,
+        design: {
+          ...done.design,
+          ...(done.check ? { check: done.check } : {}),
+          ...logoKept(done.logo),
+          own,
+          shape: pictureShapeOf(p.network),
+          checked: PICTURE_CHECK_VERSION,
+        } as unknown as Record<string, unknown>,
+      });
+    } catch (e) {
+      const retryable =
+        (e instanceof PictureError && e.retryable) || (e instanceof AiAskError && e.retryable);
+      if (retryable && ctx.attempt < 3) throw e;
+      if (!(e instanceof PictureError) && !(e instanceof AiAskError))
+        ctx.log.error({ err: e, postId }, 'words couldn’t be designed over a post’s own photo');
+      await pictured({ state: 'failed', failure: pictureFailure(e) });
+    }
+    return;
+  }
   let rechecked: Rechecked | null = null;
   if (ctx.job.payload['recheck'] === true && way === 'photo') {
     rechecked = await recheckKept(ctx, postId, pictured);
@@ -1802,7 +2213,15 @@ export const runPictures: AddonJobHandler = async (ctx) => {
         );
         graphic = tried.graphic;
         if (tried.picture) {
-          const fileIds = await keepPictures(ctx, postId, p, [tried.picture]);
+          // The logo goes on OpenAI's graphic too, in the corner a drawn page has it (design tools, part 6).
+          const logo = await logoFor(ctx, here, 1);
+          const picture: Drawn = logo
+            ? {
+                ...tried.picture,
+                bytes: await stampLogo(tried.picture.bytes, logo.bytes, pictureShapeOf(p.network)),
+              }
+            : tried.picture;
+          const fileIds = await keepPictures(ctx, postId, p, [picture]);
           await pictured({
             state: 'made',
             way,
@@ -1810,6 +2229,7 @@ export const runPictures: AddonJobHandler = async (ctx) => {
             design: {
               ...design,
               graphic,
+              ...logoKept(logo),
               shape: pictureShapeOf(p.network),
               checked: PICTURE_CHECK_VERSION,
             } as unknown as Record<string, unknown>,
@@ -1859,6 +2279,17 @@ export const runPictures: AddonJobHandler = async (ctx) => {
       }
     const done = await drawChecked(ctx, here, business, postId, p, askNow, design, photo);
     const fileIds = await keepPictures(ctx, postId, p, done.pictures);
+    // The photo under the words is kept too, so its words can be changed by hand later (design tools, part 6).
+    const photoFile =
+      done.photo && done.design.photo
+        ? await keepPicture(
+            ctx,
+            postId,
+            done.photo.bytes,
+            `${slug(p.title)}-photo.jpg`,
+            'image/jpeg',
+          )
+        : null;
     await pictured({
       state: 'made',
       way,
@@ -1867,6 +2298,8 @@ export const runPictures: AddonJobHandler = async (ctx) => {
         ...done.design,
         ...(done.check ? { check: done.check } : {}),
         ...(graphic ? { graphic } : {}),
+        ...(photoFile ? { photoFile } : {}),
+        ...logoKept(done.logo),
         shape: pictureShapeOf(p.network),
         checked: PICTURE_CHECK_VERSION,
       } as unknown as Record<string, unknown>,

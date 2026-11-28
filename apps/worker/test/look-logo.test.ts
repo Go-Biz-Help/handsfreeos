@@ -286,20 +286,43 @@ describe('the logo customers see', () => {
         height: 200,
       },
       color: '#f5c518',
+      font: null,
+      corners: null,
     });
-    expect(publicLookOf(settings, null)).toEqual({ logo: null, color: '#f5c518' });
-    expect(publicLookOf({}, 'https://abc.supabase.co')).toEqual({ logo: null, color: null });
+    expect(publicLookOf(settings, null)).toEqual({
+      logo: null,
+      color: '#f5c518',
+      font: null,
+      corners: null,
+    });
+    expect(publicLookOf({}, 'https://abc.supabase.co')).toEqual({
+      logo: null,
+      color: null,
+      font: null,
+      corners: null,
+    });
   });
 
-  it('heads an automatic email, 48 pixels high, its links in the colour made readable on white', () => {
+  it('carries the brand kit’s font and corners, for the pages that follow them', () => {
+    const kitted = {
+      look: {
+        ...settings.look,
+        font: { name: 'Poppins', at: '2026-11-27T12:00:00.000Z' },
+        corners: { value: 'round', at: '2026-11-27T12:00:00.000Z' },
+      },
+    };
+    expect(publicLookOf(kitted, null)).toMatchObject({ font: 'Poppins', corners: 'round' });
+  });
+
+  it('heads an automatic email, 48 pixels high, its links and buttons in the colour made readable on white', () => {
     expect(emailLogoSize({ width: 800, height: 200 })).toEqual({ width: 192, height: 48 });
     expect(emailLogoSize({ width: 800, height: 100 })).toEqual({ width: 240, height: 30 });
     expect(emailLogoSize({ width: 30, height: 20 })).toEqual({ width: 30, height: 20 });
     const look = publicLookOf(settings, 'https://abc.supabase.co');
-    const html = renderEmailHtml('Your invoice: https://app.example/i/1', {
-      name: 'Bee & Co "Plumbing"',
-      look,
-    });
+    const html = renderEmailHtml(
+      'Your invoice is at https://app.example/i/1\n\nPay your invoice: https://app.example/i/1/pay',
+      { name: 'Bee & Co "Plumbing"', look },
+    );
     expect(html).toContain(
       `<img src="https://abc.supabase.co/storage/v1/object/public/brand/${WS}/logo/${ID}.png" alt="Bee &amp; Co &quot;Plumbing&quot;" width="192" height="48"`,
     );
@@ -308,6 +331,11 @@ describe('the logo customers see', () => {
     )?.[1];
     expect(link).toBeDefined();
     expect(link).not.toBe('#f5c518');
+    // A line that's only words and an address is a button in that same colour (design tools, part 5).
+    expect(html).toContain(
+      `bgcolor="${link}"><a href="https://app.example/i/1/pay" style="display:inline-block;`,
+    );
+    expect(html).toContain('>Pay your invoice</a>');
     // A person's own email stays plain.
     const plain = renderEmailHtml('See https://app.example/i/1');
     expect(plain).not.toContain('<img');
