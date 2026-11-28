@@ -4,15 +4,16 @@
   "checkedOn": "2026-11-28",
   "files": {
     "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "41fb49747e27",
-    "apps/mobile/src/app/app/w/[workspaceId]/_layout.tsx": "b658d84cb81d",
+    "apps/mobile/src/app/app/w/[workspaceId]/_layout.tsx": "5be3a52a109e",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx": "cc0007aa5c1d",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx": "17139d859bdb",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx": "54f26bd0b071",
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "7189564642c4",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "3cbf20744079",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/keyboard.tsx": "5613331016ea",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell.tsx": "717ec190b6de",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx": "66db533f3d67",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/widgets.tsx": "3041fe3e3b5c",
     "apps/mobile/src/components/assistant/routine-list.tsx": "cfd1c032adfa",
     "apps/mobile/src/components/inbox/my-cell-card.tsx": "292ae0ecad2a",
     "apps/mobile/src/components/links/link-gate.tsx": "bdad099a27a6",
@@ -25,7 +26,7 @@
     "apps/mobile/src/components/shell/this-phone.tsx": "b92c33a0dfd5",
     "apps/mobile/src/keyboard/keep-fresh.tsx": "6308beb802b7",
     "apps/mobile/src/links/decide.ts": "8c590c3d63ff",
-    "apps/mobile/src/links/route-map.ts": "edbf8e0c79d8",
+    "apps/mobile/src/links/route-map.ts": "1b6c1459206f",
     "apps/mobile/src/look/calls.ts": "839009430923",
     "apps/mobile/src/push/bell.ts": "05eae2e42ce5",
     "apps/mobile/src/push/buttons.ts": "ab7af1d54d9d",
@@ -34,6 +35,8 @@
     "apps/mobile/src/push/registration.ts": "52b901d92474",
     "apps/mobile/src/push/switches.ts": "ac0a0f304155",
     "apps/mobile/src/settings/about-you-interview.tsx": "2ad28a6ec941",
+    "apps/mobile/src/widgets/android.tsx": "2cff2b102b95",
+    "apps/mobile/src/widgets/keep-fresh.tsx": "0aefcf89df4f",
     "apps/web/src/app/(auth)/delete-account/page.tsx": "7e6cbf1364af",
     "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx": "69a1e2678fb5",
     "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
@@ -1822,6 +1825,76 @@
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/keyboard.tsx:168",
       "covered": "yes",
       "by": "places-map PHONE_APP keyboard line: it never saves or sends what you type"
+    },
+    {
+      "path": "Phone Settings → This phone → Home-screen widgets",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:236",
+      "covered": "never",
+      "by": "phone.widgets SETTINGS_NEVER; places-map PHONE_APP widgets line explains the widgets and how to add them"
+    },
+    {
+      "path": "Home-screen widgets → how to add them (iPhone: touch and hold, +, search HandsFreeOS, and the lock screen; Android: touch and hold, Widgets)",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/widgets.tsx:61",
+      "covered": "yes",
+      "by": "places-map PHONE_APP widgets line gives the same steps"
+    },
+    {
+      "path": "Home-screen widgets → Hide names on widgets, and why names show otherwise",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/widgets.tsx:76",
+      "covered": "never",
+      "by": "a switch kept on that phone for that person; places-map PHONE_APP widgets line explains it"
+    },
+    {
+      "path": "Home-screen widgets → Showing <business>, updated when / Nothing on the widgets yet",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/widgets.tsx:84",
+      "covered": "never",
+      "by": "that phone’s own copy for its widgets"
+    },
+    {
+      "path": "Home-screen widgets → Update now, or why it’s off while viewing as a teammate",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/widgets.tsx:100",
+      "covered": "never",
+      "by": "refreshes that phone’s own copy; what the widgets show is what the Assistant already reads"
+    },
+    {
+      "path": "Home-screen widgets → The widgets: My day, Today, Needs you, Quick actions, Money, Social Outreach, Ask HandsFreeOS and (iPhone) the lock screen’s",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/widgets.tsx:110",
+      "covered": "yes",
+      "by": "places-map PHONE_APP widgets line names each and what it shows"
+    },
+    {
+      "path": "Home-screen widgets → When they update",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/widgets.tsx:125",
+      "covered": "yes",
+      "by": "places-map PHONE_APP widgets line: while the app is open and each time it opens; appointments move along on their own"
+    },
+    {
+      "path": "Phone home screen (Android) → the widgets themselves: each appointment, item and button opens that place in the app; lists scroll",
+      "kind": "see",
+      "file": "apps/mobile/src/widgets/android.tsx:364",
+      "covered": "partly",
+      "by": "what they show is what the Assistant reads (calendar, tasks, attention.list, money, Social Outreach); the widgets live on that phone, outside the app"
+    },
+    {
+      "path": "The widgets’ copy, kept fresh while a business is open (draws nothing)",
+      "kind": "see",
+      "file": "apps/mobile/src/widgets/keep-fresh.tsx:40",
+      "covered": "never",
+      "by": "that phone’s own copy for its widgets"
+    },
+    {
+      "path": "Links from the widgets: Add contact, Snap receipt (Add expense), Ask HandsFreeOS talking out loud",
+      "kind": "do",
+      "file": "apps/mobile/src/links/route-map.ts:106",
+      "covered": "person",
+      "by": "taps on the phone’s own home screen; the screens they open are covered where they are"
     },
     {
       "path": "Phone Settings → This business → Balance",

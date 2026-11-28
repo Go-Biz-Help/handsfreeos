@@ -2,6 +2,7 @@ import { AppState } from 'react-native';
 
 import { changes } from '@/changes';
 import { watchKeyboardOwner } from '@/keyboard/store';
+import { watchWidgetsOwner } from '@/widgets/store';
 import { registerTestFixers } from '@/changes/test-actions';
 import { registerCustomerFixers } from '@/customers/fixers';
 import { registerInboxFixers } from '@/inbox/fixers';
@@ -43,6 +44,8 @@ export function startApp(): Promise<void> {
     await session.start();
     // The keyboard's copy of templates and links is the signed-in person's own (docs/phone-keyboard.md).
     watchKeyboardOwner(session);
+    // So is the home-screen widgets' copy (docs/phone-widgets.md).
+    watchWidgetsOwner(session);
     await lockIfEnabled();
     prepareCopiesFolder();
     registerTestFixers();

@@ -1285,6 +1285,20 @@ const PHONE_ROWS: readonly Pick<SettingEntry, 'key' | 'section' | 'label' | 'wor
     ],
   },
   {
+    key: 'phone.widgets',
+    section: 'This phone',
+    label: 'Home-screen widgets',
+    words: [
+      'widget',
+      'home screen',
+      'lock screen',
+      'hide names',
+      'my day',
+      'quick actions',
+      'add to home screen',
+    ],
+  },
+  {
     key: 'phone.changes',
     section: 'This phone',
     label: 'Changes on this phone',

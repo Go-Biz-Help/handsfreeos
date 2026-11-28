@@ -264,6 +264,18 @@ jest.mock('./modules/hfos-shared', () => {
   };
 });
 
+// The iPhone widgets' reload (docs/phone-widgets.md).
+jest.mock('@bacons/apple-targets', () => ({
+  ExtensionStorage: { reloadWidget: jest.fn(), reloadControls: jest.fn() },
+}));
+
+// Android's home-screen widgets: the drawing is the library's own; asking Android to draw is recorded.
+jest.mock('react-native-android-widget', () => ({
+  ...jest.requireActual('react-native-android-widget'),
+  requestWidgetUpdate: jest.fn(async () => undefined),
+  registerWidgetTaskHandler: jest.fn(),
+}));
+
 jest.mock('./modules/hfos-keyboard', () => ({
   __esModule: true,
   default: {

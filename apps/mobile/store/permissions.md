@@ -83,7 +83,7 @@ Proof after a prebuild: `NSMicrophoneUsageDescription` in `Info.plist` with the 
 | `UIBackgroundModes: ["fetch", "location"]`             | `fetch`: `expo-task-manager` / background sync, so the phone's copy catches up without the app being open. `location`: `expo-location`, so a check-in sharing where the person is keeps sharing with the app in the background, until they check out (below)                                                      |
 | `NSLocalNetworkUsageDescription`, `NSBonjourServices`  | `expo-dev-launcher` adds these for finding a development server. It also adds a build phase ("[Expo Dev Launcher] Strip Local Network Keys for Release") that deletes both from any non-Debug build, so a store build asks for no local network access. Verified: the phase is in the generated `project.pbxproj` |
 | `com.apple.developer.usernotifications.time-sensitive` | The entitlement for time-sensitive notifications (urgent Action Center items)                                                                                                                                                                                                                                     |
-| `com.apple.security.application-groups`                | `group.com.gobizhelp.handsfreeos`, shared with the HandsFreeOS keyboard (and the widgets) so they can read the templates and links the app keeps for them ([`docs/phone-keyboard.md`](../../../docs/phone-keyboard.md)). Not a permission: nothing is asked                                                       |
+| `com.apple.security.application-groups`                | `group.com.gobizhelp.handsfreeos`, shared with the HandsFreeOS keyboard and the home-screen widgets so they can read what the app keeps for them ([`docs/phone-keyboard.md`](../../../docs/phone-keyboard.md), [`docs/phone-widgets.md`](../../../docs/phone-widgets.md)). Not a permission: nothing is asked     |
 
 **The keyboard's own Info.plist** (`targets/keyboard/Info.plist`) has `RequestsOpenAccess: true`. That's what makes
 iOS offer **Allow Full Access** for the HandsFreeOS keyboard in Settings, with its own warning; the app never asks for it
@@ -149,6 +149,10 @@ recording is put into words on the server and kept on the deal like any file.
 **The HandsFreeOS keyboard** (`modules/hfos-keyboard`) is a service guarded by `android.permission.BIND_INPUT_METHOD`.
 That's a permission the system holds, not one the app asks for: it only lets Android itself start the keyboard. The
 person switches it on in the phone's keyboard settings, which shows Android's own warning about keyboards.
+
+**The home-screen widgets** (`react-native-android-widget`, docs/phone-widgets.md) are app widget receivers that
+only Android itself starts (`android.appwidget.action.APPWIDGET_UPDATE`). Nothing is asked: the person adds a widget
+from the phone's own list.
 
 **A check-in that shares where the person is** (round seven) runs as a location foreground service, started from the
 Check in tap with the app open, so it needs only the location permission the person already gave: no

@@ -8,6 +8,7 @@ import {
   money,
   monthLabel,
 } from '@hfos/core';
+import { useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { FlatList, Pressable, ScrollView, View } from 'react-native';
 
@@ -39,6 +40,15 @@ export default function Expenses() {
     open: false,
     expense: null,
   });
+  // Snap receipt on the Quick actions widget (`?add=1`, docs/phone-widgets.md): Add expense opens once, ready for
+  // the receipt's photo.
+  const { add } = useLocalSearchParams<{ add?: string }>();
+  const added = React.useRef(false);
+  React.useEffect(() => {
+    if (add !== '1' || added.current || !whole) return;
+    added.current = true;
+    setSheet({ open: true, expense: null });
+  }, [add, whole]);
 
   if (!whole)
     return (

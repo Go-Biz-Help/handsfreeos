@@ -61,7 +61,7 @@ updated, and **Update now**.
   video call, never sent.
 - **Where the copy lives** (`apps/mobile/modules/hfos-shared`, one JSON string per key):
   - iPhone: `<App Group>/hfos-shared/<key>.json` in `group.com.gobizhelp.handsfreeos`, with the folder kept out of
-    backups. Only the keyboard and, later, the widgets read it.
+    backups. Only the keyboard and the home-screen widgets (docs/phone-widgets.md) read it.
   - Android: the app's own `hfos_shared` preferences, which the keyboard reads directly because it runs inside the app
     there.
 - **Several businesses:** the copy holds each business the person opened on this phone, up to 10, the open one first.

@@ -1,4 +1,4 @@
-import type { CopyGroup } from '@hfos/core';
+import type { AddonWidgetFacts, CopyGroup } from '@hfos/core';
 import type * as React from 'react';
 
 import type { CopyDb, PhoneAddonSearch } from '@/search/copy-sql';
@@ -7,6 +7,7 @@ import { ContractorMore } from './contractor/more';
 import { ContractorVisitPanel } from './contractor/visit-panel';
 import { OutreachMore } from './outreach/more';
 import { OutreachSocialCard } from './outreach/social-card';
+import { OutreachWidgetFacts } from './outreach/widget';
 import { RealestateMore } from './realestate/more';
 import { RE_COPY_KINDS, searchRealestateCopy } from './realestate/search';
 import { SalescoachCallCard } from './salescoach/call-card';
@@ -50,6 +51,12 @@ export interface PhoneAddon {
    * only for someone holding `permission`; nothing for a visit it has nothing on.
    */
   readonly VisitPanel?: React.ComponentType<{ workspaceId: string; appointmentId: string }>;
+  /**
+   * What it puts on its home-screen widget (docs/phone-widgets.md): Social Outreach's goal and what waits for an OK.
+   * Draws nothing: the business's widget keeper renders it for someone holding `permission`, and it reports the
+   * widget's figures with `onFacts`. For anyone else the widget says the add-on isn't on for them.
+   */
+  readonly WidgetFacts?: React.ComponentType<{ onFacts: (facts: AddonWidgetFacts) => void }>;
 }
 
 export const PHONE_ADDONS: readonly PhoneAddon[] = [
@@ -65,6 +72,7 @@ export const PHONE_ADDONS: readonly PhoneAddon[] = [
     permission: 'outreach.use',
     More: OutreachMore,
     PersonPanel: OutreachSocialCard,
+    WidgetFacts: OutreachWidgetFacts,
   },
   {
     addonId: 'salescoach',

@@ -1,11 +1,11 @@
 {
   "area": "money",
   "title": "Money: estimates, invoices, payments and plans",
-  "checkedOn": "2026-11-27",
+  "checkedOn": "2026-11-28",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx": "3080d215ec93",
     "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx": "f4b2d1f6ca49",
-    "apps/mobile/src/app/app/w/[workspaceId]/money/expenses.tsx": "00475bc5fb4d",
+    "apps/mobile/src/app/app/w/[workspaceId]/money/expenses.tsx": "fa6fb74959dd",
     "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx": "2d80da5d29a5",
     "apps/mobile/src/components/money/document.tsx": "7c5c0a412ed0",
     "apps/mobile/src/components/money/expense-sheet.tsx": "d5f08f295a77",
@@ -2525,6 +2525,13 @@
       "path": "Phone Money → Expenses → Add expense: Take a photo / Choose one, paid to, amount, tax, day, what it was for, paid with, note",
       "kind": "do",
       "file": "apps/mobile/src/components/money/expense-sheet.tsx:1",
+      "covered": "yes",
+      "by": "add_expense with the picture they send"
+    },
+    {
+      "path": "Phone Money → Expenses opened from Snap receipt on the Quick actions widget: Add expense opens at once",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/expenses.tsx:48",
       "covered": "yes",
       "by": "add_expense with the picture they send"
     },

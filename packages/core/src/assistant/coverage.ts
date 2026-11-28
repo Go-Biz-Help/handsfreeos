@@ -1241,6 +1241,8 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
   'phone.changes': 'a setting of the phone in their hand, set on it',
   'phone.keyboard':
     'a keyboard turned on in the phone’s own settings, on that phone; the Assistant explains the steps (places map)',
+  'phone.widgets':
+    'widgets added on the phone’s own home screen, and a switch kept on that phone; the Assistant explains them (places map)',
   'safety.preview': 'nothing of its own to change: it shows what the check-in times set',
   'usage.prices':
     'HandsFreeOS’s own prices, to read (get_settings, area usage): nothing here is the business’s to change',

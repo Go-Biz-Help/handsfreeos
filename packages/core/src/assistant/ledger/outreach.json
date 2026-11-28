@@ -1,7 +1,7 @@
 {
   "area": "outreach",
   "title": "The Social Outreach add-on: every page",
-  "checkedOn": "2026-11-25",
+  "checkedOn": "2026-11-28",
   "files": {
     "apps/mobile/src/addons/outreach/actions.ts": "c88706e03ee6",
     "apps/mobile/src/addons/outreach/ai-help.tsx": "715ac076ab3b",
@@ -59,6 +59,7 @@
     "apps/mobile/src/addons/outreach/today.tsx": "87ae8acd0cad",
     "apps/mobile/src/addons/outreach/video-library.tsx": "44d9f03cf97f",
     "apps/mobile/src/addons/outreach/waiting.tsx": "d7ed3f689f5b",
+    "apps/mobile/src/addons/outreach/widget.tsx": "98c5385d1888",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/_layout.tsx": "182d0b21e1d1",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/index.tsx": "483afe3b9643",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/playbooks/[playbookId].tsx": "4bab1b31713e",
@@ -4332,6 +4333,13 @@
       "file": "apps/web/src/addons/outreach/settings-link.tsx:12",
       "covered": "yes",
       "by": "read_addon_settings; navigation"
+    },
+    {
+      "path": "Social Outreach’s home-screen widget: today’s first messages against the goal on each network, replies to OK and messages to OK",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/outreach/widget.tsx:18",
+      "covered": "partly",
+      "by": "the goal on Today and what waits for an OK, which the Assistant reads; the widget lives on that phone"
     }
   ],
   "gaps": [

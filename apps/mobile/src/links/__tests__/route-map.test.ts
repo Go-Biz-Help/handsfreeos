@@ -30,6 +30,8 @@ describe('the route map', () => {
       pipeline: { href: 'pipeline', later: false },
       'leads/:leadId': { href: `leads/${ID}`, later: false },
       customers: { href: 'customers', later: false },
+      // Add contact, from the Quick actions widget.
+      'customers/new': { href: 'customers/new', later: false },
       'customers/people/:personId': { href: `customers/people/${ID}`, later: false },
       'customers/companies/:companyId': { href: `customers/companies/${ID}`, later: false },
       tasks: { href: 'tasks', later: false },
@@ -42,6 +44,7 @@ describe('the route map', () => {
       'money/estimates/:estimateId': { href: `money/estimates/${ID}`, later: false },
       'money/payments': { href: 'money', later: false },
       'money/plans': { href: 'money', later: false },
+      'money/expenses': { href: 'money/expenses', later: false },
       'workflows/approvals': { href: 'approvals', later: false },
       // Ask HandsFreeOS: the web's panel, the phone's full screen.
       assistant: { href: 'ask', later: false },
@@ -105,6 +108,19 @@ describe('the route map', () => {
       later: null,
       params: { chat: ID },
     });
+    // The home-screen widgets' buttons: Ask HandsFreeOS starts talking, Snap receipt opens Add expense.
+    expect(routeFor(`/app/w/${WS}/assistant?talk=1`)).toMatchObject({
+      href: `/app/w/${WS}/ask?talk=1`,
+    });
+    expect(routeFor(`/app/w/${WS}/money/expenses?add=1`)).toMatchObject({
+      href: `/app/w/${WS}/money/expenses?add=1`,
+    });
+    expect(targetOfLink(`handsfreeos://app/w/${WS}/customers/new`)).toMatchObject({
+      kind: 'screen',
+      href: `/app/w/${WS}/customers/new`,
+    });
+    // New invoice is written on the web, as every raised document is.
+    expect(routeFor(`/app/w/${WS}/money/invoices/new`)).toMatchObject({ kind: 'web' });
     // Home opens on the item, and Approvals on the AI teammate's drafts: the query stays on their addresses.
     expect(routeFor(`/app/w/${WS}?item=${ID}`)).toMatchObject({
       href: `/app/w/${WS}?item=${ID}`,

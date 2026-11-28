@@ -188,3 +188,5 @@ export * from './search/index';
 export * from './settings/index';
 // The HandsFreeOS keyboard on the phone: the templates and links it holds, and its words (docs/phone-keyboard.md).
 export * from './keyboard/index';
+// The home-screen widgets on the phone: what each one shows, worked out ahead for every moment (docs/phone-widgets.md).
+export * from './widgets/index';
