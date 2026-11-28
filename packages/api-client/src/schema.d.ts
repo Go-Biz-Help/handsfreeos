@@ -7287,7 +7287,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), its social links, and how its emails look (a colour band, the logo on the left or in the centre, a footer); or take its logo off so its initials stand in. Forms, booking pages, emails and the website chat that haven’t picked their own follow it.
+         * Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), its social links, its license number (at the bottom of its invoices, estimates, documents to sign and appointment pages), and how its emails look (a colour band, the logo on the left or in the centre, a footer); or take its logo off so its initials stand in. Forms, booking pages, emails and the website chat that haven’t picked their own follow it.
          * @description Risk level 1. Requires workspace.update. Emits look.changed.
          */
         post: operations["command_look_set"];
@@ -44618,6 +44618,12 @@ export interface operations {
                                 at: string;
                                 name: string;
                             } | null;
+                            /** @default null */
+                            license: {
+                                /** Format: date-time */
+                                at: string;
+                                text: string;
+                            } | null;
                             logo: {
                                 /** Format: date-time */
                                 at: string;
@@ -44691,6 +44697,7 @@ export interface operations {
                         logo: "left" | "center";
                     } | null;
                     font?: string | null;
+                    license?: string | null;
                     matchedSite?: string;
                     /** @enum {boolean} */
                     removeLogo?: true;
@@ -44743,6 +44750,12 @@ export interface operations {
                                 /** Format: date-time */
                                 at: string;
                                 name: string;
+                            } | null;
+                            /** @default null */
+                            license: {
+                                /** Format: date-time */
+                                at: string;
+                                text: string;
                             } | null;
                             logo: {
                                 /** Format: date-time */
@@ -44855,6 +44868,12 @@ export interface operations {
                                 /** Format: date-time */
                                 at: string;
                                 name: string;
+                            } | null;
+                            /** @default null */
+                            license: {
+                                /** Format: date-time */
+                                at: string;
+                                text: string;
                             } | null;
                             logo: {
                                 /** Format: date-time */
@@ -92372,6 +92391,12 @@ export interface operations {
                                     /** Format: date-time */
                                     at: string;
                                     name: string;
+                                } | null;
+                                /** @default null */
+                                license: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    text: string;
                                 } | null;
                                 logo: {
                                     /** Format: date-time */

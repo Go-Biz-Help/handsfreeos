@@ -20,6 +20,7 @@ import {
   executeQuery,
   knowledgeProfileUpdate,
   KnowledgeProfile,
+  lookSet,
   organizationCreate,
   scheduleSet,
   sessionPublish,
@@ -721,6 +722,22 @@ describe('change-or-cancel links', () => {
       },
       manageToken: booked.manageToken,
     });
+
+    // The bottom of the page (design tools, part 7): the business's license number and social links.
+    await run(lookSet, {
+      workspaceId,
+      license: 'TX HVAC Lic. TACLA12345C',
+      socials: ['facebook.com/lonestartest'],
+    });
+    expect((await get(base)).json()).toMatchObject({
+      business: {
+        footer: {
+          license: 'TX HVAC Lic. TACLA12345C',
+          socials: [{ kind: 'facebook', url: 'https://facebook.com/lonestartest' }],
+        },
+      },
+    });
+    await run(lookSet, { workspaceId, license: null, socials: [] });
 
     // Bad links: a changed code, an unknown reference, and the wrong shape.
     const last = booked.manageToken.at(-1) === 'a' ? 'b' : 'a';

@@ -168,6 +168,7 @@ async function emitChanged(
     corners: l.corners?.value ?? null,
     email: l.email ? { band: l.email.band, logo: l.email.logo, footer: l.email.footer } : null,
     socials: l.socials?.links.map((s) => s.url) ?? [],
+    license: l.license?.text ?? null,
   });
   await ctx.emit({
     type: 'look.changed',
@@ -298,7 +299,7 @@ const sameSocials = (a: readonly LookSocialLink[], b: LookSocials | null): boole
 export const lookSet = defineCommand({
   name: 'look.set',
   description:
-    'Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), its social links, and how its emails look (a colour band, the logo on the left or in the centre, a footer); or take its logo off so its initials stand in. Forms, booking pages, emails and the website chat that haven’t picked their own follow it.',
+    'Change the business’s brand kit: its colour, font (a Google font, or null for HandsFreeOS’s own) and corners (square, slight or round), its social links, its license number (at the bottom of its invoices, estimates, documents to sign and appointment pages), and how its emails look (a colour band, the logo on the left or in the centre, a footer); or take its logo off so its initials stand in. Forms, booking pages, emails and the website chat that haven’t picked their own follow it.',
   risk: 1,
   input: LookSetInput,
   output: LookSetOutput,
@@ -331,6 +332,9 @@ export const lookSet = defineCommand({
             socials: input.socials.length ? { links: socialLinksOf(input.socials), at } : null,
           }
         : {}),
+      ...(input.license !== undefined && (input.license || null) !== (look.license?.text ?? null)
+        ? { license: input.license ? { text: input.license, at } : null }
+        : {}),
     };
     const changed =
       next.color?.hex !== look.color?.hex ||
@@ -338,7 +342,8 @@ export const lookSet = defineCommand({
       (next.font?.name ?? null) !== (look.font?.name ?? null) ||
       (next.corners?.value ?? null) !== (look.corners?.value ?? null) ||
       next.email !== look.email ||
-      next.socials !== look.socials;
+      next.socials !== look.socials ||
+      next.license !== look.license;
     if (JSON.stringify(next) === JSON.stringify(look)) return { look, changed: false };
     await keepLook(ctx, next);
     if (changed) await emitChanged(ctx, look, next, 'person');

@@ -191,6 +191,18 @@ export const LookSocials = z.object({
 });
 export type LookSocials = z.infer<typeof LookSocials>;
 
+/** The most a license number may be, as written ("TX HVAC Lic. TACLA12345C"). */
+export const LOOK_LICENSE_MOST = 80;
+/**
+ * The business's license number, as it writes it (design tools, part 7): at the bottom of its customers' pages, the
+ * invoice, estimate, document to sign and appointment, with its address and social links.
+ */
+export const LookLicense = z.object({
+  text: z.string().trim().min(1).max(LOOK_LICENSE_MOST),
+  at,
+});
+export type LookLicense = z.infer<typeof LookLicense>;
+
 /** A place reserved for an upload, and whether the picture's there for the worker yet. */
 export const LookUpload = z.object({
   path: z.string().regex(LOOK_UPLOAD_PATH),
@@ -221,6 +233,8 @@ export const BusinessLookSchema = z.object({
   email: LookEmail.nullable().default(null),
   /** Its social links (Facebook, Instagram and the rest), for email footers and its customers' pages. */
   socials: LookSocials.nullable().default(null),
+  /** Its license number, at the bottom of its customers' pages; null for none. */
+  license: LookLicense.nullable().default(null),
 });
 export type BusinessLook = z.infer<typeof BusinessLookSchema>;
 
@@ -236,6 +250,7 @@ export const NO_LOOK: BusinessLook = {
   matched: null,
   email: null,
   socials: null,
+  license: null,
 };
 
 const asRecord = (v: unknown): Record<string, unknown> =>
@@ -261,6 +276,7 @@ export function lookOf(settings: unknown): BusinessLook {
     matched: part(LookMatched, look['matched']),
     email: part(LookEmail, look['email']),
     socials: part(LookSocials, look['socials']),
+    license: part(LookLicense, look['license']),
   };
 }
 
