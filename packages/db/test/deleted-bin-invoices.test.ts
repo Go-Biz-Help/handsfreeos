@@ -1,5 +1,5 @@
 /**
- * The Deleted bin, invoices (20261027037200): any invoice goes in the bin, paid ones too, and is emptied after.
+ * The Deleted bin, invoices (20261027037500): any invoice goes in the bin, paid ones too, and is emptied after.
  *   - Hidden from people and the worker, with its payments and refunds, which Money's totals read on their own; off
  *     phones with its lines. Its lines are only read through it, so they need no mark of their own.
  *   - Emptied with its lines, payments and refunds.

@@ -277,7 +277,7 @@ declare
   v_partner boolean;
   v_coming boolean;
 begin
-  -- An invoice (20261027037200): any can go, paid ones too, once no money is still moving on it. One a partner
+  -- An invoice (20261027037500): any can go, paid ones too, once no money is still moving on it. One a partner
   -- earned a share of stays, for their earnings. One still out for payment with nothing paid on it is voided first:
   -- the command does it, so its link stops taking payments.
   if p_kind = 'invoice' then
@@ -1075,7 +1075,7 @@ begin
   if tg_table_name = 'invoices' then
     new.member_viewer_ids :=
       private.money_member_viewers(new.workspace_id, new.lead_id, new.attendee_id, new.person_id);
-    -- In the Deleted bin (20261027037200): off phones, whatever its status.
+    -- In the Deleted bin (20261027037500): off phones, whatever its status.
     if new.bin_item_id is not null then
       new.sync_window := false;
     elsif new.status in ('draft', 'sent', 'partly_paid', 'overdue') then

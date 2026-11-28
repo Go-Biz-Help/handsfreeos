@@ -25,7 +25,7 @@ export default async function InvoicePage({
   ]);
   const inv = data.invoice;
   const editable = shell.canBill && inv.status === 'draft' && !inv.sentAt;
-  // Delete it, through the 30-day Deleted bin (20261027037200): owners, unless one gives it out.
+  // Delete it, through the 30-day Deleted bin (20261027037500): owners, unless one gives it out.
   const canDelete = can(shell.permissions, 'records.delete');
 
   if (!editable)

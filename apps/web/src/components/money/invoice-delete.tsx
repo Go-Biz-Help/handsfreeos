@@ -7,7 +7,7 @@ import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { Button } from '@/components/ui/button';
 
 /**
- * "Delete…" on an invoice (the Deleted bin, 20261027037200): owners, unless one gives it out (records.delete). The
+ * "Delete…" on an invoice (the Deleted bin, 20261027037500): owners, unless one gives it out (records.delete). The
  * box asks first: one still out for payment is voided first, and one with money on it says why it stays. Once it's
  * in the bin, back to the list.
  */

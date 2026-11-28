@@ -59,7 +59,7 @@ export function InvoicesList({
   canBill: boolean;
   /**
    * Delete one, paid ones too, through the 30-day Deleted bin: owners, unless one gives it out (records.delete,
-   * 20261027037200). Each row gets a menu with Delete…, and the box says what waits.
+   * 20261027037500). Each row gets a menu with Delete…, and the box says what waits.
    */
   canDelete?: boolean;
   timeZone: string;

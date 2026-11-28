@@ -84,7 +84,7 @@ export interface DocumentEditorProps {
   startedAt?: string | null;
   /** Where this business's payments by hand went through before, for Mark paid's Paid through box. */
   paidThroughNames?: readonly string[];
-  /** A saved invoice: Delete it, through the 30-day Deleted bin (records.delete, 20261027037200). */
+  /** A saved invoice: Delete it, through the 30-day Deleted bin (records.delete, 20261027037500). */
   canDelete?: boolean;
 }
 

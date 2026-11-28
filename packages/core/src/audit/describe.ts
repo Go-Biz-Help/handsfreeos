@@ -199,7 +199,7 @@ function describeAction(e: AuditEntry): string {
       return `restored ${name(e)}`;
     case 'person.merge':
       return `merged ${s(e.before?.mergedName) || 'a duplicate'} into ${name(e)}`;
-    // Deleting for good, through the Deleted bin (20261027000400, 20261027000800, 20261027037200): these lines keep
+    // Deleting for good, through the Deleted bin (20261027000400, 20261027000800, 20261027037500): these lines keep
     // the name once it's emptied.
     case 'person.delete':
     case 'conversation.delete':

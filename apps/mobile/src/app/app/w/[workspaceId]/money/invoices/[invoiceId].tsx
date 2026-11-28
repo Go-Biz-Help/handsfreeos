@@ -49,7 +49,7 @@ export default function Invoice() {
   const { business } = useBusiness();
   // Recording a payment, sending it and copying its link are billing (money.bill, 0106).
   const { bill: manage } = useMoneyRole();
-  // Delete it, through the 30-day Deleted bin: owners, unless one gives it out (records.delete, 20261027037200).
+  // Delete it, through the 30-day Deleted bin: owners, unless one gives it out (records.delete, 20261027037500).
   const canDelete = holds(useGrants(), 'records.delete');
   const timeZone = useMoneyZone();
   const now = useMoneyNow();
@@ -73,7 +73,7 @@ export default function Invoice() {
     );
 
   const owes = invoice.balanceCents > 0 && invoice.status !== 'void' && invoice.status !== 'draft';
-  // Paid ones too (20261027037200): the sheet says what waits. Not while a change made here is still on its way.
+  // Paid ones too (20261027037500): the sheet says what waits. Not while a change made here is still on its way.
   const deletable = canDelete && !invoice.pending;
   const draftPayable = invoice.status === 'draft' && invoice.totalCents > 0 && !invoice.pending;
   const standing = invoiceStanding(

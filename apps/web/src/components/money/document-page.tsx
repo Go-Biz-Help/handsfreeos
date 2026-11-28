@@ -585,7 +585,7 @@ export function InvoiceDocument({
                 Void
               </Button>
             ) : null}
-            {/* Paid ones too (20261027037200): the box says what waits, and what a paid one leaves out. */}
+            {/* Paid ones too (20261027037500): the box says what waits, and what a paid one leaves out. */}
             {canDelete ? (
               <InvoiceDeleteButton
                 workspaceId={workspaceId}

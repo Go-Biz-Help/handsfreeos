@@ -1,5 +1,5 @@
 /**
- * Deleting an invoice (20261027037200): a draft, or one nothing was paid on, goes in the Deleted bin and comes back
+ * Deleting an invoice (20261027037500): a draft, or one nothing was paid on, goes in the Deleted bin and comes back
  * from it.
  *   - Owners only, never the AI, a workflow or the system, as every other kind.
  *   - One still out for payment is voided first, so its link stops taking payments, and comes back voided.

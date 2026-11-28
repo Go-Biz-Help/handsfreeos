@@ -466,7 +466,7 @@ export const smsConsent = app.enum('sms_consent', ['unknown', 'opted_in', 'opted
 
 /**
  * What the Deleted bin holds (20261027000400; leads, companies and records from 20261027000800; invoices from
- * 20261027037200).
+ * 20261027037500).
  */
 export const BIN_KINDS = [
   'person',
@@ -4635,7 +4635,7 @@ export const invoices = app.table('invoices', {
   // Milestone 10
   syncWindow: syncWindow(),
   memberViewerIds: memberViewerIds(),
-  /** In the Deleted bin (20261027037200): hidden, off phones, and emptied after 30 days. */
+  /** In the Deleted bin (20261027037500): hidden, off phones, and emptied after 30 days. */
   binItemId: binItemRef(),
 });
 
@@ -4792,7 +4792,7 @@ export const payments = app.table('payments', {
   // Milestone 10: the invoice's, copied by trigger.
   syncWindow: syncWindow(),
   memberViewerIds: memberViewerIds(),
-  /** Its invoice is in the Deleted bin (20261027037200): hidden with it, and emptied with it. */
+  /** Its invoice is in the Deleted bin (20261027037500): hidden with it, and emptied with it. */
   binItemId: binItemRef(),
 });
 
@@ -4823,7 +4823,7 @@ export const refunds = app.table('refunds', {
   // Milestone 10: the invoice's, copied by trigger.
   syncWindow: syncWindow(),
   memberViewerIds: memberViewerIds(),
-  /** Its invoice is in the Deleted bin (20261027037200): hidden with it, and emptied with it. */
+  /** Its invoice is in the Deleted bin (20261027037500): hidden with it, and emptied with it. */
   binItemId: binItemRef(),
 });
 /**

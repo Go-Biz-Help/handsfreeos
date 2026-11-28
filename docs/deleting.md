@@ -3,14 +3,14 @@
 Archive puts something away and keeps it for good. Delete for good takes it out of HandsFreeOS: it waits 30 days in
 **Settings → Deleted bin**, where an owner can bring it back, and then the worker empties it. The first round covered
 customers, conversations and bookings; the second (`20261027000800`) added leads, companies and records of a
-business's own kinds; the third (`20261027037200`) added invoices, paid ones too. An add-on's records stay
+business's own kinds; the third (`20261027037500`) added invoices, paid ones too. An add-on's records stay
 archive-only.
 
 ## Where things are
 
 | What                       | Where                                                                                                                                                                                                                                                                      |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000800` adds leads, companies and records; `20261027010300` hides a binned response's answers; `20261027010400` a file's words; `20261027037200` adds invoices     |
+| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000800` adds leads, companies and records; `20261027010300` hides a binned response's answers; `20261027010400` a file's words; `20261027037500` adds invoices     |
 | Commands                   | `packages/core/src/commands/bin.ts`: `person.delete`, `conversation.delete`, `appointment.delete`, `lead.delete`, `company.delete`, `custom_record.delete`, `invoice.delete`, `bin.restore` and `bin.empty`                                                                |
 | Reads                      | `packages/core/src/queries/bin.ts`: `bin.preview` (what goes with it) and `bin.list` (the bin)                                                                                                                                                                             |
 | What it says               | `packages/core/src/bin-words.ts`, for the web and the phone alike                                                                                                                                                                                                          |
@@ -124,7 +124,7 @@ they earned the partner stays the partner's.
   emptied, and isn't brought back while they're in the bin (`bin_restore_parent`).
 - Deleting a stage moves the leads in the bin that sit in it to another stage of its kind.
 
-**An invoice takes only itself** (20261027037200). Its lines, payments, refunds and settled disputes go with it when
+**An invoice takes only itself** (20261027037500). Its lines, payments, refunds and settled disputes go with it when
 the bin is emptied; an order or a form's answers that named it let go of it then. Its payments and refunds carry its
 `bin_item_id`, because the Money summary, Home and the expenses page add them up without their invoice. Its lines
 don't: they're only read through it. Phones drop all three through the `sync_window` they copy from it. A refund or a
