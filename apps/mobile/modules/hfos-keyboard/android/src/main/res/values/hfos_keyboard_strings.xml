@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Its name in the phone's list of keyboards and its keyboard picker. -->
+  <string name="hfos_keyboard_label">HandsFreeOS</string>
+  <string name="hfos_keyboard_subtype">English (US)</string>
+</resources>

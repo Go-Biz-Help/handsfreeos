@@ -60,18 +60,53 @@ env:
 - assertVisible:
     id: 'setting-businesses'
 - assertVisible:
+    id: 'setting-keyboard'
+- assertVisible:
     id: 'setting-changes'
-- assertVisible: 'You'
+# The HandsFreeOS keyboard (docs/phone-keyboard.md): whether it's on and what's on it. Turning it on is the phone's own
+# settings, so the flow only looks.
+- tapOn:
+    id: 'setting-keyboard'
+- extendedWaitUntil:
+    visible:
+      id: 'keyboard-settings'
+    timeout: 20000
 - assertVisible:
-    id: 'setting-notifications'
-- assertVisible:
-    id: 'setting-profile'
-- assertVisible:
-    id: 'setting-appearance'
-- assertVisible:
-    id: 'setting-sign-out'
-- assertVisible:
-    id: 'setting-delete-account'
+    id: 'keyboard-status'
+- scrollUntilVisible:
+    element:
+      id: 'keyboard-on-it'
+    direction: DOWN
+- tapOn:
+    id: 'back'
+- extendedWaitUntil:
+    visible:
+      id: 'settings'
+    timeout: 20000
+# You starts below the fold on a phone-sized screen: This phone and This business come first.
+- scrollUntilVisible:
+    element: 'You'
+    direction: DOWN
+- scrollUntilVisible:
+    element:
+      id: 'setting-notifications'
+    direction: DOWN
+- scrollUntilVisible:
+    element:
+      id: 'setting-profile'
+    direction: DOWN
+- scrollUntilVisible:
+    element:
+      id: 'setting-appearance'
+    direction: DOWN
+- scrollUntilVisible:
+    element:
+      id: 'setting-sign-out'
+    direction: DOWN
+- scrollUntilVisible:
+    element:
+      id: 'setting-delete-account'
+    direction: DOWN
 # My safety (round six) sits at the top of You, so the last line can start below the fold.
 - scrollUntilVisible:
     element: 'Business settings, texting, payments and members are on the web.'

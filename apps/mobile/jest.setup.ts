@@ -1,7 +1,7 @@
 /**
  * Stand-ins for the native parts the unit tests reach: Uniwind (styles come from Metro, which Jest doesn't run), secure
  * storage, the documents folder, the microphone and speaker, signal, Face ID, safe areas, random bytes, taking and
- * shrinking photos, playing videos, the backups and phone modules, notifications and the background task manager, and op-sqlite and PowerSync's React Native module (the copy's rules are tested through `PhoneCopy` with a
+ * shrinking photos, playing videos, the backups, phone, shared and keyboard modules, notifications and the background task manager, and op-sqlite and PowerSync's React Native module (the copy's rules are tested through `PhoneCopy` with a
  * stand-in database, and the queue's on Node's own SQLite; PowerSync's own `@powersync/common` is real). Each keeps state
  * in memory so a test can read what the app wrote.
  */
@@ -244,6 +244,32 @@ jest.mock('./modules/hfos-phone', () => ({
     addContact: jest.fn(async () => 'added'),
     pickContact: jest.fn(async () => 'cancelled'),
     viewFile: jest.fn(async () => 'closed'),
+  },
+}));
+
+// What the app keeps for the keyboard (docs/phone-keyboard.md), in memory.
+jest.mock('./modules/hfos-shared', () => {
+  const values = new Map<string, string>();
+  return {
+    __esModule: true,
+    default: {
+      write: jest.fn((key: string, json: string | null) => {
+        if (json === null) values.delete(key);
+        else values.set(key, json);
+        return true;
+      }),
+      read: jest.fn((key: string) => values.get(key) ?? null),
+      __values: values,
+    },
+  };
+});
+
+jest.mock('./modules/hfos-keyboard', () => ({
+  __esModule: true,
+  default: {
+    state: jest.fn(() => ({ enabled: false, current: false })),
+    openSettings: jest.fn(() => true),
+    showPicker: jest.fn(() => true),
   },
 }));
 

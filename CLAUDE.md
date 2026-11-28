@@ -29,6 +29,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | Documents to sign, and their templates       | `docs/documents.md`                                                                                               |
 | Search everything, and settings search       | `docs/search.md`, then `HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md`                                                |
 | The business's main offer                    | `docs/main-offer.md`, then `HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md` and the plans beside it                |
+| The HandsFreeOS keyboard on the phone        | `docs/phone-keyboard.md`                                                                                          |
 | What the phone keeps offline                 | `apps/sync/README.md`                                                                                             |
 | Push notifications                           | `apps/worker/src/push/README.md`                                                                                  |
 | The web app                                  | `apps/web/AGENTS.md`: this Next.js has breaking changes, so read its docs in `node_modules/next/dist/docs/` first |

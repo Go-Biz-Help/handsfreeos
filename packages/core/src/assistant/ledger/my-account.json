@@ -1,14 +1,16 @@
 {
   "area": "my-account",
   "title": "My account: profile, appearance, notifications, the side menu, my cell, my businesses and the More menu",
-  "checkedOn": "2026-11-25",
+  "checkedOn": "2026-11-28",
   "files": {
     "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "41fb49747e27",
+    "apps/mobile/src/app/app/w/[workspaceId]/_layout.tsx": "b658d84cb81d",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx": "cc0007aa5c1d",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/about-you.tsx": "17139d859bdb",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx": "54f26bd0b071",
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "4f114178dc72",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "7189564642c4",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/keyboard.tsx": "5613331016ea",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell.tsx": "717ec190b6de",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx": "66db533f3d67",
     "apps/mobile/src/components/assistant/routine-list.tsx": "cfd1c032adfa",
@@ -21,6 +23,7 @@
     "apps/mobile/src/components/shell/business-switcher.tsx": "a10bb9bc9ff8",
     "apps/mobile/src/components/shell/sign-out-sheet.tsx": "fc7991c49743",
     "apps/mobile/src/components/shell/this-phone.tsx": "b92c33a0dfd5",
+    "apps/mobile/src/keyboard/keep-fresh.tsx": "6308beb802b7",
     "apps/mobile/src/links/decide.ts": "8c590c3d63ff",
     "apps/mobile/src/links/route-map.ts": "edbf8e0c79d8",
     "apps/mobile/src/look/calls.ts": "839009430923",
@@ -1763,6 +1766,62 @@
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:219",
       "covered": "never",
       "by": "phone.changes SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone Settings → This phone → Phone keyboard",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:226",
+      "covered": "never",
+      "by": "phone.keyboard SETTINGS_NEVER; places-map PHONE_APP explains the keyboard and how to turn it on"
+    },
+    {
+      "path": "Phone keyboard → what it is, and whether it’s on (on with Full Access, not set up yet, on, in use, off)",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/keyboard.tsx:80",
+      "covered": "partly",
+      "by": "places-map PHONE_APP keyboard line explains it; whether it’s on is that phone’s own setting"
+    },
+    {
+      "path": "Phone keyboard → the steps to turn it on (iPhone: Settings → Keyboards → Allow Full Access; Android: the keyboard list)",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/keyboard.tsx:97",
+      "covered": "yes",
+      "by": "places-map PHONE_APP keyboard line gives the same steps"
+    },
+    {
+      "path": "Phone keyboard → Open Settings (iPhone) / Turn it on and Switch keyboard (Android)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/keyboard.tsx:106",
+      "covered": "person",
+      "by": "the phone’s own settings and keyboard picker; the Assistant gives the steps"
+    },
+    {
+      "path": "Phone keyboard → On the keyboard: N templates and N links from the business, Updated when, other businesses note",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/keyboard.tsx:137",
+      "covered": "partly",
+      "by": "get_settings templates, and the booking pages, forms, review link and website it reads; the copy itself is on that phone"
+    },
+    {
+      "path": "Phone keyboard → couldn’t get templates with no signal / links only without the Inbox",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/keyboard.tsx:144",
+      "covered": "never",
+      "by": "that phone’s own signal and the person’s inbox.use permission"
+    },
+    {
+      "path": "Phone keyboard → Update now",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/keyboard.tsx:152",
+      "covered": "never",
+      "by": "refreshes that phone’s own copy; the templates themselves are get_settings templates"
+    },
+    {
+      "path": "Phone keyboard → why the phone’s warning about keyboards is safe here",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/keyboard.tsx:168",
+      "covered": "yes",
+      "by": "places-map PHONE_APP keyboard line: it never saves or sends what you type"
     },
     {
       "path": "Phone Settings → This business → Balance",

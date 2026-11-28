@@ -1271,6 +1271,20 @@ const PHONE_ROWS: readonly Pick<SettingEntry, 'key' | 'section' | 'label' | 'wor
     words: ['wi-fi only', 'download documents', 'cellular data'],
   },
   {
+    key: 'phone.keyboard',
+    section: 'This phone',
+    label: 'Phone keyboard',
+    words: [
+      'keyboard',
+      'snippets',
+      'text expander',
+      'templates in any app',
+      'booking link in texts',
+      'form link',
+      'full access',
+    ],
+  },
+  {
     key: 'phone.changes',
     section: 'This phone',
     label: 'Changes on this phone',

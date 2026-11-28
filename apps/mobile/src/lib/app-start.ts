@@ -1,6 +1,7 @@
 import { AppState } from 'react-native';
 
 import { changes } from '@/changes';
+import { watchKeyboardOwner } from '@/keyboard/store';
 import { registerTestFixers } from '@/changes/test-actions';
 import { registerCustomerFixers } from '@/customers/fixers';
 import { registerInboxFixers } from '@/inbox/fixers';
@@ -28,10 +29,10 @@ export async function lockIfEnabled(): Promise<void> {
 }
 
 /**
- * Everything the app does once, before the first screen: the appearance, watching for signal, the saved sign-in, the
- * lock, the copies' folder (kept out of backups), then the person's copy of their businesses (opened now, connected
- * once unlocked) with the queue of changes made on it, and notifications (registering this phone, and presses heard
- * before the screens were there). The splash screen stays up until it's done, so a locked app never shows a customer's
+ * Everything the app does once, before the first screen: the appearance, watching for signal, the saved sign-in (and
+ * forgetting the keyboard's copy when it ends), the lock, the copies' folder (kept out of backups), then the person's
+ * copy of their businesses (opened now, connected once unlocked) with the queue of changes made on it, and
+ * notifications (registering this phone, and presses heard before the screens were there). The splash screen stays up until it's done, so a locked app never shows a customer's
  * name first. Android's background task runs it too, with no screen, before it shows a push or runs a button.
  */
 export function startApp(): Promise<void> {
@@ -40,6 +41,8 @@ export function startApp(): Promise<void> {
     startNetworkWatch();
     await forgetSignInFromEarlierInstall();
     await session.start();
+    // The keyboard's copy of templates and links is the signed-in person's own (docs/phone-keyboard.md).
+    watchKeyboardOwner(session);
     await lockIfEnabled();
     prepareCopiesFolder();
     registerTestFixers();

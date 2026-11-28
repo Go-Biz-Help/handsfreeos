@@ -83,6 +83,13 @@ Connect you submit a TestFlight build for review, and in Play Console you promot
 
 ## Things worth knowing before a build
 
+- **1.0.1 brings the HandsFreeOS keyboard and the home-screen widgets** (docs/phone-keyboard.md, "Releasing it"). Both
+  are new iOS targets with their own bundle ids (`com.gobizhelp.handsfreeos.keyboard`, `….widgets`) in the App Group
+  `group.com.gobizhelp.handsfreeos`. Before the first build, run `npx --yes eas-cli@latest credentials --platform ios`
+  once on the owner's Mac, from `apps/mobile` on an up-to-date `main`, so EAS has a profile for each target. Tell App
+  Review how to turn the keyboard on in the review notes. The store privacy answers don't change: the keyboard sends
+  nothing and keeps nothing typed.
+
 - **The first build with HandsFreeOS video calls** (docs/video-calls.md, "On the phone") is a store build, not an
   over-the-air update: LiveKit's WebRTC is native code. Before it goes to review, Play Console's Data safety form
   needs the new **Photos and videos → Videos** row and the longer voice recordings line from

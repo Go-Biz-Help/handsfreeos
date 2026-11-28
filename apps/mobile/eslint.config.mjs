@@ -5,8 +5,8 @@ export default [
   // Generated: the native projects (prebuild), Expo's cache and Uniwind's class-name types.
   { ignores: ['ios/**', 'android/**', '.expo/**', 'src/uniwind-types.d.ts'] },
   {
-    // Metro loads its config as CommonJS.
-    files: ['*.config.js'],
+    // Metro loads its config as CommonJS, and so does @bacons/apple-targets a target's.
+    files: ['*.config.js', 'targets/*/expo-target.config.js'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: { require: 'readonly', module: 'writable', __dirname: 'readonly' },

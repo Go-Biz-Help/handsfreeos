@@ -9,6 +9,7 @@ import { DemoPlayerBar } from '@/components/demo/demo-player';
 import { CallSheetHost } from '@/components/inbox/call-sheet';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { BusinessSwitcher } from '@/components/shell/business-switcher';
+import { KeepKeyboardFresh } from '@/keyboard/keep-fresh';
 import { useSession } from '@/lib/auth';
 import { rememberOpened, useMe } from '@/lib/businesses';
 import { colors, useThemeName } from '@/theme';
@@ -22,7 +23,7 @@ export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
  * One business, as /app/w/<business> on the web: its tabs, Ask HandsFreeOS, Search everything, the AI teammate's test
  * console and quick setup, setting the business up, Changes on this phone, (test builds) This phone's copy, and a
  * HandsFreeOS video call. The call sheet sits over all of them (`startCall`), and so does the demo player while a scene
- * plays here (src/demo).
+ * plays here (src/demo). The keyboard's copy of this business is kept up to date from here (src/keyboard).
  */
 export default function BusinessLayout() {
   const state = useSession();
@@ -83,7 +84,8 @@ function Business({ userId }: { userId: string }) {
       ) : (
         <>
           <OpenBusiness businessId={business.id} />
-          {view ? <KeepViewFresh view={view} /> : null}
+          {/* The keyboard's templates and links are the signed-in person's own, so not while viewing as a teammate. */}
+          {view ? <KeepViewFresh view={view} /> : <KeepKeyboardFresh />}
           <Stack
             screenOptions={{
               headerShown: false,

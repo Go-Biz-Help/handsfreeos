@@ -15,6 +15,7 @@
     "check:sqlcipher": "bash scripts/check-sqlcipher.sh"
   },
   "dependencies": {
+    "@bacons/apple-targets": "5.0.0",
     "@config-plugins/react-native-webrtc": "15.0.2",
     "@expo-google-fonts/hanken-grotesk": "0.4.3",
     "@expo-google-fonts/jetbrains-mono": "0.4.1",

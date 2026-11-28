@@ -22,11 +22,13 @@
         "tinted": "./assets/images/icon-tinted.png"
       },
       "bundleIdentifier": "com.gobizhelp.handsfreeos",
+      "appleTeamId": "8246H5FJ42",
       "buildNumber": "1",
       "usesAppleSignIn": true,
       "associatedDomains": ["applinks:app.handsfreeos.com"],
       "entitlements": {
-        "com.apple.developer.usernotifications.time-sensitive": true
+        "com.apple.developer.usernotifications.time-sensitive": true,
+        "com.apple.security.application-groups": ["group.com.gobizhelp.handsfreeos"]
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -307,7 +309,8 @@
           "cameraPermission": "HandsFreeOS uses the camera to take photos for your customers’ records, and to show you in the HandsFreeOS video calls you join.",
           "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant or your AI teammate, record a voice note, or are in a HandsFreeOS video call."
         }
-      ]
+      ],
+      "@bacons/apple-targets"
     ],
     "extra": {
       "eas": {

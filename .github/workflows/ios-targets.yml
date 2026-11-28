@@ -1,0 +1,67 @@
+name: Phone app's iPhone extensions
+
+# Compiles the iPhone app's own extensions (apps/mobile/targets: the HandsFreeOS keyboard, docs/phone-keyboard.md, and
+# the home-screen widgets) on a Mac, so a Swift mistake is found on the pull request rather than in a store build
+# weeks later. Nobody working here has a Mac, and an EAS build costs build minutes and an hour.
+#
+# Only each extension, not the whole app: `expo prebuild` writes the Xcode project, and each extension target builds
+# without CocoaPods for the simulator, unsigned, in a few minutes. The app itself still builds only on EAS.
+#
+# macOS runners cost ten times a Linux one on a private repository, so this runs only when an extension changes, or
+# when started by hand: `gh workflow run "Phone app's iPhone extensions" --ref <branch>`.
+on:
+  pull_request:
+    paths:
+      - apps/mobile/targets/**
+      - apps/mobile/app.json
+      - .github/workflows/ios-targets.yml
+  workflow_dispatch:
+
+concurrency:
+  group: ios-targets-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  extensions:
+    name: Build each iPhone extension
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Only the phone app and what it needs: prebuild reads its config plugins.
+      - run: pnpm install --frozen-lockfile --filter @hfos/mobile...
+
+      - name: Write the Xcode project
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform ios --no-install
+
+      # Every target but the app itself (HandsFreeOS), each on its own so a failure names the extension.
+      - name: Build each extension for the simulator
+        working-directory: apps/mobile/ios
+        run: |
+          targets=$(xcodebuild -list -json -project HandsFreeOS.xcodeproj | jq -r '.project.targets[]' | grep -vx HandsFreeOS || true)
+          if [ -z "$targets" ]; then
+            echo "No extension targets: check that @bacons/apple-targets is in app.json's plugins." >&2
+            exit 1
+          fi
+          for target in $targets; do
+            echo "Building $target"
+            xcodebuild -project HandsFreeOS.xcodeproj -target "$target" -sdk iphonesimulator -configuration Debug \
+              CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/$target.log" 2>&1 || {
+              grep -E "error:" -A3 "$RUNNER_TEMP/$target.log" || tail -n 60 "$RUNNER_TEMP/$target.log"
+              echo "::error::$target didn't build. Its errors are above."
+              exit 1
+            }
+            tail -n 3 "$RUNNER_TEMP/$target.log"
+          done

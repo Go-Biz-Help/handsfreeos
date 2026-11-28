@@ -186,3 +186,5 @@ export * from './bin-words';
 export * from './search/index';
 // Settings search: the Settings menu's pages and every setting on them, searched on the device (stage 6).
 export * from './settings/index';
+// The HandsFreeOS keyboard on the phone: the templates and links it holds, and its words (docs/phone-keyboard.md).
+export * from './keyboard/index';
