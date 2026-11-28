@@ -13,6 +13,7 @@ import { KeepKeyboardFresh } from '@/keyboard/keep-fresh';
 import { useSession } from '@/lib/auth';
 import { rememberOpened, useMe } from '@/lib/businesses';
 import { colors, useThemeName } from '@/theme';
+import { KeepWidgetsFresh } from '@/widgets/keep-fresh';
 import { KeepViewFresh } from '@/components/view-as/view-strip';
 import { useView } from '@/view-as/state';
 
@@ -84,8 +85,16 @@ function Business({ userId }: { userId: string }) {
       ) : (
         <>
           <OpenBusiness businessId={business.id} />
-          {/* The keyboard's templates and links are the signed-in person's own, so not while viewing as a teammate. */}
-          {view ? <KeepViewFresh view={view} /> : <KeepKeyboardFresh />}
+          {/* The keyboard's templates and links, and the home-screen widgets, are the signed-in person's own, so not
+              while viewing as a teammate. */}
+          {view ? (
+            <KeepViewFresh view={view} />
+          ) : (
+            <>
+              <KeepKeyboardFresh />
+              <KeepWidgetsFresh />
+            </>
+          )}
           <Stack
             screenOptions={{
               headerShown: false,

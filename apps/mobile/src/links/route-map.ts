@@ -102,6 +102,8 @@ export const ROUTES: readonly Rule[] = [
   // A file found by search (`?file=`) opens on the web, where the record's Files ring it, as for a customer.
   { web: 'leads/:leadId', phone: 'leads/:leadId', webWhen: ['file'] },
   { web: 'customers', phone: 'customers' },
+  // Add contact (the Quick actions widget, docs/phone-widgets.md): the phone's own screen for it.
+  { web: 'customers/new', phone: 'customers/new' },
   // A note found by search (`?activity=`) opens its customer; Text (`?compose=sms`) opens their text thread; a file
   // (`?file=`) opens the web, where their Files ring it at its page.
   {
@@ -147,13 +149,16 @@ export const ROUTES: readonly Rule[] = [
   { web: 'money/estimates/:estimateId', phone: 'money/estimates/:estimateId' },
   { web: 'money/payments', phone: 'money' },
   { web: 'money/plans', phone: 'money' },
+  // Money → Expenses; Snap receipt on the Quick actions widget opens Add expense (`?add=1`).
+  { web: 'money/expenses', phone: 'money/expenses', query: ['add'] },
   // Raising a document (`…/new`) and one plan's own page have no rule, so the map's own fallback opens the web:
   // making and editing documents, and managing a plan, are the web's in M10.
   { web: 'workflows/approvals', phone: 'approvals', query: ['filter'] },
   // Ask HandsFreeOS. On the web it's a panel over whatever page you're on, which `/assistant` opens; on the phone
   // `handsfreeos://app/w/<business>/assistant` opens the Assistant full screen. A scheduled question's answer
-  // (`?chat=<id>`, its push and email) opens in its own chat.
-  { web: 'assistant', phone: 'ask', query: ['chat'] },
+  // (`?chat=<id>`, its push and email) opens in its own chat. The Ask HandsFreeOS widget's `?talk=1` starts talking
+  // out loud.
+  { web: 'assistant', phone: 'ask', query: ['chat', 'talk'] },
   // Settings → Account on the web is you and your notifications: the phone's own Settings, and its Notifications
   // section (`#notifications`, where the Assistant's alert cards land) the phone's Notifications screen.
   { web: 'settings', phone: 'settings/notifications', hash: 'notifications' },

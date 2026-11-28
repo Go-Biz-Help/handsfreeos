@@ -95,6 +95,7 @@ export { default as Keyboard } from 'lucide-react-native/icons/keyboard';
 export { default as KeyRound } from 'lucide-react-native/icons/key-round';
 export { default as Laptop } from 'lucide-react-native/icons/laptop';
 export { default as Layers } from 'lucide-react-native/icons/layers';
+export { default as LayoutGrid } from 'lucide-react-native/icons/layout-grid';
 export { default as LifeBuoy } from 'lucide-react-native/icons/life-buoy';
 export { default as Lightbulb } from 'lucide-react-native/icons/lightbulb';
 export { default as Link2 } from 'lucide-react-native/icons/link-2';

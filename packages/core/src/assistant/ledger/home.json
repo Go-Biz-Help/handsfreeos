@@ -1978,6 +1978,13 @@
       "by": "opens the panel itself"
     },
     {
+      "path": "Phone Ask HandsFreeOS opened from the Ask widget: talking out loud starts at once, once it can listen",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx:149",
+      "covered": "person",
+      "by": "the phone’s own microphone; the person is already talking to the Assistant"
+    },
+    {
       "path": "Assistant panel → consent: title, what it does, points",
       "kind": "see",
       "file": "apps/web/src/components/assistant/consent-step.tsx:23",

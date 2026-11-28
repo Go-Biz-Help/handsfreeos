@@ -15,6 +15,7 @@ import {
   PHONE_SETTINGS_WORDS,
   SAFETY_PHONE_WORDS,
   SETTINGS_SEARCH_WORDS,
+  WIDGET_SCREEN_WORDS,
 } from '@hfos/core';
 import { router } from 'expo-router';
 import * as React from 'react';
@@ -30,6 +31,7 @@ import {
   Handshake,
   Keyboard,
   Layers,
+  LayoutGrid,
   LogOut,
   Moon,
   ScanFace,
@@ -78,7 +80,7 @@ import {
 import { useWorksOffline } from '@/sync/hooks';
 
 /**
- * Settings on the phone are about you and this phone: Face ID, the businesses kept here, the HandsFreeOS keyboard, the
+ * Settings on the phone are about you and this phone: Face ID, the businesses kept here, the HandsFreeOS keyboard and widgets, the
  * changes waiting, how it looks, signing out and deleting the account. Setting the business up — texting, payments, members, calendars —
  * stays on the web; its balance does not, because running out of it stops the texts and calls this app is for, and
  * nor do its add-ons, which owners and admins manage on the phone too (the owner's decision, 2026-09-28). The main
@@ -230,6 +232,14 @@ export default function Settings() {
               onPress={() => router.push(businessHref(business.id, 'settings/keyboard'))}
               testID="setting-keyboard"
               settingKey="phone.keyboard"
+            />
+            <ListRow
+              icon={LayoutGrid}
+              label={WIDGET_SCREEN_WORDS.row}
+              detail={WIDGET_SCREEN_WORDS.rowDetail}
+              onPress={() => router.push(businessHref(business.id, 'settings/widgets'))}
+              testID="setting-widgets"
+              settingKey="phone.widgets"
             />
             <ListRow
               icon={CloudCheck}

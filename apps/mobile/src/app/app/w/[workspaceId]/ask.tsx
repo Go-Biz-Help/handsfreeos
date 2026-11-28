@@ -41,6 +41,7 @@ export default function Ask() {
     id?: string;
     from?: string;
     chat?: string;
+    talk?: string;
   }>();
   const page = React.useMemo(() => pageRecordOf(params), [params.type, params.id]);
   // Changes on this phone go with each question: they never reached HandsFreeOS, so only the phone can say.
@@ -141,6 +142,17 @@ export default function Ask() {
       : null;
 
   const showConsent = chat.consentNeeded === true && !isOff && online;
+
+  // The Ask HandsFreeOS widget (`?talk=1`, docs/phone-widgets.md): talking out loud starts once, as the mic would,
+  // when the Assistant can listen. Never over the consent step: that waits for the person's yes.
+  const talked = React.useRef(false);
+  const wantsTalk = params.talk === '1';
+  const canListen = online && !isOff && !chat.paused && chat.consentNeeded === false;
+  React.useEffect(() => {
+    if (!wantsTalk || talked.current || !canListen || voice.session.on) return;
+    talked.current = true;
+    void voice.toggle();
+  }, [wantsTalk, canListen, voice]);
 
   return (
     <Screen
