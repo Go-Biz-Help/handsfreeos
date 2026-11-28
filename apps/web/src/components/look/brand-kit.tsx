@@ -2,13 +2,15 @@
 /**
  * The rest of the brand kit (HANDSFREEOS_DESIGN_TOOLS_IMPLEMENTATION_PLAN.md, part 1), under the logo and colour in
  * Settings → Workspace: its font and corners, and Match my website, which fills the colour, font and corners from the
- * business's site at once, and its social links (part 5), which email footers show. Forms, booking pages and the rest
- * that haven't picked their own follow these. Each change is kept at once by `look.set`.
+ * business's site at once, its social links (part 5), which email footers show, and its license number (part 7), at
+ * the bottom of its customers' pages with the social links. Forms, booking pages and the rest that haven't picked
+ * their own follow these. Each change is kept at once by `look.set`.
  */
 import {
   FORM_DEFAULT_FONT,
   FORM_FONTS,
   LOOK_CORNERS,
+  LOOK_LICENSE_MOST,
   LOOK_SOCIAL_NAMES,
   LOOK_SOCIALS_MAX,
   siteNameOf,
@@ -197,6 +199,76 @@ export function BrandKitExtras({
         busy={busy !== null}
         onSave={(list, done) => keep({ socials: list }, done)}
       />
+      <LicenseNumber
+        license={shown.license?.text ?? null}
+        canChange={canChange}
+        busy={busy !== null}
+        onSave={(license, done) => keep({ license }, done)}
+      />
+    </div>
+  );
+}
+
+/**
+ * The business's license number (design tools, part 7): at the bottom of its customers' invoices, estimates, documents
+ * to sign and appointment pages, with its address and social links. Contractors often need it on paperwork.
+ */
+function LicenseNumber({
+  license,
+  canChange,
+  busy,
+  onSave,
+}: {
+  license: string | null;
+  canChange: boolean;
+  busy: boolean;
+  onSave: (license: string | null, done: string) => Promise<boolean>;
+}) {
+  const inputId = useId();
+  const [typed, setTyped] = useState(license ?? '');
+  const changed = typed.trim() !== (license ?? '');
+  return (
+    <div className="border-t border-border pt-4" data-testid="brand-kit-license">
+      <label htmlFor={inputId} className="block text-[13px] font-medium">
+        License number
+      </label>
+      <p className="mb-2 mt-0.5 text-[12.5px] text-text-3">
+        Shown at the bottom of your invoices, estimates, documents to sign and appointment pages,
+        with your address and social links. Leave it empty if you don’t have one.
+      </p>
+      <div className="flex gap-2">
+        <Input
+          id={inputId}
+          value={typed}
+          maxLength={LOOK_LICENSE_MOST}
+          placeholder="TX HVAC Lic. TACLA12345C"
+          disabled={!canChange}
+          onChange={(e) => setTyped(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && changed)
+              void onSave(
+                typed.trim() || null,
+                typed.trim() ? 'License number saved' : 'License number removed',
+              );
+          }}
+          data-testid="brand-kit-license-input"
+        />
+        {canChange ? (
+          <Button
+            variant="secondary"
+            disabled={!changed || busy}
+            onClick={() =>
+              void onSave(
+                typed.trim() || null,
+                typed.trim() ? 'License number saved' : 'License number removed',
+              )
+            }
+            data-testid="brand-kit-license-save"
+          >
+            Save
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -242,7 +314,8 @@ function SocialLinks({
         Social links
       </label>
       <p className="mb-2 mt-0.5 text-[12.5px] text-text-3">
-        Your Facebook page, Instagram and the rest. Your email footers show them.
+        Your Facebook page, Instagram and the rest. Your email footers and your customers’ pages
+        show them.
       </p>
       {links.length ? (
         <ul className="mb-2 divide-y divide-border rounded-control border border-border">
